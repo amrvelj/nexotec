@@ -18,6 +18,7 @@ import logging
 import uuid
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, Exists, Select, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -447,6 +448,14 @@ def _search_predicate(group_id: uuid.UUID, q: str):
     return or_(*conditions)
 
 
+def _start_of_day_days_ago(days: int, now: dt.datetime | None = None) -> dt.datetime:
+    """Midnight, in the session time zone, of the calendar day `days` before
+    today there. `now` pins the clock for a test."""
+    zone = ZoneInfo(get_settings().session_timezone)
+    today = (now or dt.datetime.now(dt.UTC)).astimezone(zone).date()
+    return dt.datetime.combine(today - dt.timedelta(days=days), dt.time.min, tzinfo=zone)
+
+
 def list_customers(
     db: Session,
     *,
@@ -461,10 +470,16 @@ def list_customers(
     include_merged: bool = False,
     advisor_user_id: uuid.UUID | None = None,
     unassigned: bool = False,
+    updated_more_than_days_ago: int | None = None,
 ) -> tuple[list[Customer], str | None, int, bool]:
     """`advisor_user_id` narrows to one advisor's customers; `unassigned` to
     those with none — the queue FR-A-37 names, which a leaver's hand-over
-    to nobody fills (KAN-200). Both together is an empty page."""
+    to nobody fills (KAN-200). Both together is an empty page.
+
+    `updated_more_than_days_ago=N` keeps customers last changed before the
+    start of the calendar day N days ago in the session time zone — the
+    grid's relative «more than N days ago», resolved here against the
+    server's clock (U-09, KAN-458)."""
 
     stmt = select(Customer).where(Customer.group_id == group_id)
     if advisor_user_id is not None:
@@ -506,6 +521,8 @@ def list_customers(
         )
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
+    if updated_more_than_days_ago is not None:
+        stmt = stmt.where(Customer.updated_at < _start_of_day_days_ago(updated_more_than_days_ago))
     # Counted before pagination is applied (no ORDER BY/LIMIT/cursor yet) —
     # see count_capped for why this can never turn into a full table scan.
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)

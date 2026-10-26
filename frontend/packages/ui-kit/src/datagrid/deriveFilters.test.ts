@@ -63,8 +63,8 @@ describe('conditionsForField', () => {
     const [typeField, changedField] = deriveFilterFields(columns)
     expect(conditionsForField(typeField)).toEqual(['is'])
     expect(conditionsForField(changedField)).toEqual(['today', 'inTheLastDays'])
-    // "is not" (select) and "more than N days ago" (date) are deliberately
-    // absent — the customer list endpoint cannot express either.
+    // Only the declared subset is offered; this fixture leaves out "is not"
+    // (select) and "more than N days ago" (date).
     expect(conditionsForField(changedField)).not.toContain('moreThanDaysAgo')
   })
 

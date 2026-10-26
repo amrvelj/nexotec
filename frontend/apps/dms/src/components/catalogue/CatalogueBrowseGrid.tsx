@@ -14,6 +14,7 @@ import {
   OverviewShellRegion,
   SelectionBar,
   ViewsAndFilters,
+  offeredPredicates,
   type ColumnRegistryEntry,
   type FilterPredicate,
   type GridColumnDef,
@@ -26,7 +27,13 @@ import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
 import { useViewsAndFiltersLabels } from '../../hooks/useViewsAndFiltersLabels'
 import { useSavedViews } from '../../hooks/useSavedViews'
 import { api } from '../../api/client'
-import { applyCatalogueFilters, buildCatalogueFilterFields, FACET_LIST_CODE } from '../../catalogueOptions'
+import {
+  applyCatalogueFilters,
+  buildCatalogueFilterFields,
+  CATALOGUE_FILTER_SCOPE,
+  FACET_LIST_CODE,
+  readLegacyCataloguePredicates,
+} from '../../catalogueOptions'
 import { fetchAllReferenceValues, LABEL_FIELD, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import type {
   BrandPage,
@@ -152,7 +159,12 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const brandId = searchParams.get('brand') || null
   const modelGroupId = searchParams.get('modelGroup') || null
   const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
-  const predicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
+  // KAN-458: a predicate from the URL or a saved view that this grid does
+  // not offer is neither sent nor shown as an active filter.
+  const predicates = offeredPredicates(
+    readLegacyCataloguePredicates(searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []),
+    CATALOGUE_FILTER_SCOPE,
+  )
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(

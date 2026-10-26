@@ -13,6 +13,8 @@ function perCondition<T>(make: (condition: FilterCondition) => T): Record<Filter
     isNot: make('isNot'),
     greaterThan: make('greaterThan'),
     lessThan: make('lessThan'),
+    atLeast: make('atLeast'),
+    atMost: make('atMost'),
     today: make('today'),
     thisWeek: make('thisWeek'),
     thisMonth: make('thisMonth'),
@@ -48,7 +50,6 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         cancel: t('common.cancel'),
         matchCount: (count: number) => t('common.filterBuilder.matchCount', { count }),
         editFilter: t('common.filterBuilder.editFilter'),
-        duplicateFilter: t('common.filterBuilder.duplicateFilter'),
         deleteFilter: t('common.filterBuilder.deleteFilter'),
         conditions: perCondition((c) => t(`common.filterBuilder.conditions.${c}`)),
         // `count` picks the plural form of the two N-days texts; the other

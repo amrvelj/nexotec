@@ -5,7 +5,11 @@ clause is a trivial `.where()`, so the risk is in how they compose, not in any
 one clause individually.
 """
 
+import datetime as dt
 import uuid
+from zoneinfo import ZoneInfo
+
+from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
@@ -162,3 +166,46 @@ def test_combined_filters_with_no_matches_returns_empty(client):
     body = _list(client, dealer_id, customer_type="business", language="it", canton="GE")
     assert body["items"] == []
     assert body["total"] == 0
+
+
+# --- updated more than N days ago (KAN-458) -----------------------------------------------
+
+
+def _backdate(db_session, customer_id: str, when: dt.datetime) -> None:
+    db_session.execute(text("UPDATE customer SET updated_at = :when WHERE id = :id"), {"when": when, "id": customer_id})
+    db_session.commit()
+
+
+def test_filter_by_updated_more_than_days_ago(client, db_session):
+    """The grid's «Changed: more than 90 days ago» — the server resolves it
+    against its own clock, so it can no longer be offered and dropped."""
+    dealer_id = _create_dealer(client)
+    stale = _create_customer(client, dealer_id, lastName="Stale")
+    recent = _create_customer(client, dealer_id, lastName="Recent")
+    _create_customer(client, dealer_id, lastName="Fresh")
+    now = dt.datetime.now(dt.UTC)
+    _backdate(db_session, stale["id"], now - dt.timedelta(days=120))
+    _backdate(db_session, recent["id"], now - dt.timedelta(days=30))
+
+    body = _list(client, dealer_id, updated_more_than_days_ago=90)
+    assert [c["id"] for c in body["items"]] == [stale["id"]]
+    assert body["total"] == 1
+
+
+def test_updated_more_than_days_ago_counts_whole_swiss_calendar_days():
+    """N days ago means before the start of that calendar day in Zürich — at
+    00:30 Swiss time (still the previous day in UTC) the cut-off is Swiss
+    midnight N days back, not UTC midnight."""
+    from app.customer.services.customer import _start_of_day_days_ago
+
+    zurich = ZoneInfo("Europe/Zurich")
+    now = dt.datetime(2026, 10, 26, 0, 30, tzinfo=zurich)
+    assert _start_of_day_days_ago(0, now) == dt.datetime(2026, 10, 26, tzinfo=zurich)
+    assert _start_of_day_days_ago(90, now) == dt.datetime(2026, 7, 28, tzinfo=zurich)
+
+
+def test_updated_more_than_days_ago_refuses_a_negative_count(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
+    response = client.get("/v1/customers", params={"updated_more_than_days_ago": -1}, headers=_bearer(token))
+    assert response.status_code == 422, response.text

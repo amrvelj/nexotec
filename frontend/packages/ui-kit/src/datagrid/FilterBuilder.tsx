@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
 import {
   conditionsForField,
@@ -38,7 +38,6 @@ export interface FilterBuilderLabels extends FilterConditionLabels {
   matchCount: (count: number) => string;
   /** Accessible names of a saved filter's row actions. */
   editFilter: string;
-  duplicateFilter: string;
   deleteFilter: string;
 }
 
@@ -56,9 +55,11 @@ function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
 
 /**
  * § Action Bar — Filter Builder. "One predicate: field + condition +
- * value." A list of the screen's own custom filters (editable, duplicable,
- * deletable) plus one inline editor row for adding or editing a single
- * predicate at a time — never a free-text expression box.
+ * value." A list of the screen's own custom filters (editable, deletable)
+ * plus one inline editor row for adding or editing a single predicate at a
+ * time — never a free-text expression box. A field holds one filter
+ * (ADR-102): saving one on a field replaces that field's filter, and there
+ * is no «duplicate».
  */
 export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, labels }: FilterBuilderProps) {
   const L = labels;
@@ -85,15 +86,16 @@ export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, la
     setEditingId(null);
   };
 
+  // A field holds one filter (ADR-102, Anto 2026-10-26): saving a filter on
+  // a field replaces the one already there, in its place.
   const commitDraft = () => {
     if (!draft) return;
-    const exists = predicates.some((p) => p.id === draft.id);
-    onChange(exists ? predicates.map((p) => (p.id === draft.id ? draft : p)) : [...predicates, draft]);
+    const replaced = predicates.find((p) => p.id === draft.id) ?? predicates.find((p) => p.fieldId === draft.fieldId);
+    const next = replaced
+      ? predicates.map((p) => (p.id === replaced.id ? draft : p))
+      : [...predicates, draft];
+    onChange(next.filter((p) => p.id === draft.id || p.fieldId !== draft.fieldId));
     cancelEdit();
-  };
-
-  const duplicate = (predicate: FilterPredicate) => {
-    onChange([...predicates, { ...predicate, id: crypto.randomUUID() }]);
   };
 
   const remove = (id: string) => {
@@ -140,9 +142,6 @@ export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, la
             </span>
             <IconButton ariaLabel={L.editFilter} onClick={() => startEdit(predicate)}>
               <Pencil size={14} />
-            </IconButton>
-            <IconButton ariaLabel={L.duplicateFilter} onClick={() => duplicate(predicate)}>
-              <Copy size={14} />
             </IconButton>
             <IconButton ariaLabel={L.deleteFilter} onClick={() => remove(predicate.id)}>
               <Trash2 size={14} />
@@ -216,7 +215,8 @@ function PredicateEditorRow({
     if (!onPreviewCount) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      onPreviewCount([...otherPredicates, draft]).then((n) => {
+      // The preview counts what saving will leave: the draft replaces its field's filter.
+      onPreviewCount([...otherPredicates.filter((p) => p.fieldId !== draft.fieldId), draft]).then((n) => {
         if (!cancelled) setCount(n);
       });
     }, 250);

@@ -17,6 +17,8 @@ export const FR_CONDITION_LABELS: FilterConditionLabels = {
     isNot: "n'est pas",
     greaterThan: 'supérieur à',
     lessThan: 'inférieur à',
+    atLeast: 'au moins',
+    atMost: 'au plus',
     today: "aujourd'hui",
     thisWeek: 'cette semaine',
     thisMonth: 'ce mois-ci',
@@ -32,6 +34,8 @@ export const FR_CONDITION_LABELS: FilterConditionLabels = {
     isNot: ({ field, value }) => `${field} : sauf ${value}`,
     greaterThan: ({ field, value }) => `${field} : plus de ${value}`,
     lessThan: ({ field, value }) => `${field} : moins de ${value}`,
+    atLeast: ({ field, value }) => `${field} : au moins ${value}`,
+    atMost: ({ field, value }) => `${field} : au plus ${value}`,
     today: ({ field }) => `${field} : aujourd'hui`,
     thisWeek: ({ field }) => `${field} : cette semaine`,
     thisMonth: ({ field }) => `${field} : ce mois-ci`,
@@ -49,7 +53,6 @@ export const FR_FILTER_BUILDER_LABELS: FilterBuilderLabels = {
   cancel: 'Annuler',
   matchCount: (count) => `${count} résultats`,
   editFilter: 'Modifier le filtre',
-  duplicateFilter: 'Dupliquer le filtre',
   deleteFilter: 'Supprimer le filtre',
   ...FR_CONDITION_LABELS,
 }
@@ -97,4 +100,4 @@ export const FR_ACTION_BAR_LABELS: ActionBarLabels = {
  * (KAN-415), and the Action Bar's, Selection Bar's and Filter Chips' strings
  * (KAN-364 part 2); none may render now. */
 export const FORMER_ENGLISH_DEFAULTS =
-  /^(\+ New filter…|Save|Cancel|Views|Reset|Save current view as…|View name|Manage filters|Set as default|Remove as default|Delete view|Edit filter|Duplicate filter|Delete filter|Primary|No longer valid|Does not work|Delete|Consent|Scope|Confirm|None recorded|Label|Close|.* row actions|.* matching|contains|is exactly|is not|is|equals|greater than|less than|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|greater than|less than) .*|.* is (today|this week|this month|this year)|.* is in the last \d+ days|.* is more than \d+ days ago|Not .*|Search…|Compact|Default|Comfortable|Density: .*|Change row density|Refresh|Clear|Clear selection|.* selected|Remove filter: .*)$/
+  /^(\+ New filter…|Save|Cancel|Views|Reset|Save current view as…|View name|Manage filters|Set as default|Remove as default|Delete view|Edit filter|Duplicate filter|Delete filter|Primary|No longer valid|Does not work|Delete|Consent|Scope|Confirm|None recorded|Label|Close|.* row actions|.* matching|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|greater than|less than|at least|at most) .*|.* is (today|this week|this month|this year)|.* is in the last \d+ days|.* is more than \d+ days ago|Not .*|Search…|Compact|Default|Comfortable|Density: .*|Change row density|Refresh|Clear|Clear selection|.* selected|Remove filter: .*)$/

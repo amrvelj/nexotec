@@ -41,7 +41,7 @@ afterEach(async () => {
   await i18n.changeLanguage('de')
 })
 
-const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals) .*|Not .*|Refresh|Change row density)$/
+const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|at least|at most) .*|Not .*|Refresh|Change row density)$/
 function englishOnScreen(): string[] {
   const found: string[] = []
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
@@ -95,12 +95,12 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
     expect(screen.getAllByRole('option', { name: 'est' }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('option', { name: "n'est pas" }).length).toBeGreaterThan(0)
+    // KAN-458: Stock offers only «est» — «n'est pas» is never sent, so never offered.
+    expect(screen.queryByRole('option', { name: "n'est pas" })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
     expect(await screen.findByRole('button', { name: 'Modifier le filtre' })).toBeInTheDocument()
     // KAN-415: the saved filter is French text, not "… is Pipeline".
     expect(screen.getByText('Statut de stock : Pipeline')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Dupliquer le filtre' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Supprimer le filtre' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Réinitialiser' })).toBeInTheDocument()
 

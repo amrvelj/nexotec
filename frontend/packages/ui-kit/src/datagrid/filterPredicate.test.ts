@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   describePredicate,
+  offeredPredicates,
   resolveRelativeDateRange,
   type FilterFieldDef,
   type FilterPredicate,
@@ -123,5 +124,40 @@ describe('describePredicate', () => {
   it('reads a condition its type does not know (a stale saved view) as the field label, not a raw value', () => {
     const stale: FilterPredicate = { id: '9', fieldId: 'name', type: 'text', condition: 'startsWith', value: 'A' }
     expect(describePredicate(stale, nameField, FR_CONDITION_LABELS)).toBe('Nom')
+  })
+})
+
+describe('offeredPredicates (KAN-458)', () => {
+  const fields: FilterFieldDef[] = [
+    { id: 'condition', label: 'État', type: 'select', options: [{ value: 'new', label: 'Neuf' }], conditions: ['is'] },
+    { id: 'ps', label: 'PS', type: 'number', conditions: ['equals', 'atLeast', 'atMost'] },
+  ]
+  const p = (fieldId: string, type: FilterPredicate['type'], condition: string): FilterPredicate => ({
+    id: `${fieldId}-${condition}`,
+    fieldId,
+    type,
+    condition,
+    value: 'new',
+  })
+
+  it('keeps a predicate on an offered field under an offered condition', () => {
+    const kept = [p('condition', 'select', 'is'), p('ps', 'number', 'atLeast')]
+    expect(offeredPredicates(kept, fields)).toEqual(kept)
+  })
+
+  it('drops a condition the field does not offer — a stored «is not» the grid would never send', () => {
+    expect(offeredPredicates([p('condition', 'select', 'isNot'), p('ps', 'number', 'greaterThan')], fields)).toEqual([])
+  })
+
+  it('keeps only the first predicate on each field — a number field included (one filter per field)', () => {
+    const first = p('condition', 'select', 'is')
+    const second = { ...p('condition', 'select', 'is'), id: 'second', value: 'used' }
+    const atLeast = { ...p('ps', 'number', 'atLeast'), value: 100 }
+    const atMost = { ...p('ps', 'number', 'atMost'), value: 200 }
+    expect(offeredPredicates([first, second, atLeast, atMost], fields)).toEqual([first, atLeast])
+  })
+
+  it('drops a field the grid does not offer, and a predicate whose type no longer matches its field', () => {
+    expect(offeredPredicates([p('fuelType', 'select', 'is'), p('condition', 'text', 'is')], fields)).toEqual([])
   })
 })

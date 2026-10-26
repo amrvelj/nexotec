@@ -109,3 +109,52 @@ def test_list_stock_items_filters_by_lifecycle_status(client):
     body = response.json()
     assert len(body["items"]) == 1
     assert body["items"][0]["vehicleLabel"] == "In-stock car"
+
+
+def test_list_stock_items_filters_by_condition(client):
+    """KAN-458: «Zustand = Neu» on the Stock grid is applied by the server —
+    the grid offered it and never sent it, so used cars stayed listed."""
+    token = _token(role=AccessRole.INVENTORY)
+    other_tenant = _token(role=AccessRole.INVENTORY)
+    for label, condition in (("New car", "new"), ("Used car", "used"), ("Demo car", "demo")):
+        client.post(
+            "/v1/inventory/stock-items",
+            json={"vehicleLabel": label, "condition": condition},
+            headers=_bearer(token),
+        )
+    client.post(
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "Other Betrieb's new car", "condition": "new"},
+        headers=_bearer(other_tenant),
+    )
+
+    response = client.get("/v1/inventory/stock-items?condition=new", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [i["vehicleLabel"] for i in body["items"]] == ["New car"]
+    assert body["total"] == 1
+
+
+def test_list_stock_items_combines_condition_with_lifecycle_status(client):
+    token = _token(role=AccessRole.INVENTORY)
+    client.post("/v1/inventory/stock-items", json={"vehicleLabel": "New pipeline", "condition": "new"}, headers=_bearer(token))
+    client.post(
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "New in stock", "condition": "new", "vin": "1HGCM82633A004352"},
+        headers=_bearer(token),
+    )
+    client.post(
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "Used in stock", "condition": "used", "vin": "WVWZZZ1JZXW000001"},
+        headers=_bearer(token),
+    )
+
+    response = client.get("/v1/inventory/stock-items?condition=new&lifecycle_status=in_stock", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    assert [i["vehicleLabel"] for i in response.json()["items"]] == ["New in stock"]
+
+
+def test_list_stock_items_refuses_an_unknown_condition(client):
+    token = _token(role=AccessRole.INVENTORY)
+    response = client.get("/v1/inventory/stock-items?condition=mint", headers=_bearer(token))
+    assert response.status_code == 422, response.text

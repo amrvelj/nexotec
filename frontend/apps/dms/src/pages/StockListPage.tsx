@@ -15,10 +15,10 @@ import {
   StockLifecycleBadge,
   StockReservationBadge,
   ViewsAndFilters,
+  offeredPredicates,
   semantic,
   useSetBreadcrumb,
   type ColumnRegistryEntry,
-  type FilterFieldDef,
   type FilterPredicate,
   type GridColumnDef,
   type SavedView,
@@ -32,10 +32,10 @@ import { useSavedViews } from '../hooks/useSavedViews'
 import { api } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import {
+  applyStockFilters,
+  buildStockFilterFields,
   translatedStockConditionLabel,
-  translatedStockConditionOptions,
   translatedStockLifecycleLabel,
-  translatedStockLifecycleOptions,
   translatedStockReservationLabel,
 } from '../stockOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
@@ -48,37 +48,6 @@ import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'inventory.stock.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
-
-function buildFilterFields(t: (key: string) => string): FilterFieldDef[] {
-  return [
-    {
-      id: 'lifecycleStatus',
-      label: t('stockList.columns.lifecycleStatus'),
-      type: 'select',
-      options: translatedStockLifecycleOptions(t),
-    },
-    {
-      id: 'condition',
-      label: t('stockList.columns.condition'),
-      type: 'select',
-      options: translatedStockConditionOptions(t),
-    },
-  ]
-}
-
-/** `/inventory/stock-items` accepts one equality filter today
- * (lifecycle_status) — condition has no server-side filter param yet, so
- * that predicate is left unsent rather than silently misfiltering (same
- * honest-gap pattern CustomersListPage's own applyPredicatesToParams
- * documents).
- */
-function applyPredicatesToParams(params: URLSearchParams, predicates: FilterPredicate[]) {
-  for (const predicate of predicates) {
-    if (predicate.fieldId === 'lifecycleStatus' && predicate.condition === 'is' && typeof predicate.value === 'string') {
-      params.set('lifecycle_status', predicate.value)
-    }
-  }
-}
 
 export function StockListPage() {
   const { t, i18n } = useTranslation()
@@ -95,7 +64,13 @@ export function StockListPage() {
   const scope: StockScope = searchParams.get('scope') === 'group' ? 'group' : 'own'
 
   const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
-  const predicates = searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : []
+  // KAN-458: a predicate from the URL or a saved view that this grid does
+  // not offer is neither sent nor shown as an active filter.
+  const filterFields = useMemo(() => buildStockFilterFields(t), [t])
+  const predicates = offeredPredicates(
+    searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : [],
+    filterFields,
+  )
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -147,7 +122,6 @@ export function StockListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
@@ -157,7 +131,7 @@ export function StockListPage() {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (sortParam) params.set('sort', sortParam)
-        applyPredicatesToParams(params, predicates)
+        applyStockFilters(params, predicates)
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<StockItemPage>(`/inventory/stock-items?${params.toString()}`)
@@ -171,7 +145,6 @@ export function StockListPage() {
   const total = data?.pages[0]?.total ?? null
   const totalIsEstimate = data?.pages[0]?.totalIsEstimate ?? false
 
-  const filterFields = useMemo(() => buildFilterFields(t), [t])
 
   // § ADR-060 — the full ~60-column registry lands in PR-9; these are the
   // grid's own confirmed default-visible set from the reference prototype.

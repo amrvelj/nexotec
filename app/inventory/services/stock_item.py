@@ -341,6 +341,7 @@ def list_stock_items(
     tenant_id: uuid.UUID,
     q: str | None,
     lifecycle_status: LifecycleStatus | None,
+    condition: StockItemCondition | None = None,
     params: SortPageParams,
 ) -> tuple[list[StockItem], str | None, int, bool]:
     # FR-I-12 (PR-5): a sold (invoiced) item is absent from the active
@@ -357,6 +358,8 @@ def list_stock_items(
         )
     if lifecycle_status is not None:
         stmt = stmt.where(StockItem.lifecycle_status == lifecycle_status)
+    if condition is not None:
+        stmt = stmt.where(StockItem.condition == condition)
 
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=StockItem, params=params)

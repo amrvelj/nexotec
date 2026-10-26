@@ -10622,6 +10622,8 @@ export interface operations {
                 language?: components["schemas"]["Language"] | null;
                 canton?: string | null;
                 updated_since?: string | null;
+                /** @description KAN-458: customers last changed before the start of the day N days ago (Europe/Zurich) — the grid's relative «more than N days ago» filter, resolved against the server's clock, never the client's. */
+                updated_more_than_days_ago?: number | null;
                 include_merged?: boolean;
                 advisorUserId?: string | null;
                 /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */
@@ -14172,6 +14174,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 lifecycle_status?: components["schemas"]["LifecycleStatus"] | null;
+                condition?: components["schemas"]["StockItemCondition"] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
