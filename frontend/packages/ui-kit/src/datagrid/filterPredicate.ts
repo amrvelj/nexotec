@@ -131,30 +131,24 @@ export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
   return narrowed.length > 0 ? narrowed : all;
 }
 
-/** Field types whose list parameter takes one value: a second predicate on
- * such a field cannot be sent beside the first. Number and date fields
- * take bounds, which a grid's mapper ANDs (KAN-458). */
-const SINGLE_VALUE_TYPES: ReadonlySet<FilterFieldType> = new Set(["select", "text", "boolean"]);
-
 /**
  * The predicates a grid can honour: those whose field it offers, with the
- * field's type, under a condition the field offers — and, on a field that
- * takes one value, only the first. A predicate reaches a grid from its URL
- * or a saved view, not only from the builder (whose "Duplicate filter"
- * makes a second one on the same field) — one the grid cannot send must
- * neither be sent nor shown as an active filter, or the screen claims a
- * result it did not compute (KAN-458, ADR-102).
+ * field's type, under a condition the field offers — and only the first on
+ * each field: a field holds one filter (Anto, 2026-10-26; ADR-102). A
+ * predicate reaches a grid from its URL or a saved view, not only from the
+ * builder (whose "Duplicate filter" makes a second one on the same field) —
+ * one the grid does not apply must neither be sent nor shown as an active
+ * filter, or the screen claims a result it did not compute (KAN-458).
  */
 export function offeredPredicates(predicates: FilterPredicate[], fields: FilterFieldDef[]): FilterPredicate[] {
   const byId = new Map(fields.map((f) => [f.id, f]));
-  const singleValueTaken = new Set<string>();
+  const taken = new Set<string>();
   return predicates.filter((p) => {
     const field = byId.get(p.fieldId);
     if (field === undefined || field.type !== p.type) return false;
     if (!conditionsForField(field).includes(p.condition as FilterCondition)) return false;
-    if (!SINGLE_VALUE_TYPES.has(field.type)) return true;
-    if (singleValueTaken.has(field.id)) return false;
-    singleValueTaken.add(field.id);
+    if (taken.has(field.id)) return false;
+    taken.add(field.id);
     return true;
   });
 }

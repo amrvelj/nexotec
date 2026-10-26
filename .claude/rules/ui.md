@@ -81,12 +81,13 @@ second local combobox.
 - **ADR-058** — views and filters are **one control**, labelled with the current view. A
   user-defined filter is **one predicate** (field, operator, value), never a typed expression.
   Every filter is a chip (FR-UI-06).
-- **ADR-102 (proposed, KAN-458) — a grid shows only the filters it applies.** Every filterable
-  grid narrows the predicates it reads (URL, saved view) with the kit's `offeredPredicates`: an
-  unoffered field or condition is neither sent nor shown; a select/text/boolean field keeps its
-  first predicate; number and date bounds on one field are ANDed (`utils/filterParams.ts`). A
-  field offers only the conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are
-  «mindestens»/«höchstens» (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476).
+- **ADR-102 (Anto, 2026-10-26; KAN-458) — a grid shows only the filters it applies.** Every
+  filterable grid narrows the predicates it reads (URL, saved view) with the kit's
+  `offeredPredicates`: an unoffered field or condition is neither sent nor shown (quietly — a
+  visible hint is KAN-475), and **a field holds one filter**: only its first predicate counts,
+  ranges included (no «mindestens 150 und höchstens 250» band). A field offers only the
+  conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
+  (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476).
   `src/architecture/grid-filters-are-applied.test.ts` runs each grid's mapper over every offered
   field × condition against the endpoint's parameters in `schema.d.ts`; a new filterable grid
   adds its mapper there.

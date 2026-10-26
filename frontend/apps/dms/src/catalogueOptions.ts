@@ -1,7 +1,6 @@
 import type { FilterFieldDef, FilterPredicate } from '@nexotec/ui-kit'
 import type { CatalogueBrowseMode, CatalogueFacetsRead } from './api/types'
 import { formatNumber } from './utils/format'
-import { setLowerBound, setUpperBound } from './utils/filterParams'
 
 /** Mode → the production-year default (PRD `NurNeue`): `build` shows only
  * in-production ranges, `record` shows everything. */
@@ -114,10 +113,9 @@ export function applyCatalogueFilters(params: URLSearchParams, predicates: Filte
     if (p.fieldId in FACET_LIST_CODE) {
       if (p.condition === 'is' && typeof p.value === 'string') params.set(p.fieldId, p.value)
     } else if ((NUMERIC_FACET_FIELDS as readonly string[]).includes(p.fieldId) && typeof p.value === 'number') {
-      // Two bounds on one field are ANDed: «Türen = 5» and «mindestens 3»
-      // stay doorsMin=5&doorsMax=5, never widen to 3-door cars.
-      if (p.condition === 'atLeast' || p.condition === 'equals') setLowerBound(params, `${p.fieldId}Min`, p.value)
-      if (p.condition === 'atMost' || p.condition === 'equals') setUpperBound(params, `${p.fieldId}Max`, p.value)
+      const value = String(p.value)
+      if (p.condition === 'atLeast' || p.condition === 'equals') params.set(`${p.fieldId}Min`, value)
+      if (p.condition === 'atMost' || p.condition === 'equals') params.set(`${p.fieldId}Max`, value)
     }
   }
 }

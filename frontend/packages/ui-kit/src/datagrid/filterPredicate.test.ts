@@ -149,12 +149,12 @@ describe('offeredPredicates (KAN-458)', () => {
     expect(offeredPredicates([p('condition', 'select', 'isNot'), p('ps', 'number', 'greaterThan')], fields)).toEqual([])
   })
 
-  it('keeps only the first predicate on a field that takes one value, and every bound on a number field', () => {
+  it('keeps only the first predicate on each field — a number field included (one filter per field)', () => {
     const first = p('condition', 'select', 'is')
     const second = { ...p('condition', 'select', 'is'), id: 'second', value: 'used' }
     const atLeast = { ...p('ps', 'number', 'atLeast'), value: 100 }
     const atMost = { ...p('ps', 'number', 'atMost'), value: 200 }
-    expect(offeredPredicates([first, second, atLeast, atMost], fields)).toEqual([first, atLeast, atMost])
+    expect(offeredPredicates([first, second, atLeast, atMost], fields)).toEqual([first, atLeast])
   })
 
   it('drops a field the grid does not offer, and a predicate whose type no longer matches its field', () => {

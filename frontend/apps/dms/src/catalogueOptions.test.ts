@@ -33,17 +33,6 @@ describe('applyCatalogueFilters', () => {
       fuelType: 'petrol',
     })
   })
-
-  it('two bounds on one field are ANDed — «Türen = 5» and «mindestens 3» stay 5-door cars', () => {
-    const params = new URLSearchParams()
-    applyCatalogueFilters(params, [
-      { id: 'a', fieldId: 'doors', type: 'number', condition: 'equals', value: 5 },
-      { id: 'b', fieldId: 'doors', type: 'number', condition: 'atLeast', value: 3 },
-      { id: 'c', fieldId: 'ps', type: 'number', condition: 'atMost', value: 300 },
-      { id: 'd', fieldId: 'ps', type: 'number', condition: 'atMost', value: 200 },
-    ])
-    expect(Object.fromEntries(params)).toEqual({ doorsMin: '5', doorsMax: '5', psMax: '200' })
-  })
 })
 
 describe('readLegacyCataloguePredicates', () => {

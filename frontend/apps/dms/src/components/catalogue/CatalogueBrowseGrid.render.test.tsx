@@ -232,6 +232,23 @@ describe('CatalogueBrowseGrid filters are sent as offered (KAN-458)', () => {
     expect(fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!.params.get('psMin')).toBe('150')
   })
 
+  it('a second filter on the same field is neither sent nor counted — one filter per field', async () => {
+    const fake = backend()
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, {
+      route: route([
+        { id: 'a', fieldId: 'ps', type: 'number', condition: 'atLeast', value: 150 },
+        { id: 'b', fieldId: 'ps', type: 'number', condition: 'atMost', value: 250 },
+      ]),
+    })
+
+    await screen.findByText('Golf GTI')
+    const call = fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!
+    expect(call.params.get('psMin')).toBe('150')
+    expect(call.params.get('psMax')).toBeNull()
+    const viewControl = screen.getByRole('button', { name: new RegExp(i18n.t('catalogueBrowse.allVariantsView')) })
+    expect(viewControl.textContent).toContain('1')
+  })
+
   it('a coded «ist nicht» is neither sent nor counted as an active filter', async () => {
     const fake = backend()
     renderWithProviders(<CatalogueBrowseGrid mode="build" />, {

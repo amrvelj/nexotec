@@ -22,17 +22,6 @@ describe('applyCustomerFilters (KAN-458)', () => {
     })
   })
 
-  it('two date predicates on one field are ANDed — the later lower bound, the older cut-off', () => {
-    expect(
-      paramsFor([
-        { id: 'a', fieldId: 'updatedAt', type: 'date', condition: 'inTheLastDays', days: 30 },
-        { id: 'b', fieldId: 'updatedAt', type: 'date', condition: 'inTheLastDays', days: 7 },
-        { id: 'c', fieldId: 'updatedAt', type: 'date', condition: 'moreThanDaysAgo', days: 2 },
-        { id: 'd', fieldId: 'updatedAt', type: 'date', condition: 'moreThanDaysAgo', days: 5 },
-      ]),
-    ).toEqual({ updated_since: '2026-10-14', updated_more_than_days_ago: '5' })
-  })
-
   it('the unassigned advisor queue is the API\'s own flag', () => {
     expect(paramsFor([{ id: 'a', fieldId: 'advisor', type: 'select', condition: 'is', value: UNASSIGNED_ADVISOR }])).toEqual({
       unassigned: 'true',
