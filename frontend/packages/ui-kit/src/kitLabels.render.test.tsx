@@ -75,7 +75,6 @@ describe("kit components show none of their former English defaults (KAN-364)", 
     expect(screen.getByRole("button", { name: "Supprimer la vue" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Définir par défaut" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Modifier le filtre" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Dupliquer le filtre" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Supprimer le filtre" })).toBeInTheDocument();
     // KAN-415: the saved filter's text is the caller's template, in French.
     expect(screen.getByText("Canton : contient ZH")).toBeInTheDocument();

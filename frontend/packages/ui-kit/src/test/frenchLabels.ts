@@ -53,7 +53,6 @@ export const FR_FILTER_BUILDER_LABELS: FilterBuilderLabels = {
   cancel: 'Annuler',
   matchCount: (count) => `${count} résultats`,
   editFilter: 'Modifier le filtre',
-  duplicateFilter: 'Dupliquer le filtre',
   deleteFilter: 'Supprimer le filtre',
   ...FR_CONDITION_LABELS,
 }

@@ -84,8 +84,9 @@ second local combobox.
 - **ADR-102 (Anto, 2026-10-26; KAN-458) — a grid shows only the filters it applies.** Every
   filterable grid narrows the predicates it reads (URL, saved view) with the kit's
   `offeredPredicates`: an unoffered field or condition is neither sent nor shown (quietly — a
-  visible hint is KAN-475), and **a field holds one filter**: only its first predicate counts,
-  ranges included (no «mindestens 150 und höchstens 250» band). A field offers only the
+  visible hint is KAN-475), and **a field holds one filter**, ranges included (no «mindestens 150
+  und höchstens 250» band): the builder replaces a field's filter when one is added on it and
+  offers no «duplicate»; a link or saved view with two keeps the first. A field offers only the
   conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
   (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476).
   `src/architecture/grid-filters-are-applied.test.ts` runs each grid's mapper over every offered

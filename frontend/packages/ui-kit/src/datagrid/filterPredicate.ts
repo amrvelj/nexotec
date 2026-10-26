@@ -136,9 +136,9 @@ export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
  * field's type, under a condition the field offers — and only the first on
  * each field: a field holds one filter (Anto, 2026-10-26; ADR-102). A
  * predicate reaches a grid from its URL or a saved view, not only from the
- * builder (whose "Duplicate filter" makes a second one on the same field) —
- * one the grid does not apply must neither be sent nor shown as an active
- * filter, or the screen claims a result it did not compute (KAN-458).
+ * builder (which replaces a field's filter) — one the grid does not apply
+ * must neither be sent nor shown as an active filter, or the screen claims a
+ * result it did not compute (KAN-458).
  */
 export function offeredPredicates(predicates: FilterPredicate[], fields: FilterFieldDef[]): FilterPredicate[] {
   const byId = new Map(fields.map((f) => [f.id, f]));

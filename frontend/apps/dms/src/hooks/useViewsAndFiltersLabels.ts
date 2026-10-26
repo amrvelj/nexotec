@@ -50,7 +50,6 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         cancel: t('common.cancel'),
         matchCount: (count: number) => t('common.filterBuilder.matchCount', { count }),
         editFilter: t('common.filterBuilder.editFilter'),
-        duplicateFilter: t('common.filterBuilder.duplicateFilter'),
         deleteFilter: t('common.filterBuilder.deleteFilter'),
         conditions: perCondition((c) => t(`common.filterBuilder.conditions.${c}`)),
         // `count` picks the plural form of the two N-days texts; the other

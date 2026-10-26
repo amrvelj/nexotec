@@ -246,7 +246,7 @@ describe('CatalogueBrowseGrid filters are sent as offered (KAN-458)', () => {
     expect(call.params.get('psMin')).toBe('150')
     expect(call.params.get('psMax')).toBeNull()
     const viewControl = screen.getByRole('button', { name: new RegExp(i18n.t('catalogueBrowse.allVariantsView')) })
-    expect(viewControl.textContent).toContain('1')
+    expect(viewControl.textContent).toMatch(/(^|\D)1(\D|$)/)
   })
 
   it('a coded «ist nicht» is neither sent nor counted as an active filter', async () => {

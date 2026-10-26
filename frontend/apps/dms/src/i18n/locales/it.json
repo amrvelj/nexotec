@@ -126,7 +126,6 @@
       "matchCount_one": "{{count, number}} risultato",
       "matchCount_other": "{{count, number}} risultati",
       "editFilter": "Modifica filtro",
-      "duplicateFilter": "Duplica filtro",
       "deleteFilter": "Elimina filtro",
       "conditions": {
         "contains": "contiene",
