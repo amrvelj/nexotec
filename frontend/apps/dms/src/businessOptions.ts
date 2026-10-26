@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import { ApiError } from './api/client'
 import type { ChartOfAccountsVariant, FranchiseType, PeriodLockPolicy, QrReferenceType } from './api/types'
+import { refusedField } from './utils/apiRefusal'
 
 /**
  * KAN-203 — Dealer Administration › Business: the option lists and the
@@ -56,17 +57,6 @@ const FIELD_LABEL_KEYS: Record<string, string> = {
   plateNumber: 'business.licences.plate',
   expiresOn: 'business.licences.expiresOn',
   astraOperatorNumber: 'business.licences.astra',
-}
-
-/** The field a schema-level 422 names (the last body location), or null. */
-export function refusedField(err: ApiError): string | null {
-  const errors = err.details?.errors
-  if (!Array.isArray(errors)) return null
-  for (const entry of errors) {
-    const loc = (entry as { loc?: unknown } | null)?.loc
-    if (Array.isArray(loc) && loc[0] === 'body' && typeof loc[loc.length - 1] === 'string') return loc[loc.length - 1] as string
-  }
-  return null
 }
 
 /** The one text a Business-screen refusal renders, in the UI language. */

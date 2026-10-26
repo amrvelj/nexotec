@@ -25,6 +25,7 @@ import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannels
 import { AddressSearchField } from '../AddressSearchField'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 /** The domicile address form's own field names — mapped onto
  * CustomerAddressCreate/Update's addressStreet/addressHouseNumber/... at
@@ -345,7 +346,7 @@ function AddressField({
       await onSaveAddress(draft)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('customerDetail.errors.failedToSave'))
+      setError(apiRefusalText(t, err, 'customerDetail.errors.failedToSave'))
     } finally {
       setSaving(false)
     }

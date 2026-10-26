@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext'
 import { assertPasskey, passkeysSupported } from '../auth/webauthn'
 import { ACCOUNT_SECURITY_PATH } from '../components/ProtectedRoute'
 import { AuthScreen } from './auth/AuthScreen'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 type Step = { kind: 'credentials' } | { kind: 'mfa'; challengeId: string; factors: string[] }
 
@@ -39,8 +40,7 @@ export function LoginPage() {
   const failure = (err: unknown, uniform: string) => {
     if (err instanceof ApiError && err.status === 401 && err.details?.step === 'expired') return t('auth.login.stepExpired')
     if (err instanceof ApiError && err.status === 401) return uniform
-    if (err instanceof ApiError) return err.message
-    return t('common.requestFailed')
+    return apiRefusalText(t, err, 'common.requestFailed')
   }
 
   const submitCredentials = async (event: FormEvent) => {

@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Alert, Button } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, OverviewCard, semantic, slate } from '@nexotec/ui-kit'
-import { ApiError } from '../../api/client'
 import { formatDateTime } from '../../utils/format'
 import type { MarketplaceChannel, PublishingRead } from '../../api/types'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 const CHANNEL_LABEL_KEY: Record<MarketplaceChannel, string> = {
   autoscout24: 'AutoScout24',
@@ -57,7 +57,7 @@ export function ChannelPublishCard({ channel, publishing, locale, blocked, onPub
     try {
       await onPublish()
     } catch (err) {
-      setPublishError(err instanceof ApiError ? err.message : t('stockDetail.publishing.publishError'))
+      setPublishError(apiRefusalText(t, err, 'stockDetail.publishing.publishError'))
     } finally {
       setPublishPending(false)
     }
@@ -75,7 +75,7 @@ export function ChannelPublishCard({ channel, publishing, locale, blocked, onPub
       await onUnpublish()
       setConfirmOpen(false)
     } catch (err) {
-      setUnpublishError(err instanceof ApiError ? err.message : t('stockDetail.publishing.unpublishError'))
+      setUnpublishError(apiRefusalText(t, err, 'stockDetail.publishing.unpublishError'))
     } finally {
       setSubmitting(false)
     }

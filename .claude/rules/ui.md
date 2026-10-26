@@ -145,9 +145,18 @@ second local combobox.
 - **An API refusal is shown in the UI language** (Anto, 2026-10-23, KAN-398): map
   `details.reason` (and a stale `If-Match` 409) to a key in all four bundles, anything else to
   a translated generic message — never `err.message`, which is the API's English text, for logs
-  only (the pattern: `MergeCustomerModal`, `LinkVehicleModal`; KAN-366, KAN-369).
-  `src/architecture/no-api-error-message-render.test.ts` refuses a new `.message` render; older
-  screens are allow-listed there with a count that may only fall (KAN-437 converts them).
+  only. The one helper is `utils/apiRefusal.ts::apiRefusalText(t, err, fallbackKey)` (KAN-437):
+  a body-less response (`unknown_error`, KAN-271) is `common.requestFailed`; then a stale
+  If-Match 409; a known `details.reason` (its table; `apiRefusal.test.ts` fails on a literal
+  `"reason": "…"` in `app/` it does not translate); a 403, a 404 and a schema 422
+  (`details.errors`) by status; anything else — a business rule refused **without** a reason
+  included — is the screen's own key. Such a refusal loses its meaning on screen: give it a
+  `details.reason` (KAN-472 lists today's). A screen with its own wording for a reason (merge,
+  contract confirmation, business data) keeps its helper.
+  `src/architecture/no-api-error-message-render.test.ts` refuses a new `.message` render in the
+  app; its allow-list holds only `ConfiguratorOverlay`'s `HostCommitError`, built from `t(...)`.
+  It does not scan `packages/ui-kit`: `InlineEditField` still shows a thrown error's `message`
+  (KAN-473).
 - The customer's **correspondence language** is not the user's **UI language** — never the
   same control, never the same stored field.
 - **DE, FR and IT person nouns use the generic masculine** (Anto, 2026-10-12, KAN-171; the

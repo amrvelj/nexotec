@@ -221,7 +221,7 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('vehicleDetail.odometer.saveError'))
   })
 
-  it('a failed accessory shows the server message, keeps the input, and the retry reuses the key', async () => {
+  it('a failed accessory is said in the UI language, keeps the input, and the retry reuses the key', async () => {
     const user = userEvent.setup()
     const backend = install({ failFirst: 'accessories' })
     renderTab('accessories')
@@ -229,7 +229,7 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     await user.type(await screen.findByLabelText(i18n.t('vehicleDetail.accessories.type')), 'towbar')
     await user.click(screen.getByRole('button', { name: i18n.t('vehicleDetail.accessories.add') }))
 
-    expect((await screen.findByRole('alert')).textContent).toBe('Accessory store unavailable')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('vehicleDetail.accessories.saveError'))
     expect(screen.getByLabelText<HTMLInputElement>(i18n.t('vehicleDetail.accessories.type')).value).toBe('towbar')
 
     await user.click(screen.getByRole('button', { name: i18n.t('vehicleDetail.accessories.add') }))

@@ -189,9 +189,10 @@ export function UsersListPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: usersKey })
 
-  const say = (err: unknown, fallback: string) => {
-    // A refusal with a reason code (the last-manager rule) in the UI language.
-    setActionError(err instanceof ApiError ? refusalText(t, err) : fallback)
+  const say = (err: unknown, fallbackKey: string) => {
+    // A refusal with a reason code (the last-manager rule) in the UI language;
+    // one without says the action failed in the action's own words (KAN-437).
+    setActionError(refusalText(t, err, fallbackKey))
     if (err instanceof ApiError && err.status === 409) void invalidate()
   }
 
@@ -203,7 +204,7 @@ export function UsersListPage() {
       resendKey.renew()
       await invalidate()
     } catch (err) {
-      say(err, t('usersAdmin.actions.resendFailed'))
+      say(err, 'usersAdmin.actions.resendFailed')
     }
   }
 
@@ -228,7 +229,7 @@ export function UsersListPage() {
       if (status === 'active' && expired) setActionNotice(t('usersAdmin.actions.validToCleared', { name: userDisplayName(user), date: formatDateOnly(user.validTo!, locale) }))
       await invalidate()
     } catch (err) {
-      say(err, t('usersAdmin.actions.statusFailed'))
+      say(err, 'usersAdmin.actions.statusFailed')
     }
   }
 

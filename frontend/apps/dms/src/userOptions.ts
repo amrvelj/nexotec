@@ -1,4 +1,6 @@
+import type { TFunction } from 'i18next'
 import type { AccessRole, EmploymentStatus, StandardTextCategory, UserRole, UserStatus } from './api/types'
+import { apiRefusalText } from './utils/apiRefusal'
 
 type T = (key: string, options?: Record<string, unknown>) => string
 
@@ -75,26 +77,24 @@ export function userDisplayName(user: { firstName: string; lastName: string }): 
 }
 
 /**
- * KAN-200 — an API refusal with a stable `details.reason` reads in the UI
- * language; one without still keeps the API's text, which KAN-398's rule
- * forbids (KAN-437 converts it). `last_manager` is FR-A-13's refusal.
+ * KAN-200, KAN-437 — a user-administration refusal in the UI language: the
+ * shared reasons (`last_manager`, FR-A-13's refusal, among them), else the
+ * action's own wording (`fallbackKey`); never the API's English text.
  */
-export function refusalText(t: T, err: { message: string; details: Record<string, unknown> | null }): string {
-  const reason = err.details?.reason
-  if (reason === 'last_manager') return t('usersAdmin.errors.lastManager')
-  if (reason === 'last_manager_elsewhere') return t('usersAdmin.errors.lastManagerElsewhere')
-  return err.message
+export function refusalText(t: TFunction, err: unknown, fallbackKey = 'common.requestFailed'): string {
+  return apiRefusalText(t, err, fallbackKey)
 }
 
 const PROBLEM_REASONS = new Set(['undecided', 'decided_twice', 'not_owned', 'self', 'colleague_not_active', 'colleague_cannot_act_there'])
 
-/** One entry of a reassignment 422's `details.problems[]`, in the UI language. */
+/** One entry of a reassignment 422's `details.problems[]`, in the UI language;
+ * one whose reason the bundles do not know says so generically, never in the
+ * API's words (KAN-437). */
 export function reassignmentProblemText(t: T, entry: unknown): string {
-  if (typeof entry === 'string') return entry
-  const problem = entry as { module?: string; group?: string; reason?: string; message?: string; count?: number }
+  const problem = (typeof entry === 'object' && entry !== null ? entry : {}) as { module?: string; group?: string; reason?: string; count?: number }
   const what = problem.module && problem.group ? ownedGroupLabel(t, problem.module, problem.group) : ''
   if (problem.reason && PROBLEM_REASONS.has(problem.reason)) {
     return t(`usersAdmin.deactivate.problems.${problem.reason}`, { what, count: problem.count ?? 0 })
   }
-  return problem.message ?? t('common.requestFailed')
+  return what ? t('usersAdmin.deactivate.problems.other', { what }) : t('common.requestFailed')
 }

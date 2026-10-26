@@ -67,7 +67,7 @@ describe('OfferGenerateReviewModal — one Idempotency-Key per submission (KAN-2
     renderWithProviders(<OfferGenerateReviewModal opened offer={OFFER} onClose={() => {}} onFinalized={() => {}} />)
 
     await user.click(await buildButton())
-    expect(await screen.findByText('Service unavailable')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('offerWorkspace.generate.buildError'))).toBeInTheDocument()
     await user.click(await buildButton())
     await waitFor(() => expect(buildKeys(backend)).toHaveLength(2))
 
@@ -107,7 +107,7 @@ describe('OfferGenerateReviewModal — one Idempotency-Key per submission (KAN-2
     renderWithProviders(<Host />)
 
     await user.click(await buildButton())
-    await screen.findByText('Service unavailable')
+    await screen.findByText(i18n.t('offerWorkspace.generate.buildError'))
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'reopen' }))
@@ -129,7 +129,7 @@ describe('OfferGenerateReviewModal — one Idempotency-Key per submission (KAN-2
     await user.click(await buildButton())
     const confirm = await screen.findByRole('button', { name: i18n.t('offerWorkspace.generate.confirm') })
     await user.click(confirm)
-    expect(await screen.findByText('Service unavailable')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('offerWorkspace.generate.finalizeError'))).toBeInTheDocument()
     await user.click(confirm)
     await waitFor(() => expect(onFinalized).toHaveBeenCalled())
 
@@ -137,5 +137,32 @@ describe('OfferGenerateReviewModal — one Idempotency-Key per submission (KAN-2
     expect(first.headers.get('Idempotency-Key')).toBeTruthy()
     expect(retry.headers.get('Idempotency-Key')).toBe(first.headers.get('Idempotency-Key'))
     expect(retry.headers.get('If-Match')).toBe('5')
+  })
+})
+
+describe('OfferGenerateReviewModal — a refusal in the UI language (KAN-437)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  it('says a refused confirmation by its reason, in Italian, never in the API\'s English text', async () => {
+    await i18n.changeLanguage('it')
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'POST', match: /^\/sales\/offers\/o1\/documents$/, handler: () => ({ __status: 201, body: { id: 'd1', version: 1, correspondenceLanguage: 'it' } }) },
+      { method: 'GET', match: /^\/sales\/documents\/d\d+\/pdf$/, handler: () => ({}) },
+      {
+        method: 'POST',
+        match: /^\/sales\/offers\/o1\/finalize$/,
+        handler: () =>
+          status(409, { error: { code: 'conflict', message: 'Offer O-000001 has contract V-000003 — edit the contract.', details: { reason: 'offer_has_contract', contractNumber: 'V-000003' } } }),
+      },
+    ])
+    renderWithProviders(<OfferGenerateReviewModal opened offer={OFFER} onClose={() => {}} onFinalized={() => {}} />)
+
+    await user.click(await buildButton())
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.generate.confirm') }))
+    expect(await screen.findByText(i18n.t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: 'V-000003' }))).toBeInTheDocument()
+    expect(screen.queryByText(/edit the contract/)).not.toBeInTheDocument()
   })
 })

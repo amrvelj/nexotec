@@ -61,6 +61,7 @@ import { customerName } from '../utils/customer'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -634,7 +635,7 @@ export function CustomersListPage() {
       offerCreateKey.renew()
       navigate(`/sales/offers/${updated.id}`)
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : t('customersList.createOfferError'))
+      setActionError(apiRefusalText(t, err, 'customersList.createOfferError'))
     }
   }
 
@@ -649,7 +650,7 @@ export function CustomersListPage() {
       contractCreateKey.renew()
       navigate(`/sales/contracts/${created.id}`)
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : t('customersList.createContractError'))
+      setActionError(apiRefusalText(t, err, 'customersList.createContractError'))
     }
   }
 
@@ -668,7 +669,7 @@ export function CustomersListPage() {
       )
       void queryClient.invalidateQueries({ queryKey: ['customers'] })
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : t('customersList.doNotContactError'))
+      setActionError(apiRefusalText(t, err, 'customersList.doNotContactError'))
       if (err instanceof ApiError && err.status === 409) void queryClient.invalidateQueries({ queryKey: ['customers'] })
     }
   }

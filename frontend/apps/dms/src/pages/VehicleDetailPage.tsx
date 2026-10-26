@@ -5,7 +5,7 @@ import { Alert, Badge, Loader } from '@mantine/core'
 import { Car, Copy, GitMerge } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
 import { isPlateReadLimitError } from '../components/vehicle-detail/plateReadLimit'
@@ -23,6 +23,7 @@ import type {
   VehiclePartyRole,
   VehiclePlateRead,
 } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const DEFAULT_TAB = 'identity'
 
@@ -185,7 +186,7 @@ export function VehicleDetailPage() {
   if (vehicleQuery.isError || !vehicle) {
     return (
       <Alert color="red" title={t('vehicleDetail.header.failedToLoad')}>
-        {vehicleQuery.error instanceof ApiError ? vehicleQuery.error.message : t('vehicleDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, vehicleQuery.error, 'vehicleDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }

@@ -18,7 +18,7 @@ import {
   type GridColumnDef,
   type SortSpec,
 } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { NewValuationButton } from '../components/NewValuationButton'
@@ -33,6 +33,7 @@ import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
 import { translatedValuationStatusLabel } from '../valuationOptions'
 import type { ValuationPage, ValuationRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const GRID_KEY = 'valuations.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'createdAt', direction: 'desc' }]
@@ -213,7 +214,7 @@ export function ValuationsListPage() {
       markUsedKey.renew()
       await queryClient.invalidateQueries({ queryKey: ['valuations'] })
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : t('valuationsList.markUsedError'))
+      setActionError(apiRefusalText(t, err, 'valuationsList.markUsedError'))
     }
   }
 

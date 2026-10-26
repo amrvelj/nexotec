@@ -15,6 +15,7 @@ import type {
   SalesLineItemRead,
   SalesPricedDealRead,
 } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 export interface OfferAccessoriesAndOptionsProps<D extends SalesPricedDealRead> {
   /** KAN-67 — an offer draft or a pending contract; `ownerType` picks the
@@ -124,7 +125,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
         )
       } else if (details?.reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
       else if (details?.reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
-      else setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
+      else setError(apiRefusalText(t, err, 'offerWorkspace.lineItems.error'))
       return false
     }
   }

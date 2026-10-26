@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
 import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
@@ -13,6 +13,7 @@ import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead
 import { formatCurrencyChf } from '../utils/format'
 import { vinRefusalKey } from '../utils/vin'
 import { useFieldHint } from '../hooks/useFieldHint'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 export interface ValuationCreateDialogProps {
   opened: boolean
@@ -147,7 +148,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
     } catch (err) {
       const vinRefusal = vinRefusalKey(err)
       if (vinRefusal) setVinError(t(vinRefusal))
-      else setError(err instanceof ApiError ? err.message : t('valuationCreate.error'))
+      else setError(apiRefusalText(t, err, 'valuationCreate.error'))
     } finally {
       setSubmitting(false)
     }

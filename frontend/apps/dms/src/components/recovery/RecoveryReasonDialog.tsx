@@ -143,17 +143,18 @@ export function RecoveryReasonDialog({ opened, onClose, user, choice, onDone }: 
 type T = (key: string | string[], options?: Record<string, unknown>) => string
 
 /** The API's refusal in the UI language — by its stable `rule`; a missing
- * account and a version that moved on are said as such; the API's own
- * sentence only for a refusal the bundles do not know. */
+ * account and a version that moved on are said as such; a refusal the
+ * bundles do not know is the translated generic, never the API's own
+ * sentence (KAN-437). */
 function recoveryErrorText(t: T, err: unknown): string {
   if (err instanceof ApiError) {
     const rule = typeof err.details?.rule === 'string' ? err.details.rule : null
-    if (rule) return t([`recovery.errors.${rule}`, 'recovery.errors.generic'], { message: err.message })
+    if (rule) return t([`recovery.errors.${rule}`, 'recovery.errors.generic'])
     if (err.status === 403) return t('recovery.errors.forbidden')
     if (err.status === 404) return t('recovery.errors.notFound')
     if (err.status === 409 && err.details && 'currentVersion' in err.details) return t('recovery.errors.conflict')
     if (err.status === 400 || err.status === 422) return t('recovery.errors.invalid')
-    return t('recovery.errors.generic', { message: err.message })
+    return t('recovery.errors.generic')
   }
   return t('common.requestFailed')
 }

@@ -5,6 +5,7 @@ import { FormDialog } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { CustomerRead } from '../../api/types'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface CreditBlockDialogProps {
   opened: boolean
@@ -58,11 +59,7 @@ export function CreditBlockDialog({ opened, onClose, customer, onSaved }: Credit
       onClose()
     } catch (err) {
       setSubmitError(
-        err instanceof ApiError && err.status === 409
-          ? t('creditBlockDialog.conflict')
-          : err instanceof Error
-            ? err.message
-            : t('creditBlockDialog.failed'),
+        err instanceof ApiError && err.status === 409 ? t('creditBlockDialog.conflict') : apiRefusalText(t, err, 'creditBlockDialog.failed'),
       )
     } finally {
       setSubmitting(false)

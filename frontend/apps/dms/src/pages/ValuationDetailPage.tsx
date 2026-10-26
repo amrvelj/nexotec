@@ -5,7 +5,7 @@ import { Alert, Group, Loader, Stack, Text } from '@mantine/core'
 import { CarFront } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, OverviewCard, SpecGrid, ValuationStatusBadge, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -15,6 +15,7 @@ import { translatedValuationStatusLabel } from '../valuationOptions'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
 import type { ValuationRead } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 export function ValuationDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -71,7 +72,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
       markUsedKey.renew()
       queryClient.setQueryData(['valuation', id], updated)
     } catch (err) {
-      setMarkUsedError(err instanceof ApiError ? err.message : t('valuationDetail.errors.markUsedFailed'))
+      setMarkUsedError(apiRefusalText(t, err, 'valuationDetail.errors.markUsedFailed'))
     }
   }
 
@@ -88,7 +89,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   if (valuationQuery.isError || !valuationQuery.data) {
     return (
       <Alert color="red" title={t('valuationDetail.errors.failedToLoad')}>
-        {valuationQuery.error instanceof ApiError ? valuationQuery.error.message : t('valuationDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, valuationQuery.error, 'valuationDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }

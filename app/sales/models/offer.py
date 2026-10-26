@@ -132,8 +132,10 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     discount_amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # Materialized total — pricing.build_up()'s final `grossPrice`. What
     # the grid and this row itself display; the printed document's own
-    # ONE price (ADR-057/S-D10) is this same figure, VAT added on top only
-    # at render time (PR-7), never stored here.
+    # ONE price (ADR-057/S-D10) is this same figure, VAT included. The
+    # document's one VAT line is the component contained in it, computed
+    # at render time (document.py::_compute_vat_amount, ADR-098) and never
+    # stored here; nothing is ever added on top.
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     # WP-8 PR-3 (ADR-049/ADR-029) — Einstandspreis, sourced from the frozen

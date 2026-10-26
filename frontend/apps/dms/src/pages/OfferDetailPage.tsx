@@ -5,11 +5,12 @@ import { Alert, Button, Loader, Stack } from '@mantine/core'
 import { Copy, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { OfferWorkspaceContent } from './OfferWorkspacePage'
 import type { SalesOfferRead } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 /** `/sales/offers/new` — the confirmed reference prototype allocates a
  * number and opens an empty draft before anything is chosen; this route
@@ -59,7 +60,7 @@ export function OfferCreateRedirectPage() {
         {/* The title says what failed; the body says why, or that the request
             itself did not get through. */}
         <Alert color="red" role="alert" title={t('offerDetail.errors.createFailed')}>
-          {failure.error instanceof ApiError ? failure.error.message : t('common.requestFailed')}
+          {apiRefusalText(t, failure.error, 'common.requestFailed')}
         </Alert>
         <Button
           onClick={() => {
@@ -123,7 +124,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
       copyKey.renew()
       navigate(`/sales/offers/${copy.id}`)
     } catch (err) {
-      setCopyError(err instanceof ApiError ? err.message : t('offerDetail.errors.copyFailed'))
+      setCopyError(apiRefusalText(t, err, 'offerDetail.errors.copyFailed'))
     } finally {
       setCopying(false)
     }
@@ -135,7 +136,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   if (offerQuery.isError || !offerQuery.data) {
     return (
       <Alert color="red" title={t('offerDetail.errors.failedToLoad')}>
-        {offerQuery.error instanceof ApiError ? offerQuery.error.message : t('offerDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, offerQuery.error, 'offerDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }

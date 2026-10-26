@@ -16,6 +16,7 @@ import type {
 import { useAuth } from '../auth/AuthContext'
 import { createPasskey, passkeysSupported } from '../auth/webauthn'
 import { formatDateTime } from '../utils/format'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const MFA_KEY = ['auth', 'mfa'] as const
 const SESSIONS_KEY = ['auth', 'sessions'] as const
@@ -41,7 +42,7 @@ export function AccountSecurityPage() {
   const [passkeyLabel, setPasskeyLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const say = (err: unknown) => setError(err instanceof ApiError ? err.message : t('common.requestFailed'))
+  const say = (err: unknown) => setError(apiRefusalText(t, err, 'common.requestFailed'))
   const afterFactorChange = async () => {
     await queryClient.invalidateQueries({ queryKey: MFA_KEY })
     await refresh()
@@ -64,7 +65,7 @@ export function AccountSecurityPage() {
       setError(null)
       await afterFactorChange()
     },
-    onError: (err) => setError(err instanceof ApiError && err.status === 422 ? t('auth.login.codeInvalid') : (err as Error).message),
+    onError: (err) => setError(err instanceof ApiError && err.status === 422 ? t('auth.login.codeInvalid') : apiRefusalText(t, err, 'common.requestFailed')),
   })
   const removeTotp = useMutation({
     mutationFn: () => api.delete('/auth/mfa/totp'),
@@ -97,7 +98,7 @@ export function AccountSecurityPage() {
       setError(null)
       await afterFactorChange()
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : t('auth.security.passkeys.failed')),
+    onError: (err) => setError(apiRefusalText(t, err, 'auth.security.passkeys.failed')),
   })
   const removePasskey = useMutation({
     mutationFn: (id: string) => api.delete(`/auth/mfa/passkeys/${id}`),

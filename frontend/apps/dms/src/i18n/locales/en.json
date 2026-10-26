@@ -168,6 +168,46 @@
     },
     "fieldHintIcon": "Hint"
   },
+  "apiRefusal": {
+    "staleVersion": "This record was changed in the meantime. Reload it and try again.",
+    "forbidden": "Your role does not allow this action.",
+    "notFound": "This record no longer exists or is not available to you.",
+    "invalid": "Some of the entries are not valid. Check them and try again.",
+    "reasons": {
+      "accept_invitation_required": "An invited user becomes active by accepting the invitation — resend the invitation instead.",
+      "access_window_closed": "Your access to this business is not open at this time.",
+      "already_revoked": "This connected account has already been disconnected.",
+      "catalogue_variant_missing": "The catalogue variant of this configuration no longer exists.",
+      "coded_field_locked": "The coded fields of a catalogue configuration come from the catalogue and cannot be changed.",
+      "coded_field_required": "The coded fields of a manual configuration cannot be cleared.",
+      "coded_fields_required": "A manual configuration needs all five coded fields.",
+      "colleague_cannot_act_there": "The chosen colleague does not work in the business this record belongs to.",
+      "configuration_mode_fixed": "The mode of a saved configuration cannot be changed — copy it into a new configuration instead.",
+      "configuration_mode_not_allowed": "A configuration of this kind cannot be used here.",
+      "customer_tag_exists": "A tag in this change is already on the customer — the customer changed in the meantime. Reload it and try again.",
+      "duplicate_connection": "A connection to this provider in this environment already exists.",
+      "invalid_new_price": "A best match needs the new price.",
+      "invalid_type_approval_number": "A best match needs the Typenschein.",
+      "legacy_sale": "This contract was migrated from the legacy system, which handled it there — it cannot be changed here.",
+      "merged_party_row": "This row is the copy a customer merge kept; it cannot hold its role again.",
+      "missing_price": "This contract has no price yet. Complete the price build-up first.",
+      "missing_vehicle": "This contract has no vehicle yet. Add a vehicle first.",
+      "no_catalogue_variant": "A configuration without a catalogue variant cannot be re-synced.",
+      "no_fields": "Choose at least one field to re-sync.",
+      "no_provider_connection": "No vehicle data provider is connected.",
+      "no_signed_contract": "No signed contract carries this valuation as its trade-in, so it cannot be marked as used: only a signed deal uses a valuation.",
+      "not_active": "Only an active user can be suspended.",
+      "nul_character": "The entry contains a character that is not allowed. Remove it and try again.",
+      "offer_already_contracted": "This offer already has a contract; only a cancelled contract frees an offer.",
+      "unknown_fields": "Some of the chosen specification fields are unknown.",
+      "unrecognised_identifier": "The input is not a VIN, a licence plate, a Stammnummer, a Typenschein or a Werkscode.",
+      "use_deactivate_endpoint": "A user is deactivated through the deactivation step, which hands over what they still own.",
+      "valuation_expired": "This valuation has expired.",
+      "vehicle_left_stock": "This vehicle has already left stock and cannot be reserved.",
+      "vehicle_not_purchased": "The vehicle of this contract has not been purchased yet — it can be invoiced once Stock has booked its purchase.",
+      "vin_already_in_stock": "This VIN is already in stock as {{stockNumber}}."
+    }
+  },
   "customerCreate": {
     "title": "New customer",
     "steps": {
@@ -537,9 +577,10 @@
         "externalId": "External ID",
         "linked": "Linked"
       },
+      "maintainedBy": "These links to OEM and CRM systems are maintained by Nexotec and the connected systems; you can read them here.",
       "emptyState": {
         "title": "No external IDs",
-        "description": "No CRM/OEM system linkage on file for this customer."
+        "description": "No OEM or CRM system has been linked to this customer yet. Nexotec or a connected system adds these links."
       },
       "add": "Add external ID",
       "remove": "Remove",
@@ -1029,6 +1070,17 @@
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} item(s) are blocking publication",
+      "blockingCondition": {
+        "Lagerstatus": "A factory order is not in stock yet.",
+        "Bilder": "No photos of your own yet.",
+        "Preis": "No effective price set.",
+        "Aussenfarbe": "No colour set.",
+        "Aufbau": "No body style set.",
+        "Kilometer": "No odometer reading set.",
+        "InvSetzJahr": "No first registration set.",
+        "Energieetikette": "The energy label is missing for a new car under 2'000 km.",
+        "other": "This is missing for the marketplace."
+      },
       "channelsTitle": "Channels",
       "published": "Published",
       "notPublished": "Not published",
@@ -1606,7 +1658,9 @@
       "title": "New value in {{code}}",
       "submit": "Create",
       "allLanguagesHint": "All four languages are required.",
-      "error": "Could not create the value."
+      "error": "Could not create the value.",
+      "invalidField": "Check this entry: it is empty or too long.",
+      "duplicate": "The value code {{valueCode}} already exists in this list."
     }
   },
   "catalogueBrowse": {
@@ -2258,7 +2312,8 @@
         "not_owned": "{{what}}: this person does not (or no longer) look after these.",
         "self": "{{what}}: the person cannot take over their own records.",
         "colleague_not_active": "{{what}}: the chosen colleague is not an active user of this business.",
-        "colleague_cannot_act_there": "{{what}}: {{count, number}} of these belong to another business the chosen colleague does not work in — choose \"Leave unassigned\" (that business hands them over from its queue) or a colleague who is a member there."
+        "colleague_cannot_act_there": "{{what}}: {{count, number}} of these belong to another business the chosen colleague does not work in — choose \"Leave unassigned\" (that business hands them over from its queue) or a colleague who is a member there.",
+        "other": "{{what}}: this group cannot be handed over as chosen — choose again."
       }
     },
     "handOver": {
@@ -2411,7 +2466,7 @@
       "already_manager": "This user is already a manager of the business.",
       "reason_required": "A recovery action needs a stated reason.",
       "search_criteria": "Search by e-mail address or business.",
-      "generic": "The action was refused: {{message}}",
+      "generic": "The action was refused.",
       "forbidden": "This action needs a Nexotec staff session signed in with a second factor.",
       "self": "Your own account is managed in My account, not here.",
       "deactivated": "The user is deactivated — the business reactivates them first.",
