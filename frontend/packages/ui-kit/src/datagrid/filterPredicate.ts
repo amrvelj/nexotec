@@ -5,6 +5,8 @@
  * columnLayout.ts) — `FilterBuilder.tsx` is the UI on top of this.
  */
 
+import { formatCurrencyChf, formatNumber } from "../format/swissNumber";
+
 export type FilterFieldType = "text" | "select" | "date" | "boolean" | "number";
 
 export interface FilterFieldOption {
@@ -31,6 +33,12 @@ export interface FilterFieldDef {
    * predicate the backing endpoint can actually honour. Omit for the full
    * set. */
   conditions?: string[];
+  /** How a `type: "number"` field's value reads in a saved filter's text
+   * (KAN-421): `"grouped"` (the default) through `formatNumber` — 40'000,
+   * as the grid shows it (KAN-160); `"chf"` through `formatCurrencyChf` —
+   * CHF 40'000.00 (ADR-076); `"ungrouped"` as entered — a year, 2024. The
+   * definition says which; it is never guessed from the label. */
+  numberFormat?: "grouped" | "chf" | "ungrouped";
 }
 
 export type TextCondition = "contains" | "equals" | "notEquals";
@@ -201,6 +209,14 @@ export function describePredicate(predicate: FilterPredicate, field: FilterField
   const value =
     predicate.type === "select"
       ? (field.options?.find((o) => o.value === predicate.value)?.label ?? String(predicate.value ?? ""))
-      : String(predicate.value ?? "");
+      : predicate.type === "number" && typeof predicate.value === "number" && Number.isFinite(predicate.value)
+        ? formatNumberValue(predicate.value, field.numberFormat ?? "grouped")
+        : String(predicate.value ?? "");
   return labels.predicateText[condition]({ field: field.label, value, days: predicate.days ?? 0 });
+}
+
+function formatNumberValue(value: number, format: NonNullable<FilterFieldDef["numberFormat"]>): string {
+  if (format === "chf") return formatCurrencyChf(value);
+  if (format === "ungrouped") return String(value);
+  return formatNumber(value);
 }

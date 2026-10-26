@@ -68,7 +68,15 @@ export function buildCatalogueFilterFields(
     const range = facets?.numeric?.[field]
     // Offer the field even before facets load — a number input is always safe.
     if (facets && !range) continue
-    fields.push({ id: field, label: t(`catalogueBrowse.filters.${field}`), type: 'number' })
+    fields.push({
+      id: field,
+      label: t(`catalogueBrowse.filters.${field}`),
+      type: 'number',
+      // KAN-421: a saved filter reads its value as the grid shows it — the
+      // list price in CHF (ADR-076), a model year ungrouped, every other
+      // figure through the Swiss formatter.
+      numberFormat: field === 'basePrice' ? 'chf' : field === 'modelYearFrom' ? 'ungrouped' : 'grouped',
+    })
   }
 
   return fields
