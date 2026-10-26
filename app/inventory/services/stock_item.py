@@ -72,21 +72,29 @@ def allocate_stock_number(db: Session, tenant_id: uuid.UUID) -> str:
     return f"S-{value:06d}"
 
 
-def get_stock_item_or_404(
-    db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID, *, for_update: bool = False
-) -> StockItem:
-    """`for_update` (KAN-429) locks the row until the caller commits, as
-    Sales' `get_offer_or_404` does (KAN-311): every route that checks
+def get_stock_item_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> StockItem:
+    item = db.scalar(
+        select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id)
+    )
+    if item is None:
+        raise NotFoundError(f"Stock item {stock_item_id} was not found.")
+    return item
+
+
+def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> StockItem:
+    """KAN-429: the item locked until the caller commits, as Sales' offer
+    and contract routes load theirs (KAN-311). Every route that checks
     If-Match against the item loads it this way, so two saves sent with the
     same version run one after the other and the second is refused as
-    stale. Unlocked, both passed the check and the later one overwrote the
-    first. The item is the only row these routes lock, the same single-row
-    lock the reservation writers take, so no lock order can cross."""
+    stale; unlocked, both passed the check and the later one overwrote the
+    first. The item is the only row these routes lock — the same single-row
+    lock the reservation writers take — so no lock order can cross. A
+    function of its own, not a flag on the read above, so a read stays a
+    read (tests/architecture/test_adr_047_no_shared_transaction.py)."""
 
-    stmt = select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id)
-    if for_update:
-        stmt = stmt.with_for_update()
-    item = db.scalar(stmt)
+    item = db.scalar(
+        select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id).with_for_update()
+    )
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")
     return item

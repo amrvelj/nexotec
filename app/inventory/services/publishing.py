@@ -79,23 +79,36 @@ def compute_blocking_conditions(db: Session, item: StockItem) -> list[BlockingCo
     return conditions
 
 
-def get_or_create_publishing(
-    db: Session, item: StockItem, channel: MarketplaceChannel, *, for_update: bool = False
-) -> StockItemPublishing:
-    """`for_update` (KAN-429) locks an existing row until the caller
-    commits, so the listing-text PATCH's If-Match check reads the version a
-    concurrent save has just committed instead of the one before it. The
-    publishing row is the only row that route locks; publish and unpublish
-    write that row alone."""
-
-    stmt = select(StockItemPublishing).where(
-        StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel
+def get_or_create_publishing(db: Session, item: StockItem, channel: MarketplaceChannel) -> StockItemPublishing:
+    existing = db.scalar(
+        select(StockItemPublishing).where(
+            StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel
+        )
     )
-    if for_update:
-        stmt = stmt.with_for_update()
-    existing = db.scalar(stmt)
     if existing is not None:
         return existing
+    return _create_publishing(db, item, channel)
+
+
+def get_or_create_publishing_for_update(
+    db: Session, item: StockItem, channel: MarketplaceChannel
+) -> StockItemPublishing:
+    """KAN-429: an existing row locked until the caller commits, so the
+    listing-text PATCH's If-Match check reads the version a concurrent save
+    has just committed, not the one before it. The publishing row is the
+    only row that route locks; publish and unpublish write that row alone."""
+
+    existing = db.scalar(
+        select(StockItemPublishing)
+        .where(StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel)
+        .with_for_update()
+    )
+    if existing is not None:
+        return existing
+    return _create_publishing(db, item, channel)
+
+
+def _create_publishing(db: Session, item: StockItem, channel: MarketplaceChannel) -> StockItemPublishing:
     row = StockItemPublishing(tenant_id=item.tenant_id, stock_item_id=item.id, channel=channel)
     db.add(row)
     db.flush()

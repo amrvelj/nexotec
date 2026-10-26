@@ -60,7 +60,7 @@ def _stock_item_case(db_session, method: str, suffix: str, body: dict | None) ->
     )
 
     def hold(holding: Session) -> None:
-        held = stock_item_service.get_stock_item_or_404(holding, tenant_id, item.id, for_update=True)
+        held = stock_item_service.get_stock_item_for_update_or_404(holding, tenant_id, item.id)
         held.vehicle_label = "Škoda Octavia RS"
         held.version += 1
 
@@ -81,7 +81,7 @@ def _listing_text_case(db_session) -> _Case:
 
     def hold(holding: Session) -> None:
         held_item = stock_item_service.get_stock_item_or_404(holding, tenant_id, item.id)
-        held = publishing_service.get_or_create_publishing(holding, held_item, MarketplaceChannel.AUTOSCOUT24, for_update=True)
+        held = publishing_service.get_or_create_publishing_for_update(holding, held_item, MarketplaceChannel.AUTOSCOUT24)
         held.zusatztitel = "Anna's title"
         held.version += 1
 
@@ -102,8 +102,8 @@ def _connection_case(db_session, method: str, suffix: str, body: dict | None) ->
     db_session.commit()
 
     def hold(holding: Session) -> None:
-        held = connection_service.get_connection_or_404(
-            holding, tenant_id=tenant_id, connection_id=connection.id, for_update=True
+        held = connection_service.get_connection_for_update_or_404(
+            holding, tenant_id=tenant_id, connection_id=connection.id
         )
         held.display_name = "auto-i-dat (Anna)"
         held.version += 1
@@ -118,7 +118,7 @@ def _provider_case(db_session) -> _Case:
     provider = _make_provider(db_session)
 
     def hold(holding: Session) -> None:
-        held = provider_service.get_provider_or_404(holding, provider.id, for_update=True)
+        held = provider_service.get_provider_for_update_or_404(holding, provider.id)
         held.display_name = "auto-i-dat (Anna)"
         held.version += 1
 

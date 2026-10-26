@@ -106,7 +106,7 @@ def update_stock_item(
     principal: Principal = Depends(require_write("stock_items")),
     db: Session = Depends(get_db),
 ):
-    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id, for_update=True)
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.update_stock_item(db, item=item, data=body, actor_id=principal.user_id)
     return _stock_item_read(item)
@@ -120,7 +120,7 @@ def change_condition(
     principal: Principal = Depends(require_write("stock_condition")),
     db: Session = Depends(get_db),
 ):
-    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id, for_update=True)
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.change_condition(db, item=item, condition=body.condition, actor_id=principal.user_id)
     return _stock_item_read(item)
@@ -134,7 +134,7 @@ def record_purchase(
     principal: Principal = Depends(require_write("stock_acquisition")),
     db: Session = Depends(get_db),
 ):
-    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id, for_update=True)
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = purchase_service.record_purchase(db, item=item, data=body, actor_id=principal.user_id)
     return _stock_item_read(item)
@@ -148,7 +148,7 @@ def override_notional_input_tax(
     principal: Principal = Depends(require_write("stock_acquisition")),
     db: Session = Depends(get_db),
 ):
-    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id, for_update=True)
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = purchase_service.override_notional_input_tax(db, item=item, data=body, actor_id=principal.user_id)
     return _stock_item_read(item)

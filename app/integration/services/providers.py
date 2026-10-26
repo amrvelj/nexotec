@@ -13,17 +13,19 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.provider import ProviderCreate, ProviderUpdate
 
 
-def get_provider_or_404(db: Session, provider_id: uuid.UUID, *, for_update: bool = False) -> IntegrationProvider:
-    """`for_update` (KAN-429): the provider PATCH loads the row locked, so
+def get_provider_or_404(db: Session, provider_id: uuid.UUID) -> IntegrationProvider:
+    provider = db.get(IntegrationProvider, provider_id)
+    if provider is None:
+        raise NotFoundError(f"Integration provider {provider_id} was not found.")
+    return provider
+
+
+def get_provider_for_update_or_404(db: Session, provider_id: uuid.UUID) -> IntegrationProvider:
+    """KAN-429: the provider PATCH loads the row locked until it commits, so
     two saves sent with the same If-Match run one after the other and the
     second is refused as stale."""
 
-    if for_update:
-        provider = db.scalar(
-            select(IntegrationProvider).where(IntegrationProvider.id == provider_id).with_for_update()
-        )
-    else:
-        provider = db.get(IntegrationProvider, provider_id)
+    provider = db.scalar(select(IntegrationProvider).where(IntegrationProvider.id == provider_id).with_for_update())
     if provider is None:
         raise NotFoundError(f"Integration provider {provider_id} was not found.")
     return provider
