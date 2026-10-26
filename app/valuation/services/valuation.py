@@ -24,10 +24,10 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.config import get_settings
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.core.validators import is_chassis_number, require_vin_or_pre_1981_chassis_number
+from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
 from app.customer.public import get_customer_or_404
 from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
@@ -125,6 +125,12 @@ def get_deductions(db: Session, valuation_id: uuid.UUID) -> list[ValuationDeduct
     )
 
 
+def _normalised_or_none(vin: str | None) -> str | None:
+    # A configuration VIN stored before KAN-338 may not be normalised yet
+    # (scripts/repair_configuration_vins.py); the request's always is.
+    return normalise_vin(vin) if vin is not None else None
+
+
 def create_valuation(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: ValuationCreate, actor_id: uuid.UUID | None
 ) -> Valuation:
@@ -142,6 +148,14 @@ def create_valuation(
         # already links is referenced. `record` mode only (PRD v1.4).
         configuration = get_configuration_for_host(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
         configuration.require_mode(host="valuation", allowed=(CONFIGURATION_MODE_RECORD,))
+        # KAN-449 (Anto, 2026-10-25): with a configuration the VIN *is* the
+        # configuration's. A different one would be stored beside the
+        # configuration's vehicleId, naming one car by VIN and another by id.
+        if data.vin is not None and data.vin != _normalised_or_none(configuration.vin):
+            raise UnprocessableEntityError(
+                "The VIN differs from the configuration's. A valuation built from a configuration takes its VIN.",
+                details={"field": "vin", "reason": "vin_differs_from_configuration"},
+            )
 
     # KAN-353: judged on what the valuation will store — the VIN and first
     # registration sent, else the configuration's. A chassis number is
