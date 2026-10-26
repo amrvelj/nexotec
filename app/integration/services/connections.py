@@ -86,18 +86,27 @@ def _validate_required_config(provider: IntegrationProvider, config: dict) -> No
 
 
 def get_connection_or_404(
-    db: Session, *, tenant_id: uuid.UUID | None, connection_id: uuid.UUID
+    db: Session, *, tenant_id: uuid.UUID | None, connection_id: uuid.UUID, for_update: bool = False
 ) -> IntegrationConnection:
     """`tenant_id=None` means "any tenant" — platform_admin's own reach.
     For a dealer-manager caller, `tenant_id` is always the caller's own
     tenant, which structurally also excludes every platform-scoped row
     (their own `tenant_id` is NULL, and NULL never equals a real UUID) —
     no separate scope check is needed on top of this filter.
+
+    `for_update` (KAN-429) locks the row until the caller commits: every
+    route that checks If-Match against the connection loads it this way, so
+    two writes sent with the same version run one after the other and the
+    second is refused as stale. The connection is the first row those routes
+    lock (a delete then removes its secret refs and entitlements); a secret
+    upsert's flush also writes the connection row before its secret ref.
     """
 
     stmt = select(IntegrationConnection).where(IntegrationConnection.id == connection_id)
     if tenant_id is not None:
         stmt = stmt.where(IntegrationConnection.tenant_id == tenant_id)
+    if for_update:
+        stmt = stmt.with_for_update()
     connection = db.scalar(stmt)
     if connection is None:
         raise NotFoundError(f"Connection {connection_id} was not found.")

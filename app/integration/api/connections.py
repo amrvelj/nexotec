@@ -166,7 +166,9 @@ def update_connection(
     db: Session = Depends(get_db),
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
-    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    connection = connection_service.get_connection_or_404(
+        db, tenant_id=tenant_id, connection_id=connection_id, for_update=True
+    )
     check_version(connection.version, if_match, entity_name="IntegrationConnection")
     connection = connection_service.update_connection(db, connection=connection, data=body, actor_id=principal.user_id)
     return _connection_read(db, connection)
@@ -198,7 +200,9 @@ def disable_connection(
     db: Session = Depends(get_db),
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
-    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    connection = connection_service.get_connection_or_404(
+        db, tenant_id=tenant_id, connection_id=connection_id, for_update=True
+    )
     check_version(connection.version, if_match, entity_name="IntegrationConnection")
     connection = connection_service.disable_connection(db, connection=connection, actor_id=principal.user_id)
     return _connection_read(db, connection)
@@ -212,7 +216,9 @@ def enable_connection(
     db: Session = Depends(get_db),
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
-    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    connection = connection_service.get_connection_or_404(
+        db, tenant_id=tenant_id, connection_id=connection_id, for_update=True
+    )
     check_version(connection.version, if_match, entity_name="IntegrationConnection")
     connection = connection_service.enable_connection(db, connection=connection, actor_id=principal.user_id)
     return _connection_read(db, connection)
@@ -227,7 +233,9 @@ def delete_connection(
     db: Session = Depends(get_db),
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
-    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    connection = connection_service.get_connection_or_404(
+        db, tenant_id=tenant_id, connection_id=connection_id, for_update=True
+    )
     # KAN-396: a stale screen never deletes a connection someone just changed.
     check_version(connection.version, if_match, entity_name="IntegrationConnection")
     connection_service.delete_connection(db, connection=connection, confirm=body.confirm, actor_id=principal.user_id)
