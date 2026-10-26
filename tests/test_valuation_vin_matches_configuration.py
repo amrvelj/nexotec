@@ -98,6 +98,29 @@ def test_a_vin_beside_a_configuration_without_one_is_stored_and_links_no_car(cli
     assert (response.json()["vehicleVin"], response.json()["vehicleId"]) == (OTHER_VIN, None)
 
 
+def test_a_configuration_linked_to_a_car_without_a_stored_vin_refuses_any_vin(client, db_session):
+    """A configuration that links a car names it even with its VIN missing
+    (no writer leaves that shape today; the guard does not rely on it): any
+    VIN sent beside it is refused, its own included, and with none sent the
+    valuation takes the configuration's car and no VIN."""
+
+    tenant_id = uuid.uuid4()
+    configuration = _configuration_of_a_known_car(client, db_session, tenant_id)
+    stored = db_session.get(VehicleConfiguration, uuid.UUID(configuration["id"]))
+    stored.vin = None
+    db_session.commit()
+
+    for vin in (OTHER_VIN, CONFIGURATION_VIN):
+        refused = _post_valuation(client, tenant_id, configuration["id"], vin=vin)
+        assert refused.status_code == 422, refused.text
+        assert refused.json()["error"]["details"]["reason"] == "vin_differs_from_configuration"
+    assert _valuation_count(db_session) == 0
+
+    accepted = _post_valuation(client, tenant_id, configuration["id"])
+    assert accepted.status_code == 201, accepted.text
+    assert (accepted.json()["vehicleVin"], accepted.json()["vehicleId"]) == (None, configuration["vehicleId"])
+
+
 def test_the_configurations_own_vin_in_any_spelling_is_accepted(client, db_session):
     tenant_id = uuid.uuid4()
     configuration = _configuration_of_a_known_car(client, db_session, tenant_id)

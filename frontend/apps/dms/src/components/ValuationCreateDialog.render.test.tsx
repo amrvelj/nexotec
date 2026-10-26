@@ -224,10 +224,11 @@ describe('ValuationCreateDialog — a pre-1981 chassis number (KAN-353)', () => 
   })
 })
 
-// KAN-449 (Anto, 2026-10-25) — with a configuration the VIN is the
-// configuration's: the dialog shows it read-only and sends no VIN of its own
-// beside the configuration, so the valuation cannot name one car by VIN and
-// another by id.
+// KAN-449 (Anto, 2026-10-25) — a configuration that names a car (a VIN or a
+// linked record) gives the valuation its VIN: the dialog shows it read-only
+// and sends no VIN of its own beside it, so the valuation cannot name one car
+// by VIN and another by id. A configuration with no VIN links no car, so the
+// VIN stays free to type (Anto, 2026-10-26, option A).
 describe("ValuationCreateDialog — the VIN of a configuration's valuation (KAN-449)", () => {
   const configuration = {
     id: 'cfg-1', tenantId: 't1', source: 'manual', mode: 'record', catalogueMatchStatus: 'unmatched',
@@ -256,6 +257,20 @@ describe("ValuationCreateDialog — the VIN of a configuration's valuation (KAN-
     expect(vinField(dialog)).toHaveAttribute('readonly')
     await user.type(vinField(dialog), 'X')
     expect(vinField(dialog)).toHaveValue('WVWZZZ1KZAW449001')
+    await submit(user, '18000')
+
+    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({ vin: null, configurationId: 'cfg-1' })
+  })
+
+  it('a configuration linked to a car without a stored VIN still keeps the VIN read-only', async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    const linkedOnly = { ...configuration, vin: null, vehicleId: 'veh-1' } as ConfigurationRead
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} configuration={linkedOnly} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(vinField(dialog)).toHaveAttribute('readonly')
     await submit(user, '18000')
 
     await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))

@@ -109,7 +109,7 @@ def get_connection_or_404(
 
 
 def get_connection_for_update_or_404(
-    db: Session, *, tenant_id: uuid.UUID | None, connection_id: uuid.UUID
+    db: Session, *, tenant_id: uuid.UUID | None, connection_id: uuid.UUID, deleting: bool = False
 ) -> IntegrationConnection:
     """KAN-429: `get_connection_or_404`, the row locked until the caller
     commits. Every route that checks If-Match against the connection loads
@@ -119,12 +119,14 @@ def get_connection_for_update_or_404(
     entitlements), and the secret routes take it the same way before they
     touch a secret ref, so the two never lock in opposite orders. FOR NO KEY
     UPDATE: it serialises the writers without blocking the call-log rows a
-    provider call inserts against the connection meanwhile. A function of
-    its own so the read above stays a read
+    provider call inserts against the connection meanwhile — except for a
+    delete (`deleting`), which takes FOR UPDATE, the lock its DELETE ends up
+    holding anyway, so such an insert waits instead of slipping in before
+    the row goes. A function of its own so the read above stays a read
     (tests/architecture/test_adr_047_no_shared_transaction.py)."""
 
     connection = db.scalar(
-        _connection_query(tenant_id=tenant_id, connection_id=connection_id).with_for_update(key_share=True)
+        _connection_query(tenant_id=tenant_id, connection_id=connection_id).with_for_update(key_share=not deleting)
     )
     if connection is None:
         raise NotFoundError(f"Connection {connection_id} was not found.")

@@ -234,7 +234,7 @@ def delete_connection(
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_for_update_or_404(
-        db, tenant_id=tenant_id, connection_id=connection_id
+        db, tenant_id=tenant_id, connection_id=connection_id, deleting=True
     )
     # KAN-396: a stale screen never deletes a connection someone just changed.
     check_version(connection.version, if_match, entity_name="IntegrationConnection")

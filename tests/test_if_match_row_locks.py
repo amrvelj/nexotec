@@ -16,9 +16,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, create_access_token
+from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
 from app.integration.services import connections as connection_service
 from app.integration.services import providers as provider_service
@@ -180,3 +183,48 @@ def test_a_save_with_the_same_if_match_waits_for_the_one_in_progress_and_is_refu
     response = result["response"]
     assert response.status_code == 409, response.text
     assert response.json()["error"]["details"] == {"currentVersion": case.version + 1, "ifMatchVersion": case.version}
+
+
+@_postgres_only_row_locks
+@pytest.mark.parametrize(("deleting", "child_insert_waits"), [(False, False), (True, True)])
+def test_a_save_lets_a_provider_call_log_its_row_and_a_delete_makes_it_wait(db_session, engine, deleting, child_insert_waits):
+    """FOR NO KEY UPDATE serialises the writers of a connection without
+    blocking the call-log row a provider call inserts against it meanwhile;
+    a delete takes FOR UPDATE, so that insert waits for the delete instead
+    of committing just before the row goes."""
+
+    tenant_id = uuid.uuid4()
+    provider = _make_provider(db_session)
+    connection = IntegrationConnection(
+        tenant_id=tenant_id, provider_id=provider.id, scope=ConnectionScope.TENANT, display_name="auto-i-dat",
+        environment=ConnectionEnvironment.SANDBOX,
+    )
+    db_session.add(connection)
+    db_session.commit()
+
+    holding = Session(bind=engine)
+    logging_call = Session(bind=engine)
+    try:
+        connection_service.get_connection_for_update_or_404(
+            holding, tenant_id=tenant_id, connection_id=connection.id, deleting=deleting
+        )
+        logging_call.execute(text("SET LOCAL lock_timeout = '300ms'"))
+        logging_call.add(
+            IntegrationCallLog(
+                connection_id=connection.id, tenant_id=tenant_id, capability="vehicle_data",
+                status=CallStatus.SUCCESS, duration_ms=12, correlation_id=uuid.uuid4(),
+            )
+        )
+        try:
+            logging_call.flush()
+            waited = False
+        except OperationalError:
+            waited = True
+        logging_call.rollback()
+    finally:
+        logging_call.close()
+        holding.rollback()
+        holding.close()
+
+    assert waited is child_insert_waits
+
