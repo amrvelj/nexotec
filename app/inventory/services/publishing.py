@@ -87,6 +87,28 @@ def get_or_create_publishing(db: Session, item: StockItem, channel: MarketplaceC
     )
     if existing is not None:
         return existing
+    return _create_publishing(db, item, channel)
+
+
+def get_or_create_publishing_for_update(
+    db: Session, item: StockItem, channel: MarketplaceChannel
+) -> StockItemPublishing:
+    """KAN-429: an existing row locked until the caller commits, so the
+    listing-text PATCH's If-Match check reads the version a concurrent save
+    has just committed, not the one before it. The publishing row is the
+    only row that route locks; publish and unpublish write that row alone."""
+
+    existing = db.scalar(
+        select(StockItemPublishing)
+        .where(StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel)
+        .with_for_update(key_share=True)
+    )
+    if existing is not None:
+        return existing
+    return _create_publishing(db, item, channel)
+
+
+def _create_publishing(db: Session, item: StockItem, channel: MarketplaceChannel) -> StockItemPublishing:
     row = StockItemPublishing(tenant_id=item.tenant_id, stock_item_id=item.id, channel=channel)
     db.add(row)
     db.flush()

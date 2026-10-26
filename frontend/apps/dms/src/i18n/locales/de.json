@@ -1495,6 +1495,8 @@
     "banner": "Ohne Kunde, ohne Offerte, ohne Fahrzeug im Bestand — jede Kombination ist möglich.",
     "vehicleSection": "Fahrzeug",
     "vin": "VIN",
+    "vinFromConfigurationHint": "Die VIN kommt aus der Konfiguration und kann hier nicht geändert werden.",
+    "vinDiffersFromConfiguration": "Die VIN weicht von der Konfiguration ab. Eine Bewertung aus einer Konfiguration übernimmt deren VIN.",
     "firstRegistration": "Erstinverkehrsetzung",
     "mileage": "Kilometerstand",
     "make": "Marke",

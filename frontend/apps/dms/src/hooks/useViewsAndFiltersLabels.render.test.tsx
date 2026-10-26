@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { describePredicate, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
 import i18n from '../i18n'
+import { buildCatalogueFilterFields } from '../catalogueOptions'
 import { useViewsAndFiltersLabels } from './useViewsAndFiltersLabels'
 
 // KAN-415 — a saved filter's text comes from the bundles, one template per
@@ -69,6 +70,30 @@ describe('useViewsAndFiltersLabels: saved-filter text from the bundles (KAN-415)
       for (const name of Object.values(result.current.filters.conditions)) {
         expect(name).not.toMatch(/MISSING|common\.filterBuilder/)
       }
+    }
+  })
+
+  // KAN-421 — a number filter's value reads as the grid shows it: the Swiss
+  // formatter (KAN-160), CHF for a field its definition declares as money
+  // (ADR-076), never guessed from the label. The catalogue's own fields.
+  it("a number filter's value is Swiss-formatted; the catalogue's list price reads in CHF, in de and fr", async () => {
+    const expected = {
+      de: ["Listenpreis: mehr als CHF 40'000.00", "Hubraum (cm³): mehr als 40'000", 'Baujahr ab: mehr als 2019'],
+      fr: [
+        "Prix catalogue : plus de CHF 40'000.00",
+        "Cylindrée (cm³) : plus de 40'000",
+        'Année de production dès : plus de 2019',
+      ],
+    }
+    for (const lng of ['de', 'fr'] as const) {
+      await i18n.changeLanguage(lng)
+      const fields = buildCatalogueFilterFields(i18n.t.bind(i18n), undefined, (_list, code) => code)
+      const field = (id: string) => fields.find((f) => f.id === id)!
+      expect([
+        text({ type: 'number', condition: 'greaterThan', value: 40000 }, field('basePrice')),
+        text({ type: 'number', condition: 'greaterThan', value: 40000 }, field('displacementCcm')),
+        text({ type: 'number', condition: 'greaterThan', value: 2019 }, field('modelYearFrom')),
+      ]).toEqual(expected[lng])
     }
   })
 })

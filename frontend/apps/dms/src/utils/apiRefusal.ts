@@ -39,6 +39,7 @@ const REASON_KEYS: Record<string, string> = {
   trade_in_valuation_expired: 'contractDetail.errors.confirmRefused.tradeInValuationExpired',
   unknown_reference_code: 'business.errors.unknownReferenceCode',
   vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
+  vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
   ...Object.fromEntries(
     [
       'accept_invitation_required',

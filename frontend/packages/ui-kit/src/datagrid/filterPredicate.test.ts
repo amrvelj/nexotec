@@ -79,7 +79,22 @@ describe('describePredicate', () => {
     const contains: FilterPredicate = { id: '2', fieldId: 'name', type: 'text', condition: 'contains', value: 'Muller' }
     const greater: FilterPredicate = { id: '3', fieldId: 'price', type: 'number', condition: 'greaterThan', value: 40000 }
     expect(describePredicate(contains, nameField, FR_CONDITION_LABELS)).toBe('Nom : contient Muller')
-    expect(describePredicate(greater, priceField, FR_CONDITION_LABELS)).toBe('Prix : plus de 40000')
+    expect(describePredicate(greater, priceField, FR_CONDITION_LABELS)).toBe("Prix : plus de 40'000")
+  })
+
+  // KAN-421 — a number reads as the grid shows it (KAN-160, one Swiss
+  // formatter); a field declared as money reads CHF 40'000.00 (ADR-076), a
+  // year stays ungrouped. The field says which, never its label.
+  it('formats a number value Swiss style, as money or ungrouped when the field declares it', () => {
+    const greater: FilterPredicate = { id: '3', fieldId: 'price', type: 'number', condition: 'greaterThan', value: 40000 }
+    const decimal: FilterPredicate = { id: '3b', fieldId: 'price', type: 'number', condition: 'lessThan', value: 1234.5 }
+    const chfField: FilterFieldDef = { ...priceField, numberFormat: 'chf' }
+    const yearField: FilterFieldDef = { id: 'modelYearFrom', label: 'Année', type: 'number', numberFormat: 'ungrouped' }
+    const year: FilterPredicate = { id: '3c', fieldId: 'modelYearFrom', type: 'number', condition: 'equals', value: 2024 }
+
+    expect(describePredicate(decimal, priceField, FR_CONDITION_LABELS)).toBe("Prix : moins de 1'234.5")
+    expect(describePredicate(greater, chfField, FR_CONDITION_LABELS)).toBe("Prix : plus de CHF 40'000.00")
+    expect(describePredicate(year, yearField, FR_CONDITION_LABELS)).toBe('Année : exactement 2024')
   })
 
   it('hands the day count to the N-days template', () => {

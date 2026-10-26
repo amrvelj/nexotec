@@ -403,8 +403,10 @@ def test_a_valuation_on_a_chassis_configuration_is_judged_on_the_date_it_stores(
 
 def test_a_valuation_with_a_chassis_number_never_links_its_configurations_car(client, db_session):
     """The reviewer's probe 2: the configuration links a real car by its VIN;
-    the valuation sends a chassis number (and 1975). The valuation keeps the
-    chassis number and links no vehicle-mdm record."""
+    the valuation sends a chassis number (and 1975). Since KAN-449 (Anto,
+    2026-10-25) a valuation built from a configuration takes the
+    configuration's VIN, so a chassis number beside it is refused — and the
+    refusal stores no valuation, so none links the configuration's car."""
 
     seed_manual_coded_lists(db_session)
     vehicle = _known_car(db_session)
@@ -414,8 +416,9 @@ def test_a_valuation_with_a_chassis_number_never_links_its_configurations_car(cl
 
     response = _post_valuation_on(client, tenant_id, configuration["id"], vin=CHASSIS)
 
-    assert response.status_code == 201, response.text
-    assert (response.json()["vehicleVin"], response.json()["vehicleId"]) == (CHASSIS_STORED, None)
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["reason"] == "vin_differs_from_configuration"
+    assert db_session.scalar(select(func.count()).select_from(Valuation)) == 0
 
 
 def test_a_configuration_patch_judges_the_chassis_number_against_the_stored_registration(client, db_session):

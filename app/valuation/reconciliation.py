@@ -1,11 +1,12 @@
-"""Valuation's outbound cross-context references (WP-8 PR-5), and (KAN-115)
-the «Verwendet» stamp against the signed contracts behind it. Everything
-here is read-only — see app.core.reconciliation for the mechanism.
+"""Valuation's outbound cross-context references (WP-8 PR-5), (KAN-115)
+the «Verwendet» stamp against the signed contracts behind it, and (KAN-449)
+the VIN a valuation prints against the vehicle its vehicleId names.
+Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
 import datetime as dt
 
-from sqlalchemy import Exists, select
+from sqlalchemy import Exists, func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -93,6 +94,27 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         where=lambda: Valuation.used_at.is_not(None)
         & (Valuation.used_at < utcnow() - _CONFIRMATION_GRACE)
         & ~_carried_by_a_signed_contract(),
+    ),
+    StateCheck(
+        # KAN-449: a valuation names its car twice, by vehicleId and by the
+        # VIN it prints. Before KAN-449 a VIN sent beside a configuration was
+        # stored as sent while vehicleId stayed the configuration's; a row
+        # left that way is reported here, never repaired (the row is never
+        # edited, ADR-066). A row without a VIN, or without a vehicle, names
+        # its car only once and is not a finding.
+        label="valuation.vehicle_vin differs from its vehicle_mdm.vin",
+        source_model=Valuation,
+        source_row_id_column=Valuation.id,
+        where=lambda: select(VehicleMdm.id)
+        .where(
+            VehicleMdm.id == Valuation.vehicle_id,
+            Valuation.vehicle_vin.is_not(None),
+            # vehicle-mdm stores a VIN upper-cased; an old valuation row may
+            # not (FR-V-15), and a spelling is not a different car. (17
+            # characters leave no room for a space in a VIN.)
+            VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
+        )
+        .exists(),
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

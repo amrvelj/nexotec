@@ -12,6 +12,7 @@ import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCar
 import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
 import { vinRefusalKey } from '../utils/vin'
+import { useFieldHint } from '../hooks/useFieldHint'
 import { apiRefusalText } from '../utils/apiRefusal'
 
 export interface ValuationCreateDialogProps {
@@ -44,6 +45,7 @@ const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
  */
 export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, configuration = null }: ValuationCreateDialogProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   // KAN-266: one key per submission — a retry after a failure gets the
   // first answer back; another valuation, or another opening, gets a new key.
   // A success does not renew it: both hosts close the dialog once they have
@@ -56,6 +58,10 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
   }, [opened, idempotency])
 
   const c = configuration
+  // KAN-449 (Anto, 2026-10-25): a configuration that names a car (by VIN or
+  // linked record) gives the valuation its VIN — shown read-only, never sent
+  // beside it. One with no VIN links no car, so the VIN stays free to type.
+  const vinFromConfiguration = Boolean(c && (c.vin || c.vehicleId))
   const [vin, setVin] = useState(c?.vin ?? supersedes?.vehicleVin ?? '')
   const [make, setMake] = useState(c?.brandDisplayName ?? supersedes?.vehicleMake ?? '')
   const [model, setModel] = useState(c?.modelGroupName ?? supersedes?.vehicleModel ?? '')
@@ -120,7 +126,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
     setVinError(null)
     try {
       const body: ValuationCreate = {
-        vin: vin || null,
+        vin: vinFromConfiguration ? null : vin || null,
         vehicleMake: make || null,
         vehicleModel: model || null,
         vehicleTrim: trim || null,
@@ -171,8 +177,11 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
             {configuration && <ConfigurationSummaryCard configuration={configuration} />}
             <Group grow>
               <TextInput
-                label={t('valuationCreate.vin')}
+                {...(vinFromConfiguration
+                  ? hint(t('valuationCreate.vin'), t('valuationCreate.vinFromConfigurationHint'))
+                  : { label: t('valuationCreate.vin') })}
                 value={vin}
+                readOnly={vinFromConfiguration}
                 onChange={(e) => {
                   setVin(e.currentTarget.value.toUpperCase())
                   setVinError(null)

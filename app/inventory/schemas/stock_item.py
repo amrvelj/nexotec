@@ -16,8 +16,10 @@ refused (KAN-324, Anto's option A), never stored unverified.
 import datetime as dt
 import uuid
 from decimal import Decimal
+from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticCustomError
 
 from app.core.schemas import CamelModel
@@ -88,6 +90,18 @@ class StockItemUpdate(CamelModel):
     list_price: Decimal | None = None
     effective_price: Decimal | None = None
     first_registration_date: dt.date | None = None
+
+    @field_validator("vehicle_label", "condition")
+    @classmethod
+    def _not_null_column_not_cleared(cls, value: Any, info: ValidationInfo) -> Any:
+        # KAN-441 (KAN-394's pattern): both columns are NOT NULL on the
+        # model. A field validator runs only for a key the body sends, so
+        # `None` here is an explicit null — a malformed request (422 naming
+        # the field), not a NotNullViolation at the flush (a 500). Leaving
+        # the key out keeps the value.
+        if value is None:
+            raise ValueError(f"{to_camel(info.field_name or '')} cannot be cleared — send a value or leave the field out.")
+        return value
 
 
 class StockItemRead(CamelModel):

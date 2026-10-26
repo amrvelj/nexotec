@@ -46,7 +46,7 @@ def update_provider(
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    provider = provider_service.get_provider_or_404(db, provider_id)
+    provider = provider_service.get_provider_for_update_or_404(db, provider_id)
     check_version(provider.version, if_match, entity_name="IntegrationProvider")
     provider = provider_service.update_provider(db, provider=provider, data=body)
     return ProviderRead.model_validate(provider, from_attributes=True)

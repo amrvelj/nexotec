@@ -45,12 +45,18 @@ export function isVinRefusal(err: unknown): boolean {
 
 /**
  * KAN-353: the translation key for a refused `vin`, or null when the API
- * refused something else — the strict VIN rule (`isVinRefusal`), or a chassis
- * number sent without a first registration before 1981.
+ * refused something else — the strict VIN rule (`isVinRefusal`), a chassis
+ * number sent without a first registration before 1981, or (KAN-449) a VIN
+ * that differs from the configuration's.
  */
 export function vinRefusalKey(err: unknown): string | null {
   if (err instanceof ApiError && err.status === 422 && err.details?.reason === 'chassis_number_requires_pre_1981_registration') {
     return 'common.chassisNumberNeedsPre1981'
+  }
+  // KAN-449: a valuation built from a configuration takes its VIN. The
+  // dialog sends none beside a configuration; any other caller is told why.
+  if (err instanceof ApiError && err.status === 422 && err.details?.reason === 'vin_differs_from_configuration') {
+    return 'valuationCreate.vinDiffersFromConfiguration'
   }
   return isVinRefusal(err) ? 'common.invalidVin' : null
 }

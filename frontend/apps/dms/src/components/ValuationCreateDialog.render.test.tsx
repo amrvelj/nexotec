@@ -7,6 +7,7 @@ import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import { ValuationCreateDialog } from './ValuationCreateDialog'
+import type { ConfigurationRead } from '../api/types'
 
 // KAN-266 — the valuation create carries one Idempotency-Key per submission:
 // a retry after a failure keeps it, a corrected valuation or another opening
@@ -220,5 +221,115 @@ describe('ValuationCreateDialog — a pre-1981 chassis number (KAN-353)', () => 
 
     expect(await screen.findByText(i18n.t('common.chassisNumberNeedsPre1981'))).toBeInTheDocument()
     expect(screen.queryByText('Not a valid VIN. A chassis number ...')).toBeNull()
+  })
+})
+
+// KAN-449 (Anto, 2026-10-25) — a configuration that names a car (a VIN or a
+// linked record) gives the valuation its VIN: the dialog shows it read-only
+// and sends no VIN of its own beside it, so the valuation cannot name one car
+// by VIN and another by id. A configuration with no VIN links no car, so the
+// VIN stays free to type (Anto, 2026-10-26, option A).
+describe("ValuationCreateDialog — the VIN of a configuration's valuation (KAN-449)", () => {
+  const configuration = {
+    id: 'cfg-1', tenantId: 't1', source: 'manual', mode: 'record', catalogueMatchStatus: 'unmatched',
+    matchMethod: 'kontrollschild', catalogueVariantId: null, catalogueVariantLabel: null,
+    vehicleId: 'veh-1', vehicleLabel: null, vin: 'WVWZZZ1KZAW449001', stammnummer: null,
+    typeApprovalNumber: null, firstRegistrationDate: '2019-04-01', licencePlate: null, mileageKm: 42000,
+    brandDisplayName: 'Volkswagen', modelGroupName: 'Golf', variantName: 'Golf GTI', vehicleKind: null,
+    fuelType: null, bodyStyle: null, drivetrain: null, transmission: null, exteriorColour: null,
+    interiorColour: null, exteriorColourSurcharge: null, interiorColourSurcharge: null, wheels: null,
+    wheelsSurcharge: null, spec: {}, overriddenFields: [], options: [], notes: null, version: 1,
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  } as unknown as ConfigurationRead
+
+  const vinField = (dialog: HTMLElement) =>
+    within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('valuationCreate.vin')) })
+
+  it("shows the configuration's VIN read-only and sends none beside the configuration", async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    renderWithProviders(
+      <ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} configuration={configuration} />,
+    )
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(vinField(dialog)).toHaveValue('WVWZZZ1KZAW449001')
+    expect(vinField(dialog)).toHaveAttribute('readonly')
+    await user.type(vinField(dialog), 'X')
+    expect(vinField(dialog)).toHaveValue('WVWZZZ1KZAW449001')
+    await submit(user, '18000')
+
+    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({ vin: null, configurationId: 'cfg-1' })
+  })
+
+  it('a configuration linked to a car without a stored VIN still keeps the VIN read-only', async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    const linkedOnly = { ...configuration, vin: null, vehicleId: 'veh-1' } as ConfigurationRead
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} configuration={linkedOnly} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(vinField(dialog)).toHaveAttribute('readonly')
+    await submit(user, '18000')
+
+    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({ vin: null, configurationId: 'cfg-1' })
+  })
+
+  it('a configuration with no VIN links no car, so the VIN stays free to type and is sent', async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    const plateOnly = { ...configuration, vin: null, vehicleId: null } as ConfigurationRead
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} configuration={plateOnly} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(vinField(dialog)).not.toHaveAttribute('readonly')
+    await user.type(vinField(dialog), 'wvwzzz1kzaw449002')
+    await submit(user, '18000')
+
+    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({
+      vin: 'WVWZZZ1KZAW449002',
+      configurationId: 'cfg-1',
+    })
+  })
+
+  it('without a configuration the VIN stays free to type', async () => {
+    install()
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(vinField(dialog)).not.toHaveAttribute('readonly')
+  })
+
+  it("names a VIN the API refuses as not the configuration's in the UI language, in it", async () => {
+    await i18n.changeLanguage('it')
+    try {
+      const user = userEvent.setup()
+      installFakeBackend([
+        { method: 'GET', match: /^\/integrations\/capabilities\/valuation$/, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
+        {
+          method: 'POST',
+          match: /^\/valuations$/,
+          handler: () =>
+            status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: "The VIN differs from the configuration's.",
+                details: { field: 'vin', reason: 'vin_differs_from_configuration' },
+              },
+            }),
+        },
+      ])
+      renderWithProviders(
+        <ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} configuration={configuration} />,
+      )
+      await submit(user, '18000')
+
+      expect(await screen.findByText(i18n.t('valuationCreate.vinDiffersFromConfiguration'))).toBeInTheDocument()
+      expect(screen.queryByText("The VIN differs from the configuration's.")).toBeNull()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })
