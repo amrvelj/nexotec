@@ -5,10 +5,11 @@
 # cross-site to the browser and the cookie would never be attached.
 #
 # One-time manual steps after the first deploy (Render dashboard, this
-# service's Environment tab) — both are sync: false below on purpose, see
-# each var's comment. Note: the free instance type has no Shell tab (that's
-# a paid-tier feature), so both steps go through Environment vars, not a
-# shell session — each save triggers Render's own auto-redeploy.
+# service's Environment tab) — every one of them is sync: false below on
+# purpose, see each var's comment. Note: the free instance type has no Shell
+# tab (that's a paid-tier feature), so all of these steps go through
+# Environment vars, not a shell session — each save triggers Render's own
+# auto-redeploy.
 #   1. DMS_TAX_ID_ENCRYPTION_KEY — generate with:
 #        python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 #      Paste the output in. Must be a valid Fernet key, not an arbitrary
@@ -43,6 +44,10 @@
 #      the Render log, is refused in every deployed environment (KAN-397), so
 #      without this password no invitation or reset reaches anyone — the
 #      failure is a `mail_delivery_failed` auth event and an ERROR line.
+#   5. DMS_GOOGLE_PLACES_BROWSER_KEY — Nexotec's Google Places browser key
+#      (KAN-451, ADR-101), created and restricted by the runbook Notion ›
+#      Nexotec › Runbooks › Google Places go-live. Optional: while unset the
+#      address forms are plain inputs and Business › Adresseingabe says so.
 
 databases:
   - name: dms-staging-db
@@ -153,6 +158,20 @@ services:
       - key: DMS_PLATFORM_MAIL_SMTP_USERNAME
         value: mrvelj.anto@gmail.com
       - key: DMS_PLATFORM_MAIL_SMTP_PASSWORD
+        sync: false
+      # KAN-451 (ADR-101, KAN-37): Google Places Autocomplete on the address
+      # forms. Nexotec's browser key — public configuration, not a secret
+      # (its purpose is to reach the browser; what protects it is Google
+      # Cloud's restriction of the key to Places API (New) and to this
+      # origin — the origin half is unverified until the runbook's staging
+      # pick, step 7, since Google does not confirm website restrictions for
+      # Places API (New) on browser calls), but kept out of the repository
+      # like every credential. Pasted once in this service's Environment tab
+      # (Render ignores sync: false variables on a Blueprint update, so
+      # adding it here holds up no sync); unset, the feature is off
+      # everywhere and the Business screen says so. The step-by-step:
+      # Notion › Nexotec › Runbooks › Google Places go-live (step 5 above).
+      - key: DMS_GOOGLE_PLACES_BROWSER_KEY
         sync: false
 
   # ---------------------------------------------------------------------
