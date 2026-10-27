@@ -131,6 +131,22 @@ export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
   return narrowed.length > 0 ? narrowed : all;
 }
 
+/** The largest day count an N-days condition takes — the list endpoints'
+ * own bound (`le=36500`, about a hundred years; `app/customer/api/customers.py`). */
+export const MAX_FILTER_DAYS = 36500;
+
+/** The two date conditions that carry a day count. */
+export function takesDayCount(condition: FilterCondition | string): boolean {
+  return condition === "inTheLastDays" || condition === "moreThanDaysAgo";
+}
+
+/** A day count an endpoint accepts: a whole number from 1 to
+ * `MAX_FILTER_DAYS`. Anything else (0, a fraction, an empty field) the API
+ * refuses with a 422 (KAN-475). */
+export function isValidDayCount(days: unknown): days is number {
+  return typeof days === "number" && Number.isInteger(days) && days >= 1 && days <= MAX_FILTER_DAYS;
+}
+
 /**
  * The predicates a grid can honour: those whose field it offers, with the
  * field's type, under a condition the field offers — and only the first on
@@ -138,7 +154,9 @@ export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
  * predicate reaches a grid from its URL or a saved view, not only from the
  * builder (which replaces a field's filter) — one the grid does not apply
  * must neither be sent nor shown as an active filter, or the screen claims a
- * result it did not compute (KAN-458).
+ * result it did not compute (KAN-458). An N-days predicate with a day count
+ * the endpoint refuses is one of those (KAN-475): sent, it would show the
+ * grid's error state instead of a list.
  */
 export function offeredPredicates(predicates: FilterPredicate[], fields: FilterFieldDef[]): FilterPredicate[] {
   const byId = new Map(fields.map((f) => [f.id, f]));
@@ -147,6 +165,7 @@ export function offeredPredicates(predicates: FilterPredicate[], fields: FilterF
     const field = byId.get(p.fieldId);
     if (field === undefined || field.type !== p.type) return false;
     if (!conditionsForField(field).includes(p.condition as FilterCondition)) return false;
+    if (field.type === "date" && takesDayCount(p.condition) && !isValidDayCount(p.days)) return false;
     if (taken.has(field.id)) return false;
     taken.add(field.id);
     return true;

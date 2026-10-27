@@ -119,7 +119,8 @@
       "reset": "Réinitialiser",
       "setDefault": "Définir par défaut",
       "unsetDefault": "Ne plus utiliser par défaut",
-      "deleteView": "Supprimer la vue"
+      "deleteView": "Supprimer la vue",
+      "viewChanged": "Modifiée par rapport à la vue enregistrée"
     },
     "filterBuilder": {
       "addFilter": "Nouveau filtre…",
@@ -164,12 +165,18 @@
         "moreThanDaysAgo_other": "{{field}} : il y a plus de {{days, number}} jours"
       },
       "booleanTrue": "{{field}} : oui",
-      "booleanFalse": "{{field}} : non"
+      "booleanFalse": "{{field}} : non",
+      "dayCount": "Nombre de jours",
+      "invalidDayCount": "Saisissez un nombre entier de jours entre 1 et {{max, number}}."
     },
     "overlay": {
       "close": "Fermer"
     },
-    "fieldHintIcon": "Indication"
+    "fieldHintIcon": "Indication",
+    "inlineEdit": {
+      "saveFailed": "La modification n’a pas pu être enregistrée.",
+      "reload": "Recharger"
+    }
   },
   "apiRefusal": {
     "staleVersion": "Cet enregistrement a été modifié entre-temps. Rechargez-le et réessayez.",
@@ -178,21 +185,30 @@
     "invalid": "Certaines saisies ne sont pas valides. Vérifiez-les et réessayez.",
     "reasons": {
       "accept_invitation_required": "Un utilisateur invité devient actif en acceptant l’invitation — renvoyez plutôt l’invitation.",
-      "access_window_closed": "Votre accès à cette entreprise n’est pas ouvert en ce moment.",
+      "access_window_closed": "Votre accès à cette entreprise n’est pas ouvert en ce moment ({{window}}).",
+      "accounting_period_closed": "La période comptable de cette date est clôturée. Choisissez une date dans une période ouverte.",
       "already_revoked": "Ce compte connecté a déjà été déconnecté.",
       "catalogue_variant_missing": "La variante de catalogue de cette configuration n’existe plus.",
+      "category_automatic_only": "Cette catégorie est comptabilisée uniquement de manière automatique, jamais à la main.",
       "coded_field_locked": "Les champs codés d’une configuration de catalogue proviennent du catalogue et ne peuvent pas être modifiés.",
       "coded_field_required": "Les champs codés d’une configuration manuelle ne peuvent pas être vidés.",
       "coded_fields_required": "Une configuration manuelle nécessite les cinq champs codés.",
       "colleague_cannot_act_there": "Le collègue choisi ne travaille pas dans l’entreprise à laquelle appartient cet enregistrement.",
       "configuration_mode_fixed": "Le mode d’une configuration enregistrée ne peut pas être modifié — copiez-la plutôt dans une nouvelle configuration.",
       "configuration_mode_not_allowed": "Une configuration de ce type ne peut pas être utilisée ici.",
+      "customer_do_not_contact": "Le client {{customerNumber}} est marqué « ne pas contacter » et ne peut être associé à aucune offre ni à aucun contrat.",
       "customer_tag_exists": "Une étiquette de cette modification figure déjà chez le client — il a été modifié entre-temps. Rechargez-le et réessayez.",
+      "discount_suppressed_on_used_vehicle": "Sur un véhicule d’occasion, une remise par ligne est supprimée par défaut. Pour l’accorder malgré tout, indiquez un motif.",
       "duplicate_connection": "Une connexion à ce fournisseur dans cet environnement existe déjà.",
+      "email_already_on_customer": "Cette adresse e-mail figure déjà chez ce client.",
+      "external_id_taken": "Ce système a déjà un identifiant externe chez ce client, ou cet identifiant externe est déjà attribué à un autre client dans le même système.",
       "invalid_new_price": "La meilleure correspondance nécessite le prix neuf.",
       "invalid_type_approval_number": "La meilleure correspondance nécessite la réception par type.",
+      "last_usable_contact_point": "Un client conserve au moins un numéro de téléphone ou une adresse e-mail valable. Ajoutez-en d’abord un autre.",
       "legacy_sale": "Ce contrat a été repris de l’ancien système, qui l’a traité — il ne peut pas être modifié ici.",
       "merged_party_row": "Cette ligne est la copie conservée par une fusion de clients ; elle ne peut pas reprendre son rôle.",
+      "missing_config_fields": "Des informations obligatoires manquent pour cette connexion : {{fields}}.",
+      "missing_containers": "L’offre n’est pas encore complète. Il manque : {{containers}}.",
       "missing_price": "Ce contrat n’a pas encore de prix. Complétez d’abord la composition du prix.",
       "missing_vehicle": "Ce contrat n’a pas encore de véhicule. Ajoutez d’abord un véhicule.",
       "no_catalogue_variant": "Une configuration sans variante de catalogue ne peut pas être resynchronisée.",
@@ -202,13 +218,26 @@
       "not_active": "Seul un utilisateur actif peut être suspendu.",
       "nul_character": "La saisie contient un caractère non autorisé. Supprimez-le et réessayez.",
       "offer_already_contracted": "Cette offre a déjà un contrat ; seul un contrat annulé libère une offre.",
+      "passkey_key_not_accepted": "La clé de ce passkey ne répond pas à nos exigences de sécurité. Utilisez un autre authentificateur.",
+      "passkey_not_verified": "Le passkey n’a pas pu être vérifié. Veuillez réessayer.",
+      "phone_already_on_customer": "Ce numéro de téléphone figure déjà chez ce client.",
+      "primary_unset_directly": "Le marquage « principal » ne peut pas être retiré directement. Marquez une autre entrée comme principale.",
+      "provider_code_already_mapped": "Ce code fournisseur est déjà associé à {{mapping}}.",
+      "too_many_images": "Un véhicule en stock a au plus {{max, number}} images. Retirez d’abord une image.",
       "unknown_fields": "Certains des champs de spécification choisis sont inconnus.",
       "unrecognised_identifier": "La saisie n’est ni un VIN, ni une plaque, ni un numéro matricule, ni un Typenschein, ni un code usine.",
       "use_deactivate_endpoint": "Un utilisateur est désactivé par l’étape de désactivation, qui transfère ce qu’il détient encore.",
       "valuation_expired": "Cette évaluation a expiré.",
       "vehicle_left_stock": "Ce véhicule a déjà quitté le stock et ne peut pas être réservé.",
       "vehicle_not_purchased": "Le véhicule de ce contrat n’a pas encore été acheté — il pourra être facturé dès que le stock aura enregistré l’achat.",
-      "vin_already_in_stock": "Ce VIN est déjà en stock sous {{stockNumber}}."
+      "vin_already_in_stock": "Ce VIN est déjà en stock sous {{stockNumber}}.",
+      "wagenbuch_closed": "Ce véhicule est vendu : son Wagenbuch n’accepte plus de nouvelles écritures."
+    },
+    "accessWindow": {
+      "between": "valable du {{from}} au {{to}}",
+      "from": "valable dès le {{from}}",
+      "until": "valable jusqu’au {{to}}",
+      "none": "aucune période enregistrée"
     }
   },
   "customerCreate": {

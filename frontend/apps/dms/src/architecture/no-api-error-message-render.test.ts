@@ -24,13 +24,22 @@ import { fileURLToPath } from 'node:url'
 // read in the same file pass together; a reviewer still sees the diff.
 // KAN-437 converted the listed sites (`utils/apiRefusal.ts`); what is left
 // is a message the screens themselves built from t(...).
+//
+// KAN-473: the kit is scanned too (`packages/ui-kit/src`, its paths prefixed
+// `ui-kit/`) — a kit component that shows a caught error's `message` renders
+// the API's English under every screen that uses it, which the app's scan
+// alone cannot see (InlineEditField did, until it took `describeError`).
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const KIT_ROOT = join(SRC_ROOT, '..', '..', '..', 'packages', 'ui-kit', 'src')
 
 const ALLOWED: Record<string, number> = {
   // HostCommitError, always built from t(...) by its hosts — translated, so it
   // stays (KAN-437 converted every other site).
   'components/configurator/ConfiguratorOverlay.tsx': 2,
+  // FormDialogExistingRecordNotice.message — a field of the caller's notice,
+  // built from t(...) (VehicleCreateDialog), never an error.
+  'ui-kit/components/FormDialog.tsx': 1,
 }
 
 // Where an error is built, not shown: ApiError from the response body, and
@@ -68,12 +77,17 @@ function offendingLines(source: string): string[] {
 
 function scan(): Map<string, string[]> {
   const found = new Map<string, string[]>()
-  for (const file of collectFiles(SRC_ROOT)) {
-    if (/\.test\.tsx?$/.test(file)) continue
-    const relative = file.slice(SRC_ROOT.length + 1).split('\\').join('/')
-    if (EXEMPT.has(relative)) continue
-    const lines = offendingLines(readFileSync(file, 'utf-8'))
-    if (lines.length > 0) found.set(relative, lines)
+  for (const [root, prefix] of [
+    [SRC_ROOT, ''],
+    [KIT_ROOT, 'ui-kit/'],
+  ] as const) {
+    for (const file of collectFiles(root)) {
+      if (/\.test\.tsx?$/.test(file)) continue
+      const relative = prefix + file.slice(root.length + 1).split('\\').join('/')
+      if (EXEMPT.has(relative)) continue
+      const lines = offendingLines(readFileSync(file, 'utf-8'))
+      if (lines.length > 0) found.set(relative, lines)
+    }
   }
   return found
 }
@@ -93,8 +107,9 @@ describe("an API refusal is never rendered from the API's English message", () =
   it('lists no file with more allowed sites than it still has', () => {
     const found = scan()
     // An empty walk would pass the ratchet vacuously — the allow-list proves
-    // the screens were actually scanned.
+    // the screens, and the kit, were actually scanned.
     expect(found.size).toBeGreaterThan(0)
+    expect([...found.keys()].some((file) => file.startsWith('ui-kit/'))).toBe(true)
     const stale = Object.entries(ALLOWED)
       .filter(([file, allowed]) => (found.get(file)?.length ?? 0) < allowed)
       .map(([file, allowed]) => `${file}: ${found.get(file)?.length ?? 0} left, ${allowed} allowed — lower the entry`)

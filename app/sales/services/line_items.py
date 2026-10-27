@@ -69,7 +69,7 @@ def _apply_discount(
         raise ConflictError(
             f"A per-line discount on '{row.label}' is suppressed by default on a used vehicle — "
             "supply discountSuppressedReason to override.",
-            details={"lineItemId": str(row.id), "code": row.code},
+            details={"reason": "discount_suppressed_on_used_vehicle", "lineItemId": str(row.id), "code": row.code},
         )
     row.discount_type = discount_type if wants_discount else None
     row.discount_value = discount_value if wants_discount else None

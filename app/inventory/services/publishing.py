@@ -241,7 +241,7 @@ def add_media(db: Session, *, item: StockItem, url: str) -> StockItemMedia:
     if len(existing) >= 1 + MAX_ADDITIONAL_MEDIA:
         raise ConflictError(
             f"A stock item may carry at most {1 + MAX_ADDITIONAL_MEDIA} images (1 main + {MAX_ADDITIONAL_MEDIA} additional).",
-            details={"stockItemId": str(item.id)},
+            details={"reason": "too_many_images", "stockItemId": str(item.id), "maxImages": 1 + MAX_ADDITIONAL_MEDIA},
         )
     next_position = len(existing) + 1
     media = StockItemMedia(tenant_id=item.tenant_id, stock_item_id=item.id, position=next_position, url=url)

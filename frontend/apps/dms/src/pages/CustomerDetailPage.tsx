@@ -13,7 +13,7 @@ import {
   useSetBreadcrumb,
   type DetailTab,
 } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
@@ -49,7 +49,7 @@ import type {
   SalesOfferPage,
   SalesOfferRead,
 } from '../api/types'
-import { apiRefusalText } from '../utils/apiRefusal'
+import { apiRefusalText, isStaleVersion } from '../utils/apiRefusal'
 
 const DEFAULT_TAB = 'overview'
 
@@ -197,7 +197,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const label = customer ? (customer.customerType === 'business' ? customer.companyName : `${customer.firstName} ${customer.lastName}`) : null
   useSetBreadcrumb(embedded ? null : [t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
 
-  const isConflict = (err: unknown): boolean => err instanceof ApiError && err.status === 409
+  // KAN-473: only a stale If-Match 409 offers the reload.
+  const isConflict = isStaleVersion
 
   const saveField = async (patch: Partial<CustomerUpdateInput>) => {
     const current = customerQuery.data

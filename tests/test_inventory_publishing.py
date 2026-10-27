@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.auth import AccessRole, create_access_token
 from app.core.errors import BadRequestError, ConflictError
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState, StockItemMedia
@@ -154,3 +155,32 @@ def test_remove_media_closes_the_position_gap(db_session):
     remaining = list_media(db_session, tenant_id=tenant_id, stock_item_id=item.id)
     assert [m.id for m in remaining] == [first.id, third.id]
     assert [m.position for m in remaining] == [1, 2]
+
+
+def test_one_image_too_many_via_api_names_its_reason(client, db_session):
+    """KAN-472: the 409 carries `details.reason` and the limit, so the SPA can
+    say it in the user's language."""
+
+    tenant_id = uuid.uuid4()
+    item = _make_ready_item(db_session, tenant_id)
+    for i in range(16):
+        add_media(db_session, item=item, url=f"https://example.com/{i}.jpg")
+    token = create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        roles=frozenset({AccessRole.INVENTORY}),
+    )
+
+    response = client.post(
+        f"/v1/inventory/stock-items/{item.id}/media",
+        json={"url": "https://example.com/one-too-many.jpg"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {
+        "reason": "too_many_images",
+        "stockItemId": str(item.id),
+        "maxImages": 16,
+    }

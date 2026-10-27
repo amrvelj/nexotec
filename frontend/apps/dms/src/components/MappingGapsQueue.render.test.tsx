@@ -122,12 +122,18 @@ describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
     expect(call.body).toEqual({ canonicalListCode: 'fuel_type', canonicalValueCode: 'diesel' })
   })
 
+  // KAN-472: the refusal names its reason and the mapping already in place,
+  // so the sentence says what is wrong, not only that it failed.
   it('says a refused resolve in the UI language, never in the API\'s words, and keeps the dialog open', async () => {
     const user = userEvent.setup()
     installFakeBackend(
       resolveRoutes(() =>
         status(409, {
-          error: { code: 'conflict', message: "Provider code '17' is already mapped to fuel_type/petrol.", details: null },
+          error: {
+            code: 'conflict',
+            message: "Provider code '17' is already mapped to fuel_type/petrol.",
+            details: { reason: 'provider_code_already_mapped', canonicalListCode: 'fuel_type', canonicalValueCode: 'petrol' },
+          },
         }),
       ),
     )
@@ -136,9 +142,9 @@ describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
     const dialog = await chooseDiesel(user)
     await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      i18n.t('mappingGaps.resolveModal.error'),
-    )
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent(i18n.t('apiRefusal.reasons.provider_code_already_mapped', { mapping: 'fuel_type/petrol' }))
+    expect(alert).not.toHaveTextContent('Provider code')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 

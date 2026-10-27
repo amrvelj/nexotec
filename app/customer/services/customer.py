@@ -1654,7 +1654,8 @@ def create_customer_phone(
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError(
-            "This phone number is already on this customer.", details={"phoneE164": data.phone_e164}
+            "This phone number is already on this customer.",
+            details={"reason": "phone_already_on_customer", "phoneE164": data.phone_e164},
         ) from exc
 
     record_audit_event(
@@ -1711,7 +1712,8 @@ def update_customer_phone(
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError(
-            "This phone number is already on this customer.", details={"phoneE164": changes.get("phone_e164")}
+            "This phone number is already on this customer.",
+            details={"reason": "phone_already_on_customer", "phoneE164": changes.get("phone_e164")},
         ) from exc
 
     for type_value in groups_to_settle:
@@ -1778,7 +1780,8 @@ def _assert_not_last_contact_point(db: Session, row: CustomerPhone | CustomerEma
     if _usable_count(CustomerPhone) + _usable_count(CustomerEmail) == 0:
         raise BadRequestError(
             f"Cannot remove the last usable {removing} — a customer must keep at least one usable phone number or"
-            " email address."
+            " email address.",
+            details={"reason": "last_usable_contact_point"},
         )
 
 
@@ -1849,7 +1852,8 @@ def create_customer_email(
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError(
-            "This email address is already on this customer.", details={"emailAddress": data.email_address}
+            "This email address is already on this customer.",
+            details={"reason": "email_already_on_customer", "emailAddress": data.email_address},
         ) from exc
 
     record_audit_event(
@@ -1905,7 +1909,7 @@ def update_customer_email(
         db.rollback()
         raise ConflictError(
             "This email address is already on this customer.",
-            details={"emailAddress": changes.get("email_address")},
+            details={"reason": "email_already_on_customer", "emailAddress": changes.get("email_address")},
         ) from exc
 
     for type_value in groups_to_settle:
@@ -2036,7 +2040,8 @@ def _prepare_primary_change(
             _unset_other_primaries(db, model, customer_id=row.customer_id, type_value=new_type)
     elif changes.get("is_primary") is False and row.is_primary:
         raise BadRequestError(
-            f"Cannot unset the primary {noun} directly — mark a different {noun} as primary instead."
+            f"Cannot unset the primary {noun} directly — mark a different {noun} as primary instead.",
+            details={"reason": "primary_unset_directly"},
         )
     elif moves and row.is_primary:
         target_primaries: list[Any] = list(
@@ -2391,7 +2396,7 @@ def create_customer_external_id(
         raise ConflictError(
             "This system already has an external ID on this customer, or this external ID is already"
             " used under this system for another customer in this dealer.",
-            details={"systemName": data.system_name, "externalId": data.external_id},
+            details={"reason": "external_id_taken", "systemName": data.system_name, "externalId": data.external_id},
         ) from exc
 
     record_audit_event(
@@ -2425,7 +2430,7 @@ def update_customer_external_id(
         raise ConflictError(
             "This system already has an external ID on this customer, or this external ID is already"
             " used under this system for another customer in this dealer.",
-            details={"systemName": row.system_name, "externalId": row.external_id},
+            details={"reason": "external_id_taken", "systemName": row.system_name, "externalId": row.external_id},
         ) from exc
 
     record_audit_event(

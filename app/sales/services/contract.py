@@ -109,7 +109,8 @@ def create_contract(
         customer = get_customer_or_404(db, group_id, customer_id)
         if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
             raise ConflictError(
-                f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract."
+                f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract.",
+                details={"reason": "customer_do_not_contact", "customerNumber": customer.customer_number},
             )
 
     if offer is not None:

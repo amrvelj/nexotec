@@ -3,8 +3,9 @@ import { Alert, Badge, Button, Group, Select, Stack } from '@mantine/core'
 import { UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, useOverlay } from '@nexotec/ui-kit'
-import { ApiError } from '../../api/client'
+import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatDateOnly } from '../../utils/format'
 import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
 import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
@@ -55,7 +56,7 @@ export function IdentityTab({
   const [allocationError, setAllocationError] = useState<string | null>(null)
   const [role, setRole] = useState<VehiclePartyRole>('owner')
   const [showFormer, setShowFormer] = useState(false)
-  const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
+  const { describeError, reloadLabel } = useInlineEditRefusal()
   const overlay = useOverlay()
 
   // KAN-269 (ADR-035): a failed allocation leaves the picker open with the
@@ -110,8 +111,10 @@ export function IdentityTab({
           <InlineEditField
             value={vehicle.vin}
             onSave={(v) => onSaveField({ vin: v.toUpperCase() })}
-            isConflict={isConflict}
+            describeError={describeError}
+            isConflict={isStaleVersion}
             onReload={onReload}
+            reloadLabel={reloadLabel}
           />
         </KeyValueRow>
         <KeyValueRow label={t('vehicleDetail.identity.vehicleNumber')}>
@@ -123,8 +126,10 @@ export function IdentityTab({
             isEmpty={!vehicle.stammnummer}
             emptyLabel={t('common.notSet')}
             onSave={(v) => onSaveField({ stammnummer: v || null })}
-            isConflict={isConflict}
+            describeError={describeError}
+            isConflict={isStaleVersion}
             onReload={onReload}
+            reloadLabel={reloadLabel}
           />
         </KeyValueRow>
         <KeyValueRow label={t('vehicleDetail.identity.typeApprovalNumber')}>
@@ -133,8 +138,10 @@ export function IdentityTab({
             isEmpty={!vehicle.typeApprovalNumber}
             emptyLabel={t('common.notSet')}
             onSave={(v) => onSaveField({ typeApprovalNumber: v || null })}
-            isConflict={isConflict}
+            describeError={describeError}
+            isConflict={isStaleVersion}
             onReload={onReload}
+            reloadLabel={reloadLabel}
           />
         </KeyValueRow>
         <KeyValueRow label={t('vehicleDetail.identity.firstRegistrationDate')}>
@@ -144,8 +151,10 @@ export function IdentityTab({
             isEmpty={!vehicle.firstRegistrationDate}
             emptyLabel={t('common.notSet')}
             onSave={(v) => onSaveField({ firstRegistrationDate: v || null })}
-            isConflict={isConflict}
+            describeError={describeError}
+            isConflict={isStaleVersion}
             onReload={onReload}
+            reloadLabel={reloadLabel}
           />
         </KeyValueRow>
         <KeyValueRow label={t('vehicleDetail.identity.matchStatus')}>

@@ -951,6 +951,34 @@ def test_duplicate_phone_on_same_customer_is_conflict(client):
         headers=_bearer(token),
     )
     assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "phone_already_on_customer"
+
+
+def test_changing_a_phone_to_a_number_already_on_the_customer_is_conflict(client):
+    """KAN-472: the update path names the same refusal as the create path."""
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="phones4b@example.ch")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791234567"},
+        headers=_bearer(token),
+    )
+    other = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "work", "phoneE164": "+41442222222"},
+        headers=_bearer(token),
+    ).json()
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{other['id']}",
+        json={"phoneE164": "+41791234567"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 409, response.text
+    details = response.json()["error"]["details"]
+    assert details["reason"] == "phone_already_on_customer"
+    assert details["phoneE164"] == "+41791234567"
 
 
 def test_delete_phone(client):
@@ -994,6 +1022,15 @@ def test_customer_email_crud_and_primary_flag(client):
         headers=_bearer(token),
     )
     assert dup.status_code == 409
+    assert dup.json()["error"]["details"]["reason"] == "email_already_on_customer"
+
+    dup_by_update = client.patch(
+        f"/v1/customers/{customer['id']}/emails/{first['id']}",
+        json={"emailAddress": "work@example.ch"},
+        headers=_bearer(token),
+    )
+    assert dup_by_update.status_code == 409, dup_by_update.text
+    assert dup_by_update.json()["error"]["details"]["reason"] == "email_already_on_customer"
 
     update = client.patch(
         f"/v1/customers/{customer['id']}/emails/{first['id']}",
@@ -1230,6 +1267,7 @@ def test_external_id_unique_per_tenant_system_and_external_id(client):
         headers=_bearer(admin_token),
     )
     assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "external_id_taken"
 
 
 def test_external_id_one_per_system_per_customer(client):
@@ -1247,6 +1285,33 @@ def test_external_id_one_per_system_per_customer(client):
         headers=_bearer(admin_token),
     )
     assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "external_id_taken"
+
+
+def test_external_id_update_onto_a_taken_external_id_is_conflict(client):
+    """KAN-472: the update path names the same refusal as the create path."""
+
+    dealer_id = _create_dealer(client)
+    customer_a = _create_customer(client, dealer_id, email="ext5a@example.ch")
+    customer_b = _create_customer(client, dealer_id, email="ext5b@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/customers/{customer_a['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-TAKEN"},
+        headers=_bearer(admin_token),
+    )
+    row = client.post(
+        f"/v1/customers/{customer_b['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-FREE"},
+        headers=_bearer(admin_token),
+    ).json()
+    response = client.patch(
+        f"/v1/customers/{customer_b['id']}/external-ids/{row['id']}",
+        json={"externalId": "SF-TAKEN"},
+        headers=_bearer(admin_token),
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["reason"] == "external_id_taken"
 
 
 def test_external_ids_across_different_tenants_can_collide(client):

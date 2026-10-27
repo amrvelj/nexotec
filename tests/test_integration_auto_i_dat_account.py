@@ -95,6 +95,30 @@ def test_auto_i_dat_connection_without_benutzer_nr_is_refused(db_session):
             actor_id=uuid.uuid4(),
         )
     assert "benutzerNr" in str(excinfo.value.details["missingConfigKeys"])
+    assert excinfo.value.details["reason"] == "missing_config_fields"
+
+
+def test_auto_i_dat_connection_without_benutzer_nr_via_api_names_its_reason(client, db_session):
+    """KAN-472: through the route, the 422 carries a stable `details.reason`
+    beside the missing keys."""
+
+    from tests.test_integration_idempotency import _headers, _manager_token
+
+    provider = _make_auto_i_dat_provider(db_session)
+    response = client.post(
+        "/v1/integrations/connections",
+        json={
+            "providerId": str(provider.id),
+            "displayName": "Test",
+            "environment": "sandbox",
+            "config": {"username": "efdealer"},
+        },
+        headers=_headers(_manager_token()),
+    )
+    assert response.status_code == 422, response.text
+    details = response.json()["error"]["details"]
+    assert details["reason"] == "missing_config_fields"
+    assert "benutzerNr" in details["missingConfigKeys"]
 
 
 def test_auto_i_dat_connection_with_full_account_shape_succeeds(db_session):

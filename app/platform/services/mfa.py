@@ -492,11 +492,19 @@ def _is_ed25519_point(encoded: bytes) -> bool:
 def register_passkey(
     db: Session, *, user: User, credential: dict, challenge: bytes, label: str, ip_address: str
 ) -> MfaPasskey:
-    refusal = UnprocessableEntityError("The passkey could not be verified.", details={"factor": "passkey"})
+    # One message and status for both (KAN-472); `details.reason` tells the
+    # client's answer the library could not verify apart from a verified key
+    # the policy below refuses.
+    not_verified = UnprocessableEntityError(
+        "The passkey could not be verified.", details={"factor": "passkey", "reason": "passkey_not_verified"}
+    )
+    key_not_accepted = UnprocessableEntityError(
+        "The passkey could not be verified.", details={"factor": "passkey", "reason": "passkey_key_not_accepted"}
+    )
     if not _well_formed_client_answer(credential, response_fields=("attestationObject",)):
-        raise refusal
+        raise not_verified
     if not _well_formed_attestation(credential["response"]):
-        raise refusal
+        raise not_verified
     try:
         verified = verify_registration_response(
             credential=credential,
@@ -509,7 +517,7 @@ def register_passkey(
         # certificates are passed, so nothing server-side is judged here): a
         # forged or malformed one is a 422, never a 500, whichever of the
         # library's exceptions names the defect.
-        raise refusal from exc
+        raise not_verified from exc
     # A `none` attestation only decodes the key and checks `alg`. A COSE key
     # that decodes but cannot be loaded (a point off the curve, integer
     # coordinates, an unsupported curve), or that no signature could ever
@@ -524,11 +532,11 @@ def register_passkey(
         decoded = decode_credential_public_key(verified.credential_public_key)
         key = decoded_public_key_to_cryptography(decoded)
     except (WebAuthnException, ValueError, TypeError) as exc:
-        raise refusal from exc
+        raise key_not_accepted from exc
     if not _key_can_sign_in(key, decoded.alg):
-        raise refusal
+        raise key_not_accepted
     if len(verified.credential_id) > CREDENTIAL_ID_MAX_BYTES:
-        raise refusal
+        raise key_not_accepted
     transports = credential["response"].get("transports")
     known = {transport.value for transport in AuthenticatorTransport}
     row = MfaPasskey(

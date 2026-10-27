@@ -21,7 +21,8 @@ import { useTranslation } from 'react-i18next'
 import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
-import { apiRefusalText, refusedField } from '../utils/apiRefusal'
+import { apiRefusalText, isStaleVersion, refusedField } from '../utils/apiRefusal'
+import { useInlineEditRefusal } from '../hooks/useInlineEditRefusal'
 import type { ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
 import { fetchAllReferenceValues } from '../hooks/useReferenceValueOptions'
@@ -32,8 +33,6 @@ import {
   referenceRowMatchesQuery,
 } from '../utils/referenceData'
 
-const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
-
 // KAN-59: the endpoint caps a page at 100 (Settings.pagination_max_limit) —
 // `country` alone is ~250 rows, so a single `limit=200` request 422s. This
 // admin screen's whole point is "see every value in this list to edit it,"
@@ -43,6 +42,7 @@ const isConflict = (err: unknown) => err instanceof ApiError && err.status === 4
 
 export function ReferenceDataPage() {
   const { t } = useTranslation()
+  const { describeError, reloadLabel } = useInlineEditRefusal()
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -216,8 +216,10 @@ export function ReferenceDataPage() {
                               value={row[field]}
                               isEmpty={empty}
                               emptyLabel={t('referenceData.required')}
-                              isConflict={isConflict}
+                              describeError={describeError}
+                              isConflict={isStaleVersion}
                               onReload={() => void refetch()}
+                              reloadLabel={reloadLabel}
                               onSave={async (raw) => {
                                 await patchLabel.mutateAsync({ row, field, value: raw })
                               }}

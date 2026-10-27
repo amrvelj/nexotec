@@ -20,6 +20,7 @@ import {
 import { formatCurrencyChf, formatDate, formatDateOnly } from '../../utils/format'
 import type { CountryOption } from '../../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
+import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
 import { AddressSearchField } from '../AddressSearchField'
@@ -68,6 +69,9 @@ interface FieldProps {
   onSaveField: OverviewTabProps['onSaveField']
   isConflict: OverviewTabProps['isConflict']
   onReload: OverviewTabProps['onReload']
+  // KAN-473: the refused save's sentence and the reload label, in the UI language.
+  describeError: (err: unknown) => string
+  reloadLabel: string
   locale: string
   emptyLabel: string
 }
@@ -79,6 +83,8 @@ function TextField({
   onSaveField,
   isConflict,
   onReload,
+  describeError,
+  reloadLabel,
   emptyLabel,
 }: FieldProps & { label: string; value: string | null; patchKey: keyof CustomerUpdateInput }) {
   return (
@@ -88,8 +94,10 @@ function TextField({
         isEmpty={!value}
         emptyLabel={emptyLabel}
         onSave={(raw) => onSaveField({ [patchKey]: raw.trim() || null } as Partial<CustomerUpdateInput>)}
+        describeError={describeError}
         isConflict={isConflict}
         onReload={onReload}
+        reloadLabel={reloadLabel}
       />
     </KeyValueRow>
   )
@@ -102,6 +110,8 @@ function DateField({
   onSaveField,
   isConflict,
   onReload,
+  describeError,
+  reloadLabel,
   locale,
   emptyLabel,
 }: FieldProps & { label: string; value: string | null; patchKey: keyof CustomerUpdateInput }) {
@@ -113,8 +123,10 @@ function DateField({
         emptyLabel={emptyLabel}
         editValue={value ?? ''}
         onSave={(raw) => onSaveField({ [patchKey]: raw || null } as Partial<CustomerUpdateInput>)}
+        describeError={describeError}
         isConflict={isConflict}
         onReload={onReload}
+        reloadLabel={reloadLabel}
         renderEditor={({ value: v, onChange, onKeyDown, onBlur, autoFocus }) => (
           <input
             type="date"
@@ -144,6 +156,8 @@ function SelectField({
   onSaveField,
   isConflict,
   onReload,
+  describeError,
+  reloadLabel,
   emptyLabel,
 }: FieldProps & { label: string; value: string | null; options: { value: string; label: string }[]; patchKey: keyof CustomerUpdateInput; clearable?: boolean }) {
   const displayLabel = options.find((o) => o.value === value)?.label
@@ -155,8 +169,10 @@ function SelectField({
         emptyLabel={emptyLabel}
         editValue={value ?? ''}
         onSave={(raw) => onSaveField({ [patchKey]: raw || null } as Partial<CustomerUpdateInput>)}
+        describeError={describeError}
         isConflict={isConflict}
         onReload={onReload}
+        reloadLabel={reloadLabel}
         renderEditor={({ value: v, onCommit, autoFocus }) => (
           <Select
             data={options}
@@ -228,6 +244,8 @@ function MoneyField({
   onSaveField,
   isConflict,
   onReload,
+  describeError,
+  reloadLabel,
   emptyLabel,
 }: FieldProps & { label: string; value: string | null; patchKey: keyof CustomerUpdateInput }) {
   const asNumber = value != null && value !== '' ? Number(value) : null
@@ -239,8 +257,10 @@ function MoneyField({
         emptyLabel={emptyLabel}
         editValue={value ?? ''}
         onSave={(raw) => onSaveField({ [patchKey]: raw.trim() || null } as Partial<CustomerUpdateInput>)}
+        describeError={describeError}
         isConflict={isConflict}
         onReload={onReload}
+        reloadLabel={reloadLabel}
         renderEditor={chfEditor}
       />
     </KeyValueRow>
@@ -474,7 +494,8 @@ export function OverviewTab({
   locale,
 }: OverviewTabProps) {
   const { t } = useTranslation()
-  const fieldProps: FieldProps = { onSaveField, isConflict, onReload, locale, emptyLabel: t('customerDetail.overview.notSet') }
+  const { describeError, reloadLabel } = useInlineEditRefusal()
+  const fieldProps: FieldProps = { onSaveField, isConflict, onReload, describeError, reloadLabel, locale, emptyLabel: t('customerDetail.overview.notSet') }
   const f = t('customerDetail.overview.fields', { returnObjects: true }) as Record<string, string>
   // KAN-50 / D-24 — everyone who may advise in the acting Betrieb (its
   // active users and its active members, KAN-410), for the advisor picker.

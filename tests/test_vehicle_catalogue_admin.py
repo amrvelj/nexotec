@@ -134,6 +134,11 @@ def test_resolving_the_same_gap_twice_is_idempotent_then_a_conflict(http, db_ses
     other = _resolve(http, gap_id, "fuel_type", "diesel")
     assert other.status_code == 409, other.text
     assert "fuel_type/plugin_hybrid" in other.json()["error"]["message"]
+    assert other.json()["error"]["details"] == {
+        "reason": "provider_code_already_mapped",
+        "canonicalListCode": "fuel_type",
+        "canonicalValueCode": "plugin_hybrid",
+    }
 
 
 @pytest.mark.parametrize(

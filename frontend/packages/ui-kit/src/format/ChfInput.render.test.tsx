@@ -86,7 +86,7 @@ describe("chfInlineEditor (KAN-168)", () => {
     const onSave = vi.fn(async (_raw: string) => {});
     render(
       <MantineProvider>
-        <InlineEditField value="shown" editValue={editValue} onSave={onSave} renderEditor={chfInlineEditor()} />
+        <InlineEditField value="shown" editValue={editValue} onSave={onSave} describeError={() => "refusé"} renderEditor={chfInlineEditor()} />
       </MantineProvider>,
     );
     return { onSave };
@@ -127,7 +127,7 @@ describe("chfInlineEditor under StrictMode (KAN-168)", () => {
     render(
       <StrictMode>
         <MantineProvider>
-          <InlineEditField value="shown" editValue="42500.00" onSave={onSave} renderEditor={chfInlineEditor()} />
+          <InlineEditField value="shown" editValue="42500.00" onSave={onSave} describeError={() => "refusé"} renderEditor={chfInlineEditor()} />
         </MantineProvider>
       </StrictMode>,
     );
