@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
+import { ChfInput } from "../format/ChfInput";
 import {
   conditionsForField,
   describePredicate,
@@ -318,6 +319,21 @@ function ValueInput({
   }
   if (field.type === "boolean") {
     return null; // the condition itself ("is") plus the field label already say everything — see describePredicate
+  }
+  if (field.type === "number" && field.numberFormat === "chf") {
+    // ADR-076 (KAN-168, KAN-454): a CHF amount is typed into the kit's
+    // ChfInput — «CHF 40'000.00», the same figure the saved filter's text
+    // shows (KAN-421). It still stores a plain number; an emptied field
+    // stores NaN, as the bare input's valueAsNumber does.
+    return (
+      <ChfInput
+        size="xs"
+        aria-label={field.label}
+        value={typeof draft.value === "number" && Number.isFinite(draft.value) ? draft.value : ""}
+        onChange={(v) => onDraftChange({ ...draft, value: typeof v === "number" ? v : Number.NaN })}
+        w={160}
+      />
+    );
   }
   if (field.type === "number") {
     return (
