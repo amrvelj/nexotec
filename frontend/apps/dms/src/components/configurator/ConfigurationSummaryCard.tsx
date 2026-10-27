@@ -55,7 +55,9 @@ function formatSpecValue(field: SpecFieldDef, value: unknown): string {
  * drive, transmission — KAN-260) from the shared cached lookup
  * (`useReferenceLabelLookup`), in the UI language: every card on a screen
  * shares one request per list, and a code without a label in that language
- * renders `⚠ <code>`, never the raw code silently. It fetches nothing else.
+ * renders `⚠ <code>`, never the raw code silently. With the technical block
+ * (KAN-459) it reads the spec block's reference lists the same way; it
+ * fetches nothing else.
  */
 export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, technicalDataColumns }: ConfigurationSummaryCardProps) {
   const { t, i18n } = useTranslation()

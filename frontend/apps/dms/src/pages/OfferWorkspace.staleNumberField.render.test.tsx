@@ -4,7 +4,7 @@ import { Route, Routes } from 'react-router-dom'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
+import { installFakeBackend, status } from '../test/fakeBackend'
 import { customer } from '../test/fixtures'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
@@ -65,22 +65,24 @@ const offerAt = (version: number, overrides: Partial<SalesOfferRead> = {}): Sale
   ...overrides,
 })
 
-function renderWorkspace() {
-  return renderWithProviders(
-    <Routes>
-      <Route path="/sales/offers/:id" element={<OfferWorkspacePage />} />
-    </Routes>,
-    { route: '/sales/offers/o1' },
-  )
-}
-
-function setUp(initial: SalesOfferRead) {
+function setUp(initial: SalesOfferRead, options: { colleagueSavesFirst?: Partial<SalesOfferRead> } = {}) {
   let current = initial
+  let colleagueFirst = options.colleagueSavesFirst
   const backend = installFakeBackend([
     {
       method: 'PATCH',
       match: /^\/sales\/offers\/o1$/,
       handler: (req) => {
+        if (colleagueFirst) {
+          // A colleague's save commits while ours is on its way: ours is stale.
+          current = { ...current, ...colleagueFirst, version: current.version + 1 }
+          colleagueFirst = undefined
+        }
+        if (req.headers.get('If-Match') !== String(current.version)) {
+          return status(409, {
+            error: { code: 'conflict', message: 'stale', details: { currentVersion: current.version, ifMatchVersion: Number(req.headers.get('If-Match')) } },
+          })
+        }
         current = { ...current, ...(req.body as object), version: current.version + 1 }
         return current
       },
@@ -135,5 +137,21 @@ describe('a debounced number field shows a newer server copy (KAN-442)', () => {
     await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
     expect(patches(backend)[0].body).toMatchObject({ discountValue: 950 })
     expect(field).not.toHaveValue("CHF 800.00")
+  })
+
+  it('a colleague\'s figure that arrived while this field\'s save was out is shown once that save is refused', async () => {
+    const { backend } = setUp(offerAt(1, { discountValue: '500.00' }), { colleagueSavesFirst: { discountValue: '800.00' } })
+    const field = await discountField()
+    await waitFor(() => expect(field).toHaveValue("CHF 500.00"))
+
+    fireEvent.change(field, { target: { value: '900' } })
+    await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
+    // Refused as stale (If-Match 1, the offer is at 2); the reload brings 800.
+    await waitFor(() => expect((field as HTMLInputElement).value).toMatch(/^CHF 800(\.00)?$/), { timeout: 2000 })
+
+    fireEvent.change(field, { target: { value: '950' } })
+    await waitFor(() => expect(patches(backend)).toHaveLength(2), { timeout: 2000 })
+    expect(patches(backend)[1].headers.get('If-Match')).toBe('2')
+    expect(patches(backend)[1].body).toMatchObject({ discountValue: 950 })
   })
 })

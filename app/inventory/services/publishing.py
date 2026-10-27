@@ -80,6 +80,9 @@ def compute_blocking_conditions(db: Session, item: StockItem) -> list[BlockingCo
     return conditions
 
 
+_UNIQUE_CHANNEL_ROW_CONSTRAINT = "uq_stock_item_publishing_stock_item_id_channel"
+
+
 def get_or_create_publishing(db: Session, item: StockItem, channel: MarketplaceChannel) -> StockItemPublishing:
     stmt = select(StockItemPublishing).where(
         StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel
@@ -126,10 +129,14 @@ def _get_or_create(
     try:
         with db.begin_nested():
             db.add(StockItemPublishing(tenant_id=item.tenant_id, stock_item_id=item.id, channel=channel))
-    except IntegrityError:
-        pass  # the concurrent first user's row now exists; re-read it below
+    except IntegrityError as exc:
+        # Only the concurrent first user's row is expected here; any other
+        # integrity failure stays loud.
+        if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != _UNIQUE_CHANNEL_ROW_CONSTRAINT:
+            raise
     row = db.scalar(stmt)
-    assert row is not None, "StockItemPublishing row missing after its first INSERT or the concurrent winner's"
+    if row is None:
+        raise RuntimeError("StockItemPublishing row missing after its first INSERT or the concurrent winner's")
     return row
 
 
