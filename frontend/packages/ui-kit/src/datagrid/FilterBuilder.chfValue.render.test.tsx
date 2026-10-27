@@ -45,6 +45,22 @@ describe("FilterBuilder — a CHF filter value (KAN-454)", () => {
     expect(typeof saved.value).toBe("number");
   });
 
+  it("keeps a partial amount while it is typed: CHF 0.50 can be entered", async () => {
+    const user = userEvent.setup();
+    const onChange = renderBuilder([PRICE]);
+    await user.click(screen.getByRole("button", { name: /Nouveau filtre/ }));
+
+    const amount = screen.getByRole("textbox", { name: "Prix catalogue" });
+    await user.type(amount, "0.");
+    expect(amount).toHaveValue("CHF 0.");
+    await user.type(amount, "5");
+    expect(amount).toHaveValue("CHF 0.5");
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    const [saved] = onChange.mock.calls.at(-1)![0] as FilterPredicate[];
+    expect(saved.value).toBe(0.5);
+  });
+
   it("a number field without the CHF format keeps its plain number input", async () => {
     const user = userEvent.setup();
     renderBuilder([PS]);

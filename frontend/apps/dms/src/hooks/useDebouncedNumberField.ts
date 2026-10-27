@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { useDebouncedValue } from '@mantine/hooks'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * KAN-8 — a `NumberInput` bound directly to a server-derived value (e.g.
@@ -33,6 +32,10 @@ import { useDebouncedValue } from '@mantine/hooks'
  * save was out was skipped then, and a reload that brings the same copy
  * changes nothing to react to.
  *
+ * The commit runs from a timer on the typed value (as in
+ * `useDebouncedTextField`), not from a change of a debounced copy: typing
+ * back the figure shown before an adoption is still saved.
+ *
  * Returns `[value, setValue, unsaved]` — `unsaved` is true while a typed
  * value waits out the delay (KAN-288).
  */
@@ -42,43 +45,45 @@ export function useDebouncedNumberField(
   onCommit: (value: number | null) => void | Promise<unknown>,
   delay = 500
 ): [number | '', (value: number | '') => void, boolean] {
-  const [local, setLocal] = useState<number | ''>(serverValue ?? '')
-  const [debounced] = useDebouncedValue(local, delay)
-  const committedRef = useRef<number | ''>(serverValue ?? '')
+  const next: number | '' = serverValue ?? ''
+  const [local, setLocal] = useState<number | ''>(next)
+  // What was last handed to `onCommit` or taken from the server — state for
+  // `unsaved`, a ref for the callbacks that run between renders.
+  const [committed, setCommitted] = useState<number | ''>(next)
+  const localRef = useRef<number | ''>(next)
+  const committedRef = useRef<number | ''>(next)
+  const serverRef = useRef<number | ''>(next)
+  serverRef.current = next
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savesOutRef = useRef(0)
   const resetKeyRef = useRef(resetKey)
   const onCommitRef = useRef(onCommit)
   onCommitRef.current = onCommit
-  // The latest render's values, for a save refused between renders.
-  const next: number | '' = serverValue ?? ''
-  const latestRef = useRef<{ server: number | ''; local: number | '' }>({ server: next, local })
-  latestRef.current = { server: next, local }
 
-  // Takes the server's copy when nothing of this field's is pending: the
-  // shown value is the one last committed or taken (Object.is: a lone "-"
-  // is NaN, and NaN !== NaN) and no save is out.
-  const adoptServerCopy = useRef(() => {
-    const { server, local: shown } = latestRef.current
-    if (!Object.is(shown, committedRef.current) || savesOutRef.current > 0) return
-    if (Object.is(server, committedRef.current)) return
-    committedRef.current = server
-    setLocal(server)
-  }).current
+  const show = (value: number | '') => {
+    localRef.current = value
+    committedRef.current = value
+    setLocal(value)
+    setCommitted(value)
+  }
 
-  useEffect(() => {
-    if (resetKeyRef.current === resetKey) return
-    resetKeyRef.current = resetKey
-    setLocal(serverValue ?? '')
-    committedRef.current = serverValue ?? ''
-    // Only re-syncs when `resetKey` itself changes; a newer `serverValue`
-    // of the same row is `adoptServerCopy`'s.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey])
+  // Takes the server's copy when nothing of this field's is pending: no
+  // typed value waiting (Object.is: a lone "-" is NaN, and NaN !== NaN) and
+  // no save out.
+  const adoptServerCopy = useCallback(() => {
+    if (timerRef.current !== null || savesOutRef.current > 0) return
+    if (!Object.is(localRef.current, committedRef.current)) return
+    if (Object.is(serverRef.current, committedRef.current)) return
+    show(serverRef.current)
+  }, [])
 
-  useEffect(() => {
-    if (debounced === committedRef.current) return
-    committedRef.current = debounced
-    const saving = onCommitRef.current(debounced === '' ? null : Number(debounced))
+  const commit = useCallback(() => {
+    timerRef.current = null
+    const value = localRef.current
+    if (Object.is(value, committedRef.current)) return
+    committedRef.current = value
+    setCommitted(value)
+    const saving = onCommitRef.current(value === '' ? null : Number(value))
     if (saving) {
       savesOutRef.current += 1
       saving.then(
@@ -93,17 +98,42 @@ export function useDebouncedNumberField(
         },
       )
     }
-  }, [debounced, adoptServerCopy])
+  }, [adoptServerCopy])
+
+  const setValue = useCallback(
+    (value: number | '') => {
+      localRef.current = value
+      setLocal(value)
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(commit, delay)
+    },
+    [commit, delay]
+  )
+
+  useEffect(() => {
+    if (resetKeyRef.current === resetKey) return
+    resetKeyRef.current = resetKey
+    if (timerRef.current !== null) clearTimeout(timerRef.current)
+    timerRef.current = null
+    show(serverRef.current)
+  }, [resetKey])
 
   // Runs when the server copy changes, never on a keystroke.
   useEffect(adoptServerCopy, [next, adoptServerCopy])
 
+  // A value still waiting when the field goes away is dropped, as before:
+  // a host that ends the edit waits for `unsaved` (KAN-288).
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+    },
+    []
+  )
+
   // KAN-288 — the third value: a typed value not yet handed to `onCommit`.
   // A host that ends the edit (signing a contract) waits for it, or the
   // value would be dropped when the field unmounts and its timer is cleared.
-  // A value equal to what was last committed or taken is not unsaved, so
-  // taking a server copy does not hold the host's buttons for `delay`.
   // Object.is: a lone "-" parses to NaN, and NaN !== NaN would read as
   // "unsaved" forever.
-  return [local, setLocal, !Object.is(local, debounced) && !Object.is(local, committedRef.current)]
+  return [local, setValue, !Object.is(local, committed)]
 }

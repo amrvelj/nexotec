@@ -65,19 +65,15 @@ const offerAt = (version: number, overrides: Partial<SalesOfferRead> = {}): Sale
   ...overrides,
 })
 
-function setUp(initial: SalesOfferRead, options: { colleagueSavesFirst?: Partial<SalesOfferRead> } = {}) {
+function setUp(initial: SalesOfferRead) {
   let current = initial
-  let colleagueFirst = options.colleagueSavesFirst
+  let hold: Promise<void> | null = null
   const backend = installFakeBackend([
     {
       method: 'PATCH',
       match: /^\/sales\/offers\/o1$/,
-      handler: (req) => {
-        if (colleagueFirst) {
-          // A colleague's save commits while ours is on its way: ours is stale.
-          current = { ...current, ...colleagueFirst, version: current.version + 1 }
-          colleagueFirst = undefined
-        }
+      handler: async (req) => {
+        if (hold) await hold
         if (req.headers.get('If-Match') !== String(current.version)) {
           return status(409, {
             error: { code: 'conflict', message: 'stale', details: { currentVersion: current.version, ifMatchVersion: Number(req.headers.get('If-Match')) } },
@@ -103,7 +99,27 @@ function setUp(initial: SalesOfferRead, options: { colleagueSavesFirst?: Partial
     current = { ...current, ...patch, version: current.version + 1 }
     await act(() => view.queryClient.invalidateQueries({ queryKey: ['sales-offer', 'o1'] }))
   }
-  return { backend, colleagueSaves }
+  /** A colleague's save lands while one of ours is held at the server: the
+   * fake backend answers one request at a time, so their copy reaches this
+   * screen's cache as a refetch's answer would, without a request. */
+  const colleagueSavesWhileOursIsOut = async (patch: Partial<SalesOfferRead>) => {
+    current = { ...current, ...patch, version: current.version + 1 }
+    await act(async () => {
+      view.queryClient.setQueryData(['sales-offer', 'o1'], current)
+    })
+  }
+  /** Holds every PATCH at the server until the returned release is called. */
+  const holdSaves = () => {
+    let release!: () => void
+    hold = new Promise<void>((resolve) => {
+      release = () => {
+        hold = null
+        resolve()
+      }
+    })
+    return release
+  }
+  return { backend, colleagueSaves, colleagueSavesWhileOursIsOut, holdSaves }
 }
 
 const discountField = () => screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountValue') })
@@ -140,18 +156,43 @@ describe('a debounced number field shows a newer server copy (KAN-442)', () => {
   })
 
   it('a colleague\'s figure that arrived while this field\'s save was out is shown once that save is refused', async () => {
-    const { backend } = setUp(offerAt(1, { discountValue: '500.00' }), { colleagueSavesFirst: { discountValue: '800.00' } })
+    const { backend, colleagueSavesWhileOursIsOut, holdSaves } = setUp(offerAt(1, { discountValue: '500.00' }))
     const field = await discountField()
     await waitFor(() => expect(field).toHaveValue("CHF 500.00"))
 
+    const release = holdSaves()
     fireEvent.change(field, { target: { value: '900' } })
     await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
-    // Refused as stale (If-Match 1, the offer is at 2); the reload brings 800.
+    // While our save is out, the colleague's 800 reaches this screen's cache:
+    // the field must not take it yet (its own save is pending).
+    await colleagueSavesWhileOursIsOut({ discountValue: '800.00' })
+    await new Promise((resolve) => setTimeout(resolve, 50)) // the cache notifies its observers on a timer
+    expect((field as HTMLInputElement).value).toMatch(/^CHF 900(\.00)?$/)
+
+    // Our save (If-Match 1) is refused; the reload brings the same 800, so
+    // only the refusal itself can make the field show it.
+    await act(async () => release())
     await waitFor(() => expect((field as HTMLInputElement).value).toMatch(/^CHF 800(\.00)?$/), { timeout: 2000 })
 
     fireEvent.change(field, { target: { value: '950' } })
     await waitFor(() => expect(patches(backend)).toHaveLength(2), { timeout: 2000 })
     expect(patches(backend)[1].headers.get('If-Match')).toBe('2')
     expect(patches(backend)[1].body).toMatchObject({ discountValue: 950 })
+  })
+
+  // Review of 7decc88: the old hook committed only when its debounced copy
+  // changed, so typing back the figure shown before an adoption was never saved.
+  it('typing back the figure shown before a colleague\'s change is saved', async () => {
+    const { backend, colleagueSaves } = setUp(offerAt(1, { discountValue: '500.00' }))
+    const field = await discountField()
+    await waitFor(() => expect(field).toHaveValue("CHF 500.00"))
+
+    await colleagueSaves({ discountValue: '800.00' })
+    await waitFor(() => expect(field).toHaveValue("CHF 800.00"))
+    fireEvent.change(field, { target: { value: '500' } })
+
+    await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
+    expect(patches(backend)[0].body).toMatchObject({ discountValue: 500 })
+    expect(patches(backend)[0].headers.get('If-Match')).toBe('2')
   })
 })
