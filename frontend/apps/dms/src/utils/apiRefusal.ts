@@ -102,7 +102,13 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
-  missing_config_fields: (d) => ({ fields: listed(d.missingConfigKeys) }),
+  // A connection's settings by their labels on the connect form; a key the
+  // bundles do not name yet as the API spells it, never the missing-key marker.
+  missing_config_fields: (d, t) => ({
+    fields: listed(d.missingConfigKeys, (key) =>
+      i18n.exists(`integrationEnums.configKey.${key}`) ? t(`integrationEnums.configKey.${key}`) : key,
+    ),
+  }),
   missing_containers: (d, t) => ({
     containers: Array.isArray(d.missingContainers)
       ? d.missingContainers.map((id) => t(`offerWorkspace.containers.${id === 'trade_in' ? 'tradeIn' : String(id)}`)).join(', ')
@@ -116,15 +122,22 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   vin_already_in_stock: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
 }
 
-const listed = (value: unknown): string => (Array.isArray(value) && value.length > 0 ? value.map(String).join(', ') : '—')
+const listed = (value: unknown, label: (item: string) => string = (item) => item): string =>
+  Array.isArray(value) && value.length > 0 ? value.map((item) => label(String(item))).join(', ') : '—'
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 
 // KAN-472 — the acceptance's 403 names the user's access window (two
 // date-only values, `user.valid_from`/`valid_to`): "from …", "until …" or
 // both, each a calendar day in the user's locale.
 function accessWindowText(details: Details, t: TFunction): string {
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
-  const from = typeof details.validFrom === 'string' ? formatDateOnly(details.validFrom, locale) : null
-  const to = typeof details.validTo === 'string' ? formatDateOnly(details.validTo, locale) : null
+  // Only an ISO calendar day is formatted: anything else names no day (and
+  // formatDateOnly would throw on it inside the refusal path).
+  const day = (value: unknown): string | null =>
+    typeof value === 'string' && ISO_DAY.test(value) ? formatDateOnly(value, locale) : null
+  const from = day(details.validFrom)
+  const to = day(details.validTo)
   if (from && to) return t('apiRefusal.accessWindow.between', { from, to })
   if (from) return t('apiRefusal.accessWindow.from', { from })
   if (to) return t('apiRefusal.accessWindow.until', { to })

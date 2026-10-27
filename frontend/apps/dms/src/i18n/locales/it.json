@@ -167,7 +167,7 @@
       "booleanTrue": "{{field}}: sì",
       "booleanFalse": "{{field}}: no",
       "dayCount": "Numero di giorni",
-      "invalidDayCount": "Inserisci un numero intero di giorni tra 1 e {{max, number}}."
+      "invalidDayCount": "Inserisci un numero intero di giorni tra {{min, number}} e {{max, number}}."
     },
     "overlay": {
       "close": "Chiudi"
@@ -221,7 +221,7 @@
       "passkey_key_not_accepted": "La chiave di questa passkey non soddisfa i nostri requisiti di sicurezza. Usa un altro autenticatore.",
       "passkey_not_verified": "Non è stato possibile verificare la passkey. Riprova.",
       "phone_already_on_customer": "Questo numero di telefono è già registrato per questo cliente.",
-      "primary_unset_directly": "Il contrassegno «principale» non può essere rimosso direttamente. Contrassegna un’altra voce come principale.",
+      "primary_unset_directly": "Il contrassegno «Primario» non può essere rimosso direttamente. Contrassegna un’altra voce come primaria.",
       "provider_code_already_mapped": "Questo codice fornitore è già associato a {{mapping}}.",
       "too_many_images": "Un veicolo in stock ha al massimo {{max, number}} immagini. Rimuovi prima un’immagine.",
       "unknown_fields": "Alcuni dei campi di specifica scelti sono sconosciuti.",

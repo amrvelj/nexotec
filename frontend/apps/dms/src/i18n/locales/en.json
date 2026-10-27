@@ -167,7 +167,7 @@
       "booleanTrue": "{{field}}: yes",
       "booleanFalse": "{{field}}: no",
       "dayCount": "Number of days",
-      "invalidDayCount": "Enter a whole number of days from 1 to {{max, number}}."
+      "invalidDayCount": "Enter a whole number of days from {{min, number}} to {{max, number}}."
     },
     "overlay": {
       "close": "Close"

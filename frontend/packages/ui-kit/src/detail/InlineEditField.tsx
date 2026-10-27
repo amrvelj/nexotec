@@ -180,7 +180,7 @@ export function InlineEditField({
               <button
                 type="button"
                 onClick={onReload}
-                style={{ border: "none", background: "none", color: purple[6], cursor: "pointer", fontWeight: 600, padding: 0 }}
+                style={{ border: "none", background: "none", color: purple[6], cursor: "pointer", fontWeight: 600, padding: 0, whiteSpace: "nowrap" }}
               >
                 {reloadLabel}
               </button>

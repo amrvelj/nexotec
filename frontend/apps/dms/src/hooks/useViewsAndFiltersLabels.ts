@@ -53,7 +53,7 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         editFilter: t('common.filterBuilder.editFilter'),
         deleteFilter: t('common.filterBuilder.deleteFilter'),
         dayCount: t('common.filterBuilder.dayCount'),
-        invalidDayCount: (max: number) => t('common.filterBuilder.invalidDayCount', { max }),
+        invalidDayCount: (min: number, max: number) => t('common.filterBuilder.invalidDayCount', { min, max }),
         conditions: perCondition((c) => t(`common.filterBuilder.conditions.${c}`)),
         // `count` picks the plural form of the two N-days texts; the other
         // conditions have none and ignore it.

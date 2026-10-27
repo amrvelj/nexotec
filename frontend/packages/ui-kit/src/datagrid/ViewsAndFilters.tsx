@@ -3,7 +3,7 @@ import { Popover } from "@mantine/core";
 import { Check, ChevronDown, Plus, Star, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, typography, white } from "../tokens";
 import { FilterBuilder, type FilterBuilderLabels, type FilterBuilderProps } from "./FilterBuilder";
-import { offeredPredicates, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
+import type { FilterFieldDef, FilterPredicate } from "./filterPredicate";
 import type { SavedView } from "./savedView";
 
 export interface ViewsAndFiltersProps {
@@ -21,6 +21,12 @@ export interface ViewsAndFiltersProps {
   onPredicatesChange: (predicates: FilterPredicate[]) => void;
   onPreviewCount?: FilterBuilderProps["onPreviewCount"];
   onResetFilters: () => void;
+  /** The grid's own narrowing of stored predicates (ADR-102: what it reads
+   * from a link or a saved view — `offeredPredicates` over its filter scope,
+   * after any legacy mapping). Given, an applied view whose filters it narrows
+   * carries the unsaved-changes dot and no tick (KAN-475); a grid without
+   * filters passes none and never shows the dot. */
+  narrowPredicates?: (stored: FilterPredicate[]) => FilterPredicate[];
 
   labels: ViewsAndFiltersLabels;
 }
@@ -49,12 +55,13 @@ export interface ViewsAndFiltersLabels {
   filters: FilterBuilderLabels;
 }
 
-/** True when this grid drops part of a saved view's filters (ADR-102: an
- * unappliable one is ignored quietly) — the grid then shows less than the
- * view, so the control must not present the view as applied (KAN-475). */
-export function viewIsNarrowed(view: SavedView, fields: FilterFieldDef[]): boolean {
+/** True when the grid's own narrowing drops part of a saved view's filters
+ * (ADR-102: an unappliable one is ignored quietly) — the grid then shows
+ * less than the view, so the control must not present the view as applied
+ * (KAN-475). */
+export function viewIsNarrowed(view: SavedView, narrow: (stored: FilterPredicate[]) => FilterPredicate[]): boolean {
   const filters = view.snapshot.filters ?? [];
-  return offeredPredicates(filters, fields).length < filters.length;
+  return filters.length > 0 && narrow(filters).length < filters.length;
 }
 
 /**
@@ -75,6 +82,7 @@ export function ViewsAndFilters({
   onPredicatesChange,
   onPreviewCount,
   onResetFilters,
+  narrowPredicates,
   labels,
 }: ViewsAndFiltersProps) {
   const L = labels;
@@ -83,7 +91,7 @@ export function ViewsAndFilters({
   // name too). Narrowed, it carries the unsaved-changes dot and no tick: the
   // grid is no longer showing that view as saved.
   const appliedView = views.find((view) => view.name === currentViewName);
-  const narrowed = appliedView !== undefined && viewIsNarrowed(appliedView, fields);
+  const narrowed = appliedView !== undefined && narrowPredicates !== undefined && viewIsNarrowed(appliedView, narrowPredicates);
   const isTicked = (view: SavedView) => view.name === currentViewName && !narrowed;
   const [savingAs, setSavingAs] = useState(false);
   const [newViewName, setNewViewName] = useState("");

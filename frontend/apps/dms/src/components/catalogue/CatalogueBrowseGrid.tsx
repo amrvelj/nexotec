@@ -148,6 +148,16 @@ export interface CatalogueBrowseGridProps {
  * saved views, column config, selection. Standalone on `/catalogue`, and
  * embedded in the configurator overlay's "Find the car" phase (C-C).
  */
+/** What this grid applies of stored predicates (a link, a saved view): the
+ * legacy «grösser/kleiner als» read as the inclusive bounds they were always
+ * sent as, then narrowed to the catalogue's filter scope (ADR-102). The views
+ * control asks the same function whether a view was narrowed (KAN-475) — the
+ * facet-based builder fields are not the scope, and would mark a fully
+ * applied view as changed while the facets load. */
+function narrowCataloguePredicates(stored: FilterPredicate[]): FilterPredicate[] {
+  return offeredPredicates(readLegacyCataloguePredicates(stored), CATALOGUE_FILTER_SCOPE)
+}
+
 export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGridProps) {
   const { t } = useTranslation()
   const { density, setDensity } = useUiPreferencesContext()
@@ -161,10 +171,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
-  const predicates = offeredPredicates(
-    readLegacyCataloguePredicates(searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []),
-    CATALOGUE_FILTER_SCOPE,
-  )
+  const predicates = narrowCataloguePredicates(searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : [])
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -465,6 +472,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
                   onDeleteView={savedViews.deleteView}
                   onSetDefaultView={savedViews.setDefaultView}
                   fields={filterFields}
+                  narrowPredicates={narrowCataloguePredicates}
                   predicates={predicates}
                   onPredicatesChange={(next) => {
                     setPredicates(next)

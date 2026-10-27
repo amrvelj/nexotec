@@ -131,8 +131,10 @@ export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
   return narrowed.length > 0 ? narrowed : all;
 }
 
-/** The largest day count an N-days condition takes — the list endpoints'
- * own bound (`le=36500`, about a hundred years; `app/customer/api/customers.py`). */
+/** The day counts an N-days condition takes — the list endpoints' own
+ * bounds (`ge=0`, `le=36500`, about a hundred years;
+ * `app/customer/api/customers.py`). 0 is today's day boundary. */
+export const MIN_FILTER_DAYS = 0;
 export const MAX_FILTER_DAYS = 36500;
 
 /** The two date conditions that carry a day count. */
@@ -140,11 +142,11 @@ export function takesDayCount(condition: FilterCondition | string): boolean {
   return condition === "inTheLastDays" || condition === "moreThanDaysAgo";
 }
 
-/** A day count an endpoint accepts: a whole number from 1 to
- * `MAX_FILTER_DAYS`. Anything else (0, a fraction, an empty field) the API
- * refuses with a 422 (KAN-475). */
+/** A day count an endpoint accepts: a whole number from `MIN_FILTER_DAYS`
+ * to `MAX_FILTER_DAYS`. Anything else (a fraction, a negative number, more
+ * than 36500, an empty field) the API refuses with a 422 (KAN-475). */
 export function isValidDayCount(days: unknown): days is number {
-  return typeof days === "number" && Number.isInteger(days) && days >= 1 && days <= MAX_FILTER_DAYS;
+  return typeof days === "number" && Number.isInteger(days) && days >= MIN_FILTER_DAYS && days <= MAX_FILTER_DAYS;
 }
 
 /**

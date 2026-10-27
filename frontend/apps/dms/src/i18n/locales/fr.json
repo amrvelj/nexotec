@@ -167,7 +167,7 @@
       "booleanTrue": "{{field}} : oui",
       "booleanFalse": "{{field}} : non",
       "dayCount": "Nombre de jours",
-      "invalidDayCount": "Saisissez un nombre entier de jours entre 1 et {{max, number}}."
+      "invalidDayCount": "Saisissez un nombre entier de jours entre {{min, number}} et {{max, number}}."
     },
     "overlay": {
       "close": "Fermer"
@@ -218,10 +218,10 @@
       "not_active": "Seul un utilisateur actif peut être suspendu.",
       "nul_character": "La saisie contient un caractère non autorisé. Supprimez-le et réessayez.",
       "offer_already_contracted": "Cette offre a déjà un contrat ; seul un contrat annulé libère une offre.",
-      "passkey_key_not_accepted": "La clé de ce passkey ne répond pas à nos exigences de sécurité. Utilisez un autre authentificateur.",
-      "passkey_not_verified": "Le passkey n’a pas pu être vérifié. Veuillez réessayer.",
+      "passkey_key_not_accepted": "Cette clé d’accès ne répond pas à nos exigences de sécurité. Utilisez un autre authentificateur.",
+      "passkey_not_verified": "La clé d’accès n’a pas pu être vérifiée. Veuillez réessayer.",
       "phone_already_on_customer": "Ce numéro de téléphone figure déjà chez ce client.",
-      "primary_unset_directly": "Le marquage « principal » ne peut pas être retiré directement. Marquez une autre entrée comme principale.",
+      "primary_unset_directly": "Le marquage « Principal » ne peut pas être retiré directement. Marquez une autre entrée comme principale.",
       "provider_code_already_mapped": "Ce code fournisseur est déjà associé à {{mapping}}.",
       "too_many_images": "Un véhicule en stock a au plus {{max, number}} images. Retirez d’abord une image.",
       "unknown_fields": "Certains des champs de spécification choisis sont inconnus.",

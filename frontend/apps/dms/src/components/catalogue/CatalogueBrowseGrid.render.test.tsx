@@ -249,6 +249,55 @@ describe('CatalogueBrowseGrid filters are sent as offered (KAN-458)', () => {
     expect(viewControl.textContent).toMatch(/(^|\D)1(\D|$)/)
   })
 
+  // KAN-475: a saved view this grid applies in full shows as applied — its
+  // legacy «grösser als» and a coded filter whose facets have not loaded
+  // included — and only a view the grid narrows carries the dot.
+  it('marks a saved view as changed only when the grid drops part of it', async () => {
+    const user = userEvent.setup()
+    const views = [
+      {
+        id: 'v1',
+        name: 'Starke Diesel',
+        snapshot: {
+          filters: [
+            { id: 'a', fieldId: 'ps', type: 'number', condition: 'greaterThan', value: 150 },
+            { id: 'b', fieldId: 'fuelType', type: 'select', condition: 'is', value: 'diesel' },
+          ],
+        },
+      },
+      {
+        id: 'v2',
+        name: 'Ohne Diesel',
+        snapshot: { filters: [{ id: 'c', fieldId: 'fuelType', type: 'select', condition: 'isNot', value: 'diesel' }] },
+      },
+    ]
+    installFakeBackend([
+      { method: 'GET', match: /\/me\/preferences\/views:mdm\.catalogue\.variants$/, handler: () => ({ payload: { schemaVersion: 1, views } }) },
+      { method: 'GET', match: /\/vehicle-mdm\/brands$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [] }) },
+      { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ browseAvailable: true, coded: {}, numeric: {} }) },
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants$/,
+        handler: () => ({ items: [VARIANT], nextCursor: null, total: 1, totalIsEstimate: false, browseAvailable: true }),
+      },
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, { route: '/catalogue' })
+    await screen.findByText('Golf GTI')
+    const changedDot = () => screen.queryByRole('img', { name: i18n.t('common.viewsAndFilters.viewChanged') })
+
+    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('catalogueBrowse.allVariantsView')) }))
+    await user.click(await screen.findByText('Starke Diesel'))
+    await screen.findByRole('button', { name: /Starke Diesel/ })
+    expect(changedDot()).toBeNull()
+
+    // The panel stays open after a view is applied; the next one is a click away.
+    await user.click(await screen.findByText('Ohne Diesel'))
+    await screen.findByRole('button', { name: /Ohne Diesel/ })
+    expect(changedDot()).not.toBeNull()
+  })
+
   it('a coded «ist nicht» is neither sent nor counted as an active filter', async () => {
     const fake = backend()
     renderWithProviders(<CatalogueBrowseGrid mode="build" />, {

@@ -7,6 +7,7 @@ import {
   describePredicate,
   isValidDayCount,
   MAX_FILTER_DAYS,
+  MIN_FILTER_DAYS,
   takesDayCount,
   type FilterConditionLabels,
   type FilterFieldDef,
@@ -46,9 +47,9 @@ export interface FilterBuilderLabels extends FilterConditionLabels {
   /** The day-count input's accessible name ("Anzahl Tage"). */
   dayCount: string;
   /** Said in place, and Save held back, while the day count is not a whole
-   * number from 1 to `max` (KAN-475) — the list endpoints refuse anything
+   * number from `min` to `max` (KAN-475) — the list endpoints refuse anything
    * else. */
-  invalidDayCount: (max: number) => string;
+  invalidDayCount: (min: number, max: number) => string;
 }
 
 /** A draft Save may commit: an N-days condition needs a day count the
@@ -375,7 +376,7 @@ function DayCountValue({
     <>
       <input
         type="number"
-        min={1}
+        min={MIN_FILTER_DAYS}
         max={MAX_FILTER_DAYS}
         step={1}
         aria-label={labels.dayCount}
@@ -390,7 +391,7 @@ function DayCountValue({
       />
       {invalid && (
         <span id={errorId} role="alert" style={{ fontSize: 12, color: semantic.destructive.text }}>
-          {labels.invalidDayCount(MAX_FILTER_DAYS)}
+          {labels.invalidDayCount(MIN_FILTER_DAYS, MAX_FILTER_DAYS)}
         </span>
       )}
     </>
@@ -441,8 +442,9 @@ function ValueInput({
   }
   if (field.type === "date") {
     if (takesDayCount(draft.condition)) {
-      // KAN-475: refused in place — 0, a fraction or past MAX_FILTER_DAYS
-      // would reach the endpoint as a 422 and show the grid's error state.
+      // KAN-475: refused in place — a fraction, a negative count or past
+      // MAX_FILTER_DAYS would reach the endpoint as a 422 and show the
+      // grid's error state.
       return <DayCountValue key={`${field.id}:${draft.condition}`} draft={draft} onDraftChange={onDraftChange} labels={labels} />;
     }
     return null; // today/thisWeek/thisMonth/thisYear carry no free value

@@ -58,8 +58,8 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     ).toBe(r.provider_code_already_mapped.replace('{{mapping}}', 'fuel_type/petrol'))
     expect(apiRefusalText(t, refusal(409, { reason: 'too_many_images', maxImages: 16 }), FALLBACK)).toBe(r.too_many_images.replace('{{max, number}}', '16'))
     expect(
-      apiRefusalText(t, refusal(422, { reason: 'missing_config_fields', missingConfigKeys: ['username', 'customer_number'] }, 'unprocessable_entity'), FALLBACK),
-    ).toBe(r.missing_config_fields.replace('{{fields}}', 'username, customer_number'))
+      apiRefusalText(t, refusal(422, { reason: 'missing_config_fields', missingConfigKeys: ['benutzerNr', 'notAKnownKey'] }, 'unprocessable_entity'), FALLBACK),
+    ).toBe(r.missing_config_fields.replace('{{fields}}', `${fr.integrationEnums.configKey.benutzerNr}, notAKnownKey`))
   })
 
   it("names the access window's days in the user's locale, as calendar days", async () => {
@@ -73,6 +73,7 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
       sentence(de.apiRefusal.accessWindow.between.replace('{{from}}', '01.11.2026').replace('{{to}}', '31.12.2026')),
     )
     expect(closed({})).toBe(sentence(de.apiRefusal.accessWindow.none))
+    expect(closed({ validFrom: 'not a day', validTo: 42 })).toBe(sentence(de.apiRefusal.accessWindow.none))
   })
 
   it('says a stale If-Match 409 as such, before any reason', () => {

@@ -167,7 +167,7 @@
       "booleanTrue": "{{field}}: ja",
       "booleanFalse": "{{field}}: nein",
       "dayCount": "Anzahl Tage",
-      "invalidDayCount": "Bitte eine ganze Zahl von Tagen zwischen 1 und {{max, number}} eingeben."
+      "invalidDayCount": "Bitte eine ganze Zahl von Tagen zwischen {{min, number}} und {{max, number}} eingeben."
     },
     "overlay": {
       "close": "Schliessen"
@@ -221,7 +221,7 @@
       "passkey_key_not_accepted": "Der Schlüssel dieses Passkeys erfüllt unsere Sicherheitsanforderungen nicht. Bitte einen anderen Authentifikator verwenden.",
       "passkey_not_verified": "Der Passkey konnte nicht überprüft werden. Bitte erneut versuchen.",
       "phone_already_on_customer": "Diese Telefonnummer ist bei diesem Kunden bereits erfasst.",
-      "primary_unset_directly": "Die Markierung «primär» lässt sich nicht direkt entfernen. Bitte einen anderen Eintrag als primär markieren.",
+      "primary_unset_directly": "Die Markierung «Primär» lässt sich nicht direkt entfernen. Bitte einen anderen Eintrag als primär markieren.",
       "provider_code_already_mapped": "Dieser Anbietercode ist bereits {{mapping}} zugeordnet.",
       "too_many_images": "Ein Bestandsfahrzeug hat höchstens {{max, number}} Bilder. Bitte zuerst ein Bild entfernen.",
       "unknown_fields": "Einige der gewählten Spezifikationsfelder sind unbekannt.",

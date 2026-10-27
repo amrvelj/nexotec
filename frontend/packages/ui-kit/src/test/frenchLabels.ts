@@ -55,7 +55,7 @@ export const FR_FILTER_BUILDER_LABELS: FilterBuilderLabels = {
   editFilter: 'Modifier le filtre',
   deleteFilter: 'Supprimer le filtre',
   dayCount: 'Nombre de jours',
-  invalidDayCount: (max) => `Saisissez un nombre entier de jours entre 1 et ${max}.`,
+  invalidDayCount: (min, max) => `Saisissez un nombre entier de jours entre ${min} et ${max}.`,
   ...FR_CONDITION_LABELS,
 }
 

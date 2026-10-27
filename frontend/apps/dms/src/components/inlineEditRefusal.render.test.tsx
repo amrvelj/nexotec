@@ -182,6 +182,33 @@ describe('an inline-edit refusal is said in the UI language, never the API Engli
     expect(screen.queryByText(ENGLISH)).not.toBeInTheDocument()
   })
 
+  // Only a stale If-Match 409 offers the reload: a business rule's 409 is
+  // not fixed by reloading (before KAN-473 every 409 offered it).
+  it('stock: a business-rule 409 says its reason and offers no reload', async () => {
+    installFakeBackend([])
+    const NOW = '2026-10-01T09:00:00Z'
+    const item = {
+      id: 's1', stockNumber: 'ST-1001', vehicleLabel: 'VW Golf GTI', vin: null, vehicleId: null, condition: 'used',
+      lifecycleStatus: 'in_stock', reservationState: 'none', ageingBucket: 'green', odometerKm: null, listPrice: null,
+      effectivePrice: null, basePrice: null, bodyStyle: null, exteriorColour: null, firstRegistrationDate: null,
+      inStockAt: NOW, leftStockAt: null, isInvoiceable: true, createdAt: NOW, updatedAt: NOW, version: 1,
+    } as unknown as StockItemRead
+    renderWithProviders(
+      <DetailsTab
+        item={item}
+        locale="fr-CH"
+        onSaveField={vi.fn().mockRejectedValue(refusal(409, { reason: 'vin_already_in_stock', stockNumber: 'S-000042' }))}
+        onReload={vi.fn()}
+        onRecordPurchase={vi.fn()}
+      />,
+    )
+
+    await editAndSave('VW Golf GTI')
+
+    expect(await screen.findByText(fr.apiRefusal.reasons.vin_already_in_stock.replace('{{stockNumber}}', 'S-000042'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: fr.common.inlineEdit.reload })).not.toBeInTheDocument()
+  })
+
   it("reference data: a refusal without a reason is the field's translated generic", async () => {
     installFakeBackend([
       {

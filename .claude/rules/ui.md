@@ -85,13 +85,14 @@ second local combobox.
   filterable grid narrows the predicates it reads (URL, saved view) with the kit's
   `offeredPredicates`: an unoffered field or condition is neither sent nor shown (quietly — Anto's
   choice; a saved view the grid narrows that way carries the view selector's unsaved-changes dot and
-  no tick, `viewIsNarrowed`, KAN-475), and **a field holds one filter**, ranges included (no «mindestens 150
+  no tick — the grid passes its own narrowing as `narrowPredicates`, KAN-475), and **a field holds one filter**, ranges included (no «mindestens 150
   und höchstens 250» band): the builder replaces a field's filter when one is added on it and
   offers no «duplicate»; a link or saved view with two keeps the first. A field offers only the
   conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
   (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476). An N-days count is a whole
-  number from 1 to `MAX_FILTER_DAYS` (36500, the endpoints' bound): the builder refuses another in
-  place and holds Save back, and `offeredPredicates` drops one from a link or view (KAN-475).
+  number from `MIN_FILTER_DAYS` to `MAX_FILTER_DAYS` (0–36500, the endpoints' `ge`/`le`): the builder
+  refuses another in place and holds Save back, and `offeredPredicates` drops one from a link or
+  view (KAN-475).
   `src/architecture/grid-filters-are-applied.test.ts` runs each grid's mapper over every offered
   field × condition against the endpoint's parameters in `schema.d.ts`; a new filterable grid
   adds its mapper there.
