@@ -9,8 +9,10 @@ import type { SalesPricedDealRead } from '../api/types'
 export interface PriceBuildUpProps {
   /** An offer draft or a pending contract (KAN-67) — the same build-up. */
   deal: SalesPricedDealRead
-  onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void
-  onManualBasePriceChange?: (value: number | null) => void
+  /** Each returns its save, if it has one: a field shows a newer server
+   * copy only once its own saves have settled (KAN-442). */
+  onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void | Promise<unknown>
+  onManualBasePriceChange?: (value: number | null) => void | Promise<unknown>
   /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
    * host that ends the edit (signing a contract) can wait for it. */
   onUnsavedChange?: (unsaved: boolean) => void

@@ -118,9 +118,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }
   // The leasing fields commit from an effect; the refusal is already on
   // screen (above), so it only must not go unhandled.
-  const commitLeasing = (patch: Record<string, unknown>) => {
-    patchOffer(patch).catch(() => undefined)
-  }
+  // Returned, so the field knows when its save has settled (KAN-442).
+  const commitLeasing = (patch: Record<string, unknown>) => patchOffer(patch).catch(() => undefined)
 
   // KAN-8 — same fix as PriceBuildUp.tsx's own fields, same root cause:
   // a NumberInput bound straight to a per-keystroke autosave PATCH races
