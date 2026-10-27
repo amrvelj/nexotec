@@ -74,6 +74,7 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     )
     expect(closed({})).toBe(sentence(de.apiRefusal.accessWindow.none))
     expect(closed({ validFrom: 'not a day', validTo: 42 })).toBe(sentence(de.apiRefusal.accessWindow.none))
+    expect(closed({ validFrom: '2026-13-45' })).toBe(sentence(de.apiRefusal.accessWindow.none))
   })
 
   it('says a stale If-Match 409 as such, before any reason', () => {

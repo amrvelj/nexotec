@@ -132,10 +132,10 @@ const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 // both, each a calendar day in the user's locale.
 function accessWindowText(details: Details, t: TFunction): string {
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
-  // Only an ISO calendar day is formatted: anything else names no day (and
-  // formatDateOnly would throw on it inside the refusal path).
+  // Only a real ISO calendar day is formatted: anything else names no day
+  // (and formatDateOnly would throw on it inside the refusal path).
   const day = (value: unknown): string | null =>
-    typeof value === 'string' && ISO_DAY.test(value) ? formatDateOnly(value, locale) : null
+    typeof value === 'string' && ISO_DAY.test(value) && !Number.isNaN(Date.parse(value)) ? formatDateOnly(value, locale) : null
   const from = day(details.validFrom)
   const to = day(details.validTo)
   if (from && to) return t('apiRefusal.accessWindow.between', { from, to })

@@ -143,11 +143,6 @@ export interface CatalogueBrowseGridProps {
   onSelectVariant?: (variant: CatalogueVariantRead) => void
 }
 
-/**
- * The catalogue results grid — drill-down scope, mirror-derived facets,
- * saved views, column config, selection. Standalone on `/catalogue`, and
- * embedded in the configurator overlay's "Find the car" phase (C-C).
- */
 /** What this grid applies of stored predicates (a link, a saved view): the
  * legacy «grösser/kleiner als» read as the inclusive bounds they were always
  * sent as, then narrowed to the catalogue's filter scope (ADR-102). The views
@@ -158,6 +153,11 @@ function narrowCataloguePredicates(stored: FilterPredicate[]): FilterPredicate[]
   return offeredPredicates(readLegacyCataloguePredicates(stored), CATALOGUE_FILTER_SCOPE)
 }
 
+/**
+ * The catalogue results grid — drill-down scope, mirror-derived facets,
+ * saved views, column config, selection. Standalone on `/catalogue`, and
+ * embedded in the configurator overlay's "Find the car" phase (C-C).
+ */
 export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGridProps) {
   const { t } = useTranslation()
   const { density, setDensity } = useUiPreferencesContext()
