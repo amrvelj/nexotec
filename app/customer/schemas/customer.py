@@ -16,6 +16,7 @@ the customer, so a create either fully succeeds or leaves nothing behind.
 """
 
 import datetime as dt
+import enum
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -59,6 +60,17 @@ def _require_scope_on_grant(granted: bool | None, scope: ConsentScope | None) ->
         raise ValueError(
             "A consent grant must name its scope: 'marketing', 'invoicing' or 'service' (FR-23 §1)."
         )
+
+
+class CalendarPeriod(enum.StrEnum):
+    """`GET /v1/customers?updated_since_start_of=` — the current calendar day,
+    week (from Monday), month or year in the session time zone, resolved by
+    the server (U-09, KAN-474). A query vocabulary, never a column."""
+
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
 
 # FR-17 stored-field shared helpers (KAN-50). `website` is "scheme-
 # normalised on save": a bare host gets `https://` prepended, an explicit

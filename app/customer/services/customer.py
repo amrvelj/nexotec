@@ -52,6 +52,7 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole, VehiclePartyVehicleLabel
 from app.customer.schemas.customer import (
+    CalendarPeriod,
     CustomerAddressCreate,
     CustomerAddressRead,
     CustomerAddressUpdate,
@@ -448,12 +449,33 @@ def _search_predicate(group_id: uuid.UUID, q: str):
     return or_(*conditions)
 
 
+def _today_in_session_zone(now: dt.datetime | None) -> tuple[dt.date, ZoneInfo]:
+    zone = ZoneInfo(get_settings().session_timezone)
+    return (now or dt.datetime.now(dt.UTC)).astimezone(zone).date(), zone
+
+
 def _start_of_day_days_ago(days: int, now: dt.datetime | None = None) -> dt.datetime:
     """Midnight, in the session time zone, of the calendar day `days` before
     today there. `now` pins the clock for a test."""
-    zone = ZoneInfo(get_settings().session_timezone)
-    today = (now or dt.datetime.now(dt.UTC)).astimezone(zone).date()
+    today, zone = _today_in_session_zone(now)
     return dt.datetime.combine(today - dt.timedelta(days=days), dt.time.min, tzinfo=zone)
+
+
+def _start_of_current_period(period: CalendarPeriod, now: dt.datetime | None = None) -> dt.datetime:
+    """Midnight, in the session time zone, at which the current calendar day,
+    week (Monday, ISO), month or year began there — the grid's «heute»,
+    «diese Woche», «dieser Monat», «dieses Jahr» (U-09, KAN-474). `now` pins
+    the clock for a test."""
+    today, zone = _today_in_session_zone(now)
+    if period is CalendarPeriod.DAY:
+        start = today
+    elif period is CalendarPeriod.WEEK:
+        start = today - dt.timedelta(days=today.weekday())
+    elif period is CalendarPeriod.MONTH:
+        start = today.replace(day=1)
+    else:
+        start = today.replace(month=1, day=1)
+    return dt.datetime.combine(start, dt.time.min, tzinfo=zone)
 
 
 def list_customers(
@@ -471,6 +493,8 @@ def list_customers(
     advisor_user_id: uuid.UUID | None = None,
     unassigned: bool = False,
     updated_more_than_days_ago: int | None = None,
+    updated_in_last_days: int | None = None,
+    updated_since_start_of: CalendarPeriod | None = None,
 ) -> tuple[list[Customer], str | None, int, bool]:
     """`advisor_user_id` narrows to one advisor's customers; `unassigned` to
     those with none — the queue FR-A-37 names, which a leaver's hand-over
@@ -479,7 +503,11 @@ def list_customers(
     `updated_more_than_days_ago=N` keeps customers last changed before the
     start of the calendar day N days ago in the session time zone — the
     grid's relative «more than N days ago», resolved here against the
-    server's clock (U-09, KAN-458)."""
+    server's clock (U-09, KAN-458). `updated_in_last_days=N` keeps the
+    complement — changed since that same midnight — so the two partition the
+    list; `updated_since_start_of` keeps those changed since the current
+    day, week, month or year began there (KAN-474). `updated_since` stays the
+    absolute lower bound for incremental sync."""
 
     stmt = select(Customer).where(Customer.group_id == group_id)
     if advisor_user_id is not None:
@@ -523,6 +551,10 @@ def list_customers(
         stmt = stmt.where(Customer.updated_at >= updated_since)
     if updated_more_than_days_ago is not None:
         stmt = stmt.where(Customer.updated_at < _start_of_day_days_ago(updated_more_than_days_ago))
+    if updated_in_last_days is not None:
+        stmt = stmt.where(Customer.updated_at >= _start_of_day_days_ago(updated_in_last_days))
+    if updated_since_start_of is not None:
+        stmt = stmt.where(Customer.updated_at >= _start_of_current_period(updated_since_start_of))
     # Counted before pagination is applied (no ORDER BY/LIMIT/cursor yet) —
     # see count_capped for why this can never turn into a full table scan.
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)

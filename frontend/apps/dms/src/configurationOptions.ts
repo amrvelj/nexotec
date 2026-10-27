@@ -18,6 +18,13 @@ export interface SpecFieldDef {
   kind: SpecFieldKind
   /** reference list code, for `kind: 'ref'` */
   listCode?: string
+  /** KAN-459 — how the read-only technical block shows the value: the unit
+   * after the number (a label that already ends in `(<unit>)` drops it
+   * there), the column's scale for a DECIMAL, and `year` / `yearMonth` for
+   * a year (`2019`, never `2'019`) or a `YYYYMM` production month. */
+  unit?: string
+  fractionDigits?: number
+  display?: 'year' | 'yearMonth'
   /** i18n key under `configurator.spec.<key>` — falls back to
    * `catalogueBrowse.columns.<key>` where a label already exists */
 }
@@ -33,16 +40,16 @@ export const SPEC_FIELD_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] =
     fields: [
       { key: 'modelTypeName', kind: 'text' },
       { key: 'trimName', kind: 'text' },
-      { key: 'modelYear', kind: 'int' },
-      { key: 'productionFrom', kind: 'int' },
-      { key: 'productionTo', kind: 'int' },
+      { key: 'modelYear', kind: 'int', display: 'year' },
+      { key: 'productionFrom', kind: 'int', display: 'yearMonth' },
+      { key: 'productionTo', kind: 'int', display: 'yearMonth' },
     ],
   },
   {
     titleKey: 'configurator.spec.groups.powertrain',
     fields: [
       { key: 'engineCycle', kind: 'ref', listCode: 'engine_cycle' },
-      { key: 'displacementCcm', kind: 'int' },
+      { key: 'displacementCcm', kind: 'int', unit: 'cm³' },
       { key: 'cylinders', kind: 'int' },
       { key: 'gears', kind: 'int' },
       { key: 'ps', kind: 'int' },
@@ -65,25 +72,25 @@ export const SPEC_FIELD_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] =
     fields: [
       { key: 'doors', kind: 'int' },
       { key: 'seats', kind: 'int' },
-      { key: 'weightEmptyKg', kind: 'int' },
-      { key: 'weightTotalKg', kind: 'int' },
-      { key: 'payloadKg', kind: 'int' },
-      { key: 'towingCapacityKg', kind: 'int' },
-      { key: 'wheelbaseMm', kind: 'int' },
+      { key: 'weightEmptyKg', kind: 'int', unit: 'kg' },
+      { key: 'weightTotalKg', kind: 'int', unit: 'kg' },
+      { key: 'payloadKg', kind: 'int', unit: 'kg' },
+      { key: 'towingCapacityKg', kind: 'int', unit: 'kg' },
+      { key: 'wheelbaseMm', kind: 'int', unit: 'mm' },
     ],
   },
   {
     titleKey: 'configurator.spec.groups.consumption',
     fields: [
-      { key: 'consumptionMixed', kind: 'decimal' },
-      { key: 'consumptionUrban', kind: 'decimal' },
-      { key: 'consumptionExtraUrban', kind: 'decimal' },
+      { key: 'consumptionMixed', kind: 'decimal', unit: 'l/100 km', fractionDigits: 1 },
+      { key: 'consumptionUrban', kind: 'decimal', unit: 'l/100 km', fractionDigits: 1 },
+      { key: 'consumptionExtraUrban', kind: 'decimal', unit: 'l/100 km', fractionDigits: 1 },
       { key: 'consumptionNorm', kind: 'ref', listCode: 'consumption_norm' },
-      { key: 'co2Gkm', kind: 'int' },
-      { key: 'energyConsumptionKwh', kind: 'decimal' },
-      { key: 'batteryCapacityKwh', kind: 'decimal' },
-      { key: 'rangeKm', kind: 'int' },
-      { key: 'tankCapacityL', kind: 'int' },
+      { key: 'co2Gkm', kind: 'int', unit: 'g/km' },
+      { key: 'energyConsumptionKwh', kind: 'decimal', unit: 'kWh', fractionDigits: 1 },
+      { key: 'batteryCapacityKwh', kind: 'decimal', unit: 'kWh', fractionDigits: 2 },
+      { key: 'rangeKm', kind: 'int', unit: 'km' },
+      { key: 'tankCapacityL', kind: 'int', unit: 'l' },
     ],
   },
   {
@@ -103,6 +110,13 @@ export const SPEC_FIELD_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] =
 ]
 
 export const ALL_SPEC_FIELDS: SpecFieldDef[] = SPEC_FIELD_GROUPS.flatMap((g) => g.fields)
+
+/** KAN-459 — the read-only technical block (PRD-Stock FR-I-07 block 2):
+ * the same registry, grouped the same way, minus the commercial `price`
+ * group — commercial data stays last and collapsed on the stock detail. */
+export const TECHNICAL_SPEC_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] = SPEC_FIELD_GROUPS.filter(
+  (g) => g.titleKey !== 'configurator.spec.groups.price',
+)
 
 /** KAN-96 — the five coded fields. They sit on the configuration itself,
  * not in the spec block (exactly like `CatalogueVariantRead`), and each

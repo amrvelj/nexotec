@@ -1795,7 +1795,8 @@
         "consumption": "Consommation & énergie",
         "codes": "Codes",
         "price": "Prix",
-        "vehicleType": "Type de véhicule"
+        "vehicleType": "Type de véhicule",
+        "colours": "Couleurs"
       },
       "fields": {
         "modelTypeName": "Type de modèle",
@@ -1908,7 +1909,8 @@
       "untitled": "Sans désignation",
       "open": "Ouvrir le configurateur",
       "options": "Options",
-      "notesLabel": "Notes"
+      "notesLabel": "Notes",
+      "technicalData": "Données techniques"
     },
     "badges": {
       "unverified": "Non vérifié",

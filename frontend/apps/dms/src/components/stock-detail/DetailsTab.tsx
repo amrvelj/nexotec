@@ -67,6 +67,15 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
         ]}
       />
 
+      {item.configurationId && (
+        // C-F (KAN-10, FR-C-13) — the configuration this pipeline item points at.
+        // KAN-459: it carries block 2 of FR-I-07's order, the technical data,
+        // straight after the hero band, in a spec grid of at most four columns.
+        <OverviewCard title={t('stockDetail.configuration.title')}>
+          <HostConfigurationCard configurationId={item.configurationId} technicalDataColumns={4} />
+        </OverviewCard>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <OverviewCard title={t('stockDetail.commercial.title')}>
           <KeyValueRow label={t('stockDetail.commercial.odometerKm')}>
@@ -120,13 +129,6 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           </KeyValueRow>
         </OverviewCard>
       </div>
-
-      {item.configurationId && (
-        // C-F (KAN-10, FR-C-13) — the configuration this pipeline item points at.
-        <OverviewCard title={t('stockDetail.configuration.title')}>
-          <HostConfigurationCard configurationId={item.configurationId} />
-        </OverviewCard>
-      )}
 
       <ProgressiveDisclosure label={t('stockDetail.purchase.title')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

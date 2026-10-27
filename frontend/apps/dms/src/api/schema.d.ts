@@ -3683,6 +3683,14 @@ export interface components {
             /** Displayname */
             displayName?: string | null;
         };
+        /**
+         * CalendarPeriod
+         * @description `GET /v1/customers?updated_since_start_of=` — the current calendar day,
+         *     week (from Monday), month or year in the session time zone, resolved by
+         *     the server (U-09, KAN-474). A query vocabulary, never a column.
+         * @enum {string}
+         */
+        CalendarPeriod: "day" | "week" | "month" | "year";
         /** CallPayloadRead */
         CallPayloadRead: {
             /**
@@ -10624,6 +10632,10 @@ export interface operations {
                 updated_since?: string | null;
                 /** @description KAN-458: customers last changed before the start of the day N days ago (Europe/Zurich) — the grid's relative «more than N days ago» filter, resolved against the server's clock, never the client's. */
                 updated_more_than_days_ago?: number | null;
+                /** @description KAN-474: customers changed since the start of the day N days ago (Europe/Zurich) — the grid's «in the last N days»; with updated_more_than_days_ago=N it partitions the list. */
+                updated_in_last_days?: number | null;
+                /** @description KAN-474: customers changed since the current day, week (Monday), month or year began in Europe/Zurich — the grid's «today», «this week», «this month», «this year», resolved server-side. */
+                updated_since_start_of?: components["schemas"]["CalendarPeriod"] | null;
                 include_merged?: boolean;
                 advisorUserId?: string | null;
                 /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */

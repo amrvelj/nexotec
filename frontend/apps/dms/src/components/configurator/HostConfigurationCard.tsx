@@ -9,6 +9,9 @@ export interface HostConfigurationCardProps {
   configurationId: string
   /** Offered only where the host lets the advisor edit (the offer workspace). */
   onOpenConfigurator?: (configuration: ConfigurationRead) => void
+  /** KAN-459 — every host shows the stored configuration's technical data
+   * (PRD-Stock FR-I-07 block 2); a full-width host widens the grid to four. */
+  technicalDataColumns?: 2 | 3 | 4
 }
 
 /**
@@ -18,7 +21,7 @@ export interface HostConfigurationCardProps {
  * `configurationHosts.test.ts` asserts no host renders a configuration any
  * other way.
  */
-export function HostConfigurationCard({ configurationId, onOpenConfigurator }: HostConfigurationCardProps) {
+export function HostConfigurationCard({ configurationId, onOpenConfigurator, technicalDataColumns = 2 }: HostConfigurationCardProps) {
   const { t } = useTranslation()
   const query = useQuery({
     queryKey: ['configuration', configurationId],
@@ -31,6 +34,7 @@ export function HostConfigurationCard({ configurationId, onOpenConfigurator }: H
     <ConfigurationSummaryCard
       configuration={configuration}
       onOpenConfigurator={onOpenConfigurator ? () => onOpenConfigurator(configuration) : undefined}
+      technicalDataColumns={technicalDataColumns}
     />
   )
 }

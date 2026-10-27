@@ -9,8 +9,11 @@ import type { SalesPricedDealRead } from '../api/types'
 export interface PriceBuildUpProps {
   /** An offer draft or a pending contract (KAN-67) — the same build-up. */
   deal: SalesPricedDealRead
-  onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void
-  onManualBasePriceChange?: (value: number | null) => void
+  /** Each returns its save, if it has one, refusal included (a rejected
+   * promise): a field shows a newer server copy only once its own saves have
+   * settled, and the server's copy when one is refused (KAN-442). */
+  onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void | Promise<unknown>
+  onManualBasePriceChange?: (value: number | null) => void | Promise<unknown>
   /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
    * host that ends the edit (signing a contract) can wait for it. */
   onUnsavedChange?: (unsaved: boolean) => void
@@ -97,7 +100,12 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
             { value: 'amount', label: t('offerWorkspace.pricing.discountAmount') },
           ]}
           value={deal.discountType ?? ''}
-          onChange={(v) => onDiscountChange({ discountType: v || null, discountValue: discountValue === '' ? null : discountValue })}
+          // Not a debounced field: the host shows a refusal, so it only must not go unhandled.
+          onChange={(v) =>
+            void Promise.resolve(
+              onDiscountChange({ discountType: v || null, discountValue: discountValue === '' ? null : discountValue })
+            ).catch(() => undefined)
+          }
         />
         {/* KAN-168: an amount discount is CHF and reads like every CHF
             amount; a percentage is not, so it stays a plain number. */}

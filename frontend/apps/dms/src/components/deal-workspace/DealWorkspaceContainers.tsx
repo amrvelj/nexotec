@@ -291,10 +291,9 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
       )}
       <PriceBuildUp
         deal={deal}
-        onDiscountChange={(change) =>
-          void patch({ discountType: change.discountType, discountValue: change.discountValue }).catch(reportedByHost)
-        }
-        onManualBasePriceChange={(value) => void patch({ manualBasePrice: value }).catch(reportedByHost)}
+        // The save itself, refusal included: the field handles both (KAN-442).
+        onDiscountChange={(change) => patch({ discountType: change.discountType, discountValue: change.discountValue })}
+        onManualBasePriceChange={(value) => patch({ manualBasePrice: value })}
         onUnsavedChange={onUnsavedChange}
       />
       <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />

@@ -28,6 +28,7 @@ from app.core.permissions import ModuleCode, holds_entitlement, require_read, re
 from app.core.sorting import SortField, parse_sort
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
+    CalendarPeriod,
     CustomerAddressCreate,
     CustomerAddressPage,
     CustomerAddressRead,
@@ -237,6 +238,22 @@ def list_customers(
             "relative «more than N days ago» filter, resolved against the server's clock, never the client's."
         ),
     ),
+    updated_in_last_days: int | None = Query(
+        default=None,
+        ge=0,
+        le=36500,
+        description=(
+            "KAN-474: customers changed since the start of the day N days ago (Europe/Zurich) — the grid's "
+            "«in the last N days»; with updated_more_than_days_ago=N it partitions the list."
+        ),
+    ),
+    updated_since_start_of: CalendarPeriod | None = Query(
+        default=None,
+        description=(
+            "KAN-474: customers changed since the current day, week (Monday), month or year began in "
+            "Europe/Zurich — the grid's «today», «this week», «this month», «this year», resolved server-side."
+        ),
+    ),
     include_merged: bool = False,
     advisor_user_id: uuid.UUID | None = Query(default=None, alias="advisorUserId"),
     unassigned: bool = Query(
@@ -262,6 +279,8 @@ def list_customers(
         canton=canton,
         updated_since=updated_since,
         updated_more_than_days_ago=updated_more_than_days_ago,
+        updated_in_last_days=updated_in_last_days,
+        updated_since_start_of=updated_since_start_of,
         params=params,
         include_merged=include_merged,
         advisor_user_id=advisor_user_id,

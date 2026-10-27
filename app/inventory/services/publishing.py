@@ -12,7 +12,8 @@ marketplace, statistics and URL included), never a plain toggle.
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -79,15 +80,14 @@ def compute_blocking_conditions(db: Session, item: StockItem) -> list[BlockingCo
     return conditions
 
 
+_UNIQUE_CHANNEL_ROW_CONSTRAINT = "uq_stock_item_publishing_stock_item_id_channel"
+
+
 def get_or_create_publishing(db: Session, item: StockItem, channel: MarketplaceChannel) -> StockItemPublishing:
-    existing = db.scalar(
-        select(StockItemPublishing).where(
-            StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel
-        )
+    stmt = select(StockItemPublishing).where(
+        StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel
     )
-    if existing is not None:
-        return existing
-    return _create_publishing(db, item, channel)
+    return _get_or_create(db, item, channel, stmt)
 
 
 def get_or_create_publishing_for_update(
@@ -96,22 +96,47 @@ def get_or_create_publishing_for_update(
     """KAN-429: an existing row locked until the caller commits, so the
     listing-text PATCH's If-Match check reads the version a concurrent save
     has just committed, not the one before it. The publishing row is the
-    only row that route locks; publish and unpublish write that row alone."""
+    only row that route locks; publish and unpublish write that row alone.
 
-    existing = db.scalar(
+    KAN-457: when no row exists yet, a concurrent first writer may be
+    inserting it; ours then waits for theirs and the locked re-read takes
+    their committed row — so its If-Match check answers 409, never a 500."""
+
+    stmt = (
         select(StockItemPublishing)
         .where(StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel)
         .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
     )
+    return _get_or_create(db, item, channel, stmt)
+
+
+def _get_or_create(
+    db: Session, item: StockItem, channel: MarketplaceChannel, stmt: Select[tuple[StockItemPublishing]]
+) -> StockItemPublishing:
+    """The channel's row, inserted on first use. Two first users (two first
+    GETs, two first PATCHes, a publish beside either) both miss the row and
+    both insert it: the second insert waits for the first and then violates
+    `uq_stock_item_publishing_stock_item_id_channel` (KAN-457). The savepoint
+    keeps the caller's transaction alive through that, and the re-read then
+    takes the winner's row. The caller's own pending rows are flushed first,
+    so the except below can only ever see this row's INSERT."""
+
+    existing = db.scalar(stmt)
     if existing is not None:
         return existing
-    return _create_publishing(db, item, channel)
-
-
-def _create_publishing(db: Session, item: StockItem, channel: MarketplaceChannel) -> StockItemPublishing:
-    row = StockItemPublishing(tenant_id=item.tenant_id, stock_item_id=item.id, channel=channel)
-    db.add(row)
     db.flush()
+    try:
+        with db.begin_nested():
+            db.add(StockItemPublishing(tenant_id=item.tenant_id, stock_item_id=item.id, channel=channel))
+    except IntegrityError as exc:
+        # Only the concurrent first user's row is expected here; any other
+        # integrity failure stays loud.
+        if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != _UNIQUE_CHANNEL_ROW_CONSTRAINT:
+            raise
+    row = db.scalar(stmt)
+    if row is None:
+        raise RuntimeError("StockItemPublishing row missing after its first INSERT or the concurrent winner's")
     return row
 
 
