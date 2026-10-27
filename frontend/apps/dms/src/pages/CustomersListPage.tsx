@@ -525,7 +525,7 @@ export function CustomersListPage() {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (sortParam) params.set('sort', sortParam)
-        applyCustomerFilters(params, predicates, filterFields, new Date())
+        applyCustomerFilters(params, predicates, filterFields)
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<CustomerPage>(`/customers?${params.toString()}`)

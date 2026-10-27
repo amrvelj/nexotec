@@ -9,6 +9,7 @@ import datetime as dt
 import uuid
 from zoneinfo import ZoneInfo
 
+import pytest
 from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
@@ -209,3 +210,96 @@ def test_updated_more_than_days_ago_refuses_a_negative_count(client):
     token = _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
     response = client.get("/v1/customers", params={"updated_more_than_days_ago": -1}, headers=_bearer(token))
     assert response.status_code == 422, response.text
+
+
+# --- relative «Geändert» conditions resolved server-side (KAN-474) --------------------------
+#
+# «heute», «diese Woche», «dieser Monat», «dieses Jahr» and «in den letzten N
+# Tagen» were resolved in the browser and sent as `updated_since=YYYY-MM-DD`,
+# which the API bound as UTC midnight: one to two hours late against the
+# Zurich midnight «vor mehr als N Tagen» uses (KAN-458). U-09: relative dates
+# are resolved by the server, in the session time zone.
+
+ZURICH = ZoneInfo("Europe/Zurich")
+# Wednesday 28 October 2026, 00:30 in Zurich — still Tuesday the 27th in UTC.
+BOUNDARY_NOW = dt.datetime(2026, 10, 28, 0, 30, tzinfo=ZURICH)
+
+
+def test_relative_periods_start_at_swiss_midnight_at_00_30_zurich():
+    from app.customer.schemas.customer import CalendarPeriod
+    from app.customer.services.customer import _start_of_current_period
+
+    assert BOUNDARY_NOW.astimezone(dt.UTC).date() == dt.date(2026, 10, 27)  # the UTC day is still yesterday
+    assert _start_of_current_period(CalendarPeriod.DAY, BOUNDARY_NOW) == dt.datetime(2026, 10, 28, tzinfo=ZURICH)
+    # ISO week: Monday 26 October
+    assert _start_of_current_period(CalendarPeriod.WEEK, BOUNDARY_NOW) == dt.datetime(2026, 10, 26, tzinfo=ZURICH)
+    # 1 October, still summer time (+02:00) — the zone's own offset on that day
+    month = _start_of_current_period(CalendarPeriod.MONTH, BOUNDARY_NOW)
+    assert month == dt.datetime(2026, 10, 1, tzinfo=ZURICH)
+    assert month.utcoffset() == dt.timedelta(hours=2)
+    assert _start_of_current_period(CalendarPeriod.YEAR, BOUNDARY_NOW) == dt.datetime(2026, 1, 1, tzinfo=ZURICH)
+
+
+def test_in_the_last_n_days_starts_at_swiss_midnight_at_00_30_zurich():
+    from app.customer.services.customer import _start_of_day_days_ago
+
+    assert _start_of_day_days_ago(30, BOUNDARY_NOW) == dt.datetime(2026, 9, 28, tzinfo=ZURICH)
+
+
+def _period_start(period: str) -> dt.datetime:
+    from app.customer.schemas.customer import CalendarPeriod
+    from app.customer.services.customer import _start_of_current_period
+
+    return _start_of_current_period(CalendarPeriod(period))
+
+
+
+@pytest.mark.parametrize("period", ["day", "week", "month", "year"])
+def test_filter_by_updated_since_start_of(client, db_session, period):
+    """A customer changed at the period's Zurich midnight is in; one changed
+    a second before it is out — the UTC-midnight bound kept the latter for
+    up to two hours."""
+    dealer_id = _create_dealer(client)
+    inside = _create_customer(client, dealer_id, lastName="Inside")
+    outside = _create_customer(client, dealer_id, lastName="Outside")
+    start = _period_start(period)
+    _backdate(db_session, inside["id"], start)
+    _backdate(db_session, outside["id"], start - dt.timedelta(seconds=1))
+
+    body = _list(client, dealer_id, updated_since_start_of=period)
+    assert [c["id"] for c in body["items"]] == [inside["id"]]
+
+
+def test_in_the_last_and_more_than_n_days_ago_partition_the_list(client, db_session):
+    """«in den letzten 30 Tagen» and «vor mehr als 30 Tagen» leave no gap and
+    never overlap, also for a change in the hour after Zurich midnight."""
+    from app.customer.services.customer import _start_of_day_days_ago
+
+    dealer_id = _create_dealer(client)
+    boundary = _start_of_day_days_ago(30)
+    stamps = {
+        "at-midnight": boundary,
+        "half-past-midnight": boundary + dt.timedelta(minutes=30),
+        "second-before": boundary - dt.timedelta(seconds=1),
+        "long-ago": boundary - dt.timedelta(days=200),
+        "yesterday": boundary + dt.timedelta(days=29),
+    }
+    ids = {}
+    for name, when in stamps.items():
+        ids[name] = _create_customer(client, dealer_id, lastName=name)["id"]
+        _backdate(db_session, ids[name], when)
+
+    recent = {c["id"] for c in _list(client, dealer_id, updated_in_last_days=30, limit=50)["items"]}
+    older = {c["id"] for c in _list(client, dealer_id, updated_more_than_days_ago=30, limit=50)["items"]}
+    assert recent == {ids["at-midnight"], ids["half-past-midnight"], ids["yesterday"]}
+    assert older == {ids["second-before"], ids["long-ago"]}
+    assert recent.isdisjoint(older)
+    assert recent | older == set(ids.values())
+
+
+def test_relative_parameters_refuse_unknown_values(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
+    for params in ({"updated_in_last_days": -1}, {"updated_since_start_of": "fortnight"}):
+        response = client.get("/v1/customers", params=params, headers=_bearer(token))
+        assert response.status_code == 422, (params, response.text)

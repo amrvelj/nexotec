@@ -1,4 +1,4 @@
-import { resolveRelativeDateRange, type DateCondition, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
+import type { DateCondition, FilterFieldDef, FilterPredicate } from '@nexotec/ui-kit'
 import type {
   ConsentScope,
   ConsentSource,
@@ -273,11 +273,28 @@ export function translatedEmailTypeOptions(t: Translate): { value: EmailType; la
  * a leaver's hand-over to nobody fills. */
 export const UNASSIGNED_ADVISOR = '__unassigned__'
 
-/** A date field's «more than N days ago» goes to its own parameter: its
- * `param` is a lower bound only. The server resolves N against its own
- * clock (U-09, KAN-458). */
-const MORE_THAN_DAYS_AGO_PARAM: Record<string, string> = {
-  updated_since: 'updated_more_than_days_ago',
+/** A date field's relative conditions go to their own parameters: the
+ * field's `param` is the absolute lower bound for incremental sync. The
+ * server resolves each against its own clock, in the session time zone
+ * (U-09; KAN-458, KAN-474) — never the browser, whose «today» as a bare
+ * date was bound as UTC midnight. */
+const RELATIVE_DATE_PARAMS: Record<
+  string,
+  { inTheLastDays: string; moreThanDaysAgo: string; sinceStartOf: string }
+> = {
+  updated_since: {
+    inTheLastDays: 'updated_in_last_days',
+    moreThanDaysAgo: 'updated_more_than_days_ago',
+    sinceStartOf: 'updated_since_start_of',
+  },
+}
+
+/** `updated_since_start_of`'s values: the current day, week, month or year. */
+const CALENDAR_PERIOD: Partial<Record<DateCondition, 'day' | 'week' | 'month' | 'year'>> = {
+  today: 'day',
+  thisWeek: 'week',
+  thisMonth: 'month',
+  thisYear: 'year',
 }
 
 /**
@@ -291,25 +308,23 @@ const MORE_THAN_DAYS_AGO_PARAM: Record<string, string> = {
  * `architecture/grid-filters-are-applied.test.ts` fails if one is not
  * (KAN-458). The page passes only offered predicates (`offeredPredicates`).
  */
-export function applyCustomerFilters(
-  params: URLSearchParams,
-  predicates: FilterPredicate[],
-  fields: FilterFieldDef[],
-  now: Date,
-): void {
+export function applyCustomerFilters(params: URLSearchParams, predicates: FilterPredicate[], fields: FilterFieldDef[]): void {
   const fieldById = new Map(fields.map((f) => [f.id, f]))
   for (const predicate of predicates) {
     const field = fieldById.get(predicate.fieldId)
     const paramName = field ? (field.param ?? field.id) : undefined
     if (paramName === undefined) {
       // Not a field this grid offers — `offeredPredicates` never passes one.
-    } else if (predicate.type === 'date' && predicate.condition === 'moreThanDaysAgo') {
-      // A missing day count reads as 0, as `resolveRelativeDateRange` does.
-      const beforeParam = MORE_THAN_DAYS_AGO_PARAM[paramName]
-      if (beforeParam) params.set(beforeParam, String(predicate.days ?? 0))
     } else if (predicate.type === 'date') {
-      const range = resolveRelativeDateRange(predicate.condition as DateCondition, predicate.days, now)
-      if (range.from) params.set(paramName, range.from)
+      const relative = RELATIVE_DATE_PARAMS[paramName]
+      const condition = predicate.condition as DateCondition
+      const period = CALENDAR_PERIOD[condition]
+      // A missing day count reads as 0, as the kit's `resolveRelativeDateRange` does.
+      if (!relative) {
+        // A date field without relative parameters — none on this grid today.
+      } else if (condition === 'inTheLastDays') params.set(relative.inTheLastDays, String(predicate.days ?? 0))
+      else if (condition === 'moreThanDaysAgo') params.set(relative.moreThanDaysAgo, String(predicate.days ?? 0))
+      else if (period) params.set(relative.sinceStartOf, period)
     } else if (predicate.condition === 'is' && typeof predicate.value === 'string') {
       if (paramName === 'advisorUserId' && predicate.value === UNASSIGNED_ADVISOR) params.set('unassigned', 'true')
       else params.set(paramName, predicate.value)

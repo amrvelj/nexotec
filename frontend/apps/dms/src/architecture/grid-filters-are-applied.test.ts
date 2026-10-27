@@ -236,7 +236,7 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
     )
     expect(problems).toEqual([])
     expect(fields.length).toBeGreaterThan(0)
-    const apply: Mapper = (params, predicates) => applyCustomerFilters(params, predicates, fields, new Date())
+    const apply: Mapper = (params, predicates) => applyCustomerFilters(params, predicates, fields)
     expect(unmapped(fields, apply, queryParamsOf(MAPPERS.applyCustomerFilters.endpoint))).toEqual([])
   })
 
