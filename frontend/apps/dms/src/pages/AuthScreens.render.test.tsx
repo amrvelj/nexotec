@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
@@ -78,6 +78,52 @@ describe('reset and invitation screens (KAN-196)', () => {
     await user.click(screen.getByRole('button', { name: 'Konto aktivieren' }))
     expect(await screen.findByText('Ihr Passwort ist gesetzt. Melden Sie sich jetzt mit Ihrem zweiten Faktor an.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Zur Anmeldung' })).toHaveAttribute('href', '/login')
+  })
+
+  // KAN-472: an invitation accepted before the access window opens names the
+  // window — date-only values, so the day holds west of Greenwich too.
+  describe('an access window that is not open yet', () => {
+    let tz: string | undefined
+    beforeAll(() => {
+      tz = process.env.TZ
+      process.env.TZ = 'Pacific/Honolulu'
+    })
+    afterAll(() => {
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    })
+
+    it('names the days the access opens and ends, as recorded', async () => {
+      const user = userEvent.setup()
+      installFakeBackend([
+        SIGNED_OUT,
+        {
+          method: 'POST',
+          match: /\/auth\/invitations\/accept$/,
+          handler: () =>
+            status(403, {
+              error: {
+                code: 'forbidden',
+                message: 'Your access to this business has not started yet.',
+                details: { reason: 'access_window_closed', validFrom: '2026-11-01', validTo: '2026-12-31' },
+              },
+            }),
+        },
+      ])
+      renderWithProviders(
+        <Routes>
+          <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
+        </Routes>,
+        { route: '/invitations/accept?token=t-1' },
+      )
+      await user.type(await screen.findByLabelText(/^Passwort/), 'correct-horse-battery-staple')
+      await user.click(screen.getByRole('button', { name: 'Konto aktivieren' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Ihr Zugang zu diesem Betrieb ist zurzeit nicht freigegeben (gültig vom 01.11.2026 bis 31.12.2026).',
+      )
+      expect(screen.queryByText(/has not started yet/)).not.toBeInTheDocument()
+    })
   })
 
   it('a session that still owes a second factor is sent to the security screen first', async () => {

@@ -61,7 +61,10 @@ def apply_customer_change(
     # only stops confirm_contract (S-D19: "quoting a blocked
     # customer is often how the block gets resolved").
     if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
-        raise ConflictError(f"Customer {customer.customer_number} is do-not-contact — cannot be attached to {host}.")
+        raise ConflictError(
+            f"Customer {customer.customer_number} is do-not-contact — cannot be attached to {host}.",
+            details={"reason": "customer_do_not_contact", "customerNumber": customer.customer_number},
+        )
     deal.customer_id = customer.id
     deal.customer_label = resolve_customer_label(customer)
     # CLAUDE.md's own rule: "the customer's correspondence language
@@ -258,7 +261,7 @@ def finalize_offer(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None
     if missing:
         raise ConflictError(
             f"Offer {offer.offer_number} is missing required containers: {', '.join(missing)}.",
-            details={"missingContainers": missing},
+            details={"reason": "missing_containers", "missingContainers": missing},
         )
 
     offer.status = OfferStatus.OPEN

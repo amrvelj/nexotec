@@ -61,16 +61,17 @@ def record_cost(
     if category in AUTOMATIC_ONLY_CATEGORIES and not is_auto:
         raise UnprocessableEntityError(
             f"'{category.value}' may only be booked automatically, never by hand.",
-            details={"category": category.value},
+            details={"reason": "category_automatic_only", "category": category.value},
         )
     if item.left_stock_at is not None:
         raise UnprocessableEntityError(
             "This stock item has been sold — its Wagenbuch is closed to new entries.",
-            details={"stockItemId": str(item.id)},
+            details={"reason": "wagenbuch_closed", "stockItemId": str(item.id)},
         )
     if is_period_closed(item.tenant_id, occurred_at):
         raise UnprocessableEntityError(
-            "The accounting period for this date is closed.", details={"occurredAt": str(occurred_at)}
+            "The accounting period for this date is closed.",
+            details={"reason": "accounting_period_closed", "occurredAt": str(occurred_at)},
         )
 
     entry = StockItemLedger(

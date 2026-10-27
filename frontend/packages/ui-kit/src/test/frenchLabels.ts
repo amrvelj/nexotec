@@ -54,6 +54,8 @@ export const FR_FILTER_BUILDER_LABELS: FilterBuilderLabels = {
   matchCount: (count) => `${count} résultats`,
   editFilter: 'Modifier le filtre',
   deleteFilter: 'Supprimer le filtre',
+  dayCount: 'Nombre de jours',
+  invalidDayCount: (min, max) => `Saisissez un nombre entier de jours entre ${min} et ${max}.`,
   ...FR_CONDITION_LABELS,
 }
 
@@ -67,6 +69,7 @@ export const FR_VIEWS_AND_FILTERS_LABELS: ViewsAndFiltersLabels = {
   setDefault: 'Définir par défaut',
   unsetDefault: 'Ne plus utiliser par défaut',
   deleteView: 'Supprimer la vue',
+  viewChanged: 'Modifiée par rapport à la vue enregistrée',
   filters: FR_FILTER_BUILDER_LABELS,
 }
 

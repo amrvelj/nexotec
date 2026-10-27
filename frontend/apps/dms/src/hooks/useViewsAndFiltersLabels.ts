@@ -44,6 +44,7 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
       setDefault: t('common.viewsAndFilters.setDefault'),
       unsetDefault: t('common.viewsAndFilters.unsetDefault'),
       deleteView: t('common.viewsAndFilters.deleteView'),
+      viewChanged: t('common.viewsAndFilters.viewChanged'),
       filters: {
         addFilter: t('common.filterBuilder.addFilter'),
         save: t('common.save'),
@@ -51,6 +52,8 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         matchCount: (count: number) => t('common.filterBuilder.matchCount', { count }),
         editFilter: t('common.filterBuilder.editFilter'),
         deleteFilter: t('common.filterBuilder.deleteFilter'),
+        dayCount: t('common.filterBuilder.dayCount'),
+        invalidDayCount: (min: number, max: number) => t('common.filterBuilder.invalidDayCount', { min, max }),
         conditions: perCondition((c) => t(`common.filterBuilder.conditions.${c}`)),
         // `count` picks the plural form of the two N-days texts; the other
         // conditions have none and ignore it.

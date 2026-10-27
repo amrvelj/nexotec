@@ -83,12 +83,16 @@ second local combobox.
   Every filter is a chip (FR-UI-06).
 - **ADR-102 (Anto, 2026-10-26; KAN-458) — a grid shows only the filters it applies.** Every
   filterable grid narrows the predicates it reads (URL, saved view) with the kit's
-  `offeredPredicates`: an unoffered field or condition is neither sent nor shown (quietly — a
-  visible hint is KAN-475), and **a field holds one filter**, ranges included (no «mindestens 150
+  `offeredPredicates`: an unoffered field or condition is neither sent nor shown (quietly — Anto's
+  choice; a saved view the grid narrows that way carries the view selector's unsaved-changes dot and
+  no tick — the grid passes its own narrowing as `narrowPredicates`, KAN-475), and **a field holds one filter**, ranges included (no «mindestens 150
   und höchstens 250» band): the builder replaces a field's filter when one is added on it and
   offers no «duplicate»; a link or saved view with two keeps the first. A field offers only the
   conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
-  (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476).
+  (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476). An N-days count is a whole
+  number from `MIN_FILTER_DAYS` to `MAX_FILTER_DAYS` (0–36500, the endpoints' `ge`/`le`): the builder
+  refuses another in place and holds Save back, and `offeredPredicates` drops one from a link or
+  view (KAN-475).
   `src/architecture/grid-filters-are-applied.test.ts` runs each grid's mapper over every offered
   field × condition against the endpoint's parameters in `schema.d.ts`; a new filterable grid
   adds its mapper there.
@@ -162,12 +166,15 @@ second local combobox.
   `"reason": "…"` in `app/` it does not translate); a 403, a 404 and a schema 422
   (`details.errors`) by status; anything else — a business rule refused **without** a reason
   included — is the screen's own key. Such a refusal loses its meaning on screen: give it a
-  `details.reason` (KAN-472 lists today's). A screen with its own wording for a reason (merge,
+  `details.reason` (KAN-472 gave the frequent ones theirs; a sentence naming a value the details
+  carry takes it through `REASON_PARAMS`, translated or locale-formatted there). A screen with its own wording for a reason (merge,
   contract confirmation, business data) keeps its helper.
   `src/architecture/no-api-error-message-render.test.ts` refuses a new `.message` render in the
-  app; its allow-list holds only `ConfiguratorOverlay`'s `HostCommitError`, built from `t(...)`.
-  It does not scan `packages/ui-kit`: `InlineEditField` still shows a thrown error's `message`
-  (KAN-473).
+  app and in `packages/ui-kit/src` (KAN-473); its allow-list holds `ConfiguratorOverlay`'s
+  `HostCommitError` and `FormDialog`'s existing-record notice, both built from `t(...)`. The kit's
+  `InlineEditField` takes a required `describeError` and, beside an `onReload`, a `reloadLabel` —
+  the app's `useInlineEditRefusal()`; only a stale If-Match 409 (`isStaleVersion`) offers the
+  reload. `RepeatableRowGroup` without a `describeError` shows its `genericError` label.
 - The customer's **correspondence language** is not the user's **UI language** — never the
   same control, never the same stored field.
 - **DE, FR and IT person nouns use the generic masculine** (Anto, 2026-10-12, KAN-171; the
@@ -207,7 +214,8 @@ lists them: a field joined into a string or passed to a row helper, an `InlineEd
 plate, an accessory, a user's access window and a valuation — the last rendered by no screen yet;
 a timestamp on a contact channel) or `lastDeltaCursor` (KAN-363) — the ones a screen renders,
 and every screen that renders a date-only field, are checked by that screen's render test under
-`TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `IntegrationPlatformView.pending`). Today's date as a pre-fill is
+`TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `IntegrationPlatformView.pending`, `AuthScreens` for the
+invitation's access window, KAN-472). Today's date as a pre-fill is
 `todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
 `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00
 Swiss time (KAN-358; `src/architecture/no-utc-calendar-day.test.ts` refuses it).

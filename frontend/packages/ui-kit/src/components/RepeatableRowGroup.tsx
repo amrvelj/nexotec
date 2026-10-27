@@ -81,8 +81,9 @@ export interface RepeatableRowGroupProps {
    * overridden, which is the meaning a bare `granted` has always had. */
   defaultConsentScope?: string;
   /** Turns a thrown `onCreate`/`onUpdate`/`onDelete` error into row-level
-   * text — e.g. unwrapping an `ApiError`'s own message. Defaults to the
-   * error's own `message`, which is not translated. */
+   * text in the UI language (the app's `apiRefusalText`). Without it a failed
+   * write shows `labels.genericError` — never the error's own `message`,
+   * which for an API refusal is English (KAN-473). */
   describeError?: (err: unknown) => string;
 }
 
@@ -103,8 +104,7 @@ export interface RepeatableRowGroupLabels {
   cancel: string;
   confirm: string;
   none: string;
-  /** Shown for a failed write when no `describeError` is given, or the
-   * error carries no message. */
+  /** Shown for a failed write when no `describeError` is given. */
   genericError: string;
   labelFieldPlaceholder: string;
   /** KAN-291 — the row menu trigger's accessible name, given the group's
@@ -146,7 +146,7 @@ export function RepeatableRowGroup({
   describeError,
 }: RepeatableRowGroupProps) {
   const L = labels;
-  const errorText = (err: unknown): string => describeError?.(err) ?? (err instanceof Error ? err.message : L.genericError);
+  const errorText = (err: unknown): string => describeError?.(err) ?? L.genericError;
 
   // "Real deletion only for same-session mistakes" — a row present when
   // this component FIRST mounted is existing history and can only ever be

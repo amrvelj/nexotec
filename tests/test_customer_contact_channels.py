@@ -315,6 +315,7 @@ def test_closing_the_last_usable_email_is_rejected(client):
         headers=_bearer(token),
     )
     assert response.status_code == 400
+    assert response.json()["error"]["details"] == {"reason": "last_usable_contact_point"}
 
 
 def test_marking_the_last_usable_phone_do_not_use_is_rejected(client):
@@ -331,6 +332,7 @@ def test_marking_the_last_usable_phone_do_not_use_is_rejected(client):
         headers=_bearer(token),
     )
     assert response.status_code == 400
+    assert response.json()["error"]["details"] == {"reason": "last_usable_contact_point"}
 
 
 def test_closing_an_email_is_allowed_when_a_usable_phone_remains(client):
@@ -425,6 +427,9 @@ def test_removing_the_one_usable_row_beside_a_dead_one_is_still_rejected(client)
     )
     deleting = client.delete(f"{base}/emails/{email['id']}", headers=_bearer(token))
     assert [closing.status_code, flagging.status_code, deleting.status_code] == [400, 400, 400]
+    assert {r.json()["error"]["details"]["reason"] for r in (closing, flagging, deleting)} == {
+        "last_usable_contact_point"
+    }
     assert "last usable email address" in deleting.json()["error"]["message"]
 
 
@@ -800,6 +805,29 @@ def _primaries(client, token, customer_id, channel, type_key, value_key):
         if item["isPrimary"]:
             groups[item[type_key]].append(item[value_key])
     return groups
+
+
+@pytest.mark.parametrize("channel", ["phones", "emails"])
+def test_unsetting_the_primary_directly_is_rejected_with_its_reason(client, channel):
+    """KAN-472: `isPrimary: false` on the primary is refused with a stable
+    reason, so the SPA can say "mark a different one as primary" itself."""
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    if channel == "phones":
+        primary = _add_phone(client, token, customer["id"], "+41791111111")
+    else:
+        primary = client.get(f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)).json()["items"][0]
+    assert primary["isPrimary"] is True
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/{channel}/{primary['id']}",
+        json={"isPrimary": False},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["details"] == {"reason": "primary_unset_directly"}
 
 
 def test_moving_primary_phone_into_a_group_with_a_primary_keeps_that_primary(client):

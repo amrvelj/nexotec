@@ -3,7 +3,8 @@ import { Button } from '@mantine/core'
 import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
-import { ApiError } from '../../api/client'
+import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
+import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import type { StockItemRead } from '../../api/types'
@@ -34,7 +35,7 @@ const chfEditor = chfInlineEditor({ min: 0 })
 
 export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurchase }: DetailsTabProps) {
   const { t } = useTranslation()
-  const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
+  const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
 
   return (
@@ -85,8 +86,10 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
               isEmpty={item.odometerKm == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ odometerKm: v ? Number(v) : null })}
-              isConflict={isConflict}
+              describeError={describeError}
+              isConflict={isStaleVersion}
               onReload={onReload}
+              reloadLabel={reloadLabel}
             />
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.commercial.listPrice')}>
@@ -97,8 +100,10 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ listPrice: v || null })}
               renderEditor={chfEditor}
-              isConflict={isConflict}
+              describeError={describeError}
+              isConflict={isStaleVersion}
               onReload={onReload}
+              reloadLabel={reloadLabel}
             />
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.commercial.effectivePrice')}>
@@ -109,8 +114,10 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ effectivePrice: v || null })}
               renderEditor={chfEditor}
-              isConflict={isConflict}
+              describeError={describeError}
+              isConflict={isStaleVersion}
               onReload={onReload}
+              reloadLabel={reloadLabel}
             />
           </KeyValueRow>
         </OverviewCard>
@@ -120,8 +127,10 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
             <InlineEditField
               value={item.vehicleLabel}
               onSave={(v) => onSaveField({ vehicleLabel: v })}
-              isConflict={isConflict}
+              describeError={describeError}
+              isConflict={isStaleVersion}
               onReload={onReload}
+              reloadLabel={reloadLabel}
             />
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.identity.vehicleId')}>

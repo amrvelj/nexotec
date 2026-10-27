@@ -249,6 +249,36 @@ def test_discount_on_used_vehicle_line_item_requires_a_reason(db_session):
         )
 
 
+def test_discount_on_used_vehicle_line_item_via_api_names_its_reason(client, db_session):
+    """KAN-472: the refusal above, through the route, carries a stable
+    `details.reason` beside the line it names."""
+
+    dealership = _make_dealership(db_session)
+    item = _stock_item(db_session, dealership.id, condition=StockItemCondition.USED, with_option=False)
+    offer = _offer_with_vehicle(db_session, dealership.id, item, group_id=dealership.dealer_group_id)
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=dealership.id, group_id=dealership.dealer_group_id,
+        roles=frozenset({AccessRole.SALES}),
+    )
+
+    response = client.put(
+        f"/v1/sales/offers/{offer.id}/line-items",
+        json={
+            "accessories": [
+                {
+                    "code": "MATS", "label": "Fussmatten", "unitPrice": "150.00", "quantity": 1,
+                    "discountType": "amount", "discountValue": "20.00",
+                }
+            ]
+        },
+        headers={**_bearer(token), "If-Match": str(offer.version)},
+    )
+    assert response.status_code == 409, response.text
+    details = response.json()["error"]["details"]
+    assert details["reason"] == "discount_suppressed_on_used_vehicle"
+    assert details["code"] == "MATS"
+
+
 def test_discount_on_used_vehicle_line_item_succeeds_with_a_reason(db_session):
     dealership = _make_dealership(db_session)
     item = _stock_item(db_session, dealership.id, condition=StockItemCondition.USED, with_option=False)
@@ -386,6 +416,7 @@ def test_finalize_via_api_requires_complete_containers(client):
     )
     assert response.status_code == 409, response.text
     assert "missingContainers" in response.json()["error"]["details"]
+    assert response.json()["error"]["details"]["reason"] == "missing_containers"
 
 
 def test_line_items_api_add_and_list_accessory(client):

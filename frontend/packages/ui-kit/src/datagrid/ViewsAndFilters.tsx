@@ -21,6 +21,12 @@ export interface ViewsAndFiltersProps {
   onPredicatesChange: (predicates: FilterPredicate[]) => void;
   onPreviewCount?: FilterBuilderProps["onPreviewCount"];
   onResetFilters: () => void;
+  /** The grid's own narrowing of stored predicates (ADR-102: what it reads
+   * from a link or a saved view — `offeredPredicates` over its filter scope,
+   * after any legacy mapping). Given, an applied view whose filters it narrows
+   * carries the unsaved-changes dot and no tick (KAN-475); a grid without
+   * filters passes none and never shows the dot. */
+  narrowPredicates?: (stored: FilterPredicate[]) => FilterPredicate[];
 
   labels: ViewsAndFiltersLabels;
 }
@@ -41,7 +47,21 @@ export interface ViewsAndFiltersLabels {
   setDefault: string;
   unsetDefault: string;
   deleteView: string;
+  /** Accessible name and tooltip of the unsaved-changes dot (§ Action Bar,
+   * Zones: "an unsaved-changes dot when the current state differs from the
+   * saved view") — shown when the applied view's filters are not all
+   * applied by this grid (KAN-475). */
+  viewChanged: string;
   filters: FilterBuilderLabels;
+}
+
+/** True when the grid's own narrowing drops part of a saved view's filters
+ * (ADR-102: an unappliable one is ignored quietly) — the grid then shows
+ * less than the view, so the control must not present the view as applied
+ * (KAN-475). */
+export function viewIsNarrowed(view: SavedView, narrow: (stored: FilterPredicate[]) => FilterPredicate[]): boolean {
+  const filters = view.snapshot.filters ?? [];
+  return filters.length > 0 && narrow(filters).length < filters.length;
 }
 
 /**
@@ -62,10 +82,17 @@ export function ViewsAndFilters({
   onPredicatesChange,
   onPreviewCount,
   onResetFilters,
+  narrowPredicates,
   labels,
 }: ViewsAndFiltersProps) {
   const L = labels;
   const [opened, setOpened] = useState(false);
+  // The applied view is the one the trigger names (the list ticks it by
+  // name too). Narrowed, it carries the unsaved-changes dot and no tick: the
+  // grid is no longer showing that view as saved.
+  const appliedView = views.find((view) => view.name === currentViewName);
+  const narrowed = appliedView !== undefined && narrowPredicates !== undefined && viewIsNarrowed(appliedView, narrowPredicates);
+  const isTicked = (view: SavedView) => view.name === currentViewName && !narrowed;
   const [savingAs, setSavingAs] = useState(false);
   const [newViewName, setNewViewName] = useState("");
 
@@ -107,6 +134,14 @@ export function ViewsAndFilters({
           }}
         >
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentViewName}</span>
+          {narrowed && (
+            <span
+              role="img"
+              aria-label={L.viewChanged}
+              title={L.viewChanged}
+              style={{ flexShrink: 0, width: 8, height: 8, borderRadius: radius.full, backgroundColor: purple[6] }}
+            />
+          )}
           {predicates.length > 0 && (
             <span
               aria-hidden="true"
@@ -154,11 +189,11 @@ export function ViewsAndFilters({
                   padding: `${spacing.xs} ${spacing.xs}`,
                   borderRadius: radius.sm,
                   cursor: "pointer",
-                  backgroundColor: view.name === currentViewName ? purple[0] : undefined,
+                  backgroundColor: isTicked(view) ? purple[0] : undefined,
                 }}
                 onClick={() => onApplyView(view)}
               >
-                {view.name === currentViewName ? <Check size={14} color={purple[6]} /> : <span style={{ width: 14 }} />}
+                {isTicked(view) ? <Check size={14} color={purple[6]} /> : <span style={{ width: 14 }} />}
                 <span style={{ flex: 1, fontSize: 13, color: slate[7] }}>{view.name}</span>
                 <IconButton
                   ariaLabel={view.isDefault ? L.unsetDefault : L.setDefault}

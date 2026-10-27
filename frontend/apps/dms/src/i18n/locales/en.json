@@ -119,7 +119,8 @@
       "reset": "Reset",
       "setDefault": "Set as default",
       "unsetDefault": "Remove as default",
-      "deleteView": "Delete view"
+      "deleteView": "Delete view",
+      "viewChanged": "Changed from the saved view"
     },
     "filterBuilder": {
       "addFilter": "New filter…",
@@ -164,12 +165,18 @@
         "moreThanDaysAgo_other": "{{field}}: more than {{days, number}} days ago"
       },
       "booleanTrue": "{{field}}: yes",
-      "booleanFalse": "{{field}}: no"
+      "booleanFalse": "{{field}}: no",
+      "dayCount": "Number of days",
+      "invalidDayCount": "Enter a whole number of days from {{min, number}} to {{max, number}}."
     },
     "overlay": {
       "close": "Close"
     },
-    "fieldHintIcon": "Hint"
+    "fieldHintIcon": "Hint",
+    "inlineEdit": {
+      "saveFailed": "The change could not be saved.",
+      "reload": "Reload"
+    }
   },
   "apiRefusal": {
     "staleVersion": "This record was changed in the meantime. Reload it and try again.",
@@ -178,21 +185,30 @@
     "invalid": "Some of the entries are not valid. Check them and try again.",
     "reasons": {
       "accept_invitation_required": "An invited user becomes active by accepting the invitation — resend the invitation instead.",
-      "access_window_closed": "Your access to this business is not open at this time.",
+      "access_window_closed": "Your access to this business is not open at this time ({{window}}).",
+      "accounting_period_closed": "The accounting period for this date is closed. Choose a date in an open period.",
       "already_revoked": "This connected account has already been disconnected.",
       "catalogue_variant_missing": "The catalogue variant of this configuration no longer exists.",
+      "category_automatic_only": "This category is only ever booked automatically, never by hand.",
       "coded_field_locked": "The coded fields of a catalogue configuration come from the catalogue and cannot be changed.",
       "coded_field_required": "The coded fields of a manual configuration cannot be cleared.",
       "coded_fields_required": "A manual configuration needs all five coded fields.",
       "colleague_cannot_act_there": "The chosen colleague does not work in the business this record belongs to.",
       "configuration_mode_fixed": "The mode of a saved configuration cannot be changed — copy it into a new configuration instead.",
       "configuration_mode_not_allowed": "A configuration of this kind cannot be used here.",
+      "customer_do_not_contact": "Customer {{customerNumber}} is marked do-not-contact and cannot be attached to an offer or a contract.",
       "customer_tag_exists": "A tag in this change is already on the customer — the customer changed in the meantime. Reload it and try again.",
+      "discount_suppressed_on_used_vehicle": "A per-line discount is suppressed by default on a used vehicle. To grant it anyway, give a reason.",
       "duplicate_connection": "A connection to this provider in this environment already exists.",
+      "email_already_on_customer": "This email address is already on this customer.",
+      "external_id_taken": "This system already has an external ID on this customer, or this external ID is already used for another customer under the same system.",
       "invalid_new_price": "A best match needs the new price.",
       "invalid_type_approval_number": "A best match needs the Typenschein.",
+      "last_usable_contact_point": "A customer keeps at least one usable phone number or email address. Add another one first.",
       "legacy_sale": "This contract was migrated from the legacy system, which handled it there — it cannot be changed here.",
       "merged_party_row": "This row is the copy a customer merge kept; it cannot hold its role again.",
+      "missing_config_fields": "This connection is missing required settings: {{fields}}.",
+      "missing_containers": "The offer is not complete yet. Missing: {{containers}}.",
       "missing_price": "This contract has no price yet. Complete the price build-up first.",
       "missing_vehicle": "This contract has no vehicle yet. Add a vehicle first.",
       "no_catalogue_variant": "A configuration without a catalogue variant cannot be re-synced.",
@@ -202,13 +218,26 @@
       "not_active": "Only an active user can be suspended.",
       "nul_character": "The entry contains a character that is not allowed. Remove it and try again.",
       "offer_already_contracted": "This offer already has a contract; only a cancelled contract frees an offer.",
+      "passkey_key_not_accepted": "This passkey’s key does not meet our security requirements. Use another authenticator.",
+      "passkey_not_verified": "The passkey could not be verified. Please try again.",
+      "phone_already_on_customer": "This phone number is already on this customer.",
+      "primary_unset_directly": "The primary mark cannot be removed directly. Mark another entry as primary instead.",
+      "provider_code_already_mapped": "This provider code is already mapped to {{mapping}}.",
+      "too_many_images": "A stock vehicle has at most {{max, number}} images. Remove an image first.",
       "unknown_fields": "Some of the chosen specification fields are unknown.",
       "unrecognised_identifier": "The input is not a VIN, a licence plate, a Stammnummer, a Typenschein or a Werkscode.",
       "use_deactivate_endpoint": "A user is deactivated through the deactivation step, which hands over what they still own.",
       "valuation_expired": "This valuation has expired.",
       "vehicle_left_stock": "This vehicle has already left stock and cannot be reserved.",
       "vehicle_not_purchased": "The vehicle of this contract has not been purchased yet — it can be invoiced once Stock has booked its purchase.",
-      "vin_already_in_stock": "This VIN is already in stock as {{stockNumber}}."
+      "vin_already_in_stock": "This VIN is already in stock as {{stockNumber}}.",
+      "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries."
+    },
+    "accessWindow": {
+      "between": "valid from {{from}} to {{to}}",
+      "from": "valid from {{from}}",
+      "until": "valid until {{to}}",
+      "none": "no period on record"
     }
   },
   "customerCreate": {

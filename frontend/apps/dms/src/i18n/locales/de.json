@@ -119,7 +119,8 @@
       "reset": "Zurücksetzen",
       "setDefault": "Als Standard festlegen",
       "unsetDefault": "Als Standard entfernen",
-      "deleteView": "Ansicht löschen"
+      "deleteView": "Ansicht löschen",
+      "viewChanged": "Geändert gegenüber der gespeicherten Ansicht"
     },
     "filterBuilder": {
       "addFilter": "Neuer Filter…",
@@ -164,12 +165,18 @@
         "moreThanDaysAgo_other": "{{field}}: vor mehr als {{days, number}} Tagen"
       },
       "booleanTrue": "{{field}}: ja",
-      "booleanFalse": "{{field}}: nein"
+      "booleanFalse": "{{field}}: nein",
+      "dayCount": "Anzahl Tage",
+      "invalidDayCount": "Bitte eine ganze Zahl von Tagen zwischen {{min, number}} und {{max, number}} eingeben."
     },
     "overlay": {
       "close": "Schliessen"
     },
-    "fieldHintIcon": "Hinweis"
+    "fieldHintIcon": "Hinweis",
+    "inlineEdit": {
+      "saveFailed": "Die Änderung konnte nicht gespeichert werden.",
+      "reload": "Neu laden"
+    }
   },
   "apiRefusal": {
     "staleVersion": "Dieser Datensatz wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
@@ -178,21 +185,30 @@
     "invalid": "Einige Angaben sind ungültig. Bitte prüfen Sie sie und versuchen Sie es erneut.",
     "reasons": {
       "accept_invitation_required": "Ein eingeladener Benutzer wird aktiv, indem er die Einladung annimmt – senden Sie die Einladung stattdessen erneut.",
-      "access_window_closed": "Ihr Zugang zu diesem Betrieb ist zurzeit nicht freigegeben.",
+      "access_window_closed": "Ihr Zugang zu diesem Betrieb ist zurzeit nicht freigegeben ({{window}}).",
+      "accounting_period_closed": "Die Buchungsperiode für dieses Datum ist abgeschlossen. Bitte ein Datum in einer offenen Periode wählen.",
       "already_revoked": "Dieses verbundene Konto wurde bereits getrennt.",
       "catalogue_variant_missing": "Die Katalogvariante dieser Konfiguration existiert nicht mehr.",
+      "category_automatic_only": "Diese Kategorie wird nur automatisch gebucht, nie von Hand.",
       "coded_field_locked": "Die codierten Felder einer Katalogkonfiguration stammen aus dem Katalog und können nicht geändert werden.",
       "coded_field_required": "Die codierten Felder einer manuellen Konfiguration können nicht geleert werden.",
       "coded_fields_required": "Eine manuelle Konfiguration braucht alle fünf codierten Felder.",
       "colleague_cannot_act_there": "Der gewählte Kollege arbeitet nicht in dem Betrieb, zu dem dieser Datensatz gehört.",
       "configuration_mode_fixed": "Der Modus einer gespeicherten Konfiguration kann nicht geändert werden – kopieren Sie sie stattdessen in eine neue Konfiguration.",
       "configuration_mode_not_allowed": "Eine Konfiguration dieser Art kann hier nicht verwendet werden.",
+      "customer_do_not_contact": "Der Kunde {{customerNumber}} ist als «nicht kontaktieren» markiert und kann keiner Offerte und keinem Vertrag zugeordnet werden.",
       "customer_tag_exists": "Ein Tag dieser Änderung ist beim Kunden bereits gesetzt – der Kunde wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
+      "discount_suppressed_on_used_vehicle": "Auf einem Occasionsfahrzeug ist ein Rabatt pro Position standardmässig unterdrückt. Um ihn trotzdem zu gewähren, einen Grund angeben.",
       "duplicate_connection": "Eine Verbindung zu diesem Anbieter in dieser Umgebung besteht bereits.",
+      "email_already_on_customer": "Diese E-Mail-Adresse ist bei diesem Kunden bereits erfasst.",
+      "external_id_taken": "Für dieses System ist bei diesem Kunden bereits eine externe ID erfasst, oder diese externe ID ist im selben System schon einem anderen Kunden zugeordnet.",
       "invalid_new_price": "Für die bestmögliche Übereinstimmung braucht es den Neupreis.",
       "invalid_type_approval_number": "Für die bestmögliche Übereinstimmung braucht es den Typenschein.",
+      "last_usable_contact_point": "Ein Kunde behält mindestens eine gültige Telefonnummer oder E-Mail-Adresse. Bitte zuerst eine weitere erfassen.",
       "legacy_sale": "Dieser Vertrag wurde aus dem Altsystem übernommen, das ihn dort abgewickelt hat – er kann hier nicht geändert werden.",
       "merged_party_row": "Diese Zeile ist die Kopie, die eine Kundenzusammenführung behalten hat; sie kann ihre Rolle nicht wieder übernehmen.",
+      "missing_config_fields": "Für diese Verbindung fehlen Pflichtangaben: {{fields}}.",
+      "missing_containers": "Die Offerte ist noch nicht vollständig. Es fehlt: {{containers}}.",
       "missing_price": "Dieser Vertrag hat noch keinen Preis. Vervollständigen Sie zuerst die Preiskalkulation.",
       "missing_vehicle": "Dieser Vertrag hat noch kein Fahrzeug. Fügen Sie zuerst ein Fahrzeug hinzu.",
       "no_catalogue_variant": "Eine Konfiguration ohne Katalogvariante kann nicht neu abgeglichen werden.",
@@ -202,13 +218,26 @@
       "not_active": "Nur ein aktiver Benutzer kann gesperrt werden.",
       "nul_character": "Die Eingabe enthält ein unzulässiges Zeichen. Entfernen Sie es und versuchen Sie es erneut.",
       "offer_already_contracted": "Zu dieser Offerte gibt es bereits einen Vertrag; erst ein stornierter Vertrag gibt die Offerte wieder frei.",
+      "passkey_key_not_accepted": "Der Schlüssel dieses Passkeys erfüllt unsere Sicherheitsanforderungen nicht. Bitte einen anderen Authentifikator verwenden.",
+      "passkey_not_verified": "Der Passkey konnte nicht überprüft werden. Bitte erneut versuchen.",
+      "phone_already_on_customer": "Diese Telefonnummer ist bei diesem Kunden bereits erfasst.",
+      "primary_unset_directly": "Die Markierung «Primär» lässt sich nicht direkt entfernen. Bitte einen anderen Eintrag als primär markieren.",
+      "provider_code_already_mapped": "Dieser Anbietercode ist bereits {{mapping}} zugeordnet.",
+      "too_many_images": "Ein Bestandsfahrzeug hat höchstens {{max, number}} Bilder. Bitte zuerst ein Bild entfernen.",
       "unknown_fields": "Einige der gewählten Spezifikationsfelder sind unbekannt.",
       "unrecognised_identifier": "Die Eingabe ist weder eine VIN, ein Kontrollschild, eine Stammnummer, ein Typenschein noch ein Werkscode.",
       "use_deactivate_endpoint": "Ein Benutzer wird über den Deaktivierungsschritt deaktiviert, der übergibt, was ihm noch gehört.",
       "valuation_expired": "Diese Bewertung ist abgelaufen.",
       "vehicle_left_stock": "Dieses Fahrzeug hat den Bestand bereits verlassen und kann nicht reserviert werden.",
       "vehicle_not_purchased": "Das Fahrzeug dieses Vertrags ist noch nicht eingekauft – er kann verrechnet werden, sobald der Einkauf im Bestand erfasst ist.",
-      "vin_already_in_stock": "Diese VIN ist bereits im Bestand als {{stockNumber}}."
+      "vin_already_in_stock": "Diese VIN ist bereits im Bestand als {{stockNumber}}.",
+      "wagenbuch_closed": "Dieses Fahrzeug ist verkauft – sein Wagenbuch nimmt keine neuen Einträge mehr an."
+    },
+    "accessWindow": {
+      "between": "gültig vom {{from}} bis {{to}}",
+      "from": "gültig ab {{from}}",
+      "until": "gültig bis {{to}}",
+      "none": "kein Zeitraum hinterlegt"
     }
   },
   "customerCreate": {

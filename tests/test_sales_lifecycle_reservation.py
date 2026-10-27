@@ -364,10 +364,11 @@ def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session
     )
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as exc:
         update_offer(
             db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
         )
+    assert exc.value.details == {"reason": "customer_do_not_contact", "customerNumber": customer.customer_number}
 
 
 def test_credit_block_does_not_stop_offer_creation_or_editing(db_session):

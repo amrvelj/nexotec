@@ -19,7 +19,7 @@ export interface EditorRenderProps {
   onCommit: (value: string) => void;
 }
 
-export interface InlineEditFieldProps {
+interface InlineEditFieldBaseProps {
   /** Formatted display value shown outside edit mode. */
   value: string;
   isEmpty?: boolean;
@@ -31,15 +31,27 @@ export interface InlineEditFieldProps {
    * caller's job; this component only owns the show/edit toggle and the
    * optimistic-then-rollback UI around it. */
   onSave: (raw: string) => Promise<void>;
+  /** KAN-473 — the sentence shown for whatever `onSave` threw, in the UI
+   * language. The kit never shows a caught error's own `message` (an
+   * ApiError's is the API's English text, for logs) and ships no wording of
+   * its own (`.claude/rules/ui.md`), so every caller says it — the app's
+   * `useInlineEditRefusal()`. */
+  describeError: (err: unknown) => string;
   renderEditor?: (props: EditorRenderProps) => ReactNode;
   disabled?: boolean;
-  /** True when the thrown error was a version conflict (409) — swaps the
-   * generic error message for "someone else changed this" plus a reload
-   * affordance, per FR-05 / "optimistic update with rollback on 409,
-   * which offers a reload". */
+  /** True when the thrown error was a version conflict (a stale If-Match
+   * 409) — adds a reload affordance beside the error, per FR-05 /
+   * "optimistic update with rollback on 409, which offers a reload". */
   isConflict?: (err: unknown) => boolean;
-  onReload?: () => void;
 }
+
+/** A reload affordance comes with its label, so no caller can render it in
+ * English by omission. */
+type InlineEditFieldReloadProps =
+  | { onReload: () => void; reloadLabel: string }
+  | { onReload?: undefined; reloadLabel?: undefined };
+
+export type InlineEditFieldProps = InlineEditFieldBaseProps & InlineEditFieldReloadProps;
 
 /**
  * § UI/UX Core Principles — Detail Screens: "Editing is inline, not
@@ -57,16 +69,18 @@ export function InlineEditField({
   emptyLabel = "Not set",
   editValue,
   onSave,
+  describeError,
   renderEditor,
   disabled,
   isConflict,
   onReload,
+  reloadLabel,
 }: InlineEditFieldProps) {
   const [editing, setEditing] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<{ message: string; conflict: boolean } | null>(null);
+  const [error, setError] = useState<{ text: string; conflict: boolean } | null>(null);
   const committingRef = useRef(false);
 
   const startEdit = () => {
@@ -91,11 +105,7 @@ export function InlineEditField({
       setEditing(false);
       setError(null);
     } catch (err) {
-      const conflict = isConflict?.(err) ?? false;
-      setError({
-        message: conflict ? "Someone else changed this in the meantime." : err instanceof Error ? err.message : "Failed to save.",
-        conflict,
-      });
+      setError({ text: describeError(err), conflict: isConflict?.(err) ?? false });
       // Stay in edit mode so the value (and the error) remain visible —
       // silently reverting would throw away what the user just typed.
       setEditing(true);
@@ -165,14 +175,14 @@ export function InlineEditField({
         )}
         {error && (
           <div style={{ fontSize: 12, color: semantic.destructive.text, marginTop: 4, display: "flex", gap: 6, alignItems: "center" }}>
-            <span>{error.message}</span>
+            <span>{error.text}</span>
             {error.conflict && onReload && (
               <button
                 type="button"
                 onClick={onReload}
-                style={{ border: "none", background: "none", color: purple[6], cursor: "pointer", fontWeight: 600, padding: 0 }}
+                style={{ border: "none", background: "none", color: purple[6], cursor: "pointer", fontWeight: 600, padding: 0, whiteSpace: "nowrap" }}
               >
-                Reload
+                {reloadLabel}
               </button>
             )}
           </div>

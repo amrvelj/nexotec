@@ -682,6 +682,7 @@ export function CustomersListPage() {
                   onDeleteView={savedViews.deleteView}
                   onSetDefaultView={savedViews.setDefaultView}
                   fields={filterFields}
+                  narrowPredicates={(stored) => offeredPredicates(stored, filterFields)}
                   predicates={predicates}
                   onPredicatesChange={(next) => {
                     setPredicates(next)

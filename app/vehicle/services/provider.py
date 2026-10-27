@@ -181,6 +181,7 @@ def resolve_mapping_gap(
             f"Provider code '{gap.provider_code}' is already mapped to "
             f"{existing.canonical_list_code}/{existing.canonical_value_code}.",
             details={
+                "reason": "provider_code_already_mapped",
                 "canonicalListCode": existing.canonical_list_code,
                 "canonicalValueCode": existing.canonical_value_code,
             },

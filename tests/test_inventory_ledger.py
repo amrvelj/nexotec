@@ -6,11 +6,13 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.models.stock_item_ledger import LedgerCategory, LedgerDirection
 from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services import ledger as ledger_service
 from app.inventory.services.ledger import list_ledger_entries, record_cost
 from app.inventory.services.stock_item import create_stock_item
 
@@ -117,3 +119,58 @@ def test_list_ledger_entries_orders_by_occurred_at_descending(db_session):
     )
     entries = list_ledger_entries(db_session, tenant_id=tenant_id, stock_item_id=item.id)
     assert [e.category for e in entries] == [LedgerCategory.AUFBEREITUNG, LedgerCategory.REPARATUR]
+
+
+# --- KAN-472: each refusal names a stable `details.reason` through the route ---
+
+
+def _api_token(tenant_id: uuid.UUID) -> str:
+    return create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        roles=frozenset({AccessRole.INVENTORY}),
+    )
+
+
+def _post_cost(client, item, category: str = "reparatur"):
+    return client.post(
+        f"/v1/inventory/stock-items/{item.id}/ledger-entries",
+        json={"category": category, "amount": "100.00", "occurredAt": "2026-08-01T00:00:00Z", "sourceRef": str(uuid.uuid4())},
+        headers={"Authorization": f"Bearer {_api_token(item.tenant_id)}"},
+    )
+
+
+def test_automatic_only_category_via_api_names_its_reason(client, db_session):
+    item = _make_item(db_session, uuid.uuid4())
+
+    response = _post_cost(client, item, category="verkaufserloes")
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"] == {"reason": "category_automatic_only", "category": "verkaufserloes"}
+
+
+def test_closed_wagenbuch_via_api_names_its_reason(client, db_session):
+    item = _make_item(db_session, uuid.uuid4())
+    item.left_stock_at = utcnow()
+    db_session.commit()
+
+    response = _post_cost(client, item)
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"] == {"reason": "wagenbuch_closed", "stockItemId": str(item.id)}
+
+
+def test_closed_accounting_period_via_api_names_its_reason(client, db_session, monkeypatch):
+    """`is_period_closed` is a stub that always answers False until Finance
+    owns accounting periods, so the closed period is patched in here."""
+
+    monkeypatch.setattr(ledger_service, "is_period_closed", lambda tenant_id, occurred_at: True)
+    item = _make_item(db_session, uuid.uuid4())
+
+    response = _post_cost(client, item)
+
+    assert response.status_code == 422, response.text
+    details = response.json()["error"]["details"]
+    assert details["reason"] == "accounting_period_closed"
+    assert "occurredAt" in details

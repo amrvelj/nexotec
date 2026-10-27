@@ -77,6 +77,8 @@ describe("RepeatableRowGroup add row (KAN-167)", () => {
     expect((screen.getAllByRole("combobox").at(-1) as HTMLSelectElement).value).toBe("mobile");
   });
 
+  // KAN-473: without a describeError the refusal is the caller's generic
+  // label — never the thrown error's own (English) message.
   it("keeps the draft and shows the error when the save is refused", async () => {
     const user = userEvent.setup();
     renderGroup(async () => {
@@ -86,7 +88,8 @@ describe("RepeatableRowGroup add row (KAN-167)", () => {
     await user.type(screen.getByRole("textbox", { name: "New value" }), "12");
     await user.click(screen.getByRole("button", { name: LABELS.save }));
 
-    expect(await screen.findByText("Not a valid number.")).toBeTruthy();
+    expect(await screen.findByText(LABELS.genericError)).toBeTruthy();
+    expect(screen.queryByText("Not a valid number.")).toBeNull();
     expect(screen.getByRole("textbox", { name: "New value" })).toHaveProperty("value", "12");
     expect(screen.getByRole("button", { name: LABELS.save })).toHaveProperty("disabled", false);
   });

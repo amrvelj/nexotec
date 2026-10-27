@@ -757,7 +757,7 @@ def test_passkey_registration_options_are_bound_to_a_challenge_only_success_spen
         headers=cookie_headers(cookie),
     )
     assert refused.status_code == 422, refused.text
-    assert refused.json()["error"]["details"] == {"factor": "passkey"}
+    assert refused.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
     # A failed attempt leaves the challenge usable for the five minutes it
     # lives (the browser dialog may be cancelled and retried); only a
     # successful registration spends it. A made-up challenge is refused.
@@ -913,6 +913,7 @@ def test_a_malformed_passkey_answer_is_a_refusal_whichever_exception_the_library
         headers=cookie_headers(cookie),
     )
     assert registered.status_code == 422, registered.text
+    assert registered.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
 
 
 def _passkey_holder(client, login, db_session) -> tuple[dict, str, str]:
@@ -1006,6 +1007,7 @@ def test_a_malformed_passkey_answer_through_the_real_library_is_a_wrong_answer(c
         headers=cookie_headers(cookie),
     )
     assert registered.status_code == 422, registered.text
+    assert registered.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
 
 
 @pytest.mark.parametrize(
@@ -1039,6 +1041,7 @@ def test_a_malformed_attestation_object_is_refused_before_the_library(client, lo
         headers=cookie_headers(cookie),
     )
     assert registered.status_code == 422, registered.text
+    assert registered.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
 
 
 def test_a_stored_passkey_the_library_cannot_decode_is_a_server_defect_not_a_wrong_answer(client, login, db_session):
@@ -1101,10 +1104,11 @@ def test_a_passkey_whose_key_cannot_be_loaded_is_refused_at_registration(client,
         monkeypatch.setattr(
             mfa_service, "verify_registration_response", lambda key=bad_key, **kw: _verified_registration(key)
         )
-        with pytest.raises(UnprocessableEntityError):
+        with pytest.raises(UnprocessableEntityError) as refused:
             mfa_service.register_passkey(
                 db_session, user=user, credential=well_formed, challenge=b"x", label="Phone", ip_address="127.0.0.1"
             )
+        assert refused.value.details == {"factor": "passkey", "reason": "passkey_key_not_accepted"}
         db_session.rollback()
     assert db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == "cGhvbmUta2V5")).first() is None
 
@@ -1284,6 +1288,61 @@ def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_sessio
     assert len(_events(db_session, AuthEventKind.MFA_FAILED)) == 1
 
 
+def test_an_attestation_the_library_refuses_is_passkey_not_verified(client, login, monkeypatch):
+    """KAN-472: a well-formed answer the library itself refuses (here: signed
+    over another challenge) names `passkey_not_verified`, the client's answer —
+    not `passkey_key_not_accepted`, which is the key policy's refusal."""
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from webauthn.helpers import encode_cbor
+
+    from app.platform.services import mfa as mfa_service
+
+    calls = []
+    library = mfa_service.verify_registration_response
+
+    def spy(**kwargs):
+        calls.append(kwargs)
+        return library(**kwargs)
+
+    monkeypatch.setattr(mfa_service, "verify_registration_response", spy)
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    assert options.status_code == 200, options.text
+    client_data = json.dumps(
+        {"type": "webauthn.create", "challenge": _b64url(b"another challenge"), "origin": _settings().webauthn_origin}
+    ).encode()
+    credential_id = b"key-" + uuid.uuid4().bytes
+    p256 = ec.generate_private_key(ec.SECP256R1())
+    attestation = encode_cbor(
+        {
+            "fmt": "none",
+            "attStmt": {},
+            "authData": _auth_data(flags=0x41, sign_count=0, credential_id=credential_id, cose_key=_cose_ec2(p256)),
+        }
+    )
+    cred_id = _b64url(credential_id)
+    refused = client.post(
+        "/v1/auth/mfa/passkeys",
+        json={
+            "challengeId": options.json()["challengeId"],
+            "label": "Laptop",
+            "credential": {
+                "id": cred_id,
+                "rawId": cred_id,
+                "type": "public-key",
+                "response": {"clientDataJSON": _b64url(client_data), "attestationObject": _b64url(attestation)},
+            },
+        },
+        headers=cookie_headers(cookie),
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
+    assert len(calls) == 1  # the shape checks passed it on; the library refused it
+
+
 def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client, login, db_session):
     """Through the real library: a `none` attestation accepts any key that
     decodes, so the key policy judges it (twelfth to fourteenth reviews). Refused
@@ -1322,8 +1381,10 @@ def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client,
     ):
         refused = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, cose_key)
         assert refused.status_code == 422, refused.text
+        assert refused.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_key_not_accepted"}
     too_long = _register_through_the_library(client, cookie, bytes(1024), _cose_ec2(p256))
     assert too_long.status_code == 422, too_long.text
+    assert too_long.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_key_not_accepted"}
     assert db_session.scalars(select(MfaPasskey)).all() == []
     accepted = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, _cose_rsa(big_rsa, alg=-257))
     assert accepted.status_code == 201, accepted.text

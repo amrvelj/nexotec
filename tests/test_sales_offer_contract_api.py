@@ -202,6 +202,10 @@ def test_create_contract_for_a_do_not_contact_customer_is_409(client):
 
     response = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
     assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {
+        "reason": "customer_do_not_contact",
+        "customerNumber": customer["customerNumber"],
+    }
 
 
 def test_create_contract_offer_and_customer_together_is_422(client):
@@ -450,6 +454,10 @@ def test_a_do_not_contact_customer_cannot_become_a_contracts_buyer(client, db_se
 
     assert response.status_code == 409, response.text
     assert "do-not-contact" in response.json()["error"]["message"]
+    assert response.json()["error"]["details"] == {
+        "reason": "customer_do_not_contact",
+        "customerNumber": blocked["customerNumber"],
+    }
     assert client.get(f"/v1/sales/contracts/{contract['id']}", headers=_bearer(token)).json()["customerId"] is None
 
 

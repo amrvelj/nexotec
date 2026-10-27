@@ -11,7 +11,7 @@ import en from '../i18n/locales/en.json'
 import fr from '../i18n/locales/fr.json'
 import it_ from '../i18n/locales/it.json'
 import { ApiError } from '../api/client'
-import { apiRefusalText, refusalReasonKey, TRANSLATED_REFUSAL_REASONS } from './apiRefusal'
+import { apiRefusalText, isStaleVersion, refusalReasonKey, TRANSLATED_REFUSAL_REASONS } from './apiRefusal'
 
 // KAN-437 — the one helper every converted screen says an API refusal with.
 
@@ -38,6 +38,43 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     await i18n.changeLanguage('fr')
     const text = apiRefusalText(t, refusal(409, { reason: 'vin_already_in_stock', stockNumber: 'S-000042' }), FALLBACK)
     expect(text).toBe(fr.apiRefusal.reasons.vin_already_in_stock.replace('{{stockNumber}}', 'S-000042'))
+  })
+
+  // KAN-472: the reasons whose sentence names what the refusal carries.
+  it('names the containers an offer still misses, by their names in the UI language', async () => {
+    await i18n.changeLanguage('it')
+    const text = apiRefusalText(t, refusal(409, { reason: 'missing_containers', missingContainers: ['customer', 'trade_in'] }), FALLBACK)
+    expect(text).toBe(it_.apiRefusal.reasons.missing_containers.replace('{{containers}}', `${it_.offerWorkspace.containers.customer}, ${it_.offerWorkspace.containers.tradeIn}`))
+  })
+
+  it('names the do-not-contact customer, the mapping in place, the image limit and the missing settings', async () => {
+    await i18n.changeLanguage('fr')
+    const r = fr.apiRefusal.reasons
+    expect(apiRefusalText(t, refusal(409, { reason: 'customer_do_not_contact', customerNumber: 'K-1001' }), FALLBACK)).toBe(
+      r.customer_do_not_contact.replace('{{customerNumber}}', 'K-1001'),
+    )
+    expect(
+      apiRefusalText(t, refusal(409, { reason: 'provider_code_already_mapped', canonicalListCode: 'fuel_type', canonicalValueCode: 'petrol' }), FALLBACK),
+    ).toBe(r.provider_code_already_mapped.replace('{{mapping}}', 'fuel_type/petrol'))
+    expect(apiRefusalText(t, refusal(409, { reason: 'too_many_images', maxImages: 16 }), FALLBACK)).toBe(r.too_many_images.replace('{{max, number}}', '16'))
+    expect(
+      apiRefusalText(t, refusal(422, { reason: 'missing_config_fields', missingConfigKeys: ['benutzerNr', 'notAKnownKey'] }, 'unprocessable_entity'), FALLBACK),
+    ).toBe(r.missing_config_fields.replace('{{fields}}', `${fr.integrationEnums.configKey.benutzerNr}, notAKnownKey`))
+  })
+
+  it("names the access window's days in the user's locale, as calendar days", async () => {
+    await i18n.changeLanguage('de')
+    const closed = (details: Record<string, unknown>) =>
+      apiRefusalText(t, refusal(403, { reason: 'access_window_closed', ...details }, 'forbidden'), FALLBACK)
+    const sentence = (window: string) => de.apiRefusal.reasons.access_window_closed.replace('{{window}}', window)
+    expect(closed({ validFrom: '2026-11-01', validTo: null })).toBe(sentence(de.apiRefusal.accessWindow.from.replace('{{from}}', '01.11.2026')))
+    expect(closed({ validFrom: null, validTo: '2026-10-01' })).toBe(sentence(de.apiRefusal.accessWindow.until.replace('{{to}}', '01.10.2026')))
+    expect(closed({ validFrom: '2026-11-01', validTo: '2026-12-31' })).toBe(
+      sentence(de.apiRefusal.accessWindow.between.replace('{{from}}', '01.11.2026').replace('{{to}}', '31.12.2026')),
+    )
+    expect(closed({})).toBe(sentence(de.apiRefusal.accessWindow.none))
+    expect(closed({ validFrom: 'not a day', validTo: 42 })).toBe(sentence(de.apiRefusal.accessWindow.none))
+    expect(closed({ validFrom: '2026-13-45' })).toBe(sentence(de.apiRefusal.accessWindow.none))
   })
 
   it('says a stale If-Match 409 as such, before any reason', () => {
@@ -79,6 +116,18 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
         expect(apiRefusalText(t, refusal(status, details), FALLBACK)).not.toContain(ENGLISH)
       }
     }
+  })
+})
+
+// KAN-473: only a stale If-Match 409 offers a reload; a business rule's 409
+// (a phone already on the customer) is not fixed by one.
+describe('isStaleVersion', () => {
+  it('is a 409 naming the current version, and nothing else', () => {
+    expect(isStaleVersion(refusal(409, { currentVersion: 4, ifMatchVersion: 3 }))).toBe(true)
+    expect(isStaleVersion(refusal(409, { reason: 'phone_already_on_customer' }))).toBe(false)
+    expect(isStaleVersion(refusal(409, null))).toBe(false)
+    expect(isStaleVersion(refusal(400, { currentVersion: 4 }))).toBe(false)
+    expect(isStaleVersion(new Error('409'))).toBe(false)
   })
 })
 

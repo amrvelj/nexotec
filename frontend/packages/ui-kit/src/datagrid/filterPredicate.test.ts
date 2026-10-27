@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   describePredicate,
   offeredPredicates,
+  isValidDayCount,
+  MAX_FILTER_DAYS,
+  MIN_FILTER_DAYS,
   resolveRelativeDateRange,
   type FilterFieldDef,
   type FilterPredicate,
@@ -159,5 +162,30 @@ describe('offeredPredicates (KAN-458)', () => {
 
   it('drops a field the grid does not offer, and a predicate whose type no longer matches its field', () => {
     expect(offeredPredicates([p('fuelType', 'select', 'is'), p('condition', 'text', 'is')], fields)).toEqual([])
+  })
+
+  // KAN-475: a day count the list endpoints refuse (422) would show the
+  // grid's error state; such a predicate from a link or view is not applied.
+  it('drops an N-days predicate whose day count the endpoint refuses, and keeps a valid one', () => {
+    const changed: FilterFieldDef = { id: 'updatedAt', label: 'Modifié', type: 'date' }
+    const days = (n: number | undefined, condition = 'inTheLastDays'): FilterPredicate => ({
+      id: `d-${n}-${condition}`, fieldId: 'updatedAt', type: 'date', condition, days: n,
+    })
+    for (const bad of [-3, 1.5, MAX_FILTER_DAYS + 1, Number.NaN, undefined]) {
+      expect(offeredPredicates([days(bad)], [changed]), String(bad)).toEqual([])
+      expect(offeredPredicates([days(bad, 'moreThanDaysAgo')], [changed]), String(bad)).toEqual([])
+    }
+    expect(offeredPredicates([days(0)], [changed])).toEqual([days(0)])
+    expect(offeredPredicates([days(MAX_FILTER_DAYS, 'moreThanDaysAgo')], [changed])).toEqual([days(MAX_FILTER_DAYS, 'moreThanDaysAgo')])
+    // A date condition without a day count carries none and is kept as it is.
+    expect(offeredPredicates([days(undefined, 'today')], [changed])).toEqual([days(undefined, 'today')])
+  })
+})
+
+describe('isValidDayCount (KAN-475)', () => {
+  it('is a whole number from MIN_FILTER_DAYS to MAX_FILTER_DAYS, the endpoints\' bounds', () => {
+    expect([MIN_FILTER_DAYS, MAX_FILTER_DAYS]).toEqual([0, 36500])
+    expect([0, 1, 30, 36500].map(isValidDayCount)).toEqual([true, true, true, true])
+    expect([-1, 2.5, 36501, Number.NaN, Infinity, undefined, '30'].map(isValidDayCount)).toEqual(Array(7).fill(false))
   })
 })

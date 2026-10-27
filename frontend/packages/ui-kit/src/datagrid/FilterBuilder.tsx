@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { purple, radius, slate, spacing, white } from "../tokens";
+import { purple, radius, semantic, slate, spacing, white } from "../tokens";
 import { ChfInput } from "../format/ChfInput";
 import {
   conditionsForField,
   describePredicate,
+  isValidDayCount,
+  MAX_FILTER_DAYS,
+  MIN_FILTER_DAYS,
+  takesDayCount,
   type FilterConditionLabels,
   type FilterFieldDef,
   type FilterPredicate,
@@ -40,6 +44,18 @@ export interface FilterBuilderLabels extends FilterConditionLabels {
   /** Accessible names of a saved filter's row actions. */
   editFilter: string;
   deleteFilter: string;
+  /** The day-count input's accessible name ("Anzahl Tage"). */
+  dayCount: string;
+  /** Said in place, and Save held back, while the day count is not a whole
+   * number from `min` to `max` (KAN-475) — the list endpoints refuse anything
+   * else. */
+  invalidDayCount: (min: number, max: number) => string;
+}
+
+/** A draft Save may commit: an N-days condition needs a day count the
+ * endpoint accepts. */
+function isCommittable(draft: FilterPredicate): boolean {
+  return !(draft.type === "date" && takesDayCount(draft.condition)) || isValidDayCount(draft.days);
 }
 
 function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
@@ -50,7 +66,7 @@ function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
     type: field.type,
     condition,
     value: field.type === "select" ? field.options?.[0]?.value : field.type === "boolean" ? true : "",
-    days: field.type === "date" && (condition === "inTheLastDays" || condition === "moreThanDaysAgo") ? 30 : undefined,
+    days: field.type === "date" && takesDayCount(condition) ? 30 : undefined,
   };
 }
 
@@ -90,7 +106,7 @@ export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, la
   // A field holds one filter (ADR-102, Anto 2026-10-26): saving a filter on
   // a field replaces the one already there, in its place.
   const commitDraft = () => {
-    if (!draft) return;
+    if (!draft || !isCommittable(draft)) return;
     const replaced = predicates.find((p) => p.id === draft.id) ?? predicates.find((p) => p.fieldId === draft.fieldId);
     const next = replaced
       ? predicates.map((p) => (p.id === replaced.id ? draft : p))
@@ -207,7 +223,7 @@ function PredicateEditorRow({
   onCancel: () => void;
   onPreviewCount?: (predicates: FilterPredicate[]) => Promise<number>;
   otherPredicates: FilterPredicate[];
-  labels: Pick<FilterBuilderLabels, "save" | "cancel" | "matchCount" | "conditions">;
+  labels: Pick<FilterBuilderLabels, "save" | "cancel" | "matchCount" | "conditions" | "dayCount" | "invalidDayCount">;
 }) {
   const [count, setCount] = useState<number | null>(null);
   const field = fields.find((f) => f.id === draft.fieldId);
@@ -267,7 +283,12 @@ function PredicateEditorRow({
 
       <select
         value={draft.condition}
-        onChange={(e) => onDraftChange({ ...draft, condition: e.target.value })}
+        onChange={(e) => {
+          const condition = e.target.value;
+          // A condition that takes a day count starts at 30 when the draft has none yet.
+          const days = field.type === "date" && takesDayCount(condition) && !isValidDayCount(draft.days) ? 30 : draft.days;
+          onDraftChange({ ...draft, condition, days });
+        }}
         style={selectStyle}
       >
         {conditionsForField(field).map((c) => (
@@ -277,7 +298,7 @@ function PredicateEditorRow({
         ))}
       </select>
 
-      <ValueInput field={field} draft={draft} onDraftChange={onDraftChange} />
+      <ValueInput field={field} draft={draft} onDraftChange={onDraftChange} labels={labels} />
 
       {onPreviewCount && (
         <span style={{ fontSize: 12, color: slate[5], fontStyle: count === null ? "italic" : undefined }}>
@@ -289,7 +310,17 @@ function PredicateEditorRow({
         <button type="button" onClick={onCancel} style={ghostButtonStyle}>
           {labels.cancel}
         </button>
-        <button type="button" onClick={onSave} style={{ ...ghostButtonStyle, color: purple[7], fontWeight: 700 }}>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!isCommittable(draft)}
+          style={{
+            ...ghostButtonStyle,
+            color: isCommittable(draft) ? purple[7] : slate[4],
+            fontWeight: 700,
+            cursor: isCommittable(draft) ? "pointer" : "not-allowed",
+          }}
+        >
           {labels.save}
         </button>
       </div>
@@ -326,14 +357,57 @@ function ChfFilterValue({
   );
 }
 
+/** The N-days input keeps what is typed ("", "1.5", "0") so the field never
+ * jumps under the user's fingers; the draft gets the number it spells (NaN
+ * for an empty field), and an invalid count is said beside the input. */
+function DayCountValue({
+  draft,
+  onDraftChange,
+  labels,
+}: {
+  draft: FilterPredicate;
+  onDraftChange: (draft: FilterPredicate) => void;
+  labels: Pick<FilterBuilderLabels, "dayCount" | "invalidDayCount">;
+}) {
+  const [typed, setTyped] = useState(() => (typeof draft.days === "number" && Number.isFinite(draft.days) ? String(draft.days) : ""));
+  const errorId = useId();
+  const invalid = !isValidDayCount(draft.days);
+  return (
+    <>
+      <input
+        type="number"
+        min={MIN_FILTER_DAYS}
+        max={MAX_FILTER_DAYS}
+        step={1}
+        aria-label={labels.dayCount}
+        aria-invalid={invalid}
+        aria-describedby={invalid ? errorId : undefined}
+        value={typed}
+        onChange={(e) => {
+          setTyped(e.target.value);
+          onDraftChange({ ...draft, days: e.target.value.trim() === "" ? Number.NaN : Number(e.target.value) });
+        }}
+        style={{ ...inputStyle, width: 70, borderColor: invalid ? semantic.destructive.border : slate[3] }}
+      />
+      {invalid && (
+        <span id={errorId} role="alert" style={{ fontSize: 12, color: semantic.destructive.text }}>
+          {labels.invalidDayCount(MIN_FILTER_DAYS, MAX_FILTER_DAYS)}
+        </span>
+      )}
+    </>
+  );
+}
+
 function ValueInput({
   field,
   draft,
   onDraftChange,
+  labels,
 }: {
   field: FilterFieldDef;
   draft: FilterPredicate;
   onDraftChange: (draft: FilterPredicate) => void;
+  labels: Pick<FilterBuilderLabels, "dayCount" | "invalidDayCount">;
 }) {
   if (field.type === "select") {
     return (
@@ -367,16 +441,11 @@ function ValueInput({
     );
   }
   if (field.type === "date") {
-    if (draft.condition === "inTheLastDays" || draft.condition === "moreThanDaysAgo") {
-      return (
-        <input
-          type="number"
-          min={1}
-          value={draft.days ?? 30}
-          onChange={(e) => onDraftChange({ ...draft, days: Number(e.target.value) })}
-          style={{ ...inputStyle, width: 60 }}
-        />
-      );
+    if (takesDayCount(draft.condition)) {
+      // KAN-475: refused in place — a fraction, a negative count or past
+      // MAX_FILTER_DAYS would reach the endpoint as a 422 and show the
+      // grid's error state.
+      return <DayCountValue key={`${field.id}:${draft.condition}`} draft={draft} onDraftChange={onDraftChange} labels={labels} />;
     }
     return null; // today/thisWeek/thisMonth/thisYear carry no free value
   }

@@ -81,7 +81,7 @@ def _validate_required_config(provider: IntegrationProvider, config: dict) -> No
     if missing:
         raise UnprocessableEntityError(
             f"Connection config for '{provider.provider_code}' is missing required field(s): {', '.join(missing)}.",
-            details={"missingConfigKeys": missing},
+            details={"reason": "missing_config_fields", "missingConfigKeys": missing},
         )
 
 

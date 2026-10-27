@@ -8,6 +8,7 @@ import { formatDate } from '../../utils/format'
 import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { CustomerExternalIdRead } from '../../api/types'
 import { apiRefusalText } from '../../utils/apiRefusal'
+import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 
 interface ExternalIdsTabProps {
   externalIds: CustomerExternalIdRead[]
@@ -25,6 +26,7 @@ interface ExternalIdsTabProps {
 export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate, onUpdate, onDelete, locale }: ExternalIdsTabProps) {
   const { t } = useTranslation()
   const errorMessage = (err: unknown): string => apiRefusalText(t, err, 'customerDetail.errors.somethingWentWrong')
+  const { describeError } = useInlineEditRefusal()
   const { density } = useUiPreferencesContext()
   const [adding, setAdding] = useState(false)
   const [draftSystem, setDraftSystem] = useState('')
@@ -69,7 +71,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         header: t('customerDetail.externalIds.columns.system'),
         cell: ({ row }) =>
           canWrite ? (
-            <InlineEditField value={row.original.systemName} onSave={(raw) => onUpdate(row.original.id, { systemName: raw })} />
+            <InlineEditField value={row.original.systemName} onSave={(raw) => onUpdate(row.original.id, { systemName: raw })} describeError={describeError} />
           ) : (
             row.original.systemName
           ),
@@ -79,7 +81,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         header: t('customerDetail.externalIds.columns.externalId'),
         cell: ({ row }) =>
           canWrite ? (
-            <InlineEditField value={row.original.externalId} onSave={(raw) => onUpdate(row.original.id, { externalId: raw })} />
+            <InlineEditField value={row.original.externalId} onSave={(raw) => onUpdate(row.original.id, { externalId: raw })} describeError={describeError} />
           ) : (
             row.original.externalId
           ),
@@ -92,7 +94,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         meta: { align: 'right' },
       },
     ],
-    [canWrite, onUpdate, t, locale]
+    [canWrite, onUpdate, describeError, t, locale]
   )
 
   return (
