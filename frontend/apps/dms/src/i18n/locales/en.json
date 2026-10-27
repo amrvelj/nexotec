@@ -1707,7 +1707,7 @@
       "transmission": "Transmission",
       "ps": "PS",
       "kw": "kW",
-      "displacementCcm": "Displacement (cc)",
+      "displacementCcm": "Displacement (cm³)",
       "cylinders": "Cylinders",
       "gears": "Gears",
       "doors": "Doors",
@@ -1795,7 +1795,8 @@
         "consumption": "Consumption & energy",
         "codes": "Codes",
         "price": "Price",
-        "vehicleType": "Vehicle type"
+        "vehicleType": "Vehicle type",
+        "colours": "Colours"
       },
       "fields": {
         "modelTypeName": "Model type",
@@ -1908,7 +1909,8 @@
       "untitled": "Untitled",
       "open": "Open configurator",
       "options": "Options",
-      "notesLabel": "Notes"
+      "notesLabel": "Notes",
+      "technicalData": "Technical data"
     },
     "badges": {
       "unverified": "Unverified",

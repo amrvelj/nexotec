@@ -3,9 +3,16 @@ import { AlertTriangle, PencilRuler } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
-import { SpecGrid } from '@nexotec/ui-kit'
+import { SpecGrid, slate } from '@nexotec/ui-kit'
 import type { ConfigurationRead } from '../../api/types'
-import { CODED_FIELDS, CODED_REF_LIST_CODES } from '../../configurationOptions'
+import {
+  CODED_FIELDS,
+  CODED_REF_LIST_CODES,
+  SPEC_REF_LIST_CODES,
+  TECHNICAL_SPEC_GROUPS,
+  specFieldLabelKey,
+  type SpecFieldDef,
+} from '../../configurationOptions'
 import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 
 export interface ConfigurationSummaryCardProps {
@@ -13,6 +20,31 @@ export interface ConfigurationSummaryCardProps {
   /** The host decides what "open the configurator" does (re-open the
    * overlay, navigate, …). Omit to hide the affordance. */
   onOpenConfigurator?: () => void
+  /** KAN-459 — show the read-only technical data block (PRD-Stock FR-I-07
+   * block 2) in a spec grid of this many columns (the spec caps it at four).
+   * Omit for the compact summary (configurator overlay, valuation dialog). */
+  technicalDataColumns?: 1 | 2 | 3 | 4
+}
+
+/** A label that already names the unit — "Anhängelast (kg)" — drops it
+ * there, because the value now carries it: "1'600 kg". */
+function withoutUnitSuffix(label: string, unit: string | undefined): string {
+  const suffix = unit ? ` (${unit})` : ''
+  return suffix && label.endsWith(suffix) ? label.slice(0, -suffix.length) : label
+}
+
+function formatSpecValue(field: SpecFieldDef, value: unknown): string {
+  if (field.display === 'year') return String(value)
+  if (field.display === 'yearMonth') {
+    // `YYYYMM` (ProdVon/ProdBis) → "03.2019"
+    const raw = String(value).padStart(6, '0')
+    return `${raw.slice(4, 6)}.${raw.slice(0, 4)}`
+  }
+  if (field.kind === 'int' || field.kind === 'decimal') {
+    const n = formatNumber(Number(value), field.fractionDigits)
+    return field.unit ? `${n} ${field.unit}` : n
+  }
+  return String(value)
 }
 
 /**
@@ -25,12 +57,16 @@ export interface ConfigurationSummaryCardProps {
  * shares one request per list, and a code without a label in that language
  * renders `⚠ <code>`, never the raw code silently. It fetches nothing else.
  */
-export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: ConfigurationSummaryCardProps) {
+export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, technicalDataColumns }: ConfigurationSummaryCardProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const labels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
+  const showTechnical = technicalDataColumns != null
+  const specLabels = useReferenceLabelLookup(showTechnical ? SPEC_REF_LIST_CODES : [])
   const c = configuration
   const s = c.spec
+  // Absent values are "not set" in italic — never zero, never guessed (FR-I-07).
+  const notSet = <span style={{ fontStyle: 'italic', color: slate[4] }}>{t('common.notSet')}</span>
 
   const heroParts = [c.brandDisplayName, c.modelGroupName, c.variantName, s.trimName].filter(Boolean)
   const isManual = c.source === 'manual'
@@ -40,12 +76,40 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
       const code = c[f.key]
       return { label: t(f.labelKey), value: code != null ? labels.label(f.listCode, code) : '—' }
     }),
-    { label: t('catalogueBrowse.columns.ps'), value: s.ps != null ? formatNumber(s.ps) : '—' },
-    { label: t('catalogueBrowse.columns.displacementCcm'), value: s.displacementCcm != null ? formatNumber(s.displacementCcm) : '—' },
+    // With the technical block these three are in it, once.
+    ...(showTechnical
+      ? []
+      : [
+          { label: t('catalogueBrowse.columns.ps'), value: s.ps != null ? formatNumber(s.ps) : '—' },
+          { label: t('catalogueBrowse.columns.displacementCcm'), value: s.displacementCcm != null ? formatNumber(s.displacementCcm) : '—' },
+        ]),
     { label: t('configurator.summary.firstRegistration'), value: c.firstRegistrationDate ? formatDateOnly(c.firstRegistrationDate, locale) : '—' },
     { label: t('configurator.summary.mileage'), value: c.mileageKm != null ? `${formatNumber(c.mileageKm)} km` : '—' },
-    { label: t('configurator.summary.colour'), value: c.exteriorColour ?? '—' },
+    ...(showTechnical ? [] : [{ label: t('configurator.summary.colour'), value: c.exteriorColour ?? '—' }]),
   ]
+
+  const technicalGroups = showTechnical
+    ? [
+        ...TECHNICAL_SPEC_GROUPS.map((group) => ({
+          title: t(group.titleKey),
+          items: group.fields.map((f) => {
+            const value = s[f.key]
+            const absent = value == null || value === ''
+            return {
+              label: withoutUnitSuffix(t(specFieldLabelKey(f.key as string)), f.unit),
+              value: absent ? notSet : f.kind === 'ref' ? specLabels.label(f.listCode!, String(value)) : formatSpecValue(f, value),
+            }
+          }),
+        })),
+        {
+          title: t('configurator.spec.groups.colours'),
+          items: [
+            { label: t('configurator.colour.exterior'), value: c.exteriorColour || notSet },
+            { label: t('configurator.colour.interior'), value: c.interiorColour || notSet },
+          ],
+        },
+      ]
+    : []
 
   return (
     <Card withBorder padding="lg" radius="md" data-testid="configuration-summary-card">
@@ -90,6 +154,22 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
         </Group>
 
         <SpecGrid items={specItems} columns={2} />
+
+        {showTechnical && (
+          <Stack gap="md" data-testid="configuration-technical-data">
+            <Text fw={700} size="md">
+              {t('configurator.summary.technicalData')}
+            </Text>
+            {technicalGroups.map((group) => (
+              <Stack key={group.title} gap={6}>
+                <Text fw={600} size="sm" c="dimmed">
+                  {group.title}
+                </Text>
+                <SpecGrid items={group.items} columns={technicalDataColumns} />
+              </Stack>
+            ))}
+          </Stack>
+        )}
 
         {c.options.length > 0 && (
           <Stack gap={4}>

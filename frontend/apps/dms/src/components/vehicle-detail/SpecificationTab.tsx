@@ -10,7 +10,8 @@ import type { ConfigurationRead } from '../../api/types'
  * of the vehicle, **read-only**, through the one shared summary card (no
  * "open configurator" here). A configuration is tenant-private, so another
  * dealership's configuration of the same car is never shown; "none" is the
- * ordinary state for a car this dealership never configured.
+ * ordinary state for a car this dealership never configured. It shows the
+ * full technical data block (KAN-459), as every other host does.
  */
 export function SpecificationTab({ vehicleId }: { vehicleId: string }) {
   const { t } = useTranslation()
@@ -28,5 +29,5 @@ export function SpecificationTab({ vehicleId }: { vehicleId: string }) {
   if (query.isLoading) return <Loader size="sm" />
   if (query.isError) return <Alert color="red">{t('vehicleDetail.specification.loadError')}</Alert>
   if (!query.data) return <Text c="dimmed">{t('vehicleDetail.specification.empty')}</Text>
-  return <ConfigurationSummaryCard configuration={query.data} />
+  return <ConfigurationSummaryCard configuration={query.data} technicalDataColumns={4} />
 }
