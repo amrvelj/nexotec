@@ -149,6 +149,28 @@ describe("kit components show none of their former English defaults (KAN-422)", 
     expect(englishLeft()).toEqual([]);
   });
 
+  it("Wizard: the first step's «next» button is the caller's", () => {
+    render(
+      <MantineProvider>
+        <Wizard
+          steps={[
+            { id: "a", label: "Identité" },
+            { id: "b", label: "Contact" },
+          ]}
+          activeIndex={0}
+          onBack={() => {}}
+          onNext={() => {}}
+          onCancel={() => {}}
+          {...FR_WIZARD_LABELS}
+        >
+          <p>Étape</p>
+        </Wizard>
+      </MantineProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Suivant" })).toBeInTheDocument();
+    expect(englishLeft()).toEqual([]);
+  });
+
   it("GlobalSearch: the trigger, the recents heading and the empty line are the caller's", async () => {
     const user = userEvent.setup();
     render(
