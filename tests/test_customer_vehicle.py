@@ -797,7 +797,7 @@ def test_the_history_names_a_sister_betrieb_only_while_the_group_read_is_enabled
     own_user = create_user(client, own_id, firstName="Olga", lastName="Own")
     sister_user = create_user(client, sister_id, firstName="Sina", lastName="Sister")
     stranger_user = create_user(client, stranger_id, firstName="Fritz", lastName="Fremd")
-    group_id = dealer_group_of(own_id)
+    group_id = uuid.uuid4()  # a group of their own for the two, apart from each Betrieb's
     db_session.add(DealerGroup(id=group_id, name="Group", group_read_enabled=False))
     for dealership_id in (own_id, sister_id):
         db_session.get(Dealership, uuid.UUID(dealership_id)).dealer_group_id = group_id
