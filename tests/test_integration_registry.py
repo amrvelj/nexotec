@@ -13,6 +13,7 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
+from tests.token_support import dealer_group_of
 
 
 class FakeSecretsBackend:
@@ -284,7 +285,7 @@ def test_cross_tenant_connection_read_is_404_not_403(db_session):
 def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *, is_dealer_manager: bool = False) -> str:
     tid = tenant_id or uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role else frozenset(), is_dealer_manager=is_dealer_manager,
     )
 

@@ -307,6 +307,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
           }}
           loading={customerSearch.isFetching}
           placeholder={t('valuationCreate.searchCustomer')}
+          emptyLabel={t('common.noMatches')}
         />
       </Modal>
 

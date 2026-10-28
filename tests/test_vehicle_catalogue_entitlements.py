@@ -15,6 +15,8 @@ from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
 from app.vehicle.services import catalogue_entitlements, catalogue_sync
+from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
+from tests.token_support import dealer_group_of
 
 VALID_VIN = "1HGCM82633A004352"
 
@@ -138,8 +140,10 @@ def test_specification_carries_the_full_image_url(db_session):
 
 def test_specification_carries_the_new_c_e_fields_on_options_colours_and_tyres(db_session):
     """KAN-43 (C-E) — is_included/is_package/equipment_features on
-    options, price on colours, season/remark on tyres."""
+    options, price on colours, season/remark on tyres. The season resolves
+    through the code map since KAN-75, so its seed is loaded."""
 
+    seed_colour_tyre_code_map(db_session)
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
@@ -219,7 +223,7 @@ def test_specification_with_no_catalogue_match_is_empty_but_valid(db_session):
 
 def _token(tenant_id: uuid.UUID) -> str:
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(), is_dealer_manager=True,
     )
 
@@ -299,7 +303,7 @@ def test_variant_specification_endpoint_needs_no_manager_flag(client, db_session
     variant = db_session.query(ModelVariant).first()
 
     non_manager_token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(), is_dealer_manager=False,
     )
     response = client.get(f"/v1/catalogue/variants/{variant.id}/specification", headers=_bearer(non_manager_token))
@@ -373,7 +377,7 @@ def test_capability_check_endpoint_needs_no_manager_flag(client, db_session):
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
     non_manager_token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(), is_dealer_manager=False,
     )
 

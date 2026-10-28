@@ -11,12 +11,13 @@ from app.core.outbox_model import OutboxMessage
 from app.sales.models.offer import OfferStatus
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import copy_offer, create_offer, update_offer
+from tests.token_support import dealer_group_of
 
 
 def _token(role: AccessRole | None = None) -> str:
     tid = uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role else frozenset(), is_dealer_manager=False,
     )
 

@@ -126,6 +126,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           <KeyValueRow label={t('stockDetail.identity.vehicleLabel')}>
             <InlineEditField
               value={item.vehicleLabel}
+              emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ vehicleLabel: v })}
               describeError={describeError}
               isConflict={isStaleVersion}

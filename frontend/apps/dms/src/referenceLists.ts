@@ -57,6 +57,8 @@ export const REFERENCE_LIST_CODES = [
   // business master data (platform/e1f7a3c9b2d4) — KAN-203
   'legal_form',
   'association_membership',
+  // where a catalogue colour sits, FarbArt's target (platform/b13e074523d7) — KAN-75
+  'colour_area',
 ] as const
 
 export type ReferenceListCode = (typeof REFERENCE_LIST_CODES)[number]

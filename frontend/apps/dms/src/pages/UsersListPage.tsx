@@ -45,6 +45,7 @@ import {
 } from '../userOptions'
 import { formatDateOnly, formatDateTime, todayLocalIsoDate } from '../utils/format'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'administration.users.list'
 const DEFAULT_SORT: SortSpec[] = [
@@ -79,6 +80,7 @@ type Chip = 'all' | UserStatus
  */
 export function UsersListPage() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.administration'), t('shell.nav.users')])
   const { user: me, activeDealership } = useAuth()
@@ -484,13 +486,7 @@ export function UsersListPage() {
               { isSelf: row.id === me?.id },
             )
           }
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
-          }}
+          labels={dataGridLabels}
           emptyState={{
             icon: <UserCog size={24} />,
             title: t('usersAdmin.emptyState.title'),

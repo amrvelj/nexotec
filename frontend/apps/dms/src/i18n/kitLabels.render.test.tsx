@@ -6,8 +6,12 @@ import { useOverlay } from '@nexotec/ui-kit'
 import i18n from './index'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend } from '../test/fakeBackend'
-import type { StockItemPage } from '../api/types'
+import type { StockItemPage, StockItemRead } from '../api/types'
 import { ContactPointsEditor } from '../components/customer-detail/ContactPointsEditor'
+import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
+import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { ValuationCreateDialog } from '../components/ValuationCreateDialog'
+import { DetailsTab } from '../components/stock-detail/DetailsTab'
 import { DmsShell } from '../layout/DmsShell'
 import { StockListPage } from '../pages/StockListPage'
 
@@ -41,7 +45,9 @@ afterEach(async () => {
   await i18n.changeLanguage('de')
 })
 
-const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|at least|at most) .*|Not .*|Refresh|Change row density)$/
+// KAN-422 adds the rest of the kit's former defaults: DataGrid's, Wizard's,
+// GlobalSearch's, Picker's, InlineEditField's and DocumentPreview's.
+const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|at least|at most) .*|Not .*|Refresh|Change row density|Showing .*|Loading…|Retry|Row actions|Select all|Select row|Next|Submit|Back|Recent|No matches|Search failed — try again\.|Not set|Download)$/
 function englishOnScreen(): string[] {
   const found: string[] = []
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
@@ -177,5 +183,136 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     await user.click(within(dialog).getByRole('button', { name: 'Fermer' }))
     expect(screen.queryByText('Fiche client')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+  })
+})
+
+const SHELL_ROUTES = [
+  {
+    method: 'GET',
+    match: /\/me\/preferences\/ui$/,
+    handler: () => ({ payload: { schemaVersion: 1, sidebarCollapsed: false, uiLanguage: 'fr', density: 'default' } }),
+  },
+  {
+    method: 'GET',
+    match: /\/auth\/me$/,
+    handler: () => ({
+      user: {
+        id: 'user-1', dealershipId: 'd-1', firstName: 'Test', lastName: 'Advisor', email: 'advisor@example.ch',
+        phone: null, role: 'service_advisor', accessRoles: ['sales'], isDealerManager: false,
+        employmentStatus: 'active', authIdentityId: 'auth-1', status: 'active', version: 1,
+        createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+      },
+      activeDealership: { id: 'd-1', legalName: 'Garage Nord AG' },
+      memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }], entitlements: ALL_ENTITLEMENTS,
+    }),
+  },
+]
+
+// KAN-422 — the rest of the kit took required labels. Several screens had
+// shown the English default: the valuation's customer picker («No matches»),
+// the document preview's hardcoded «Loading…». Each screen below renders the
+// component's labels in French, and nothing English is left. (PresentMode has
+// no app screen yet; the kit's own test covers it.)
+describe('the rest of the kit speaks the UI language on the app\'s screens (KAN-422)', () => {
+  it('DataGrid: the Stock list\'s footer count and row menu are French', async () => {
+    await i18n.changeLanguage('fr')
+    installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => STOCK_PAGE }])
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+    await screen.findByText('ST-3640')
+
+    expect(screen.getByText('1 sur 1 affiché(s)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actions de la ligne' })).toBeInTheDocument()
+    expect(englishOnScreen()).toEqual([])
+  })
+
+  it('Wizard: the customer create flow\'s footer buttons are French', async () => {
+    await i18n.changeLanguage('fr')
+    installFakeBackend([{ match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
+    renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
+
+    expect(await screen.findByRole('button', { name: 'Suivant' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
+    expect(englishOnScreen()).toEqual([])
+  })
+
+  it('GlobalSearch: the shell\'s search, its empty line and its failure line are French', async () => {
+    const user = userEvent.setup()
+    let failSearch = false
+    installFakeBackend([
+      ...SHELL_ROUTES,
+      { method: 'GET', match: /\/customers$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'GET',
+        match: /\/vehicle-mdm\/search$/,
+        handler: () =>
+          failSearch
+            ? { __status: 503, body: { error: { code: 'unavailable', message: 'down', details: null } } }
+            : { resolved: null, pickerCandidates: [], filtered: { items: [], nextCursor: null, total: 0, totalIsEstimate: false } },
+      },
+    ])
+    renderWithProviders(<DmsShell><div /></DmsShell>)
+
+    await user.click(await screen.findByRole('button', { name: 'Rechercher…' }))
+    await user.type(screen.getByRole('combobox'), 'zzz')
+    expect(await screen.findByText('Aucun résultat', {}, { timeout: 2000 })).toBeInTheDocument()
+    failSearch = true
+    await user.type(screen.getByRole('combobox'), 'y')
+    expect(
+      await screen.findByText('La recherche a échoué — veuillez réessayer.', {}, { timeout: 2000 }),
+    ).toBeInTheDocument()
+    expect(englishOnScreen()).toEqual([])
+  })
+
+  it('Picker: the valuation\'s customer picker says «no matches» in French', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'GET', match: /^\/integrations\/capabilities\/valuation$/, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
+      { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Rechercher un client' }))
+    const picker = await screen.findByRole('dialog', { name: 'Rechercher un client' })
+    await user.type(within(picker).getByRole('textbox'), 'zzz')
+
+    expect(await within(picker).findByText('Aucun résultat', {}, { timeout: 2000 })).toBeInTheDocument()
+    expect(englishOnScreen()).toEqual([])
+  })
+
+  it('InlineEditField: an empty stock figure reads «Non défini»', async () => {
+    await i18n.changeLanguage('fr')
+    installFakeBackend([])
+    const item = { ...STOCK_PAGE.items[0], odometerKm: null } as unknown as StockItemRead
+    renderWithProviders(
+      <DetailsTab item={item} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />,
+    )
+
+    expect(screen.getAllByText('Non défini').length).toBeGreaterThan(0)
+    expect(englishOnScreen()).toEqual([])
+  })
+
+  it('DocumentPreview: the contract document\'s loading line and download button are French', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /^\/sales\/contracts\/k1\/documents$/,
+        handler: () => ({
+          items: [{ id: 'd1', version: 1, correspondenceLanguage: 'fr', renderedAt: '2026-10-28T08:00:00Z' }],
+          nextCursor: null,
+        }),
+      },
+      // The PDF stays in flight, so the preview shows its loading line.
+      { method: 'GET', match: /^\/sales\/documents\/d1\/pdf$/, handler: () => new Promise(() => {}) },
+    ])
+    renderWithProviders(<SalesDocumentsSection ownerType="contract" ownerId="k1" />)
+
+    await user.click(await screen.findByText('Version 1'))
+
+    expect(await screen.findByText('Chargement…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Télécharger' })).toBeInTheDocument()
+    expect(englishOnScreen()).toEqual([])
   })
 })

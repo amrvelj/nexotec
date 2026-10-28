@@ -18,6 +18,7 @@ from app.inventory.models.stock_item import LifecycleStatus, ReservationState, S
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 
 def _token(tenant_id: uuid.UUID | None = None, role: AccessRole = AccessRole.INVENTORY) -> str:
@@ -25,7 +26,7 @@ def _token(tenant_id: uuid.UUID | None = None, role: AccessRole = AccessRole.INV
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({role}),
     )
 

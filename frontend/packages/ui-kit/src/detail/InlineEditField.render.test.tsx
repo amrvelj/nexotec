@@ -30,6 +30,7 @@ function renderField(err: unknown, opts: { conflict?: boolean; onReload?: () => 
       {opts.onReload ? (
         <InlineEditField
           value="079 123 45 67"
+          emptyLabel="Non renseigné"
           onSave={onSave}
           describeError={describeError}
           isConflict={() => opts.conflict ?? false}
@@ -37,7 +38,7 @@ function renderField(err: unknown, opts: { conflict?: boolean; onReload?: () => 
           reloadLabel="Recharger"
         />
       ) : (
-        <InlineEditField value="079 123 45 67" onSave={onSave} describeError={describeError} />
+        <InlineEditField value="079 123 45 67" emptyLabel="Non renseigné" onSave={onSave} describeError={describeError} />
       )}
     </MantineProvider>,
   );

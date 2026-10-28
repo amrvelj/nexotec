@@ -11,6 +11,7 @@ import uuid
 from app.core.auth import create_access_token
 from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.token_support import dealer_group_of
 
 TENANT_ID = uuid.uuid4()
 # Plates valid from well before today, open-ended: current whenever the
@@ -25,7 +26,7 @@ UNRELATED_VINS = ["1HGCM82633A004352", "WBA3A5C51CF256985", "VF1RFB00X57123456"]
 def _bearer() -> dict[str, str]:
     tid = uuid.uuid4()
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset(), is_dealer_manager=True,
     )
     return {"Authorization": f"Bearer {token}"}

@@ -30,6 +30,7 @@ import type {
   IntegrationConnectionRead,
 } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const CONNECTIONS_GRID_KEY = 'integrations.platform.connections'
 
@@ -45,6 +46,7 @@ const CONNECTIONS_GRID_KEY = 'integrations.platform.connections'
  */
 export function IntegrationPlatformView() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
   const actionBarLabels = useActionBarLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
@@ -197,12 +199,7 @@ export function IntegrationPlatformView() {
             total={null}
             totalIsEstimate={false}
             isFiltered={debouncedQuery.length > 0}
-            labels={{
-              showing: (count) => t('common.showing', { count }),
-              loadingMore: t('common.loadingMore'),
-              retry: t('common.retry'),
-              rowActionsLabel: t('common.rowActionsLabel'),
-            }}
+            labels={dataGridLabels}
             emptyState={{
               icon: <Building2 size={24} />,
               title: t('integrationsList.emptyState.title'),
@@ -238,6 +235,7 @@ function FleetHealthBoard({
   dealershipNameById: Map<string, string>
 }) {
   const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const { density } = useUiPreferencesContext()
 
   const statusQuery = useQuery({
@@ -318,12 +316,7 @@ function FleetHealthBoard({
         total={null}
         totalIsEstimate={false}
         isFiltered={false}
-        labels={{
-          showing: (count) => t('common.showing', { count }),
-          loadingMore: t('common.loadingMore'),
-          retry: t('common.retry'),
-          rowActionsLabel: t('common.rowActionsLabel'),
-        }}
+        labels={dataGridLabels}
         emptyState={{
           icon: <AlertTriangle size={24} />,
           title: t('integrationsList.healthBoard.emptyState.title'),

@@ -11,14 +11,14 @@ export interface WizardProps {
   onBack: () => void;
   onNext: () => void;
   onCancel: () => void;
-  /** All four footer-button labels are caller-supplied so the app layer
-   * owns translation — ui-kit carries no i18n runtime (same contract as
-   * FormDialog's submitLabel/cancelLabel). The English defaults keep every
-   * existing caller unchanged. */
-  nextLabel?: string;
-  submitLabel?: string;
-  backLabel?: string;
-  cancelLabel?: string;
+  /** All four footer-button labels are caller-supplied and required so the
+   * app layer owns translation — ui-kit carries no i18n runtime and ships no
+   * string of its own (KAN-422; same contract as FormDialog's
+   * submitLabel/cancelLabel). */
+  nextLabel: string;
+  submitLabel: string;
+  backLabel: string;
+  cancelLabel: string;
   nextDisabled?: boolean;
   submitting?: boolean;
   error?: ReactNode;
@@ -39,10 +39,10 @@ export function Wizard({
   onBack,
   onNext,
   onCancel,
-  nextLabel = "Next",
-  submitLabel = "Submit",
-  backLabel = "Back",
-  cancelLabel = "Cancel",
+  nextLabel,
+  submitLabel,
+  backLabel,
+  cancelLabel,
   nextDisabled,
   submitting,
   error,

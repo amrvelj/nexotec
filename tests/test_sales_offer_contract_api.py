@@ -8,12 +8,13 @@ from app.core.auth import AccessRole, create_access_token
 from app.sales.models.contract import SalesContract
 from tests.dealership_support import valid_uid
 from tests.test_sales_contract_edit import app_sessions_on_the_test_engine  # noqa: F401 - used by name
+from tests.token_support import dealer_group_of
 
 
 def _token(role: AccessRole | None = None, is_dealer_manager: bool = False, tenant_id: uuid.UUID | None = None) -> str:
     tid = tenant_id or uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role else frozenset(), is_dealer_manager=is_dealer_manager,
     )
 

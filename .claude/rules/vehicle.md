@@ -106,11 +106,17 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   of the provider configurations built from them — never an advisor's value or an overridden
   field, never a host's frozen snapshot (Anto, 2026-10-12, KAN-240) — and adds an
   `equipment_feature` to every option whose raw `SuchCode` list carried it, per tenant
-  (`VariantOptionProviderCode`, KAN-250).
+  (`VariantOptionProviderCode`, KAN-250), and fills every cached colour's `colour_type` and
+  tyre's `axle`/`season` still NULL whose raw code it was, per tenant (the raw code kept on the
+  row, KAN-75, Anto's B1).
 - Every auto-i-dat call goes through the gateway (architecture test). Provider codes never
   appear in application code: canonical taxonomy + `ProviderCodeMap` (`vehicle_provider_code_map`).
-  **Not yet true (KAN-75):** the SOAP adapter decodes `FarbArt`, `AchsenCode` and `PneuTyp`
-  inline (`auto_i_dat_soap.py`: `_FARB_ART`, `_ACHSEN_CODE`, `_PNEU_TYP`).
+  The adapters decode nothing: `FarbArt`, `AchsenCode` and `PneuTyp` arrive raw too and resolve
+  into `colour_area` (exterior / interior), `axle_position` (front / rear / both) and `tyre_type`
+  (KAN-75, Anto 2026-10-12 option A — `7c4e9a2b6d13`'s "a map row would be a second definition"
+  is reversed on purpose; seed `b0a125a0a583`, for `auto_i_dat` and the mock alike, C1). A colour
+  whose code is a gap has no `colour_type` and the configurator offers it in neither group (A2);
+  a tyre row is keyed by its raw `axle_code` + `season_code`.
 - **One registry, many gateways.** `integration` owns connections, write-only secret refs
   (`integration_secret_ref`, one row per secret slot; values live in the secrets manager,
   never in the app database), entitlements, call log and retention. The auto-i-dat adapters
@@ -199,9 +205,10 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   code; never a numeric CodeGrpNr (`resolve_provider_code` refuses one; migration
   `ff5b97c11665` re-keyed the open legacy gaps that `7c4e9a2b6d13`'s CodeGrpNr table maps, KAN-194). An unmapped code of a code-mapped field (the variant's
   `vehicle_kind`, `fuel_type`, `body_style`, `drivetrain`, `transmission`; an option's
-  `equipment_feature`) becomes a `mapping_gap` (FR-C-10), never a silent default. **Not yet true
-  for the adapter's inline decodes (KAN-75):** an unknown `FarbArt` becomes `exterior`, a
-  missing `AchsenCode` `front`, an unknown `PneuTyp` no season.
+  `equipment_feature`; a colour's `colour_area`, a tyre's `axle_position` and `tyre_type`, KAN-75)
+  becomes a `mapping_gap` (FR-C-10), never a silent default. **Open (KAN-75, asked 2026-10-28):** a
+  code the provider did not send at all is no value and no gap today — a colour without `FarbArt` is
+  then hidden with nothing for an admin to resolve.
 - **Keep the provider's full image URL** (`ImageRef.image_url`); the provider returns a
   directly fetchable URL per image — no proxy, no base-URL reconstruction.
 - Stammnummer resolves only against our own data (vehicle-mdm, then the plate-lookup cache);

@@ -11,6 +11,7 @@ import pytest
 
 from app.core.auth import create_access_token
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleStatus
+from tests.token_support import dealer_group_of
 
 SORTABLE = ["vehicleNumber", "vin", "stammnummer", "catalogueMatchStatus", "vehicleStatus"]
 
@@ -18,7 +19,7 @@ SORTABLE = ["vehicleNumber", "vin", "stammnummer", "catalogueMatchStatus", "vehi
 def _bearer() -> dict[str, str]:
     tid = uuid.uuid4()
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset(), is_dealer_manager=True,
     )
     return {"Authorization": f"Bearer {token}"}

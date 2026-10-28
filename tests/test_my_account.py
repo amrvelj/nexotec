@@ -30,6 +30,7 @@ from tests.identity_support import (
     create_user,
     deactivate,
 )
+from tests.token_support import dealer_group_of
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
@@ -39,7 +40,7 @@ def _as(user: dict, *, manager: bool = False, roles: frozenset[AccessRole] = fro
     token = create_access_token(
         user_id=uuid.UUID(user["id"]),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=roles,
         is_dealer_manager=manager,
     )

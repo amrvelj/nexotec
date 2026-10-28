@@ -13,8 +13,8 @@ import {
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate, formatCurrencyChf } from '../../utils/format'
 import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../../salesOptions'
-import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { SalesContractRead, SalesOfferRead } from '../../api/types'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
 /**
  * KAN-45 / FR-06 tab 3 — "the Sales overview grid embedded and filtered by
@@ -116,6 +116,7 @@ export function OffersContractsTab({
   newContractDisabledReason?: string
 }) {
   const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const { density } = useUiPreferencesContext()
 
   const rows = useMemo(() => toCustomerDealRows(offers, contracts), [offers, contracts])
@@ -194,7 +195,7 @@ export function OffersContractsTab({
       total={rows.length}
       totalIsEstimate={false}
       isFiltered={false}
-      labels={dataGridLabels(t)}
+      labels={dataGridLabels}
       emptyState={{
         icon: <Handshake size={24} />,
         title: t('customerDetail.offersContracts.emptyState.title'),

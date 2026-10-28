@@ -14,6 +14,7 @@ import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { displayUserStatus, userDisplayName, userStatusLabel, userStatusTone } from '../userOptions'
 import { formatDateTime, formatNumber } from '../utils/format'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const RECOVERY_KEY = ['platform', 'recovery', 'users'] as const
 // The grid's sort fields are the API's (`RECOVERY_SORT_FIELDS`): sorted on
@@ -54,6 +55,7 @@ async function allDealerships(): Promise<DealershipPage['items']> {
  */
 export function AccountRecoveryPage() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.administration'), t('shell.nav.accountRecovery')])
   const { user: me } = useAuth()
@@ -260,13 +262,7 @@ export function AccountRecoveryPage() {
           rowActions={(row) =>
             buildRecoveryRowMenu(t, row, (choice) => setActing({ user: row, choice }), { isSelf: row.id === me?.id })
           }
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
-          }}
+          labels={dataGridLabels}
           emptyState={{
             icon: <LifeBuoy size={24} />,
             title: t('recovery.empty.title'),

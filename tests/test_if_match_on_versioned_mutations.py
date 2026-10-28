@@ -13,6 +13,7 @@ import uuid
 from app.core.auth import AccessRole, create_access_token
 from app.integration.models.connection import IntegrationConnection
 from tests.test_integration_gateway import _make_provider
+from tests.token_support import dealer_group_of
 
 
 def _token(*roles: AccessRole, manager: bool = False) -> dict[str, str]:
@@ -20,7 +21,7 @@ def _token(*roles: AccessRole, manager: bool = False) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(roles),
         is_dealer_manager=manager,
     )

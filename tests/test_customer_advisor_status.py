@@ -17,6 +17,7 @@ from app.platform.models.user import User, UserStatus
 from tests.membership_support import create_dealership as create_sister
 from tests.membership_support import grant, if_match
 from tests.test_customer_fr17_fields import _bearer, _create_dealer, _create_user, _token
+from tests.token_support import dealer_group_of
 
 
 def _set_status(db_session, user: dict, status: UserStatus) -> None:
@@ -136,7 +137,7 @@ def _acting_in(user_id: str, dealership: str) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.UUID(user_id),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.SALES}),
     )
     return {"Authorization": f"Bearer {token}"}

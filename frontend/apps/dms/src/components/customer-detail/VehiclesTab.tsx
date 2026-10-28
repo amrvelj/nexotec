@@ -7,9 +7,9 @@ import { DataGrid, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate } from '../../utils/format'
 import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
-import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { CustomerVehicleRead } from '../../api/types'
 import { vehicleLabel } from './vehicleLabel'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
 // FR-06 Vehicles tab: "use the same data grid component as the overview
 // screens." Per-customer relationship lists are small (no server-side
@@ -34,6 +34,7 @@ export function VehiclesTab({
   onAdd: () => void
 }) {
   const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const { density } = useUiPreferencesContext()
 
   const columns: GridColumnDef<CustomerVehicleRead>[] = useMemo(
@@ -143,7 +144,7 @@ export function VehiclesTab({
         total={vehicles.length}
         totalIsEstimate={false}
         isFiltered={false}
-        labels={dataGridLabels(t)}
+        labels={dataGridLabels}
         emptyState={{
           icon: <Car size={24} />,
           title: t('customerDetail.vehicles.emptyState.title'),

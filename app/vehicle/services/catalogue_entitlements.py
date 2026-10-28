@@ -71,14 +71,15 @@ class OptionSpec:
 class ColourSpec:
     colour_code: str
     description: str
-    colour_type: str
+    # KAN-75: None while the colour's FarbArt is an unresolved mapping gap.
+    colour_type: str | None
     # KAN-43 (C-E) / FR-C-07 — the surcharge, a price line in build mode.
     price: Decimal | None
 
 
 @dataclass(frozen=True)
 class TyreSpec:
-    axle: str
+    axle: str | None  # KAN-75: None while the AchsenCode is a gap or absent
     size: str
     load_index: str | None
     speed_rating: str | None

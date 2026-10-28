@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -44,7 +45,7 @@ def _token(
         # a test then shares the same group_id without a real DB round trip.
         # Pass group_id explicitly to test true group-wide behaviour across
         # two different tenant_ids (see test_group_wide_* below).
-        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=group_id or dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -1311,7 +1312,45 @@ def test_external_id_update_onto_a_taken_external_id_is_conflict(client):
         headers=_bearer(admin_token),
     )
     assert response.status_code == 409, response.text
-    assert response.json()["error"]["details"]["reason"] == "external_id_taken"
+    details = response.json()["error"]["details"]
+    assert details["reason"] == "external_id_taken"
+    # KAN-481: the details name the value the PATCH tried to write, not the
+    # stored one the rollback reloaded; a key the PATCH left out is the stored one.
+    assert details["externalId"] == "SF-TAKEN"
+    assert details["systemName"] == "Salesforce"
+
+
+def test_external_id_update_conflict_names_the_attempted_system_name(client):
+    """KAN-481: a PATCH that changes the system name onto a taken pair names
+    both attempted values, while the row keeps its stored ones."""
+
+    dealer_id = _create_dealer(client)
+    customer_a = _create_customer(client, dealer_id, email="ext5c@example.ch")
+    customer_b = _create_customer(client, dealer_id, email="ext5d@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/customers/{customer_a['id']}/external-ids",
+        json={"systemName": "HubSpot", "externalId": "HS-TAKEN"},
+        headers=_bearer(admin_token),
+    )
+    row = client.post(
+        f"/v1/customers/{customer_b['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-OWN"},
+        headers=_bearer(admin_token),
+    ).json()
+    response = client.patch(
+        f"/v1/customers/{customer_b['id']}/external-ids/{row['id']}",
+        json={"systemName": "HubSpot", "externalId": "HS-TAKEN"},
+        headers=_bearer(admin_token),
+    )
+    assert response.status_code == 409, response.text
+    details = response.json()["error"]["details"]
+    assert (details["systemName"], details["externalId"]) == ("HubSpot", "HS-TAKEN")
+    dealer_token = _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
+    stored = client.get(
+        f"/v1/customers/{customer_b['id']}/external-ids", headers=_bearer(dealer_token)
+    ).json()["items"]
+    assert [(r["systemName"], r["externalId"]) for r in stored] == [("Salesforce", "SF-OWN")]
 
 
 def test_external_ids_across_different_tenants_can_collide(client):

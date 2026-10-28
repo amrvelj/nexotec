@@ -36,26 +36,46 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * `useDebouncedTextField`), not from a change of a debounced copy: typing
  * back the figure shown before an adoption is still saved.
  *
- * Returns `[value, setValue, unsaved]` — `unsaved` is true while a typed
- * value waits out the delay (KAN-288).
+ * KAN-480 — the field takes the input's own value, a number or the text of
+ * a partial entry (Mantine hands a lone «-» over as the string "-"), and
+ * shows it as typed. A value that does not read as a finite number is never
+ * committed: as NaN it would be sent as `null` (`JSON.stringify(NaN)`) and
+ * clear the saved figure. It counts as unsaved until it is finished into a
+ * number or emptied, `invalid` says so, and a newer server copy does not
+ * replace it.
+ *
+ * The input itself empties a lone «-» when it loses focus (react-number-
+ * format, under Mantine's NumberInput: it emits '' and then its blur). That
+ * '' is the input tidying up, not the user clearing the figure, so the host
+ * passes `onBlur` and the hook puts the partial entry back instead of
+ * committing a clear. An empty field the user made by deleting stays empty.
+ *
+ * Returns `[value, setValue, unsaved, invalid, onBlur]` — `unsaved` is true
+ * while a typed value waits out the delay or is not a number (KAN-288);
+ * `invalid` is true while the field holds something that is not a number, for
+ * the host's `error` (`common.notYetANumber`); `onBlur` goes on the input.
  */
 export function useDebouncedNumberField(
   serverValue: number | null,
   resetKey: unknown,
   onCommit: (value: number | null) => void | Promise<unknown>,
   delay = 500
-): [number | '', (value: number | '') => void, boolean] {
+): [number | string, (value: number | string) => void, boolean, boolean, () => void] {
   const next: number | '' = serverValue ?? ''
-  const [local, setLocal] = useState<number | ''>(next)
+  // What the input shows: the server's figure, or what was typed as typed.
+  const [local, setLocal] = useState<number | string>(next)
   // What was last handed to `onCommit` or taken from the server — state for
   // `unsaved`, a ref for the callbacks that run between renders.
   const [committed, setCommitted] = useState<number | ''>(next)
-  const localRef = useRef<number | ''>(next)
+  const localRef = useRef<number | string>(next)
   const committedRef = useRef<number | ''>(next)
   const serverRef = useRef<number | ''>(next)
   serverRef.current = next
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savesOutRef = useRef(0)
+  // The partial entry an emptying change replaced, until the end of the
+  // current event: the input's own blur tidy-up arrives just before its blur.
+  const emptiedPartialRef = useRef<string | null>(null)
   const resetKeyRef = useRef(resetKey)
   const onCommitRef = useRef(onCommit)
   onCommitRef.current = onCommit
@@ -68,22 +88,24 @@ export function useDebouncedNumberField(
   }
 
   // Takes the server's copy when nothing of this field's is pending: no
-  // typed value waiting (Object.is: a lone "-" is NaN, and NaN !== NaN) and
-  // no save out.
+  // typed value waiting (Object.is: a lone "-" reads as NaN, and NaN !== NaN)
+  // and no save out.
   const adoptServerCopy = useCallback(() => {
     if (timerRef.current !== null || savesOutRef.current > 0) return
-    if (!Object.is(localRef.current, committedRef.current)) return
+    if (!Object.is(asFigure(localRef.current), committedRef.current)) return
     if (Object.is(serverRef.current, committedRef.current)) return
     show(serverRef.current)
   }, [])
 
   const commit = useCallback(() => {
     timerRef.current = null
-    const value = localRef.current
+    const value = asFigure(localRef.current)
     if (Object.is(value, committedRef.current)) return
+    // Not yet a number (KAN-480): kept in the field, never sent.
+    if (!isCommittable(value)) return
     committedRef.current = value
     setCommitted(value)
-    const saving = onCommitRef.current(value === '' ? null : Number(value))
+    const saving = onCommitRef.current(value === '' ? null : value)
     if (saving) {
       savesOutRef.current += 1
       saving.then(
@@ -101,7 +123,14 @@ export function useDebouncedNumberField(
   }, [adoptServerCopy])
 
   const setValue = useCallback(
-    (value: number | '') => {
+    (value: number | string) => {
+      const previous = localRef.current
+      if (value === '' && typeof previous === 'string' && !isCommittable(asFigure(previous))) {
+        emptiedPartialRef.current = previous
+        queueMicrotask(() => {
+          emptiedPartialRef.current = null
+        })
+      }
       localRef.current = value
       setLocal(value)
       if (timerRef.current !== null) clearTimeout(timerRef.current)
@@ -109,6 +138,21 @@ export function useDebouncedNumberField(
     },
     [commit, delay]
   )
+
+  const onBlur = useCallback(() => {
+    const partial = emptiedPartialRef.current
+    if (partial === null || localRef.current !== '') return
+    emptiedPartialRef.current = null
+    if (timerRef.current !== null) clearTimeout(timerRef.current)
+    timerRef.current = null
+    localRef.current = partial
+    // A tick later: set in the same event as the input's own '', the two
+    // updates batch to the value the input already had, and it would keep
+    // showing its emptied text.
+    setTimeout(() => {
+      if (localRef.current === partial) setLocal(partial)
+    }, 0)
+  }, [])
 
   useEffect(() => {
     if (resetKeyRef.current === resetKey) return
@@ -133,7 +177,21 @@ export function useDebouncedNumberField(
   // KAN-288 — the third value: a typed value not yet handed to `onCommit`.
   // A host that ends the edit (signing a contract) waits for it, or the
   // value would be dropped when the field unmounts and its timer is cleared.
-  // Object.is: a lone "-" parses to NaN, and NaN !== NaN would read as
-  // "unsaved" forever.
-  return [local, setValue, !Object.is(local, committed)]
+  // Object.is: a value that is not a number reads as NaN, never equal to a
+  // committed figure, so it stays "unsaved" until finished or emptied.
+  const figure = asFigure(local)
+  return [local, setValue, !Object.is(figure, committed), !isCommittable(figure), onBlur]
+}
+
+function isCommittable(figure: number | ''): boolean {
+  return figure === '' || Number.isFinite(figure)
+}
+
+/**
+ * The figure an input value stands for: '' for an empty field, else the
+ * number it reads as — NaN for a partial entry such as a lone «-».
+ */
+export function asFigure(value: number | string): number | '' {
+  if (typeof value === 'number') return value
+  return value.trim() === '' ? '' : Number(value)
 }

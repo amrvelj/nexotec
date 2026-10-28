@@ -12,6 +12,7 @@ from app.core.object_store import LocalDirectoryObjectStore, get_object_store
 from app.main import app as fastapi_app
 from app.platform.models.dealership import Location
 from tests.identity_support import create_dealership, create_user, platform_admin_headers
+from tests.token_support import dealer_group_of
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 _JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
@@ -22,7 +23,7 @@ def _manager(dealership: str, user: dict) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.UUID(user["id"]),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.SALES}),
         is_dealer_manager=True,
     )

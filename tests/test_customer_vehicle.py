@@ -12,6 +12,7 @@ from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -35,7 +36,7 @@ def _token(
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=_tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
         entitlements=entitlements,
@@ -614,26 +615,15 @@ def test_listing_vehicles_does_not_go_n_plus_1(client, engine, db_session):
 
 
 def _enable_group_read(db_session, dealer_id: str) -> None:
-    """Test tokens derive group_id as uuid5(NAMESPACE_OID, tenant_id) (see
-    _token above) — decoupled from the random real Dealership.dealer_
-    group_id a plain POST /v1/dealerships call creates. Repoints the
-    dealership at a DealerGroup row carrying THAT id instead, so the
-    principal's own group_id actually matches what
-    get_stock_items_for_vehicles looks up.
-
-    KAN-49 review: the tidier fix would be the other way around — give
-    _token() an optional group_id override and read the dealer's real,
-    already-auto-created dealer_group_id off the POST /v1/dealerships
-    response — but _create_dealer and every other helper below build their
-    own tokens internally with no way to thread that value through, and
-    this repoint keeps the change contained to one test-only helper rather
-    than touching signatures 20+ existing tests already call. The orphaned
-    original DealerGroup row this leaves behind is inert: engine's own
-    fixture drops the whole schema after each test, so nothing outlives
-    it.
+    """Turns the group read on for the Betrieb's own dealer group — the one
+    its test tokens carry since KAN-424 (`tests/token_support.py`), so the
+    principal's group_id is what get_stock_items_for_vehicles looks up.
+    Before KAN-424 the tokens carried a made-up uuid5 group, which this
+    helper created and repointed the Betrieb at; that branch remains for a
+    group that does not exist yet.
     """
 
-    group_id = uuid.uuid5(uuid.NAMESPACE_OID, dealer_id)
+    group_id = dealer_group_of(dealer_id)
     dealership = db_session.get(Dealership, uuid.UUID(dealer_id))
     group = db_session.get(DealerGroup, group_id)
     if group is None:
@@ -796,7 +786,7 @@ def test_the_history_names_a_sister_betrieb_only_while_the_group_read_is_enabled
     own_user = create_user(client, own_id, firstName="Olga", lastName="Own")
     sister_user = create_user(client, sister_id, firstName="Sina", lastName="Sister")
     stranger_user = create_user(client, stranger_id, firstName="Fritz", lastName="Fremd")
-    group_id = uuid.uuid5(uuid.NAMESPACE_OID, own_id)
+    group_id = uuid.uuid4()  # a group of their own for the two, apart from each Betrieb's
     db_session.add(DealerGroup(id=group_id, name="Group", group_read_enabled=False))
     for dealership_id in (own_id, sister_id):
         db_session.get(Dealership, uuid.UUID(dealership_id)).dealer_group_id = group_id

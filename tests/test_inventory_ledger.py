@@ -15,6 +15,7 @@ from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services import ledger as ledger_service
 from app.inventory.services.ledger import list_ledger_entries, record_cost
 from app.inventory.services.stock_item import create_stock_item
+from tests.token_support import dealer_group_of
 
 
 def _make_item(db_session, tenant_id):
@@ -128,7 +129,7 @@ def _api_token(tenant_id: uuid.UUID) -> str:
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.INVENTORY}),
     )
 

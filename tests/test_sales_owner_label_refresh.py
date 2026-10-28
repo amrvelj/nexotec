@@ -22,12 +22,11 @@ from app.sales.models.offer import SalesOffer
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
 from tests.identity_support import create_dealership, create_user, platform_admin_headers
 from tests.test_customer_vehicle_party_close_rule import _postgres_only
-from tests.test_user_deactivation import (  # noqa: F401 — the fixture: _as mints the Betrieb's real dealer group
+from tests.test_user_deactivation import (
     _as,
     _contract_for,
     _customer_for,
     _offer_for,
-    _real_dealer_groups,
 )
 
 

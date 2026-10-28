@@ -7,6 +7,7 @@ import uuid
 
 from app.core.auth import AccessRole, create_access_token
 from tests.identity_support import create_dealership, create_user, platform_admin_headers
+from tests.token_support import dealer_group_of
 
 
 def _as(user: dict) -> dict[str, str]:
@@ -14,7 +15,7 @@ def _as(user: dict) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.UUID(user["id"]),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.SALES}),
     )
     return {"Authorization": f"Bearer {token}"}

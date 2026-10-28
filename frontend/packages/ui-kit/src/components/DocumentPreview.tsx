@@ -2,7 +2,13 @@ import type { ReactNode } from "react";
 import { Download, FileWarning } from "lucide-react";
 import { purple, radius, shadow, slate, spacing, white } from "../tokens";
 
-export interface DocumentPreviewProps {
+/** A download action comes with its label, so no caller renders it in
+ * English by omission (KAN-422). */
+type DocumentPreviewDownloadProps =
+  | { onDownload: () => void; downloadLabel: string }
+  | { onDownload?: undefined; downloadLabel?: undefined };
+
+interface DocumentPreviewBaseProps {
   /** A blob: URL or an https URL serving `application/pdf`. Rendered
    * exactly as WeasyPrint produced it — this component draws no layout
    * of its own around the document's own content, only the chrome
@@ -16,14 +22,17 @@ export interface DocumentPreviewProps {
   correspondenceLanguage?: string;
   loading?: boolean;
   error?: string | null;
-  onDownload?: () => void;
-  downloadLabel?: string;
+  /** Shown while `loading` — translated by the caller, as every string here
+   * (KAN-422: the kit ships none of its own). */
+  loadingLabel: string;
   /** Rendered beside the document — the seller-only margin panel (§ ADR-
    * 063: "generating an offer is two steps: build, then review the
    * rendered document ... with the seller-only margin panel BESIDE it,
    * never on it"). Never rendered inside the document itself. */
   marginPanel?: ReactNode;
 }
+
+export type DocumentPreviewProps = DocumentPreviewBaseProps & DocumentPreviewDownloadProps;
 
 /**
  * § Component Contracts — The document renderer. This is the frontend
@@ -41,9 +50,10 @@ export function DocumentPreview({
   title,
   correspondenceLanguage,
   loading,
+  loadingLabel,
   error,
   onDownload,
-  downloadLabel = "Download",
+  downloadLabel,
   marginPanel,
 }: DocumentPreviewProps) {
   return (
@@ -119,7 +129,7 @@ export function DocumentPreview({
             viewer inside the iframe owns everything past the toolbar
             above. */}
         <div style={{ flex: 1, minHeight: 480, boxShadow: shadow.sm, position: "relative" }}>
-          {loading && <CenteredMessage>Loading…</CenteredMessage>}
+          {loading && <CenteredMessage>{loadingLabel}</CenteredMessage>}
           {!loading && error && (
             <CenteredMessage>
               <FileWarning size={24} color={slate[4]} />

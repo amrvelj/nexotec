@@ -411,6 +411,19 @@ def _seed_country_reference_list(engine):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _token_dealer_groups(engine):
+    """Test tokens carry their Betrieb's real dealer group, as a minted
+    session does (KAN-424): `tests/token_support.py::dealer_group_of` reads
+    it from this test's database."""
+
+    from tests import token_support
+
+    token_support.bind(engine)
+    yield
+    token_support.bind(None)
+
+
 @pytest.fixture()
 def db_session(engine) -> Session:
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)

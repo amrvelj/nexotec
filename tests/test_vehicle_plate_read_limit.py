@@ -25,6 +25,7 @@ from app.vehicle.services.plate_read_guard import (
     PLATE_READ_ENTITY_TYPE,
 )
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.token_support import dealer_group_of
 
 LIMIT = 3
 VINS = ["ZAR94000007123456", "WVWZZZ1JZXW000001", "1HGCM82633A004352", "WBA3A5C51CF256985", "VF1RFB00X57123456"]
@@ -38,7 +39,7 @@ def _small_limit(monkeypatch):
 
 def _bearer(user_id: uuid.UUID, tenant_id: uuid.UUID) -> dict[str, str]:
     token = create_access_token(
-        user_id=user_id, tenant_id=tenant_id, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        user_id=user_id, tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(), is_dealer_manager=True,
     )
     return {"Authorization": f"Bearer {token}"}

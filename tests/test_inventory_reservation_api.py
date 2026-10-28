@@ -12,12 +12,13 @@ tests/test_inventory_write_capabilities.py."""
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
+from tests.token_support import dealer_group_of
 
 
 def _token(role: AccessRole | None = None) -> str:
     tid = uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role else frozenset(),
     )
 

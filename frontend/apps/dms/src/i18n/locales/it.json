@@ -176,7 +176,9 @@
     "inlineEdit": {
       "saveFailed": "Non è stato possibile salvare la modifica.",
       "reload": "Ricarica"
-    }
+    },
+    "notYetANumber": "Non è ancora un numero valido",
+    "noMatches": "Nessun risultato"
   },
   "apiRefusal": {
     "staleVersion": "Questo record è stato modificato nel frattempo. Ricaricalo e riprova.",
@@ -1907,7 +1909,8 @@
       "axlePosition": {
         "front": "Anteriore",
         "rear": "Posteriore",
-        "both": "Anteriore + posteriore"
+        "both": "Anteriore + posteriore",
+        "unclassified": "Non assegnato"
       },
       "seasonLabel": {
         "summer": "Estate",

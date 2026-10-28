@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from app.core.auth import AccessRole, create_access_token
 from app.platform.services.mailer import Mail
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 STRONG_PASSWORD = "correct-horse-battery-staple-2026"
 _LINK = re.compile(r"https?://\S+[?&]token=([A-Za-z0-9_\-]+)")
@@ -98,7 +99,7 @@ def platform_admin_headers(
     token = create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.PLATFORM_ADMIN}),
         amr=("pwd", "otp", "mfa") if mfa else ("pwd",),
         mfa=mfa,

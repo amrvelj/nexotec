@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next'
 import { DataGrid, InlineEditField, purple, semantic, white, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate } from '../../utils/format'
-import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { CustomerExternalIdRead } from '../../api/types'
 import { apiRefusalText } from '../../utils/apiRefusal'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
 interface ExternalIdsTabProps {
   externalIds: CustomerExternalIdRead[]
@@ -25,6 +25,7 @@ interface ExternalIdsTabProps {
 
 export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate, onUpdate, onDelete, locale }: ExternalIdsTabProps) {
   const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const errorMessage = (err: unknown): string => apiRefusalText(t, err, 'customerDetail.errors.somethingWentWrong')
   const { describeError } = useInlineEditRefusal()
   const { density } = useUiPreferencesContext()
@@ -71,7 +72,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         header: t('customerDetail.externalIds.columns.system'),
         cell: ({ row }) =>
           canWrite ? (
-            <InlineEditField value={row.original.systemName} onSave={(raw) => onUpdate(row.original.id, { systemName: raw })} describeError={describeError} />
+            <InlineEditField value={row.original.systemName} emptyLabel={t('common.notSet')} onSave={(raw) => onUpdate(row.original.id, { systemName: raw })} describeError={describeError} />
           ) : (
             row.original.systemName
           ),
@@ -81,7 +82,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         header: t('customerDetail.externalIds.columns.externalId'),
         cell: ({ row }) =>
           canWrite ? (
-            <InlineEditField value={row.original.externalId} onSave={(raw) => onUpdate(row.original.id, { externalId: raw })} describeError={describeError} />
+            <InlineEditField value={row.original.externalId} emptyLabel={t('common.notSet')} onSave={(raw) => onUpdate(row.original.id, { externalId: raw })} describeError={describeError} />
           ) : (
             row.original.externalId
           ),
@@ -123,7 +124,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         total={externalIds.length}
         totalIsEstimate={false}
         isFiltered={false}
-        labels={dataGridLabels(t)}
+        labels={dataGridLabels}
         emptyState={{
           icon: <Link2 size={24} />,
           title: t('customerDetail.externalIds.emptyState.title'),

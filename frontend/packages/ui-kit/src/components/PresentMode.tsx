@@ -17,7 +17,8 @@ export function usePresentMode(): boolean {
 export interface PresentModeProps {
   children: ReactNode;
   onExit: () => void;
-  exitLabel?: string;
+  /** The exit control's name — translated by the caller (KAN-422). */
+  exitLabel: string;
 }
 
 /**
@@ -30,7 +31,7 @@ export interface PresentModeProps {
  * with full commercial visibility (ADR-049) still sees nothing sensitive
  * here — this is not a permissions check, and must never become one.
  */
-export function PresentMode({ children, onExit, exitLabel = "Exit present mode" }: PresentModeProps) {
+export function PresentMode({ children, onExit, exitLabel }: PresentModeProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onExit();

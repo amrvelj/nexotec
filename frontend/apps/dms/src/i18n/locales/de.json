@@ -176,7 +176,9 @@
     "inlineEdit": {
       "saveFailed": "Die Änderung konnte nicht gespeichert werden.",
       "reload": "Neu laden"
-    }
+    },
+    "notYetANumber": "Noch keine gültige Zahl",
+    "noMatches": "Keine Treffer"
   },
   "apiRefusal": {
     "staleVersion": "Dieser Datensatz wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
@@ -1907,7 +1909,8 @@
       "axlePosition": {
         "front": "Vorne",
         "rear": "Hinten",
-        "both": "Vorne + hinten"
+        "both": "Vorne + hinten",
+        "unclassified": "Nicht zugeordnet"
       },
       "seasonLabel": {
         "summer": "Sommer",

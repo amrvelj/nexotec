@@ -59,7 +59,7 @@ from dataclasses import dataclass, field
 from typing import Final, Literal
 
 from sqlalchemy import func, or_, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.base import utcnow
 from app.integration.public import (
@@ -113,6 +113,13 @@ _CODED_FIELDS: Final = {
 # The option attribute resolved through `ProviderCodeMap` (`SuchCode`), many
 # codes per option; its raw codes are kept per option (KAN-250).
 _EQUIPMENT_FEATURE: Final = "equipment_feature"
+# The colour and tyre attributes resolved through `ProviderCodeMap` (KAN-75),
+# one code each; the raw code is kept on the cached row, so a resolved gap
+# fills it at once (`apply_resolved_code_to_colours_and_tyres`).
+_COLOUR_AREA: Final = "colour_area"  # FarbArt
+_AXLE_POSITION: Final = "axle_position"  # AchsenCode
+_TYRE_TYPE: Final = "tyre_type"  # PneuTyp
+COLOUR_AND_TYRE_CODE_GROUPS: Final = (_COLOUR_AREA, _AXLE_POSITION, _TYRE_TYPE)
 # Master-data fields a later visit fills while they are NULL (KAN-83).
 # `name` and `model_year_from` are NOT NULL, so there is never a gap to fill.
 _FILLABLE_MASTER_FIELDS: Final = ("model_year_to", "base_price", "werkscode")
@@ -554,6 +561,57 @@ def apply_resolved_code_to_options(
     return len(blocked)
 
 
+def apply_resolved_code_to_colours_and_tyres(
+    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+) -> int:
+    """Fills `value_code` into every cached colour or tyre row, in every
+    tenant, whose raw code is exactly this one and whose value is still NULL —
+    the rows a just-resolved `colour_area`, `axle_position` or `tyre_type` gap
+    had left unclassified (KAN-75, Anto's B1: at once, as options since
+    KAN-250). A row is matched to the gap's provider and vehicle kind through
+    its variant's recorded raw `FzArt` (`VariantProviderCode`, the code the
+    sync resolved it under). Any other code group fills nothing. Returns how
+    many rows were filled.
+
+    One conditional UPDATE per table, in the resolve's transaction: the NULL
+    test runs under the row lock, so a row a concurrent sync has just filled
+    is skipped. A sync visit of the same row resolves the code (and so bumps
+    the gap the resolve holds) before it writes the value, so it either
+    waits for the resolve and then reads the mapping, or committed before it
+    and this UPDATE fills what it left NULL.
+    """
+
+    targets: dict[str, tuple[type[ColourCache | TyreSpecCache], InstrumentedAttribute[str | None], str]] = {
+        _COLOUR_AREA: (ColourCache, ColourCache.colour_area_code, "colour_type"),
+        _AXLE_POSITION: (TyreSpecCache, TyreSpecCache.axle_code, "axle"),
+        _TYRE_TYPE: (TyreSpecCache, TyreSpecCache.season_code, "season"),
+    }
+    if code_group not in targets:
+        return 0
+    model, raw_column, value_attribute = targets[code_group]
+    value_column = getattr(model, value_attribute)
+    variants_of_kind = select(VariantProviderCode.model_variant_id).where(
+        VariantProviderCode.provider == provider,
+        VariantProviderCode.code_group == "vehicle_kind",
+        VariantProviderCode.provider_code == vehicle_kind,
+    )
+    filled = db.scalars(
+        update(model)
+        .where(raw_column == provider_code, value_column.is_(None), model.model_variant_id.in_(variants_of_kind))
+        .values({value_attribute: value_code})
+        .returning(model.id)
+        .execution_options(synchronize_session="fetch")
+    ).all()
+    db.flush()
+    return len(filled)
+
+
+def _is(column, value: str | None):
+    """`column = value`, or `IS NULL` for a code the provider did not send."""
+
+    return column.is_(None) if value is None else column == value
+
+
 def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_numbers: list[str]) -> None:
     """KAN-42 (C-D): records the variant's Typenscheine so FR-C-02 step 4's
     reverse lookup (`find_model_variants_by_type_approval`) can find a
@@ -727,8 +785,21 @@ def _sync_tenant_variant_content(
             variant_option=option_row, feature_codes=option.equipment_feature_codes,
         )
 
+    # KAN-75: FarbArt, AchsenCode and PneuTyp arrive raw and resolve through
+    # the code map like every other coded field — an unknown code is a
+    # mapping gap and leaves the value NULL, never a guess (FR-C-10). The raw
+    # code stays on the row for the resolve (`apply_resolved_code_to_colours_and_tyres`).
+    def resolve(code_group: str, raw_code: str | None) -> str | None:
+        return _resolve_code(
+            db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
+            code_group=code_group, provider_value=raw_code,
+        )
+
     progress.field = "colours"
     for colour in (adapter.fetch_colours(werkscode=master.werkscode) if master.werkscode else []):
+        # Resolved before the row is touched: the lookup may flush, and a new
+        # row must not reach the database half-filled.
+        colour_type = resolve(_COLOUR_AREA, colour.colour_area_code)
         colour_row = db.scalar(
             select(ColourCache).where(
                 ColourCache.tenant_id == tenant_id, ColourCache.model_variant_id == model_variant.id,
@@ -741,23 +812,29 @@ def _sync_tenant_variant_content(
             )
             db.add(colour_row)
         colour_row.description = colour.description
-        colour_row.colour_type = colour.colour_type
+        colour_row.colour_area_code = colour.colour_area_code
+        colour_row.colour_type = colour_type
         colour_row.price = colour.price
 
     _type_approval = master.type_approval_numbers[0] if master.type_approval_numbers else None
     progress.field = "tyre_specs"
     for tyre in (adapter.fetch_tyre_specs(type_approval_number=_type_approval) if _type_approval else []):
+        axle = resolve(_AXLE_POSITION, tyre.axle_code)
+        season = resolve(_TYRE_TYPE, tyre.season_code)
         tyre_row = db.scalar(
             select(TyreSpecCache).where(
                 TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == model_variant.id,
-                TyreSpecCache.axle == tyre.axle, TyreSpecCache.season == tyre.season,
+                _is(TyreSpecCache.axle_code, tyre.axle_code), _is(TyreSpecCache.season_code, tyre.season_code),
             )
         )
         if tyre_row is None:
             tyre_row = TyreSpecCache(
-                tenant_id=tenant_id, model_variant_id=model_variant.id, axle=tyre.axle, season=tyre.season
+                tenant_id=tenant_id, model_variant_id=model_variant.id, axle_code=tyre.axle_code,
+                season_code=tyre.season_code,
             )
             db.add(tyre_row)
+        tyre_row.axle = axle
+        tyre_row.season = season
         tyre_row.size = tyre.size
         tyre_row.load_index = tyre.load_index
         tyre_row.speed_rating = tyre.speed_rating

@@ -450,7 +450,8 @@ class AutoIDatSoapAdapter:
             VariantColourData(
                 colour_code=row_text(row, "OptCode") or "",
                 description=first_lang_text(row, "Bez") or "",
-                colour_type=_FARB_ART.get(row_text(row, "FarbArt") or "", "exterior"),
+                # KAN-75: the raw code; the sync resolves it (`colour_area`).
+                colour_area_code=row_text(row, "FarbArt"),
                 # KAN-43 / FR-C-07 — "the surcharge is a price line in
                 # build mode." Parsed by no one until now.
                 price=row_decimal(row, "Preis"),
@@ -465,7 +466,9 @@ class AutoIDatSoapAdapter:
         result = self._suchen("PneuDimTS", {"TypSchNr": type_approval_number})
         return [
             VariantTyreSpecData(
-                axle=_achsen_code_to_axle(row_text(row, "AchsenCode")),
+                # KAN-75: raw codes; the sync resolves them (`axle_position`,
+                # `tyre_type`) and files a mapping gap for an unknown one.
+                axle_code=row_text(row, "AchsenCode"),
                 size=row_text(row, "Dimension") or "",
                 load_index=None,
                 speed_rating=None,
@@ -474,7 +477,7 @@ class AutoIDatSoapAdapter:
                 # until now; FR-C-08 requires both shown with the
                 # dimension.
                 remark=row_text(row, "BemDe"),
-                season=_PNEU_TYP.get(row_text(row, "PneuTyp") or ""),
+                season_code=row_text(row, "PneuTyp"),
             )
             for row in result.rows
         ]
@@ -772,23 +775,11 @@ class AutoIDatSoapAdapter:
         raise NotImplementedError("auto-i-dat VIN decode webservice specification is not yet available (KAN-36).")
 
 
-# -- coded-value helpers (Webservice Fahrzeuge p34) -----------------------
-
-_FARB_ART = {"1": "exterior", "2": "interior"}  # FarbArt: 1 Aussenfarbe, 2 Polsterfarbe
-# AchsenCode: 1 Vorne+Hinten, 2 Vorne, 3 Hinten, 4-7 Varianten. KAN-43 (C-E,
-# FR-C-08: "front / rear / both / variants") — "1" was previously mapped to
-# "front", the same value as "2", silently collapsing "both axles" into
-# "front" and colliding with a genuine front-only row in TyreSpecCache's
-# (tenant, variant, axle, season) key. Codes 4-7 keep their own raw code as
-# a suffix — they are undocumented manufacturer-specific variants, not a
-# single category, and collapsing them to one "variant" bucket would cause
-# the exact same silent collision.
-_ACHSEN_CODE = {
-    "1": "both",
-    "2": "front",
-    "3": "rear",
-}
-_PNEU_TYP = {"121": "summer", "122": "winter"}  # PneuTyp (CodeGrpNr 500)
+# -- helpers ---------------------------------------------------------------
+# No coded value (Webservice Fahrzeuge p34) is decoded in this adapter: it
+# returns the provider's raw codes and the catalogue sync resolves them
+# through the provider code map (FR-C-10; KAN-75 moved FarbArt, AchsenCode
+# and PneuTyp there).
 
 
 def _build_suchwerte(
@@ -829,14 +820,6 @@ def _parse_vehicle_master_row(el: Any) -> VariantMasterData:
         werkscode=row_text(el, "Werkscode"),
         type_approval_numbers=type_approvals,
     )
-
-
-def _achsen_code_to_axle(raw: str | None) -> str:
-    if raw in _ACHSEN_CODE:
-        return _ACHSEN_CODE[raw]
-    if raw:
-        return f"variant_{raw}"
-    return "front"
 
 
 def _image_key_from_url(url: str) -> str:

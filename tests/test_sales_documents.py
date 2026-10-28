@@ -24,6 +24,7 @@ from app.sales.services.document import (
     list_documents,
 )
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 # Sentinel figures that must NEVER surface on a customer-facing document —
 # the seller-only margin panel is a separate surface entirely (ADR-063).
@@ -432,7 +433,7 @@ def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None) -
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role else frozenset(),
     )
 

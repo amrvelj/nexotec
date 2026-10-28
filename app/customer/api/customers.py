@@ -513,8 +513,9 @@ def create_customer_external_id(
     db: Session = Depends(get_db),
 ):
     # Group-agnostic lookup, not get_customer_or_404(principal.group_id,
-    # ...): platform_admin's principal.group_id is a synthetic claim, not a
-    # real group — and unlike Dealership's, Customer's own module docstring
+    # ...): platform_admin's principal.group_id is the dealer group of the
+    # Betrieb the staff member signed in to (`_mint_session`), not the
+    # customer's — and unlike Dealership's, Customer's own module docstring
     # explicitly scopes platform_admin's cross-tenant reach to "dealer
     # onboarding only." CustomerExternalId is the one deliberate exception
     # to that (Anto's ruling, 2026-08-07: this is a platform-managed CRM/OEM

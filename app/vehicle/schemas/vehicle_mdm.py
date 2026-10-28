@@ -164,12 +164,14 @@ class CatalogueOptionRead(CamelModel):
 class CatalogueColourRead(CamelModel):
     colour_code: str
     description: str
-    colour_type: str
+    # KAN-75: null while the colour's provider code is an unresolved mapping
+    # gap; the configurator offers such a colour in neither group (A2).
+    colour_type: str | None
     price: Decimal | None
 
 
 class CatalogueTyreSpecRead(CamelModel):
-    axle: str
+    axle: str | None  # KAN-75: null while the axle code is a mapping gap or absent
     size: str
     load_index: str | None
     speed_rating: str | None

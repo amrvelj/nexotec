@@ -23,7 +23,8 @@ interface InlineEditFieldBaseProps {
   /** Formatted display value shown outside edit mode. */
   value: string;
   isEmpty?: boolean;
-  emptyLabel?: string;
+  /** Shown when `isEmpty` — translated by the caller (KAN-422). */
+  emptyLabel: string;
   /** Raw value seeded into the editor; defaults to `value`. */
   editValue?: string;
   /** Persists the new value — throw to reject the edit. Given the actual
@@ -66,7 +67,7 @@ export type InlineEditFieldProps = InlineEditFieldBaseProps & InlineEditFieldRel
 export function InlineEditField({
   value,
   isEmpty,
-  emptyLabel = "Not set",
+  emptyLabel,
   editValue,
   onSave,
   describeError,

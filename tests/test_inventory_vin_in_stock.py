@@ -30,6 +30,7 @@ from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.vehicle.public import create_or_get_vehicle_mdm
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
 
@@ -309,7 +310,7 @@ def test_a_refused_racing_promotion_keeps_the_callers_own_work(db_session, monke
 def _bearer() -> dict[str, str]:
     tid = uuid.uuid4()
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.INVENTORY}), is_dealer_manager=False,
     )
     return {"Authorization": f"Bearer {token}"}

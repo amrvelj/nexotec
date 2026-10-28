@@ -51,10 +51,12 @@ and a saved filter's text included — one translated template per condition, ne
 condition + value glued together in the kit (KAN-415) — `RepeatableRowGroup`
 (a customer's contact rows pass `contactPointRowLabels(t)`), `OverlayProvider`'s
 `closeLabel`, `ActionBar` (`useActionBarLabels()`), `SelectionBar` and `FilterChips` (KAN-110,
-KAN-181, KAN-334, KAN-362, KAN-364, KAN-416). **Not yet true for the rest of the kit (KAN-364's
-remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `Picker`, `InlineEditField`,
-`DocumentPreview` and `PresentMode` still merge English defaults — pass every label a component
-takes.
+KAN-181, KAN-334, KAN-362, KAN-364, KAN-416), and since KAN-422 the rest of the kit: `DataGrid`
+(`useDataGridLabels()`; a grid with a selection names its checkboxes on the `selection` prop),
+`Wizard`, `GlobalSearch`, `Picker` (`common.noMatches`; a create path comes with its label),
+`InlineEditField`, `DocumentPreview` (its loading line too; a download comes with its label) and
+`PresentMode`. `kitLabels*.render.test.tsx` renders each with French labels and refuses any former
+English default.
 
 **The kit's `Picker` is the entity-selection gesture** ("which customer?", "which vehicle?": a ranked
 list in a panel, a create path, autofocus). A type-ahead that fills a form's own fields from an

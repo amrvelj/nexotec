@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 ZH_ADDRESS = {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"}
 VD_ADDRESS = {"street": "Rue de Bourg", "houseNumber": "1", "postalCode": "1000", "locality": "Lausanne", "canton": "VD"}
@@ -42,7 +43,7 @@ def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=_tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

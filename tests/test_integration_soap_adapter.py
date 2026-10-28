@@ -36,7 +36,7 @@ from app.core.audit import list_audit_events
 from app.integration.adapters import auto_i_dat_soap
 from app.integration.adapters.aes_decrypt import decrypt_aes_cbc, encrypt_aes_cbc
 from app.integration.adapters.auto_i_dat_parse import ProviderMaintenanceError, ProviderRejectedError
-from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, _achsen_code_to_axle, _serialise_suchwerte
+from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, _serialise_suchwerte
 from app.integration.errors import ProviderConfigurationError, ProviderTransportError
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
@@ -320,28 +320,6 @@ def test_serialise_suchwerte_never_touches_key_case():
     assert _serialise_suchwerte({"Fzart": "01"}) == "Fzart=01"
 
 
-# --- _achsen_code_to_axle (KAN-43 / FR-C-08: "front / rear / both / variants")
-
-
-def test_achsen_code_to_axle_maps_the_documented_codes():
-    assert _achsen_code_to_axle("1") == "both"
-    assert _achsen_code_to_axle("2") == "front"
-    assert _achsen_code_to_axle("3") == "rear"
-
-
-def test_achsen_code_to_axle_keeps_undocumented_codes_distinct_rather_than_bucketing_them():
-    # Codes 4-7 are undocumented manufacturer-specific variants — collapsing
-    # them to one shared bucket would recreate the exact "1"/"2" collision
-    # this ticket fixes, just for a different pair of codes.
-    assert _achsen_code_to_axle("4") == "variant_4"
-    assert _achsen_code_to_axle("5") == "variant_5"
-    assert _achsen_code_to_axle("4") != _achsen_code_to_axle("5")
-
-
-def test_achsen_code_to_axle_defaults_to_front_when_missing():
-    assert _achsen_code_to_axle(None) == "front"
-
-
 # --- AES decrypt (unchanged — pure) --------------------------------------
 
 
@@ -456,7 +434,8 @@ def test_fetch_colours_searches_on_werkscode_not_fz_key(db_session, monkeypatch)
 
     assert soap.calls[-1]["Datenname"] == "OptionenFarben"
     assert soap.calls[-1]["Suchwerte"] == "Werkscode=191B51"
-    assert {c.colour_code: c.colour_type for c in colours} == {"9H": "exterior", "ST": "interior"}
+    # KAN-75: the raw FarbArt, resolved by the catalogue sync, never here.
+    assert {c.colour_code: c.colour_area_code for c in colours} == {"9H": "1", "ST": "2"}
     # KAN-43 / FR-C-07 — the surcharge, parsed by no one until now.
     assert {c.colour_code: c.price for c in colours} == {"9H": Decimal(500), "ST": Decimal(0)}
 
@@ -470,13 +449,48 @@ def test_fetch_tyre_specs_searches_on_type_approval_number(db_session, monkeypat
     tyres = adapter.fetch_tyre_specs(type_approval_number="1MD448")
 
     assert soap.calls[-1]["Suchwerte"] == "TypSchNr=1MD448"
-    assert [t.axle for t in tyres] == ["front", "rear"]
+    assert [t.axle_code for t in tyres] == ["2", "3"]  # KAN-75: raw AchsenCode
     assert tyres[0].size == "245/40 R18 V"
     # KAN-43 / FR-C-08 — PneuTyp/BemDe, parsed by no one until now; an
     # empty <BemDe/> element is None, not "".
-    assert [t.season for t in tyres] == ["summer", "summer"]
+    assert [t.season_code for t in tyres] == ["121", "121"]  # KAN-75: raw PneuTyp
     assert tyres[0].remark == "nur mit Leichtmetallfelgen"
     assert tyres[1].remark is None
+
+
+def test_an_unknown_or_missing_colour_and_tyre_code_is_handed_over_raw_never_guessed(db_session, monkeypatch):
+    """KAN-75 (FR-C-10): the adapter used to turn an unknown FarbArt into
+    "exterior", a missing AchsenCode into "front", an unknown one into an
+    invented "variant_<n>" and an unknown PneuTyp into no season. It now
+    hands every code over as sent (None when absent); the sync resolves it
+    and files a mapping gap for one it does not know."""
+
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    soap = FakeSoapClient(
+        responses={
+            "OptionenFarben": (
+                "<AutoiOptionenFarben><Info><Status>0</Status><StatusMsg>OK</StatusMsg></Info>"
+                "<OptionenFarben><OptCode>X1</OptCode><FarbArt>7</FarbArt><BezDe>Unbekannt</BezDe></OptionenFarben>"
+                "<OptionenFarben><OptCode>X2</OptCode><BezDe>Ohne FarbArt</BezDe></OptionenFarben>"
+                "</AutoiOptionenFarben>"
+            ),
+            "PneuDimTS": (
+                "<AutoiPneuDimTS><Info><Status>0</Status><StatusMsg>OK</StatusMsg></Info>"
+                "<PneuDimTS><TypSchNr>1MD448</TypSchNr><PneuTyp>129</PneuTyp>"
+                "<AchsenCode>5</AchsenCode><Dimension>255/35 R19 Y</Dimension></PneuDimTS>"
+                "<PneuDimTS><TypSchNr>1MD448</TypSchNr><Dimension>205/55 R16 H</Dimension></PneuDimTS>"
+                "</AutoiPneuDimTS>"
+            ),
+        }
+    )
+    adapter = _adapter(db_session, connection, soap_client=soap, monkeypatch=monkeypatch)
+
+    colours = adapter.fetch_colours(werkscode="191B51")
+    tyres = adapter.fetch_tyre_specs(type_approval_number="1MD448")
+
+    assert {c.colour_code: c.colour_area_code for c in colours} == {"X1": "7", "X2": None}
+    assert [(t.axle_code, t.season_code) for t in tyres] == [("5", "129"), (None, None)]
 
 
 def test_fetch_images_reads_bildurl(db_session, monkeypatch):

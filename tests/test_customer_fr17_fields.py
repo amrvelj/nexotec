@@ -19,6 +19,7 @@ from app.customer.models.customer import Customer, CustomerTag, Gender
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate, CustomerUpdate
 from app.customer.services.customer import create_customer, update_customer
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 # A real, mod-97-valid Swiss IBAN (the canonical example from the spec).
 VALID_IBAN = "CH93 0076 2011 6238 5295 7"
@@ -32,7 +33,7 @@ def _token(*, tenant_id: uuid.UUID, user_id: uuid.UUID) -> str:
     return create_access_token(
         user_id=user_id,
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.SALES}),
         is_dealer_manager=True,
     )
@@ -305,7 +306,7 @@ def test_advisor_options_lists_active_dealership_users_and_is_reachable_by_a_pla
     token = create_access_token(
         user_id=uuid.UUID(u1["id"]),
         tenant_id=uuid.UUID(dealer_id),
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, dealer_id),
+        group_id=dealer_group_of(dealer_id),
         roles=frozenset({AccessRole.SALES}),
         is_dealer_manager=False,
     )

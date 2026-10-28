@@ -10,6 +10,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.customer.models.customer import ConsentScope
 from app.customer.public import channel_authorises_marketing
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 
 def _row(*, granted, scope):
@@ -57,7 +58,7 @@ def _dealer_and_token(client):
     did = dealer.json()["id"]
     token = create_access_token(
         user_id=uuid.uuid4(), tenant_id=uuid.UUID(did),
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, did),
+        group_id=dealer_group_of(did),
         roles=frozenset({AccessRole.SALES}), is_dealer_manager=True,
     )
     return did, token

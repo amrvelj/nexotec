@@ -46,6 +46,7 @@ import type {
   ReferenceValueRead,
 } from '../../api/types'
 import { useActionBarLabels } from '../../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
 const GRID_KEY = 'mdm.catalogue.variants'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'variantName', direction: 'asc' }]
@@ -160,6 +161,7 @@ function narrowCataloguePredicates(stored: FilterPredicate[]): FilterPredicate[]
  */
 export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGridProps) {
   const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
@@ -530,19 +532,15 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          selection={{ selectedIds, onSelectionChange: setSelectedIds }}
+          selection={{
+            selectedIds,
+            onSelectionChange: setSelectedIds,
+            selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) => t('common.selectRowLabel', { label: `${row.brandDisplayName} ${row.modelGroupName} ${row.variantName}` }),
+          }}
           columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
-            selectAllLabel: t('common.selectAllLabel'),
-            selectRowLabel: (row) =>
-              t('common.selectRowLabel', { label: `${row.brandDisplayName} ${row.modelGroupName} ${row.variantName}` }),
-          }}
+          labels={dataGridLabels}
           emptyState={{
             icon: <Database size={24} />,
             title: t('catalogueBrowse.emptyState.title'),

@@ -3740,7 +3740,7 @@ export interface components {
             /** Colourcode */
             colourCode: string;
             /** Colourtype */
-            colourType: string;
+            colourType: string | null;
             /** Description */
             description: string;
             /** Price */
@@ -3916,7 +3916,7 @@ export interface components {
         /** CatalogueTyreSpecRead */
         CatalogueTyreSpecRead: {
             /** Axle */
-            axle: string;
+            axle: string | null;
             /** Loadindex */
             loadIndex: string | null;
             /** Remark */

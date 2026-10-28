@@ -12,6 +12,7 @@ import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
 import type { VehicleMdmRead, VehicleSearchResult } from '../api/types'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'mdm.vehicles.list'
 
@@ -26,6 +27,7 @@ const GRID_KEY = 'mdm.vehicles.list'
  */
 export function VehiclesListPage() {
   const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const actionBarLabels = useActionBarLabels()
   useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.vehicles')])
   const navigate = useNavigate()
@@ -228,7 +230,12 @@ export function VehiclesListPage() {
         onSortChange={setSort}
         density={density}
         rowHref={(row) => `/vehicles/${row.id}`}
-        selection={{ selectedIds, onSelectionChange: setSelectedIds }}
+        selection={{
+            selectedIds,
+            onSelectionChange: setSelectedIds,
+            selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) => t('common.selectRowLabel', { label: `${row.vehicleNumber} · ${row.vin}` }),
+          }}
         loading={searchQuery.isLoading || (showsHit && unfilteredQuery.isLoading)}
         refetching={gridQuery.isRefetching && !gridQuery.isLoading}
         fetchingNextPage={gridQuery.isFetchingNextPage}
@@ -242,15 +249,7 @@ export function VehiclesListPage() {
         total={gridPage?.filtered.total ?? null}
         totalIsEstimate={gridPage?.filtered.totalIsEstimate ?? false}
         isFiltered={debouncedQuery.length > 0 && !showsHit}
-        labels={{
-          showing: (count) => t('common.showing', { count }),
-          showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-          loadingMore: t('common.loadingMore'),
-          retry: t('common.retry'),
-          rowActionsLabel: t('common.rowActionsLabel'),
-          selectAllLabel: t('common.selectAllLabel'),
-          selectRowLabel: (row) => t('common.selectRowLabel', { label: `${row.vehicleNumber} · ${row.vin}` }),
-        }}
+        labels={dataGridLabels}
         emptyState={{
           icon: <Car size={24} />,
           title: t('vehiclesList.emptyState.title'),

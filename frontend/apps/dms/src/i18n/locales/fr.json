@@ -176,7 +176,9 @@
     "inlineEdit": {
       "saveFailed": "La modification n’a pas pu être enregistrée.",
       "reload": "Recharger"
-    }
+    },
+    "notYetANumber": "Pas encore un nombre valide",
+    "noMatches": "Aucun résultat"
   },
   "apiRefusal": {
     "staleVersion": "Cet enregistrement a été modifié entre-temps. Rechargez-le et réessayez.",
@@ -1907,7 +1909,8 @@
       "axlePosition": {
         "front": "Avant",
         "rear": "Arrière",
-        "both": "Avant + arrière"
+        "both": "Avant + arrière",
+        "unclassified": "Non attribué"
       },
       "seasonLabel": {
         "summer": "Été",

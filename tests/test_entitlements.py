@@ -11,6 +11,7 @@ from app.core.permissions import ModuleCode
 from app.platform.models.dealership import Dealership
 from app.platform.models.module_entitlement import ModuleEntitlement
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"}
 ALL = ["aftersales", "finance", "parts", "reporting", "sales"]
@@ -20,7 +21,7 @@ def _token(role=None, *, tenant_id, is_dealer_manager=False, entitlements=None, 
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({role}) if role else frozenset(),
         is_dealer_manager=is_dealer_manager,
         entitlements=entitlements,

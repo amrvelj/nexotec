@@ -38,6 +38,7 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm
 from tests.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
 from tests.test_sales_offer_refinements import _offer_with_vehicle, _stock_item
 from tests.test_transaction import _seed_transaction_directly, _setup, _transaction_payload
+from tests.token_support import dealer_group_of
 
 
 def _token(tenant_id: uuid.UUID | None = None, group_id: uuid.UUID | None = None, **flags) -> str:
@@ -45,7 +46,7 @@ def _token(tenant_id: uuid.UUID | None = None, group_id: uuid.UUID | None = None
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=group_id or dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.SALES}),
         **flags,
     )
@@ -219,7 +220,7 @@ def _valuation(db_session, tenant_id: uuid.UUID, vin: str):
     return create_valuation(
         db_session,
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         data=ValuationCreate(
             vin=vin, vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal("12000.00")
         ),

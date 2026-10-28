@@ -5,6 +5,7 @@ import uuid
 from app.core.auth import AccessRole, create_access_token
 from app.core.postal_codes import derive_canton
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 
 def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *, is_dealer_manager: bool = False) -> str:
@@ -12,7 +13,7 @@ def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=_tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

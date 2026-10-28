@@ -140,4 +140,24 @@ describe('ColourWheelsTab', () => {
     expect(onChange).toHaveBeenCalledWith({ wheels: 'X' })
     expect(screen.queryByTestId('tyre-spec-table')).not.toBeInTheDocument()
   })
+  it('offers a colour whose FarbArt is an unresolved gap in neither group, and names an unresolved axle (KAN-75)', async () => {
+    const user = userEvent.setup()
+    renderTab({
+      spec: buildSpec({
+        colours: [
+          { colourCode: 'BLK', description: 'Black metallic', colourType: 'exterior', price: '0.00' },
+          { colourCode: 'X1', description: 'Unklassiert', colourType: null, price: null },
+          { colourCode: 'GRY', description: 'Grey cloth', colourType: 'interior', price: null },
+        ],
+        tyreSpecs: [{ axle: null, size: '255/35 R19', loadIndex: null, speedRating: null, remark: null, season: null }],
+      }),
+    })
+    for (const picker of screen.getAllByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))) {
+      await user.click(picker)
+      expect(screen.queryByRole('option', { name: 'Unklassiert' })).not.toBeInTheDocument()
+      await user.keyboard('{Escape}')
+    }
+    const row = screen.getByRole('row', { name: /255\/35 R19/ })
+    expect(within(row).getByText(i18n.t('configurator.wheels.axlePosition.unclassified'))).toBeInTheDocument()
+  })
 })

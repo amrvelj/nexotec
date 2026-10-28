@@ -34,6 +34,7 @@ from app.integration.services import connections as connection_service
 from app.integration.services import gateway, resilience
 from app.main import app as fastapi_app
 from tests.test_integration_soap_adapter import _AES_KEY, FakeSecretsBackend, FakeSoapClient
+from tests.token_support import dealer_group_of
 
 _PASSWORD = "s3cret"
 
@@ -299,7 +300,7 @@ def _bearer(tenant_id: uuid.UUID) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(),
         is_dealer_manager=True,
     )

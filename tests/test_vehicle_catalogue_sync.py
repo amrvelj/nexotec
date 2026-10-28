@@ -288,13 +288,15 @@ def test_seed_populates_tyre_remark_and_season(db_session):
     catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
 
     golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
+    # Keyed by the raw AchsenCode / PneuTyp (KAN-75); this module's code map
+    # is empty, so they resolve to nothing here (tests/test_kan75_colour_tyre_code_map.py).
     specs = {
-        (t.axle, t.season): t
+        (t.axle_code, t.season_code): t
         for t in db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id, model_variant_id=golf.id).all()
     }
-    assert specs[("front", "summer")].remark == "nur mit Leichtmetallfelgen"
-    assert specs[("rear", "summer")].remark == "nur mit Leichtmetallfelgen"
-    assert specs[("both", "winter")].remark is None
+    assert specs[("2", "121")].remark == "nur mit Leichtmetallfelgen"
+    assert specs[("3", "121")].remark == "nur mit Leichtmetallfelgen"
+    assert specs[("1", "122")].remark is None
 
 
 def test_seed_populates_the_full_image_url(db_session):
@@ -319,36 +321,35 @@ def test_seed_populates_the_full_image_url(db_session):
     assert interior.image_url == "https://images.autoi.ch/img/FZ100002-interior.jpg"
 
 
+def _tyre(tenant_id, variant, axle_code: str, season_code: str, size: str) -> TyreSpecCache:
+    return TyreSpecCache(
+        tenant_id=tenant_id, model_variant_id=variant.id, axle_code=axle_code, season_code=season_code, size=size
+    )
+
+
 def test_tyre_spec_cache_allows_the_same_axle_with_two_different_seasons(db_session):
-    """The bug this ticket fixes: the original unique constraint keyed only
+    """The bug KAN-43 fixed: the original unique constraint keyed only
     on (tenant, variant, axle), so a variant's summer and winter specs for
-    the same axle silently overwrote each other on upsert."""
+    the same axle silently overwrote each other on upsert. Since KAN-75 the
+    key holds the raw AchsenCode and PneuTyp."""
 
     tenant_id = uuid.uuid4()
     variant = _bare_variant(db_session)
-    db_session.add(
-        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="summer", size="X")
-    )
+    db_session.add(_tyre(tenant_id, variant, "2", "121", "X"))
     db_session.flush()
-    db_session.add(
-        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="winter", size="Y")
-    )
+    db_session.add(_tyre(tenant_id, variant, "2", "122", "Y"))
     db_session.flush()  # no IntegrityError — season is part of the key now
 
     rows = db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id, model_variant_id=variant.id).all()
-    assert {(r.season, r.size) for r in rows} == {("summer", "X"), ("winter", "Y")}
+    assert {(r.season_code, r.size) for r in rows} == {("121", "X"), ("122", "Y")}
 
 
 def test_tyre_spec_cache_still_rejects_a_true_duplicate(db_session):
     tenant_id = uuid.uuid4()
     variant = _bare_variant(db_session)
-    db_session.add(
-        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="summer", size="X")
-    )
+    db_session.add(_tyre(tenant_id, variant, "2", "121", "X"))
     db_session.flush()
-    db_session.add(
-        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="summer", size="Z")
-    )
+    db_session.add(_tyre(tenant_id, variant, "2", "121", "Z"))
     with pytest.raises(IntegrityError):
         db_session.flush()
 

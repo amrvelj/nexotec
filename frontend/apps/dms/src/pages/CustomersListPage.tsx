@@ -63,6 +63,7 @@ import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExpo
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -103,6 +104,7 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
 
 export function CustomersListPage() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers')])
   const navigate = useNavigate()
@@ -748,18 +750,15 @@ export function CustomersListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          selection={{ selectedIds, onSelectionChange: setSelectedIds }}
-          columnLayout={columnLayout}
-          onColumnLayoutChange={gridPrefs.setColumnLayout}
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
+          selection={{
+            selectedIds,
+            onSelectionChange: setSelectedIds,
             selectAllLabel: t('common.selectAllLabel'),
             selectRowLabel: (row) => t('common.selectRowLabel', { label: customerName(row) || row.customerNumber }),
           }}
+          columnLayout={columnLayout}
+          onColumnLayoutChange={gridPrefs.setColumnLayout}
+          labels={dataGridLabels}
           emptyState={{
             icon: <Users size={24} />,
             title: t('customersList.emptyState.title'),
