@@ -28,9 +28,11 @@ both/front/rear → 1/2/3, `variant_<n>` → n (its `axle` cleared: no canonical
 value exists for it, so the next sync files the gap), summer/winter →
 121/122. A row the old decode had defaulted (an unknown `FarbArt` stored as
 `exterior`, a missing `AchsenCode` as `front`) cannot be told apart and gets
-the code of the value it shows; the next sync of the variant writes what the
-provider really sends. No staging auto-i-dat account exists, so every row
-today came from the mock provider, whose codes are exactly these.
+the code of the value it shows. The next sync corrects a colour (its row is
+keyed by the colour code); a tyre row is keyed by its raw codes and the sync
+deletes no row, so a mis-backfilled tyre would stay beside the corrected one.
+No staging auto-i-dat account exists, so every row today came from the mock
+provider, whose codes are exactly these — nothing is mis-backfilled.
 
 **Seed.** Insert-if-absent by natural key, as `7c4e9a2b6d13`: an admin's row
 that disagrees is left alone and reported. Seven codes per vehicle kind —

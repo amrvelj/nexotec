@@ -615,23 +615,12 @@ def test_listing_vehicles_does_not_go_n_plus_1(client, engine, db_session):
 
 
 def _enable_group_read(db_session, dealer_id: str) -> None:
-    """Test tokens derive group_id as uuid5(NAMESPACE_OID, tenant_id) (see
-    _token above) — decoupled from the random real Dealership.dealer_
-    group_id a plain POST /v1/dealerships call creates. Repoints the
-    dealership at a DealerGroup row carrying THAT id instead, so the
-    principal's own group_id actually matches what
-    get_stock_items_for_vehicles looks up.
-
-    KAN-49 review: the tidier fix would be the other way around — give
-    _token() an optional group_id override and read the dealer's real,
-    already-auto-created dealer_group_id off the POST /v1/dealerships
-    response — but _create_dealer and every other helper below build their
-    own tokens internally with no way to thread that value through, and
-    this repoint keeps the change contained to one test-only helper rather
-    than touching signatures 20+ existing tests already call. The orphaned
-    original DealerGroup row this leaves behind is inert: engine's own
-    fixture drops the whole schema after each test, so nothing outlives
-    it.
+    """Turns the group read on for the Betrieb's own dealer group — the one
+    its test tokens carry since KAN-424 (`tests/token_support.py`), so the
+    principal's group_id is what get_stock_items_for_vehicles looks up.
+    Before KAN-424 the tokens carried a made-up uuid5 group, which this
+    helper created and repointed the Betrieb at; that branch remains for a
+    group that does not exist yet.
     """
 
     group_id = dealer_group_of(dealer_id)
