@@ -163,6 +163,7 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
           }}
           loading={search.isFetching}
           placeholder={t('offerWorkspace.customer.search')}
+          emptyLabel={t('common.noMatches')}
         />
       </Modal>
 
@@ -242,6 +243,7 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
           }
           loading={vehicleSearch.isFetching}
           placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
+          emptyLabel={t('common.noMatches')}
         />
       ) : (
         <Stack gap="xs">

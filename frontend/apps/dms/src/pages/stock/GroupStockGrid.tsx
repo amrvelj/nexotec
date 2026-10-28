@@ -20,6 +20,7 @@ import { buildStockGroupColumns } from './columns/stockGroupColumns'
 import { serializeSort } from '../../utils/sortParam'
 import type { StockItemGroupPage } from '../../api/types'
 import { useActionBarLabels } from '../../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
 interface GroupStockGridProps {
   /** Search and sort are owned by StockListPage, which keeps them in the
@@ -52,6 +53,7 @@ const GROUP_GRID_KEY = 'inventory.stock.group'
  */
 export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onSortChange }: GroupStockGridProps) {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
   // Only the column layout is read from here; the sort is the URL's.
@@ -141,13 +143,7 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
         isFiltered={debouncedQuery.length > 0}
         columnLayout={columnLayout}
         onColumnLayoutChange={gridPrefs.setColumnLayout}
-        labels={{
-          showing: (count) => t('common.showing', { count }),
-          showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-          loadingMore: t('common.loadingMore'),
-          retry: t('common.retry'),
-          rowActionsLabel: t('common.rowActionsLabel'),
-        }}
+        labels={dataGridLabels}
         emptyState={{
           icon: <Building2 size={24} />,
           title: t('stockList.emptyState.title'),

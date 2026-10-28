@@ -7,6 +7,7 @@ import { MantineProvider } from "@mantine/core";
 import { DataGrid } from "../datagrid/DataGrid";
 import type { GridColumnDef } from "../datagrid/types";
 import { RowMenu } from "./RowMenu";
+import { FR_DATA_GRID_LABELS } from "../test/frenchLabels";
 
 // jsdom has no layout — render every row (same mock as the other grid tests).
 vi.mock("@tanstack/react-virtual", () => ({
@@ -72,7 +73,7 @@ describe("RowMenu default trigger", () => {
       isFiltered={false}
       onRowActivate={onRowActivate}
       rowActions={() => ({ edit: [{ label: "Bearbeiten", icon: null, onClick: onEdit }] })}
-      labels={{ rowActionsLabel: "Zeilenaktionen" }}
+      labels={{ ...FR_DATA_GRID_LABELS, rowActionsLabel: "Zeilenaktionen" }}
       emptyState={{ icon: null, title: "", description: "" }}
     />
   );

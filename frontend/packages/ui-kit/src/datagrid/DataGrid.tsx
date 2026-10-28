@@ -15,9 +15,28 @@ type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSPro
 const ACTION_COLUMN_WIDTH = 48;
 const SELECTION_COLUMN_WIDTH = 40;
 
-export interface DataGridSelectionProps {
+export interface DataGridSelectionProps<T = unknown> {
   selectedIds: Set<string>;
   onSelectionChange: (selectedIds: Set<string>) => void;
+  /** KAN-291 — the selection header checkbox's accessible name. With the
+   * selection, so a grid that selects cannot omit it (KAN-422). */
+  selectAllLabel: string;
+  /** KAN-313 — each row's selection checkbox's accessible name, built
+   * from the row so it names the record ("Zeile auswählen: Müller
+   * Hans"). Never the row menu's name: two controls on one row must not
+   * share one. */
+  selectRowLabel: (row: T) => string;
+}
+
+/** The strings this generic grid owns itself (footer count, retry,
+ * loading-more, row-actions trigger), all translated by the caller: the
+ * kit ships no English of its own (KAN-422). */
+export interface DataGridLabels {
+  showing: (shown: number) => string;
+  showingOfTotal: (shown: number, total: string) => string;
+  loadingMore: string;
+  retry: string;
+  rowActionsLabel: string;
 }
 
 export interface DataGridProps<T> {
@@ -62,7 +81,7 @@ export interface DataGridProps<T> {
    * row (not just the on-screen virtual window) — "select all N matching"
    * across pages the grid hasn't fetched yet is SelectionBar's own concern
    * (§ Action Bar — selection replaces the chip row), not this component's. */
-  selection?: DataGridSelectionProps;
+  selection?: DataGridSelectionProps<T>;
   /** § Columns (ADR-060) — the user's own show/hide/reorder/resize/pin
    * state, from `ColumnConfigPanel`. Omit for a grid that renders its
    * `columns` prop exactly as given, with no user layout control at all —
@@ -70,35 +89,8 @@ export interface DataGridProps<T> {
    * hasn't adopted this yet are completely unaffected. */
   columnLayout?: ColumnLayoutState;
   onColumnLayoutChange?: (layout: ColumnLayoutState) => void;
-  /** Translated overrides for the handful of strings this generic grid
-   * owns itself (footer count, retry, loading-more, row-actions trigger).
-   * Defaults to the current English copy — optional so untranslated
-   * screens are unaffected. */
-  labels?: {
-    showing?: (shown: number) => string;
-    showingOfTotal?: (shown: number, total: string) => string;
-    loadingMore?: string;
-    retry?: string;
-    rowActionsLabel?: string;
-    /** KAN-291 — the selection header checkbox's accessible name. */
-    selectAllLabel?: string;
-    /** KAN-313 — each row's selection checkbox's accessible name, built
-     * from the row so it names the record ("Zeile auswählen: Müller
-     * Hans"). Never the row menu's name: two controls on one row must not
-     * share one. */
-    selectRowLabel?: (row: T) => string;
-  };
+  labels: DataGridLabels;
 }
-
-const DEFAULT_GRID_LABELS = {
-  showing: (shown: number) => `Showing ${formatNumber(shown)}`,
-  showingOfTotal: (shown: number, total: string) => `Showing ${formatNumber(shown)} of ${total}`,
-  loadingMore: "Loading…",
-  retry: "Retry",
-  rowActionsLabel: "Row actions",
-  selectAllLabel: "Select all",
-  selectRowLabel: (): string => "Select row",
-};
 
 /**
  * § Overviews — The Data Grid. "The single most important pattern in the
@@ -134,7 +126,7 @@ export function DataGrid<T>({
   onColumnLayoutChange,
   labels,
 }: DataGridProps<T>) {
-  const L = { ...DEFAULT_GRID_LABELS, ...labels };
+  const L = labels;
   const Link = linkComponent;
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowHeight = ROW_HEIGHT[density];
@@ -284,13 +276,14 @@ export function DataGrid<T>({
                   const meta = header.column.columnDef.meta as GridColumnDef<T>["meta"];
                   const isActions = header.column.id === "__actions";
                   const isSelect = header.column.id === "__select";
-                  if (isSelect) {
+                  // The select column exists only with a `selection`.
+                  if (isSelect && selection) {
                     return (
                       <SelectHeaderCell
                         key={header.id}
                         checked={allSelected}
                         indeterminate={someSelected && !allSelected}
-                        label={L.selectAllLabel}
+                        label={selection.selectAllLabel}
                         onChange={toggleAll}
                       />
                     );
@@ -347,12 +340,12 @@ export function DataGrid<T>({
                         const meta = cell.column.columnDef.meta as GridColumnDef<T>["meta"];
                         const isActions = cell.column.id === "__actions";
                         const isSelect = cell.column.id === "__select";
-                        if (isSelect) {
+                        if (isSelect && selection) {
                           return (
                             <Cell key={cell.id} pinned="left" width={SELECTION_COLUMN_WIDTH}>
                               <SelectRowCheckbox
                                 checked={isSelected}
-                                label={L.selectRowLabel(row.original)}
+                                label={selection.selectRowLabel(row.original)}
                                 onChange={() => toggleOne(rowId)}
                               />
                             </Cell>

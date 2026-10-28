@@ -34,6 +34,7 @@ import { translatedValuationStatusLabel } from '../valuationOptions'
 import type { ValuationPage, ValuationRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'valuations.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'createdAt', direction: 'desc' }]
@@ -62,6 +63,7 @@ function vehicleLabel(row: ValuationRead): string {
 
 export function ValuationsListPage() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.valuations')])
   const navigate = useNavigate()
@@ -309,13 +311,7 @@ export function ValuationsListPage() {
           isFiltered={isFiltered}
           columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
-          }}
+          labels={dataGridLabels}
           emptyState={{
             icon: <CarFront size={24} />,
             title: t('valuationsList.emptyState.title'),

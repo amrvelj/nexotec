@@ -13,7 +13,13 @@ export interface PickerRow {
   sublabel?: string;
 }
 
-export interface PickerProps {
+/** A create path comes with its label, so no caller renders a nameless
+ * button by omission (KAN-422). */
+type PickerCreateProps =
+  | { onCreateNew: () => void; createLabel: string }
+  | { onCreateNew?: undefined; createLabel?: undefined };
+
+interface PickerBaseProps {
   /** "One component, callers supply the rows" — the picker never fetches
    * or filters on its own; the caller re-renders `rows` as the query
    * changes, keeping identifier-ranking logic (exact VIN/plate/number
@@ -24,14 +30,16 @@ export interface PickerProps {
   onSelect: (row: PickerRow) => void;
   placeholder?: string;
   loading?: boolean;
-  /** Every picker has a create path that opens the SAME dialog the
-   * master-data module uses — never a thinner copy. Omit only when there
-   * is genuinely nothing to create (e.g. picking from a fixed list). */
-  onCreateNew?: () => void;
-  createLabel?: string;
-  emptyLabel?: string;
+  /** Shown when the query matches nothing — translated by the caller, the
+   * kit ships no string of its own (KAN-422). */
+  emptyLabel: string;
   autoFocus?: boolean;
 }
+
+/** Every picker has a create path that opens the SAME dialog the
+ * master-data module uses — never a thinner copy. Omit `onCreateNew` only
+ * when there is genuinely nothing to create (e.g. picking from a fixed list). */
+export type PickerProps = PickerBaseProps & PickerCreateProps;
 
 /**
  * § Component Contracts — The picker. "Which customer?", "which
@@ -49,7 +57,7 @@ export function Picker({
   loading,
   onCreateNew,
   createLabel,
-  emptyLabel = "No matches",
+  emptyLabel,
   autoFocus = true,
 }: PickerProps) {
   const [activeIndex, setActiveIndex] = useState(0);

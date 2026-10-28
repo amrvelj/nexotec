@@ -6,6 +6,7 @@ import type { ViewsAndFiltersLabels } from '../datagrid/ViewsAndFilters'
 import type { RepeatableRowGroupLabels } from '../components/RepeatableRowGroup'
 import type { ActionBarLabels } from '../datagrid/ActionBar'
 import type { FilterConditionLabels } from '../datagrid/filterPredicate'
+import type { DataGridLabels } from '../datagrid/DataGrid'
 
 // One template per condition, word order included (KAN-415).
 export const FR_CONDITION_LABELS: FilterConditionLabels = {
@@ -98,9 +99,33 @@ export const FR_ACTION_BAR_LABELS: ActionBarLabels = {
   refresh: 'Actualiser',
 }
 
+export const FR_DATA_GRID_LABELS: DataGridLabels = {
+  showing: (shown) => `${shown} affichés`,
+  showingOfTotal: (shown, total) => `${shown} affichés sur ${total}`,
+  loadingMore: 'Chargement…',
+  retry: 'Réessayer',
+  rowActionsLabel: 'Actions de la ligne',
+}
+
+export const FR_WIZARD_LABELS = {
+  nextLabel: 'Suivant',
+  submitLabel: 'Créer',
+  backLabel: 'Retour',
+  cancelLabel: 'Annuler',
+}
+
+export const FR_GLOBAL_SEARCH_LABELS = {
+  placeholder: 'Rechercher…',
+  recentsLabel: 'Récents',
+  noResultsLabel: 'Aucun résultat',
+  errorLabel: 'La recherche a échoué — réessayez.',
+}
+
 /** English words the kit used to ship as defaults — the panel's strings
  * (KAN-364), the Filter Builder's condition names and saved-filter text
- * (KAN-415), and the Action Bar's, Selection Bar's and Filter Chips' strings
- * (KAN-364 part 2); none may render now. */
+ * (KAN-415), the Action Bar's, Selection Bar's and Filter Chips' strings
+ * (KAN-364 part 2), and the DataGrid's, Wizard's, GlobalSearch's, Picker's,
+ * InlineEditField's, DocumentPreview's and PresentMode's (KAN-422); none may
+ * render now. */
 export const FORMER_ENGLISH_DEFAULTS =
-  /^(\+ New filter…|Save|Cancel|Views|Reset|Save current view as…|View name|Manage filters|Set as default|Remove as default|Delete view|Edit filter|Duplicate filter|Delete filter|Primary|No longer valid|Does not work|Delete|Consent|Scope|Confirm|None recorded|Label|Close|.* row actions|.* matching|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|greater than|less than|at least|at most) .*|.* is (today|this week|this month|this year)|.* is in the last \d+ days|.* is more than \d+ days ago|Not .*|Search…|Compact|Default|Comfortable|Density: .*|Change row density|Refresh|Clear|Clear selection|.* selected|Remove filter: .*)$/
+  /^(\+ New filter…|Save|Cancel|Views|Reset|Save current view as…|View name|Manage filters|Set as default|Remove as default|Delete view|Edit filter|Duplicate filter|Delete filter|Primary|No longer valid|Does not work|Delete|Consent|Scope|Confirm|None recorded|Label|Close|.* row actions|.* matching|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|greater than|less than|at least|at most) .*|.* is (today|this week|this month|this year)|.* is in the last \d+ days|.* is more than \d+ days ago|Not .*|Search…|Compact|Default|Comfortable|Density: .*|Change row density|Refresh|Clear|Clear selection|.* selected|Remove filter: .*|Showing .*|Loading…|Retry|Row actions|Select all|Select row|Next|Submit|Back|Recent|No matches|Search failed — try again\.|Not set|Download|Exit present mode)$/

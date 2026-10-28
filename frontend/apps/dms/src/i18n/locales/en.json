@@ -177,7 +177,8 @@
       "saveFailed": "The change could not be saved.",
       "reload": "Reload"
     },
-    "notYetANumber": "Not a valid number yet"
+    "notYetANumber": "Not a valid number yet",
+    "noMatches": "No matches"
   },
   "apiRefusal": {
     "staleVersion": "This record was changed in the meantime. Reload it and try again.",

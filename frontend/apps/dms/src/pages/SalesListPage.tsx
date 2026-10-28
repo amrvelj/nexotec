@@ -31,6 +31,7 @@ import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '
 import { formatDate, formatCurrencyChf } from '../utils/format'
 import type { SalesDealPage, SalesDealRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'sales.deals.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -54,6 +55,7 @@ function parseSortParam(raw: string): SortSpec[] {
 
 export function SalesListPage() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.sales')])
   const navigate = useNavigate()
@@ -339,7 +341,12 @@ export function SalesListPage() {
           density={density}
           rowHref={rowHref}
           linkComponent={Link}
-          selection={{ selectedIds, onSelectionChange: setSelectedIds }}
+          selection={{
+            selectedIds,
+            onSelectionChange: setSelectedIds,
+            selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) => t('common.selectRowLabel', { label: [row.number, row.customerLabel].filter(Boolean).join(' · ') }),
+          }}
           loading={isLoading}
           refetching={isRefetching && !isLoading}
           fetchingNextPage={isFetchingNextPage}
@@ -352,16 +359,7 @@ export function SalesListPage() {
           isFiltered={isFiltered}
           columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
-            selectAllLabel: t('common.selectAllLabel'),
-            selectRowLabel: (row) =>
-              t('common.selectRowLabel', { label: [row.number, row.customerLabel].filter(Boolean).join(' · ') }),
-          }}
+          labels={dataGridLabels}
           emptyState={{
             icon: <Handshake size={24} />,
             title: t('salesList.emptyState.title'),

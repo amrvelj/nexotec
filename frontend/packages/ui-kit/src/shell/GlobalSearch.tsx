@@ -41,10 +41,11 @@ export interface GlobalSearchProps {
    * the caller knows which entities admit a "create new" from here), so
    * it supplies the actions rather than this component guessing one. */
   createActions?: GlobalSearchCreateAction[];
-  placeholder?: string;
-  recentsLabel?: string;
-  noResultsLabel?: string;
-  errorLabel?: string;
+  /** Translated by the caller: the kit ships no string of its own (KAN-422). */
+  placeholder: string;
+  recentsLabel: string;
+  noResultsLabel: string;
+  errorLabel: string;
 }
 
 type SearchState =
@@ -68,10 +69,10 @@ export function GlobalSearch({
   onSelect,
   recents = [],
   createActions = [],
-  placeholder = "Search…",
-  recentsLabel = "Recent",
-  noResultsLabel = "No matches",
-  errorLabel = "Search failed — try again.",
+  placeholder,
+  recentsLabel,
+  noResultsLabel,
+  errorLabel,
 }: GlobalSearchProps) {
   const [opened, setOpened] = useState(false);
   const [query, setQuery] = useState("");

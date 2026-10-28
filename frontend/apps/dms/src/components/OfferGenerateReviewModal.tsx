@@ -157,6 +157,7 @@ export function OfferGenerateReviewModal({ opened, onClose, offer, onFinalized }
                 src={pdfUrl}
                 title={t('offerWorkspace.generate.previewTitle', { number: offer.offerNumber })}
                 correspondenceLanguage={document?.correspondenceLanguage?.toUpperCase()}
+                loadingLabel={t('common.loading')}
                 marginPanel={marginPanel}
               />
             )}

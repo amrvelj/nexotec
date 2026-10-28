@@ -167,6 +167,7 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
                 if (pdfUrl) window.open(pdfUrl, '_blank', 'noopener')
               }}
               downloadLabel={t('salesDocuments.download')}
+              loadingLabel={t('common.loading')}
             />
           </div>
         </Group>

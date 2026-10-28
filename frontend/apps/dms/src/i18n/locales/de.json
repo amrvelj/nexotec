@@ -177,7 +177,8 @@
       "saveFailed": "Die Änderung konnte nicht gespeichert werden.",
       "reload": "Neu laden"
     },
-    "notYetANumber": "Noch keine gültige Zahl"
+    "notYetANumber": "Noch keine gültige Zahl",
+    "noMatches": "Keine Treffer"
   },
   "apiRefusal": {
     "staleVersion": "Dieser Datensatz wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",

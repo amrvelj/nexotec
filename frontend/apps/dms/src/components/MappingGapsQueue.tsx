@@ -15,6 +15,7 @@ import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'vehicleMdm.mappingGaps'
 
@@ -48,6 +49,7 @@ interface MappingGapsQueueProps {
  */
 export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const actionBarLabels = useActionBarLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
@@ -203,12 +205,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
         total={null}
         totalIsEstimate={false}
         isFiltered={debouncedQuery.length > 0}
-        labels={{
-          showing: (count) => t('common.showing', { count }),
-          loadingMore: t('common.loadingMore'),
-          retry: t('common.retry'),
-          rowActionsLabel: t('common.rowActionsLabel'),
-        }}
+        labels={dataGridLabels}
         emptyState={{
           icon: <AlertTriangle size={24} />,
           title: t('mappingGaps.emptyState.title'),

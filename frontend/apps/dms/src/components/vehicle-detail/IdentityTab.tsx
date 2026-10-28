@@ -110,6 +110,7 @@ export function IdentityTab({
         <KeyValueRow label={t('vehicleDetail.identity.vin')}>
           <InlineEditField
             value={vehicle.vin}
+            emptyLabel={t('common.notSet')}
             onSave={(v) => onSaveField({ vin: v.toUpperCase() })}
             describeError={describeError}
             isConflict={isStaleVersion}

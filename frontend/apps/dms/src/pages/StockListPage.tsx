@@ -45,12 +45,14 @@ import { AddToPipelineButton } from './stock/AddToPipelineButton'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
 import type { StockItemPage, StockItemRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'inventory.stock.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
 
 export function StockListPage() {
   const { t, i18n } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.inventory')])
   const navigate = useNavigate()
@@ -430,13 +432,7 @@ export function StockListPage() {
           isFiltered={isFiltered}
           columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
-          labels={{
-            showing: (count) => t('common.showing', { count }),
-            showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
-            loadingMore: t('common.loadingMore'),
-            retry: t('common.retry'),
-            rowActionsLabel: t('common.rowActionsLabel'),
-          }}
+          labels={dataGridLabels}
           emptyState={{
             icon: <Warehouse size={24} />,
             title: t('stockList.emptyState.title'),

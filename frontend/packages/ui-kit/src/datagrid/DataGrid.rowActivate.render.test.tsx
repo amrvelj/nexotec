@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DataGrid } from "./DataGrid";
 import type { GridColumnDef } from "./types";
+import { FR_DATA_GRID_LABELS } from "../test/frenchLabels";
 
 // jsdom has no layout, so TanStack Virtual measures every element as 0 and
 // windows down to zero rows (the repo's other DataGrid render tests only
@@ -63,6 +64,7 @@ function grid(onRowActivate: (row: Row) => void) {
       totalIsEstimate={false}
       isFiltered={false}
       onRowActivate={onRowActivate}
+      labels={FR_DATA_GRID_LABELS}
       emptyState={{ icon: null, title: "", description: "" }}
     />
   );
