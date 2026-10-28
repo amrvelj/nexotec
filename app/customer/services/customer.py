@@ -2423,6 +2423,13 @@ def update_customer_external_id(
         setattr(row, field, value)
     row.updated_by = actor_id
 
+    # The refusal names the pair the PATCH tried to write (KAN-481): after the
+    # rollback the row reloads its stored values, so they are taken from the
+    # body here, with the stored value for a key the PATCH left out.
+    attempted = {
+        "systemName": changes.get("system_name", before["systemName"]),
+        "externalId": changes.get("external_id", before["externalId"]),
+    }
     try:
         db.flush()
     except IntegrityError as exc:
@@ -2430,7 +2437,7 @@ def update_customer_external_id(
         raise ConflictError(
             "This system already has an external ID on this customer, or this external ID is already"
             " used under this system for another customer in this dealer.",
-            details={"reason": "external_id_taken", "systemName": row.system_name, "externalId": row.external_id},
+            details={"reason": "external_id_taken", **attempted},
         ) from exc
 
     record_audit_event(
