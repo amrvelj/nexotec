@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
@@ -124,6 +125,46 @@ describe('OfferWorkspace — a value that is not a number is never saved (KAN-48
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
     expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountValue: -200 })
     expect(discount).not.toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('leaving the field on a lone «-» keeps it: the input\'s own blur tidy-up is not a clear', async () => {
+    const backend = backendFor(offerAt(1, { discountValue: '500.00' }))
+    renderWorkspace()
+
+    const discount = await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountValue') })
+    fireEvent.focus(discount)
+    fireEvent.change(discount, { target: { value: '-' } })
+    fireEvent.blur(discount)
+    await pause()
+
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(0)
+    expect((discount as HTMLInputElement).value).toContain('-')
+    expect(discount).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('deleting the «-» empties the field on purpose: that clear is saved', async () => {
+    const backend = backendFor(offerAt(1, { discountValue: '500.00' }))
+    renderWorkspace()
+
+    const discount = await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountValue') })
+    fireEvent.change(discount, { target: { value: '-' } })
+    fireEvent.change(discount, { target: { value: '' } })
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountValue: null })
+  })
+
+  it('changing the discount type while the value is «-» sends the saved discount, never null', async () => {
+    const backend = backendFor(offerAt(1, { discountValue: '500.00' }))
+    const user = userEvent.setup()
+    renderWorkspace()
+
+    const discount = await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountValue') })
+    fireEvent.change(discount, { target: { value: '-' } })
+    await user.click(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountType') }))
+    await user.click(await screen.findByRole('option', { name: i18n.t('offerWorkspace.pricing.discountPercent') }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toEqual({ discountType: 'percent', discountValue: 500 })
   })
 
   it('the leasing down payment keeps a lone «-» too', async () => {

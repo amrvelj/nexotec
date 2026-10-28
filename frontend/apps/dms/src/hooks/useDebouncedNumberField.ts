@@ -44,17 +44,23 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * number or emptied, `invalid` says so, and a newer server copy does not
  * replace it.
  *
- * Returns `[value, setValue, unsaved, invalid]` — `unsaved` is true while a
- * typed value waits out the delay or is not a number (KAN-288); `invalid` is
- * true while the field holds something that is not a number, for the host's
- * `error` (`common.notYetANumber`).
+ * The input itself empties a lone «-» when it loses focus (react-number-
+ * format, under Mantine's NumberInput: it emits '' and then its blur). That
+ * '' is the input tidying up, not the user clearing the figure, so the host
+ * passes `onBlur` and the hook puts the partial entry back instead of
+ * committing a clear. An empty field the user made by deleting stays empty.
+ *
+ * Returns `[value, setValue, unsaved, invalid, onBlur]` — `unsaved` is true
+ * while a typed value waits out the delay or is not a number (KAN-288);
+ * `invalid` is true while the field holds something that is not a number, for
+ * the host's `error` (`common.notYetANumber`); `onBlur` goes on the input.
  */
 export function useDebouncedNumberField(
   serverValue: number | null,
   resetKey: unknown,
   onCommit: (value: number | null) => void | Promise<unknown>,
   delay = 500
-): [number | string, (value: number | string) => void, boolean, boolean] {
+): [number | string, (value: number | string) => void, boolean, boolean, () => void] {
   const next: number | '' = serverValue ?? ''
   // What the input shows: the server's figure, or what was typed as typed.
   const [local, setLocal] = useState<number | string>(next)
@@ -67,6 +73,9 @@ export function useDebouncedNumberField(
   serverRef.current = next
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savesOutRef = useRef(0)
+  // The partial entry an emptying change replaced, until the end of the
+  // current event: the input's own blur tidy-up arrives just before its blur.
+  const emptiedPartialRef = useRef<string | null>(null)
   const resetKeyRef = useRef(resetKey)
   const onCommitRef = useRef(onCommit)
   onCommitRef.current = onCommit
@@ -93,7 +102,7 @@ export function useDebouncedNumberField(
     const value = asFigure(localRef.current)
     if (Object.is(value, committedRef.current)) return
     // Not yet a number (KAN-480): kept in the field, never sent.
-    if (value !== '' && !Number.isFinite(value)) return
+    if (!isCommittable(value)) return
     committedRef.current = value
     setCommitted(value)
     const saving = onCommitRef.current(value === '' ? null : value)
@@ -115,6 +124,13 @@ export function useDebouncedNumberField(
 
   const setValue = useCallback(
     (value: number | string) => {
+      const previous = localRef.current
+      if (value === '' && typeof previous === 'string' && !isCommittable(asFigure(previous))) {
+        emptiedPartialRef.current = previous
+        queueMicrotask(() => {
+          emptiedPartialRef.current = null
+        })
+      }
       localRef.current = value
       setLocal(value)
       if (timerRef.current !== null) clearTimeout(timerRef.current)
@@ -122,6 +138,21 @@ export function useDebouncedNumberField(
     },
     [commit, delay]
   )
+
+  const onBlur = useCallback(() => {
+    const partial = emptiedPartialRef.current
+    if (partial === null || localRef.current !== '') return
+    emptiedPartialRef.current = null
+    if (timerRef.current !== null) clearTimeout(timerRef.current)
+    timerRef.current = null
+    localRef.current = partial
+    // A tick later: set in the same event as the input's own '', the two
+    // updates batch to the value the input already had, and it would keep
+    // showing its emptied text.
+    setTimeout(() => {
+      if (localRef.current === partial) setLocal(partial)
+    }, 0)
+  }, [])
 
   useEffect(() => {
     if (resetKeyRef.current === resetKey) return
@@ -149,7 +180,11 @@ export function useDebouncedNumberField(
   // Object.is: a value that is not a number reads as NaN, never equal to a
   // committed figure, so it stays "unsaved" until finished or emptied.
   const figure = asFigure(local)
-  return [local, setValue, !Object.is(figure, committed), figure !== '' && !Number.isFinite(figure)]
+  return [local, setValue, !Object.is(figure, committed), !isCommittable(figure), onBlur]
+}
+
+function isCommittable(figure: number | ''): boolean {
+  return figure === '' || Number.isFinite(figure)
 }
 
 /**

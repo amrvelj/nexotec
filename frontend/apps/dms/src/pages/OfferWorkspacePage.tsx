@@ -126,17 +126,17 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   // itself and drops digits. Called unconditionally (rules of hooks),
   // safe during the loading state below since `offerQuery.data` is
   // simply undefined until it resolves — see the hook's own docstring.
-  const [leasingDownPayment, setLeasingDownPayment, leasingDownPaymentUnsaved, leasingDownPaymentInvalid] = useDebouncedNumberField(
+  const [leasingDownPayment, setLeasingDownPayment, leasingDownPaymentUnsaved, leasingDownPaymentInvalid, onLeasingDownPaymentBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingDownPayment != null ? Number(offerQuery.data.leasingDownPayment) : null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingDownPayment: value })
   )
-  const [leasingTermMonths, setLeasingTermMonths, leasingTermMonthsUnsaved, leasingTermMonthsInvalid] = useDebouncedNumberField(
+  const [leasingTermMonths, setLeasingTermMonths, leasingTermMonthsUnsaved, leasingTermMonthsInvalid, onLeasingTermMonthsBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingTermMonths ?? null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingTermMonths: value })
   )
-  const [leasingKmPerYear, setLeasingKmPerYear, leasingKmPerYearUnsaved, leasingKmPerYearInvalid] = useDebouncedNumberField(
+  const [leasingKmPerYear, setLeasingKmPerYear, leasingKmPerYearUnsaved, leasingKmPerYearInvalid, onLeasingKmPerYearBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingKmPerYear ?? null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingKmPerYear: value })
@@ -212,18 +212,21 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
               value={leasingDownPayment}
               error={leasingDownPaymentInvalid ? t('common.notYetANumber') : undefined}
               onChange={setLeasingDownPayment}
+              onBlur={onLeasingDownPaymentBlur}
             />
             <NumberInput
               label={t('offerWorkspace.leasing.termMonths')}
               value={leasingTermMonths}
               error={leasingTermMonthsInvalid ? t('common.notYetANumber') : undefined}
               onChange={setLeasingTermMonths}
+              onBlur={onLeasingTermMonthsBlur}
             />
             <NumberInput
               label={t('offerWorkspace.leasing.kmPerYear')}
               value={leasingKmPerYear}
               error={leasingKmPerYearInvalid ? t('common.notYetANumber') : undefined}
               onChange={setLeasingKmPerYear}
+              onBlur={onLeasingKmPerYearBlur}
             />
           </Group>
         </Stack>

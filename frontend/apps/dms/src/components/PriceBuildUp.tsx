@@ -48,12 +48,12 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
   // KAN-8 — local, debounced state; see useDebouncedNumberField's own
   // docstring for why a NumberInput bound straight to a per-keystroke
   // autosave silently drops digits.
-  const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved, manualBasePriceInvalid] = useDebouncedNumberField(
+  const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved, manualBasePriceInvalid, onManualBasePriceBlur] = useDebouncedNumberField(
     deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
     deal.id,
     (value) => onManualBasePriceChange?.(value)
   )
-  const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid] = useDebouncedNumberField(
+  const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid, onDiscountValueBlur] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
     deal.id,
     (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value })
@@ -83,6 +83,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
           value={manualBasePrice}
           error={manualBasePriceInvalid ? t('common.notYetANumber') : undefined}
           onChange={setManualBasePrice}
+          onBlur={onManualBasePriceBlur}
         />
       ) : (
         row(t('offerWorkspace.pricing.basePrice'), deal.basePrice != null ? formatCurrencyChf(Number(deal.basePrice)) : '—')
@@ -124,6 +125,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
             value={discountValue}
             error={discountValueInvalid ? t('common.notYetANumber') : undefined}
             onChange={setDiscountValue}
+            onBlur={onDiscountValueBlur}
           />
         ) : (
           <NumberInput
@@ -133,6 +135,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
             value={discountValue}
             error={discountValueInvalid ? t('common.notYetANumber') : undefined}
             onChange={setDiscountValue}
+            onBlur={onDiscountValueBlur}
           />
         )}
       </Group>
