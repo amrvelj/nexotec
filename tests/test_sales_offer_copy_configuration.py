@@ -97,7 +97,7 @@ def test_editing_the_copys_configuration_leaves_the_source_configuration_untouch
 def test_the_trade_in_keeps_the_configuration_its_valuation_was_judged_on(db_session):
     """Anto's ruling 2026-10-28 (option A): only the car being sold is copied."""
 
-    dealership, _config, source = _configured_open_offer(db_session)
+    _dealership_row, _config, source = _configured_open_offer(db_session)
     trade_in_configuration_id = uuid.uuid4()
     trade_in_valuation_id = uuid.uuid4()
     source.trade_in_configuration_id = trade_in_configuration_id

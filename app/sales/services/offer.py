@@ -143,9 +143,11 @@ def update_offer(
     client) — see the module's "split by staleness class" rule.
     """
 
-    require_editable(db, offer)
-
     changes = data.model_dump(exclude_unset=True)
+    if changes.keys() == {"owner_user_id"} and offer.status == OfferStatus.OPEN:
+        return _change_seller_only(db, offer=offer, owner_user_id=changes["owner_user_id"], actor_id=actor_id)
+
+    require_editable(db, offer)
 
     if "customer_id" in changes:
         apply_customer_change(db, deal=offer, group_id=group_id, customer_id=changes.pop("customer_id"), host="an offer")
@@ -157,6 +159,26 @@ def update_offer(
 
     apply_vehicle_and_pricing_changes(db, deal=offer, changes=changes, actor_id=actor_id, host="offer workspace")
 
+    upsert_deal_projection(db, offer=offer)
+    db.commit()
+    db.refresh(offer)
+    return offer
+
+
+def _change_seller_only(
+    db: Session, *, offer: SalesOffer, owner_user_id: uuid.UUID | None, actor_id: uuid.UUID | None
+) -> SalesOffer:
+    """KAN-405 (Anto, 2026-10-28, option A): an offer sent to the customer is
+    read-only, but its responsible seller may still change — a PATCH of
+    `ownerUserId` alone, so a deal in the unassigned queue can be taken over.
+    The seller is not on the sent document; no price figure is touched and
+    the snapshot is not re-frozen. An offer with a live contract still
+    refuses (`offer_has_contract`): the contract carries the seller then."""
+
+    require_no_live_contract(db, offer)
+    ownership.apply_owner(offer, ownership.resolve_owner_change(db, tenant_id=offer.tenant_id, owner_user_id=owner_user_id))
+    offer.updated_by = actor_id
+    offer.version += 1
     upsert_deal_projection(db, offer=offer)
     db.commit()
     db.refresh(offer)
