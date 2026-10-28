@@ -39,6 +39,7 @@ from app.inventory.services.stock_item import create_stock_item
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import create_or_get_vehicle_mdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
 
@@ -51,7 +52,7 @@ _postgres_only = pytest.mark.skipif(
 def _bearer(tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> dict[str, str]:
     tid = tenant_id or uuid.uuid4()
     token = create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=user_id or uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.INVENTORY}), is_dealer_manager=False,
     )
     return {"Authorization": f"Bearer {token}"}

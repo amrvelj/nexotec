@@ -5,6 +5,7 @@ import uuid
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -27,7 +28,7 @@ def token(
     return create_access_token(
         user_id=uuid.UUID(str(user_id)) if user_id else uuid.uuid4(),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

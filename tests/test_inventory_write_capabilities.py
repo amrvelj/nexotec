@@ -27,6 +27,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.core.permissions import CAPABILITY_MATRIX
 from app.main import app
 from tests.route_walk import api_routes
+from tests.token_support import dealer_group_of
 
 # (method, path) → the matrix row that guards it. A new inventory write
 # endpoint fails test_every_inventory_write_endpoint_names_its_matrix_row
@@ -85,7 +86,7 @@ def _token(tenant_id: uuid.UUID, *roles: AccessRole, is_dealer_manager: bool = F
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(roles),
         is_dealer_manager=is_dealer_manager,
     )

@@ -20,6 +20,7 @@ from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.integration.services import gateway
 from app.vehicle.models.catalogue import Brand
+from tests.token_support import dealer_group_of
 
 # The gateway's own session is a second database connection. On the SQLite
 # fast lane every session shares one connection (StaticPool), so these
@@ -298,7 +299,7 @@ def _token(tenant_id: uuid.UUID, *, is_dealer_manager: bool = True) -> str:
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

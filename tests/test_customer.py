@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -44,7 +45,7 @@ def _token(
         # a test then shares the same group_id without a real DB round trip.
         # Pass group_id explicitly to test true group-wide behaviour across
         # two different tenant_ids (see test_group_wide_* below).
-        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=group_id or dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

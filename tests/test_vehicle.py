@@ -5,6 +5,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -28,7 +29,7 @@ def _token(
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=_tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

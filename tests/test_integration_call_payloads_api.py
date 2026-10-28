@@ -14,6 +14,7 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.integration.services import retention
+from tests.token_support import dealer_group_of
 
 
 class _RecordingSender:
@@ -56,7 +57,7 @@ def _make_connection_with_payload(db_session, provider, *, tenant_id):
 def _platform_admin_token() -> str:
     tid = uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.PLATFORM_ADMIN}), is_dealer_manager=False,
     )
 
@@ -64,7 +65,7 @@ def _platform_admin_token() -> str:
 def _dealer_manager_token() -> str:
     tid = uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset(), is_dealer_manager=True,
     )
 

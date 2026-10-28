@@ -12,6 +12,7 @@ from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -35,7 +36,7 @@ def _token(
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=_tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
         entitlements=entitlements,
@@ -633,7 +634,7 @@ def _enable_group_read(db_session, dealer_id: str) -> None:
     it.
     """
 
-    group_id = uuid.uuid5(uuid.NAMESPACE_OID, dealer_id)
+    group_id = dealer_group_of(dealer_id)
     dealership = db_session.get(Dealership, uuid.UUID(dealer_id))
     group = db_session.get(DealerGroup, group_id)
     if group is None:
@@ -796,7 +797,7 @@ def test_the_history_names_a_sister_betrieb_only_while_the_group_read_is_enabled
     own_user = create_user(client, own_id, firstName="Olga", lastName="Own")
     sister_user = create_user(client, sister_id, firstName="Sina", lastName="Sister")
     stranger_user = create_user(client, stranger_id, firstName="Fritz", lastName="Fremd")
-    group_id = uuid.uuid5(uuid.NAMESPACE_OID, own_id)
+    group_id = dealer_group_of(own_id)
     db_session.add(DealerGroup(id=group_id, name="Group", group_read_enabled=False))
     for dealership_id in (own_id, sister_id):
         db_session.get(Dealership, uuid.UUID(dealership_id)).dealer_group_id = group_id

@@ -16,6 +16,7 @@ from app.platform.models.dealership import DealerGroup, Dealership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -37,7 +38,7 @@ def _headers(
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=group_id or dealer_group_of(str(tenant_id)),
         roles=frozenset({role}) if role is not None else frozenset(),
     )
     headers = {"Authorization": f"Bearer {token}"}

@@ -9,6 +9,7 @@ import pytest
 from app.customer.models.customer import PreferredChannel
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate, CustomerUpdate
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 
 def _base(**over):
@@ -46,7 +47,7 @@ def test_preferred_channel_round_trips_through_the_api(client):
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant)),
+        group_id=dealer_group_of(str(tenant)),
         roles=frozenset({AccessRole.SALES}),
         is_dealer_manager=True,
     )
@@ -69,7 +70,7 @@ def test_preferred_channel_round_trips_through_the_api(client):
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=uuid.UUID(dealer.json()["id"]),
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, dealer.json()["id"]),
+        group_id=dealer_group_of(dealer.json()["id"]),
         roles=frozenset({AccessRole.SALES}),
         is_dealer_manager=True,
     )

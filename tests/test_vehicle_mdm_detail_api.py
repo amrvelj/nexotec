@@ -5,6 +5,7 @@ party-roles, each scoped by a known vehicle id.
 import uuid
 
 from app.core.auth import create_access_token
+from tests.token_support import dealer_group_of
 
 VALID_VIN = "1HGCM82633A004352"
 
@@ -13,7 +14,7 @@ def _token(is_dealer_manager: bool = True, group_id: uuid.UUID | None = None) ->
     tid = uuid.uuid4()
     return create_access_token(
         user_id=uuid.uuid4(), tenant_id=tid,
-        group_id=group_id if group_id is not None else uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=group_id if group_id is not None else dealer_group_of(str(tid)),
         roles=frozenset(), is_dealer_manager=is_dealer_manager,
     )
 

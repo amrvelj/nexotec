@@ -13,6 +13,7 @@ from app.sales.models.contract import SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.services.contract import create_contract, list_contracts
 from app.sales.services.offer import create_offer, list_offers
+from tests.token_support import dealer_group_of
 
 _SORT = [SortField(api_name="updatedAt", column=SalesOffer.updated_at, direction="desc", nullable=False)]
 _CONTRACT_SORT = [SortField(api_name="updatedAt", column=SalesContract.updated_at, direction="desc", nullable=False)]
@@ -23,7 +24,7 @@ def _token(role: AccessRole | None = AccessRole.SALES) -> str:
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=dealer_group_of(str(tid)),
         roles=frozenset({role}) if role else frozenset(),
         is_dealer_manager=False,
     )

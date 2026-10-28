@@ -22,6 +22,7 @@ from app.inventory.services.publishing import (
     unpublish,
 )
 from app.inventory.services.stock_item import create_stock_item, update_stock_item
+from tests.token_support import dealer_group_of
 
 
 def _make_ready_item(db_session, tenant_id):
@@ -168,7 +169,7 @@ def test_one_image_too_many_via_api_names_its_reason(client, db_session):
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.INVENTORY}),
     )
 

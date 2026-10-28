@@ -21,6 +21,7 @@ from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.provider import IntegrationProvider
 from tests.test_integration_gateway import _make_provider
+from tests.token_support import dealer_group_of
 
 
 def _manager_token(tenant_id: uuid.UUID | None = None) -> str:
@@ -28,7 +29,7 @@ def _manager_token(tenant_id: uuid.UUID | None = None) -> str:
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset(),
         is_dealer_manager=True,
     )
@@ -39,7 +40,7 @@ def _platform_admin_token() -> str:
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.PLATFORM_ADMIN}),
     )
 

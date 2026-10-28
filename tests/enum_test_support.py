@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 # The current schema's constraints only: a test database may hold a second
 # copy of the tables in another schema, with the same names (KAN-298).
@@ -69,7 +70,7 @@ def _token(tenant_id: uuid.UUID, role: AccessRole | None = None, *, is_dealer_ma
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

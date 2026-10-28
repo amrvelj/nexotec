@@ -22,6 +22,7 @@ from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometer
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.provider import resolve_provider_code
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -36,7 +37,7 @@ def _token(tenant_id: uuid.UUID, group_id: uuid.UUID | None = None, *, role: Acc
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=group_id or dealer_group_of(str(tenant_id)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=role is None,
     )

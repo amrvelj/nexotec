@@ -16,6 +16,7 @@ from app.core.ownership import ownership_provider
 from tests.identity_support import PasswordLogin, create_dealership, create_user, deactivate, platform_admin_headers
 from tests.membership_support import create_dealership as create_sister
 from tests.membership_support import grant
+from tests.token_support import dealer_group_of
 
 
 @pytest.fixture()
@@ -28,11 +29,10 @@ def _acting_in(client, user: dict, dealership: str) -> dict[str, str]:
     group as a minted session does — the customer's `group_id` is what the
     refusal compares, so a made-up group would refuse every hand-over."""
 
-    group = client.get(f"/v1/dealerships/{dealership}", headers=platform_admin_headers()).json()["dealerGroupId"]
     token = create_access_token(
         user_id=uuid.UUID(user["id"]),
         tenant_id=uuid.UUID(dealership),
-        group_id=uuid.UUID(group),
+        group_id=dealer_group_of(dealership),
         roles=frozenset({AccessRole.SALES}),
     )
     return {"Authorization": f"Bearer {token}"}

@@ -8,13 +8,14 @@ from app.core.auth import AccessRole, create_access_token
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.stock_item import get_stock_item_or_404
 from app.vehicle.public import get_vehicle_mdm_or_404
+from tests.token_support import dealer_group_of
 
 _EQUIPMENT_PATH = "/v1/inventory/stock-items/{stock_item_id}/equipment"
 
 
 def _token(tenant_id: uuid.UUID) -> str:
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.INVENTORY}),
     )
 

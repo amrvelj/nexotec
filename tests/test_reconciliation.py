@@ -52,6 +52,7 @@ from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services.configuration import create_configuration
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -84,7 +85,7 @@ def _token(
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=_tid,
-        group_id=uuid.UUID(real_group_id) if real_group_id else uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=uuid.UUID(real_group_id) if real_group_id else dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

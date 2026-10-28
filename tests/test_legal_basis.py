@@ -11,6 +11,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import NotFoundError
 from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -36,7 +37,7 @@ def _token(
         # against recorded legal_basis rows, so — unlike other test
         # files' tenant_id-derived shadow value — every call site here
         # must pass the dealership's real dealerGroupId explicitly.
-        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
+        group_id=group_id or dealer_group_of(str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

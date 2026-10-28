@@ -25,7 +25,6 @@ from tests.test_user_deactivation import (
     _as,
     _customer_for,
     _offer_for,
-    _real_dealer_groups,  # noqa: F401 — autouse: tokens carry the real dealer group
     deactivate,
 )
 

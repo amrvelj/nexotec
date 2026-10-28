@@ -30,6 +30,7 @@ from app.valuation.services.valuation import (
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from tests.test_inventory_vin_resolution import _lose_the_first_lookup
+from tests.token_support import dealer_group_of
 
 _postgres_only = pytest.mark.skipif(
     not os.environ.get("DMS_TEST_DATABASE_URL"),
@@ -368,7 +369,7 @@ def _sales_token() -> str:
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.SALES}),
     )
 
@@ -421,7 +422,7 @@ def _sales_principal() -> tuple[str, uuid.UUID]:
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        group_id=dealer_group_of(str(tenant_id)),
         roles=frozenset({AccessRole.SALES}),
     )
     return token, tenant_id
