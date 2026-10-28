@@ -35,6 +35,8 @@ from app.vehicle.services.configuration import (
     _ENTITY_TYPE,
     _audit_value,
     _publish,
+    copy_configuration,
+    discard_configuration_copy,
     get_configuration_or_404,
 )
 from app.vehicle.services.host_configuration import (
@@ -73,6 +75,33 @@ def get_configuration_for_host(
     """404 for another tenant's configuration (rule 7)."""
 
     config = get_configuration_or_404(db, tenant_id=tenant_id, configuration_id=configuration_id)
+    return _host_view(config)
+
+
+def copy_configuration_for_host(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID, actor_id: uuid.UUID | None
+) -> HostConfiguration:
+    """FR-C-11 / KAN-188 — the configurator's half of Sales' Save-and-copy
+    (ADR-063): a new configuration with the source's content, so an edit on
+    the copying host never reaches the source's host. 404 for another
+    tenant's configuration (rule 7). Commits its own transaction (ADR-047);
+    `discard_host_configuration_copy` is the compensating action."""
+
+    source = get_configuration_or_404(db, tenant_id=tenant_id, configuration_id=configuration_id)
+    return _host_view(copy_configuration(db, source=source, actor_id=actor_id))
+
+
+def discard_host_configuration_copy(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID, actor_id: uuid.UUID | None
+) -> None:
+    """KAN-188 — undoes `copy_configuration_for_host` when the host's own
+    write failed. Commits its own transaction (ADR-047)."""
+
+    configuration = get_configuration_or_404(db, tenant_id=tenant_id, configuration_id=configuration_id)
+    discard_configuration_copy(db, configuration=configuration, actor_id=actor_id)
+
+
+def _host_view(config: VehicleConfiguration) -> HostConfiguration:
     return HostConfiguration(
         id=config.id,
         version=config.version,

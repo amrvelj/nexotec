@@ -207,6 +207,17 @@ _OWN_COMMIT_WRITES = {
             "(KAN-328)"
         ),
     ),
+    # Sales' Save-and-copy gives a copied offer a configuration of its own
+    # (FR-C-11, KAN-188), on a session of its own, and discards it again as
+    # the compensation when the copy offer's write fails.
+    "app.vehicle.public.copy_configuration_for_host": (
+        "app.vehicle.services.configuration.copy_configuration",
+        "sales: copy_offer, on its own session",
+    ),
+    "app.vehicle.public.discard_configuration_copy": (
+        "app.vehicle.services.configuration.discard_configuration_copy",
+        "sales: copy_offer's compensation, on its own session",
+    ),
     # The daily job composition root runs the catalogue delta per tenant.
     # Since KAN-78 the run's unconditional sync-state commit lives in
     # `_save_run_progress` (reached through `_run`), shared by the delta and

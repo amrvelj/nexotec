@@ -477,7 +477,7 @@ def update_configuration(
 
 
 def copy_configuration(
-    db: Session, *, source: VehicleConfiguration, actor_id: uuid.UUID
+    db: Session, *, source: VehicleConfiguration, actor_id: uuid.UUID | None
 ) -> VehicleConfiguration:
     """FR-C-11 — a new configuration with the same content and a new id
     (what an advisor does when the customer asks about the same car in a
@@ -558,6 +558,29 @@ def copy_configuration(
     db.commit()
     db.refresh(copy)
     return get_configuration_or_404(db, tenant_id=copy.tenant_id, configuration_id=copy.id)
+
+
+def discard_configuration_copy(
+    db: Session, *, configuration: VehicleConfiguration, actor_id: uuid.UUID | None
+) -> None:
+    """KAN-188 — the compensating action of a host's copy (FR-C-11, ADR-047):
+    removes a configuration `copy_configuration` made for a host whose own
+    write then failed, so no host ever stored its id. Never for a
+    configuration a host references; its options and their feature links
+    go with it (`delete-orphan`). Commits its own transaction."""
+
+    record_audit_event(
+        db,
+        entity_type=_ENTITY_TYPE,
+        entity_id=configuration.id,
+        tenant_id=configuration.tenant_id,
+        action="delete",
+        actor_id=actor_id,
+        reason="host_copy_compensated",
+    )
+    _publish(db, configuration, "vehicle.configuration.discarded")
+    db.delete(configuration)
+    db.commit()
 
 
 def replace_options(

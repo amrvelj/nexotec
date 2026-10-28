@@ -3,6 +3,7 @@ autosave/completeness mechanics are split deliberately: PR-1 ships the bare
 entity + grid; PR-2 adds `update_offer`'s container-completeness contract.
 """
 
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -23,8 +24,11 @@ from app.sales.services.numbering import allocate_offer_number
 from app.sales.services.priced_deal import PricedDeal, compute_containers, require_editable, require_no_live_contract
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
+from app.vehicle.public import HostConfiguration, copy_configuration_for_host, discard_configuration_copy
 
 _EVENT_PRODUCER = "sales"
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_customer_label(customer: Customer) -> str:
@@ -159,6 +163,41 @@ def update_offer(
     return offer
 
 
+def _copy_configuration(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -> HostConfiguration | None:
+    """The source offer's configuration, copied and committed by vehicle on a
+    session of its own (ADR-047) — never the request's, whose pending work
+    vehicle's commit would land."""
+
+    if source.configuration_id is None:
+        return None
+    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
+        return copy_configuration_for_host(
+            own, tenant_id=source.tenant_id, configuration_id=source.configuration_id, actor_id=actor_id
+        )
+
+
+def _discard_configuration(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    source_offer_id: uuid.UUID,
+    configuration_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+) -> None:
+    """The compensation of `_copy_configuration` after the copy offer's write
+    failed. A failing discard leaves an unreferenced configuration (KAN-270's
+    territory) and must not hide the original error, so it is logged."""
+
+    try:
+        with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
+            discard_configuration_copy(own, tenant_id=tenant_id, configuration_id=configuration_id, actor_id=actor_id)
+    except Exception:
+        logger.exception(
+            "copied configuration not discarded after a failed offer copy",
+            extra={"configuration_id": str(configuration_id), "source_offer_id": str(source_offer_id)},
+        )
+
+
 def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:
     """KAN-12 / PRD-Sales v2: "Copy Offer (new offerId, prefilled)" — the
     action available on a `pending`/`open` offer, so the seller can start
@@ -176,67 +215,88 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
     on every touch, so a copy reflects current stock/pricing data, not a
     stale echo of whatever the source happened to show when it was
     generated.
+
+    FR-C-11 (KAN-188): a configured car gets a configuration of its own,
+    copied by vehicle on a session of its own before the offer is written
+    (ADR-047), so reopening the configurator on the copy never edits the
+    source's configuration — nor the pipeline item a contract from the
+    source points at. If the offer's own write fails, the copy is discarded
+    again (the compensating action).
     """
 
-    offer = SalesOffer(
-        tenant_id=source.tenant_id,
-        offer_number=allocate_offer_number(db, source.tenant_id),
-        copied_from_offer_id=source.id,
-        customer_id=source.customer_id,
-        customer_label=source.customer_label,
-        customer_locality=source.customer_locality,
-        customer_language=source.customer_language,
-        customer_denorm_refreshed_at=source.customer_denorm_refreshed_at,
-        vehicle_source=source.vehicle_source,
-        stock_item_id=source.stock_item_id,
-        vehicle_label=source.vehicle_label,
-        manual_vehicle_condition=source.manual_vehicle_condition,
-        manual_base_price=source.manual_base_price,
-        # C-F (KAN-10): a configured car stays configured on the copy — same
-        # configuration reference, re-frozen below like everything else.
-        configuration_id=source.configuration_id,
-        configuration_label=source.configuration_label,
-        configuration_label_refreshed_at=source.configuration_label_refreshed_at,
-        discount_type=source.discount_type,
-        discount_value=source.discount_value,
-        trade_in_vehicle_id=source.trade_in_vehicle_id,
-        trade_in_label=source.trade_in_label,
-        trade_in_vin=source.trade_in_vin,
-        trade_in_valuation_id=source.trade_in_valuation_id,
-        trade_in_configuration_id=source.trade_in_configuration_id,
-        trade_in_configuration_label_refreshed_at=source.trade_in_configuration_label_refreshed_at,
-        trade_in_value=source.trade_in_value,
-        trade_in_purchase_price=source.trade_in_purchase_price,
-        leasing_down_payment=source.leasing_down_payment,
-        leasing_term_months=source.leasing_term_months,
-        leasing_km_per_year=source.leasing_km_per_year,
-        # KAN-200: a copy is the copier's own offer, not the source seller's.
-        **ownership.default_owner(db, tenant_id=source.tenant_id, actor_id=actor_id),
-        created_by=actor_id,
-        updated_by=actor_id,
-    )
-    db.add(offer)
-    db.flush()
-
-    if freeze_vehicle_snapshot(db, deal=offer):
-        db.flush()
-    if offer.vehicle_snapshot is not None:
-        apply_build_up(db, deal=offer)
-        db.flush()
-
-    publish(
-        db,
-        OutboxEvent(
-            event_type="sales.offer.created",
+    tenant_id, source_offer_id = source.tenant_id, source.id
+    configuration = _copy_configuration(db, source=source, actor_id=actor_id)
+    try:
+        offer = SalesOffer(
             tenant_id=source.tenant_id,
-            producer=_EVENT_PRODUCER,
-            aggregate_type="sales_offer",
-            aggregate_id=offer.id,
-            payload={"offerNumber": offer.offer_number, "copiedFromOfferId": str(source.id)},
-        ),
-    )
-    upsert_deal_projection(db, offer=offer)
-    db.commit()
+            offer_number=allocate_offer_number(db, source.tenant_id),
+            copied_from_offer_id=source.id,
+            customer_id=source.customer_id,
+            customer_label=source.customer_label,
+            customer_locality=source.customer_locality,
+            customer_language=source.customer_language,
+            customer_denorm_refreshed_at=source.customer_denorm_refreshed_at,
+            vehicle_source=source.vehicle_source,
+            stock_item_id=source.stock_item_id,
+            vehicle_label=source.vehicle_label,
+            manual_vehicle_condition=source.manual_vehicle_condition,
+            manual_base_price=source.manual_base_price,
+            # C-F (KAN-10): a configured car stays configured on the copy, re-frozen
+            # below like everything else — on a configuration of its own (KAN-188).
+            configuration_id=configuration.id if configuration is not None else None,
+            configuration_label=configuration.label if configuration is not None else None,
+            configuration_label_refreshed_at=utcnow() if configuration is not None else None,
+            discount_type=source.discount_type,
+            discount_value=source.discount_value,
+            trade_in_vehicle_id=source.trade_in_vehicle_id,
+            trade_in_label=source.trade_in_label,
+            trade_in_vin=source.trade_in_vin,
+            trade_in_valuation_id=source.trade_in_valuation_id,
+            # KAN-188, Anto's ruling 2026-10-28 (option A): the trade-in keeps the
+            # configuration its valuation was judged on — a copy of its own would
+            # disagree with the valuation the copy still carries.
+            trade_in_configuration_id=source.trade_in_configuration_id,
+            trade_in_configuration_label_refreshed_at=source.trade_in_configuration_label_refreshed_at,
+            trade_in_value=source.trade_in_value,
+            trade_in_purchase_price=source.trade_in_purchase_price,
+            leasing_down_payment=source.leasing_down_payment,
+            leasing_term_months=source.leasing_term_months,
+            leasing_km_per_year=source.leasing_km_per_year,
+            # KAN-200: a copy is the copier's own offer, not the source seller's.
+            **ownership.default_owner(db, tenant_id=source.tenant_id, actor_id=actor_id),
+            created_by=actor_id,
+            updated_by=actor_id,
+        )
+        db.add(offer)
+        db.flush()
+
+        if freeze_vehicle_snapshot(db, deal=offer):
+            db.flush()
+        if offer.vehicle_snapshot is not None:
+            apply_build_up(db, deal=offer)
+            db.flush()
+
+        publish(
+            db,
+            OutboxEvent(
+                event_type="sales.offer.created",
+                tenant_id=source.tenant_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="sales_offer",
+                aggregate_id=offer.id,
+                payload={"offerNumber": offer.offer_number, "copiedFromOfferId": str(source.id)},
+            ),
+        )
+        upsert_deal_projection(db, offer=offer)
+        db.commit()
+    except Exception:
+        db.rollback()
+        if configuration is not None:
+            _discard_configuration(
+                db, tenant_id=tenant_id, source_offer_id=source_offer_id, configuration_id=configuration.id,
+                actor_id=actor_id,
+            )
+        raise
     db.refresh(offer)
     return offer
 

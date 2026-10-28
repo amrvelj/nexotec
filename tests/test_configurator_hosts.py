@@ -758,7 +758,12 @@ def test_sales_reconciliation_checks_every_configuration_reference():
 # --- review findings (KAN-10) ---------------------------------------------
 
 
-def test_copying_a_configured_offer_keeps_the_configuration_and_its_lines(db_session, engine):
+def test_copying_a_configured_offer_copies_the_configuration_and_keeps_its_lines(db_session, engine):
+    """KAN-188 (FR-C-11): the copy gets a configuration of its own, so the
+    contract made from it names that copy; the trade-in keeps the
+    configuration its valuation was judged on (Anto, 2026-10-28, option A).
+    Before KAN-188 the copy shared the source's configuration."""
+
     from app.sales.services.offer import copy_offer
 
     dealership = _dealership(db_session)
@@ -774,7 +779,7 @@ def test_copying_a_configured_offer_keeps_the_configuration_and_its_lines(db_ses
 
     copy = copy_offer(db_session, source=source, actor_id=uuid.uuid4())
 
-    assert copy.configuration_id == config.id
+    assert copy.configuration_id not in (None, config.id)
     assert copy.trade_in_configuration_id == trade_in_config.id
     assert copy.options_total == source.options_total == Decimal("3730.00")
     assert copy.list_price == source.list_price
@@ -786,7 +791,7 @@ def test_copying_a_configured_offer_keeps_the_configuration_and_its_lines(db_ses
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine)
     )
     payload = _message(db_session, "sales.contract.confirmed", contract.id).payload
-    assert payload["manualConfiguration"]["configurationId"] == str(config.id)
+    assert payload["manualConfiguration"]["configurationId"] == str(copy.configuration_id)
     assert payload["tradeIn"]["configurationId"] == str(trade_in_config.id)
 
 
