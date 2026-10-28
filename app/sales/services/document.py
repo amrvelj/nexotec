@@ -92,8 +92,8 @@ def _price_build_up_lines(
     language: SwissLanguage,
 ) -> list[DocumentLine]:
     """The confirmed live Preisaufbau tab's own line order — base -> options
-    -> list -> accessories -> discount -> price -> trade-in -> payable ->
-    (KAN-23) included VAT. NEVER margin, cost_basis, or
+    -> list -> accessories -> discount -> price -> (KAN-23) included VAT of
+    that price (KAN-434) -> trade-in -> payable. NEVER margin, cost_basis, or
     trade_in_purchase_price (see module docstring).
     """
 
@@ -127,14 +127,8 @@ def _price_build_up_lines(
         lines.append(
             DocumentLine(label=t(language, "priceBuildUp.grossPrice"), amount=gross_price, style=LineStyle.GRAND)
         )
-    if trade_in_value is not None:
-        lines.append(DocumentLine(label=t(language, "priceBuildUp.tradeInValue"), amount=-trade_in_value))
-    if payable is not None:
-        lines.append(
-            DocumentLine(label=t(language, "priceBuildUp.payable"), amount=payable, style=LineStyle.GRAND)
-        )
     # ADR-057: exactly one VAT line, informational — never a second price,
-    # never added to or subtracted from the totals above. Needs BOTH a
+    # never added to or subtracted from the totals around it. Needs BOTH a
     # price to compute against and a configured rate; either missing
     # means no line at all, never a guessed rate.
     # KAN-68 / ADR-098 (Anto's ruling 2026-10-24): the base is ALWAYS the
@@ -142,6 +136,9 @@ def _price_build_up_lines(
     # supplies (MWSTG Art. 24 Abs. 3); the trade-in pays part of the price,
     # it does not reduce it, and its own VAT is Stock's fiktiver
     # Vorsteuerabzug on the purchase side.
+    # KAN-434 (Anto's ruling 2026-10-28, option A): the line sits directly
+    # under the price it is the VAT of, before the trade-in and «Zu bezahlen»
+    # — printed after «Zu bezahlen» it read as the VAT inside the payable.
     if gross_price is not None and vat_rate is not None:
         vat_amount = _compute_vat_amount(gross_price=gross_price, vat_rate=vat_rate)
         # KAN-68: .normalize() alone renders a whole-number rate (10, 20.00)
@@ -154,6 +151,12 @@ def _price_build_up_lines(
             DocumentLine(
                 label=t(language, "priceBuildUp.includedVat", rate=rate_label), amount=vat_amount, style=LineStyle.SUB
             )
+        )
+    if trade_in_value is not None:
+        lines.append(DocumentLine(label=t(language, "priceBuildUp.tradeInValue"), amount=-trade_in_value))
+    if payable is not None:
+        lines.append(
+            DocumentLine(label=t(language, "priceBuildUp.payable"), amount=payable, style=LineStyle.GRAND)
         )
     return lines
 
