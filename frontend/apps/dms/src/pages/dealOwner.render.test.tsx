@@ -117,6 +117,23 @@ describe('Sales list — «Übernehmen» in the row menu (KAN-405)', () => {
     expect(patch.headers.get('If-Match')).toBe('4')
   })
 
+  it('never overwrites a colleague who took the deal after the list loaded', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { match: /^\/sales\/deals$/, handler: () => page([deal({})]) },
+      // The row still reads unassigned; the offer itself has a seller by now.
+      { method: 'GET', match: /^\/sales\/offers\/o-9$/, handler: () => OPEN_OFFER },
+    ])
+    renderWithProviders(<SalesListPage />, { route: '/sales' })
+
+    await screen.findByText('Ursula Vogt')
+    await user.click(screen.getByRole('button', { name: 'Zeilenaktionen' }))
+    await user.click(await screen.findByRole('menuitem', { name: /Übernehmen/ }))
+
+    expect(await screen.findByText(i18n.t('dealOwner.errors.takenMeanwhile', { owner: 'Kim Koller' }))).toBeInTheDocument()
+    expect(backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')).toHaveLength(0)
+  })
+
   it('shows «Übernehmen» disabled, with the reason, on a deal that has a seller or is closed', async () => {
     const user = userEvent.setup()
     installFakeBackend([
@@ -217,6 +234,33 @@ describe('A sent offer — the seller alone may change (KAN-405, option A)', () 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')).toHaveLength(1))
     const [patch] = backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')
     expect(patch.body).toEqual({ ownerUserId: null })
+    expect(patch.headers.get('If-Match')).toBe('4')
+  })
+})
+
+describe('A sent offer — «Übernehmen» in the overflow (KAN-405)', () => {
+  it('takes the unassigned offer with the version the screen holds', async () => {
+    const user = userEvent.setup()
+    const unassigned = { ...OPEN_OFFER, ownerUserId: null, ownerLabel: null }
+    const backend = installFakeBackend([
+      SELLERS,
+      { method: 'GET', match: /^\/sales\/offers\/o-9$/, handler: () => unassigned },
+      { method: 'PATCH', match: /^\/sales\/offers\/o-9$/, handler: () => ({ ...unassigned, ownerUserId: 'user-1', ownerLabel: 'Test Advisor', version: 5 }) },
+      { match: /^\/sales\/offers\/o-9\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
+      </Routes>,
+      { route: '/sales/offers/o-9' },
+    )
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('common.moreActions') }))
+    await user.click(await screen.findByRole('menuitem', { name: /Übernehmen/ }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')).toHaveLength(1))
+    const [patch] = backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')
+    expect(patch.body).toEqual({ ownerUserId: 'user-1' })
     expect(patch.headers.get('If-Match')).toBe('4')
   })
 })

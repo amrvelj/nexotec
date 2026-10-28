@@ -51,9 +51,13 @@ export function buildDealTakeOverAction(
 }
 
 /** Takes a deal over for the signed-in user from a screen that holds no
- * save queue for it (the Sales list, a sent offer): reads the entity's
- * current version, then PATCHes `ownerUserId` alone with If-Match. A refusal
- * is said in the UI language (`apiRefusalText`). */
+ * save queue for it (the Sales list, a sent offer), PATCHing `ownerUserId`
+ * alone with If-Match. The list's row carries no version, so the entity is
+ * read first — and taken only if it is still unassigned there: a colleague
+ * who took it since the list loaded is said by name, never overwritten
+ * (the fresh version would let the PATCH through). A screen that holds the
+ * entity passes it as `known`, so its own version guards the write (a
+ * stale one is a 409). A refusal is said in the UI language. */
 export function useTakeOverDeal() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -61,13 +65,24 @@ export function useTakeOverDeal() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  const takeOver = async (entityType: 'offer' | 'contract', id: string) => {
+  const takeOver = async (
+    entityType: 'offer' | 'contract',
+    id: string,
+    known?: Pick<SalesOfferRead | SalesContractRead, 'version' | 'ownerUserId' | 'ownerLabel'>
+  ) => {
     if (!user) return
     setPending(true)
     setError(null)
     try {
       const path = entityType === 'contract' ? `/sales/contracts/${id}` : `/sales/offers/${id}`
-      const current = await api.get<SalesOfferRead | SalesContractRead>(path)
+      const current = known ?? (await api.get<SalesOfferRead | SalesContractRead>(path))
+      if (current.ownerUserId != null) {
+        if (current.ownerUserId !== user.id) {
+          setError(t('dealOwner.errors.takenMeanwhile', { owner: current.ownerLabel ?? '—' }))
+        }
+        await queryClient.invalidateQueries({ queryKey: ['sales-deals'] })
+        return
+      }
       const updated = await api.patch<SalesOfferRead | SalesContractRead>(
         path,
         { ownerUserId: user.id },

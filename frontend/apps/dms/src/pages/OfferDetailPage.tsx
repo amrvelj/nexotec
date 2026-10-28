@@ -189,7 +189,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           disabled: copying,
         }}
         overflowActions={{
-          edit: [buildDealTakeOverAction(t, { entityType: 'offer', ...offer }, takeOver.currentUserId, () => void takeOver.takeOver('offer', id))],
+          edit: [buildDealTakeOverAction(t, { entityType: 'offer', ...offer }, takeOver.currentUserId, () => void takeOver.takeOver('offer', id, offer))],
         }}
       />
 

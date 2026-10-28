@@ -26,10 +26,20 @@ def _open_unassigned_offer(client, db_session, seller: dict) -> dict:
     queue's row."""
 
     offer = client.post("/v1/sales/offers", headers=_as(seller)).json()
+    priced = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={
+            "vehicleSource": "manual", "vehicleLabel": "VW Golf 8 GTI", "manualVehicleCondition": "new",
+            "manualBasePrice": "36000.00", "discountType": "amount", "discountValue": "500.00",
+        },
+        headers={**_as(seller), "If-Match": str(offer["version"])},
+    )
+    assert priced.status_code == 200, priced.text
+    assert priced.json()["grossPrice"] == "35500.00"
     cleared = client.patch(
         f"/v1/sales/offers/{offer['id']}",
         json={"ownerUserId": None},
-        headers={**_as(seller), "If-Match": str(offer["version"])},
+        headers={**_as(seller), "If-Match": str(priced.json()["version"])},
     )
     assert cleared.status_code == 200, cleared.text
     stored = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
@@ -58,8 +68,12 @@ def test_an_open_offer_takes_a_seller_alone_and_leaves_the_queue(client, db_sess
     assert body["ownerUserId"] == colleague["id"] and body["ownerLabel"] == "Kim Koller"
     assert body["status"] == "open"
     assert body["version"] == offer["version"] + 1
-    unchanged = ("grossPrice", "listPrice", "vehicleSnapshotFrozenAt", "customerId", "vehicleLabel", "offerNumber")
+    unchanged = (
+        "grossPrice", "listPrice", "discountAmount", "vehicleSnapshotFrozenAt", "customerId", "vehicleLabel",
+        "offerNumber",
+    )
     assert {k: body[k] for k in unchanged} == {k: offer[k] for k in unchanged}
+    assert body["grossPrice"] == "35500.00" and body["vehicleSnapshotFrozenAt"] is not None
     assert client.get("/v1/sales/deals?unassigned=true", headers=_as(colleague)).json()["items"] == []
     deal = db_session.scalar(select(SalesDeal).where(SalesDeal.offer_id == uuid.UUID(offer["id"])))
     db_session.refresh(deal)
