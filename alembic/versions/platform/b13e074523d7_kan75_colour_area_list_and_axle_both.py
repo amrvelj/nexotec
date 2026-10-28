@@ -17,7 +17,7 @@ code map like every other coded field. Each needs a canonical list:
 Same shape and branch as ``a3d9c1e58f27``: ``reference_list`` /
 ``reference_value`` is platform-owned. Insert-if-absent, so a value an admin
 already added by hand is left as it is. The vehicle branch's ``b0a125a0a583``
-seeds the code map onto these values and depends on this revision.
+seeds the code map onto these values (it reads none of them, so no `depends_on`).
 
 Revision ID: b13e074523d7
 Revises: bda9fef79e94

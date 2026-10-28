@@ -37,8 +37,10 @@ that disagrees is left alone and reported. Seven codes per vehicle kind —
 `FarbArt` 1/2 → `colour_area`, `AchsenCode` 1/2/3 → `axle_position`,
 `PneuTyp` 121/122 → `tyre_type` — for `auto_i_dat` under every FzArt it
 seeds (01, 02, 03) and for `auto_i_dat_mock` under the FzArt its demo
-variants carry ("1"). The canonical values come from the platform branch's
-`b13e074523d7` (this revision depends on it). `downgrade()` removes only rows
+variants carry ("1"). The canonical values are the platform branch's
+`b13e074523d7`; no `depends_on` ties the two: the seed reads no reference
+value (as `7c4e9a2b6d13`), and a dependency on another branch's head would
+leave that head out of `alembic_version`. `downgrade()` removes only rows
 whose target still equals the seeded one.
 
 Revision ID: b0a125a0a583
@@ -61,7 +63,7 @@ from app.core.uuid7 import uuid7
 revision: str = "b0a125a0a583"
 down_revision: str | Sequence[str] | None = "a0719737860e"
 branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = ("b13e074523d7",)
+depends_on: str | Sequence[str] | None = None
 
 
 # (code_group == canonical list, {raw code: canonical value})

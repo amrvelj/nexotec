@@ -119,6 +119,7 @@ _EQUIPMENT_FEATURE: Final = "equipment_feature"
 _COLOUR_AREA: Final = "colour_area"  # FarbArt
 _AXLE_POSITION: Final = "axle_position"  # AchsenCode
 _TYRE_TYPE: Final = "tyre_type"  # PneuTyp
+COLOUR_AND_TYRE_CODE_GROUPS: Final = (_COLOUR_AREA, _AXLE_POSITION, _TYRE_TYPE)
 # Master-data fields a later visit fills while they are NULL (KAN-83).
 # `name` and `model_year_from` are NOT NULL, so there is never a gap to fill.
 _FILLABLE_MASTER_FIELDS: Final = ("model_year_to", "base_price", "werkscode")
