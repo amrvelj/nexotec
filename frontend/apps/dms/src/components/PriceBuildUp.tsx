@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { ChfInput } from '@nexotec/ui-kit'
-import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
+import { asFigure, useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesPricedDealRead } from '../api/types'
 
@@ -48,17 +48,18 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
   // KAN-8 — local, debounced state; see useDebouncedNumberField's own
   // docstring for why a NumberInput bound straight to a per-keystroke
   // autosave silently drops digits.
-  const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved] = useDebouncedNumberField(
+  const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved, manualBasePriceInvalid] = useDebouncedNumberField(
     deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
     deal.id,
     (value) => onManualBasePriceChange?.(value)
   )
-  const [discountValue, setDiscountValue, discountValueUnsaved] = useDebouncedNumberField(
+  const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
     deal.id,
     (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value })
   )
 
+  const discountFigure = asFigure(discountValue)
   const unsaved = manualBasePriceUnsaved || discountValueUnsaved
   useEffect(() => {
     onUnsavedChange?.(unsaved)
@@ -80,7 +81,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
         <ChfInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
           value={manualBasePrice}
-          onChange={(v) => setManualBasePrice(v === '' ? '' : Number(v))}
+          error={manualBasePriceInvalid ? t('common.notYetANumber') : undefined}
+          onChange={setManualBasePrice}
         />
       ) : (
         row(t('offerWorkspace.pricing.basePrice'), deal.basePrice != null ? formatCurrencyChf(Number(deal.basePrice)) : '—')
@@ -101,9 +103,16 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
           ]}
           value={deal.discountType ?? ''}
           // Not a debounced field: the host shows a refusal, so it only must not go unhandled.
+          // A discount value that is not yet a number is not sent: the saved one goes with
+          // the new type instead (KAN-480 — NaN would arrive as null and clear it).
           onChange={(v) =>
             void Promise.resolve(
-              onDiscountChange({ discountType: v || null, discountValue: discountValue === '' ? null : discountValue })
+              onDiscountChange({
+                discountType: v || null,
+                discountValue: discountValueInvalid
+                  ? deal.discountValue != null ? Number(deal.discountValue) : null
+                  : discountFigure === '' ? null : discountFigure,
+              })
             ).catch(() => undefined)
           }
         />
@@ -113,7 +122,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
           <ChfInput
             label={t('offerWorkspace.pricing.discountValue')}
             value={discountValue}
-            onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
+            error={discountValueInvalid ? t('common.notYetANumber') : undefined}
+            onChange={setDiscountValue}
           />
         ) : (
           <NumberInput
@@ -121,7 +131,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
             disabled={!deal.discountType}
             suffix={deal.discountType === 'percent' ? ' %' : undefined}
             value={discountValue}
-            onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
+            error={discountValueInvalid ? t('common.notYetANumber') : undefined}
+            onChange={setDiscountValue}
           />
         )}
       </Group>

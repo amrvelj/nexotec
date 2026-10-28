@@ -176,7 +176,8 @@
     "inlineEdit": {
       "saveFailed": "Non è stato possibile salvare la modifica.",
       "reload": "Ricarica"
-    }
+    },
+    "notYetANumber": "Non è ancora un numero valido"
   },
   "apiRefusal": {
     "staleVersion": "Questo record è stato modificato nel frattempo. Ricaricalo e riprova.",

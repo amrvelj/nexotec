@@ -176,7 +176,8 @@
     "inlineEdit": {
       "saveFailed": "La modification n’a pas pu être enregistrée.",
       "reload": "Recharger"
-    }
+    },
+    "notYetANumber": "Pas encore un nombre valide"
   },
   "apiRefusal": {
     "staleVersion": "Cet enregistrement a été modifié entre-temps. Rechargez-le et réessayez.",
