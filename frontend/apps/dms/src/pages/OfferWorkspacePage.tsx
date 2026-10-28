@@ -14,6 +14,7 @@ import {
   RequirementBadge,
   useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
+import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { CustomerDetailContent } from './CustomerDetailPage'
@@ -196,6 +197,9 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           {saveError}
         </Alert>
       )}
+
+      {/* KAN-405: the responsible seller, through the same save queue. */}
+      <DealOwnerSelect deal={offer} onChange={(ownerUserId) => patchOffer({ ownerUserId })} />
 
       <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
       <DealVehicleContainer {...containerProps} />

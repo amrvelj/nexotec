@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Loader, Stack } from '@mantine/core'
 import { Copy, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
+import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
+import { buildDealTakeOverAction, useTakeOverDeal } from '../components/dealRowMenu'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { OfferWorkspaceContent } from './OfferWorkspacePage'
@@ -130,6 +132,27 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
     }
   }
 
+  // KAN-405 (Anto, 2026-10-28, option A): a sent offer is read-only, but its
+  // responsible seller may change — a PATCH of `ownerUserId` alone. No save
+  // queue here: this shell sends nothing else.
+  const queryClient = useQueryClient()
+  const [ownerError, setOwnerError] = useState<string | null>(null)
+  const changeOwner = async (ownerUserId: string | null) => {
+    const current = offerQuery.data
+    if (!current) return
+    setOwnerError(null)
+    try {
+      const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, { ownerUserId }, { 'If-Match': String(current.version) })
+      queryClient.setQueryData(['sales-offer', id], updated)
+      void queryClient.invalidateQueries({ queryKey: ['sales-deals'] })
+    } catch (err) {
+      setOwnerError(apiRefusalText(t, err, 'dealOwner.errors.saveFailed'))
+      void offerQuery.refetch()
+      throw err
+    }
+  }
+  const takeOver = useTakeOverDeal()
+
   useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), offerQuery.data?.offerNumber ?? id])
 
   if (offerQuery.isLoading) return <Loader />
@@ -165,7 +188,22 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           onClick: () => void copyOffer(),
           disabled: copying,
         }}
+        overflowActions={{
+          edit: [buildDealTakeOverAction(t, { entityType: 'offer', ...offer }, takeOver.currentUserId, () => void takeOver.takeOver('offer', id, offer))],
+        }}
       />
+
+      {takeOver.error && (
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={takeOver.clearError}>
+          {takeOver.error}
+        </Alert>
+      )}
+      {ownerError && (
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setOwnerError(null)}>
+          {ownerError}
+        </Alert>
+      )}
+      {offer.status === 'open' && <DealOwnerSelect deal={offer} onChange={changeOwner} />}
 
       {copyError && (
         <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCopyError(null)}>

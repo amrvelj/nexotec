@@ -2731,5 +2731,20 @@
     "hint": "Scegliere un suggerimento: via, numero, NPA e località vengono compilati e restano modificabili. Viene salvato solo l'indirizzo scelto.",
     "noResults": "Nessun suggerimento",
     "attribution": "Google Maps"
+  },
+  "dealOwner": {
+    "label": "Venditore responsabile",
+    "unassigned": "Non assegnato",
+    "takeOver": "Prendere in carico",
+    "takeOverDisabled": {
+      "closed": "Solo bozze, offerte aperte e contratti in sospeso possono essere presi in carico.",
+      "yours": "Sei già il venditore responsabile.",
+      "assigned": "Già assegnato a {{owner}} – trasferire tramite «Venditore responsabile»."
+    },
+    "errors": {
+      "saveFailed": "Non è stato possibile salvare il venditore responsabile.",
+      "takeOverFailed": "Non è stato possibile prendere in carico la trattativa.",
+      "takenMeanwhile": "Già preso in carico da {{owner}} – l'elenco è stato aggiornato."
+    }
   }
 }

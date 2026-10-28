@@ -306,9 +306,25 @@ def update_contract(
     the buyer, bumps the version and touches no price figure; a buyer sent
     with any other field, an empty PATCH, and clearing or replacing a buyer
     it already has are still refused (`contract_priced_without_inputs`).
+    KAN-405: a PATCH of the responsible seller alone is accepted on it too.
     """
 
     changes = data.model_dump(exclude_unset=True)
+    if changes.keys() == {"owner_user_id"} and is_priced_without_inputs(contract):
+        # KAN-405 (Anto, 2026-10-28, option A): its price stands, but its
+        # responsible seller may change, as on an open offer — a PATCH of
+        # the seller alone, no price figure touched.
+        require_pending(contract)
+        ownership.apply_owner(
+            contract,
+            ownership.resolve_owner_change(db, tenant_id=contract.tenant_id, owner_user_id=changes["owner_user_id"]),
+        )
+        contract.updated_by = actor_id
+        contract.version += 1
+        upsert_deal_projection(db, contract=contract)
+        db.commit()
+        db.refresh(contract)
+        return contract
     if _gives_a_buyer_only(contract, changes):
         require_pending(contract)
         apply_customer_change(

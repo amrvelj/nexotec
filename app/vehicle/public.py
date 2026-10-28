@@ -192,6 +192,31 @@ def get_configuration_for_host(
     return _get(db, tenant_id=tenant_id, configuration_id=configuration_id)
 
 
+def copy_configuration_for_host(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID, actor_id: uuid.UUID | None
+) -> HostConfiguration:
+    """FR-C-11 (KAN-188) — a host that copies itself (Sales' Save-and-copy)
+    gets its own copy of the configuration it stores, never a second
+    reference to the same one. Commits its own transaction (ADR-047): the
+    caller hands it a session of its own and, if its own write then fails,
+    calls `discard_configuration_copy`. Deferred import as above."""
+
+    from app.vehicle.services.configuration_host import copy_configuration_for_host as _copy
+
+    return _copy(db, tenant_id=tenant_id, configuration_id=configuration_id, actor_id=actor_id)
+
+
+def discard_configuration_copy(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID, actor_id: uuid.UUID | None
+) -> None:
+    """KAN-188 — the compensating action of `copy_configuration_for_host`,
+    for a copy no host stored. Commits its own transaction (ADR-047)."""
+
+    from app.vehicle.services.configuration_host import discard_host_configuration_copy as _discard
+
+    _discard(db, tenant_id=tenant_id, configuration_id=configuration_id, actor_id=actor_id)
+
+
 def run_daily_plate_lookup_purge(db: Session) -> None:
     """KAN-42 (C-D) — the daily job that deletes plate-lookup cache rows past
     their TTL (`app.vehicle.services.plate_lookup_cache`). Registered in
@@ -219,8 +244,10 @@ __all__ = [
     "VehicleStatus",
     "VehicleSummary",
     "check_sync_age_alarm_for_tenant",
+    "copy_configuration_for_host",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
+    "discard_configuration_copy",
     "get_configuration_for_host",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",

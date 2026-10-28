@@ -272,6 +272,39 @@ def test_vat_line_is_computed_on_the_full_gross_price_when_a_trade_in_reduces_pa
     assert _TRADE_IN_PAYABLE in amounts
 
 
+@pytest.mark.parametrize("kind", ["offer", "contract"])
+@pytest.mark.parametrize("language", list(SwissLanguage))
+def test_vat_line_prints_under_the_price_before_the_trade_in_and_payable(kind, language):
+    """KAN-434, Anto's ruling 2026-10-28 (option A): the one VAT line is the
+    VAT inside Verkaufspreis (ADR-098), so it prints directly under that
+    line, before the trade-in and «Zu bezahlen». Printed last, it read as
+    the VAT inside the payable amount directly above it.
+    """
+
+    from app.sales.i18n import t
+
+    deal_fields = {
+        "gross_price": _TRADE_IN_GROSS,
+        "trade_in_value": _TRADE_IN_VALUE,
+        "payable": _TRADE_IN_PAYABLE,
+    }
+    if kind == "offer":
+        content = build_offer_content(_bare_offer(**deal_fields), language=language, vat_rate=Decimal("8.10"))
+    else:
+        content = build_contract_content(_bare_contract(**deal_fields), language=language, vat_rate=Decimal("8.10"))
+    labels = [line.label for line in _line_items_lines(content)]
+
+    vat_label = t(language, "priceBuildUp.includedVat", rate="8.1")
+    tail = [
+        t(language, "priceBuildUp.grossPrice"),
+        vat_label,
+        t(language, "priceBuildUp.tradeInValue"),
+        t(language, "priceBuildUp.payable"),
+    ]
+    assert labels[-4:] == tail
+    assert labels.count(vat_label) == 1  # still exactly one VAT line (ADR-057)
+
+
 def test_vat_amount_rounds_a_genuine_tie_half_up_not_half_even():
     """KAN-68: _compute_vat_amount calls .quantize(..., rounding=ROUND_HALF_UP)
     explicitly, but nothing asserted the mode itself until this test — the

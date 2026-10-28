@@ -2731,5 +2731,20 @@
     "hint": "Vorschlag wählen – Strasse, Hausnummer, PLZ und Ort werden ausgefüllt und bleiben änderbar. Nur die gewählte Adresse wird gespeichert.",
     "noResults": "Keine Vorschläge",
     "attribution": "Google Maps"
+  },
+  "dealOwner": {
+    "label": "Verantwortlicher Verkäufer",
+    "unassigned": "Nicht zugewiesen",
+    "takeOver": "Übernehmen",
+    "takeOverDisabled": {
+      "closed": "Nur Entwürfe, offene Offerten und ausstehende Verträge können übernommen werden.",
+      "yours": "Sie sind bereits der verantwortliche Verkäufer.",
+      "assigned": "Bereits {{owner}} zugewiesen – über «Verantwortlicher Verkäufer» weitergeben."
+    },
+    "errors": {
+      "saveFailed": "Der verantwortliche Verkäufer konnte nicht gespeichert werden.",
+      "takeOverFailed": "Der Vorgang konnte nicht übernommen werden.",
+      "takenMeanwhile": "Bereits von {{owner}} übernommen – die Liste ist aktualisiert."
+    }
   }
 }

@@ -80,7 +80,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   gates. The gap KAN-276 left open (a contract from an offer without a customer) is closed.
   A pending contract priced without inputs and without a buyer may be given one by a PATCH
   carrying `customerId` alone (Anto, 2026-10-12, KAN-315) — price untouched — and then
-  confirmed; any other field on it is still `contract_priced_without_inputs`.
+  confirmed; a PATCH carrying `ownerUserId` alone is accepted too (KAN-405); any other field
+  on it is still `contract_priced_without_inputs`.
 - **A contract can start from a car** (Anto, 2026-10-12, KAN-307: "the same as offer
   generation"): `stockItemId` (with the optional display `vehicleLabel`) creates a pending
   contract with that car through the contract's own Path A edit, in the creating transaction.
@@ -123,7 +124,12 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   when they act in the Betrieb (homed or an active member, active or invited — `platform.public.get_active_user_acting_in`, the customer's advisor's rule too, KAN-410),
   a colleague after a hand-over, nobody once a leaver's deals went to the unassigned queue.
   `created_by` stays who typed it (A-RULE-5). The workspace PATCH takes `ownerUserId` (422 for
-  someone who does not act there or is suspended/deactivated; null clears); a contract takes
+  someone who does not act there or is suspended/deactivated; null clears) — and, alone in the
+  PATCH, also on an open offer without a live contract and on a pending contract priced without
+  inputs, its price untouched (Anto, 2026-10-28, KAN-405 option A); the screens send it from
+  `DealOwnerSelect` (offer workspace, sent offer, pending contract), and «Übernehmen» — one
+  action, `components/dealRowMenu.tsx`, in the Sales list's row menu and both detail overflows
+  (ADR-061) — takes an unassigned open deal for the signed-in user; a contract takes
   its offer's seller; `GET /sales/deals` filters `ownerUserId` and `unassigned=true` (the Sales
   list's "Nicht zugewiesen" chip — open offers and pending contracts; drafts stay hidden — and its
   "Verantwortlich" column). The deal row's seller is its live entity's: the live contract's
@@ -148,7 +154,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   no `vatTreatment`** anywhere — do not reintroduce one.
 - VAT is **one line on the printed document only**, computed at the dealership's
   `Dealership.vat_rate` (Notion calls it `dealer_settings.vat_rate` — no such table exists) in
-  `app/sales/services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`);
+  `app/sales/services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`),
+  directly under «Verkaufspreis», before the trade-in and «Zu bezahlen» (Anto, 2026-10-28,
+  KAN-434 option A — printed last it read as the VAT inside the payable);
   a dealership with no `vat_rate` gets no VAT line, never a guessed rate.
 - **The VAT line is always computed on the full gross price, never on `payable`** (ADR-098,
   Anto's ruling 2026-10-24, KAN-68). The sale and the trade-in are two supplies (Art. 24 Abs. 3
@@ -192,8 +200,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   holds the same pricing inputs as `sales_offer`; a contract from an offer copies them and its
   line items (`contract_id`). Each of these writes refuses a contract that is not pending
   (`contract_not_pending`) and one priced before contracts kept their inputs
-  (`contract_priced_without_inputs`; it can still be confirmed or cancelled, and given a
-  buyer it lacks — KAN-315). Every contract
+  (`contract_priced_without_inputs`; it can still be confirmed or cancelled, given a
+  buyer it lacks — KAN-315 — and given a responsible seller — KAN-405). Every contract
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
   version as read and would let an edit land after signing. A trade-in save commits part-way
@@ -252,7 +260,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   prefills `manualBasePrice`, freezes the spec block and turns the configuration's price lines
   into factory-option lines (re-frozen on a new configuration version while the offer is a
   draft or the contract pending). It travels from the offer to the contract and, as
-  `manualConfiguration.configurationId`, onto the pipeline item. A trade-in captured through the
+  `manualConfiguration.configurationId`, onto the pipeline item. **A copied offer gets a
+  configuration of its own** (FR-C-11, KAN-188): `copy_offer` calls
+  `vehicle.public.copy_configuration_for_host` on a session of its own before writing the offer and
+  `discard_configuration_copy` if that write fails (ADR-047); the trade-in keeps the configuration
+  its valuation was judged on (Anto, 2026-10-28, option A). A trade-in captured through the
   valuation path carries `tradeInConfigurationId` and has no vehicle-mdm record. The offer
   document itemises the factory-option lines; the contract document does not.
 

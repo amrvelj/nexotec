@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Group, Stack, Title } from '@mantine/core'
+import { Alert, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Copy, ExternalLink, Handshake } from 'lucide-react'
@@ -32,6 +32,7 @@ import { formatDate, formatCurrencyChf } from '../utils/format'
 import type { SalesDealPage, SalesDealRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
 import { useDataGridLabels } from '../hooks/useDataGridLabels'
+import { buildDealTakeOverAction, useTakeOverDeal } from '../components/dealRowMenu'
 
 const GRID_KEY = 'sales.deals.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -232,6 +233,12 @@ export function SalesListPage() {
   const isFiltered = debouncedQuery.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('salesList.allDealsView')
 
+  // KAN-405: «Übernehmen» — the deal's one definition, shared with the
+  // offer and contract detail overflows (ADR-061).
+  const takeOver = useTakeOverDeal()
+  const takeOverRow = (row: SalesDealRead) =>
+    void takeOver.takeOver(row.entityType, row.entityType === 'contract' ? (row.contractId ?? row.id) : (row.offerId ?? row.id))
+
   const rowHref = (row: SalesDealRead) =>
     row.entityType === 'contract' ? `/sales/contracts/${row.contractId}` : `/sales/offers/${row.offerId ?? row.id}`
 
@@ -243,6 +250,12 @@ export function SalesListPage() {
           {t('salesList.newOffer')}
         </Button>
       </Group>
+
+      {takeOver.error && (
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={takeOver.clearError}>
+          {takeOver.error}
+        </Alert>
+      )}
 
       <Group gap="xs">
         <Button variant={dealType === 'all' ? 'filled' : 'default'} size="xs" onClick={() => updateUrl({ type: null })}>
@@ -388,6 +401,7 @@ export function SalesListPage() {
                 onClick: () => navigate(rowHref(row)),
               },
             ],
+            edit: [buildDealTakeOverAction(t, row, takeOver.currentUserId, () => takeOverRow(row))],
           })}
         />
       </OverviewShellRegion>

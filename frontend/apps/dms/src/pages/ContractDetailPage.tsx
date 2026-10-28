@@ -22,6 +22,9 @@ import {
   useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
+import { buildDealTakeOverAction } from '../components/dealRowMenu'
+import { useAuth } from '../auth/AuthContext'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -61,6 +64,8 @@ export interface ContractDetailContentProps {
  */
 export function ContractDetailContent({ contractId: id, embedded = false }: ContractDetailContentProps) {
   const { t } = useTranslation()
+  // KAN-405: «Übernehmen» takes the contract for the signed-in user.
+  const currentUserId = useAuth().user?.id ?? null
   const queryClient = useQueryClient()
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<string | null>(null)
@@ -298,8 +303,18 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     })
   }
 
+  // KAN-405: «Übernehmen» — the deal's one definition, shared with the Sales
+  // list's row menu (ADR-061); sent through this page's save queue.
+  const takeOverAction = buildDealTakeOverAction(t, { entityType: 'contract', ...contract }, currentUserId, () => {
+    if (currentUserId) void patchContract({ ownerUserId: currentUserId }).catch(() => {})
+  })
+  // KAN-405: the responsible seller while the contract is pending — also on
+  // one priced without inputs, whose seller alone may change (Anto, 2026-10-28).
+  const ownerSelect = <DealOwnerSelect deal={contract} onChange={(ownerUserId) => patchContract({ ownerUserId })} />
+
   const overflowActions: RowMenuGroups = {
     navigate: [],
+    edit: [takeOverAction],
     destructive: [
       {
         label: t('contractDetail.actions.cancel'),
@@ -390,6 +405,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
               {editError}
             </Alert>
           )}
+          {ownerSelect}
           <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
         </Stack>
       )}
@@ -405,6 +421,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
               {editError}
             </Alert>
           )}
+          {ownerSelect}
           <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
           <DealVehicleContainer {...containerProps} />
           <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />

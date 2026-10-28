@@ -2731,5 +2731,20 @@
     "hint": "Pick a suggestion – street, house number, postal code and locality are filled in and stay editable. Only the address you pick is stored.",
     "noResults": "No suggestions",
     "attribution": "Google Maps"
+  },
+  "dealOwner": {
+    "label": "Responsible seller",
+    "unassigned": "Unassigned",
+    "takeOver": "Take over",
+    "takeOverDisabled": {
+      "closed": "Only drafts, open offers and pending contracts can be taken over.",
+      "yours": "You are already the responsible seller.",
+      "assigned": "Already assigned to {{owner}} – hand it on through «Responsible seller»."
+    },
+    "errors": {
+      "saveFailed": "The responsible seller could not be saved.",
+      "takeOverFailed": "The deal could not be taken over.",
+      "takenMeanwhile": "Already taken over by {{owner}} – the list has been refreshed."
+    }
   }
 }
