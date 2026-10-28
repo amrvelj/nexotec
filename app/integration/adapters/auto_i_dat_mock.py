@@ -146,32 +146,37 @@ _OPTIONS: dict[str, list[VariantOptionData]] = {
 # (KAN-38 PR 1). Every demo variant carries a werkscode in _MASTER_DATA.
 # `price=None` on the exterior colour models the common "free" case;
 # `GRY`'s price models FR-C-07's "surcharge is a price line in build mode".
+# KAN-75 (Anto, C1): raw `FarbArt` codes like the real service (1 Aussenfarbe,
+# 2 Polsterfarbe), resolved by the sync through the code map, which migration
+# `b0a125a0a583` seeds for this provider too.
 _COLOURS: dict[str, list[VariantColourData]] = {
     master.werkscode: [
-        VariantColourData(colour_code="BLK", description="Black metallic", colour_type="exterior", price=Decimal("0.00")),
+        VariantColourData(colour_code="BLK", description="Black metallic", colour_area_code="1", price=Decimal("0.00")),
         VariantColourData(
-            colour_code="RED", description="Rosso competizione", colour_type="exterior", price=Decimal("1100.00")
+            colour_code="RED", description="Rosso competizione", colour_area_code="1", price=Decimal("1100.00")
         ),
-        VariantColourData(colour_code="GRY", description="Grey cloth", colour_type="interior"),
+        VariantColourData(colour_code="GRY", description="Grey cloth", colour_area_code="2"),
     ]
     for master in _MASTER_DATA.values()
     if master.werkscode
 }
 
 # Keyed by TypSchNr now — PneuDimTS's real search value (KAN-38 PR 1).
-# One "both" row models the AchsenCode "1" fix; `remark`/`season` model
-# FR-C-08's BemDe/PneuTyp requirements.
+# One "both" row (AchsenCode 1) models the KAN-43 fix; `remark`/`season_code`
+# model FR-C-08's BemDe/PneuTyp requirements. KAN-75 (C1): raw `AchsenCode`
+# (2 Vorne, 3 Hinten, 1 Vorne+Hinten) and `PneuTyp` (121 Sommer, 122 Winter)
+# codes, as the real service sends them.
 _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
     master.type_approval_numbers[0]: [
         VariantTyreSpecData(
-            axle="front", size="225/45 R18", load_index="95", speed_rating="Y",
-            remark="nur mit Leichtmetallfelgen", season="summer",
+            axle_code="2", size="225/45 R18", load_index="95", speed_rating="Y",
+            remark="nur mit Leichtmetallfelgen", season_code="121",
         ),
         VariantTyreSpecData(
-            axle="rear", size="225/45 R18", load_index="95", speed_rating="Y",
-            remark="nur mit Leichtmetallfelgen", season="summer",
+            axle_code="3", size="225/45 R18", load_index="95", speed_rating="Y",
+            remark="nur mit Leichtmetallfelgen", season_code="121",
         ),
-        VariantTyreSpecData(axle="both", size="205/55 R16", load_index="91", speed_rating="H", season="winter"),
+        VariantTyreSpecData(axle_code="1", size="205/55 R16", load_index="91", speed_rating="H", season_code="122"),
     ]
     for master in _MASTER_DATA.values()
     if master.type_approval_numbers

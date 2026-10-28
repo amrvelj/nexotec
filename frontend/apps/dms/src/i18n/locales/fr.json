@@ -1908,7 +1908,8 @@
       "axlePosition": {
         "front": "Avant",
         "rear": "Arrière",
-        "both": "Avant + arrière"
+        "both": "Avant + arrière",
+        "unclassified": "Non attribué"
       },
       "seasonLabel": {
         "summer": "Été",

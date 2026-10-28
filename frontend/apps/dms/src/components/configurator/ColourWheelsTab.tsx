@@ -4,17 +4,15 @@ import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
 import type { ConfiguratorMode } from '../../configurationOptions'
 
-// Axle codes 4-7 are undocumented, per-manufacturer variants the backend
-// deliberately keeps distinct as `variant_N` rather than bucketing them
-// (see app/integration/adapters/auto_i_dat_soap.py::_achsen_code_to_axle) —
-// there is no natural-language label for those, so they render as their
-// raw code rather than tripping the loud-missing-key i18n check for a key
-// that was never meant to exist.
+// KAN-75: the axle is the `axle_position` value the provider's AchsenCode
+// resolves to through the code map, or null while that code is an unresolved
+// mapping gap (or the provider sent none) — then it reads «not classified»,
+// never a guessed axle and never the raw code.
 const AXLE_I18N_KEY: Record<string, string> = { front: 'front', rear: 'rear', both: 'both' }
 
-function axleLabel(t: (key: string) => string, axle: string): string {
-  const key = AXLE_I18N_KEY[axle]
-  return key ? t(`configurator.wheels.axlePosition.${key}`) : axle
+function axleLabel(t: (key: string) => string, axle: string | null): string {
+  const key = axle == null ? undefined : AXLE_I18N_KEY[axle]
+  return t(`configurator.wheels.axlePosition.${key ?? 'unclassified'}`)
 }
 
 export interface ColourWheelsFields {
@@ -56,6 +54,8 @@ export function ColourWheelsTab({
   onChange,
 }: ColourWheelsTabProps) {
   const { t } = useTranslation()
+  // A colour whose FarbArt is still an unresolved mapping gap has no type
+  // and is offered in neither group until an admin resolves it (KAN-75, A2).
   const exteriorOptions = (spec?.colours ?? []).filter((c) => c.colourType === 'exterior')
   const interiorOptions = (spec?.colours ?? []).filter((c) => c.colourType === 'interior')
   const tyreSpecs = spec?.tyreSpecs ?? []

@@ -15,6 +15,7 @@ from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
 from app.vehicle.services import catalogue_entitlements, catalogue_sync
+from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
 from tests.token_support import dealer_group_of
 
 VALID_VIN = "1HGCM82633A004352"
@@ -139,8 +140,10 @@ def test_specification_carries_the_full_image_url(db_session):
 
 def test_specification_carries_the_new_c_e_fields_on_options_colours_and_tyres(db_session):
     """KAN-43 (C-E) — is_included/is_package/equipment_features on
-    options, price on colours, season/remark on tyres."""
+    options, price on colours, season/remark on tyres. The season resolves
+    through the code map since KAN-75, so its seed is loaded."""
 
+    seed_colour_tyre_code_map(db_session)
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)

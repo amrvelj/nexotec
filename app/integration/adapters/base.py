@@ -69,7 +69,11 @@ class VariantOptionData:
 class VariantColourData:
     colour_code: str
     description: str
-    colour_type: str  # "exterior" | "interior"
+    # KAN-75 — the provider's raw `FarbArt` (auto-i-dat: 1 Aussenfarbe,
+    # 2 Polsterfarbe), never decoded here: the catalogue sync resolves it
+    # through the provider code map (`colour_area`), and an unknown code is a
+    # mapping gap, never a guessed "exterior".
+    colour_area_code: str | None
     # KAN-43 (C-E) — FR-C-07: "the surcharge is a price line in build
     # mode." `Preis` is on the raw `OptionenFarben` response but was
     # parsed by no one until now.
@@ -78,7 +82,10 @@ class VariantColourData:
 
 @dataclass(frozen=True)
 class VariantTyreSpecData:
-    axle: str  # "front" | "rear" | "both" | "variant"
+    # KAN-75 — the provider's raw `AchsenCode` (auto-i-dat: 1 Vorne+Hinten,
+    # 2 Vorne, 3 Hinten, 4-7 Varianten), resolved by the catalogue sync
+    # through the code map (`axle_position`); None when the row carries none.
+    axle_code: str | None
     size: str
     load_index: str | None
     speed_rating: str | None
@@ -88,7 +95,9 @@ class VariantTyreSpecData:
     # FR-C-08's own "PneuTyp (summer/winter)". Both parsed by no one until
     # now — `remark` and `season` were entirely dropped from the pipeline.
     remark: str | None = None
-    season: str | None = None  # "summer" | "winter"
+    # KAN-75: the raw `PneuTyp` (auto-i-dat: 121 Sommer, 122 Winter),
+    # resolved through the code map (`tyre_type`).
+    season_code: str | None = None
 
 
 @dataclass(frozen=True)

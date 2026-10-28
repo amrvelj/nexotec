@@ -16,7 +16,11 @@ from app.core.pagination import PageParams, build_page, paginate_query
 from app.vehicle.models.catalogue import Brand
 from app.vehicle.models.provider import MappingGap
 from app.vehicle.schemas.catalogue import BrandCreate, BrandUpdate
-from app.vehicle.services.catalogue_sync import apply_resolved_code_to_options, fill_variants_for_resolved_code
+from app.vehicle.services.catalogue_sync import (
+    apply_resolved_code_to_colours_and_tyres,
+    apply_resolved_code_to_options,
+    fill_variants_for_resolved_code,
+)
 from app.vehicle.services.configuration import fill_null_spec_fields_from_variants
 from app.vehicle.services.provider import resolve_mapping_gap
 
@@ -124,6 +128,12 @@ def resolve_gap(
         db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
         provider_code=gap.provider_code, value_code=canonical_value_code,
     )
+    # KAN-75: and the cached colours and tyres (every tenant's) whose raw
+    # FarbArt, AchsenCode or PneuTyp it left unclassified.
+    colours_and_tyres_filled = apply_resolved_code_to_colours_and_tyres(
+        db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
+        provider_code=gap.provider_code, value_code=canonical_value_code,
+    )
     record_audit_event(
         db, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None, action="resolve", actor_id=actor_id,
         after={
@@ -131,6 +141,7 @@ def resolve_gap(
             "canonicalListCode": canonical_list_code, "canonicalValueCode": canonical_value_code,
             "variantsFilled": len(filled_variant_ids),
             "optionsFilled": options_filled,
+            "coloursAndTyresFilled": colours_and_tyres_filled,
             "configurationsFilled": configurations_filled,
         },
     )

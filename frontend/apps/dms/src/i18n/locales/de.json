@@ -1908,7 +1908,8 @@
       "axlePosition": {
         "front": "Vorne",
         "rear": "Hinten",
-        "both": "Vorne + hinten"
+        "both": "Vorne + hinten",
+        "unclassified": "Nicht zugeordnet"
       },
       "seasonLabel": {
         "summer": "Sommer",
