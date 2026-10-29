@@ -235,9 +235,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   `OfferUpdate` takes `ContractUpdate`'s bounds for `manualBasePrice`, `discountType` and
   `discountValue` (`ge=0`, 12 digits, 2 decimals; `percent` | `amount`), and the offer's leasing
   figures are never negative. `test_sales_offer_pricing_bounds.py` compares the two schemas field by
-  field. The inputs still take «-»: the API's 422 is the refusal and the field shows the saved figure
-  again (an input refusing «-» empties itself when its text is replaced by one, and that clear would
-  be saved — KAN-480's hazard; KAN-493).
+  field. The five inputs (base price, discount, the three leasing figures) never send a negative
+  figure (KAN-493): `useDebouncedNumberField`'s `nonNegative` holds one like a partial entry — shown
+  as typed, marked `common.notNegative`, unsaved, never committed. The inputs still take «-» (one
+  refusing it empties itself when its text is replaced by «-», and that clear would be saved —
+  KAN-480's hazard).
 - **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
   builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`
   (`contract_completeness.has_price`). The pricing container still shows "in progress" for it.
