@@ -1590,7 +1590,8 @@
       "connect": "Connect"
     },
     "connectModal": {
-      "title": "Connect {{provider}}"
+      "title": "Connect {{provider}}",
+      "testAccessHint": "Sandbox is your test access: only with a service account, never with the personal token, and only in test environments. On the production server Nexotec refuses it."
     },
     "usageModal": {
       "title": "Usage — {{name}}",

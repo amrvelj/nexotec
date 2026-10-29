@@ -285,12 +285,9 @@ class ForecastResult:
 class ProviderAdapter(Protocol):
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData: ...
 
-    def list_changed_keys(self, *, since: dt.date) -> list[str]:
-        """`FzKeyChanged`. Callers must enforce the 3-month `ChangedSince`
-        hard limit themselves (PR-4) — the adapter's job is only to speak
-        the protocol, not to police the caller's own request.
-        """
-        ...
+    # No `FzKeyChanged` (the changed-keys list a full mirror is built on):
+    # the provider is never asked for its whole catalogue (ADR-023 as amended
+    # 2026-10-29, KAN-485; tests/architecture/test_no_bulk_catalogue_retrieval.py).
 
     def get_system_watermark(self) -> SystemWatermark: ...
 

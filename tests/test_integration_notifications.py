@@ -189,30 +189,42 @@ def test_break_glass_notification_is_a_noop_for_platform_scope_connections(db_se
 # --- daily digest --------------------------------------------------------------
 
 
+def _one_expiry_warning(db_session):
+    provider = _make_provider(db_session)
+    _make_connection(
+        db_session, provider, tenant_id=uuid.uuid4(),
+        expires_at=dt.datetime.combine(TODAY + dt.timedelta(days=30), dt.time(12), tzinfo=dt.UTC),
+    )
+    warnings = notification_service.check_and_send_expiry_warnings(db_session, today=TODAY)
+    assert len(warnings) == 1
+    return warnings
+
+
 def test_digest_sends_once_when_there_is_something_to_report(db_session):
+    warnings = _one_expiry_warning(db_session)
     recording = _RecordingSender()
     set_notification_sender(recording)
     try:
-        digest = notification_service.send_daily_support_digest(
-            db_session, today=TODAY, warnings=[], alarms=[uuid.uuid4(), uuid.uuid4()]
-        )
+        digest = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=warnings)
         assert digest is not None
+        assert digest.summary == "1 expiry warning(s) fired today across all tenants."
         assert len(recording.sent) == 1
     finally:
         _reset_sender()
 
 
 def test_digest_is_a_noop_with_nothing_to_report(db_session):
-    digest = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=[], alarms=[])
+    digest = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=[])
     assert digest is None
 
 
 def test_digest_never_sends_twice_the_same_day(db_session):
+    warnings = _one_expiry_warning(db_session)
     recording = _RecordingSender()
     set_notification_sender(recording)
     try:
-        first = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=[], alarms=[uuid.uuid4()])
-        second = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=[], alarms=[uuid.uuid4()])
+        first = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=warnings)
+        second = notification_service.send_daily_support_digest(db_session, today=TODAY, warnings=warnings)
 
         assert first is not None
         assert second is None

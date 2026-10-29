@@ -189,6 +189,43 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `mileageKm`) in every event — create, update, match-status change, re-sync, catalogue fill
   (KAN-346); rows written before keep their snake_case keys (the log is append-only).
 
+## auto-i-dat licence constraints (KAN-484)
+
+The identAPI test agreement of 2026-10-28 is confidential (§12): it lives in Anto's Drive and is
+never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
+(2026-10-28/29) mean for the code:
+
+- **Single lookups only, for every provider** (§2, §9; KAN-485, ADR-023 as amended 2026-10-29):
+  no full seed, no daily delta, no `FzKeyChanged`, no daily job reaching a provider — the demo
+  provider (`auto_i_dat_mock`) follows the same rule. A variant enters the catalogue through
+  identification (plate, best match) or `catalogue_sync.sync_catalogue_variant` (one variant with
+  its options, colours, tyres and images; nothing calls it yet — loading a variant's details on
+  open is KAN-211). `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards it. The
+  platform's catalogue-sync status board still reads the `vehicle_provider_sync_state` rows
+  written before; nothing writes them now (KAN-497).
+- **Every provider request is counted** (§6; KAN-486): one `integration_call_log` row per
+  request — a retry is a second row — with the provider's own operation name as `capability`
+  (the Datenname; `FtpUpload` for the AutoScout24 feed) and `cost_units = 1`. An adapter wraps
+  each request in `integration/services/metering.py::provider_request`; a `call_capability`
+  block that metered none writes its one row under its label, as before, and the circuit
+  breaker stays per block. **Nexotec enforces no quota and sends no usage warning**: auto-i-dat
+  limits its own access (Anto, 2026-10-29).
+- **Looked-up data is kept and shared** (Anto, 2026-10-29, KAN-487): what a single lookup
+  stored is kept indefinitely — no retention window — and variant master data stays readable by
+  every Betrieb (ADR-075). What is never done is retrieving or storing the whole catalogue.
+- **The test access never runs in production** (§1; KAN-489): it is a `sandbox` connection, and
+  on a deployment whose `DMS_ENVIRONMENT` is `production` the gateway refuses every call on a
+  sandbox connection before the provider is reached (`SandboxConnectionOnProductionError`,
+  audit action `sandbox_refused_in_production`; "Test connection" shows it on the card). The
+  auto-i-dat Connect dialog's environment hint says it: a service account only, never the
+  personal token, test environments only. There are no licence types and no licence end dates
+  (Anto: a connection auto-i-dat switches off shows as failing; the dealer renews with
+  auto-i-dat).
+- **No MCP for provider data** (§3; KAN-490).
+- **The test licence covers the identAPI only**: `auto_i_dat_soap.py` speaks the SOAP
+  webservices, which it does not cover — the identAPI adapter is KAN-488 — and VIN queries are
+  not in it (KAN-81 stays blocked).
+
 ## auto-i-dat facts that are easy to get wrong
 
 - **VIN decode is DAT-backed.** It needs a second, independent DAT sub-account, modelled as its

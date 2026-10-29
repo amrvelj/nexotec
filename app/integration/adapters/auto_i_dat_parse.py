@@ -244,16 +244,6 @@ def year4(raw: str | None) -> int | None:
     return year if year > 1900 else None
 
 
-def csv_list(raw: str | None) -> list[str]:
-    """``FzKeyChanged.FzKeyList`` is one comma-joined string, not repeated
-    elements (p30).
-    """
-
-    if not raw:
-        return []
-    return [part.strip() for part in raw.split(",") if part.strip()]
-
-
 def lang_texts(el: ET.Element | None, base: str) -> dict[str, str]:
     """Language-dependent fields are ``<{base}De>`` / ``<{base}Fr>`` /
     ``<{base}It>`` / ``<{base}En>`` (p4). Returns ``{"de": …}`` for every

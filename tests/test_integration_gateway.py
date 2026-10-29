@@ -5,20 +5,24 @@ shapes, one call-log row per call, no business data written from here.
 import datetime as dt
 import os
 import uuid
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import list_audit_events
 from app.core.auth import create_access_token
+from app.core.config import get_settings
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
+from app.integration.errors import ProviderGatewayError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.integration.services import gateway
+from app.integration.services import gateway, metering, resilience
 from app.vehicle.models.catalogue import Brand
 from tests.token_support import dealer_group_of
 
@@ -114,9 +118,154 @@ def test_call_capability_writes_one_call_log_row_with_status_duration_correlatio
     logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
     assert len(logs) == 1
     assert logs[0].status == CallStatus.SUCCESS
-    assert logs[0].capability == "vehicle_data"
+    # KAN-486: the request is named by its Datenname, and counts one unit.
+    assert logs[0].capability == "Fahrzeuge"
+    assert logs[0].cost_units == Decimal(1)
     assert logs[0].correlation_id == correlation_id
     assert logs[0].duration_ms >= 0
+
+
+# --- KAN-486: one call-log row per provider request -----------------------------
+
+
+def test_every_request_in_a_block_is_its_own_row_and_the_breaker_is_charged_once(db_session, monkeypatch):
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    successes = []
+    monkeypatch.setattr(resilience, "record_success", successes.append)
+
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_options("FZ100001", model_year=2023)
+        adapter.fetch_images("FZ100001")
+
+    logs = db_session.scalars(
+        select(IntegrationCallLog).filter_by(connection_id=connection.id).order_by(IntegrationCallLog.created_at)
+    ).all()
+    assert [(log.capability, log.status) for log in logs] == [
+        ("Fahrzeuge", CallStatus.SUCCESS), ("Optionen", CallStatus.SUCCESS), ("Bilder", CallStatus.SUCCESS),
+    ]
+    assert len({log.correlation_id for log in logs}) == 1  # one block, one correlation
+    assert successes == [connection.id]
+
+
+def test_a_block_that_sends_no_request_still_writes_its_one_row(db_session):
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data"):
+        pass
+
+    logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
+    assert [(log.capability, log.status, log.cost_units) for log in logs] == [("vehicle_data", CallStatus.SUCCESS, None)]
+
+
+def test_a_retried_request_is_two_rows(db_session, monkeypatch):
+    """`call_with_retry` around one request sends it twice: the provider
+    counts two, so the log does."""
+
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0, 0))
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    answers = iter([TimeoutError("no answer"), "<ok/>"])
+
+    def send():
+        answer = next(answers)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    with (
+        gateway.call_capability(db_session, connection=connection, capability="vehicle_data"),
+        metering.provider_request("Fahrzeuge", is_timeout=lambda exc: isinstance(exc, TimeoutError)) as request,
+    ):
+        assert resilience.call_with_retry(lambda: request.attempt(send)) == "<ok/>"
+
+    logs = db_session.scalars(
+        select(IntegrationCallLog).filter_by(connection_id=connection.id).order_by(IntegrationCallLog.created_at)
+    ).all()
+    assert [(log.capability, log.status) for log in logs] == [
+        ("Fahrzeuge", CallStatus.TIMEOUT), ("Fahrzeuge", CallStatus.SUCCESS),
+    ]
+
+
+def test_an_answer_refused_after_it_arrived_is_that_requests_error(db_session):
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+
+    with (
+        pytest.raises(ProviderGatewayError),
+        gateway.call_capability(db_session, connection=connection, capability="vehicle_data"),
+        metering.provider_request("Fahrzeuge") as request,
+    ):
+        request.attempt(lambda: "")
+        raise ProviderGatewayError("empty answer: rejected login")
+
+    logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
+    assert [(log.capability, log.status) for log in logs] == [("Fahrzeuge", CallStatus.ERROR)]
+
+
+def test_an_adapter_used_outside_a_block_meters_nothing(db_session):
+    assert MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100001").fz_key == "FZ100001"
+    assert db_session.query(IntegrationCallLog).count() == 0
+
+
+# --- KAN-489: a sandbox connection is never used on the production server -------
+
+
+@pytest.mark.parametrize("deployment", ["production", "staging", "development"])
+def test_a_sandbox_connection_is_refused_only_on_a_production_deployment(db_session, monkeypatch, deployment):
+    monkeypatch.setattr(get_settings(), "environment", deployment)
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)  # environment=SANDBOX
+    actor_id = uuid.uuid4()
+
+    if deployment == "production":
+        with pytest.raises(gateway.SandboxConnectionOnProductionError), gateway.call_capability(
+            db_session, connection=connection, capability="vehicle_data", actor_id=actor_id
+        ) as adapter:
+            adapter.fetch_vehicle_master_data("FZ100001")
+        # Refused before the provider: no call-log row, the breaker untouched,
+        # and an audit row naming the refusal.
+        assert db_session.query(IntegrationCallLog).count() == 0
+        assert not resilience.is_circuit_open(connection.id)
+        events = list_audit_events(
+            db_session, entity_type="integration_connection", entity_id=connection.id, tenant_id=None
+        )
+        refusal = [event for event in events if event.action == "sandbox_refused_in_production"]
+        assert len(refusal) == 1
+        assert refusal[0].actor_id == actor_id
+        assert refusal[0].tenant_id == connection.tenant_id
+    else:
+        with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+            adapter.fetch_vehicle_master_data("FZ100001")
+        assert db_session.query(IntegrationCallLog).count() == 1
+
+
+def test_a_production_connection_is_used_on_a_production_deployment(db_session, monkeypatch):
+    monkeypatch.setattr(get_settings(), "environment", "production")
+    provider = _make_provider(db_session)
+    connection = connection_service.create_connection(
+        db_session, tenant_id=uuid.uuid4(),
+        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.PRODUCTION),
+        actor_id=uuid.uuid4(),
+    )
+
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+        adapter.fetch_vehicle_master_data("FZ100001")
+
+    assert db_session.query(IntegrationCallLog).count() == 1
+
+
+def test_test_connection_shows_the_production_refusal_on_the_card(db_session, monkeypatch):
+    monkeypatch.setattr(get_settings(), "environment", "production")
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+
+    tested = gateway.test_connection(db_session, connection=connection)
+
+    assert tested.status == ConnectionStatus.ERROR
+    assert "never used on the production server" in tested.last_error
 
 
 def test_call_capability_logs_error_status_and_reraises_on_failure(db_session):
@@ -271,7 +420,7 @@ def test_a_caller_locking_its_own_connection_row_is_logged_without_waiting(db_se
     db_session.rollback()
 
     logs = db_session.scalars(select(IntegrationCallLog).filter_by(connection_id=connection.id)).all()
-    assert [log.capability for log in logs] == ["vehicle_data"]
+    assert [log.capability for log in logs] == ["Fahrzeuge"]  # the request's Datenname (KAN-486)
 
 
 def test_test_connection_endpoint_updates_status_and_last_verified(db_session):

@@ -10,7 +10,7 @@
   deduplicated by day, since a second real access on the same day is a
   second real fact the manager should see.
 - The daily support digest is exactly ONE row/ONE send per calendar day,
-  aggregating every stale-sync alarm and expiry warning that fired today
+  aggregating every expiry warning that fired today
   — "never per-event" (ADR-025's own phrasing) is enforced by checking
   for an existing digest row for today before ever composing one.
 
@@ -157,10 +157,11 @@ def _notify_break_glass(
 
 
 def send_daily_support_digest(
-    db: Session, *, today: dt.date | None = None, warnings: list[IntegrationNotification], alarms: list[uuid.UUID]
+    db: Session, *, today: dt.date | None = None, warnings: list[IntegrationNotification]
 ) -> IntegrationNotification | None:
     """ONE aggregated send to Nexotec support per day — never one per
-    underlying warning/alarm. Returns `None` (and sends nothing) both
+    underlying warning. (It also counted the catalogue sync-age alarms
+    until that sync was removed, 2026-10-29, KAN-485.) Returns `None` (and sends nothing) both
     when there is genuinely nothing to report AND when today's digest
     already went out (a restart mid-cycle re-running the daily job must
     never double-send).
@@ -178,12 +179,10 @@ def send_daily_support_digest(
     )
     if already_sent:
         return None
-    if not warnings and not alarms:
+    if not warnings:
         return None
 
-    summary = (
-        f"{len(warnings)} expiry warning(s) and {len(alarms)} sync-age alarm(s) fired today across all tenants."
-    )
+    summary = f"{len(warnings)} expiry warning(s) fired today across all tenants."
     return _send_and_record(
         db, connection=None, tenant_id=None, kind=NotificationKind.SUPPORT_DIGEST, threshold_days=None,
         sent_date=today, subject="Nexotec integrations daily digest", summary=summary,

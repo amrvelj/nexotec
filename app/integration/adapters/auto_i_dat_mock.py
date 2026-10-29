@@ -7,14 +7,17 @@ the real thing (PR-3's `auto_i_dat`), never a runtime flag on one
 connection (the same "never a flag" posture rule 7 already applies to
 sandbox/production).
 
-`system_watermark_date` is injectable so PR-4/PR-6's sync-age-alarm tests
-(A-12: alarm at >7 days) can control staleness precisely without
-monkeypatching a clock.
+`system_watermark_date` is injectable so a test can control the `System`
+answer without monkeypatching a clock. Every method is one metered request
+under the real adapter's Datenname (KAN-486). There is no `FzKeyChanged`:
+no provider, this one included, is asked for its whole catalogue (KAN-485).
 """
 
 import datetime as dt
-from collections.abc import Mapping, Sequence
+import functools
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
+from typing import Any, TypeVar, cast
 
 from app.core.base import utcnow
 from app.integration.adapters.base import (
@@ -38,6 +41,7 @@ from app.integration.adapters.base import (
     VehicleKindData,
     VehiclePriceData,
 )
+from app.integration.services.metering import provider_request
 
 _DEMO_FZ_KEYS = ["FZ100001", "FZ100002", "FZ100003"]
 
@@ -351,6 +355,24 @@ _IMAGES: dict[str, list[VariantImageData]] = {
 }
 
 
+_Method = TypeVar("_Method", bound=Callable[..., Any])
+
+
+def _request(datenname: str) -> Callable[[_Method], _Method]:
+    """Each mock method is one request under the real adapter's Datenname,
+    so a dev or staging call log reads like a real one (KAN-486)."""
+
+    def wrap(method: _Method) -> _Method:
+        @functools.wraps(method)
+        def metered(*args: Any, **kwargs: Any) -> Any:
+            with provider_request(datenname) as request:
+                return request.attempt(lambda: method(*args, **kwargs))
+
+        return cast(_Method, metered)
+
+    return wrap
+
+
 class MockAutoIDatAdapter:
     """Realistic auto-i-dat shapes, no live call. `system_watermark_date`
     defaults to today (a healthy mirror); tests pass an older date to
@@ -360,37 +382,43 @@ class MockAutoIDatAdapter:
     def __init__(self, *, system_watermark_date: dt.date | None = None) -> None:
         self._system_watermark_date = system_watermark_date or utcnow().date()
 
+    @_request("Fahrzeuge")
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
         if fz_key not in _MASTER_DATA:
             raise KeyError(f"Mock adapter has no data for FzKey '{fz_key}'.")
         return _MASTER_DATA[fz_key]
 
-    def list_changed_keys(self, *, since: dt.date) -> list[str]:
-        return list(_DEMO_FZ_KEYS)
-
+    @_request("System")
     def get_system_watermark(self) -> SystemWatermark:
         return SystemWatermark(current_model_year=utcnow().year, update_date=self._system_watermark_date)
 
+    @_request("Optionen")
     def fetch_options(self, fz_key: str, *, model_year: int) -> list[VariantOptionData]:
         return list(_OPTIONS.get(fz_key, []))
 
+    @_request("OptionenFarben")
     def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]:
         return list(_COLOURS.get(werkscode, []))
 
+    @_request("PneuDimTS")
     def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]:
         return list(_TYRE_SPECS.get(type_approval_number, []))
 
+    @_request("Bilder")
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         return list(_IMAGES.get(fz_key, []))
 
     # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) -------
 
+    @_request("FahrzeugArten")
     def list_vehicle_kinds(self) -> list[VehicleKindData]:
         return list(_VEHICLE_KINDS)
 
+    @_request("Marken")
     def list_brands(self, *, fz_art: str) -> list[BrandData]:
         return list(_BRANDS.get(fz_art, []))
 
+    @_request("ModellGruppen")
     def list_model_groups(
         self,
         *,
@@ -418,6 +446,7 @@ class MockAutoIDatAdapter:
             return [group] if group is not None else []
         return list(_MODEL_GROUPS.values())
 
+    @_request("ModellGruppenKurz")
     def list_model_groups_short(
         self,
         *,
@@ -441,6 +470,7 @@ class MockAutoIDatAdapter:
                 )
         return result
 
+    @_request("Fahrzeuge")
     def search_vehicles(self, criteria: Mapping[str, str | int | Sequence[str | int]]) -> list[VariantMasterData]:
         fz_key = criteria.get("FzKey")
         if fz_key is not None:
@@ -454,10 +484,12 @@ class MockAutoIDatAdapter:
             return [m for m in _MASTER_DATA.values() if m.werkscode == werkscode]
         return list(_MASTER_DATA.values())
 
+    @_request("FahrzeugePreise")
     def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
         prices = _VEHICLE_PRICES.get(fz_key, [])
         return [p for p in prices if year is None or p.year == year]
 
+    @_request("FzgWerteGruppiert")
     def fetch_grouped_values(
         self,
         *,
@@ -470,13 +502,16 @@ class MockAutoIDatAdapter:
     ) -> list[str]:
         return list(_GROUPED_VALUES.get(gruppiert, []))
 
+    @_request("Typenscheine")
     def fetch_type_approvals(self, fz_key: str) -> list[str]:
         master = _MASTER_DATA.get(fz_key)
         return list(master.type_approval_numbers) if master else []
 
+    @_request("KontrollschildInfo")
     def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
         return list(_PLATES.get(plate, []))
 
+    @_request("FahrzeugeMatch")
     def find_best_match(
         self,
         *,
@@ -493,6 +528,7 @@ class MockAutoIDatAdapter:
                 return BestMatchResult(vehicle=master, match_code=match_code)
         raise KeyError(f"Mock adapter has no vehicle for Typenschein '{typ_sch_nr}'.")
 
+    @_request("FzgDatenTS")
     def fetch_type_approval_data(
         self, typ_sch_nr: str, *, getriebe: str | None = None, gaenge: int | None = None
     ) -> TypeApprovalDataResult:
@@ -510,15 +546,19 @@ class MockAutoIDatAdapter:
             )
         return found
 
+    @_request("OptionenPack")
     def fetch_option_package_contents(self, opt_key: int) -> list[OptionPackageContentData]:
         return list(_OPTION_PACKAGES.get(opt_key, []))
 
+    @_request("OptionenAusschluss")
     def fetch_option_exclusions(self, fz_key: str, *, year: int, opt_key: int) -> list[int]:
         return list(_OPTION_EXCLUSIONS.get(opt_key, []))
 
+    @_request("OptionenZusatz")
     def fetch_option_conditions(self, fz_key: str, *, year: int, opt_key: int) -> list[OptionConditionData]:
         return list(_OPTION_CONDITIONS.get(opt_key, []))
 
+    @_request("Codes")
     def fetch_codes(
         self, *, code_groups: list[str] | None = None, active_only: bool = False
     ) -> list[CodeMapEntryData]:
@@ -527,6 +567,7 @@ class MockAutoIDatAdapter:
         wanted = set(code_groups)
         return [c for c in _CODES if c.code_group_nr in wanted]
 
+    @_request("Fahrzeuge")
     def fetch_valuation(
         self, *, fz_key: str, model_year: int, first_registration: dt.date, valuation_date: dt.date, mileage: int
     ) -> ValuationResult:
@@ -536,6 +577,7 @@ class MockAutoIDatAdapter:
         depreciation = min(Decimal("0.12") * age_years + Decimal(mileage) / Decimal(100000) * Decimal("0.05"), Decimal("0.85"))
         return ValuationResult(provider_value=(base_price * (Decimal(1) - depreciation)).quantize(Decimal("0.01")), status_code="ok")
 
+    @_request("Fahrzeuge")
     def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:
         base = _MASTER_DATA.get(fz_key)
         base_price = (base.base_price if base else None) or Decimal("20000.00")

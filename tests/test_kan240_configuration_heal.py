@@ -26,7 +26,7 @@ from tests.test_vehicle_catalogue_sync import (
     _fuel_gap,
     _make_connection,
     _seed_reference_list,
-    _seeded_tenant,
+    _looked_up_tenant,
     _variant,
 )
 
@@ -65,7 +65,7 @@ def _fills(db_session, configuration: VehicleConfiguration) -> list[AuditEvent]:
 
 
 def _setup(db_session) -> uuid.UUID:
-    tenant_id = _seeded_tenant(db_session)  # mock catalogue, empty code map: every coded field NULL
+    tenant_id = _looked_up_tenant(db_session)  # mock catalogue, empty code map: every coded field NULL
     _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
     return tenant_id
 

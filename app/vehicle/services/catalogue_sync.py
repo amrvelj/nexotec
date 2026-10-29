@@ -6,64 +6,44 @@ this file resolves the connection itself via `get_enabled_connection`
 anything about vehicle's own tables — the same seam
 `get_enabled_connection`'s own docstring describes.
 
-Full seed vs. daily delta (ADR-023): a full per-tenant seed is flat-rate
-billed (no marginal cost per call under the licence), so onboarding always
-runs a full seed rather than a TTL cache that would just re-fetch the same
-content repeatedly for no reason. The daily delta calls `FzKeyChanged`
-with a `since` cursor that must never predate `today - 3 months`
-(auto-i-dat's own hard limit on `ChangedSince`) — past that window this
-module refuses the delta and falls back to a full reseed, loudly (the
-caller sees `fell_back_to_full_reseed=True` on the result, never a silent
-downgrade).
+No bulk retrieval, for any provider (ADR-023 as amended 2026-10-29; KAN-485).
+Anto's ruling: the auto-i-dat agreement permits single lookups only — never
+retrieving the whole catalogue, storing it or passing it on — and the demo
+provider follows the same rule so that nothing built on it assumes a full
+mirror. The full seed, the daily `FzKeyChanged` delta, its 3-month fallback
+reseed, the daily job that ran them and the sync-age alarm (A-12) built on
+their `System` watermark are gone; no adapter offers `FzKeyChanged` any more
+(`tests/architecture/test_no_bulk_catalogue_retrieval.py`). A variant reaches
+the catalogue only through a single lookup: identification's plate lookup and
+best match (`identification.py`, master data only) or `sync_catalogue_variant`
+below (master data plus this tenant's options, colours, tyres and images).
+`ProviderSyncState` rows written before the ruling are kept and still read by
+the platform's sync-status board; nothing writes them now.
 
-There is no dedicated "list every FzKey" capability in `ProviderAdapter` —
-a full seed is modeled as a delta "since the epoch" (`list_changed_keys`
-called with a date far in the past). Both adapters happen to already
-return their complete key set for any `since` (the mock always does; the
-real one is a provisional simplification, flagged here pending
-confirmation of whether auto-i-dat exposes a genuinely separate bulk
-export operation) — if that assumption is ever wrong for the real
-provider, this is the one place to add a dedicated "full export" adapter
-method.
+Provider data a lookup stored is kept indefinitely (Anto, 2026-10-29, KAN-487:
+paid for once): there is no retention window on any of these tables.
 
-The sync-age alarm (A-12) is a pure function over the persisted
-`ProviderSyncState.last_system_watermark_date` — refreshed by every
-delta/seed run regardless of whether that run found any changed keys —
-so a delta job that "succeeds" while doing nothing still keeps the
-watermark current, and the alarm still fires if the *provider's own*
-System date stops moving forward, independent of the delta job's own
-reported outcome.
-
-Per-FzKey isolation (KAN-78): each FzKey is synced in its own
-`call_capability` block, so a provider failure on one key (a Datenname the
-account is refused, a transport error) is still logged as an ERROR call and
-still charged to the connection's breaker by the gateway — and then caught
-here, recorded on `SyncResult.skipped` and `ProviderSyncState.pending_fz_keys`,
-and the run moves on to the next key. Only a `ProviderGatewayError` raised
-*by a call* is isolated this way; anything else is a bug and still aborts
-the run. A failure about the connection rather than the key — the breaker
-open, the connection disabled, or the adapter failing to build (a WSDL that
-will not load) — stops the loop: the keys not yet synced are recorded as
-pending without a call, the watermark is not fetched, and the run ends
-cleanly. A run therefore logs one call per FzKey plus one for
-`FzKeyChanged` and one for `System`, not one per run — and, because the
-gateway resolves an adapter per `call_capability`, builds the adapter that
-many times too.
+One lookup is one `call_capability` block and savepoint (KAN-78's per-key
+isolation): a provider failure — a Datenname the account is refused, a
+transport error — is logged by the gateway, charged to the connection's
+breaker, rolls this variant's writes back and comes back as a `SkippedFzKey`.
+Only a `ProviderGatewayError` raised *by a call* is handled this way; anything
+else is a bug and propagates. The gateway logs each provider request the block
+makes as its own call-log row (KAN-486), so one lookup shows up to five rows
+(`Fahrzeuge`, `Optionen`, `OptionenFarben`, `PneuDimTS`, `Bilder`).
 """
 
 import datetime as dt
 import logging
 import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final, Literal
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
-from app.core.base import utcnow
 from app.integration.public import (
-    CircuitOpenError,
     IntegrationConnection,
     ProviderGatewayError,
     VariantMasterData,
@@ -92,11 +72,9 @@ logger = logging.getLogger("app.vehicle.catalogue_sync")
 # connection.
 VEHICLE_DATA_PROVIDER_CODES = ("auto_i_dat", "auto_i_dat_mock")
 
-# auto-i-dat's own hard limit on FzKeyChanged's ChangedSince (PRD-Vehicles,
-# ADR-023) — miss it and only a full resync recovers.
-_DELTA_LOOKBACK_HARD_LIMIT_DAYS = 90
-_SYNC_AGE_ALARM_THRESHOLD_DAYS = 7  # A-12
-_EPOCH_FOR_FULL_SEED = dt.date(1970, 1, 1)
+# A-12's threshold, still used by the platform's sync-status board over the
+# rows written before the 2026-10-29 ruling (module docstring).
+_SYNC_AGE_ALARM_THRESHOLD_DAYS = 7
 
 _ENTITY_TYPE_MODEL_VARIANT = "model_variant"
 
@@ -126,46 +104,28 @@ _FILLABLE_MASTER_FIELDS: Final = ("model_year_to", "base_price", "werkscode")
 
 
 class NoVehicleDataConnectionError(Exception):
-    """Raised only by callers that need to fail loudly on "no contract" —
-    the daily job itself (app/integration/daily_jobs.py) never raises
-    this; it simply never calls sync for a tenant with no enabled
-    connection in the first place (PR-5's "fully usable module without a
-    provider contract" applies to reads, not to a job that has nothing to
-    do for that tenant).
+    """`sync_catalogue_variant` for a tenant with no enabled vehicle-data
+    connection — a lookup with no contract to make it under. Reads never
+    raise it (PR-5's "fully usable module without a provider contract").
     """
 
     def __init__(self, tenant_id: uuid.UUID) -> None:
         super().__init__(f"Tenant {tenant_id} has no enabled vehicle-data connection.")
 
 
-# The value `SkippedFzKey.field` takes for a key the run never sent to the
-# provider because the connection itself failed (see `_ConnectionFailed`).
-NOT_ATTEMPTED: Final = "not_attempted"
-
-SkippedField = Literal["master_data", "options", "colours", "tyre_specs", "images", "not_attempted"]
+SkippedField = Literal["master_data", "options", "colours", "tyre_specs", "images"]
 
 
 @dataclass(frozen=True)
 class SkippedFzKey:
-    """One FzKey a run did not sync in full. `field` is the call it failed
-    on (`master_data`, `options`, `colours`, `tyre_specs`, `images`) or
-    `NOT_ATTEMPTED`; `error` is the exception's class name, never its
+    """A variant `sync_catalogue_variant` did not sync in full. `field` is
+    the call it failed on; `error` is the exception's class name, never its
     message.
     """
 
     fz_key: str
     field: SkippedField
     error: str
-
-
-@dataclass(frozen=True)
-class SyncResult:
-    tenant_id: uuid.UUID
-    connection_id: uuid.UUID
-    provider_code: str
-    variants_synced: int
-    fell_back_to_full_reseed: bool = False
-    skipped: tuple[SkippedFzKey, ...] = ()
 
 
 @dataclass
@@ -217,41 +177,18 @@ def list_all_sync_states(db: Session) -> list[ProviderSyncState]:
     return list(db.scalars(select(ProviderSyncState).order_by(ProviderSyncState.tenant_id)).all())
 
 
-def _get_or_create_sync_state(db: Session, *, tenant_id: uuid.UUID, provider_code: str) -> ProviderSyncState:
-    state = get_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    if state is None:
-        state = ProviderSyncState(tenant_id=tenant_id, provider_code=provider_code)
-        db.add(state)
-        db.flush()
-    return state
-
-
 def compute_sync_age_alarm(sync_state: ProviderSyncState | None, *, today: dt.date) -> bool:
     """A-12: fires strictly after 7 days, never at exactly 7 — and never
     at all for a tenant that has no sync state yet (no contract, or never
     synced), since "never started" is a different, PR-5-shaped concern
-    from "started and then went stale".
+    from "started and then went stale". Read by the sync-status board only;
+    since the 2026-10-29 ruling no run refreshes the watermark (module
+    docstring).
     """
 
     if sync_state is None or sync_state.last_system_watermark_date is None:
         return False
     return (today - sync_state.last_system_watermark_date).days > _SYNC_AGE_ALARM_THRESHOLD_DAYS
-
-
-def check_sync_age_alarm_for_tenant(db: Session, *, tenant_id: uuid.UUID, today: dt.date | None = None) -> bool:
-    """Reads persisted state only — never makes a live provider call of
-    its own. Correctness relies on `run_daily_delta_for_tenant` (or
-    `seed_tenant_catalogue`) having refreshed `last_system_watermark_date`
-    today, which the daily job composition root
-    (app/integration/daily_jobs.py) always does before calling this.
-    """
-
-    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
-    if found is None:
-        return False
-    _connection, provider_code = found
-    state = get_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    return compute_sync_age_alarm(state, today=today or utcnow().date())
 
 
 def _upsert_brand(db: Session, *, display_name: str) -> Brand:
@@ -298,8 +235,8 @@ def find_variant_by_fz_key(db: Session, *, provider_code: str, fz_key: str) -> M
 
 def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMasterData) -> ModelVariant:
     """Keyed by `ProviderEntityRef(entity_type="model_variant", provider,
-    provider_key=fz_key)` — the natural idempotency key for a re-run seed
-    or a delta re-fetch of an already-known variant, so a variant that
+    provider_key=fz_key)` — the natural idempotency key for a repeated lookup
+    of an already-known variant, so a variant that
     hasn't changed at the provider is never duplicated locally.
     `Brand`/`ModelGroup` identity is resolved by slugified display name
     (a deterministic, provider-code-free key — Brand is not a
@@ -622,7 +559,7 @@ def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_nu
     Additive and idempotent: an existing `TypeApproval` row for the number
     is reused (the column is deliberately not unique, so the first row
     found is taken), an existing link is left alone, and a Typenschein the
-    provider stops reporting is not unlinked here — a delta never removes
+    provider stops reporting is not unlinked here — a lookup never removes
     catalogue facts.
     """
 
@@ -737,20 +674,18 @@ def _sync_tenant_variant_content(
     by their own natural key so a re-sync never duplicates a row.
 
     Nothing here consults an entitlement, and the four calls are not
-    independent of each other: they share this FzKey's one `vehicle_data`
-    `call_capability` block and savepoint (`_sync_one_key`), so a Datenname
-    the provider refuses for this account (the protocol documents no "not
-    entitled" signal — see `services/entitlement_probes.py` in
-    `app.integration`) ends this FzKey's sync and is charged to the
-    connection's breaker. Nothing this FzKey wrote is kept: the gateway logs
-    the failed call on a session of its own (KAN-90) and the savepoint rolls
-    this key's writes back, so the variant is never left half-synced; the
-    key goes onto `ProviderSyncState.pending_fz_keys` and is retried next
-    run. Other FzKeys in the run are unaffected (KAN-78). Degrading per
-    capability (KAN-38 exit criterion 3) still needs these calls split by
-    capability; until then `catalogue_entitlements` only ever degrades what
-    is *read*, never what is fetched. `progress.field` is set before each
-    call so a failure can say which one it was.
+    independent of each other: they share the lookup's one `vehicle_data`
+    `call_capability` block and savepoint (`sync_catalogue_variant`), so a
+    Datenname the provider refuses for this account (the protocol documents
+    no "not entitled" signal — see `services/entitlement_probes.py` in
+    `app.integration`) ends this variant's sync and is charged to the
+    connection's breaker. Nothing this lookup wrote is kept: the gateway logs
+    the failed request on a session of its own (KAN-90) and the savepoint
+    rolls this variant's writes back, so the variant is never left
+    half-synced. Degrading per capability (KAN-38 exit criterion 3) still
+    needs these calls split by capability; until then `catalogue_entitlements`
+    only ever degrades what is *read*, never what is fetched. `progress.field`
+    is set before each call so a failure can say which one it was.
 
     C-0 PR 1: the real Datennamen need more than an `FzKey` —
     `Optionen` needs the model year, `OptionenFarben` the `Werkscode`,
@@ -859,44 +794,31 @@ def _sync_tenant_variant_content(
     db.flush()
 
 
-@dataclass
-class _RunOutcome:
-    variants_synced: int = 0
-    skipped: list[SkippedFzKey] = field(default_factory=list)
-    # Set when the connection itself failed mid-run; the run stops calling
-    # the provider and does not fetch the watermark.
-    connection_failed: bool = False
-
-
-class _ConnectionFailed(Exception):
-    """A per-key `call_capability` failed before its block was entered —
-    the breaker is open, the connection is disabled, or the adapter could
-    not be built. None of that is about the key, so the loop stops."""
-
-    def __init__(self, cause: ProviderGatewayError) -> None:
-        super().__init__(type(cause).__name__)
-        self.error = type(cause).__name__
-
-
-def _sync_one_key(
-    db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str, fz_key: str,
-    actor_id: uuid.UUID | None, purpose: str,
+def sync_catalogue_variant(
+    db: Session, *, tenant_id: uuid.UUID, fz_key: str, actor_id: uuid.UUID | None = None,
+    purpose: str = "variant_lookup",
 ) -> SkippedFzKey | None:
-    """One FzKey in its own `call_capability` block and savepoint: the
-    gateway logs the call (SUCCESS or ERROR) on its own session and charges
-    or resets the breaker; a failure rolls back this key's writes and is
-    re-raised — caught here and returned as the skip. A synced key is
-    committed before the next one starts.
+    """One variant, fetched on its own: its master data, then its options,
+    colours, tyres and images — a single lookup, the only way this module
+    reaches the provider (ADR-023 as amended 2026-10-29; module docstring).
+    Not wired to a screen yet: loading a variant's details when it is opened
+    is KAN-211.
 
-    A `ProviderGatewayError` raised before the block is entered comes from
-    the gateway resolving the adapter (`CircuitOpenError`,
-    `ConnectionDisabledError`, a WSDL that will not load). They are about the
-    connection, not this key — so they are raised as `_ConnectionFailed` for
-    the caller to stop on. The gateway writes nothing for a refusal; a WSDL
-    that will not load is logged and charged to the breaker like any other
-    provider failure (KAN-108).
+    The whole lookup is one `call_capability` block and one savepoint: the
+    gateway logs each provider request (KAN-486) and charges or resets the
+    breaker once for the block; a provider failure rolls this variant's
+    writes back and comes back as the `SkippedFzKey` naming the call it was
+    on, so a variant is never left half-synced. A synced variant is
+    committed. A `ProviderGatewayError` raised before the block is entered is
+    about the connection, not this key — the breaker open, the connection
+    disabled or refused (KAN-489), an adapter that will not build — and is
+    raised as it came.
     """
 
+    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
+    if found is None:
+        raise NoVehicleDataConnectionError(tenant_id)
+    connection, provider_code = found
     progress = _KeyProgress()
     try:
         with call_capability(
@@ -904,7 +826,7 @@ def _sync_one_key(
         ) as adapter:
             progress.entered = True
             # Rolled back on any failure before the gateway sees it, so a
-            # refused key leaves nothing half-written (KAN-90's rule, per key).
+            # refused call leaves nothing half-written (KAN-90's rule).
             with db.begin_nested():
                 master = adapter.fetch_vehicle_master_data(fz_key)
                 variant = upsert_model_variant(db, provider_code=provider_code, master=master)
@@ -914,188 +836,7 @@ def _sync_one_key(
                 )
     except ProviderGatewayError as exc:
         if not progress.entered:
-            raise _ConnectionFailed(exc) from exc
+            raise
         return SkippedFzKey(fz_key=fz_key, field=progress.field, error=type(exc).__name__)
-    # Each synced key is committed on its own, so a later key — or a bug
-    # that aborts the run — never takes the keys already synced with it.
     db.commit()
     return None
-
-
-def _sync_keys(
-    db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str,
-    fz_keys: list[str], actor_id: uuid.UUID | None, purpose: str,
-) -> _RunOutcome:
-    """Every key is attempted unless the connection itself fails; a
-    provider failure on one key is recorded and the loop moves on. Once the
-    connection fails (`_ConnectionFailed`), that key and every later one
-    are recorded as `NOT_ATTEMPTED` without a call. Anything that is not a
-    `ProviderGatewayError` — a bug, a database error — propagates and
-    aborts the run, as before.
-    """
-
-    outcome = _RunOutcome()
-    for index, fz_key in enumerate(fz_keys):
-        try:
-            skipped = _sync_one_key(
-                db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, fz_key=fz_key,
-                actor_id=actor_id, purpose=purpose,
-            )
-        except _ConnectionFailed as failure:
-            outcome.connection_failed = True
-            outcome.skipped.extend(
-                SkippedFzKey(fz_key=key, field=NOT_ATTEMPTED, error=failure.error) for key in fz_keys[index:]
-            )
-            break
-        if skipped is None:
-            outcome.variants_synced += 1
-        else:
-            outcome.skipped.append(skipped)
-    return outcome
-
-
-def _keys_to_sync(changed: list[str], state: ProviderSyncState | None) -> list[str]:
-    """What the provider reports changed, then every key a previous run
-    left pending that is not already in that list — order kept, no key
-    twice.
-    """
-
-    keys = list(dict.fromkeys(changed))
-    seen = set(keys)
-    for entry in (state.pending_fz_keys if state is not None else []):
-        if entry["fz_key"] not in seen:
-            keys.append(entry["fz_key"])
-            seen.add(entry["fz_key"])
-    return keys
-
-
-def _save_run_progress(
-    db: Session, *, tenant_id: uuid.UUID, provider_code: str, today: dt.date, full_seed: bool,
-    skipped: list[SkippedFzKey],
-) -> ProviderSyncState:
-    """The run's one unconditional commit: cursor, seed time and pending
-    list. Kept apart from `_run`'s conditional watermark commit so the
-    ADR-047 guard can name this one as the delta's commit home.
-    """
-
-    run_at = utcnow()
-    state = _get_or_create_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    if full_seed:
-        state.last_full_seed_at = run_at
-    state.last_delta_cursor = today
-    state.pending_fz_keys = [
-        {"fz_key": s.fz_key, "field": s.field, "error": s.error, "failed_at": run_at.isoformat()}
-        for s in skipped
-    ]
-    db.commit()
-    return state
-
-
-def _run(
-    db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str,
-    since: dt.date, actor_id: uuid.UUID | None, purpose: str, today: dt.date, full_seed: bool,
-) -> SyncResult:
-    with call_capability(
-        db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
-    ) as adapter:
-        changed = adapter.list_changed_keys(since=since)
-
-    state = get_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    fz_keys = _keys_to_sync(changed, state)
-    outcome = _sync_keys(
-        db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, fz_keys=fz_keys,
-        actor_id=actor_id, purpose=purpose,
-    )
-
-    # Progress is written before the watermark call, so a run that skipped
-    # keys — or whose watermark call fails — still advances the cursor and
-    # keeps its pending list: nothing that failed is lost by moving on.
-    state = _save_run_progress(
-        db, tenant_id=tenant_id, provider_code=provider_code, today=today, full_seed=full_seed,
-        skipped=outcome.skipped,
-    )
-
-    # Not fetched once the connection has failed: the gateway would refuse
-    # or fail it again, and leaving the watermark untouched lets the A-12
-    # alarm notice a mirror that stops moving. The breaker can also open on
-    # the run's last key, which the loop never sees — that refusal ends the
-    # run the same way rather than raising out of it.
-    if not outcome.connection_failed:
-        try:
-            with call_capability(
-                db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
-            ) as adapter:
-                watermark = adapter.get_system_watermark()
-        except CircuitOpenError:
-            outcome.connection_failed = True
-        else:
-            state.last_system_watermark_date = watermark.update_date
-            state.last_system_checked_at = utcnow()
-            db.commit()
-
-    if outcome.skipped or outcome.connection_failed:
-        logger.warning(
-            "catalogue sync skipped %d of %d FzKeys", len(outcome.skipped), len(fz_keys),
-            extra={
-                "tenantId": str(tenant_id), "providerCode": provider_code,
-                "connectionFailed": outcome.connection_failed,
-            },
-        )
-
-    return SyncResult(
-        tenant_id=tenant_id, connection_id=connection.id, provider_code=provider_code,
-        variants_synced=outcome.variants_synced, skipped=tuple(outcome.skipped),
-    )
-
-
-def seed_tenant_catalogue(
-    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None = None, today: dt.date | None = None,
-) -> SyncResult:
-    """Full seed — every FzKey the connection's own account can see, flat-
-    rate billed (ADR-023), no TTL cache. Run once at onboarding, and
-    again automatically whenever a daily delta's own cursor has aged past
-    the 3-month `ChangedSince` hard limit.
-    """
-
-    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
-    if found is None:
-        raise NoVehicleDataConnectionError(tenant_id)
-    connection, provider_code = found
-    return _run(
-        db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, since=_EPOCH_FOR_FULL_SEED,
-        actor_id=actor_id, purpose="seed", today=today or utcnow().date(), full_seed=True,
-    )
-
-
-def run_daily_delta_for_tenant(
-    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None = None, today: dt.date | None = None,
-) -> SyncResult:
-    """The daily job's own per-tenant step. Refuses a delta whose cursor
-    predates the 3-month `ChangedSince` hard limit and falls back to a
-    full reseed instead of ever sending a request auto-i-dat would
-    reject — `fell_back_to_full_reseed=True` on the result makes this
-    visible to the caller (and, via PR-7's sync-status endpoint, to a
-    platform operator) rather than silent. Keys a previous run left
-    pending are retried alongside what `FzKeyChanged` reports (KAN-78).
-    """
-
-    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
-    if found is None:
-        raise NoVehicleDataConnectionError(tenant_id)
-    connection, provider_code = found
-    today = today or utcnow().date()
-
-    state = get_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    since = state.last_delta_cursor if state is not None else None
-    hard_limit = today - dt.timedelta(days=_DELTA_LOOKBACK_HARD_LIMIT_DAYS)
-    if since is None or since < hard_limit:
-        result = seed_tenant_catalogue(db, tenant_id=tenant_id, actor_id=actor_id, today=today)
-        return SyncResult(
-            tenant_id=result.tenant_id, connection_id=result.connection_id, provider_code=result.provider_code,
-            variants_synced=result.variants_synced, fell_back_to_full_reseed=True, skipped=result.skipped,
-        )
-
-    return _run(
-        db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, since=since,
-        actor_id=actor_id, purpose="delta", today=today, full_seed=False,
-    )

@@ -15,6 +15,7 @@ from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
 from app.vehicle.services import catalogue_entitlements, catalogue_sync
+from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
 from tests.token_support import dealer_group_of
 
@@ -97,7 +98,7 @@ def test_specification_flattens_option_groups_without_packages_entitlement(db_se
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
     _deny(db_session, connection.id, "packages")
 
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     master = MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100002")
     variant = catalogue_sync.upsert_model_variant(db_session, provider_code="auto_i_dat_mock", master=master)
 
@@ -113,14 +114,14 @@ def test_specification_hides_images_without_images_entitlement(db_session):
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
     _deny(db_session, connection.id, "images")
 
-    result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
 
     spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=variant.id)
     assert spec.images_available is False
     assert spec.images == []
     assert spec.dealer_can_upload_images is True
-    assert result.variants_synced == 3
+    assert db_session.query(ModelVariant).count() == 3
 
 
 def test_specification_carries_the_full_image_url(db_session):
@@ -128,7 +129,7 @@ def test_specification_carries_the_full_image_url(db_session):
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
 
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
 
     spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=variant.id)
@@ -147,7 +148,7 @@ def test_specification_carries_the_new_c_e_fields_on_options_colours_and_tyres(d
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
 
     golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
     spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=golf.id)
@@ -170,7 +171,7 @@ def test_specification_omits_option_relations_without_packages_entitlement(db_se
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
     _deny(db_session, connection.id, "packages")
 
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
 
     spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=golf.id)
@@ -182,7 +183,7 @@ def test_specification_renders_a_relation_with_the_related_option_denormalised(d
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
 
     golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
     options = {
@@ -250,7 +251,7 @@ def test_catalogue_specification_endpoint_for_a_matched_vehicle_with_full_entitl
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
 
     token = _token(tenant_id)
@@ -274,7 +275,7 @@ def test_variant_specification_endpoint_for_the_configurator(client, db_session)
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
 
     token = _token(tenant_id)
@@ -299,7 +300,7 @@ def test_variant_specification_endpoint_needs_no_manager_flag(client, db_session
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
 
     non_manager_token = create_access_token(

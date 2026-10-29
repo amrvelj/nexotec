@@ -7,6 +7,7 @@ import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexo
 import { api } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
+import { useFieldHint } from '../hooks/useFieldHint'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
@@ -186,6 +187,8 @@ export function IntegrationDealerView() {
   )
 }
 
+const AUTO_I_DAT_PROVIDER_CODE = 'auto_i_dat'
+
 function ConnectDialog({
   provider,
   onClose,
@@ -196,6 +199,7 @@ function ConnectDialog({
   onConnected: () => void
 }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox')
   const [secrets, setSecrets] = useState<Record<string, string>>({})
   const [configValues, setConfigValues] = useState<Record<string, string>>({})
@@ -236,7 +240,13 @@ function ConnectDialog({
       <Stack gap="sm">
         {error && <Text size="sm" c="red">{error}</Text>}
         <Select
-          label={t('integrationsList.fields.environment')}
+          // KAN-489 — the auto-i-dat test access is a Sandbox connection: the
+          // reminder of what its agreement allows. The gateway refuses it on
+          // the production server (services/gateway.py).
+          {...hint(
+            t('integrationsList.fields.environment'),
+            provider.providerCode === AUTO_I_DAT_PROVIDER_CODE ? t('integrationsList.connectModal.testAccessHint') : undefined,
+          )}
           data={[
             { value: 'sandbox', label: t('integrationEnums.environment.sandbox'), disabled: !provider.supportsSandbox },
             { value: 'production', label: t('integrationEnums.environment.production') },

@@ -37,11 +37,11 @@ from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
-# The seven Datennamen migrated onto the real `Suchen` transport in PR 1.
+# The Datennamen migrated onto the real `Suchen` transport in PR 1 (six since
+# `FzKeyChanged` went, 2026-10-29, KAN-485).
 # (datenname, adapter-method-name, kwargs-builder)
 _IMPLEMENTED: list[tuple[str, str, str]] = [
     ("Fahrzeuge", "fetch_vehicle_master_data", "fz_key"),
-    ("FzKeyChanged", "list_changed_keys", "since"),
     ("System", "get_system_watermark", "none"),
     ("Optionen", "fetch_options", "fz_key+model_year"),
     ("OptionenFarben", "fetch_colours", "werkscode"),
@@ -102,8 +102,6 @@ def _call(adapter: Any, method: str, selector: str, args: argparse.Namespace) ->
         return fn()
     if selector == "fz_key":
         return fn(args.fz_key)
-    if selector == "since":
-        return fn(since=dt.datetime.now(dt.UTC).date() - dt.timedelta(days=30))
     if selector == "fz_key+model_year":
         return fn(args.fz_key, model_year=args.model_year)
     if selector == "werkscode":

@@ -21,10 +21,6 @@ provider-specific.
 `None` — "never probed or declared" is a fact this registry reports, not
 a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
-`list_enabled_connection_tenant_ids_for_provider` (PR-4) is the daily-job
-composition root's own enumeration, never a direct query against
-`IntegrationConnection`/`IntegrationProvider` from outside this context.
-
 `resolve_adapter` (KAN-27) is `call_capability` without the call-log/
 circuit-breaker side effects — for a caller whose use of the adapter
 makes no provider I/O (validating data shape locally). A real provider
@@ -68,7 +64,6 @@ from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
-    list_enabled_connection_tenant_ids_for_provider,
     vin_decode_granted,
 )
 from app.integration.services.gateway import (
@@ -106,7 +101,6 @@ __all__ = [
     "call_capability",
     "get_enabled_connection",
     "get_entitlement",
-    "list_enabled_connection_tenant_ids_for_provider",
     "resolve_adapter",
     "vin_decode_granted",
 ]

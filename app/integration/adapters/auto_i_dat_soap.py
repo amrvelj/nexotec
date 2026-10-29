@@ -56,7 +56,6 @@ from app.integration.adapters.aes_decrypt import decrypt_aes_cbc
 from app.integration.adapters.auto_i_dat_parse import (
     AutoIDatResponseError,
     SuchenResult,
-    csv_list,
     date_ddmmyyyy,
     first_lang_text,
     parse_suchen_result,
@@ -91,6 +90,7 @@ from app.integration.errors import ProviderConfigurationError, ProviderTimeoutEr
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
+from app.integration.services.metering import provider_request
 from app.integration.services.resilience import DEFAULT_TIMEOUT_SECONDS, call_with_retry
 
 # Request every language so no label data is dropped at the transport.
@@ -363,48 +363,48 @@ class AutoIDatSoapAdapter:
         passwort = self._password()
         suchwerte_wire = _serialise_suchwerte(suchwerte)
         einstellungen_wire = _serialise_suchwerte(einstellungen)
-        try:
-            raw: str = call_with_retry(
-                lambda: self._client.Suchen(
-                    Benutzername=benutzername,
-                    Passwort=passwort,
-                    Sprache=sprache,
-                    Datenname=datenname,
-                    Suchwerte=suchwerte_wire,
-                    Einstellungen=einstellungen_wire,
+        # KAN-486: every attempt is one request to the provider and one
+        # call-log row named by the Datenname — the retry included; an answer
+        # refused below (empty, undecryptable, unparseable) is that request's
+        # own ERROR.
+        with provider_request(datenname, is_timeout=_is_timeout) as request:
+            try:
+                raw: str = call_with_retry(
+                    lambda: request.attempt(
+                        lambda: self._client.Suchen(
+                            Benutzername=benutzername,
+                            Passwort=passwort,
+                            Sprache=sprache,
+                            Datenname=datenname,
+                            Suchwerte=suchwerte_wire,
+                            Einstellungen=einstellungen_wire,
+                        )
+                    )
                 )
-            )
-        except Exception as exc:
-            # The one boundary where a foreign client's errors (requests'
-            # ConnectionError/Timeout, zeep's TransportError/Fault, a plain
-            # TimeoutError) become ours. Class name only, original chained:
-            # the message ends up in `integration_connection.last_error`.
-            raise _transport_error(f"{datenname}: the request to the provider failed ({type(exc).__name__}).", exc) from exc
-        if raw is None or not str(raw).strip():
-            # p4: an empty string means invalid Benutzername / Passwort /
-            # Sprache / Datenname. Caught here, before decrypt, so it
-            # surfaces as a rejection rather than an AES "ciphertext too
-            # short" error.
-            return parse_suchen_result(datenname, "")
-        xml_bytes = self._decrypt(_maybe_b64decode(raw), datenname=datenname)
-        return parse_suchen_result(datenname, xml_bytes)
+            except Exception as exc:
+                # The one boundary where a foreign client's errors (requests'
+                # ConnectionError/Timeout, zeep's TransportError/Fault, a plain
+                # TimeoutError) become ours. Class name only, original chained:
+                # the message ends up in `integration_connection.last_error`.
+                raise _transport_error(
+                    f"{datenname}: the request to the provider failed ({type(exc).__name__}).", exc
+                ) from exc
+            if raw is None or not str(raw).strip():
+                # p4: an empty string means invalid Benutzername / Passwort /
+                # Sprache / Datenname. Caught here, before decrypt, so it
+                # surfaces as a rejection rather than an AES "ciphertext too
+                # short" error.
+                return parse_suchen_result(datenname, "")
+            xml_bytes = self._decrypt(_maybe_b64decode(raw), datenname=datenname)
+            return parse_suchen_result(datenname, xml_bytes)
 
-    # -- the seven Datennamen (migrated onto _suchen) -------------------
+    # -- the six PR 1 Datennamen (migrated onto _suchen) -----------------
 
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
         result = self._suchen("Fahrzeuge", {"FzKey": fz_key}, einstellungen={"Typenscheine": "1"})
         # The caller's key is authoritative for a single-key fetch; a row's own
         # <FzKey> is what a multi-result search has to go on.
         return replace(_parse_vehicle_master_row(result.first), fz_key=fz_key)
-
-    def list_changed_keys(self, *, since: dt.date) -> list[str]:
-        # ChangedSince is TT.MM.JJJJ and may not predate today - 3 months
-        # (the caller enforces the window; p30). The result is one
-        # comma-joined <FzKeyList> string, not repeated elements.
-        result = self._suchen("FzKeyChanged", {"ChangedSince": since.strftime("%d.%m.%Y")})
-        if not result.rows:
-            return []
-        return csv_list(row_text(result.first, "FzKeyList"))
 
     def get_system_watermark(self) -> SystemWatermark:
         result = self._suchen("System")

@@ -13,7 +13,6 @@ from app.integration.adapters.auto_i_dat_parse import (
     AutoIDatResponseError,
     ProviderMaintenanceError,
     ProviderRejectedError,
-    csv_list,
     date_ddmmyyyy,
     first_lang_text,
     lang_texts,
@@ -87,7 +86,7 @@ def test_root_prefix_inconsistency_is_tolerated():
         "</AutoifFzKeyChanged>"
     )
     result = parse_suchen_result("FzKeyChanged", xml)
-    assert csv_list(row_text(result.first, "FzKeyList")) == ["174731", "175277", "175281"]
+    assert row_text(result.first, "FzKeyList") == "174731,175277,175281"
 
 
 def test_page_and_count_info_when_present():

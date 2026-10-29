@@ -47,10 +47,13 @@ _ENTITY_TYPE = "integration_connection"
 #               is NOT the sheet lines `vin` / `vin_ident_db` — those count VIN
 #               calls billed on the auto-i-dat sheet, this asks whether the
 #               tenant can decode a VIN at all; its row is a display cache.
-#   call label  What `call_capability(capability=...)` logs and keys the circuit
-#               breaker by: `vehicle_data` (catalogue_sync's umbrella over every
-#               Datenname it calls), `system_watermark`, `marketplace_publish`,
-#               and a probe's own sheet line. Never an entitlement.
+#   call label  What `call_capability(capability=...)` names a block by:
+#               `vehicle_data` (catalogue_sync's and identification's umbrella
+#               over the Datennamen they call), `system_watermark`,
+#               `marketplace_publish`, and a probe's own sheet line. Never an
+#               entitlement. Since KAN-486 the call log names each request
+#               by the provider's own operation (the Datenname, `FtpUpload`)
+#               and keeps the label only for a block that metered none.
 #
 # tests/architecture/test_capability_codes_are_in_the_vocabulary.py fails when
 # a consumer reads a code that is in none of the first two layers.
@@ -156,31 +159,6 @@ def get_enabled_connection(
             IntegrationConnection.enabled.is_(True),
         )
     )
-
-
-def list_enabled_connection_tenant_ids_for_provider(db: Session, *, provider_code: str) -> list[uuid.UUID]:
-    """The daily-job composition root's own enumeration (PR-4) — "which
-    tenants have an enabled connection to this provider_code" — so
-    `app/integration/daily_jobs.py` never queries `IntegrationConnection`/
-    `IntegrationProvider` directly (it lives outside this context) and
-    never needs to. Platform-scope rows (`tenant_id IS NULL`) are excluded
-    by construction: `IntegrationConnection.tenant_id.is_not(None)` isn't
-    even needed here since a NULL never appears in a `.distinct()` list
-    the caller then iterates as real tenant ids — included for clarity
-    anyway.
-    """
-
-    stmt = (
-        select(IntegrationConnection.tenant_id)
-        .join(IntegrationProvider, IntegrationProvider.id == IntegrationConnection.provider_id)
-        .where(
-            IntegrationProvider.provider_code == provider_code,
-            IntegrationConnection.enabled.is_(True),
-            IntegrationConnection.tenant_id.is_not(None),
-        )
-        .distinct()
-    )
-    return [tenant_id for tenant_id in db.scalars(stmt).all() if tenant_id is not None]
 
 
 def list_connections(
