@@ -34,6 +34,12 @@ const NUMBER_INPUT_MIN_WIDTH = 150
 // (KAN-267).
 export const PHONE_INPUT_MIN_WIDTH = COUNTRY_SELECT_WIDTH + 10 + NUMBER_INPUT_MIN_WIDTH
 
+// KAN-460 (Anto's answer on the ticket, option A): the compact country select shows
+// only flag and calling code («🇨🇭 +41», «🇱🇮 +423»); its list still names
+// every country in full. For the create dialog, too narrow for the full one.
+const COMPACT_COUNTRY_SELECT_WIDTH = 104
+export const COMPACT_PHONE_INPUT_MIN_WIDTH = COMPACT_COUNTRY_SELECT_WIDTH + 10 + NUMBER_INPUT_MIN_WIDTH
+
 // Longest-prefix match so e.g. +423 (Liechtenstein) isn't mis-split as +41
 // followed by a stray leading "3". Re-adds the trunk 0 stripped by emit()
 // below, so editing an existing customer shows the number back in the same
@@ -50,12 +56,21 @@ function splitE164(value: string): { countryCode: string; localNumber: string } 
 }
 
 interface PhoneInputProps {
+  /** The country select's accessible name ("Land"). */
   label: string
   value: string
   onChange: (value: string) => void
+  /** The compact country select (flag and code; KAN-460). */
+  compact?: boolean
 }
 
-export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
+/**
+ * A phone row's value editor (RepeatableRowGroup). Its two inputs carry no
+ * visible label of their own: the row group's header names the column once
+ * ("Nummer"), so a phone row is as tall as an e-mail row and the two line
+ * up (KAN-460). Each input keeps its accessible name.
+ */
+export function PhoneInput({ label, value, onChange, compact = false }: PhoneInputProps) {
   const { t } = useTranslation()
   const [countryCode, setCountryCode] = useState(() => (value ? splitE164(value).countryCode : DEFAULT_COUNTRY_CODE))
   const [localNumber, setLocalNumber] = useState(() => (value ? splitE164(value).localNumber : ''))
@@ -66,6 +81,9 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
     () => COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.flag} ${t(c.nameKey)} (${c.code})` })),
     [t],
   )
+  // Compact: the field shows flag and code, the list the full name.
+  const compactOptions = useMemo(() => COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.flag} ${c.code}` })), [])
+  const fullLabel = useMemo(() => new Map<string, string>(countryOptions.map((o) => [o.value, o.label])), [countryOptions])
 
   // Re-split whenever the external value changes (e.g. loading an existing
   // customer for edit, or the value a keystroke just emitted coming back) —
@@ -102,8 +120,11 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
     // row, which held the country select below its width (KAN-267).
     <Group grow preventGrowOverflow={false} gap="xs" align="flex-end" wrap="wrap">
       <Select
-        label={label}
-        data={countryOptions}
+        size="xs"
+        aria-label={label}
+        data={compact ? compactOptions : countryOptions}
+        renderOption={compact ? ({ option }) => fullLabel.get(option.value) ?? option.label : undefined}
+        comboboxProps={compact ? { width: COUNTRY_SELECT_WIDTH, position: 'bottom-start' } : undefined}
         value={countryCode}
         onChange={(next) => {
           const nextCode = next ?? DEFAULT_COUNTRY_CODE
@@ -111,10 +132,11 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
           emit(nextCode, localNumber)
         }}
         allowDeselect={false}
-        style={{ flex: `0 0 ${COUNTRY_SELECT_WIDTH}px` }}
+        style={{ flex: `0 0 ${compact ? COMPACT_COUNTRY_SELECT_WIDTH : COUNTRY_SELECT_WIDTH}px` }}
       />
       <TextInput
-        label={t('customerDetail.phoneInput.number')}
+        size="xs"
+        aria-label={t('customerDetail.phoneInput.number')}
         placeholder="791234567"
         style={{ flex: `1 1 ${NUMBER_INPUT_MIN_WIDTH}px`, minWidth: NUMBER_INPUT_MIN_WIDTH }}
         value={localNumber}

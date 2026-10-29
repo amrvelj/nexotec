@@ -43,7 +43,9 @@ interface ContactPointsEditorProps<TType extends string> {
   typeOptions: { value: TType; label: string }[]
   rows: ContactPointRow<TType>[]
   newRowType: TType
-  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
+  /** The value column's name — its header and the editor's accessible name (KAN-460). */
+  valueLabel: string
+  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean, accessibleName: string) => ReactNode
   /** Passed to RepeatableRowGroup: below it the row wraps (KAN-267). */
   valueEditorMinWidth?: number
   onCreate: (row: { type: TType; value: string }) => Promise<void>
@@ -62,6 +64,7 @@ interface ContactPointsEditorProps<TType extends string> {
  */
 export function ContactPointsEditor<TType extends string>({
   label,
+  valueLabel,
   addLabel,
   typeOptions,
   rows,
@@ -82,6 +85,7 @@ export function ContactPointsEditor<TType extends string>({
       <RepeatableRowGroup
         mode="detail"
         label={label}
+        valueLabel={valueLabel}
         addLabel={addLabel}
         formerLabel={t('customerDetail.contactPoints.former')}
         typeOptions={typeOptions}

@@ -10,7 +10,7 @@ import { customer, email, phone } from '../../test/fixtures'
 import type { CustomerEmailRead, CustomerPhoneRead } from '../../api/types'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
 import { CustomerCreateFlow } from '../CustomerCreateFlow'
-import { PHONE_INPUT_MIN_WIDTH } from '../PhoneInput'
+import { COMPACT_PHONE_INPUT_MIN_WIDTH, PHONE_INPUT_MIN_WIDTH } from '../PhoneInput'
 
 // WP-6c exit criterion (ADR-067): "a customer with two mobiles, a work
 // landline and a bounced email renders correctly in the create dialog and
@@ -20,8 +20,13 @@ import { PHONE_INPUT_MIN_WIDTH } from '../PhoneInput'
 
 const primaryPrefix = () => new RegExp(`^${i18n.t('customerDetail.contactPoints.primary')}`)
 const pressedCount = (buttons: HTMLElement[]) => buttons.filter((b) => b.getAttribute('aria-pressed') === 'true').length
-// KAN-267 — the kit row's value-editor slot (RepeatableRowGroup's `data-row-part`).
-const valueSlotFlex = (el: HTMLElement) => (el.closest('[data-row-part="value"]') as HTMLElement).style.flex
+// KAN-267 / KAN-460 — the column template of the kit row an input sits in
+// (RepeatableRowGroup's `data-column-template`): its value column never
+// below the editor's minimum.
+const columnTemplateOf = (el: HTMLElement) => (el.closest('[data-row-layout]') as HTMLElement).dataset.columnTemplate
+const phoneTemplate = `18px 130px minmax(min(${PHONE_INPUT_MIN_WIDTH}px, 100%), 1fr) 140px 104px 28px`
+// The create dialog's compact country select (KAN-460, option A).
+const compactPhoneTemplate = `18px 130px minmax(min(${COMPACT_PHONE_INPUT_MIN_WIDTH}px, 100%), 1fr) 140px 104px 28px`
 // The add row: Save sits in the row's trailing cluster (KAN-267), one level down.
 const addRowOf = (save: HTMLElement) => (save.closest('[data-row-part="trailing"]') as HTMLElement).parentElement as HTMLElement
 
@@ -119,13 +124,51 @@ describe('contact channels — detail screen (ADR-067)', () => {
     })
   })
 
-  it('a phone row keeps its country and number at the phone editor\'s width; an e-mail row at the default (KAN-267)', async () => {
+  it('a phone row keeps its country and number at the phone editor\'s width, and an e-mail row shares its template (KAN-267, KAN-460)', async () => {
     installCustomerBackend()
     renderDetail()
 
-    expect(valueSlotFlex(await screen.findByDisplayValue('0791110000'))).toBe(`1 1 ${PHONE_INPUT_MIN_WIDTH}px`)
-    expect(valueSlotFlex(screen.getByDisplayValue('hans.muster@example.ch'))).toBe('1 1 200px')
+    expect(columnTemplateOf(await screen.findByDisplayValue('0791110000'))).toBe(phoneTemplate)
+    // One column template for both groups: the rows line up.
+    expect(columnTemplateOf(screen.getByDisplayValue('hans.muster@example.ch'))).toBe(phoneTemplate)
   })
+
+  // KAN-460 — «I don't know what LABEL is»: the box had only a placeholder.
+  it.each(['de', 'fr', 'it', 'en'])(
+    'every contact row\'s label input has its column name and hint, the columns named once per group (%s)',
+    async (language) => {
+      await i18n.changeLanguage(language)
+      try {
+        installCustomerBackend()
+        renderDetail()
+        await screen.findByDisplayValue('0791110000')
+
+        const name = i18n.t('customerDetail.contactPoints.labelColumn')
+        const labelInputs = screen.getAllByRole('textbox', { name })
+        expect(labelInputs).toHaveLength(4) // three phones, one current e-mail
+        for (const input of labelInputs) {
+          expect(input).not.toHaveAttribute('placeholder')
+          expect(input).toHaveAccessibleDescription(i18n.t('customerDetail.contactPoints.labelHint'))
+        }
+        for (const consent of screen.getAllByRole('checkbox', { name: i18n.t('customerDetail.contactPoints.consent') })) {
+          expect(consent).toHaveAccessibleDescription(i18n.t('customerDetail.contactPoints.consentHint'))
+        }
+        const headers = [...document.querySelectorAll<HTMLElement>('[data-row-part="header"]')]
+        expect(headers.map((h) => h.textContent)).toEqual([
+          expect.stringContaining(i18n.t('customerDetail.contactPoints.phoneValueColumn')),
+          expect.stringContaining(i18n.t('customerDetail.contactPoints.emailValueColumn')),
+        ])
+        for (const header of headers) {
+          expect(header).toHaveTextContent(name)
+          expect(header.dataset.columnTemplate).toBe(phoneTemplate)
+        }
+        // The phone's own inputs keep their names without a label of their own.
+        expect(screen.getAllByRole('textbox', { name: i18n.t('customerDetail.phoneInput.number') })).toHaveLength(3)
+      } finally {
+        await i18n.changeLanguage('de')
+      }
+    },
+  )
 
   it('the preferred channel moves off the identity card, badges the contact-card header, and marks the primary of its kind (KAN-54)', async () => {
     installFakeBackend([
@@ -243,12 +286,12 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
     await user.click(save)
   }
 
-  it('the add row gives the phone editor its width (KAN-267)', async () => {
+  it('the add row gives the phone editor its width, the compact one in the dialog (KAN-267, KAN-460)', async () => {
     const user = userEvent.setup({ delay: null })
     const phoneBlock = await openCreateFlowAtStep2(user)
     await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
 
-    expect(valueSlotFlex(within(phoneBlock).getByLabelText(i18n.t('customerDetail.phoneInput.number')))).toBe(`1 1 ${PHONE_INPUT_MIN_WIDTH}px`)
+    expect(columnTemplateOf(within(phoneBlock).getByLabelText(i18n.t('customerDetail.phoneInput.number')))).toBe(compactPhoneTemplate)
   })
 
   it('two mobiles and a work landline render; the mobile primary is marked and re-marking moves it in one interaction', async () => {

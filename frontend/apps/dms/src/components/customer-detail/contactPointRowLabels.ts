@@ -20,7 +20,13 @@ export function contactPointRowLabels(t: (key: string, options?: Record<string, 
     confirm: t('customerDetail.contactPoints.confirm'),
     none: t('customerDetail.contactPoints.none'),
     genericError: t('customerDetail.errors.somethingWentWrong'),
-    labelFieldPlaceholder: t('customerDetail.contactPoints.labelPlaceholder'),
+    // KAN-460: the columns are named in a header row, the label and consent
+    // columns with a hint — «Bezeichnung» says WHICH number this is.
+    typeColumn: t('customerDetail.contactPoints.typeColumn'),
+    labelColumn: t('customerDetail.contactPoints.labelColumn'),
+    labelHint: t('customerDetail.contactPoints.labelHint'),
+    consentHint: t('customerDetail.contactPoints.consentHint'),
+    hintIcon: t('common.fieldHintIcon'),
     rowActions: (label: string) => t('customerDetail.contactPoints.rowActions', { label }),
   }
 }

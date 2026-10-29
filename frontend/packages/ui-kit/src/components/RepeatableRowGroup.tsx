@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Star } from "lucide-react";
 import { purple, radius, semantic, slate, spacing, white } from "../tokens";
+import { FieldLabel, VISUALLY_HIDDEN } from "./FieldHint";
 import { RowMenu } from "./RowMenu";
 
 export interface RepeatableRowValue {
@@ -50,6 +51,9 @@ export interface RepeatableRowGroupProps {
    * behind the "former ..." toggle instead of hiding them outright. */
   mode: "create" | "detail";
   label: string;
+  /** KAN-460 — the value column's name ("Nummer", "Adresse"): its header,
+   * and the accessible name `renderValueEditor` is handed for its input. */
+  valueLabel: string;
   /** "+ Add <thing>" — labelled with what it adds, never a bare "+ Add". */
   addLabel: string;
   formerLabel: string;
@@ -57,11 +61,14 @@ export interface RepeatableRowGroupProps {
   /** The type a freshly added row starts as. */
   defaultType: string;
   rows: RepeatableRowValue[];
-  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode;
-  /** The narrowest the value editor may get, in px (KAN-267). Below it the
-   * row wraps instead of squeezing the editor: the label, consent and menu
-   * move to a second line. A composite editor (a phone's country and
-   * number) passes what it needs to stay readable. */
+  /** `accessibleName` is `valueLabel`: the editor names its input with it
+   * (the column header says it once for every row, KAN-460). */
+  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean, accessibleName: string) => ReactNode;
+  /** The narrowest the value editor may get, in px (KAN-267). A group too
+   * narrow for the column template at that width stacks each row's cells,
+   * each with its own visible label, instead of squeezing the editor. A
+   * composite editor (a phone's country and number) passes what it needs
+   * to stay readable; groups meant to line up pass the same width. */
   valueEditorMinWidth?: number;
   onCreate: (draft: { type: string; value: string }) => Promise<void>;
   onUpdate: (id: string, patch: RepeatableRowPatch) => Promise<void>;
@@ -106,7 +113,15 @@ export interface RepeatableRowGroupLabels {
   none: string;
   /** Shown for a failed write when no `describeError` is given. */
   genericError: string;
-  labelFieldPlaceholder: string;
+  /** KAN-460 — the column names, said once per group in its header row and
+   * as each cell's accessible name; the label and consent columns carry a
+   * hint (an info icon beside the name, KAN-443). */
+  typeColumn: string;
+  labelColumn: string;
+  labelHint: string;
+  consentHint: string;
+  /** The hint icon's accessible name ("Hinweis"). */
+  hintIcon: string;
   /** KAN-291 — the row menu trigger's accessible name, given the group's
    * `label` ("Phone" → "Phone row actions"). */
   rowActions: (label: string) => string;
@@ -114,6 +129,47 @@ export interface RepeatableRowGroupLabels {
 
 // Wide enough for an e-mail address or a name in the kit's 13px type.
 const DEFAULT_VALUE_EDITOR_MIN_WIDTH = 200;
+
+// KAN-460 — one column template for every row of every group, so a phone
+// row and an e-mail row line up: star · type · value · label · consent ·
+// menu. Only the value column grows; the others are fixed, the star's kept
+// even when a group shows none. The header row uses the same template, and
+// each row names it in `data-column-template` (jsdom drops the `min()`).
+const STAR_COLUMN = 18;
+const TYPE_COLUMN = 130;
+const LABEL_COLUMN = 140;
+const CONSENT_COLUMN = 104;
+const MENU_COLUMN = 28;
+const COLUMN_GAP = 4; // --sp-xs
+
+function rowColumnTemplate(valueMinWidth: number): string {
+  return `${STAR_COLUMN}px ${TYPE_COLUMN}px minmax(min(${valueMinWidth}px, 100%), 1fr) ${LABEL_COLUMN}px ${CONSENT_COLUMN}px ${MENU_COLUMN}px`;
+}
+
+/** The narrowest group the template fits at its value minimum. */
+function templateMinWidth(valueMinWidth: number): number {
+  return STAR_COLUMN + TYPE_COLUMN + valueMinWidth + LABEL_COLUMN + CONSENT_COLUMN + MENU_COLUMN + 5 * COLUMN_GAP;
+}
+
+/** The group's own width, or null until it is known (jsdom has no layout:
+ * it reports 0, read as unknown — the template then renders). */
+function useGroupWidth(ref: React.RefObject<HTMLDivElement | null>): number | null {
+  const [width, setWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const measure = () => {
+      const measured = element.getBoundingClientRect().width;
+      setWidth(measured > 0 ? measured : null);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return width;
+}
 
 function isFormer(row: RepeatableRowValue): boolean {
   return Boolean(row.doNotUse) || Boolean(row.validTo && new Date(row.validTo).getTime() <= Date.now());
@@ -129,6 +185,7 @@ function isFormer(row: RepeatableRowValue): boolean {
 export function RepeatableRowGroup({
   mode,
   label,
+  valueLabel,
   addLabel,
   formerLabel,
   typeOptions,
@@ -146,6 +203,24 @@ export function RepeatableRowGroup({
   describeError,
 }: RepeatableRowGroupProps) {
   const L = labels;
+  const hintIdBase = useId();
+  const groupRef = useRef<HTMLDivElement>(null);
+  const groupWidth = useGroupWidth(groupRef);
+  // Too narrow for the template: each row stacks its cells, each with its
+  // own label (KAN-267's wrap, KAN-460's labels kept).
+  const stacked = groupWidth !== null && groupWidth < templateMinWidth(valueEditorMinWidth);
+  const template = rowColumnTemplate(valueEditorMinWidth);
+  const labelHintId = `${hintIdBase}-label-hint`;
+  const consentHintId = `${hintIdBase}-consent-hint`;
+  const hintLabels = { icon: L.hintIcon };
+  const labelHeading = <FieldLabel label={L.labelColumn} hint={L.labelHint} labels={hintLabels} />;
+  const consentHeading = <FieldLabel label={L.consent} hint={L.consentHint} labels={hintLabels} />;
+  const cell = (part: string, caption: ReactNode, content: ReactNode, style?: CSSProperties) => (
+    <div data-row-part={part} style={{ minWidth: 0, ...(stacked ? stackedCellStyle(part, valueEditorMinWidth) : {}), ...style }}>
+      {stacked && caption !== null && <div style={captionStyle}>{caption}</div>}
+      {content}
+    </div>
+  );
   const errorText = (err: unknown): string => describeError?.(err) ?? L.genericError;
 
   // "Real deletion only for same-session mistakes" — a row present when
@@ -291,8 +366,13 @@ export function RepeatableRowGroup({
 
     return (
       <div key={row.id}>
-        <div style={rowContainerStyle}>
-          {showStar && (
+        <div
+          data-row-layout={stacked ? "stacked" : "template"}
+          data-column-template={stacked ? undefined : template}
+          style={stacked ? stackedRowStyle : templateRowStyle(template)}
+        >
+          {/* The template keeps the star's column; a stacked row only a star. */}
+          {(!stacked || showStar) && cell("star", null, showStar && (
             <button
               type="button"
               onClick={() => void setPrimary(row)}
@@ -302,40 +382,55 @@ export function RepeatableRowGroup({
             >
               <Star size={14} fill={row.isPrimary ? purple[6] : "none"} color={row.isPrimary ? purple[6] : slate[3]} />
             </button>
+          ))}
+
+          {cell(
+            "type",
+            L.typeColumn,
+            <select
+              aria-label={L.typeColumn}
+              value={row.type}
+              onChange={(e) => void onUpdate(row.id, { type: e.target.value })}
+              style={typeSelectStyle}
+            >
+              {typeOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>,
           )}
 
-          <select
-            value={row.type}
-            onChange={(e) => void onUpdate(row.id, { type: e.target.value })}
-            style={{ flex: "0 0 130px", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 13, background: white }}
-          >
-            {typeOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          {cell("value", valueLabel, renderValueEditor(row.value, (v) => void onUpdate(row.id, { value: v }), false, valueLabel))}
 
-          <div data-row-part="value" style={valueEditorStyle(valueEditorMinWidth)}>
-            {renderValueEditor(row.value, (v) => void onUpdate(row.id, { value: v }), false)}
-          </div>
-
-          {/* One cluster, so a row too narrow for everything wraps it whole
-              onto a second line, right-aligned, instead of squeezing the
-              value editor (KAN-267). */}
-          <div data-row-part="trailing" style={trailingClusterStyle}>
+          {cell(
+            "label",
+            labelHeading,
             <input
+              aria-label={L.labelColumn}
+              aria-describedby={labelHintId}
               value={row.label ?? ""}
               onChange={(e) => void onUpdate(row.id, { label: e.target.value || null })}
-              placeholder={L.labelFieldPlaceholder}
-              style={{ width: 90, minWidth: 0, boxSizing: "border-box", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 12, color: slate[6] }}
-            />
+              style={labelInputStyle}
+            />,
+          )}
 
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: slate[5], flexShrink: 0 }}>
-              <input type="checkbox" checked={row.consentGranted} onChange={() => void toggleConsent(row)} />
-              {L.consent}
-            </label>
+          {cell(
+            "consent",
+            consentHeading,
+            <input
+              type="checkbox"
+              aria-label={L.consent}
+              aria-describedby={consentHintId}
+              checked={row.consentGranted}
+              onChange={() => void toggleConsent(row)}
+            />,
+            stacked ? undefined : { display: "flex", justifyContent: "center" },
+          )}
 
+          {cell(
+            "menu",
+            null,
             <RowMenu
               ariaLabel={L.rowActions(label)}
               groups={{
@@ -345,14 +440,14 @@ export function RepeatableRowGroup({
                 ],
                 destructive: draft ? [{ label: L.delete, icon: null, onClick: () => void deleteDraft(row) }] : [],
               }}
-            />
-          </div>
+            />,
+          )}
         </div>
         {/* FR-23 §1 — a granted consent shows (and edits) WHAT it covers
             and HOW it was given, on a second line so the main row stays
             legible. */}
         {row.consentGranted && consentScopeOptions && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs, marginLeft: showStar ? 19 : 0, marginTop: 2, fontSize: 11, color: slate[5] }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs, marginLeft: stacked ? 0 : STAR_COLUMN + COLUMN_GAP, marginTop: 2, fontSize: 11, color: slate[5] }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {L.consentScope}
               <select
@@ -386,7 +481,7 @@ export function RepeatableRowGroup({
             )}
           </div>
         )}
-        {rowErrors[row.id] && <div style={{ fontSize: 11, color: semantic.destructive.text, marginLeft: showStar ? 19 : 0 }}>{rowErrors[row.id]}</div>}
+        {rowErrors[row.id] && <div style={{ fontSize: 11, color: semantic.destructive.text, marginLeft: stacked ? 0 : STAR_COLUMN + COLUMN_GAP }}>{rowErrors[row.id]}</div>}
       </div>
     );
   };
@@ -402,8 +497,29 @@ export function RepeatableRowGroup({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
+    <div ref={groupRef} style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
+      {/* The hints the label and consent inputs of every row point at. */}
+      <span id={labelHintId} style={VISUALLY_HIDDEN}>
+        {L.labelHint}
+      </span>
+      <span id={consentHintId} style={VISUALLY_HIDDEN}>
+        {L.consentHint}
+      </span>
+
       {current.length === 0 && !adding && <div style={{ fontSize: 13, color: slate[4], fontStyle: "italic" }}>{L.none}</div>}
+
+      {/* KAN-460 — the columns named once per group, on the rows' own
+          template; a stacked group labels each cell instead. */}
+      {!stacked && (current.length > 0 || adding) && (
+        <div data-row-part="header" data-column-template={template} style={{ ...templateRowStyle(template), ...captionStyle }}>
+          <div />
+          <div>{L.typeColumn}</div>
+          <div>{valueLabel}</div>
+          <div>{labelHeading}</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>{consentHeading}</div>
+          <div />
+        </div>
+      )}
 
       {current.map(renderRow)}
 
@@ -412,6 +528,9 @@ export function RepeatableRowGroup({
           typeOptions={typeOptions}
           defaultType={defaultType}
           renderValueEditor={renderValueEditor}
+          valueLabel={valueLabel}
+          typeColumnLabel={L.typeColumn}
+          template={stacked ? null : template}
           valueEditorMinWidth={valueEditorMinWidth}
           saveLabel={L.save}
           cancelLabel={L.cancel}
@@ -443,6 +562,10 @@ interface AddRowProps {
   typeOptions: RepeatableRowTypeOption[];
   defaultType: string;
   renderValueEditor: RepeatableRowGroupProps["renderValueEditor"];
+  valueLabel: string;
+  typeColumnLabel: string;
+  /** The group's column template, or null when the group is stacked. */
+  template: string | null;
   valueEditorMinWidth: number;
   saveLabel: string;
   cancelLabel: string;
@@ -461,6 +584,9 @@ function AddRow({
   typeOptions,
   defaultType,
   renderValueEditor,
+  valueLabel,
+  typeColumnLabel,
+  template,
   valueEditorMinWidth,
   saveLabel,
   cancelLabel,
@@ -487,22 +613,28 @@ function AddRow({
   };
 
   return (
-    <div style={rowContainerStyle}>
-      <select
-        value={draftType}
-        onChange={(e) => setDraftType(e.target.value)}
-        style={{ flex: "0 0 130px", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 13, background: white }}
-      >
-        {typeOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <div data-row-part="value" style={valueEditorStyle(valueEditorMinWidth)}>
-        {renderValueEditor(draftValue, setDraftValue, true)}
+    <div
+      data-row-layout={template ? "template" : "stacked"}
+      data-column-template={template ?? undefined}
+      style={template ? templateRowStyle(template) : stackedRowStyle}
+    >
+      {template && <div />}
+      <div data-row-part="type" style={template ? undefined : stackedCellStyle("type", valueEditorMinWidth)}>
+        {/* Stacked, the add row's cells keep their labels too: no header names them (KAN-460). */}
+        {!template && <div style={captionStyle}>{typeColumnLabel}</div>}
+        <select aria-label={typeColumnLabel} value={draftType} onChange={(e) => setDraftType(e.target.value)} style={typeSelectStyle}>
+          {typeOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
-      <div data-row-part="trailing" style={trailingClusterStyle}>
+      <div data-row-part="value" style={template ? { minWidth: 0 } : stackedCellStyle("value", valueEditorMinWidth)}>
+        {!template && <div style={captionStyle}>{valueLabel}</div>}
+        {renderValueEditor(draftValue, setDraftValue, true, valueLabel)}
+      </div>
+      <div data-row-part="trailing" style={{ ...trailingClusterStyle, ...(template ? { gridColumn: "4 / span 3" } : {}) }}>
         <button type="button" onClick={() => void commitAdd()} disabled={!draftValue || addSaving} style={confirmButtonStyle}>
           {saveLabel}
         </button>
@@ -522,13 +654,43 @@ const rowContainerStyle: React.CSSProperties = {
   gap: spacing.xs,
 };
 
-// Grows into the row's free width and never below its minimum: a row
-// narrower than that wraps (KAN-267), where `minWidth: 0` used to let the
-// editor collapse to a few pixels. Capped at the row's width, so a very
-// narrow container still shows the editor whole on its own line.
-function valueEditorStyle(minWidth: number): React.CSSProperties {
-  return { flex: `1 1 ${minWidth}px`, minWidth: `min(${minWidth}px, 100%)` };
+function templateRowStyle(template: string): React.CSSProperties {
+  return { display: "grid", gridTemplateColumns: template, alignItems: "center", columnGap: spacing.xs };
 }
+
+// A group too narrow for the template (KAN-267): the cells wrap, the value
+// editor at its minimum (capped at the row's width, so a very narrow card
+// still shows it whole on its own line), never squeezed to a few pixels.
+const stackedRowStyle: React.CSSProperties = { ...rowContainerStyle, alignItems: "flex-end", rowGap: spacing.sm };
+
+function stackedCellStyle(part: string, valueMinWidth: number): React.CSSProperties {
+  if (part === "value") return { flex: `1 1 ${valueMinWidth}px`, minWidth: `min(${valueMinWidth}px, 100%)` };
+  if (part === "type") return { flex: `0 0 ${TYPE_COLUMN}px` };
+  if (part === "label") return { flex: `0 0 ${LABEL_COLUMN}px` };
+  return { flex: "0 0 auto" };
+}
+
+const captionStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: slate[5], marginBottom: 2 };
+
+const typeSelectStyle: React.CSSProperties = {
+  width: "100%",
+  border: `1px solid ${slate[2]}`,
+  borderRadius: radius.sm,
+  padding: "4px 6px",
+  fontSize: 13,
+  background: white,
+};
+
+const labelInputStyle: React.CSSProperties = {
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
+  border: `1px solid ${slate[2]}`,
+  borderRadius: radius.sm,
+  padding: "4px 6px",
+  fontSize: 13,
+  color: slate[6],
+};
 
 const trailingClusterStyle: React.CSSProperties = {
   display: "flex",

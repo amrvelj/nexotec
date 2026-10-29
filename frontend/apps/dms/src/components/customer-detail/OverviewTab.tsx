@@ -647,6 +647,20 @@ export function OverviewTab({
         </KeyValueRow>
       </OverviewCard>
 
+      <OverviewCard title={t('customerDetail.overview.cards.record')}>
+        <KeyValueRow label={f.customerNumber}>
+          <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace' }}>{customer.customerNumber}</span>
+        </KeyValueRow>
+        <KeyValueRow label={f.created}>{formatDate(customer.createdAt, locale)}</KeyValueRow>
+        <KeyValueRow label={f.lastChanged}>{formatDate(customer.updatedAt, locale)}</KeyValueRow>
+      </OverviewCard>
+
+      {/* KAN-460 (Anto's answer on the ticket, option A): the contact points take the
+          screen's full width, so phone and e-mail rows fit their one-line
+          column template with a header (about 872 px of row group, about
+          910 px of card; one card of two side by side is 530-610 px on a
+          1440-1600 px screen). Last, so the half-width cards keep their pairs. */}
+      <div data-card="contact-points" style={{ gridColumn: '1 / -1' }}>
       <OverviewCard
         title={t('customerDetail.overview.cards.contactPoints')}
         badge={<PreferredChannelBadge preferredChannel={customer.preferredChannel} />}
@@ -688,6 +702,7 @@ export function OverviewTab({
               consentTimestamp: p.consentTimestamp,
             }))}
             newRowType="mobile"
+            valueLabel={t('customerDetail.contactPoints.phoneValueColumn')}
             renderValueEditor={(value, onChange) => <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />}
             valueEditorMinWidth={PHONE_INPUT_MIN_WIDTH}
             onCreate={onCreatePhone}
@@ -713,23 +728,19 @@ export function OverviewTab({
               consentTimestamp: e.consentTimestamp,
             }))}
             newRowType="personal"
-            renderValueEditor={(value, onChange, autoFocus) => (
-              <TextInput size="xs" type="email" value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus={autoFocus} />
+            valueLabel={t('customerDetail.contactPoints.emailValueColumn')}
+            renderValueEditor={(value, onChange, autoFocus, name) => (
+              <TextInput size="xs" type="email" aria-label={name} value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus={autoFocus} />
             )}
+            // KAN-460: the phone group's width, so both groups share one column template and line up.
+            valueEditorMinWidth={PHONE_INPUT_MIN_WIDTH}
             onCreate={onCreateEmail}
             onUpdate={onUpdateEmail}
             onDelete={onDeleteEmail}
           />
         </Stack>
       </OverviewCard>
-
-      <OverviewCard title={t('customerDetail.overview.cards.record')}>
-        <KeyValueRow label={f.customerNumber}>
-          <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace' }}>{customer.customerNumber}</span>
-        </KeyValueRow>
-        <KeyValueRow label={f.created}>{formatDate(customer.createdAt, locale)}</KeyValueRow>
-        <KeyValueRow label={f.lastChanged}>{formatDate(customer.updatedAt, locale)}</KeyValueRow>
-      </OverviewCard>
+      </div>
       </SimpleGrid>
     </Stack>
   )
