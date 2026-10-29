@@ -215,9 +215,10 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `ff5b97c11665` re-keyed the open legacy gaps that `7c4e9a2b6d13`'s CodeGrpNr table maps, KAN-194). An unmapped code of a code-mapped field (the variant's
   `vehicle_kind`, `fuel_type`, `body_style`, `drivetrain`, `transmission`; an option's
   `equipment_feature`; a colour's `colour_area`, a tyre's `axle_position` and `tyre_type`, KAN-75)
-  becomes a `mapping_gap` (FR-C-10), never a silent default. **Open (KAN-75, asked 2026-10-28):** a
-  code the provider did not send at all is no value and no gap today — a colour without `FarbArt` is
-  then hidden with nothing for an admin to resolve.
+  becomes a `mapping_gap` (FR-C-10), never a silent default. **A code the provider did not send at
+  all is no value and no gap** (Anto, 2026-10-28, KAN-75 option C): a colour without `FarbArt` is
+  hidden, a tyre without an axle reads «Nicht zugeordnet». Revisit once a staging auto-i-dat account
+  shows whether it happens.
 - **Keep the provider's full image URL** (`ImageRef.image_url`); the provider returns a
   directly fetchable URL per image — no proxy, no base-URL reconstruction.
 - Stammnummer resolves only against our own data (vehicle-mdm, then the plate-lookup cache);
