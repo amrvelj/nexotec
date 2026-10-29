@@ -210,15 +210,15 @@ def register_daily_jobs() -> None:
     """Nine daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
-    1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
-       plus the A-12 sync-age alarm (PR-4), then ADR-024's retention purge
-       and ADR-025's expiry warnings / support digest (PR-6). One
-       composition root (app/integration/daily_jobs.py), one registration.
+    1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
+       retention purge and the support digest (PR-6). One composition root
+       (app/integration/daily_jobs.py), one registration. It ran the
+       catalogue delta sync too until no provider was asked for its whole
+       catalogue any more (2026-10-29, KAN-485).
     2. ``customer.vehicle_party_labels`` — KAN-84: re-reads every
        VehicleParty's denormalised vehicle label (VIN, number, make, model,
        year, trim) through app.vehicle.public, so a catalogue match or VIN
-       correction made after the link shows within a day. After the sync,
-       so a catalogue change it brought in reaches the labels the same night.
+       correction made after the link shows within a day.
     3. ``customer.advisor_labels`` — KAN-403: re-reads the name of every
        customer's advisor through app.platform.public, so a renamed user's
        new name reaches the customer cards within a day. A deactivated
@@ -231,9 +231,7 @@ def register_daily_jobs() -> None:
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
        reference; this job walking every context's ReferenceCheck list is
-       the entire compensating control. Registered after the sync so it
-       reconciles the state the catalogue delta just refreshed, not a
-       half-synced one; a finding is logged and swallowed (see
+       the entire compensating control. A finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run the same day.
     6. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it

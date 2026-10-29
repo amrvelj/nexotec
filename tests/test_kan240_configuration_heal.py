@@ -24,9 +24,9 @@ from app.vehicle.services import configuration as configuration_service
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.test_vehicle_catalogue_sync import (
     _fuel_gap,
+    _looked_up_tenant,
     _make_connection,
     _seed_reference_list,
-    _seeded_tenant,
     _variant,
 )
 
@@ -65,7 +65,7 @@ def _fills(db_session, configuration: VehicleConfiguration) -> list[AuditEvent]:
 
 
 def _setup(db_session) -> uuid.UUID:
-    tenant_id = _seeded_tenant(db_session)  # mock catalogue, empty code map: every coded field NULL
+    tenant_id = _looked_up_tenant(db_session)  # mock catalogue, empty code map: every coded field NULL
     _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
     return tenant_id
 

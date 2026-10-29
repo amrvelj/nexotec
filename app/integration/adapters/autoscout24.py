@@ -77,6 +77,7 @@ from app.integration.adapters.marketplace_base import (
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
+from app.integration.services.metering import provider_request
 
 _VEHICLE_TYPE_CAR = "10"  # Personenwagen — the only StockItem shape this codebase has today.
 
@@ -242,12 +243,18 @@ class AutoScout24Adapter:
         # AS24i importing whichever file it last saw, never "replace with
         # this," which is the entire ADR-062 safety property this module
         # exists to preserve).
-        try:
+        def upload() -> None:
             ftp = self._ftp_client_factory()
             try:
                 ftp.storbinary(f"STOR {filename}", io.BytesIO(payload))
             finally:
                 ftp.quit()
+
+        try:
+            # KAN-486: one delivery is one request to AutoScout24 and one
+            # call-log row.
+            with provider_request("FtpUpload") as request:
+                request.attempt(upload)
         except MarketplaceTransmissionError:
             raise
         except Exception as exc:

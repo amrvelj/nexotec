@@ -10,7 +10,8 @@ which already live inside this context, may call them.
 
 `call_capability` (PR-2) is the one way `app.vehicle` (PR-4) ever reaches
 a provider: it resolves the connection's own adapter, times the call, and
-writes exactly one `integration_call_log` row, success or failure. The
+writes one `integration_call_log` row per provider request the block sends
+(KAN-486), success or failure — or the block's one row when it sent none. The
 adapter data shapes (`VariantMasterData` etc.) are exported alongside it
 purely as return-type vocabulary for PR-4's own type hints — they carry
 no provider code in any field (the reading rule: "application code never
@@ -21,10 +22,6 @@ provider-specific.
 `None` — "never probed or declared" is a fact this registry reports, not
 a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
-`list_enabled_connection_tenant_ids_for_provider` (PR-4) is the daily-job
-composition root's own enumeration, never a direct query against
-`IntegrationConnection`/`IntegrationProvider` from outside this context.
-
 `resolve_adapter` (KAN-27) is `call_capability` without the call-log/
 circuit-breaker side effects — for a caller whose use of the adapter
 makes no provider I/O (validating data shape locally). A real provider
@@ -68,7 +65,6 @@ from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
-    list_enabled_connection_tenant_ids_for_provider,
     vin_decode_granted,
 )
 from app.integration.services.gateway import (
@@ -106,7 +102,6 @@ __all__ = [
     "call_capability",
     "get_enabled_connection",
     "get_entitlement",
-    "list_enabled_connection_tenant_ids_for_provider",
     "resolve_adapter",
     "vin_decode_granted",
 ]

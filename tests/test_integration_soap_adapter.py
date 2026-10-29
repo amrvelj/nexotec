@@ -102,12 +102,6 @@ _SPEC_XML: dict[str, str] = {
         "<UpdateDatum>30.08.2026</UpdateDatum><UpdateDatumMoto>14.02.2026</UpdateDatumMoto></System>"
         "</AutoiSystem>"
     ),
-    # p30
-    "FzKeyChanged": (
-        "<AutoifFzKeyChanged><Info><Status>0</Status><StatusMsg>OK</StatusMsg></Info>"
-        "<FzKeyChanged><FzKeyList>FZ100001,FZ100002,FZ100003</FzKeyList></FzKeyChanged>"
-        "</AutoifFzKeyChanged>"
-    ),
     # p15
     "Optionen": (
         "<AutoiOptionen><Info><Status>0</Status><StatusMsg>OK</StatusMsg></Info>"
@@ -374,20 +368,6 @@ def test_suchwerte_and_einstellungen_reach_the_wire_as_dsl_strings(db_session, m
     assert call["Suchwerte"] == "FzKey=141695"
     assert call["Einstellungen"] == "Typenscheine=1"
     assert call["Sprache"] == auto_i_dat_soap.DEFAULT_SPRACHE
-
-
-def test_list_changed_keys_parses_one_comma_joined_list_and_formats_the_date(db_session, monkeypatch):
-    import datetime as dt
-
-    provider = _make_provider(db_session)
-    connection = _make_connection(db_session, provider)
-    soap = FakeSoapClient()
-    adapter = _adapter(db_session, connection, soap_client=soap, monkeypatch=monkeypatch)
-
-    keys = adapter.list_changed_keys(since=dt.date(2026, 9, 1))
-
-    assert keys == ["FZ100001", "FZ100002", "FZ100003"]
-    assert soap.calls[-1]["Suchwerte"] == "ChangedSince=01.09.2026"  # TT.MM.JJJJ, not ISO
 
 
 def test_get_system_watermark_reads_modelljahr_and_updatedatum(db_session, monkeypatch):

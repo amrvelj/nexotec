@@ -35,15 +35,16 @@ from app.vehicle.models.configuration import (
 from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.configuration import ConfigurationCreate
-from app.vehicle.services import catalogue_sync, plate_lookup_cache
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import identification as svc
+from app.vehicle.services import plate_lookup_cache
 from app.vehicle.services.identification import (
     IdentificationNote,
     IdentificationOutcome,
     IdentifierKind,
     NewPriceSource,
 )
+from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 
 # --- fixtures -----------------------------------------------------------
@@ -73,14 +74,16 @@ def _connected_tenant(db, *, seed: bool = True) -> uuid.UUID:
         actor_id=uuid.uuid4(),
     )
     if seed:
-        catalogue_sync.seed_tenant_catalogue(db, tenant_id=tenant_id)
+        look_up_demo_variants(db, tenant_id)
     return tenant_id
 
 
 def _plate_calls(db, tenant_id) -> int:
     return db.scalar(
         select(func.count()).select_from(IntegrationCallLog).where(
-            IntegrationCallLog.tenant_id == tenant_id, IntegrationCallLog.capability == "kontrollschild"
+            # KAN-486: each request is logged under its Datenname, not the
+            # block's `kontrollschild` label.
+            IntegrationCallLog.tenant_id == tenant_id, IntegrationCallLog.capability == "KontrollschildInfo"
         )
     )
 

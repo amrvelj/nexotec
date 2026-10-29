@@ -218,14 +218,6 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.configuration.discard_configuration_copy",
         "sales: copy_offer's compensation, on its own session",
     ),
-    # The daily job composition root runs the catalogue delta per tenant.
-    # Since KAN-78 the run's unconditional sync-state commit lives in
-    # `_save_run_progress` (reached through `_run`), shared by the delta and
-    # the full seed it can fall back to.
-    "app.vehicle.public.run_daily_delta_for_tenant": (
-        "app.vehicle.services.catalogue_sync._save_run_progress",
-        "integration: daily_jobs",
-    ),
     # Every provider call writes exactly one integration_call_log row,
     # committed in record_call on the gateway's OWN session, never the
     # caller's (KAN-90; tests/test_integration_gateway.py pins that the
@@ -290,9 +282,6 @@ _READS = {
     "app.sales.public.valuations_carried_by_signed_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
-    # Reads persisted sync state only (its docstring); the daily job calls
-    # it after run_daily_delta_for_tenant has committed.
-    "app.vehicle.public.check_sync_age_alarm_for_tenant",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
     "app.vehicle.public.get_vehicle_equipment",

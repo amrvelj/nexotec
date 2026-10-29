@@ -1590,7 +1590,8 @@
       "connect": "Connetti"
     },
     "connectModal": {
-      "title": "Connetti {{provider}}"
+      "title": "Connetti {{provider}}",
+      "testAccessHint": "Sandbox è il vostro accesso di prova: solo con un account di servizio, mai con il token personale, e solo in ambienti di test. Sul server di produzione Nexotec lo rifiuta."
     },
     "usageModal": {
       "title": "Utilizzo — {{name}}",

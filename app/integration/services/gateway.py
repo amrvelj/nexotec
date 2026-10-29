@@ -9,10 +9,11 @@ points at.
 "No business data" (Integrations & API Credentials v0.1's own words) —
 this module writes `integration_call_log` (through `call_capability`'s
 own session, never the caller's — ADR-047, KAN-90), and reads nothing but
-`integration_connection`/`integration_provider`. The one other thing it
-writes is `integration_entitlement`, and only from `test_connection`'s
-probes (KAN-38 PR 2b) — registry metadata about the connection itself, not
-business data. PR-6 adds
+`integration_connection`/`integration_provider`. The other things it
+writes are `integration_entitlement`, only from `test_connection`'s probes
+(KAN-38 PR 2b) — registry metadata about the connection itself, not
+business data — and an `audit_event` when it refuses a sandbox connection
+on a production deployment (KAN-489). PR-6 adds
 one narrow exception: `call_capability`'s optional `capture_raw_payload`
 callable, which — if a caller supplies one — writes a SECOND row to the
 structurally separate `integration_call_payload` table (never this
@@ -32,20 +33,26 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.config import get_settings
 from app.core.errors import ConflictError
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
 from app.integration.errors import ProviderGatewayError, ProviderTimeoutError, ProviderTransportError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
-from app.integration.models.connection import ConnectionStatus, IntegrationConnection
+from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus, IntegrationConnection
 from app.integration.services import connections as connection_service
-from app.integration.services import entitlement_probes, resilience
+from app.integration.services import entitlement_probes, metering, resilience
 from app.integration.services import providers as provider_service
 from app.integration.services import retention as retention_service
 
 logger = logging.getLogger("app.integration.gateway")
+
+_AUDIT_ENTITY_TYPE = "integration_connection"
+# KAN-489: the deployments on which a sandbox (test access) connection may run.
+_NON_PRODUCTION_DEPLOYMENTS = frozenset({"development", "local", "test", "staging"})
 
 
 # `ProviderGatewayError` itself lives in `app.integration.errors` (a leaf, so
@@ -55,6 +62,22 @@ logger = logging.getLogger("app.integration.gateway")
 class ConnectionDisabledError(ProviderGatewayError):
     def __init__(self, connection_id: uuid.UUID) -> None:
         super().__init__(f"Connection {connection_id} is disabled.")
+
+
+class SandboxConnectionOnProductionError(ProviderGatewayError):
+    """KAN-489: a connection whose environment is `sandbox` is a test access
+    — for auto-i-dat, the identAPI test agreement, whose service account may
+    run in test environments only, never in production (§1). On a
+    deployment whose `DMS_ENVIRONMENT` is not a known non-production name
+    (`_NON_PRODUCTION_DEPLOYMENTS`) every call on it is refused before the
+    provider is reached, with an audit row; "Test connection" turns the
+    card's badge to error like any other failure."""
+
+    def __init__(self, connection_id: uuid.UUID) -> None:
+        super().__init__(
+            f"Connection {connection_id} is a sandbox (test access) connection; "
+            "it is never used on the production server."
+        )
 
 
 class UnknownProviderError(ProviderGatewayError):
@@ -100,6 +123,31 @@ def _adapter_factory(db: Session, connection: IntegrationConnection) -> _Adapter
     if factory is None:
         raise UnknownProviderError(provider.provider_code)
     return factory
+
+
+def _refuse_sandbox_on_production(
+    gateway_db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None, purpose: str
+) -> None:
+    """KAN-489 (`SandboxConnectionOnProductionError`). The audit row is
+    written and committed on the gateway's own session, never the caller's
+    (KAN-90): the refusal is a fact whether or not the caller's work commits."""
+
+    if connection.environment != ConnectionEnvironment.SANDBOX:
+        return
+    # Fails closed: any name but a known non-production one ("prod",
+    # "Production", a typo) counts as production. An UNSET DMS_ENVIRONMENT
+    # reads as "development" (app/core/config.py) and is not caught here —
+    # the production deployment must set it (render.yaml).
+    if get_settings().environment.strip().lower() in _NON_PRODUCTION_DEPLOYMENTS:
+        return
+    record_audit_event(
+        gateway_db, entity_type=_AUDIT_ENTITY_TYPE, entity_id=connection.id, tenant_id=connection.tenant_id,
+        action="sandbox_refused_in_production", actor_id=actor_id,
+        after={"environment": connection.environment.value, "purpose": purpose},
+    )
+    gateway_db.commit()
+    logger.warning("sandbox connection %s refused on a production deployment", connection.id)
+    raise SandboxConnectionOnProductionError(connection.id)
 
 
 def _resolve_adapter(
@@ -167,9 +215,12 @@ def call_capability(
     capture_raw_payload: Callable[[], str | None] | None = None,
 ) -> Iterator[ProviderAdapter]:
     """Yields the resolved adapter, timing the caller's own use of it and
-    writing exactly one `integration_call_log` row regardless of outcome.
-    A disabled connection or an open circuit breaker refuses BEFORE
-    resolving an adapter or writing a log row at all — "no business data"
+    writing an `integration_call_log` row for every provider request the
+    block sends (KAN-486, `services/metering.py`) — or, when the adapter
+    metered none, the block's one row, as before KAN-486.
+    A disabled connection, an open circuit breaker or a sandbox connection
+    on a production deployment (KAN-489; that one writes an audit row)
+    refuses BEFORE resolving an adapter or writing a log row at all — "no business data"
     extends to not logging a call that never reached the provider.
     Building the adapter is part of the call, not of the refusal: a provider
     I/O failure while building it (the auto-i-dat WSDL fetch) is logged and
@@ -207,50 +258,66 @@ def call_capability(
             data = adapter.fetch_vehicle_master_data(fz_key)
     """
 
+    # One block, one correlation: every row it writes carries the same id.
+    correlation_id = correlation_id or uuid.uuid4()
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as gateway_db:
         factory = _adapter_factory(gateway_db, connection)
+        _refuse_sandbox_on_production(gateway_db, connection, actor_id=actor_id, purpose=purpose or capability)
         # The provider lookup was a read: end its transaction so the
         # connection goes back to the pool for the length of the caller's
-        # block (a full catalogue seed, say) — and of the adapter's own
-        # construction, which may wait on the network.
+        # block — and of the adapter's own construction, which may wait on
+        # the network.
         gateway_db.commit()
-        started_at = time.monotonic()
-        try:
-            # KAN-108: built INSIDE the accounted part of the call. For
-            # `auto_i_dat` this fetches the WSDL when the connection has no
-            # cached copy (KAN-213) — the first thing to hang when
-            # the provider's host does — and before KAN-108 a failure here
-            # escaped both the breaker and the call log. Only a transport
-            # failure is accounted: a `ProviderConfigurationError` (no
-            # `wsdlUrl`) is the dealer's to fix, never reached the provider,
-            # and passes through uncounted and unlogged, like the refusals in
-            # `_adapter_factory`.
-            adapter = factory(gateway_db, connection, actor_id, purpose or capability)
-        except ProviderTransportError as exc:
-            _record_failed_call(
-                gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
-                correlation_id=correlation_id, capture_raw_payload=None,
-            )
-            raise
-        try:
-            yield adapter
-        except Exception as exc:
-            _record_failed_call(
-                gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
-                correlation_id=correlation_id, capture_raw_payload=capture_raw_payload,
-            )
-            raise
-        else:
-            duration_ms = int((time.monotonic() - started_at) * 1000)
-            resilience.record_success(connection.id)
+
+        def record_request(operation: str, status: CallStatus, duration_ms: int, cost_units: Decimal | None):
             _bound_lock_wait(gateway_db)
-            log = record_call(
-                gateway_db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
-                duration_ms=duration_ms, correlation_id=correlation_id,
+            return record_call(
+                gateway_db, connection=connection, capability=operation, status=status, duration_ms=duration_ms,
+                cost_units=cost_units, correlation_id=correlation_id,
             )
-            _maybe_capture_payload(
-                gateway_db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload
-            )
+
+        started_at = time.monotonic()
+        with metering.metering(record_request) as meter:
+            try:
+                # KAN-108: built INSIDE the accounted part of the call. For
+                # `auto_i_dat` this fetches the WSDL when the connection has no
+                # cached copy (KAN-213) — the first thing to hang when
+                # the provider's host does — and before KAN-108 a failure here
+                # escaped both the breaker and the call log. Only a transport
+                # failure is accounted: a `ProviderConfigurationError` (no
+                # `wsdlUrl`) is the dealer's to fix, never reached the provider,
+                # and passes through uncounted and unlogged, like the refusals in
+                # `_adapter_factory`.
+                adapter = factory(gateway_db, connection, actor_id, purpose or capability)
+            except ProviderTransportError as exc:
+                _record_failed_call(
+                    gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
+                    correlation_id=correlation_id, capture_raw_payload=None, meter=meter,
+                )
+                raise
+            try:
+                yield adapter
+            except Exception as exc:
+                _record_failed_call(
+                    gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
+                    correlation_id=correlation_id, capture_raw_payload=capture_raw_payload, meter=meter,
+                )
+                raise
+            else:
+                resilience.record_success(connection.id)
+                if meter.requests:
+                    # KAN-486: each request is its own row already.
+                    log = meter.last_log
+                else:
+                    duration_ms = int((time.monotonic() - started_at) * 1000)
+                    _bound_lock_wait(gateway_db)
+                    log = record_call(
+                        gateway_db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
+                        duration_ms=duration_ms, correlation_id=correlation_id,
+                    )
+                _maybe_capture_payload(
+                    gateway_db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload
+                )
 
 
 def _record_failed_call(
@@ -262,19 +329,35 @@ def _record_failed_call(
     started_at: float,
     correlation_id: uuid.UUID | None,
     capture_raw_payload: Callable[[], str | None] | None,
+    meter: metering.CallMeter,
 ) -> None:
-    """Charges the breaker and writes the call's one log row. A transport
-    timeout is logged as `TIMEOUT` (KAN-108), every other failure as
-    `ERROR`; both count toward the breaker alike."""
+    """Charges the breaker — once per block, whatever it sent — and, when
+    the block metered no request of its own (KAN-486), writes the block's
+    one log row: `TIMEOUT` for a transport timeout (KAN-108), `ERROR` for
+    every other failure; both count toward the breaker alike.
 
-    duration_ms = int((time.monotonic() - started_at) * 1000)
-    status = CallStatus.TIMEOUT if isinstance(exc, ProviderTimeoutError) else CallStatus.ERROR
+    A block that did meter requests already has a row for each. When the
+    newest of them still reads `SUCCESS`, the failure came after its answer
+    arrived — an answer the caller refused (`System` with no row, a
+    `Fahrzeuge` miss read through `.first`) or the caller's own error — and
+    that row is marked as the failure, so the log never shows a failed,
+    breaker-charged call as a success. No extra row: nothing more was sent."""
+
     resilience.record_failure(connection.id)
-    _bound_lock_wait(gateway_db)
-    log = record_call(
-        gateway_db, connection=connection, capability=capability, status=status,
-        duration_ms=duration_ms, correlation_id=correlation_id,
-    )
+    if meter.requests:
+        log = meter.last_log
+        if log is not None and log.status == CallStatus.SUCCESS:
+            log.status = CallStatus.TIMEOUT if isinstance(exc, ProviderTimeoutError) else CallStatus.ERROR
+            _bound_lock_wait(gateway_db)
+            gateway_db.commit()
+    else:
+        duration_ms = int((time.monotonic() - started_at) * 1000)
+        status = CallStatus.TIMEOUT if isinstance(exc, ProviderTimeoutError) else CallStatus.ERROR
+        _bound_lock_wait(gateway_db)
+        log = record_call(
+            gateway_db, connection=connection, capability=capability, status=status,
+            duration_ms=duration_ms, correlation_id=correlation_id,
+        )
     _maybe_capture_payload(gateway_db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload)
 
 
@@ -294,9 +377,10 @@ def _bound_lock_wait(db: Session) -> None:
 
 
 def _maybe_capture_payload(
-    db: Session, *, log: IntegrationCallLog, kind: PayloadKind, capture_raw_payload: Callable[[], str | None] | None
+    db: Session, *, log: IntegrationCallLog | None, kind: PayloadKind,
+    capture_raw_payload: Callable[[], str | None] | None,
 ) -> None:
-    if capture_raw_payload is None:
+    if capture_raw_payload is None or log is None:
         return
     payload = capture_raw_payload()
     if payload is not None:
@@ -372,8 +456,9 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
 
 def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> None:
     """A refusal is caught *inside* the `call_capability` block, so the
-    gateway records it as a successful call and the connection's circuit
-    breaker is not charged: the provider answered coherently, and what it
+    block succeeds and the connection's circuit breaker is not charged; the
+    refused request itself is logged as `ERROR` under its Datenname
+    (KAN-486) — the provider did refuse it: the provider answered coherently, and what it
     said was "not this capability". That is the per-capability degradation
     the per-connection breaker would otherwise defeat — one un-entitled
     capability must not take the connection's other capabilities offline.

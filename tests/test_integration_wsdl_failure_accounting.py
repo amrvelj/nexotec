@@ -229,6 +229,8 @@ def test_an_operation_that_times_out_inside_the_callers_block_is_logged_as_timeo
         exc, _ = _run_with_watchdog(lambda: _call(db_session, connection))
 
     assert isinstance(exc, ProviderTimeoutError), exc
-    assert _failures(connection) == 1
-    assert _logged(db_session, connection) == [CallStatus.TIMEOUT]
+    assert _failures(connection) == 1  # the breaker counts the block once
+    # `call_with_retry` sent the request twice, and each attempt is a row of
+    # its own (KAN-486): the provider received two requests.
+    assert _logged(db_session, connection) == [CallStatus.TIMEOUT, CallStatus.TIMEOUT]
     resilience.reset_circuit(connection.id)

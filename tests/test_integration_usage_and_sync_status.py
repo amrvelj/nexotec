@@ -3,6 +3,7 @@ and the fleet-wide catalogue sync-status endpoint (platform view's own
 health board).
 """
 
+import datetime as dt
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
@@ -11,7 +12,7 @@ from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.vehicle.services import catalogue_sync
+from app.vehicle.models.catalogue_mirror import ProviderSyncState
 from tests.token_support import dealer_group_of
 
 
@@ -39,6 +40,16 @@ def _platform_admin_token() -> str:
         user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.PLATFORM_ADMIN}), is_dealer_manager=False,
     )
+
+
+def _legacy_sync_state(db_session, *, tenant_id: uuid.UUID, watermark: dt.date) -> ProviderSyncState:
+    state = ProviderSyncState(
+        tenant_id=tenant_id, provider_code="auto_i_dat_mock", last_full_seed_at=dt.datetime.now(dt.UTC),
+        last_delta_cursor=watermark, last_system_watermark_date=watermark, pending_fz_keys=[],
+    )
+    db_session.add(state)
+    db_session.commit()
+    return state
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -124,14 +135,16 @@ def test_catalogue_sync_status_lists_every_tenant_and_flags_staleness(client, db
         data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
         actor_id=uuid.uuid4(),
     )
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    # A state row as the full seed wrote it before KAN-485 removed the
+    # seed: the board still shows such rows (nothing writes them now).
+    _legacy_sync_state(db_session, tenant_id=tenant_id, watermark=dt.datetime.now(dt.UTC).date())
 
     response = client.get("/v1/vehicle-mdm/catalogue-sync-status", headers=_bearer(_platform_admin_token()))
     assert response.status_code == 200, response.text
     rows = response.json()
     assert len(rows) == 1
     assert rows[0]["tenantId"] == str(tenant_id)
-    assert rows[0]["stale"] is False  # just seeded, today's watermark
+    assert rows[0]["stale"] is False  # today's watermark
 
 
 def test_catalogue_sync_status_shows_the_keys_the_last_run_left_pending(client, db_session):
@@ -146,9 +159,7 @@ def test_catalogue_sync_status_shows_the_keys_the_last_run_left_pending(client, 
         data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
         actor_id=uuid.uuid4(),
     )
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
-    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
-    assert state.pending_fz_keys == []
+    state = _legacy_sync_state(db_session, tenant_id=tenant_id, watermark=dt.datetime.now(dt.UTC).date())
     state.pending_fz_keys = [
         {"fz_key": "FZ100002", "field": "images", "error": "ProviderGatewayError", "failed_at": "2026-10-07T08:00:00+00:00"}
     ]

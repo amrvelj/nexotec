@@ -29,7 +29,8 @@ as any change to what it states. -->
   (`TEST_METADATA`; KAN-332, pinned by `tests/test_demo_models_off_production_base.py`).
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
-  is wrong — raise it. They guard: gateway-only auto-i-dat calls, the capability vocabulary,
+  is wrong — raise it. They guard: gateway-only auto-i-dat calls, no bulk catalogue retrieval
+  and no daily job reaching a provider (KAN-485), the capability vocabulary,
   catalogue browse without provider calls, configurations never writing vehicle-mdm, margin
   never in a rendered document, no ambient group reads, layout code only in the document
   renderer, password-shaped columns in `credential` and nowhere else and no second credential

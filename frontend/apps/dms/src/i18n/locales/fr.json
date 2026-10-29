@@ -1590,7 +1590,8 @@
       "connect": "Connecter"
     },
     "connectModal": {
-      "title": "Connecter {{provider}}"
+      "title": "Connecter {{provider}}",
+      "testAccessHint": "Sandbox est votre accès de test : uniquement avec un compte de service, jamais avec le jeton personnel, et uniquement dans des environnements de test. Sur le serveur de production, Nexotec le refuse."
     },
     "usageModal": {
       "title": "Utilisation — {{name}}",

@@ -23,6 +23,7 @@ from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
+from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.test_vehicle_catalogue_sync import _make_connection, _make_mock_provider
 
 _VERSIONS = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions" / "vehicle"
@@ -217,7 +218,7 @@ def test_every_gap_the_catalogue_sync_records_carries_a_semantic_code_group(db_s
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
 
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
 
     groups = {gap.code_group for gap in db_session.scalars(select(MappingGap))}
     assert groups, "the mock sync with an empty code map must record gaps"

@@ -18,14 +18,6 @@ from app.vehicle.models.spec_block import (
 )
 from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleStatus
 from app.vehicle.models.vehicle_mdm import VehicleMdm
-from app.vehicle.services.catalogue_sync import (
-    NoVehicleDataConnectionError,
-    SkippedFzKey,
-    SyncResult,
-    check_sync_age_alarm_for_tenant,
-    run_daily_delta_for_tenant,
-    seed_tenant_catalogue,
-)
 from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
 from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
 from app.vehicle.services.host_configuration import (
@@ -235,15 +227,11 @@ __all__ = [
     "ConfigurationPriceLine",
     "CustodyEventType",
     "HostConfiguration",
-    "NoVehicleDataConnectionError",
-    "SkippedFzKey",
-    "SyncResult",
     "Vehicle",
     "VehicleConfiguration",
     "VehicleMdm",
     "VehicleStatus",
     "VehicleSummary",
-    "check_sync_age_alarm_for_tenant",
     "copy_configuration_for_host",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
@@ -255,9 +243,7 @@ __all__ = [
     "get_vehicle_summaries",
     "has_current_energy_rating",
     "match_vehicle",
-    "run_daily_delta_for_tenant",
     "run_daily_plate_lookup_purge",
-    "seed_tenant_catalogue",
     "spec_block_as_dict",
     "spec_block_field_names",
 ]

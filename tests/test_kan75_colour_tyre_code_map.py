@@ -16,6 +16,7 @@ from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.models.catalogue_mirror import ColourCache, TyreSpecCache
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_admin, catalogue_entitlements, catalogue_sync
+from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.colour_tyre_code_map_support import (
     code_map_migration,
     reference_values_migration,
@@ -36,7 +37,7 @@ def _sync_tenant(db_session) -> uuid.UUID:
         provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
     return tenant_id
 
 
@@ -285,7 +286,7 @@ def test_two_raw_axle_codes_mapped_onto_one_value_stay_two_rows(db_session, monk
 
     monkeypatch.setattr(MockAutoIDatAdapter, "fetch_tyre_specs", tyres)
     tenant_id = _sync_tenant(db_session)
-    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)  # a re-sync keeps the two rows
+    look_up_demo_variants(db_session, tenant_id)  # a re-sync keeps the two rows
 
     assert {key: (t.axle, t.size) for key, t in _tyres(db_session, tenant_id).items()} == {
         ("2", "121"): ("front", "225/45 R18"), ("5", "121"): ("front", "235/40 R18"),
