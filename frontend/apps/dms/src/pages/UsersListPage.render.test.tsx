@@ -368,6 +368,10 @@ describe('UsersListPage — the user\'s own settings are columns (KAN-413)', () 
     expect(grid.getByText(i18n.t('usersAdmin.correspondenceLanguageDefault'))).toBeInTheDocument()
     expect(grid.getByText('Anna Keller · Verkaufsberaterin')).toBeInTheDocument()
 
+    // ADR-060: who created and last changed the row are columns too.
+    expect(screen.getByRole('checkbox', { name: new RegExp(`^${i18n.t('usersAdmin.columns.createdBy')}$`) })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: new RegExp(`^${i18n.t('usersAdmin.columns.updatedBy')}$`) })).toBeInTheDocument()
+
     await ui.click(screen.getByRole('columnheader', { name: new RegExp(language) }))
     await waitFor(() => {
       const calls = backend.callsTo(/\/dealerships\/dealership-1\/users$/)

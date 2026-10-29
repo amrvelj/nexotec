@@ -80,6 +80,26 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
   })
 
+  // A disabled fieldset does not stop a NumberInput's steppers (they act on
+  // pointer-down): read-only, the number inputs show none.
+  it('the number inputs show no steppers', async () => {
+    install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007', vehicleSource: 'manual', vehicleSnapshotFrozenAt: null, discountType: 'percent' }))
+    renderWorkspace()
+
+    for (const key of [
+      'offerWorkspace.leasing.downPayment',
+      'offerWorkspace.leasing.termMonths',
+      'offerWorkspace.leasing.kmPerYear',
+      'offerWorkspace.pricing.manualBasePrice',
+      'offerWorkspace.pricing.discountValue',
+    ]) {
+      const input = await screen.findByRole('textbox', { name: i18n.t(key) })
+      expect(input).toBeDisabled()
+      const wrapper = input.closest('.mantine-NumberInput-root') as HTMLElement
+      expect(wrapper.querySelectorAll('button')).toHaveLength(0)
+    }
+  })
+
   it('an offer without a live contract stays editable and names none', async () => {
     install(offer())
     renderWorkspace()

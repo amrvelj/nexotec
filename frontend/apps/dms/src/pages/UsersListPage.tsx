@@ -342,6 +342,10 @@ export function UsersListPage() {
         'correspondenceLanguage',
       ),
       text('signatureBlock', t('usersAdmin.columns.signatureBlock'), (row) => row.signatureBlock?.replace(/\s*\n\s*/g, ' · '), false, 'signatureBlock'),
+      // ADR-060: who created and last changed the row are stored too (by id;
+      // shown by name, not sortable — the API sorts no actor column).
+      text('createdBy', t('usersAdmin.columns.createdBy'), (row) => (row.createdBy ? colleagueName(row.createdBy) : null)),
+      text('updatedBy', t('usersAdmin.columns.updatedBy'), (row) => (row.updatedBy ? colleagueName(row.updatedBy) : null)),
       {
         id: 'createdAt',
         header: t('usersAdmin.columns.createdAt'),

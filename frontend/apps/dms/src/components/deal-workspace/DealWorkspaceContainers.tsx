@@ -18,6 +18,7 @@ import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { customerName } from '../../utils/customer'
 import { formatCurrencyChf } from '../../utils/format'
+import { apiRefusalText } from '../../utils/apiRefusal'
 import { isVinRefusal } from '../../utils/vin'
 import type {
   ConfigurationRead,
@@ -63,11 +64,12 @@ const routeSegment = (ownerType: SalesDealOwnerType) => (ownerType === 'offer' ?
 const reportedByHost = () => undefined
 
 // KAN-426 — a save refused because the offer has a live contract (KAN-408)
-// says so in every container, in the words the workspace's own banner uses;
-// null for any other failure, which keeps the container's own message.
+// says so in every container, through the one refusal helper (apiRefusalText,
+// the words the workspace's own banner uses); null for any other failure,
+// which keeps the container's own message.
 const liveContractRefusal = (t: TFunction, err: unknown): string | null =>
   err instanceof ApiError && err.status === 409 && err.details?.reason === 'offer_has_contract'
-    ? t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: String(err.details.contractNumber ?? '—') })
+    ? apiRefusalText(t, err, 'offerWorkspace.errors.saveRefused.generic')
     : null
 
 export function RequirementBadge({ requirement }: { requirement: string }) {
@@ -280,7 +282,8 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
   save,
   onOpenStockItem,
   onUnsavedChange,
-}: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void }) {
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void; readOnly?: boolean }) {
   const { t } = useTranslation()
   const pricingStatus = (deal.containers ?? []).find((c) => c.id === 'pricing')?.status
   return (
@@ -306,6 +309,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
         onDiscountChange={(change) => patch({ discountType: change.discountType, discountValue: change.discountValue })}
         onManualBasePriceChange={(value) => patch({ manualBasePrice: value })}
         onUnsavedChange={onUnsavedChange}
+        disabled={readOnly}
       />
       <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />
     </OverviewCard>

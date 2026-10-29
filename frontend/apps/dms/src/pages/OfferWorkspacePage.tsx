@@ -230,7 +230,9 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
       )}
 
       {/* KAN-426: a disabled fieldset makes every input and button of the
-          containers below read-only at once while a live contract exists. */}
+          containers below read-only at once while a live contract exists; the
+          number inputs are also disabled by their own prop and show no
+          steppers (those act on pointer-down, which a fieldset does not stop). */}
       <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <Stack gap="lg">
           {/* KAN-405: the responsible seller, through the same save queue. */}
@@ -238,7 +240,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
           <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
           <DealVehicleContainer {...containerProps} />
-          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
+          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} readOnly={readOnly} />
           <DealTradeInContainer {...containerProps} />
 
           {/* Leasing — S-D03: a refused calculator, free-text only */}
@@ -248,6 +250,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
               <Group grow>
                 <ChfInput
                   label={t('offerWorkspace.leasing.downPayment')}
+                  disabled={readOnly}
+                  hideControls={readOnly}
                   value={leasingDownPayment}
                   error={numberFieldError(t, leasingDownPaymentInvalid)}
                   onChange={setLeasingDownPayment}
@@ -255,6 +259,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
                 />
                 <NumberInput
                   label={t('offerWorkspace.leasing.termMonths')}
+                  disabled={readOnly}
+                  hideControls={readOnly}
                   value={leasingTermMonths}
                   error={numberFieldError(t, leasingTermMonthsInvalid)}
                   onChange={setLeasingTermMonths}
@@ -262,6 +268,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
                 />
                 <NumberInput
                   label={t('offerWorkspace.leasing.kmPerYear')}
+                  disabled={readOnly}
+                  hideControls={readOnly}
                   value={leasingKmPerYear}
                   error={numberFieldError(t, leasingKmPerYearInvalid)}
                   onChange={setLeasingKmPerYear}

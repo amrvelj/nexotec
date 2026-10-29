@@ -156,7 +156,7 @@ export function useDebouncedNumberField(
   const setValue = useCallback(
     (value: number | string) => {
       const previous = localRef.current
-      if (value === '' && typeof previous === 'string' && !Number.isFinite(asFigure(previous))) {
+      if (value === '' && typeof previous === 'string' && asFigure(previous) !== '' && !Number.isFinite(asFigure(previous))) {
         emptiedPartialRef.current = previous
         queueMicrotask(() => {
           emptiedPartialRef.current = null

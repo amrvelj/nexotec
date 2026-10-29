@@ -17,6 +17,10 @@ export interface PriceBuildUpProps {
   /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
    * host that ends the edit (signing a contract) can wait for it. */
   onUnsavedChange?: (unsaved: boolean) => void
+  /** KAN-426 — the offer has a live contract: every input is disabled by its
+   * own prop, and a NumberInput shows no steppers (they act on pointer-down,
+   * which a disabled fieldset does not stop). */
+  disabled?: boolean
 }
 
 function row(label: string, value: string, opts?: { bold?: boolean; negative?: boolean }) {
@@ -42,7 +46,7 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
  * that never includes these fields at all (see
  * tests/architecture/test_margin_never_in_rendered_document.py).
  */
-export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange }: PriceBuildUpProps) {
+export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange, disabled = false }: PriceBuildUpProps) {
   const { t } = useTranslation()
 
   // KAN-8 — local, debounced state; see useDebouncedNumberField's own
@@ -87,6 +91,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
       {deal.vehicleSource === 'manual' ? (
         <ChfInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
+          disabled={disabled}
+          hideControls={disabled}
           value={manualBasePrice}
           error={numberFieldError(t, manualBasePriceInvalid)}
           onChange={setManualBasePrice}
@@ -104,6 +110,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
       <Group grow>
         <Select
           label={t('offerWorkspace.pricing.discountType')}
+          disabled={disabled}
           data={[
             { value: '', label: t('offerWorkspace.pricing.noDiscount') },
             { value: 'percent', label: t('offerWorkspace.pricing.discountPercent') },
@@ -129,6 +136,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
         {deal.discountType === 'amount' ? (
           <ChfInput
             label={t('offerWorkspace.pricing.discountValue')}
+            disabled={disabled}
+            hideControls={disabled}
             value={discountValue}
             error={numberFieldError(t, discountValueInvalid)}
             onChange={setDiscountValue}
@@ -137,7 +146,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
         ) : (
           <NumberInput
             label={t('offerWorkspace.pricing.discountValue')}
-            disabled={!deal.discountType}
+            disabled={disabled || !deal.discountType}
+            hideControls={disabled}
             suffix={deal.discountType === 'percent' ? ' %' : undefined}
             value={discountValue}
             error={numberFieldError(t, discountValueInvalid)}

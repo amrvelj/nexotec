@@ -112,6 +112,11 @@ export function SalesDocumentsSection({ ownerType, ownerId, liveContractNumber =
       setSelectedId(created.id)
     } catch (err) {
       setGenerateError(generateRefusalMessage(err))
+      // KAN-495: a contract made after this page loaded — reload the offer, so
+      // the action is disabled with its reason instead of refused again.
+      if (ownerType === 'offer' && err instanceof ApiError && err.details?.reason === 'offer_has_contract') {
+        void queryClient.invalidateQueries({ queryKey: ['sales-offer', ownerId] })
+      }
     } finally {
       setGenerating(false)
     }

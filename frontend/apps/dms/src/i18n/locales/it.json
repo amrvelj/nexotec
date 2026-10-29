@@ -2258,6 +2258,8 @@
       "signature": "Immagine della firma",
       "correspondenceLanguage": "Lingua di corrispondenza",
       "signatureBlock": "Blocco firma",
+      "createdBy": "Creato da",
+      "updatedBy": "Modificato da",
       "createdAt": "Creato",
       "updatedAt": "Modificato"
     },
