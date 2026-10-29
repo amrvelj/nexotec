@@ -11,7 +11,7 @@ import uuid
 
 import pytest
 
-from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
+from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter, _request
 from app.integration.adapters.auto_i_dat_parse import ProviderMaintenanceError, ProviderRejectedError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
@@ -56,13 +56,16 @@ def _make_connection(db_session, provider):
 class _RefusingAdapter(MockAutoIDatAdapter):
     """`System` answers (so the credentials are proven good), `FahrzeugArten`
     comes back as the empty string the real adapter turns into a rejection.
+    Metered under its Datenname like every real request (KAN-486).
     """
 
+    @_request("FahrzeugArten")
     def list_vehicle_kinds(self):
         raise ProviderRejectedError("empty response")
 
 
 class _OutageAdapter(MockAutoIDatAdapter):
+    @_request("FahrzeugArten")
     def list_vehicle_kinds(self):
         raise ProviderMaintenanceError("Webservice ist offline (Wartung)")
 
@@ -162,10 +165,11 @@ def test_a_refusal_is_never_charged_to_the_connections_circuit_breaker(db_sessio
         gateway.test_connection(db_session, connection=connection)
 
     assert charged == []
-    refusals = _calls(db_session, connection, "fahrzeuge")
+    refusals = _calls(db_session, connection, "FahrzeugArten")
     assert len(refusals) == 6
-    # The provider answered coherently, so the gateway logs it as a success.
-    assert {call.status for call in refusals} == {CallStatus.SUCCESS}
+    # Each refused request is logged as what it was — refused (KAN-486) —
+    # yet never charged to the breaker: the block itself succeeded.
+    assert {call.status for call in refusals} == {CallStatus.ERROR}
 
 
 def test_a_later_grant_flips_the_same_row_rather_than_adding_one(db_session, monkeypatch):
@@ -212,8 +216,8 @@ def test_a_transient_probe_failure_leaves_the_entitlement_exactly_as_it_was(db_s
     assert (after.granted, after.checked_at) == (False, checked_at)
     # The probe failing never fails "Test connection" — `System` was fine.
     assert updated.status == ConnectionStatus.CONNECTED
-    # And an outage is honestly recorded as one, unlike a refusal.
-    assert {call.status for call in _calls(db_session, connection, "fahrzeuge")} == {CallStatus.ERROR}
+    # And the outage's request is recorded as failed.
+    assert {call.status for call in _calls(db_session, connection, "FahrzeugArten")} == {CallStatus.ERROR}
 
 
 def test_a_connection_that_fails_the_watermark_check_is_never_probed(db_session, monkeypatch):
@@ -229,7 +233,7 @@ def test_a_connection_that_fails_the_watermark_check_is_never_probed(db_session,
 
     assert updated.status == ConnectionStatus.ERROR
     assert adapter.probed is False
-    assert _calls(db_session, connection, "fahrzeuge") == []
+    assert _calls(db_session, connection, "FahrzeugArten") == []
     assert _fahrzeuge(db_session, connection) is None
 
 
@@ -242,4 +246,4 @@ def test_a_provider_with_no_registered_probes_gets_no_entitlement_rows(db_sessio
 
     assert updated.status == ConnectionStatus.CONNECTED
     assert connection_service.list_entitlements(db_session, connection_id=connection.id) == []
-    assert _calls(db_session, connection, "fahrzeuge") == []
+    assert _calls(db_session, connection, "FahrzeugArten") == []

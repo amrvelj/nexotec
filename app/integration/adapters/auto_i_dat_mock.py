@@ -457,7 +457,10 @@ class MockAutoIDatAdapter:
         page: int | None = None,
         per_page: int | None = None,
     ) -> list[ModelGroupShortData]:
-        groups = self.list_model_groups(fz_art=fz_art, marken_nr=marken_nr, marke=marke, nur_neue=nur_neue)
+        # The undecorated method: one request here, not a second one for ModellGruppen.
+        groups = MockAutoIDatAdapter.list_model_groups.__wrapped__(
+            self, fz_art=fz_art, marken_nr=marken_nr, marke=marke, nur_neue=nur_neue
+        )
         matched_keys = {g.model_group_key for g in groups}
         result: list[ModelGroupShortData] = []
         for master in _MASTER_DATA.values():

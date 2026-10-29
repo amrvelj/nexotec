@@ -9,10 +9,11 @@ points at.
 "No business data" (Integrations & API Credentials v0.1's own words) —
 this module writes `integration_call_log` (through `call_capability`'s
 own session, never the caller's — ADR-047, KAN-90), and reads nothing but
-`integration_connection`/`integration_provider`. The one other thing it
-writes is `integration_entitlement`, and only from `test_connection`'s
-probes (KAN-38 PR 2b) — registry metadata about the connection itself, not
-business data. PR-6 adds
+`integration_connection`/`integration_provider`. The other things it
+writes are `integration_entitlement`, only from `test_connection`'s probes
+(KAN-38 PR 2b) — registry metadata about the connection itself, not
+business data — and an `audit_event` when it refuses a sandbox connection
+on a production deployment (KAN-489). PR-6 adds
 one narrow exception: `call_capability`'s optional `capture_raw_payload`
 callable, which — if a caller supplies one — writes a SECOND row to the
 structurally separate `integration_call_payload` table (never this
@@ -50,6 +51,8 @@ from app.integration.services import retention as retention_service
 logger = logging.getLogger("app.integration.gateway")
 
 _AUDIT_ENTITY_TYPE = "integration_connection"
+# KAN-489: the deployments on which a sandbox (test access) connection may run.
+_NON_PRODUCTION_DEPLOYMENTS = frozenset({"development", "local", "test", "staging"})
 
 
 # `ProviderGatewayError` itself lives in `app.integration.errors` (a leaf, so
@@ -65,9 +68,10 @@ class SandboxConnectionOnProductionError(ProviderGatewayError):
     """KAN-489: a connection whose environment is `sandbox` is a test access
     — for auto-i-dat, the identAPI test agreement, whose service account may
     run in test environments only, never in production (§1). On a
-    deployment whose `DMS_ENVIRONMENT` is `production` every call on it is
-    refused before the provider is reached, with an audit row; "Test
-    connection" shows the refusal on the card like any other failure."""
+    deployment whose `DMS_ENVIRONMENT` is not a known non-production name
+    (`_NON_PRODUCTION_DEPLOYMENTS`) every call on it is refused before the
+    provider is reached, with an audit row; "Test connection" turns the
+    card's badge to error like any other failure."""
 
     def __init__(self, connection_id: uuid.UUID) -> None:
         super().__init__(
@@ -128,7 +132,13 @@ def _refuse_sandbox_on_production(
     written and committed on the gateway's own session, never the caller's
     (KAN-90): the refusal is a fact whether or not the caller's work commits."""
 
-    if connection.environment != ConnectionEnvironment.SANDBOX or get_settings().environment != "production":
+    if connection.environment != ConnectionEnvironment.SANDBOX:
+        return
+    # Fails closed: any name but a known non-production one ("prod",
+    # "Production", a typo) counts as production. An UNSET DMS_ENVIRONMENT
+    # reads as "development" (app/core/config.py) and is not caught here —
+    # the production deployment must set it (render.yaml).
+    if get_settings().environment.strip().lower() in _NON_PRODUCTION_DEPLOYMENTS:
         return
     record_audit_event(
         gateway_db, entity_type=_AUDIT_ENTITY_TYPE, entity_id=connection.id, tenant_id=connection.tenant_id,
@@ -324,12 +334,22 @@ def _record_failed_call(
     """Charges the breaker — once per block, whatever it sent — and, when
     the block metered no request of its own (KAN-486), writes the block's
     one log row: `TIMEOUT` for a transport timeout (KAN-108), `ERROR` for
-    every other failure; both count toward the breaker alike. A block that
-    did meter requests already has a row for each, the failed one included."""
+    every other failure; both count toward the breaker alike.
+
+    A block that did meter requests already has a row for each. When the
+    newest of them still reads `SUCCESS`, the failure came after its answer
+    arrived — an answer the caller refused (`System` with no row, a
+    `Fahrzeuge` miss read through `.first`) or the caller's own error — and
+    that row is marked as the failure, so the log never shows a failed,
+    breaker-charged call as a success. No extra row: nothing more was sent."""
 
     resilience.record_failure(connection.id)
     if meter.requests:
         log = meter.last_log
+        if log is not None and log.status == CallStatus.SUCCESS:
+            log.status = CallStatus.TIMEOUT if isinstance(exc, ProviderTimeoutError) else CallStatus.ERROR
+            _bound_lock_wait(gateway_db)
+            gateway_db.commit()
     else:
         duration_ms = int((time.monotonic() - started_at) * 1000)
         status = CallStatus.TIMEOUT if isinstance(exc, ProviderTimeoutError) else CallStatus.ERROR
@@ -436,8 +456,9 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
 
 def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> None:
     """A refusal is caught *inside* the `call_capability` block, so the
-    gateway records it as a successful call and the connection's circuit
-    breaker is not charged: the provider answered coherently, and what it
+    block succeeds and the connection's circuit breaker is not charged; the
+    refused request itself is logged as `ERROR` under its Datenname
+    (KAN-486) — the provider did refuse it: the provider answered coherently, and what it
     said was "not this capability". That is the per-capability degradation
     the per-connection breaker would otherwise defeat — one un-entitled
     capability must not take the connection's other capabilities offline.

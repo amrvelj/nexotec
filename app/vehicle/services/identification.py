@@ -37,9 +37,11 @@ of the waterfall, in the order the counter uses it:
 6. **Werkscode** — the mirror's `werkscode` column.
 
 The Typenschein and Werkscode rungs read the **mirror**, not the provider:
-the mirror is synced from `Fahrzeuge`, and a lookup the mirror can answer
-is not worth a billed round trip. Only the plate lookup and the best match
-are live calls.
+a lookup the mirror can answer is not worth a billed round trip. Only the
+plate lookup and the best match are live calls. Since KAN-485 (2026-10-29)
+nothing fills the mirror in bulk: it holds only what single lookups stored
+— a best match's master data, and rows written before the ruling — so on a
+fresh database these two rungs find nothing.
 
 Nothing in this module writes `vehicle-mdm` (ADR-070).
 """

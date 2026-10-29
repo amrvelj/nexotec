@@ -258,7 +258,7 @@ def _run(args: argparse.Namespace) -> int:
     if failures:
         print(f"{failures} FAILURE(S). Exit criterion 1 is NOT met.")
         return 1
-    print("All 21 implemented Datennamen round-tripped against the real account. Exit criterion 1 is met.")
+    print(f"All {len(_IMPLEMENTED)} implemented Datennamen round-tripped against the real account. Exit criterion 1 is met.")
     return 0
 
 

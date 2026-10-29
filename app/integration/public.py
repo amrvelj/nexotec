@@ -10,7 +10,8 @@ which already live inside this context, may call them.
 
 `call_capability` (PR-2) is the one way `app.vehicle` (PR-4) ever reaches
 a provider: it resolves the connection's own adapter, times the call, and
-writes exactly one `integration_call_log` row, success or failure. The
+writes one `integration_call_log` row per provider request the block sends
+(KAN-486), success or failure — or the block's one row when it sent none. The
 adapter data shapes (`VariantMasterData` etc.) are exported alongside it
 purely as return-type vocabulary for PR-4's own type hints — they carry
 no provider code in any field (the reading rule: "application code never

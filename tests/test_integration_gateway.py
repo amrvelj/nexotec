@@ -205,6 +205,45 @@ def test_an_answer_refused_after_it_arrived_is_that_requests_error(db_session):
     assert [(log.capability, log.status) for log in logs] == [("Fahrzeuge", CallStatus.ERROR)]
 
 
+def test_a_block_failing_after_its_answer_arrived_marks_that_request_failed(db_session, monkeypatch):
+    """The answer arrived (a SUCCESS on the wire), then the caller refused it
+    — a `Fahrzeuge` miss read through `.first`, say. The block is charged to
+    the breaker, and the log must not show that request as a success."""
+
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    charged = []
+    monkeypatch.setattr(resilience, "record_failure", charged.append)
+
+    with (
+        pytest.raises(ProviderGatewayError),
+        gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter,
+    ):
+        adapter.fetch_options("FZ100001", model_year=2023)
+        adapter.fetch_vehicle_master_data("FZ100001")
+        raise ProviderGatewayError("Fahrzeuge: no row for this key")
+
+    logs = db_session.scalars(
+        select(IntegrationCallLog).filter_by(connection_id=connection.id).order_by(IntegrationCallLog.created_at)
+    ).all()
+    # Two requests, two rows; the last is the one whose answer was refused.
+    assert [(log.capability, log.status) for log in logs] == [
+        ("Optionen", CallStatus.SUCCESS), ("Fahrzeuge", CallStatus.ERROR),
+    ]
+    assert charged == [connection.id]
+
+
+def test_one_mock_request_is_one_row(db_session):
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+        adapter.list_model_groups_short(fz_art="1")
+
+    logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
+    assert [log.capability for log in logs] == ["ModellGruppenKurz"]
+
+
 def test_an_adapter_used_outside_a_block_meters_nothing(db_session):
     assert MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100001").fz_key == "FZ100001"
     assert db_session.query(IntegrationCallLog).count() == 0
@@ -213,14 +252,17 @@ def test_an_adapter_used_outside_a_block_meters_nothing(db_session):
 # --- KAN-489: a sandbox connection is never used on the production server -------
 
 
-@pytest.mark.parametrize("deployment", ["production", "staging", "development"])
+@pytest.mark.parametrize("deployment", ["production", "Production", "prod", "staging", "development"])
 def test_a_sandbox_connection_is_refused_only_on_a_production_deployment(db_session, monkeypatch, deployment):
     monkeypatch.setattr(get_settings(), "environment", deployment)
     provider = _make_provider(db_session)
     connection = _make_connection(db_session, provider)  # environment=SANDBOX
     actor_id = uuid.uuid4()
 
-    if deployment == "production":
+    charged = []
+    monkeypatch.setattr(resilience, "record_failure", charged.append)
+
+    if deployment.lower().startswith("prod"):
         with pytest.raises(gateway.SandboxConnectionOnProductionError), gateway.call_capability(
             db_session, connection=connection, capability="vehicle_data", actor_id=actor_id
         ) as adapter:
@@ -228,7 +270,7 @@ def test_a_sandbox_connection_is_refused_only_on_a_production_deployment(db_sess
         # Refused before the provider: no call-log row, the breaker untouched,
         # and an audit row naming the refusal.
         assert db_session.query(IntegrationCallLog).count() == 0
-        assert not resilience.is_circuit_open(connection.id)
+        assert charged == []
         events = list_audit_events(
             db_session, entity_type="integration_connection", entity_id=connection.id, tenant_id=None
         )

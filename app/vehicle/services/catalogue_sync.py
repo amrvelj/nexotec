@@ -14,9 +14,11 @@ mirror. The full seed, the daily `FzKeyChanged` delta, its 3-month fallback
 reseed, the daily job that ran them and the sync-age alarm (A-12) built on
 their `System` watermark are gone; no adapter offers `FzKeyChanged` any more
 (`tests/architecture/test_no_bulk_catalogue_retrieval.py`). A variant reaches
-the catalogue only through a single lookup: identification's plate lookup and
-best match (`identification.py`, master data only) or `sync_catalogue_variant`
-below (master data plus this tenant's options, colours, tyres and images).
+the catalogue only through a single lookup: identification's best match
+(`identification.py`, master data only; its plate lookup fills the plate-lookup
+cache, not the catalogue) or `sync_catalogue_variant` below (master data plus
+this tenant's options, colours, tyres and images; nothing calls it yet —
+KAN-211).
 `ProviderSyncState` rows written before the ruling are kept and still read by
 the platform's sync-status board; nothing writes them now.
 
