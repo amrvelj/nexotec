@@ -8254,6 +8254,7 @@ export interface components {
              * @default false
              */
             commissionRelevant?: boolean;
+            correspondenceLanguage?: components["schemas"]["SwissLanguage"] | null;
             /**
              * Createdat
              * Format: date-time
@@ -8310,6 +8311,8 @@ export interface components {
             role: components["schemas"]["UserRole"];
             /** Salesadvisorcode */
             salesAdvisorCode?: string | null;
+            /** Signatureblock */
+            signatureBlock?: string | null;
             status: components["schemas"]["UserStatus"];
             /**
              * Updatedat

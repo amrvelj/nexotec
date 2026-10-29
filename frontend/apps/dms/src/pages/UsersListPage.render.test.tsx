@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import { UsersListPage } from './UsersListPage'
@@ -59,6 +60,8 @@ function user(overrides: Record<string, unknown>) {
     deactivatedAt: null,
     deactivationReason: null,
     hasSignatureImage: false,
+    correspondenceLanguage: null,
+    signatureBlock: null,
     invitationExpiresAt: null,
     primaryLocationId: 'loc-1',
     additionalLocationIds: [],
@@ -328,5 +331,47 @@ describe('UsersListPage (KAN-200)', () => {
     renderWithProviders(<UsersListPage />, { route: '/administration/users' })
     expect(await screen.findByText('Nur für Manager')).toBeInTheDocument()
     for (const button of screen.getAllByRole('button', { name: 'Benutzer einladen' })) expect(button).toBeDisabled()
+  })
+})
+
+// KAN-413 (ADR-060) — every stored user field is a column: the user's own
+// correspondence language and signature block (KAN-201) too, hidden by
+// default, sortable on the server; no language set reads as the Betrieb's.
+describe('UsersListPage — the user\'s own settings are columns (KAN-413)', () => {
+  it('offers both in the column panel, hidden by default, and shows their values once on', async () => {
+    const ui = userEvent.setup()
+    const backend = installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/dealerships\/dealership-1\/users$/,
+        handler: () => ({
+          items: [user({ correspondenceLanguage: 'fr', signatureBlock: 'Anna Keller\nVerkaufsberaterin' }), USERS[1]],
+          nextCursor: null,
+        }),
+      },
+      ...routes().slice(1),
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Anna Keller')
+
+    const language = i18n.t('usersAdmin.columns.correspondenceLanguage')
+    const block = i18n.t('usersAdmin.columns.signatureBlock')
+    expect(screen.queryByRole('columnheader', { name: new RegExp(language) })).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: new RegExp(block) })).toBeNull()
+
+    await ui.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
+    await ui.click(screen.getByRole('checkbox', { name: new RegExp(`^${language}$`) }))
+    await ui.click(screen.getByRole('checkbox', { name: new RegExp(`^${block}$`) }))
+
+    const grid = within(screen.getByRole('table'))
+    expect(grid.getByText(i18n.t('account.languages.fr'))).toBeInTheDocument()
+    expect(grid.getByText(i18n.t('usersAdmin.correspondenceLanguageDefault'))).toBeInTheDocument()
+    expect(grid.getByText('Anna Keller · Verkaufsberaterin')).toBeInTheDocument()
+
+    await ui.click(screen.getByRole('columnheader', { name: new RegExp(language) }))
+    await waitFor(() => {
+      const calls = backend.callsTo(/\/dealerships\/dealership-1\/users$/)
+      expect(calls[calls.length - 1].params.get('sort')).toBe('correspondenceLanguage:asc')
+    })
   })
 })

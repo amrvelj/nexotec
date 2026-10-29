@@ -4,6 +4,7 @@ import uuid
 from pydantic import EmailStr, Field, model_validator
 
 from app.core.auth import AccessRole
+from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone
 from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
@@ -147,6 +148,12 @@ class UserAdminRead(CamelModel):
     deactivated_at: dt.datetime | None = None
     deactivation_reason: str | None = None
     has_signature_image: bool = False
+    # KAN-413 (ADR-060: every stored field can be a column). The user's own
+    # personal settings (KAN-201), written only through My account's
+    # `PATCH /v1/me`: read-only here, never on `UserUpdate`. Null language =
+    # the Betrieb's default.
+    correspondence_language: SwissLanguage | None = None
+    signature_block: str | None = None
     # Derived (not columns): the live invitation's expiry for an `invited`
     # user — past it, the list shows "invitation expired" (FR-A-11) — and
     # the user's sites (`user_location`).

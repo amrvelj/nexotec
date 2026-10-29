@@ -332,6 +332,16 @@ export function UsersListPage() {
       },
       text('deactivationReason', t('usersAdmin.columns.deactivationReason'), (row) => row.deactivationReason, false, 'deactivationReason'),
       text('signature', t('usersAdmin.columns.signature'), (row) => (row.hasSignatureImage ? t('common.yes') : t('common.no'))),
+      // KAN-413 (ADR-060) — the user's own settings (My account, KAN-201),
+      // read-only here. No language set = the Betrieb's default.
+      text(
+        'correspondenceLanguage',
+        t('usersAdmin.columns.correspondenceLanguage'),
+        (row) => (row.correspondenceLanguage ? t(`account.languages.${row.correspondenceLanguage}`) : t('usersAdmin.correspondenceLanguageDefault')),
+        false,
+        'correspondenceLanguage',
+      ),
+      text('signatureBlock', t('usersAdmin.columns.signatureBlock'), (row) => row.signatureBlock?.replace(/\s*\n\s*/g, ' · '), false, 'signatureBlock'),
       {
         id: 'createdAt',
         header: t('usersAdmin.columns.createdAt'),

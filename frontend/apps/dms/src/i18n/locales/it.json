@@ -2231,6 +2231,7 @@
         "contracts": "Contratti in sospeso"
       }
     },
+    "correspondenceLanguageDefault": "Predefinita dell'azienda",
     "columns": {
       "name": "Nome",
       "status": "Stato",
@@ -2255,6 +2256,8 @@
       "deactivatedAt": "Disattivato il",
       "deactivationReason": "Motivo della disattivazione",
       "signature": "Immagine della firma",
+      "correspondenceLanguage": "Lingua di corrispondenza",
+      "signatureBlock": "Blocco firma",
       "createdAt": "Creato",
       "updatedAt": "Modificato"
     },

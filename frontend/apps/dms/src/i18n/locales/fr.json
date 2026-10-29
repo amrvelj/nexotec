@@ -2231,6 +2231,7 @@
         "contracts": "Contrats en attente"
       }
     },
+    "correspondenceLanguageDefault": "Par défaut de l'entreprise",
     "columns": {
       "name": "Nom",
       "status": "Statut",
@@ -2255,6 +2256,8 @@
       "deactivatedAt": "Désactivé le",
       "deactivationReason": "Motif de la désactivation",
       "signature": "Image de signature",
+      "correspondenceLanguage": "Langue de correspondance",
+      "signatureBlock": "Bloc de signature",
       "createdAt": "Créé",
       "updatedAt": "Modifié"
     },

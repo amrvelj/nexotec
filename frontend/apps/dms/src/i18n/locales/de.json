@@ -2231,6 +2231,7 @@
         "contracts": "Pendente Verträge"
       }
     },
+    "correspondenceLanguageDefault": "Standard des Betriebs",
     "columns": {
       "name": "Name",
       "status": "Status",
@@ -2255,6 +2256,8 @@
       "deactivatedAt": "Deaktiviert am",
       "deactivationReason": "Grund der Deaktivierung",
       "signature": "Unterschriftsbild",
+      "correspondenceLanguage": "Korrespondenzsprache",
+      "signatureBlock": "Unterschriftsblock",
       "createdAt": "Erstellt",
       "updatedAt": "Geändert"
     },

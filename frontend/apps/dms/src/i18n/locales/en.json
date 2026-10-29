@@ -2231,6 +2231,7 @@
         "contracts": "Pending contracts"
       }
     },
+    "correspondenceLanguageDefault": "Business default",
     "columns": {
       "name": "Name",
       "status": "Status",
@@ -2255,6 +2256,8 @@
       "deactivatedAt": "Deactivated",
       "deactivationReason": "Deactivation reason",
       "signature": "Signature image",
+      "correspondenceLanguage": "Correspondence language",
+      "signatureBlock": "Signature block",
       "createdAt": "Created",
       "updatedAt": "Changed"
     },
