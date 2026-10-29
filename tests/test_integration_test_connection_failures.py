@@ -234,7 +234,8 @@ def test_a_wrong_password_is_a_failed_call_and_never_reaches_entitlement_probing
     gateway.test_connection(db_session, connection=connection)
 
     calls = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
-    assert [(c.capability, c.status) for c in calls] == [("system_watermark", CallStatus.ERROR)]
+    # The one request, named by its Datenname (KAN-486).
+    assert [(c.capability, c.status) for c in calls] == [("System", CallStatus.ERROR)]
     assert connection_service.list_entitlements(db_session, connection_id=connection.id) == []
 
 
