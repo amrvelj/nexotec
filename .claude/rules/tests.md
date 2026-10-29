@@ -58,7 +58,8 @@ as any change to what it states. -->
   read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10), and every PATCH/PUT/DELETE and every POST on an existing entity taking If-Match unless listed
   with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428), and
   every mapped model registered by `app/model_registry.py` alone (KAN-187), and no tracked file
-  carrying a real provider account value nor the mock carrying a specification example (KAN-491).
+  carrying a real provider account value nor the mock carrying a specification example (KAN-491),
+  and no MCP SDK, server, tool manifest or dependency for provider data (KAN-490, identAPI §3).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.

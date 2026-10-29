@@ -6910,6 +6910,13 @@ export interface components {
             leasingTermMonths: number | null;
             /** Listprice */
             listPrice: string | null;
+            /**
+             * Livecontractid
+             * @description The offer's contract that is not cancelled, if any. While there is one the offer is read-only: every write is 409 `offer_has_contract`.
+             */
+            liveContractId?: string | null;
+            /** Livecontractnumber */
+            liveContractNumber?: string | null;
             /** Manualbaseprice */
             manualBasePrice: string | null;
             /** Manualvehiclecondition */

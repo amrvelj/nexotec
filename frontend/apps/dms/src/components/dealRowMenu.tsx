@@ -17,6 +17,9 @@ export interface TakeOverTarget {
   status: string
   ownerUserId?: string | null
   ownerLabel?: string | null
+  /** KAN-492 — an offer's live contract: the offer is read-only while it
+   * exists (KAN-408), so its seller is changed on the contract. */
+  liveContractNumber?: string | null
 }
 
 /**
@@ -36,7 +39,9 @@ export function buildDealTakeOverAction(
 ): RowMenuAction {
   const disabledReason = !OPEN_DEAL_STATUSES.has(deal.status)
     ? t('dealOwner.takeOverDisabled.closed')
-    : deal.ownerUserId != null && deal.ownerUserId === currentUserId
+    : deal.liveContractNumber != null
+      ? t('dealOwner.takeOverDisabled.liveContract', { contractNumber: deal.liveContractNumber })
+      : deal.ownerUserId != null && deal.ownerUserId === currentUserId
       ? t('dealOwner.takeOverDisabled.yours')
       : deal.ownerUserId != null
         ? t('dealOwner.takeOverDisabled.assigned', { owner: deal.ownerLabel ?? '—' })

@@ -4,12 +4,12 @@ row that describes it, never on a wider key.
 Until KAN-376 one key, `stock_items`, guarded all fifteen inventory writes, so
 the matrix's "Stock and pipeline vehicles" write for `sales` (Anto,
 2026-10-17) could not be enforced without also letting a sales user book a
-purchase, override the notional input tax, post a landed cost, publish at a
+purchase, override the notional input tax, book a Wagenbuch entry by hand, publish at a
 marketplace (ADR-062) or reserve a car directly (ADR-047). Each endpoint now
 names its own row; `stock_items` covers only the stock item's own record.
 
 Two readings the matrix leaves to the code, stated here so a change to either
-is a visible edit (both asked on KAN-376): a hand-booked Wagenbuch entry
+is a visible edit (Anto's ruling, 2026-10-24 (KAN-376), option A on both): a hand-booked Wagenbuch entry
 (FR-I-15a, `record_cost`) is guarded by `stock_acquisition` ("Stock
 acquisition, landed cost, storno"), because the `wagenbuch` row reads
 "Nobody — append-only via recordCost": no user edits the balance sheet, and
@@ -106,7 +106,7 @@ def stock_item(client) -> tuple[uuid.UUID, dict]:
 
 
 # The sales-only refusals the ticket names: purchase booking, the notional-
-# input-tax override, a Wagenbuch (landed) cost, every publishing write, and
+# input-tax override, a hand-booked Wagenbuch entry, every publishing write, and
 # reserve/release. The permission check runs before the body is validated
 # and before the row is looked up, so a placeholder body is enough: anything
 # but 403 means the gate let a sales user through.

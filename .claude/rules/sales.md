@@ -98,7 +98,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   PATCH, line items, trade-in and trade-in valuation (`priced_deal.require_editable`), finalize
   and cancel are 409 `offer_has_contract` with the `contractNumber` — the contract is edited
   itself while pending (ADR-083), so the two never disagree. A cancelled contract frees the
-  offer, editable again while it is a draft.
+  offer, editable again while it is a draft. `OfferRead` names that contract
+  (`liveContractId`, `liveContractNumber`; computed in `api/offers.py::_offer_reads`, one query
+  per page — KAN-492), so a sent offer's seller picker and «Übernehmen» are disabled before the
+  click, the contract named (`dealOwner.takeOverDisabled.liveContract`). The draft workspace's
+  other actions do not read it yet (KAN-426).
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;

@@ -203,7 +203,18 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           {ownerError}
         </Alert>
       )}
-      {offer.status === 'open' && <DealOwnerSelect deal={offer} onChange={changeOwner} />}
+      {offer.status === 'open' && (
+        <DealOwnerSelect
+          deal={offer}
+          onChange={changeOwner}
+          // KAN-492: the live contract carries the seller (KAN-408) — said before the click
+          disabledReason={
+            offer.liveContractNumber != null
+              ? t('dealOwner.takeOverDisabled.liveContract', { contractNumber: offer.liveContractNumber })
+              : undefined
+          }
+        />
+      )}
 
       {copyError && (
         <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCopyError(null)}>
