@@ -22,8 +22,8 @@ router = APIRouter(tags=["inventory"], route_class=IdempotentRoute, dependencies
 # guarded by the matrix's "Stock acquisition, landed cost, storno" row: the
 # "Wagenbuch" row is "Nobody — append-only via recordCost", i.e. no user
 # edits the balance sheet and recordCost is its only way in. Who may call it
-# is unchanged by KAN-376 (inventory and the manager); a ruling on the
-# reading is asked on KAN-376.
+# is unchanged by KAN-376 (inventory and the manager) — Anto's ruling,
+# 2026-10-24 (KAN-376).
 @router.post("/inventory/stock-items/{stock_item_id}/ledger-entries", response_model=LedgerEntryRead, status_code=201)
 def record_cost(
     stock_item_id: uuid.UUID,

@@ -2744,7 +2744,8 @@
     "takeOverDisabled": {
       "closed": "Only drafts, open offers and pending contracts can be taken over.",
       "yours": "You are already the responsible seller.",
-      "assigned": "Already assigned to {{owner}} – hand it on through «Responsible seller»."
+      "assigned": "Already assigned to {{owner}} – hand it on through «Responsible seller».",
+      "liveContract": "This offer has contract {{contractNumber}} – the responsible seller is changed in the contract."
     },
     "errors": {
       "saveFailed": "The responsible seller could not be saved.",

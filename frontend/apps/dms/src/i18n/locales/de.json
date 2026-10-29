@@ -2744,7 +2744,8 @@
     "takeOverDisabled": {
       "closed": "Nur Entwürfe, offene Offerten und ausstehende Verträge können übernommen werden.",
       "yours": "Sie sind bereits der verantwortliche Verkäufer.",
-      "assigned": "Bereits {{owner}} zugewiesen – über «Verantwortlicher Verkäufer» weitergeben."
+      "assigned": "Bereits {{owner}} zugewiesen – über «Verantwortlicher Verkäufer» weitergeben.",
+      "liveContract": "Zu dieser Offerte gibt es den Vertrag {{contractNumber}} – der verantwortliche Verkäufer wird im Vertrag geändert."
     },
     "errors": {
       "saveFailed": "Der verantwortliche Verkäufer konnte nicht gespeichert werden.",

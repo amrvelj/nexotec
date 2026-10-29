@@ -1,6 +1,7 @@
 """SalesOffer endpoints (WP-8 PR-1, PATCH autosave added PR-2)."""
 
 import uuid
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from app.sales.schemas.offer import (
 from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
+from app.sales.services.deal_projection import live_contracts_of
 from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -41,19 +43,33 @@ OFFER_SORT_FIELDS: dict[str, object] = {
 _DEFAULT_OFFER_SORT = [SortField(api_name="updatedAt", column=SalesOffer.updated_at, direction="desc", nullable=False)]
 
 
-def _offer_read(offer: SalesOffer) -> OfferRead:
+def _offer_reads(db: Session, offers: Sequence[SalesOffer]) -> list[OfferRead]:
     """containers is computed here (PR-2), never stored — every endpoint
     that returns an OfferRead goes through this one place, matching
-    app.inventory's own ageingBucket convention.
+    app.inventory's own ageingBucket convention. So is the live contract
+    (KAN-492), read for the whole page in one query.
     """
 
-    base = OfferRead.model_validate(offer, from_attributes=True)
-    return base.model_copy(
-        update={
-            "containers": compute_containers(offer),
-            "vehicle_condition": vehicle_condition(offer),
-        }
-    )
+    live = live_contracts_of(db, offers)
+    reads = []
+    for offer in offers:
+        contract = live.get(offer.id)
+        base = OfferRead.model_validate(offer, from_attributes=True)
+        reads.append(
+            base.model_copy(
+                update={
+                    "containers": compute_containers(offer),
+                    "vehicle_condition": vehicle_condition(offer),
+                    "live_contract_id": contract.id if contract else None,
+                    "live_contract_number": contract.contract_number if contract else None,
+                }
+            )
+        )
+    return reads
+
+
+def _offer_read(db: Session, offer: SalesOffer) -> OfferRead:
+    return _offer_reads(db, [offer])[0]
 
 
 @router.post("/sales/offers", response_model=OfferRead, status_code=201)
@@ -62,7 +78,7 @@ def create_offer(
     db: Session = Depends(get_db),
 ):
     offer = offer_service.create_offer(db, tenant_id=principal.tenant_id, actor_id=principal.user_id)
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.get("/sales/offers", response_model=OfferPage)
@@ -82,7 +98,7 @@ def list_offers(
         db, tenant_id=principal.tenant_id, customer_id=customer_id, params=params
     )
     return OfferPage(
-        items=[_offer_read(r) for r in rows],
+        items=_offer_reads(db, rows),
         next_cursor=next_cursor,
         total=total,
         total_is_estimate=total_is_estimate,
@@ -96,7 +112,7 @@ def get_offer(
     db: Session = Depends(get_db),
 ):
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.patch("/sales/offers/{offer_id}", response_model=OfferRead)
@@ -112,7 +128,7 @@ def update_offer(
     offer = offer_service.update_offer(
         db, offer=offer, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.post("/sales/offers/{offer_id}/trade-in", response_model=OfferRead)
@@ -136,7 +152,7 @@ def set_trade_in(
         customer_id=body.customer_id,
         actor_id=principal.user_id,
     )
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.post("/sales/offers/{offer_id}/trade-in/valuation", response_model=OfferRead)
@@ -152,7 +168,7 @@ def attach_trade_in_valuation(
     offer = trade_in_service.attach_trade_in_valuation(
         db, deal=offer, valuation_id=body.valuation_id, actor_id=principal.user_id
     )
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.post("/sales/offers/{offer_id}/finalize", response_model=OfferRead)
@@ -165,7 +181,7 @@ def finalize_offer(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.finalize_offer(db, offer=offer, actor_id=principal.user_id)
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.post("/sales/offers/{offer_id}/copy", response_model=OfferRead, status_code=201)
@@ -182,7 +198,7 @@ def copy_offer(
 
     source = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
     copy = offer_service.copy_offer(db, source=source, actor_id=principal.user_id)
-    return _offer_read(copy)
+    return _offer_read(db, copy)
 
 
 @router.post("/sales/offers/{offer_id}/cancel", response_model=OfferRead)
@@ -196,7 +212,7 @@ def cancel_offer(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.cancel_offer(db, offer=offer, reason=body.reason, actor_id=principal.user_id)
-    return _offer_read(offer)
+    return _offer_read(db, offer)
 
 
 @router.get("/sales/offers/{offer_id}/line-items", response_model=LineItemPage)
@@ -227,4 +243,4 @@ def replace_offer_line_items(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = line_items_service.replace_line_items(db, deal=offer, data=body, actor_id=principal.user_id)
-    return _offer_read(offer)
+    return _offer_read(db, offer)

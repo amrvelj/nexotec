@@ -18,6 +18,7 @@ not.
 """
 
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -57,6 +58,28 @@ def live_contract_of(db: Session, offer: SalesOffer) -> SalesContract | None:
         .order_by(SalesContract.created_at.desc())
         .limit(1)
     )
+
+
+def live_contracts_of(db: Session, offers: Sequence[SalesOffer]) -> dict[uuid.UUID, SalesContract]:
+    """`live_contract_of` for a page of offers in one query (KAN-492)."""
+
+    if not offers:
+        return {}
+    rows = db.scalars(
+        select(SalesContract)
+        .where(
+            SalesContract.tenant_id.in_({offer.tenant_id for offer in offers}),
+            SalesContract.offer_id.in_([offer.id for offer in offers]),
+            SalesContract.status != ContractStatus.CANCELLED,
+        )
+        .order_by(SalesContract.created_at.desc())
+    )
+    live: dict[uuid.UUID, SalesContract] = {}
+    tenant_of = {offer.id: offer.tenant_id for offer in offers}
+    for contract in rows:
+        if contract.offer_id is not None and tenant_of.get(contract.offer_id) == contract.tenant_id:
+            live.setdefault(contract.offer_id, contract)
+    return live
 
 
 def upsert_deal_projection(

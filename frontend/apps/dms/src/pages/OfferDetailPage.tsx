@@ -203,7 +203,16 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           {ownerError}
         </Alert>
       )}
-      {offer.status === 'open' && <DealOwnerSelect deal={offer} onChange={changeOwner} />}
+      {offer.status === 'open' && (
+        <DealOwnerSelect
+          deal={offer}
+          onChange={changeOwner}
+          // KAN-492: the live contract carries the seller (KAN-408); disabled
+          // before the click. Disabled is disabled — no reason line under a
+          // field (Anto, 2026-10-29); «Übernehmen» names the contract.
+          disabled={offer.liveContractNumber != null}
+        />
+      )}
 
       {copyError && (
         <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCopyError(null)}>

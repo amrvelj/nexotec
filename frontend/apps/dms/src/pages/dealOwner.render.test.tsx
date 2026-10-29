@@ -265,6 +265,61 @@ describe('A sent offer — «Übernehmen» in the overflow (KAN-405)', () => {
   })
 })
 
+// KAN-492 (ADR-061): a contract made from the offer makes it read-only
+// (KAN-408) and carries the seller then — the screen disables the seller
+// actions before the click instead of showing the 409 after it. The picker
+// is simply disabled, no reason line under the field (Anto, 2026-10-29:
+// «Disabled is disabled»); «Übernehmen» names the contract in the menu.
+describe('A sent offer with a live contract — the seller is changed on the contract (KAN-492)', () => {
+  it('disables the picker without a reason line, and «Übernehmen» with the contract named, in French too, and sends nothing', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    const contracted = { ...OPEN_OFFER, ownerUserId: null, ownerLabel: null, liveContractId: 'k1', liveContractNumber: 'V-2026-0001' }
+    const backend = installFakeBackend([
+      SELLERS,
+      { method: 'GET', match: /^\/sales\/offers\/o-9$/, handler: () => contracted },
+      { match: /^\/sales\/offers\/o-9\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
+      </Routes>,
+      { route: '/sales/offers/o-9' },
+    )
+
+    const reason = i18n.t('dealOwner.takeOverDisabled.liveContract', { contractNumber: 'V-2026-0001' })
+    const picker = await screen.findByRole('textbox', { name: i18n.t('dealOwner.label') })
+    expect(picker).toBeDisabled()
+    expect(picker).not.toHaveAccessibleDescription()
+    expect(screen.queryByText(reason)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
+    const takeOver = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('dealOwner.takeOver')) })
+    expect(takeOver).toBeDisabled()
+    expect(takeOver).toHaveTextContent(reason)
+    expect(reason).toContain('V-2026-0001')
+    expect(backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')).toHaveLength(0)
+  })
+
+  it('keeps the picker enabled, with no contract named, on a sent offer without one', async () => {
+    installFakeBackend([
+      SELLERS,
+      { method: 'GET', match: /^\/sales\/offers\/o-9$/, handler: () => ({ ...OPEN_OFFER, liveContractId: null, liveContractNumber: null }) },
+      { match: /^\/sales\/offers\/o-9\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
+      </Routes>,
+      { route: '/sales/offers/o-9' },
+    )
+
+    const picker = await screen.findByRole('textbox', { name: 'Verantwortlicher Verkäufer' })
+    await waitFor(() => expect(picker).toBeEnabled())
+    expect(screen.queryByText(/V-2026-0001/)).not.toBeInTheDocument()
+  })
+})
+
 describe('The draft offer workspace — the seller picker (KAN-405)', () => {
   it('sends the chosen seller through the save queue, in French labels too', async () => {
     await i18n.changeLanguage('fr')
