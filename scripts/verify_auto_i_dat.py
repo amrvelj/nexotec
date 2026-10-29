@@ -18,7 +18,7 @@ Usage
     DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... PYTHONPATH=. \\
       python scripts/verify_auto_i_dat.py --connection-id <uuid> \\
         [--fz-key 141695] [--werkscode 191B51] [--typ-sch-nr 1MD448] [--model-year 2012] \\
-        [--plate ZH123456] [--fz-art 01] [--opt-key 100369] [--code-group 010]
+        [--plate ZH123456] [--fz-art 01] [--opt-key <OptKey>] [--code-group 010]
 
 With no ``--connection-id`` every Datenname reports ``SKIP (no
 connection)`` and the script exits 0 — so it is safe to wire into CI
