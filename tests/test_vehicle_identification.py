@@ -134,9 +134,9 @@ def _bearer(tenant_id: uuid.UUID, role: AccessRole = AccessRole.SALES) -> dict[s
         ("wvwzzz1kzaw000001", IdentifierKind.VIN, "WVWZZZ1KZAW000001"),
         ("ZH 123 456", IdentifierKind.KONTROLLSCHILD, "ZH123456"),
         ("zh123456", IdentifierKind.KONTROLLSCHILD, "ZH123456"),
-        ("626.702.193", IdentifierKind.STAMMNUMMER, "626702193"),
-        ("626702193", IdentifierKind.STAMMNUMMER, "626702193"),
-        ("1SC653", IdentifierKind.TYPENSCHEIN, "1SC653"),
+        ("900.100.200", IdentifierKind.STAMMNUMMER, "900100200"),
+        ("900100200", IdentifierKind.STAMMNUMMER, "900100200"),
+        ("4GH901", IdentifierKind.TYPENSCHEIN, "4GH901"),
         ("ALF14TB", IdentifierKind.WERKSCODE, "ALF14TB"),
         # "AB" is no canton, so this is not a plate and costs no billed call.
         ("AB1234", IdentifierKind.WERKSCODE, "AB1234"),

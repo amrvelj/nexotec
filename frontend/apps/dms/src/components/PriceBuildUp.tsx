@@ -51,12 +51,17 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
   const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved, manualBasePriceInvalid, onManualBasePriceBlur] = useDebouncedNumberField(
     deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
     deal.id,
-    (value) => onManualBasePriceChange?.(value)
+    (value) => onManualBasePriceChange?.(value),
+    undefined,
+    deal.version
   )
   const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid, onDiscountValueBlur] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
     deal.id,
-    (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value })
+    (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value }),
+    undefined,
+    // KAN-478: an older copy never replaces a newer figure.
+    deal.version
   )
 
   const discountFigure = asFigure(discountValue)

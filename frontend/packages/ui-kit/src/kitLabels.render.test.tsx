@@ -135,6 +135,7 @@ describe("kit components show none of their former English defaults (KAN-364)", 
         <RepeatableRowGroup
           mode="detail"
           label="Téléphones"
+          valueLabel="Numéro"
           addLabel="Ajouter un téléphone"
           formerLabel="Anciens"
           typeOptions={[{ value: "mobile", label: "Mobile" }]}

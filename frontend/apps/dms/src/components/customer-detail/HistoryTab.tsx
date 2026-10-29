@@ -80,7 +80,7 @@ const OVERVIEW_FIELD_LABEL: Record<string, string> = {
   addressLocality: 'customerDetail.overview.addressForm.locality',
   addressCountry: 'customerDetail.overview.addressForm.country',
   addressCanton: 'customerDetail.overview.fields.canton',
-  label: 'customerDetail.contactPoints.labelPlaceholder',
+  label: 'customerDetail.contactPoints.labelColumn',
   isPrimary: 'customerDetail.contactPoints.primary',
   systemName: 'customerDetail.externalIds.systemLabel',
   externalId: 'customerDetail.externalIds.externalIdLabel',

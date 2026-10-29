@@ -26,6 +26,7 @@ function renderGroup(onCreate: (draft: { type: string; value: string }) => Promi
       <RepeatableRowGroup
         mode="detail"
         label="Phones"
+        valueLabel="Number"
         addLabel="Add phone"
         formerLabel="Former"
         typeOptions={[

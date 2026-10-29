@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isNewerVersion } from './useDebouncedNumberField'
 
 /**
  * KAN-425 — `useDebouncedNumberField`'s idea (KAN-8) for free text. A
@@ -18,13 +19,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * text back into the field. `resetKey` discards a waiting draft too (a
  * different row arriving, or the host dropping drafts after a refused save).
  *
+ * KAN-478 — given the row's `version` as `serverVersion`, a server copy is
+ * taken only when its version is above the highest the field has seen: a
+ * refetch sent before the field's save that answers after it settled
+ * carries the older text and the older version, and is ignored. Without
+ * `serverVersion` the field behaves as before.
+ *
  * Returns `[value, setValue, flush]`.
  */
 export function useDebouncedTextField(
   serverValue: string,
   resetKey: unknown,
   onCommit: (value: string) => void | Promise<unknown>,
-  delay = 500
+  delay = 500,
+  serverVersion?: number | null
 ): [string, (value: string) => void, () => void] {
   const [local, setLocal] = useState(serverValue)
   const localRef = useRef(serverValue)
@@ -32,6 +40,8 @@ export function useDebouncedTextField(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savesOutRef = useRef(0)
   const resetKeyRef = useRef(resetKey)
+  // The highest row version this field has seen (KAN-478).
+  const highestVersionRef = useRef(serverVersion ?? null)
   const onCommitRef = useRef(onCommit)
   onCommitRef.current = onCommit
 
@@ -69,6 +79,7 @@ export function useDebouncedTextField(
     if (resetKeyRef.current === resetKey) return
     resetKeyRef.current = resetKey
     cancelTimer()
+    highestVersionRef.current = serverVersion ?? null
     localRef.current = serverValue
     committedRef.current = serverValue
     setLocal(serverValue)
@@ -78,12 +89,15 @@ export function useDebouncedTextField(
   }, [resetKey])
 
   useEffect(() => {
+    const version = serverVersion ?? null
+    const isNewer = isNewerVersion(version, highestVersionRef.current)
+    if (isNewer) highestVersionRef.current = version
     if (timerRef.current !== null || savesOutRef.current > 0 || localRef.current !== committedRef.current) return
-    if (serverValue === committedRef.current) return
+    if (serverValue === committedRef.current || !isNewer) return
     localRef.current = serverValue
     committedRef.current = serverValue
     setLocal(serverValue)
-  }, [serverValue])
+  }, [serverValue, serverVersion])
 
   // A draft still waiting when the field goes away is saved, not dropped.
   useEffect(() => flush, [flush])

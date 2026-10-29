@@ -69,6 +69,7 @@ describe('ui-kit accessible names are translated (KAN-291)', () => {
     renderWithProviders(
       <ContactPointsEditor<'mobile'>
         label={label}
+        valueLabel={i18n.t('customerDetail.contactPoints.phoneValueColumn')}
         addLabel={i18n.t('customerDetail.contactPoints.addPhone')}
         typeOptions={[{ value: 'mobile', label: 'Mobile' }]}
         rows={[{ id: 'p1', type: 'mobile', value: '+41791112233', isPrimary: true, consentGranted: false }]}

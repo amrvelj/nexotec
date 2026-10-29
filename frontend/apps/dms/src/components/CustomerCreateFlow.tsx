@@ -29,7 +29,7 @@ import { SUPPORTED_LANGUAGES } from '../i18n'
 import { AddressSearchField } from './AddressSearchField'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { contactPointRowLabels } from './customer-detail/contactPointRowLabels'
-import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
+import { COMPACT_PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type {
@@ -350,10 +350,12 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             defaultType="mobile"
             rows={phones}
             handlers={phoneRowGroup}
+            valueLabel={t('customerDetail.contactPoints.phoneValueColumn')}
             renderValueEditor={(value, onChange) => (
-              <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />
+              // KAN-460 (option A): the dialog is too narrow for the full country select.
+              <PhoneInput compact label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />
             )}
-            valueEditorMinWidth={PHONE_INPUT_MIN_WIDTH}
+            valueEditorMinWidth={COMPACT_PHONE_INPUT_MIN_WIDTH}
             t={t}
           />
           <ContactRowGroup
@@ -363,9 +365,12 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             defaultType="personal"
             rows={emails}
             handlers={emailRowGroup}
-            renderValueEditor={(value, onChange, autoFocus) => (
-              <TextInput size="xs" type="email" value={value} autoFocus={autoFocus} onChange={(e) => onChange(e.currentTarget.value)} />
+            valueLabel={t('customerDetail.contactPoints.emailValueColumn')}
+            renderValueEditor={(value, onChange, autoFocus, name) => (
+              <TextInput size="xs" type="email" aria-label={name} value={value} autoFocus={autoFocus} onChange={(e) => onChange(e.currentTarget.value)} />
             )}
+            // KAN-460: the phone group's width, so both groups share one column template and line up.
+            valueEditorMinWidth={COMPACT_PHONE_INPUT_MIN_WIDTH}
             t={t}
           />
 
@@ -462,6 +467,7 @@ function controlledRowGroup(setRows: Dispatch<SetStateAction<RepeatableRowValue[
 
 function ContactRowGroup({
   label,
+  valueLabel,
   addLabel,
   typeOptions,
   defaultType,
@@ -477,7 +483,8 @@ function ContactRowGroup({
   defaultType: string
   rows: RepeatableRowValue[]
   handlers: RowGroupHandlers
-  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
+  valueLabel: string
+  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean, accessibleName: string) => ReactNode
   valueEditorMinWidth?: number
   t: (key: string, options?: Record<string, unknown>) => string
 }) {
@@ -489,6 +496,7 @@ function ContactRowGroup({
       <RepeatableRowGroup
         mode="create"
         label={label}
+        valueLabel={valueLabel}
         addLabel={addLabel}
         formerLabel={t('customerDetail.contactPoints.former')}
         typeOptions={typeOptions}

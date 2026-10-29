@@ -139,6 +139,9 @@ def record_call(
 ) -> IntegrationCallLog:
     log = IntegrationCallLog(
         connection_id=connection.id,
+        # The name at the time of the call, never refreshed (KAN-470).
+        connection_label=connection.display_name,
+        connection_label_refreshed_at=utcnow(),
         tenant_id=connection.tenant_id,
         capability=capability,
         status=status,
@@ -194,10 +197,10 @@ def call_capability(
     caller's session: a catalogue sync that failed half-way saved its
     half-written catalogue rows together with the error log row.
 
-    Precondition: the caller holds no uncommitted write or row lock on this
-    connection's own `integration_connection` row — the log row's foreign
-    key waits on it from another session, and the wait is bounded by
-    `_LOG_LOCK_TIMEOUT` so a misuse fails instead of hanging.
+    A caller may hold its own connection row locked: since KAN-470 the
+    log row has no foreign key to it, so nothing here waits on that row.
+    Any lock wait is still bounded by `_LOG_LOCK_TIMEOUT`, so a wait added
+    later fails instead of hanging.
 
     Usage:
         with call_capability(db, connection=connection, capability="vehicle_data") as adapter:
@@ -279,11 +282,12 @@ _LOG_LOCK_TIMEOUT = "5s"
 
 
 def _bound_lock_wait(db: Session) -> None:
-    """The call log's foreign key takes a KEY SHARE lock on the connection
-    row. A caller holding a conflicting lock on that row in its own open
-    transaction would make the gateway's session wait on its own request
-    forever — Postgres sees two sessions, not a deadlock. Bound the wait
-    for this transaction only (`SET LOCAL`)."""
+    """Until KAN-470 the call log's foreign key took a KEY SHARE lock on
+    the connection row, so a caller holding a conflicting lock on that row
+    in its own open transaction made the gateway's session wait on its own
+    request forever — Postgres sees two sessions, not a deadlock. The
+    foreign key is gone; the bound stays, for this transaction only
+    (`SET LOCAL`), so any such wait reintroduced fails instead of hanging."""
 
     if db.get_bind().dialect.name == "postgresql":
         db.execute(text(f"SET LOCAL lock_timeout = '{_LOG_LOCK_TIMEOUT}'"))

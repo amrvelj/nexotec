@@ -125,6 +125,13 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 - Catalogue browse makes **no** live provider call (architecture test).
 - Provider text (option names, colour names) is stored and rendered **as delivered**, never
   translated (ADR-044); only our canonical reference data is translated.
+- **Provider specification excerpts never leave this private repository** (identAPI test
+  agreement §5, §12; KAN-491, repo private since 2026-10-28): the SOAP adapter's sample result
+  XML in tests, the code-map transcription (`7c4e9a2b6d13`) and docstrings citing spec pages stay
+  here — never pasted into a public issue, gist, PR on another repo or chat. Fixtures and the
+  mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, DAT account
+  9900001, `test-dealer`; mock OptKeys 9xxxxx; the mock's plates resolve to invented cars),
+  never a value from an account sheet or a specification example.
 - Everything provider-backed has run against the **mock only**: no staging auto-i-dat account
   exists yet. Say so in any claim about real provider behaviour.
 

@@ -1,7 +1,9 @@
 """KAN-36 — the real auto-i-dat account (BenutzerNr + BenutzerInfo) and the
 DAT sub-account that entitles VIN decode. All fixture values below are
-invented, with the right shapes (small integer BenutzerNr, 7-digit DAT
-account number) — never a value from the real account sheet.
+invented and read as such (KAN-491: «Testprojekt A», BenutzerNr 9001, DAT
+account 9900001, username test-dealer), with the right shapes (small
+integer BenutzerNr, 7-digit DAT account number) — never a value from a
+real account sheet.
 """
 
 import uuid
@@ -90,7 +92,7 @@ def test_auto_i_dat_connection_without_benutzer_nr_is_refused(db_session):
             db_session, tenant_id=uuid.uuid4(),
             data=ConnectionCreate(
                 provider_id=provider.id, display_name="Test", environment=ConnectionEnvironment.SANDBOX,
-                config={"username": "efdealer"},  # benutzerNr/benutzerInfo missing
+                config={"username": "test-dealer"},  # benutzerNr/benutzerInfo missing
             ),
             actor_id=uuid.uuid4(),
         )
@@ -111,7 +113,7 @@ def test_auto_i_dat_connection_without_benutzer_nr_via_api_names_its_reason(clie
             "providerId": str(provider.id),
             "displayName": "Test",
             "environment": "sandbox",
-            "config": {"username": "efdealer"},
+            "config": {"username": "test-dealer"},
         },
         headers=_headers(_manager_token()),
     )
@@ -127,12 +129,12 @@ def test_auto_i_dat_connection_with_full_account_shape_succeeds(db_session):
         db_session, tenant_id=uuid.uuid4(),
         data=ConnectionCreate(
             provider_id=provider.id, display_name="Test", environment=ConnectionEnvironment.SANDBOX,
-            config={"username": "efdealer", "benutzerNr": 4711, "benutzerInfo": "DCMi"},
+            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
         ),
         actor_id=uuid.uuid4(),
     )
-    assert connection.config["benutzerNr"] == 4711
-    assert connection.config["benutzerInfo"] == "DCMi"
+    assert connection.config["benutzerNr"] == 9001
+    assert connection.config["benutzerInfo"] == "Testprojekt A"
 
 
 def test_update_dropping_a_required_config_key_is_refused(db_session):
@@ -141,14 +143,14 @@ def test_update_dropping_a_required_config_key_is_refused(db_session):
         db_session, tenant_id=uuid.uuid4(),
         data=ConnectionCreate(
             provider_id=provider.id, display_name="Test", environment=ConnectionEnvironment.SANDBOX,
-            config={"username": "efdealer", "benutzerNr": 4711, "benutzerInfo": "DCMi"},
+            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
         ),
         actor_id=uuid.uuid4(),
     )
     with pytest.raises(UnprocessableEntityError):
         connection_service.update_connection(
             db_session, connection=connection,
-            data=ConnectionUpdate(config={"username": "efdealer"}),  # drops benutzerNr/benutzerInfo
+            data=ConnectionUpdate(config={"username": "test-dealer"}),  # drops benutzerNr/benutzerInfo
             actor_id=uuid.uuid4(),
         )
 
@@ -165,7 +167,7 @@ def test_dat_connection_can_be_created_tested_and_rotated(db_session):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-            config={"accountNumber": "1234567", "username": "efdealer"},
+            config={"accountNumber": "9900001", "username": "test-dealer"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -191,7 +193,7 @@ def test_dat_connection_without_accountnumber_is_refused(db_session):
             db_session, tenant_id=uuid.uuid4(),
             data=ConnectionCreate(
                 provider_id=provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-                config={"username": "efdealer"},  # accountNumber missing
+                config={"username": "test-dealer"},  # accountNumber missing
             ),
             actor_id=uuid.uuid4(),
         )
@@ -204,7 +206,7 @@ def test_no_dat_secret_is_ever_returned(db_session, client):
         db_session, tenant_id=uuid.uuid4(),
         data=ConnectionCreate(
             provider_id=provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-            config={"accountNumber": "1234567", "username": "efdealer"},
+            config={"accountNumber": "9900001", "username": "test-dealer"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -238,7 +240,7 @@ def test_vin_decode_absent_with_an_unhealthy_dat_connection(db_session):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-            config={"accountNumber": "1234567", "username": "efdealer"},
+            config={"accountNumber": "9900001", "username": "test-dealer"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -255,7 +257,7 @@ def test_vin_decode_granted_with_a_healthy_dat_connection(db_session):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=dat_provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-            config={"accountNumber": "1234567", "username": "efdealer"},
+            config={"accountNumber": "9900001", "username": "test-dealer"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -263,7 +265,7 @@ def test_vin_decode_granted_with_a_healthy_dat_connection(db_session):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=auto_i_dat_provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.PRODUCTION,
-            config={"username": "efdealer", "benutzerNr": 4711, "benutzerInfo": "DCMi"},
+            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -290,7 +292,7 @@ def _dat_and_auto_i_dat(db_session, tenant_id):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=dat_provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-            config={"accountNumber": "1234567", "username": "efdealer"},
+            config={"accountNumber": "9900001", "username": "test-dealer"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -298,7 +300,7 @@ def _dat_and_auto_i_dat(db_session, tenant_id):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=auto_i_dat_provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.PRODUCTION,
-            config={"username": "efdealer", "benutzerNr": 4711, "benutzerInfo": "DCMi"},
+            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -365,7 +367,7 @@ def test_removing_the_dat_connection_revokes_vin_decode(db_session):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=dat_provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
-            config={"accountNumber": "1234567", "username": "efdealer"},
+            config={"accountNumber": "9900001", "username": "test-dealer"},
         ),
         actor_id=uuid.uuid4(),
     )
@@ -373,7 +375,7 @@ def test_removing_the_dat_connection_revokes_vin_decode(db_session):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=auto_i_dat_provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.PRODUCTION,
-            config={"username": "efdealer", "benutzerNr": 4711, "benutzerInfo": "DCMi"},
+            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
         ),
         actor_id=uuid.uuid4(),
     )

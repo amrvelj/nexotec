@@ -6979,7 +6979,7 @@ export interface components {
             /** Customerid */
             customerId?: string | null;
             /** Discounttype */
-            discountType?: string | null;
+            discountType?: ("percent" | "amount") | null;
             /** Discountvalue */
             discountValue?: number | string | null;
             /** Leasingdownpayment */

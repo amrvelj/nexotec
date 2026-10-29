@@ -88,7 +88,11 @@ export const FR_REPEATABLE_ROW_LABELS: RepeatableRowGroupLabels = {
   confirm: 'Confirmer',
   none: 'Aucun enregistré',
   genericError: 'Une erreur est survenue.',
-  labelFieldPlaceholder: 'Libellé',
+  typeColumn: 'Type',
+  labelColumn: 'Désignation',
+  labelHint: 'Indique de quel numéro ou de quelle adresse il s’agit, p. ex. Bureau, Comptabilité, Atelier Winterthour.',
+  consentHint: 'Consentement donné pour ce numéro ou cette adresse précis.',
+  hintIcon: 'Indication',
   rowActions: (label) => `Actions de la ligne ${label}`,
 }
 

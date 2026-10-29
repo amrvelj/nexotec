@@ -8,16 +8,17 @@ them structurally apart means no future careless serializer change on
 THIS table could ever leak a payload into the 24-month-retained metadata.
 """
 
+import datetime as dt
 import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import DECIMAL, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
 from app.core.enum_type import StoredEnum
-from app.core.types import GUID
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -30,9 +31,20 @@ class CallStatus(str, enum.Enum):
 class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "integration_call_log"
 
+    # KAN-470 (Anto, 2026-10-26, option A): the call log outlives its
+    # connection until ADR-024 retention purges it, so this is a plain id,
+    # not a foreign key, with the connection's name copied beside it at the
+    # time of the call (the three-column pattern inside the context). The
+    # label is never refreshed on rename: it says which account a call was
+    # made on, as it was called then.
     connection_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("integration_connection.id"), nullable=False, index=True
+        GUID(),
+        nullable=False,
+        index=True,
+        comment="IntegrationConnection.id. No DB-level FK: the row outlives a deleted connection (KAN-470).",
     )
+    connection_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    connection_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # Denormalized (not TenantScopedMixin — a platform-scoped connection's
     # calls have no tenant) so PR-6's per-tenant retention purge and PR-7's
     # per-tenant usage aggregation never need a join back through

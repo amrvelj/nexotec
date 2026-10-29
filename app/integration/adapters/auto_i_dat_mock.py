@@ -231,11 +231,13 @@ _GROUPED_VALUES: dict[str, list[str]] = {
 }
 
 _PLATES: dict[str, list[PlateInfoData]] = {
+    # KAN-491: invented, like every record here — never the specification's
+    # own KontrollschildInfo example.
     "ZH123456": [
         PlateInfoData(
-            vehicle_kind_code="01", brand_name="Subaru", model_description="G3X Justy Limousine",
-            production_from=2003, production_to=2009, type_approval_number="1SC653",
-            first_registration_date=dt.date(2003, 10, 3), stammnummer="626702193",
+            vehicle_kind_code="01", brand_name="BMW", model_description="318i Limousine",
+            production_from=2003, production_to=2009, type_approval_number="4GH901",
+            first_registration_date=dt.date(2004, 6, 14), stammnummer="900100200",
         )
     ],
     # KAN-42 — one record whose Typenschein the mock catalogue carries, so a
@@ -286,20 +288,22 @@ _TYPE_APPROVAL_DATA: dict[str, TypeApprovalDataResult] = {
     if master.type_approval_numbers
 }
 
+# OptKeys 9xxxxx are invented (KAN-491): no real or specification OptKey
+# is in this range, so a mock key can never be read as one.
 _OPTION_PACKAGES: dict[int, list[OptionPackageContentData]] = {
-    100369: [
-        OptionPackageContentData(opt_key=100369, description="Höhenverstellbarer Beifahrersitz"),
-        OptionPackageContentData(opt_key=100370, description="Sitzheizung vorne"),
+    900101: [
+        OptionPackageContentData(opt_key=900101, description="Lordosenstütze Fahrersitz"),
+        OptionPackageContentData(opt_key=900102, description="Sitzheizung vorne"),
     ],
 }
 
 _OPTION_EXCLUSIONS: dict[int, list[int]] = {
-    100017: [100369, 100370],
+    900100: [900101, 900102],
 }
 
 _OPTION_CONDITIONS: dict[int, list[OptionConditionData]] = {
-    108181: [
-        OptionConditionData(opt_key=108181, description="Pack Family", aktion_code="1", price=Decimal(0)),
+    900200: [
+        OptionConditionData(opt_key=900200, description="Aktionspaket Winter", aktion_code="1", price=Decimal(0)),
     ],
 }
 

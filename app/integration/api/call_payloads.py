@@ -16,19 +16,19 @@ from app.core.auth import Principal, require_access_role
 from app.core.errors import NotFoundError
 from app.db import get_db
 from app.integration.models.call_log import IntegrationCallLog
+from app.integration.models.connection import IntegrationConnection
 from app.integration.schemas.call_payload import CallPayloadRead
-from app.integration.services import connections as connection_service
 from app.integration.services import notifications as notification_service
 from app.integration.services import retention as retention_service
 
 router = APIRouter(tags=["integrations"])
 
 
-def _connection_id_for(db: Session, *, call_log_id: uuid.UUID) -> uuid.UUID:
+def _call_log_for(db: Session, *, call_log_id: uuid.UUID) -> IntegrationCallLog:
     log = db.get(IntegrationCallLog, call_log_id)
     if log is None:
         raise NotFoundError(f"Call log {call_log_id} was not found.")
-    return log.connection_id
+    return log
 
 
 @router.get("/integrations/call-payloads/{payload_id}", response_model=CallPayloadRead)
@@ -45,8 +45,18 @@ def get_call_payload(
         action="break_glass_read", actor_id=principal.user_id, reason=reason,
     )
 
-    connection_id = _connection_id_for(db, call_log_id=payload.call_log_id)
-    connection = connection_service.get_connection_or_404(db, tenant_id=None, connection_id=connection_id)
-    notification_service.notify_break_glass_access(db, connection=connection, actor_id=principal.user_id, reason=reason)
+    log = _call_log_for(db, call_log_id=payload.call_log_id)
+    connection = db.get(IntegrationConnection, log.connection_id)
+    if connection is not None:
+        notification_service.notify_break_glass_access(
+            db, connection=connection, actor_id=principal.user_id, reason=reason
+        )
+    else:
+        # KAN-470: the payload outlives a deleted connection; the Betrieb is
+        # still told, under the name the call log recorded.
+        notification_service.notify_break_glass_access_for_deleted_connection(
+            db, tenant_id=log.tenant_id, connection_name=log.connection_label, actor_id=principal.user_id,
+            reason=reason,
+        )
 
     return CallPayloadRead.model_validate(payload, from_attributes=True)
