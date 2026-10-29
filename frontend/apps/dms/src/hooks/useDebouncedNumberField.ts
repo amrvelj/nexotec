@@ -59,18 +59,27 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * whatever its version: the save did not happen, so that copy is the
  * truth. Without `serverVersion` the field behaves as before.
  *
+ * KAN-493 — a host whose figure is never negative passes `nonNegative` (the
+ * API's `ge=0`, KAN-482: no negative price, discount or leasing figure). A
+ * negative figure is held like a partial entry: shown as typed, never committed,
+ * unsaved, and `invalid` names why. The input itself keeps accepting «-»:
+ * an input that refuses it empties itself when its whole text is replaced
+ * by one, and that '' would be committed as a clear (KAN-480's hazard).
+ *
  * Returns `[value, setValue, unsaved, invalid, onBlur]` — `unsaved` is true
- * while a typed value waits out the delay or is not a number (KAN-288);
- * `invalid` is true while the field holds something that is not a number, for
- * the host's `error` (`common.notYetANumber`); `onBlur` goes on the input.
+ * while a typed value waits out the delay or cannot be saved (KAN-288);
+ * `invalid` is null, or why the field holds something it will not save —
+ * `'notANumber'` or `'negative'` — for the host's `error`
+ * (`numberFieldError`); `onBlur` goes on the input.
  */
 export function useDebouncedNumberField(
   serverValue: number | null,
   resetKey: unknown,
   onCommit: (value: number | null) => void | Promise<unknown>,
   delay = 500,
-  serverVersion?: number | null
-): [number | string, (value: number | string) => void, boolean, boolean, () => void] {
+  serverVersion?: number | null,
+  nonNegative = false
+): [number | string, (value: number | string) => void, boolean, NumberFieldInvalid, () => void] {
   const next: number | '' = serverValue ?? ''
   // What the input shows: the server's figure, or what was typed as typed.
   const [local, setLocal] = useState<number | string>(next)
@@ -93,6 +102,8 @@ export function useDebouncedNumberField(
   const resetKeyRef = useRef(resetKey)
   const onCommitRef = useRef(onCommit)
   onCommitRef.current = onCommit
+  const nonNegativeRef = useRef(nonNegative)
+  nonNegativeRef.current = nonNegative
 
   const show = (value: number | '') => {
     localRef.current = value
@@ -120,8 +131,9 @@ export function useDebouncedNumberField(
     timerRef.current = null
     const value = asFigure(localRef.current)
     if (Object.is(value, committedRef.current)) return
-    // Not yet a number (KAN-480): kept in the field, never sent.
-    if (!isCommittable(value)) return
+    // Not yet a number (KAN-480), or negative where it may not be (KAN-493): kept in the
+    // field, never sent.
+    if (invalidReason(value, nonNegativeRef.current) !== null) return
     committedRef.current = value
     setCommitted(value)
     const saving = onCommitRef.current(value === '' ? null : value)
@@ -144,7 +156,7 @@ export function useDebouncedNumberField(
   const setValue = useCallback(
     (value: number | string) => {
       const previous = localRef.current
-      if (value === '' && typeof previous === 'string' && !isCommittable(asFigure(previous))) {
+      if (value === '' && typeof previous === 'string' && !Number.isFinite(asFigure(previous))) {
         emptiedPartialRef.current = previous
         queueMicrotask(() => {
           emptiedPartialRef.current = null
@@ -200,7 +212,20 @@ export function useDebouncedNumberField(
   // Object.is: a value that is not a number reads as NaN, never equal to a
   // committed figure, so it stays "unsaved" until finished or emptied.
   const figure = asFigure(local)
-  return [local, setValue, !Object.is(figure, committed), !isCommittable(figure), onBlur]
+  return [local, setValue, !Object.is(figure, committed), invalidReason(figure, nonNegative), onBlur]
+}
+
+/** Why a number field holds a figure it will not save, or null (KAN-480, KAN-493). */
+export type NumberFieldInvalid = null | 'notANumber' | 'negative'
+
+const INVALID_KEYS: Record<Exclude<NumberFieldInvalid, null>, string> = {
+  notANumber: 'common.notYetANumber',
+  negative: 'common.notNegative',
+}
+
+/** The host's `error` for a number field: its reason in the UI language, or undefined. */
+export function numberFieldError(t: (key: string) => string, invalid: NumberFieldInvalid): string | undefined {
+  return invalid === null ? undefined : t(INVALID_KEYS[invalid])
 }
 
 /**
@@ -213,8 +238,11 @@ export function isNewerVersion(version: number | null, highest: number | null): 
   return version > highest
 }
 
-function isCommittable(figure: number | ''): boolean {
-  return figure === '' || Number.isFinite(figure)
+function invalidReason(figure: number | '', nonNegative: boolean): NumberFieldInvalid {
+  if (figure === '') return null
+  if (!Number.isFinite(figure)) return 'notANumber'
+  if (nonNegative && figure < 0) return 'negative'
+  return null
 }
 
 /**

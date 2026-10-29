@@ -15,7 +15,7 @@ import {
   useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
-import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
+import { numberFieldError, useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
@@ -132,21 +132,24 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingDownPayment: value }),
     undefined,
-    offerQuery.data?.version
+    offerQuery.data?.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
   const [leasingTermMonths, setLeasingTermMonths, leasingTermMonthsUnsaved, leasingTermMonthsInvalid, onLeasingTermMonthsBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingTermMonths ?? null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingTermMonths: value }),
     undefined,
-    offerQuery.data?.version
+    offerQuery.data?.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
   const [leasingKmPerYear, setLeasingKmPerYear, leasingKmPerYearUnsaved, leasingKmPerYearInvalid, onLeasingKmPerYearBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingKmPerYear ?? null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingKmPerYear: value }),
     undefined,
-    offerQuery.data?.version
+    offerQuery.data?.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
   // KAN-344 — a leasing value inside its debounce is not yet a save either,
   // so Continue waits for it as it does for a price (KAN-327).
@@ -246,21 +249,21 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
                 <ChfInput
                   label={t('offerWorkspace.leasing.downPayment')}
                   value={leasingDownPayment}
-                  error={leasingDownPaymentInvalid ? t('common.notYetANumber') : undefined}
+                  error={numberFieldError(t, leasingDownPaymentInvalid)}
                   onChange={setLeasingDownPayment}
                   onBlur={onLeasingDownPaymentBlur}
                 />
                 <NumberInput
                   label={t('offerWorkspace.leasing.termMonths')}
                   value={leasingTermMonths}
-                  error={leasingTermMonthsInvalid ? t('common.notYetANumber') : undefined}
+                  error={numberFieldError(t, leasingTermMonthsInvalid)}
                   onChange={setLeasingTermMonths}
                   onBlur={onLeasingTermMonthsBlur}
                 />
                 <NumberInput
                   label={t('offerWorkspace.leasing.kmPerYear')}
                   value={leasingKmPerYear}
-                  error={leasingKmPerYearInvalid ? t('common.notYetANumber') : undefined}
+                  error={numberFieldError(t, leasingKmPerYearInvalid)}
                   onChange={setLeasingKmPerYear}
                   onBlur={onLeasingKmPerYearBlur}
                 />

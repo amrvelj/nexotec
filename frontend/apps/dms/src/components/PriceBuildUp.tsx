@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { ChfInput } from '@nexotec/ui-kit'
-import { asFigure, useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
+import { asFigure, numberFieldError, useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesPricedDealRead } from '../api/types'
 
@@ -53,7 +53,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
     deal.id,
     (value) => onManualBasePriceChange?.(value),
     undefined,
-    deal.version
+    deal.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
   const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid, onDiscountValueBlur] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
@@ -61,7 +62,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
     (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value }),
     undefined,
     // KAN-478: an older copy never replaces a newer figure.
-    deal.version
+    deal.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
 
   const discountFigure = asFigure(discountValue)
@@ -86,7 +88,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
         <ChfInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
           value={manualBasePrice}
-          error={manualBasePriceInvalid ? t('common.notYetANumber') : undefined}
+          error={numberFieldError(t, manualBasePriceInvalid)}
           onChange={setManualBasePrice}
           onBlur={onManualBasePriceBlur}
         />
@@ -128,7 +130,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
           <ChfInput
             label={t('offerWorkspace.pricing.discountValue')}
             value={discountValue}
-            error={discountValueInvalid ? t('common.notYetANumber') : undefined}
+            error={numberFieldError(t, discountValueInvalid)}
             onChange={setDiscountValue}
             onBlur={onDiscountValueBlur}
           />
@@ -138,7 +140,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
             disabled={!deal.discountType}
             suffix={deal.discountType === 'percent' ? ' %' : undefined}
             value={discountValue}
-            error={discountValueInvalid ? t('common.notYetANumber') : undefined}
+            error={numberFieldError(t, discountValueInvalid)}
             onChange={setDiscountValue}
             onBlur={onDiscountValueBlur}
           />

@@ -178,6 +178,7 @@
       "reload": "Neu laden"
     },
     "notYetANumber": "Noch keine gültige Zahl",
+    "notNegative": "Darf nicht negativ sein",
     "noMatches": "Keine Treffer"
   },
   "apiRefusal": {

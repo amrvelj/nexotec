@@ -178,6 +178,7 @@
       "reload": "Ricarica"
     },
     "notYetANumber": "Non è ancora un numero valido",
+    "notNegative": "Non può essere negativo",
     "noMatches": "Nessun risultato"
   },
   "apiRefusal": {
