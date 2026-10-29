@@ -143,7 +143,8 @@ class OfferRead(CamelModel):
         default=None,
         description=(
             "The offer's contract that is not cancelled, if any. While there is one, the offer's PATCH, line "
-            "items, trade-in, trade-in valuation, finalize and cancel are refused with 409 `offer_has_contract`."
+            "items, trade-in, trade-in valuation, finalize, cancel and document generation are refused with 409 "
+            "`offer_has_contract`."
         ),
     )
     live_contract_number: str | None = Field(default=None, description="That contract's number, for display.")
