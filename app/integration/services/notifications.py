@@ -118,15 +118,39 @@ def notify_break_glass_access(
     never blocked by a notification step that has nowhere to send to.
     """
 
-    if connection.tenant_id is None:
+    return _notify_break_glass(
+        db, connection=connection, tenant_id=connection.tenant_id, connection_name=connection.display_name,
+        reason=reason,
+    )
+
+
+def notify_break_glass_access_for_deleted_connection(
+    db: Session, *, tenant_id: uuid.UUID | None, connection_name: str | None, actor_id: uuid.UUID, reason: str
+) -> IntegrationNotification | None:
+    """The same notice for a payload whose connection was deleted since
+    the call (KAN-470: the call log and its payloads outlive it until
+    ADR-024 retention purges them). The Betrieb comes from the call log
+    and the name is the one it recorded at the time of the call; the row
+    names no connection, since none exists any more."""
+
+    return _notify_break_glass(
+        db, connection=None, tenant_id=tenant_id, connection_name=connection_name or "(deleted)", reason=reason
+    )
+
+
+def _notify_break_glass(
+    db: Session, *, connection: IntegrationConnection | None, tenant_id: uuid.UUID | None, connection_name: str,
+    reason: str,
+) -> IntegrationNotification | None:
+    if tenant_id is None:
         return None
     summary = (
         f"A Nexotec platform administrator accessed raw integration data for connection "
-        f"'{connection.display_name}'. Reason given: {reason}"
+        f"'{connection_name}'. Reason given: {reason}"
     )
-    recipients = list_dealer_manager_emails(db, dealership_id=connection.tenant_id)
+    recipients = list_dealer_manager_emails(db, dealership_id=tenant_id)
     return _send_and_record(
-        db, connection=connection, tenant_id=connection.tenant_id, kind=NotificationKind.BREAK_GLASS_ACCESS,
+        db, connection=connection, tenant_id=tenant_id, kind=NotificationKind.BREAK_GLASS_ACCESS,
         threshold_days=None, sent_date=utcnow().date(), subject="Integration data accessed by Nexotec support",
         summary=summary, recipients=recipients,
     )

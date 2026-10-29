@@ -118,11 +118,12 @@ def get_connection_for_update_or_404(
     row those routes lock (a delete then removes its secret refs and
     entitlements), and the secret routes take it the same way before they
     touch a secret ref, so the two never lock in opposite orders. FOR NO KEY
-    UPDATE: it serialises the writers without blocking the call-log rows a
-    provider call inserts against the connection meanwhile — except for a
-    delete (`deleting`), which takes FOR UPDATE, the lock its DELETE ends up
-    holding anyway, so such an insert waits instead of slipping in before
-    the row goes. A function of its own so the read above stays a read
+    UPDATE: it serialises the writers. A delete (`deleting`) takes FOR
+    UPDATE, the lock its DELETE ends up holding anyway. Until KAN-470 that
+    also made a provider call's call-log insert wait for the delete (the
+    log's foreign key); the call log has no foreign key now and outlives
+    the connection, so no lock here blocks it. A function of its own so the
+    read above stays a read
     (tests/architecture/test_adr_047_no_shared_transaction.py)."""
 
     connection = db.scalar(
@@ -363,6 +364,11 @@ def delete_connection(
     """Requires confirmation and is audit-logged (rule 10) — unlike
     disable, this is destructive: every secret slot is deleted from
     Infisical too, not just this row.
+
+    The call log is left alone (KAN-470, Anto 2026-10-26, option A): it is
+    ADR-024 retention data, kept until `retention.purge_call_log_metadata`
+    removes it, and names the connection by id and by the label it
+    recorded at the time of each call.
     """
 
     if not confirm:

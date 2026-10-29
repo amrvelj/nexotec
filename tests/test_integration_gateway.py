@@ -250,13 +250,15 @@ def test_a_captured_payload_is_committed_with_the_log_not_with_the_callers_work(
 
 
 @_postgres_only
-def test_a_caller_locking_its_own_connection_row_gets_an_error_not_a_hang(db_session, monkeypatch):
-    """The precondition in call_capability's docstring: the log row's
-    foreign key waits on the connection row from the gateway's own session,
-    so a caller holding that row locked would wait on itself forever."""
+def test_a_caller_locking_its_own_connection_row_is_logged_without_waiting(db_session, monkeypatch):
+    """Until KAN-470 the log row's foreign key waited on the connection row
+    from the gateway's own session, so a caller holding that row locked
+    waited on itself (bounded by `_LOG_LOCK_TIMEOUT`, then an error). The
+    call log has no foreign key now: the call is logged at once. A wait
+    reintroduced later still fails here with the bound's lock timeout
+    instead of hanging."""
 
-    from sqlalchemy.exc import OperationalError
-
+    from app.integration.models.call_log import IntegrationCallLog
     from app.integration.models.connection import IntegrationConnection
 
     monkeypatch.setattr(gateway, "_LOG_LOCK_TIMEOUT", "200ms")
@@ -264,12 +266,12 @@ def test_a_caller_locking_its_own_connection_row_gets_an_error_not_a_hang(db_ses
     connection = _make_connection(db_session, provider)
     db_session.scalars(select(IntegrationConnection).filter_by(id=connection.id).with_for_update()).one()
 
-    with (
-        pytest.raises(OperationalError, match="lock timeout"),
-        gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter,
-    ):
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
         adapter.fetch_vehicle_master_data("FZ100001")
     db_session.rollback()
+
+    logs = db_session.scalars(select(IntegrationCallLog).filter_by(connection_id=connection.id)).all()
+    assert [log.capability for log in logs] == ["vehicle_data"]
 
 
 def test_test_connection_endpoint_updates_status_and_last_verified(db_session):

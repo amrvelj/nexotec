@@ -186,12 +186,14 @@ def test_a_save_with_the_same_if_match_waits_for_the_one_in_progress_and_is_refu
 
 
 @_postgres_only_row_locks
-@pytest.mark.parametrize(("deleting", "child_insert_waits"), [(False, False), (True, True)])
-def test_a_save_lets_a_provider_call_log_its_row_and_a_delete_makes_it_wait(db_session, engine, deleting, child_insert_waits):
+@pytest.mark.parametrize("deleting", [False, True])
+def test_a_provider_call_logs_its_row_while_a_save_or_a_delete_holds_the_connection(db_session, engine, deleting):
     """FOR NO KEY UPDATE serialises the writers of a connection without
-    blocking the call-log row a provider call inserts against it meanwhile;
-    a delete takes FOR UPDATE, so that insert waits for the delete instead
-    of committing just before the row goes."""
+    blocking the call-log row a provider call inserts against it meanwhile.
+    Until KAN-470 a delete's FOR UPDATE made that insert wait (the log's
+    foreign key), so it could not commit just before the row went and fail
+    the delete; the call log has no foreign key now and outlives the
+    connection (Anto, 2026-10-26, option A), so it waits for neither."""
 
     tenant_id = uuid.uuid4()
     provider = _make_provider(db_session)
@@ -226,5 +228,5 @@ def test_a_save_lets_a_provider_call_log_its_row_and_a_delete_makes_it_wait(db_s
         holding.rollback()
         holding.close()
 
-    assert waited is child_insert_waits
+    assert waited is False
 

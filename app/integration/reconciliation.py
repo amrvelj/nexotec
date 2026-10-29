@@ -60,6 +60,9 @@ CHECKS = [
         target_model=IntegrationConnection,
         target_id_column=IntegrationConnection.id,
     ),
+    # integration_call_log.connection_id is deliberately not checked: the
+    # call log outlives a deleted connection until ADR-024 retention purges
+    # it (KAN-470), so a row naming no connection is expected, not drift.
     # --- WP-6 PR-6 additions ---
     ReferenceCheck(
         label="integration_call_payload.call_log_id -> integration_call_log.id",
