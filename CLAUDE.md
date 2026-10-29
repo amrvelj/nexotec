@@ -55,7 +55,7 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
 - Tests: `pytest` — Postgres, the lane of record. One test: `pytest tests/test_customer.py::test_name`
 - Migrations: `alembic upgrade heads` — plural: one chain per context (ADR-015); `head`
   fails or silently applies one context only
-- Backend: `ruff check app tests` · `python -m mypy app scripts` (as a module — the bare `mypy`
+- Backend: `ruff check app tests scripts` · `python -m mypy app scripts` (as a module — the bare `mypy`
   binary resolves another interpreter) · `lint-imports`
 - Frontend: `npm run lint --prefix frontend` · `npm run build --prefix frontend` ·
   `npx vitest run` in `frontend/apps/dms` or `frontend/packages/ui-kit`
