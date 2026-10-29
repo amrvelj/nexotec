@@ -130,17 +130,23 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const [leasingDownPayment, setLeasingDownPayment, leasingDownPaymentUnsaved, leasingDownPaymentInvalid, onLeasingDownPaymentBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingDownPayment != null ? Number(offerQuery.data.leasingDownPayment) : null,
     offerQuery.data?.id,
-    (value) => commitLeasing({ leasingDownPayment: value })
+    (value) => commitLeasing({ leasingDownPayment: value }),
+    undefined,
+    offerQuery.data?.version
   )
   const [leasingTermMonths, setLeasingTermMonths, leasingTermMonthsUnsaved, leasingTermMonthsInvalid, onLeasingTermMonthsBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingTermMonths ?? null,
     offerQuery.data?.id,
-    (value) => commitLeasing({ leasingTermMonths: value })
+    (value) => commitLeasing({ leasingTermMonths: value }),
+    undefined,
+    offerQuery.data?.version
   )
   const [leasingKmPerYear, setLeasingKmPerYear, leasingKmPerYearUnsaved, leasingKmPerYearInvalid, onLeasingKmPerYearBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingKmPerYear ?? null,
     offerQuery.data?.id,
-    (value) => commitLeasing({ leasingKmPerYear: value })
+    (value) => commitLeasing({ leasingKmPerYear: value }),
+    undefined,
+    offerQuery.data?.version
   )
   // KAN-344 — a leasing value inside its debounce is not yet a save either,
   // so Continue waits for it as it does for a price (KAN-327).

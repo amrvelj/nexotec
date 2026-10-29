@@ -331,6 +331,8 @@ function ListingTextFields({
   const field = (name: ListingTextField) => ({
     label: t(`stockDetail.publishing.fields.${name}`),
     serverValue: publishing[name] ?? '',
+    // KAN-478: an older copy never replaces newer text.
+    serverVersion: publishing.version,
     resetKey,
     onCommit: (value: string) => onSave({ [name]: value }),
   })
@@ -350,12 +352,14 @@ function ListingTextFields({
 
 function ListingTextInput({
   serverValue,
+  serverVersion,
   resetKey,
   onCommit,
   ...counterProps
 }: {
   label: NonNullable<ReactNode>
   serverValue: string
+  serverVersion: number
   resetKey: string
   onCommit: (value: string) => Promise<void>
   maxLength: number
@@ -363,7 +367,7 @@ function ListingTextInput({
   description?: ReactNode
   minRows?: number
 }) {
-  const [value, setValue, flush] = useDebouncedTextField(serverValue, resetKey, onCommit)
+  const [value, setValue, flush] = useDebouncedTextField(serverValue, resetKey, onCommit, undefined, serverVersion)
   return <CounterTextarea {...counterProps} value={value} onChange={setValue} onBlur={flush} />
 }
 

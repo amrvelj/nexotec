@@ -50,6 +50,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * passes `onBlur` and the hook puts the partial entry back instead of
  * committing a clear. An empty field the user made by deleting stays empty.
  *
+ * KAN-478 — the host passes the row's `version` as `serverVersion`, and the
+ * field takes a server copy only when its version is above the highest it
+ * has seen. A refetch sent before this field's save and answering after the
+ * save settled carries the older figure (and the older version); without
+ * the version the field could not tell it from a newer copy and put the old
+ * figure back. A refused save still shows the server copy the field holds,
+ * whatever its version: the save did not happen, so that copy is the
+ * truth. Without `serverVersion` the field behaves as before.
+ *
  * Returns `[value, setValue, unsaved, invalid, onBlur]` — `unsaved` is true
  * while a typed value waits out the delay or is not a number (KAN-288);
  * `invalid` is true while the field holds something that is not a number, for
@@ -59,7 +68,8 @@ export function useDebouncedNumberField(
   serverValue: number | null,
   resetKey: unknown,
   onCommit: (value: number | null) => void | Promise<unknown>,
-  delay = 500
+  delay = 500,
+  serverVersion?: number | null
 ): [number | string, (value: number | string) => void, boolean, boolean, () => void] {
   const next: number | '' = serverValue ?? ''
   // What the input shows: the server's figure, or what was typed as typed.
@@ -71,6 +81,10 @@ export function useDebouncedNumberField(
   const committedRef = useRef<number | ''>(next)
   const serverRef = useRef<number | ''>(next)
   serverRef.current = next
+  const versionRef = useRef(serverVersion ?? null)
+  versionRef.current = serverVersion ?? null
+  // The highest row version this field has seen (KAN-478).
+  const highestVersionRef = useRef(serverVersion ?? null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savesOutRef = useRef(0)
   // The partial entry an emptying change replaced, until the end of the
@@ -89,11 +103,16 @@ export function useDebouncedNumberField(
 
   // Takes the server's copy when nothing of this field's is pending: no
   // typed value waiting (Object.is: a lone "-" reads as NaN, and NaN !== NaN)
-  // and no save out.
-  const adoptServerCopy = useCallback(() => {
+  // and no save out — and, given versions, only a copy newer than any seen
+  // (KAN-478). `afterRefusal` skips that last test: a refused save leaves
+  // the copy the field holds as the server's truth.
+  const adoptServerCopy = useCallback((afterRefusal = false) => {
+    const isNewer = isNewerVersion(versionRef.current, highestVersionRef.current)
+    if (isNewer) highestVersionRef.current = versionRef.current
     if (timerRef.current !== null || savesOutRef.current > 0) return
     if (!Object.is(asFigure(localRef.current), committedRef.current)) return
     if (Object.is(serverRef.current, committedRef.current)) return
+    if (!isNewer && !afterRefusal) return
     show(serverRef.current)
   }, [])
 
@@ -116,7 +135,7 @@ export function useDebouncedNumberField(
           // Refused: the host shows why and reloads; the field shows the
           // server copy it holds, whichever arrived while the save was out.
           savesOutRef.current -= 1
-          adoptServerCopy()
+          adoptServerCopy(true)
         },
       )
     }
@@ -159,11 +178,12 @@ export function useDebouncedNumberField(
     resetKeyRef.current = resetKey
     if (timerRef.current !== null) clearTimeout(timerRef.current)
     timerRef.current = null
+    highestVersionRef.current = versionRef.current
     show(serverRef.current)
   }, [resetKey])
 
   // Runs when the server copy changes, never on a keystroke.
-  useEffect(adoptServerCopy, [next, adoptServerCopy])
+  useEffect(() => adoptServerCopy(), [next, serverVersion, adoptServerCopy])
 
   // A value still waiting when the field goes away is dropped, as before:
   // a host that ends the edit waits for `unsaved` (KAN-288).
@@ -181,6 +201,16 @@ export function useDebouncedNumberField(
   // committed figure, so it stays "unsaved" until finished or emptied.
   const figure = asFigure(local)
   return [local, setValue, !Object.is(figure, committed), !isCommittable(figure), onBlur]
+}
+
+/**
+ * KAN-478: whether a server copy at `version` is newer than the highest the
+ * field has seen. Without versions (a host that passes none) every copy
+ * counts as newer, as before.
+ */
+export function isNewerVersion(version: number | null, highest: number | null): boolean {
+  if (version === null || highest === null) return true
+  return version > highest
 }
 
 function isCommittable(figure: number | ''): boolean {
