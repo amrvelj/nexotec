@@ -101,8 +101,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   offer, editable again while it is a draft. `OfferRead` names that contract
   (`liveContractId`, `liveContractNumber`; computed in `api/offers.py::_offer_reads`, one query
   per page — KAN-492), so a sent offer's seller picker and «Übernehmen» are disabled before the
-  click, the contract named (`dealOwner.takeOverDisabled.liveContract`). The draft workspace's
-  other actions do not read it yet (KAN-426).
+  click, the contract named (`dealOwner.takeOverDisabled.liveContract`). The draft workspace
+  does not read it yet, its seller picker included (KAN-426).
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;

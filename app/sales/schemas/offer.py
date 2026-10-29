@@ -135,18 +135,18 @@ class OfferRead(CamelModel):
     # column; the frontend (per-line discount suppression on used
     # vehicles) needs one place to read either.
     vehicle_condition: str | None = None
-    # KAN-492 — computed in _offer_read: the offer's contract that is not
+    # KAN-492 — computed in _offer_reads: the offer's contract that is not
     # cancelled (KAN-147 keeps it to one). While it exists the offer is
     # read-only (KAN-408), so a screen can disable an action, with the
     # contract named, before the click instead of after the 409.
     live_contract_id: uuid.UUID | None = Field(
         default=None,
         description=(
-            "The offer's contract that is not cancelled, if any. While there is one the offer is read-only: "
-            "every write is 409 `offer_has_contract`."
+            "The offer's contract that is not cancelled, if any. While there is one, the offer's PATCH, line "
+            "items, trade-in, trade-in valuation, finalize and cancel are refused with 409 `offer_has_contract`."
         ),
     )
-    live_contract_number: str | None = None
+    live_contract_number: str | None = Field(default=None, description="That contract's number, for display.")
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

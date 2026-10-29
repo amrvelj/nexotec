@@ -6912,10 +6912,13 @@ export interface components {
             listPrice: string | null;
             /**
              * Livecontractid
-             * @description The offer's contract that is not cancelled, if any. While there is one the offer is read-only: every write is 409 `offer_has_contract`.
+             * @description The offer's contract that is not cancelled, if any. While there is one, the offer's PATCH, line items, trade-in, trade-in valuation, finalize and cancel are refused with 409 `offer_has_contract`.
              */
             liveContractId?: string | null;
-            /** Livecontractnumber */
+            /**
+             * Livecontractnumber
+             * @description That contract's number, for display.
+             */
             liveContractNumber?: string | null;
             /** Manualbaseprice */
             manualBasePrice: string | null;

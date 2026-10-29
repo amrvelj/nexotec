@@ -298,7 +298,7 @@ describe('A sent offer with a live contract — the seller is changed on the con
     expect(backend.callsTo(/^\/sales\/offers\/o-9$/, 'PATCH')).toHaveLength(0)
   })
 
-  it('keeps both enabled on a sent offer without one', async () => {
+  it('keeps the picker enabled, with no contract named, on a sent offer without one', async () => {
     installFakeBackend([
       SELLERS,
       { method: 'GET', match: /^\/sales\/offers\/o-9$/, handler: () => ({ ...OPEN_OFFER, liveContractId: null, liveContractNumber: null }) },

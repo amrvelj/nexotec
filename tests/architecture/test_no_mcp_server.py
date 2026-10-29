@@ -39,7 +39,11 @@ _SERVER_DECLARATION = re.compile(
     r"\bFastMCP\s*\(|\bMcpServer\s*\(|@\s*\w*mcp\w*\.(?:tool|resource|prompt)\b|['\"]tools/(?:list|call)['\"]",
     re.IGNORECASE,
 )
-_TS_MCP_IMPORT = re.compile(r"""(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:@modelcontextprotocol/[^'"]*|[^'"]*\bmcp\b[^'"]*)['"]""")
+_TS_MCP_IMPORT = re.compile(
+    r"""(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*)['"](?:@modelcontextprotocol/[^'"]*|[^'"]*mcp[^'"]*)['"]""",
+    re.IGNORECASE,
+)
+_SCRIPT_SUFFIXES = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
 _SKIPPED_DIRS = {"node_modules", "dist", "__pycache__"}
 
 
@@ -70,10 +74,13 @@ def _requirement_name(requirement: str) -> str:
 
 
 def declared_dependencies() -> dict[str, list[str]]:
-    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    python = [_requirement_name(r) for r in pyproject.get("dependencies", [])]
-    for group in pyproject.get("optional-dependencies", {}).values():
-        python += [_requirement_name(r) for r in group]
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = pyproject["project"]
+    python = [_requirement_name(r) for r in project.get("dependencies", [])]
+    groups = [*project.get("optional-dependencies", {}).values(), *pyproject.get("dependency-groups", {}).values()]
+    for group in groups:
+        # a PEP 735 group may include another (`{include-group = …}`), which names no package
+        python += [_requirement_name(r) for r in group if isinstance(r, str)]
     found = {"pyproject.toml": python}
     for path in PACKAGE_JSONS:
         manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -108,7 +115,7 @@ def test_no_mcp_manifest_and_no_frontend_mcp_import():
         for path in _files(root):
             if is_mcp_manifest(path.name):
                 hits.append(str(path.relative_to(ROOT)))
-            elif path.suffix in {".ts", ".tsx", ".js", ".mjs"} and _TS_MCP_IMPORT.search(path.read_text(encoding="utf-8")):
+            elif path.suffix in _SCRIPT_SUFFIXES and _TS_MCP_IMPORT.search(path.read_text(encoding="utf-8")):
                 hits.append(f"{path.relative_to(ROOT)}: imports an MCP SDK")
     assert hits == [], "MCP manifest or import (identAPI agreement §3, KAN-490): " + "; ".join(hits)
 
@@ -152,4 +159,6 @@ def test_the_guard_recognises_mcp_sdks_servers_and_manifests():
         assert is_mcp_manifest(filename), filename
     assert not is_mcp_manifest("package.json")
     assert _TS_MCP_IMPORT.search("import { Server } from '@modelcontextprotocol/sdk/server/index.js'")
+    assert _TS_MCP_IMPORT.search('import { FastMCP } from "fastmcp"')
+    assert _TS_MCP_IMPORT.search("import '@modelcontextprotocol/sdk'")
     assert not _TS_MCP_IMPORT.search("import { Button } from '@mantine/core'")

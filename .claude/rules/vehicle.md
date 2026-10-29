@@ -134,8 +134,8 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   never a value from an account sheet or a specification example.
 - **No MCP for provider data** (identAPI test agreement §3; KAN-490): provider-licensed
   vehicle data is never exposed through an MCP server, a tool manifest or any agent-facing API.
-  KAN-227's AI prompt hook (`vehicle_listing`) may use provider data only inside the tenant's
-  own request and response, never as a tool the model can call to fetch more.
+  KAN-227's planned AI prompt hook (`vehicle_listing`, not built) may use provider data only
+  inside the tenant's own request and response, never as a tool the model can call to fetch more.
   `tests/architecture/test_no_mcp_server.py` refuses an MCP SDK import or a server/tool
   declaration under `app/`, an MCP manifest under `app/` or `frontend/`, and an MCP dependency in
   `pyproject.toml` or a frontend `package.json` that its `ALLOWED_MCP_DEPENDENCIES` does not

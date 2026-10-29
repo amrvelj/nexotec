@@ -47,7 +47,7 @@ export function DealOwnerSelect({ deal, onChange, disabled = false, disabledReas
       // A disabled reason (ADR-061), not a field hint (KAN-443): said under
       // the input and linked to it by Mantine's aria-describedby.
       description={disabledReason}
-      inputWrapperOrder={['label', 'input', 'description']}
+      inputWrapperOrder={['label', 'input', 'description', 'error']}
       maw={360}
     />
   )
