@@ -9,9 +9,6 @@ export interface DealOwnerSelectProps {
    * promise is swallowed here. */
   onChange: (ownerUserId: string | null) => Promise<unknown>
   disabled?: boolean
-  /** ADR-061: why the seller cannot change here (KAN-492: the offer's live
-   * contract carries it). Disables the picker and says so beneath it. */
-  disabledReason?: string
 }
 
 /**
@@ -21,7 +18,7 @@ export interface DealOwnerSelectProps {
  * `resolve_owner_change` applies on the server); a seller who is no longer
  * among them stays shown by name, as the customer's advisor does.
  */
-export function DealOwnerSelect({ deal, onChange, disabled = false, disabledReason }: DealOwnerSelectProps) {
+export function DealOwnerSelect({ deal, onChange, disabled = false }: DealOwnerSelectProps) {
   const { t } = useTranslation()
   const { options, isLoading } = useAdvisorOptions()
   const current = deal.ownerUserId ?? null
@@ -43,11 +40,7 @@ export function DealOwnerSelect({ deal, onChange, disabled = false, disabledReas
       clearable
       searchable
       nothingFoundMessage={t('common.noMatches')}
-      disabled={disabled || disabledReason !== undefined || isLoading}
-      // A disabled reason (ADR-061), not a field hint (KAN-443): said under
-      // the input and linked to it by Mantine's aria-describedby.
-      description={disabledReason}
-      inputWrapperOrder={['label', 'input', 'description', 'error']}
+      disabled={disabled || isLoading}
       maw={360}
     />
   )

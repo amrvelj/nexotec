@@ -207,12 +207,10 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
         <DealOwnerSelect
           deal={offer}
           onChange={changeOwner}
-          // KAN-492: the live contract carries the seller (KAN-408) — said before the click
-          disabledReason={
-            offer.liveContractNumber != null
-              ? t('dealOwner.takeOverDisabled.liveContract', { contractNumber: offer.liveContractNumber })
-              : undefined
-          }
+          // KAN-492: the live contract carries the seller (KAN-408); disabled
+          // before the click. Disabled is disabled — no reason line under a
+          // field (Anto, 2026-10-29); «Übernehmen» names the contract.
+          disabled={offer.liveContractNumber != null}
         />
       )}
 
