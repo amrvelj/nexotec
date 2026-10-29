@@ -1396,6 +1396,9 @@
     },
     "missing": "Il manque encore",
     "continue": "Générer l’offre",
+    "liveContract": {
+      "openContract": "Ouvrir le contrat"
+    },
     "continueDisabled": {
       "doNotContact": "Ce client est marqué « ne pas contacter » : aucune offre ne peut être générée.",
       "saving": "Vos dernières modifications sont en cours d’enregistrement. « Générer l’offre » sera disponible dès qu’elles seront enregistrées."
@@ -1439,6 +1442,7 @@
     "previewError": "Impossible de charger l’aperçu.",
     "download": "Télécharger",
     "version": "Version {{version}}",
+    "liveContract": "Cette offre a le contrat {{contractNumber}} – les documents sont générés dans le contrat.",
     "errors": {
       "missingVehicle": "Impossible de générer un document de contrat sans véhicule. Veuillez d'abord saisir un véhicule.",
       "missingPrice": "Impossible de générer un document de contrat sans prix. Veuillez d'abord compléter la composition du prix.",

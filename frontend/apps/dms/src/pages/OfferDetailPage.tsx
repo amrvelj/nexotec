@@ -220,7 +220,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
         </Alert>
       )}
 
-      <SalesDocumentsSection ownerType="offer" ownerId={id} />
+      <SalesDocumentsSection ownerType="offer" ownerId={id} liveContractNumber={offer.liveContractNumber} />
     </div>
   )
 }

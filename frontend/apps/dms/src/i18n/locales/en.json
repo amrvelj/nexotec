@@ -1396,6 +1396,9 @@
     },
     "missing": "Still missing",
     "continue": "Generate offer",
+    "liveContract": {
+      "openContract": "Open contract"
+    },
     "continueDisabled": {
       "doNotContact": "This customer is marked do-not-contact: no offer can be generated.",
       "saving": "Your last changes are still being saved. “Generate offer” becomes available once they are saved."
@@ -1439,6 +1442,7 @@
     "previewError": "Preview could not be loaded.",
     "download": "Download",
     "version": "Version {{version}}",
+    "liveContract": "This offer has contract {{contractNumber}} – documents are generated in the contract.",
     "errors": {
       "missingVehicle": "A contract document cannot be generated without a vehicle. Add a vehicle first.",
       "missingPrice": "A contract document cannot be generated without a price. Complete the price build-up first.",

@@ -12,6 +12,10 @@ import type { SalesDocumentOwnerType, SalesDocumentPage, SalesDocumentRead } fro
 export interface SalesDocumentsSectionProps {
   ownerType: SalesDocumentOwnerType
   ownerId: string
+  /** KAN-495 — an offer's live contract (`OfferRead.liveContractNumber`,
+   * KAN-492): while it exists the offer prints no new document, so
+   * «Dokument erzeugen» is disabled before the click and says why. */
+  liveContractNumber?: string | null
 }
 
 /**
@@ -25,7 +29,7 @@ export interface SalesDocumentsSectionProps {
  * marginPanel`) — this component intentionally renders `marginPanel`-free
  * until then.
  */
-export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSectionProps) {
+export function SalesDocumentsSection({ ownerType, ownerId, liveContractNumber = null }: SalesDocumentsSectionProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -37,6 +41,8 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
   // server replays the version it built instead of building another. Every
   // generate that succeeds renews it: the next click is a new version.
   const generateKey = useIdempotencyKey()
+
+  const blockedByContract = ownerType === 'offer' && liveContractNumber != null
 
   const basePath = ownerType === 'offer' ? `/sales/offers/${ownerId}` : `/sales/contracts/${ownerId}`
 
@@ -84,11 +90,14 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
 
   // KAN-67 — a contract with no vehicle or no price is refused by reason
   // (409), never printed empty; the refusal is said here in the user's
-  // language, never the backend's English message.
+  // language, never the backend's English message. KAN-495 — an offer whose
+  // contract was made after this page loaded is refused the same way.
   const generateRefusalMessage = (err: unknown): string => {
-    const reason = err instanceof ApiError && err.status === 409 ? (err.details as { reason?: unknown } | null)?.reason : null
+    const details = err instanceof ApiError && err.status === 409 ? (err.details as { reason?: unknown; contractNumber?: unknown } | null) : null
+    const reason = details?.reason
     if (reason === 'missing_vehicle') return t('salesDocuments.errors.missingVehicle')
     if (reason === 'missing_price') return t('salesDocuments.errors.missingPrice')
+    if (reason === 'offer_has_contract') return t('salesDocuments.liveContract', { contractNumber: String(details?.contractNumber ?? '—') })
     return t('salesDocuments.errors.generic')
   }
 
@@ -114,10 +123,23 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
         <Text fw={600} size="sm">
           {t('salesDocuments.title')}
         </Text>
-        <Button size="xs" leftSection={<FileText size={14} />} loading={generating} onClick={() => void generate()}>
+        <Button
+          size="xs"
+          leftSection={<FileText size={14} />}
+          loading={generating}
+          disabled={blockedByContract}
+          onClick={() => void generate()}
+        >
           {t('salesDocuments.generate')}
         </Button>
       </Group>
+
+      {/* An action, not a field: its reason is said (ADR-061; Anto, 2026-10-29). */}
+      {blockedByContract && (
+        <Text size="sm" c="dimmed">
+          {t('salesDocuments.liveContract', { contractNumber: liveContractNumber })}
+        </Text>
+      )}
 
       {generateError && (
         <Alert color="red" py="xs" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setGenerateError(null)}>

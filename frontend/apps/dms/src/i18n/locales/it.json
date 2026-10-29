@@ -1396,6 +1396,9 @@
     },
     "missing": "Manca ancora",
     "continue": "Genera offerta",
+    "liveContract": {
+      "openContract": "Apri il contratto"
+    },
     "continueDisabled": {
       "doNotContact": "Questo cliente è contrassegnato come «non contattare»: non è possibile generare un’offerta.",
       "saving": "Le ultime modifiche sono ancora in fase di salvataggio. «Genera offerta» sarà disponibile non appena saranno salvate."
@@ -1439,6 +1442,7 @@
     "previewError": "Impossibile caricare l’anteprima.",
     "download": "Scarica",
     "version": "Versione {{version}}",
+    "liveContract": "Questa offerta ha il contratto {{contractNumber}} – i documenti si generano nel contratto.",
     "errors": {
       "missingVehicle": "Senza veicolo non è possibile generare un documento di contratto. Registrare prima un veicolo.",
       "missingPrice": "Senza prezzo non è possibile generare un documento di contratto. Completare prima la composizione del prezzo.",

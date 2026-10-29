@@ -162,6 +162,14 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }
 
   const offer = offerQuery.data
+  // KAN-426 — an offer with a live contract is read-only (KAN-408): the
+  // contract is the record to edit (ADR-083). Said before the first keystroke,
+  // in the words a refused save uses, with the way to the contract.
+  const liveContractText =
+    offer.liveContractNumber != null
+      ? t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: offer.liveContractNumber })
+      : null
+  const readOnly = liveContractText != null
   const containerProps = {
     ownerType: 'offer' as const,
     deal: offer,
@@ -178,8 +186,9 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   // KAN-368 (ADR-061): Continue says why it is disabled when the footer's
   // missing-sections label does not — a do-not-contact customer, or an edit
   // not saved yet (a price or leasing value in its debounce, a queued save).
-  const continueDisabledReason =
-    selectedCustomer?.lifecycleStatus === 'do_not_contact'
+  const continueDisabledReason = readOnly
+    ? liveContractText
+    : selectedCustomer?.lifecycleStatus === 'do_not_contact'
       ? t('offerWorkspace.continueDisabled.doNotContact')
       : pricingUnsaved || leasingUnsaved || saves.pending > 0
         ? t('offerWorkspace.continueDisabled.saving')
@@ -191,6 +200,19 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         <Title order={2}>{t('offerWorkspace.title')}</Title>
         <Text c="dimmed">{offer.offerNumber} · {t(`salesEnums.dealStatus.${offer.status}`)}</Text>
       </Group>
+
+      {liveContractText && (
+        <Alert color="gray" data-testid="offer-workspace-live-contract">
+          <Group justify="space-between" wrap="nowrap">
+            <Text size="sm">{liveContractText}</Text>
+            {offer.liveContractId && (
+              <Button size="xs" variant="light" onClick={() => navigate(`/sales/contracts/${offer.liveContractId}`)}>
+                {t('offerWorkspace.liveContract.openContract')}
+              </Button>
+            )}
+          </Group>
+        </Alert>
+      )}
 
       {saveError && (
         <Alert
@@ -204,43 +226,49 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         </Alert>
       )}
 
-      {/* KAN-405: the responsible seller, through the same save queue. */}
-      <DealOwnerSelect deal={offer} onChange={(ownerUserId) => patchOffer({ ownerUserId })} />
+      {/* KAN-426: a disabled fieldset makes every input and button of the
+          containers below read-only at once while a live contract exists. */}
+      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <Stack gap="lg">
+          {/* KAN-405: the responsible seller, through the same save queue. */}
+          <DealOwnerSelect deal={offer} disabled={readOnly} onChange={(ownerUserId) => patchOffer({ ownerUserId })} />
 
-      <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
-      <DealVehicleContainer {...containerProps} />
-      <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
-      <DealTradeInContainer {...containerProps} />
+          <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
+          <DealVehicleContainer {...containerProps} />
+          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
+          <DealTradeInContainer {...containerProps} />
 
-      {/* Leasing — S-D03: a refused calculator, free-text only */}
-      <OverviewCard title={t('offerWorkspace.containers.leasing')} badge={<RequirementBadge requirement="optional" />}>
-        <Stack gap="xs">
-          <Text size="sm" c="dimmed">{t('offerWorkspace.leasing.hint')}</Text>
-          <Group grow>
-            <ChfInput
-              label={t('offerWorkspace.leasing.downPayment')}
-              value={leasingDownPayment}
-              error={leasingDownPaymentInvalid ? t('common.notYetANumber') : undefined}
-              onChange={setLeasingDownPayment}
-              onBlur={onLeasingDownPaymentBlur}
-            />
-            <NumberInput
-              label={t('offerWorkspace.leasing.termMonths')}
-              value={leasingTermMonths}
-              error={leasingTermMonthsInvalid ? t('common.notYetANumber') : undefined}
-              onChange={setLeasingTermMonths}
-              onBlur={onLeasingTermMonthsBlur}
-            />
-            <NumberInput
-              label={t('offerWorkspace.leasing.kmPerYear')}
-              value={leasingKmPerYear}
-              error={leasingKmPerYearInvalid ? t('common.notYetANumber') : undefined}
-              onChange={setLeasingKmPerYear}
-              onBlur={onLeasingKmPerYearBlur}
-            />
-          </Group>
+          {/* Leasing — S-D03: a refused calculator, free-text only */}
+          <OverviewCard title={t('offerWorkspace.containers.leasing')} badge={<RequirementBadge requirement="optional" />}>
+            <Stack gap="xs">
+              <Text size="sm" c="dimmed">{t('offerWorkspace.leasing.hint')}</Text>
+              <Group grow>
+                <ChfInput
+                  label={t('offerWorkspace.leasing.downPayment')}
+                  value={leasingDownPayment}
+                  error={leasingDownPaymentInvalid ? t('common.notYetANumber') : undefined}
+                  onChange={setLeasingDownPayment}
+                  onBlur={onLeasingDownPaymentBlur}
+                />
+                <NumberInput
+                  label={t('offerWorkspace.leasing.termMonths')}
+                  value={leasingTermMonths}
+                  error={leasingTermMonthsInvalid ? t('common.notYetANumber') : undefined}
+                  onChange={setLeasingTermMonths}
+                  onBlur={onLeasingTermMonthsBlur}
+                />
+                <NumberInput
+                  label={t('offerWorkspace.leasing.kmPerYear')}
+                  value={leasingKmPerYear}
+                  error={leasingKmPerYearInvalid ? t('common.notYetANumber') : undefined}
+                  onChange={setLeasingKmPerYear}
+                  onBlur={onLeasingKmPerYearBlur}
+                />
+              </Group>
+            </Stack>
+          </OverviewCard>
         </Stack>
-      </OverviewCard>
+      </fieldset>
 
       <StickyActionFooter
         primaryDisabledReason={continueDisabledReason}
@@ -252,6 +280,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         primaryAction={
           <Button
             disabled={
+              readOnly ||
               missing.length > 0 ||
               selectedCustomer?.lifecycleStatus === 'do_not_contact' ||
               pricingUnsaved ||
