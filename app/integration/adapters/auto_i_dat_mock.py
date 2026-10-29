@@ -355,6 +355,25 @@ _IMAGES: dict[str, list[VariantImageData]] = {
 }
 
 
+def _model_groups(
+    *, marken_nr: str | None = None, marke: str | None = None, mod_grp_key: int | None = None
+) -> list[ModelGroupData]:
+    if mod_grp_key is not None:
+        return [g for g in _MODEL_GROUPS.values() if g.model_group_key == mod_grp_key]
+    # `marken_nr` matches this mock's own brand_code convention
+    # (e.g. "ALF") — see _BRANDS/_MASTER_DATA above; the real
+    # provider's MarkenNr is likewise an opaque code, never resolved
+    # by this adapter (rule 3).
+    if marken_nr is not None:
+        group = _MODEL_GROUPS.get(marken_nr)
+        return [group] if group is not None else []
+    if marke is not None:
+        master = next((m for m in _MASTER_DATA.values() if m.brand_display_name == marke), None)
+        group = _MODEL_GROUPS.get(master.brand_code) if master is not None else None
+        return [group] if group is not None else []
+    return list(_MODEL_GROUPS.values())
+
+
 _Method = TypeVar("_Method", bound=Callable[..., Any])
 
 
@@ -431,20 +450,7 @@ class MockAutoIDatAdapter:
         prod_von: int | None = None,
         prod_bis: int | None = None,
     ) -> list[ModelGroupData]:
-        if mod_grp_key is not None:
-            return [g for g in _MODEL_GROUPS.values() if g.model_group_key == mod_grp_key]
-        # `marken_nr` matches this mock's own brand_code convention
-        # (e.g. "ALF") — see _BRANDS/_MASTER_DATA above; the real
-        # provider's MarkenNr is likewise an opaque code, never resolved
-        # by this adapter (rule 3).
-        if marken_nr is not None:
-            group = _MODEL_GROUPS.get(marken_nr)
-            return [group] if group is not None else []
-        if marke is not None:
-            master = next((m for m in _MASTER_DATA.values() if m.brand_display_name == marke), None)
-            group = _MODEL_GROUPS.get(master.brand_code) if master is not None else None
-            return [group] if group is not None else []
-        return list(_MODEL_GROUPS.values())
+        return _model_groups(marken_nr=marken_nr, marke=marke, mod_grp_key=mod_grp_key)
 
     @_request("ModellGruppenKurz")
     def list_model_groups_short(
@@ -457,10 +463,8 @@ class MockAutoIDatAdapter:
         page: int | None = None,
         per_page: int | None = None,
     ) -> list[ModelGroupShortData]:
-        # The undecorated method: one request here, not a second one for ModellGruppen.
-        groups = MockAutoIDatAdapter.list_model_groups.__wrapped__(
-            self, fz_art=fz_art, marken_nr=marken_nr, marke=marke, nur_neue=nur_neue
-        )
+        # Not `self.list_model_groups`: one request here, not a second one for ModellGruppen.
+        groups = _model_groups(marken_nr=marken_nr, marke=marke)
         matched_keys = {g.model_group_key for g in groups}
         result: list[ModelGroupShortData] = []
         for master in _MASTER_DATA.values():
