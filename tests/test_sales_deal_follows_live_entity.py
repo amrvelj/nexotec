@@ -139,17 +139,21 @@ def test_an_offer_with_a_live_contract_refuses_every_edit_and_its_deal_row_stays
 
 
 def test_the_offer_side_of_the_projection_reprojects_the_live_contract(client, db_session):
-    """A write on the offer's side that is not a user's edit (a document
-    rendered for it, a customer merge repointing it) still reaches the
-    projection with the offer: the contract's row is projected from the
-    contract, never from the offer's labels."""
+    """A write on the offer's side that is not a user's edit (a customer
+    merge repointing it) still reaches the projection with the offer: the
+    contract's row is projected from the contract, never from the offer's
+    labels. Since KAN-495 (Anto, 2026-10-29) the offer prints no new
+    document while the contract lives; a contract document is counted on
+    the contract's row."""
 
     _dealership, seller, offer, contract = _offer_with_buyer_and_contract(client)
     beat = _customer_for(client, seller, firstName="Beat")
     assert _patch_contract(client, seller, contract["id"], {"customerId": beat["id"]}).status_code == 200
-    # A second offer document after the contract exists (rendering is not an edit): counted on the contract's row.
-    assert client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller)).status_code == 201
-    assert _deal(client, seller, offer["id"])["documentsCount"] == 2
+    refused = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller))
+    _refused_as_contracted(refused, contract)
+    printed = client.post(f"/v1/sales/contracts/{contract['id']}/documents", headers=_as(seller))
+    assert printed.status_code == 201, printed.text
+    assert _deal(client, seller, offer["id"])["documentsCount"] == 2  # the offer's first and the contract's
 
     row = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
     row.customer_label = "Somebody Else"

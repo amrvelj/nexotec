@@ -332,6 +332,20 @@ export function UsersListPage() {
       },
       text('deactivationReason', t('usersAdmin.columns.deactivationReason'), (row) => row.deactivationReason, false, 'deactivationReason'),
       text('signature', t('usersAdmin.columns.signature'), (row) => (row.hasSignatureImage ? t('common.yes') : t('common.no'))),
+      // KAN-413 (ADR-060) — the user's own settings (My account, KAN-201),
+      // read-only here. No language set = the Betrieb's default.
+      text(
+        'correspondenceLanguage',
+        t('usersAdmin.columns.correspondenceLanguage'),
+        (row) => (row.correspondenceLanguage ? t(`account.languages.${row.correspondenceLanguage}`) : t('usersAdmin.correspondenceLanguageDefault')),
+        false,
+        'correspondenceLanguage',
+      ),
+      text('signatureBlock', t('usersAdmin.columns.signatureBlock'), (row) => row.signatureBlock?.replace(/\s*\n\s*/g, ' · '), false, 'signatureBlock'),
+      // ADR-060: who created and last changed the row are stored too (by id;
+      // shown by name, not sortable — the API sorts no actor column).
+      text('createdBy', t('usersAdmin.columns.createdBy'), (row) => (row.createdBy ? colleagueName(row.createdBy) : null)),
+      text('updatedBy', t('usersAdmin.columns.updatedBy'), (row) => (row.updatedBy ? colleagueName(row.updatedBy) : null)),
       {
         id: 'createdAt',
         header: t('usersAdmin.columns.createdAt'),

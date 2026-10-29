@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { ChfInput } from '@nexotec/ui-kit'
-import { asFigure, useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
+import { asFigure, numberFieldError, useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesPricedDealRead } from '../api/types'
 
@@ -17,6 +17,10 @@ export interface PriceBuildUpProps {
   /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
    * host that ends the edit (signing a contract) can wait for it. */
   onUnsavedChange?: (unsaved: boolean) => void
+  /** KAN-426 — the offer has a live contract: every input is disabled by its
+   * own prop, and a NumberInput shows no steppers (they act on pointer-down,
+   * which a disabled fieldset does not stop). */
+  disabled?: boolean
 }
 
 function row(label: string, value: string, opts?: { bold?: boolean; negative?: boolean }) {
@@ -42,7 +46,7 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
  * that never includes these fields at all (see
  * tests/architecture/test_margin_never_in_rendered_document.py).
  */
-export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange }: PriceBuildUpProps) {
+export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange, disabled = false }: PriceBuildUpProps) {
   const { t } = useTranslation()
 
   // KAN-8 — local, debounced state; see useDebouncedNumberField's own
@@ -53,7 +57,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
     deal.id,
     (value) => onManualBasePriceChange?.(value),
     undefined,
-    deal.version
+    deal.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
   const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid, onDiscountValueBlur] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
@@ -61,7 +66,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
     (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value }),
     undefined,
     // KAN-478: an older copy never replaces a newer figure.
-    deal.version
+    deal.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
   )
 
   const discountFigure = asFigure(discountValue)
@@ -85,8 +91,10 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
       {deal.vehicleSource === 'manual' ? (
         <ChfInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
+          disabled={disabled}
+          hideControls={disabled}
           value={manualBasePrice}
-          error={manualBasePriceInvalid ? t('common.notYetANumber') : undefined}
+          error={numberFieldError(t, manualBasePriceInvalid)}
           onChange={setManualBasePrice}
           onBlur={onManualBasePriceBlur}
         />
@@ -102,6 +110,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
       <Group grow>
         <Select
           label={t('offerWorkspace.pricing.discountType')}
+          disabled={disabled}
           data={[
             { value: '', label: t('offerWorkspace.pricing.noDiscount') },
             { value: 'percent', label: t('offerWorkspace.pricing.discountPercent') },
@@ -127,18 +136,21 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
         {deal.discountType === 'amount' ? (
           <ChfInput
             label={t('offerWorkspace.pricing.discountValue')}
+            disabled={disabled}
+            hideControls={disabled}
             value={discountValue}
-            error={discountValueInvalid ? t('common.notYetANumber') : undefined}
+            error={numberFieldError(t, discountValueInvalid)}
             onChange={setDiscountValue}
             onBlur={onDiscountValueBlur}
           />
         ) : (
           <NumberInput
             label={t('offerWorkspace.pricing.discountValue')}
-            disabled={!deal.discountType}
+            disabled={disabled || !deal.discountType}
+            hideControls={disabled}
             suffix={deal.discountType === 'percent' ? ' %' : undefined}
             value={discountValue}
-            error={discountValueInvalid ? t('common.notYetANumber') : undefined}
+            error={numberFieldError(t, discountValueInvalid)}
             onChange={setDiscountValue}
             onBlur={onDiscountValueBlur}
           />

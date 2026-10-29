@@ -69,3 +69,29 @@ def test_the_offer_list_names_each_offers_live_contract_in_one_query(client, db_
     assert by_id[contracted["id"]]["liveContractId"] == contract["id"]
     assert by_id[free["id"]]["liveContractId"] is None
     assert len([s for s in statements if "FROM sales_contract" in s]) == 1
+
+
+def test_an_offer_with_a_live_contract_generates_no_document_until_the_contract_is_cancelled(client, db_session):
+    """KAN-495 (Anto, 2026-10-29, option a): the contract is the live record
+    (ADR-083), so a fresh offer document is refused like every other offer
+    write (KAN-408) — and allowed again once the contract is cancelled."""
+    seller = create_user(client, create_dealership(client))
+    offer = _open_unassigned_offer(client, db_session, seller)
+    contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(seller)).json()
+
+    refused = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller))
+    assert refused.status_code == 409, refused.text
+    details = refused.json()["error"]["details"]
+    assert details["reason"] == "offer_has_contract"
+    assert details["contractNumber"] == contract["contractNumber"]
+    listed = client.get(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller)).json()["items"]
+    assert listed == []
+
+    cancelled = client.post(
+        f"/v1/sales/contracts/{contract['id']}/cancel",
+        json={"reason": "Kunde verzichtet"},
+        headers={**_as(seller), "If-Match": str(contract["version"])},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    generated = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller))
+    assert generated.status_code == 201, generated.text

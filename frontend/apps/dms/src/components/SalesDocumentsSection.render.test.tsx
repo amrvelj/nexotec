@@ -108,3 +108,53 @@ describe('SalesDocumentsSection — a failed generate says so and keeps its key 
     expect(retryKey).toBe(failedKey)
   })
 })
+
+// KAN-495 (Anto, 2026-10-29) — an offer with a live contract prints no new
+// document: «Dokument erzeugen» is disabled before the click and says why;
+// a contract made after the page loaded is refused in the same words.
+describe('SalesDocumentsSection — an offer with a live contract generates no document (KAN-495)', () => {
+  it('disables «Dokument erzeugen» and names the contract', async () => {
+    const backend = installFakeBackend([
+      { method: 'GET', match: /^\/sales\/offers\/o1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(<SalesDocumentsSection ownerType="offer" ownerId="o1" liveContractNumber="V-000003" />)
+
+    expect(await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') })).toBeDisabled()
+    expect(screen.getByText(i18n.t('salesDocuments.liveContract', { contractNumber: 'V-000003' }))).toBeInTheDocument()
+    expect(backend.callsTo(/\/documents$/, 'POST')).toHaveLength(0)
+  })
+
+  it('an offer without a live contract keeps the action', async () => {
+    installFakeBackend([
+      { method: 'GET', match: /^\/sales\/offers\/o1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(<SalesDocumentsSection ownerType="offer" ownerId="o1" liveContractNumber={null} />)
+
+    expect(await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') })).toBeEnabled()
+  })
+
+  it('a 409 offer_has_contract says the same sentence, not the API text', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'GET', match: /^\/sales\/offers\/o1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'POST',
+        match: /^\/sales\/offers\/o1\/documents$/,
+        handler: () =>
+          status(409, {
+            error: {
+              code: 'conflict',
+              message: 'Offer O-000001 has contract V-000004 — edit the contract.',
+              details: { reason: 'offer_has_contract', contractNumber: 'V-000004' },
+            },
+          }),
+      },
+    ])
+    renderWithProviders(<SalesDocumentsSection ownerType="offer" ownerId="o1" />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') }))
+
+    expect(await screen.findByText(i18n.t('salesDocuments.liveContract', { contractNumber: 'V-000004' }))).toBeInTheDocument()
+    expect(screen.queryByText(/edit the contract/)).not.toBeInTheDocument()
+  })
+})

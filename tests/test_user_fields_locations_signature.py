@@ -343,3 +343,49 @@ def test_the_signature_of_a_deactivated_user_is_neither_set_nor_removed(client, 
     refused_delete = client.delete(url, headers={**platform_admin_headers(), "If-Match": version})
     assert refused_delete.status_code == 409, refused_delete.text
     assert refused_delete.json()["error"]["details"]["currentStatus"] == "deactivated"
+
+
+def test_the_users_list_carries_the_users_own_settings_read_only_and_sorts_on_them(client, db_session):
+    """KAN-413 (ADR-060): the correspondence language and the signature block
+    (KAN-201, the user's own settings in My account) are on the Users screen's
+    read and sortable server-side; the manager's PATCH does not write them."""
+
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.user import User
+
+    dealership = create_dealership(client)
+    create_user(client, dealership, firstName="Zoe", lastName="Zimmer")
+    adam = create_user(client, dealership, isDealerManager=False, firstName="Adam", lastName="Abt")
+    mia = create_user(client, dealership, isDealerManager=False, firstName="Mia", lastName="Meier")
+    for user_id, language, block in (
+        (adam["id"], SwissLanguage.IT, "Adam Abt\nVerkauf"),
+        (mia["id"], SwissLanguage.FR, None),
+    ):
+        row = db_session.get(User, uuid.UUID(user_id))
+        row.correspondence_language = language
+        row.signature_block = block
+    db_session.commit()
+
+    url = f"/v1/dealerships/{dealership}/users"
+    items = {u["id"]: u for u in client.get(url, headers=platform_admin_headers()).json()["items"]}
+    assert items[adam["id"]]["correspondenceLanguage"] == "it"
+    assert items[adam["id"]]["signatureBlock"] == "Adam Abt\nVerkauf"
+    assert items[mia["id"]]["correspondenceLanguage"] == "fr"
+    assert items[mia["id"]]["signatureBlock"] is None
+
+    for field in ("correspondenceLanguage", "signatureBlock"):
+        assert client.get(f"{url}?sort={field}:asc", headers=platform_admin_headers()).status_code == 200
+    by_language = client.get(f"{url}?sort=correspondenceLanguage:asc", headers=platform_admin_headers()).json()
+    languages = [u["correspondenceLanguage"] for u in by_language["items"] if u["correspondenceLanguage"]]
+    assert languages == ["fr", "it"]
+
+    current = client.get(f"{url}/{adam['id']}", headers=platform_admin_headers()).json()
+    patched = client.patch(
+        f"{url}/{adam['id']}",
+        json={"department": "Verkauf", "correspondenceLanguage": "de", "signatureBlock": "überschrieben"},
+        headers={**platform_admin_headers(), "If-Match": str(current["version"])},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["department"] == "Verkauf"
+    assert patched.json()["correspondenceLanguage"] == "it"
+    assert patched.json()["signatureBlock"] == "Adam Abt\nVerkauf"

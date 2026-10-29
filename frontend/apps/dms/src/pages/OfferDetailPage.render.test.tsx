@@ -169,3 +169,18 @@ describe('OfferDetailPage — a failed create or copy says so and keeps its key 
     expect(retryKey).toBe(failedKey)
   })
 })
+
+// KAN-495 — the sent offer passes its live contract to the documents section:
+// «Dokument erzeugen» is disabled before the click and says why.
+describe('OfferDetailContent — an offer with a live contract generates no document (KAN-495)', () => {
+  it('reads liveContractNumber from the offer', async () => {
+    installFakeBackend([
+      { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => ({ ...OFFER, liveContractId: 'k3', liveContractNumber: 'C-000003' }) },
+      { match: /^\/sales\/offers\/o1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(<OfferDetailContent offerId="o1" embedded />)
+
+    expect(await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') })).toBeDisabled()
+    expect(screen.getByText(i18n.t('salesDocuments.liveContract', { contractNumber: 'C-000003' }))).toBeInTheDocument()
+  })
+})

@@ -1,0 +1,134 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { Route, Routes, useLocation } from 'react-router-dom'
+import { cleanup, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import i18n from '../i18n'
+import { renderWithProviders } from '../test/renderWithProviders'
+import { installFakeBackend, status } from '../test/fakeBackend'
+import type { SalesOfferRead } from '../api/types'
+import { OfferWorkspacePage } from './OfferWorkspacePage'
+
+// KAN-426 — since KAN-408 every write on an offer with a live contract is
+// refused 409 `offer_has_contract`. The draft workspace now reads the
+// contract from `OfferRead` (KAN-492) and renders the offer read-only with
+// the way to the contract, before the first keystroke; a container whose save
+// is refused that way says the same sentence.
+
+const offer = (overrides: Partial<SalesOfferRead> = {}) =>
+  ({
+    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
+    vehicleSource: null, stockItemId: null, vehicleLabel: null, tradeInVehicleId: null, tradeInConfigurationId: null,
+    tradeInLabel: null, tradeInVin: null, tradeInValuationId: null, tradeInValue: null, containers: [], version: 4,
+    leasingDownPayment: null, leasingTermMonths: null, leasingKmPerYear: null,
+    liveContractId: null, liveContractNumber: null,
+    ...overrides,
+  }) as unknown as SalesOfferRead
+
+const CONTRACTED = offer({ liveContractId: 'k7', liveContractNumber: 'V-000007' })
+
+function install(read: SalesOfferRead, tradeIn: () => unknown = () => read) {
+  return installFakeBackend([
+    { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => read },
+    { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
+    { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
+    { method: 'POST', match: /^\/sales\/offers\/o1\/trade-in$/, handler: tradeIn },
+  ])
+}
+
+function ContractStub() {
+  return <div data-testid="contract-page">{useLocation().pathname}</div>
+}
+
+function renderWorkspace() {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/sales/offers/:id" element={<OfferWorkspacePage />} />
+      <Route path="/sales/contracts/:id" element={<ContractStub />} />
+    </Routes>,
+    { route: '/sales/offers/o1' },
+  )
+}
+
+const refusalText = (contractNumber: string) => i18n.t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber })
+
+beforeEach(async () => {
+  await i18n.changeLanguage('fr')
+})
+afterEach(async () => {
+  cleanup()
+  await i18n.changeLanguage('de')
+})
+
+describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426)', () => {
+  it('names the contract, disables every container and Continue, and opens the contract', async () => {
+    const user = userEvent.setup()
+    const backend = install(CONTRACTED)
+    renderWorkspace()
+
+    expect(await screen.findByText(refusalText('V-000007'))).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.leasing.termMonths') })).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.tradeIn.add') })).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeDisabled()
+    const continueButton = screen.getByRole('button', { name: i18n.t('offerWorkspace.continue') })
+    expect(continueButton).toBeDisabled()
+    await user.hover(continueButton.parentElement as HTMLElement)
+    expect(await screen.findAllByText(refusalText('V-000007'))).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: i18n.t('offerWorkspace.liveContract.openContract') }))
+    expect(await screen.findByTestId('contract-page')).toHaveTextContent('/sales/contracts/k7')
+    expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
+  })
+
+  // A disabled fieldset does not stop a NumberInput's steppers (they act on
+  // pointer-down): read-only, the number inputs show none.
+  it('the number inputs show no steppers', async () => {
+    install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007', vehicleSource: 'manual', vehicleSnapshotFrozenAt: null, discountType: 'percent' }))
+    renderWorkspace()
+
+    for (const key of [
+      'offerWorkspace.leasing.downPayment',
+      'offerWorkspace.leasing.termMonths',
+      'offerWorkspace.leasing.kmPerYear',
+      'offerWorkspace.pricing.manualBasePrice',
+      'offerWorkspace.pricing.discountValue',
+    ]) {
+      const input = await screen.findByRole('textbox', { name: i18n.t(key) })
+      expect(input).toBeDisabled()
+      const wrapper = input.closest('.mantine-NumberInput-root') as HTMLElement
+      expect(wrapper.querySelectorAll('button')).toHaveLength(0)
+    }
+  })
+
+  it('an offer without a live contract stays editable and names none', async () => {
+    install(offer())
+    renderWorkspace()
+
+    expect(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.add') })).toBeEnabled()
+    expect(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.leasing.termMonths') })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: i18n.t('offerWorkspace.liveContract.openContract') })).toBeNull()
+  })
+
+  it('a trade-in save refused for a contract made meanwhile says the same sentence', async () => {
+    const user = userEvent.setup()
+    install(offer(), () =>
+      status(409, {
+        error: {
+          code: 'conflict',
+          message: 'Offer ANG-2026-0001 has contract V-000008 — edit the contract.',
+          details: { reason: 'offer_has_contract', contractId: 'k8', contractNumber: 'V-000008' },
+        },
+      }),
+    )
+    renderWorkspace()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.add') }))
+    await user.type(screen.getByLabelText(i18n.t('offerWorkspace.tradeIn.vinLabel')), 'WVWZZZ1KZAW331338')
+    await user.type(screen.getByLabelText(i18n.t('offerWorkspace.tradeIn.labelLabel')), 'VW Golf')
+    await user.click(screen.getByRole('button', { name: i18n.t('common.save') }))
+
+    await waitFor(() => expect(screen.getByText(refusalText('V-000008'))).toBeInTheDocument())
+    expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeNull()
+    expect(screen.queryByText(/edit the contract/)).toBeNull()
+  })
+})

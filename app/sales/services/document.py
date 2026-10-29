@@ -53,6 +53,7 @@ from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.services.contract_completeness import require_complete
 from app.sales.services.deal_projection import upsert_deal_projection
+from app.sales.services.priced_deal import require_no_live_contract
 
 _DEFAULT_LANGUAGE = SwissLanguage.DE
 
@@ -267,6 +268,10 @@ def _included_option_lines(db: Session, *, offer: SalesOffer) -> list[tuple[str,
 
 
 def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesDocument:
+    # KAN-495 (Anto, 2026-10-29, option a): an offer with a live contract
+    # prints no new offer document — the contract is the live record (ADR-083)
+    # and a fresh offer print could differ from what the customer signs.
+    require_no_live_contract(db, offer)
     language = SwissLanguage(offer.customer_language) if offer.customer_language else _DEFAULT_LANGUAGE
     dealership = get_dealership_or_404(db, offer.tenant_id)
     content = build_offer_content(

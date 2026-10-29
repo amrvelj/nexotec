@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { OverviewCard, Picker, SalesStatusBadge, useOverlay, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { CustomerCreateDialog } from '../CustomerCreateDialog'
@@ -17,6 +18,7 @@ import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { customerName } from '../../utils/customer'
 import { formatCurrencyChf } from '../../utils/format'
+import { apiRefusalText } from '../../utils/apiRefusal'
 import { isVinRefusal } from '../../utils/vin'
 import type {
   ConfigurationRead,
@@ -60,6 +62,15 @@ export interface DealContainerProps<D extends SalesPricedDealRead> {
 
 const routeSegment = (ownerType: SalesDealOwnerType) => (ownerType === 'offer' ? 'offers' : 'contracts')
 const reportedByHost = () => undefined
+
+// KAN-426 — a save refused because the offer has a live contract (KAN-408)
+// says so in every container, through the one refusal helper (apiRefusalText,
+// the words the workspace's own banner uses); null for any other failure,
+// which keeps the container's own message.
+const liveContractRefusal = (t: TFunction, err: unknown): string | null =>
+  err instanceof ApiError && err.status === 409 && err.details?.reason === 'offer_has_contract'
+    ? apiRefusalText(t, err, 'offerWorkspace.errors.saveRefused.generic')
+    : null
 
 export function RequirementBadge({ requirement }: { requirement: string }) {
   const { t } = useTranslation()
@@ -206,8 +217,8 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
           onCommitted={async (configuration) => {
             try {
               await patch({ configurationId: configuration.id })
-            } catch {
-              throw new HostCommitError(t('offerWorkspace.vehicle.attachError'))
+            } catch (err) {
+              throw new HostCommitError(liveContractRefusal(t, err) ?? t('offerWorkspace.vehicle.attachError'))
             }
             await queryClient.invalidateQueries({ queryKey: ['configuration', configuration.id] })
             overlay.pop()
@@ -271,7 +282,8 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
   save,
   onOpenStockItem,
   onUnsavedChange,
-}: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void }) {
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void; readOnly?: boolean }) {
   const { t } = useTranslation()
   const pricingStatus = (deal.containers ?? []).find((c) => c.id === 'pricing')?.status
   return (
@@ -297,6 +309,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
         onDiscountChange={(change) => patch({ discountType: change.discountType, discountValue: change.discountValue })}
         onManualBasePriceChange={(value) => patch({ manualBasePrice: value })}
         onUnsavedChange={onUnsavedChange}
+        disabled={readOnly}
       />
       <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />
     </OverviewCard>
@@ -365,8 +378,8 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
       if (!updated) return
       valuationKey.renew()
       setTradeInConfiguration(null)
-    } catch {
-      setTradeInError(t('offerWorkspace.tradeIn.attachError'))
+    } catch (err) {
+      setTradeInError(liveContractRefusal(t, err) ?? t('offerWorkspace.tradeIn.attachError'))
     }
   }
 
@@ -393,6 +406,8 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
   // into, so the message says that and names the survivor when the API
   // names one. Any other failure keeps the generic save error.
   const tradeInRefusalMessage = async (err: unknown): Promise<string> => {
+    const live = liveContractRefusal(t, err)
+    if (live) return live
     if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') {
       return t('offerWorkspace.tradeIn.saveError')
     }

@@ -90,7 +90,8 @@ def require_no_live_contract(db: Session, offer: SalesOffer) -> None:
     edited itself while pending (ADR-083), so the two can never disagree. A
     cancelled contract frees the offer again (KAN-147). Every offer write a
     user makes asks this: the PATCH, line items, trade-in and its valuation
-    (through require_editable), finalize and cancel."""
+    (through require_editable), finalize and cancel — and, since KAN-495
+    (Anto, 2026-10-29), generating an offer document."""
 
     live = live_contract_of(db, offer)
     if live is not None:

@@ -6912,7 +6912,7 @@ export interface components {
             listPrice: string | null;
             /**
              * Livecontractid
-             * @description The offer's contract that is not cancelled, if any. While there is one, the offer's PATCH, line items, trade-in, trade-in valuation, finalize and cancel are refused with 409 `offer_has_contract`.
+             * @description The offer's contract that is not cancelled, if any. While there is one, the offer's PATCH, line items, trade-in, trade-in valuation, finalize, cancel and document generation are refused with 409 `offer_has_contract`.
              */
             liveContractId?: string | null;
             /**
@@ -8254,6 +8254,7 @@ export interface components {
              * @default false
              */
             commissionRelevant?: boolean;
+            correspondenceLanguage?: components["schemas"]["SwissLanguage"] | null;
             /**
              * Createdat
              * Format: date-time
@@ -8310,6 +8311,8 @@ export interface components {
             role: components["schemas"]["UserRole"];
             /** Salesadvisorcode */
             salesAdvisorCode?: string | null;
+            /** Signatureblock */
+            signatureBlock?: string | null;
             status: components["schemas"]["UserStatus"];
             /**
              * Updatedat

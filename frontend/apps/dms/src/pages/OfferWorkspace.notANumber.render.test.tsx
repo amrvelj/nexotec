@@ -114,7 +114,9 @@ describe('OfferWorkspace — a value that is not a number is never saved (KAN-48
     expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.continue') })).toBeDisabled()
   })
 
-  it('finishing the figure saves it: «-» then «-200» sends -200 once', async () => {
+  // KAN-493: «-200» is a number but a negative discount (the API's ge=0,
+  // KAN-482), so finishing the figure means a figure that is not negative.
+  it('finishing the figure saves it: «-», «-200», then «200» sends 200 once', async () => {
     const backend = backendFor(offerAt(1, { discountValue: '500.00' }))
     renderWorkspace()
 
@@ -122,8 +124,11 @@ describe('OfferWorkspace — a value that is not a number is never saved (KAN-48
     fireEvent.change(discount, { target: { value: '-' } })
     await pause()
     fireEvent.change(discount, { target: { value: '-200' } })
+    await pause()
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(0)
+    fireEvent.change(discount, { target: { value: '200' } })
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
-    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountValue: -200 })
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountValue: 200 })
     expect(discount).not.toHaveAttribute('aria-invalid', 'true')
   })
 
@@ -176,5 +181,47 @@ describe('OfferWorkspace — a value that is not a number is never saved (KAN-48
     await pause()
     expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(0)
     expect(downPayment).toHaveAttribute('aria-invalid', 'true')
+  })
+})
+
+// KAN-493 — the API refuses a negative base price, discount or leasing figure
+// (KAN-482); the five inputs now never send one. The input still takes «-»
+// (one that refused it would empty itself when its text is replaced by «-»,
+// and that clear would be saved — KAN-480's hazard): a negative figure is
+// kept as typed, marked «Darf nicht negativ sein», never committed, and
+// Continue waits for it.
+describe('OfferWorkspace — a negative figure is never sent (KAN-493)', () => {
+  it.each([
+    ['offerWorkspace.pricing.discountValue', { discountValue: '500.00' }],
+    ['offerWorkspace.leasing.downPayment', { leasingDownPayment: '5000.00' }],
+    ['offerWorkspace.leasing.termMonths', { leasingTermMonths: 48 }],
+    ['offerWorkspace.leasing.kmPerYear', { leasingKmPerYear: 15000 }],
+    ['offerWorkspace.pricing.manualBasePrice', { vehicleSource: 'manual', manualBasePrice: '25000.00' }],
+  ] as const)('%s: «-12» sends no PATCH, says why, and Continue waits', async (labelKey, overrides) => {
+    const backend = backendFor(offerAt(1, overrides as Partial<SalesOfferRead>))
+    renderWorkspace()
+
+    const field = await screen.findByRole('textbox', { name: i18n.t(labelKey) })
+    fireEvent.change(field, { target: { value: '-12' } })
+    await pause()
+
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(0)
+    expect((field as HTMLInputElement).value).toMatch(/^-.*12$/) // CHF inputs read «-CHF 12»
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(i18n.t('common.notNegative'))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.continue') })).toBeDisabled()
+  })
+
+  it('in French, the reason is French', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      backendFor(offerAt(1, { leasingTermMonths: 48 }))
+      renderWorkspace()
+      const field = await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.leasing.termMonths') })
+      fireEvent.change(field, { target: { value: '-1' } })
+      expect(await screen.findByText('Ne peut pas être négatif')).toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })

@@ -30,6 +30,9 @@ jobs:
       - run: lint-imports
 
   ruff:
+    # Covers scripts/ too since KAN-184, but the name stays: "ruff (app/, tests/)"
+    # is a required status check on main by this exact string, and renaming the
+    # job would leave every PR waiting on a check that never reports.
     name: ruff (app/, tests/)
     runs-on: ubuntu-latest
     steps:
@@ -38,7 +41,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -e ".[dev]"
-      - run: ruff check app tests
+      - run: ruff check app tests scripts
 
   mypy:
     # Covers scripts/ too since KAN-142, but the name stays: "mypy (app/)" is a

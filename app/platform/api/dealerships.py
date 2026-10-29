@@ -452,6 +452,8 @@ USER_SORT_FIELDS: dict[str, object] = {
     "invitedAt": User.invited_at,
     "lastLoginAt": User.last_login_at,
     "deactivatedAt": User.deactivated_at,
+    "correspondenceLanguage": User.correspondence_language,
+    "signatureBlock": User.signature_block,
     "createdAt": User.created_at,
     "updatedAt": User.updated_at,
 }
