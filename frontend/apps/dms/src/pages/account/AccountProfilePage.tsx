@@ -10,6 +10,7 @@ import type { MeRead, MeUpdate } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { ME_KEY, phoneForApi } from './accountKeys'
+import { AccountPhotoCard } from '../../components/account/AccountPhotoCard'
 
 const LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 type Language = (typeof LANGUAGES)[number]
@@ -125,6 +126,15 @@ export function AccountProfilePage() {
           {t('account.profile.saved')}
         </Alert>
       )}
+      <AccountPhotoCard
+        me={me.data ?? loaded}
+        // The photo moved the version by one from the record this form was
+        // loaded from: the form's own save stays valid. Anything else (a
+        // change made elsewhere) is still the form's 409.
+        onWritten={(data) =>
+          setLoaded((base) => (base && base.version === data.version - 1 ? { ...base, version: data.version, hasPhoto: data.hasPhoto } : base))
+        }
+      />
       <Card withBorder radius="md" padding="lg">
         <form
           id="account-profile"

@@ -237,7 +237,9 @@
       "wagenbuch_closed": "Dieses Fahrzeug ist verkauft – sein Wagenbuch nimmt keine neuen Einträge mehr an.",
       "purchase_requires_vin": "Ohne VIN kann dieses Fahrzeug nicht eingekauft werden.",
       "purchase_vin_mismatch": "Diese VIN ist nicht die des Fahrzeugs an Lager.",
-      "brand_code_taken": "Eine Marke mit diesem Code gibt es bereits."
+      "brand_code_taken": "Eine Marke mit diesem Code gibt es bereits.",
+      "photo_not_an_image": "Das Foto muss ein PNG- oder JPEG-Bild sein.",
+      "photo_too_large": "Das Foto ist zu gross – höchstens 5 MB."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -2363,7 +2365,10 @@
       "signatureHint": "PNG oder JPEG, bis 1 MB — wird auf Dokumenten gedruckt, die der Benutzer unterzeichnet.",
       "signatureCurrent": "Aktuelle Unterschrift",
       "signatureRemove": "Entfernen",
-      "connectedAccountsNone": "Keine verbundenen Konten."
+      "connectedAccountsNone": "Keine verbundenen Konten.",
+      "photo": "Foto",
+      "photoHint": "PNG oder JPEG, bis 5 MB — erscheint neben dem Namen in der Benutzerliste.",
+      "photoRemove": "Foto entfernen"
     },
     "deactivate": {
       "title": "{{name}} deaktivieren",
@@ -2501,6 +2506,14 @@
       "invalid": "Das Bild muss ein PNG oder JPEG von höchstens 1 MB sein.",
       "conflict": "Ihr Konto wurde inzwischen anderswo geändert. Laden Sie den neuen Stand – Ihre Eingabe hier geht dabei verloren.",
       "loadLatest": "Neuen Stand laden"
+    },
+    "photo": {
+      "title": "Foto",
+      "choose": "Foto auswählen",
+      "hint": "PNG oder JPEG, höchstens 5 MB. Ihr Manager sieht es in der Benutzerliste.",
+      "upload": "Hochladen",
+      "remove": "Entfernen",
+      "failed": "Das Foto konnte nicht gespeichert werden. Bitte erneut versuchen."
     }
   },
   "recovery": {

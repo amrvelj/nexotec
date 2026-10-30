@@ -115,7 +115,7 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
   manager-flag PUTs, delegation PUT/DELETE, since KAN-200 the deactivation step, the
-  hand-over, the signature PUT/DELETE and the invitation re-send, since KAN-201 the manager's
+  hand-over, the signature PUT/DELETE (since KAN-401 the photo's too) and the invitation re-send, since KAN-201 the manager's
   revoke of a connected account; My account's own writes take the caller's row the same way,
   pinned by their own source test) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
@@ -367,6 +367,13 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the key (`signature_image_ref`), never bytes or base64. The local store is dev, test and
   staging only: `get_object_store` refuses it in production at startup (KAN-402 brings the
   bucket), as the mailer refuses its `logging` sender (outside `development`, KAN-397).
+- **Photo (KAN-401):** the signature image's shape for the person's photo — `PUT/GET/DELETE
+  …/users/{id}/photo` (the manager) and `/v1/me/photo` (the user, My account › Profile), the
+  image as the raw body (PNG or JPEG ≤ 5 MiB, judged by its bytes; refusals carry
+  `photo_not_an_image` / `photo_too_large`), stored under `dealerships/<id>/users/<id>/photo`;
+  the row holds the key (`user.photo_ref`), `hasPhoto` is on `UserAdminRead` and `MeRead` (never
+  on the session's `UserRead`). The Users grid shows it beside the name (`UserAvatar`, fetched
+  only for a row that has one, initials otherwise).
 
 ## Document templates (ADR-051)
 

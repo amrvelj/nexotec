@@ -148,6 +148,7 @@ class UserAdminRead(CamelModel):
     deactivated_at: dt.datetime | None = None
     deactivation_reason: str | None = None
     has_signature_image: bool = False
+    has_photo: bool = False  # KAN-401: the photo itself is GET …/users/{id}/photo
     # KAN-413 (ADR-060: every stored field can be a column). The user's own
     # personal settings (KAN-201), written only through My account's
     # `PATCH /v1/me`: read-only here, never on `UserUpdate`. Null language =

@@ -34,6 +34,7 @@ def me_read(db: Session, user: User) -> MeRead:
         ),
         signature_block=user.signature_block,
         has_signature_image=user.signature_image_ref is not None,
+        has_photo=user.photo_ref is not None,
         version=user.version,
     )
 

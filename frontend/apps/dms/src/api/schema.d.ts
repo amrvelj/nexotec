@@ -1438,6 +1438,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Photo */
+        get: operations["get_user_photo_v1_dealerships__dealership_id__users__user_id__photo_get"];
+        /**
+         * Put User Photo
+         * @description The user's photo (KAN-401, Users → Fields), set like the signature
+         *     image: the body is the image itself with its Content-Type, the row keeps
+         *     the object-store key only.
+         */
+        put: operations["put_user_photo_v1_dealerships__dealership_id__users__user_id__photo_put"];
+        post?: never;
+        /** Delete User Photo */
+        delete: operations["delete_user_photo_v1_dealerships__dealership_id__users__user_id__photo_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users/{user_id}/signature": {
         parameters: {
             query?: never;
@@ -2109,6 +2133,29 @@ export interface paths {
          *     The row stays, revoked.
          */
         delete: operations["revoke_my_connected_account_v1_me_connected_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Photo */
+        get: operations["get_my_photo_v1_me_photo_get"];
+        /**
+         * Put My Photo
+         * @description The caller's own photo (KAN-401) — the same store, key and rules as
+         *     the manager's route on the Users screen.
+         */
+        put: operations["put_my_photo_v1_me_photo_put"];
+        post?: never;
+        /** Delete My Photo */
+        delete: operations["delete_my_photo_v1_me_photo_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6656,6 +6703,11 @@ export interface components {
             email: string;
             /** Firstname */
             firstName: string;
+            /**
+             * Hasphoto
+             * @default false
+             */
+            hasPhoto?: boolean;
             /** Hassignatureimage */
             hasSignatureImage: boolean;
             /**
@@ -8289,6 +8341,11 @@ export interface components {
             employmentStatus: components["schemas"]["EmploymentStatus"];
             /** Firstname */
             firstName: string;
+            /**
+             * Hasphoto
+             * @default false
+             */
+            hasPhoto?: boolean;
             /**
              * Hassignatureimage
              * @default false
@@ -13238,6 +13295,120 @@ export interface operations {
             };
         };
     };
+    get_user_photo_v1_dealerships__dealership_id__users__user_id__photo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_user_photo_v1_dealerships__dealership_id__users__user_id__photo_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_photo_v1_dealerships__dealership_id__users__user_id__photo_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_user_signature_v1_dealerships__dealership_id__users__user_id__signature_get: {
         parameters: {
             query?: never;
@@ -15179,6 +15350,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectedAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_photo_v1_me_photo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_my_photo_v1_me_photo_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_photo_v1_me_photo_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
                 };
             };
             /** @description Validation Error */

@@ -38,6 +38,7 @@ class MeRead(CamelModel):
     default_correspondence_language: SwissLanguage
     signature_block: str | None
     has_signature_image: bool
+    has_photo: bool = False  # KAN-401
     version: int
 
 

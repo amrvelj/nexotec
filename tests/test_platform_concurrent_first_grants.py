@@ -201,6 +201,9 @@ def test_a_membership_grant_racing_a_membership_end_is_a_201_and_a_204_never_a_d
         "transfer_user_ownership",
         "put_user_signature",
         "delete_user_signature",
+        # KAN-401: the photo, like the signature image.
+        "put_user_photo",
+        "delete_user_photo",
         # KAN-200: the re-sent invitation stamps `invited_at` on the user row.
         "reissue_invitation",
         # KAN-201: a manager's revoke of a user's connected account takes the
@@ -233,7 +236,7 @@ def test_every_recovery_action_takes_the_user_row_first(route):
     assert "get_user_or_404(" not in source
 
 
-@pytest.mark.parametrize("route", ["update_me", "put_my_signature", "delete_my_signature", "revoke_my_connected_account"])
+@pytest.mark.parametrize("route", ["update_me", "put_my_signature", "delete_my_signature", "put_my_photo", "delete_my_photo", "revoke_my_connected_account"])
 def test_every_my_account_write_takes_the_callers_own_row_first(route):
     """KAN-201: My account's writes lock the caller's row first (KAN-380's
     order) — the profile and the signature write it, a revoke stands with

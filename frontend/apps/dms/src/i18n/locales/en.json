@@ -237,7 +237,9 @@
       "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries.",
       "purchase_requires_vin": "This vehicle cannot be purchased without its VIN.",
       "purchase_vin_mismatch": "This VIN is not the VIN of the vehicle in stock.",
-      "brand_code_taken": "A brand with this code already exists."
+      "brand_code_taken": "A brand with this code already exists.",
+      "photo_not_an_image": "The photo must be a PNG or JPEG image.",
+      "photo_too_large": "The photo is too large — at most 5 MB."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -2363,7 +2365,10 @@
       "signatureHint": "PNG or JPEG, up to 1 MB — printed on documents the user signs.",
       "signatureCurrent": "Current signature",
       "signatureRemove": "Remove",
-      "connectedAccountsNone": "No connected accounts."
+      "connectedAccountsNone": "No connected accounts.",
+      "photo": "Photo",
+      "photoHint": "PNG or JPEG, up to 5 MB — shown beside the name in the user list.",
+      "photoRemove": "Remove photo"
     },
     "deactivate": {
       "title": "Deactivate {{name}}",
@@ -2501,6 +2506,14 @@
       "invalid": "The image must be a PNG or JPEG of at most 1 MB.",
       "conflict": "Your account was changed elsewhere in the meantime. Load the new version – what you entered here is lost.",
       "loadLatest": "Load the new version"
+    },
+    "photo": {
+      "title": "Photo",
+      "choose": "Choose photo",
+      "hint": "PNG or JPEG, at most 5 MB. Your manager sees it in the user list.",
+      "upload": "Upload",
+      "remove": "Remove",
+      "failed": "The photo could not be saved. Please try again."
     }
   },
   "recovery": {

@@ -82,6 +82,8 @@ const REASON_KEYS: Record<string, string> = {
       'passkey_key_not_accepted',
       'passkey_not_verified',
       'phone_already_on_customer',
+      'photo_not_an_image',
+      'photo_too_large',
       'primary_unset_directly',
       'provider_code_already_mapped',
       'purchase_requires_vin',

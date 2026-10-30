@@ -83,6 +83,7 @@ from app.platform.services import (
     auth_events,
     connected_account,
     identity,
+    photo,
     signature,
     user_location,
 )
@@ -648,6 +649,69 @@ def delete_user_signature(
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
     signature.remove_signature(db, store, user=user, actor_id=principal.user_id)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
+
+
+@router.put("/dealerships/{dealership_id}/users/{user_id}/photo", response_model=UserAdminRead)
+def put_user_photo(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    image: bytes = Body(media_type="image/jpeg", description="The image itself: PNG or JPEG, at most 5 MiB."),
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    """The user's photo (KAN-401, Users → Fields), set like the signature
+    image: the body is the image itself with its Content-Type, the row keeps
+    the object-store key only."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
+    check_version(user.version, if_match, entity_name="User")
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    user_service.assert_user_is_not_deactivated(user)
+    photo.set_photo(
+        db,
+        store,
+        user=user,
+        data=image,
+        content_type=request.headers.get("content-type", ""),
+        actor_id=principal.user_id,
+    )
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
+
+
+@router.get("/dealerships/{dealership_id}/users/{user_id}/photo")
+def get_user_photo(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_users")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+) -> Response:
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    stored = photo.get_photo(store, user=user)
+    return Response(content=stored.data, media_type=stored.content_type, headers={"Cache-Control": "private, no-store"})
+
+
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/photo", response_model=UserAdminRead)
+def delete_user_photo(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
+    check_version(user.version, if_match, entity_name="User")
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    user_service.assert_user_is_not_deactivated(user)
+    photo.remove_photo(db, store, user=user, actor_id=principal.user_id)
     return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 

@@ -20,7 +20,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.object_store import ObjectStore, get_object_store
 from app.db import get_db
 from app.platform.schemas.me import ConnectedAccountListRead, ConnectedAccountRead, MeRead, MeUpdate
-from app.platform.services import connected_account, signature
+from app.platform.services import connected_account, photo, signature
 from app.platform.services import me as me_service
 from app.platform.services import user as user_service
 
@@ -90,6 +90,54 @@ def delete_my_signature(
     user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     check_version(user.version, if_match, entity_name="User")
     signature.remove_signature(db, store, user=user, actor_id=principal.user_id)
+    return me_service.me_read(db, user)
+
+
+@router.put("/me/photo", response_model=MeRead)
+def put_my_photo(
+    request: Request,
+    image: bytes = Body(media_type="image/jpeg", description="The image itself: PNG or JPEG, at most 5 MiB."),
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    """The caller's own photo (KAN-401) — the same store, key and rules as
+    the manager's route on the Users screen."""
+
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    check_version(user.version, if_match, entity_name="User")
+    photo.set_photo(
+        db,
+        store,
+        user=user,
+        data=image,
+        content_type=request.headers.get("content-type", ""),
+        actor_id=principal.user_id,
+    )
+    return me_service.me_read(db, user)
+
+
+@router.get("/me/photo")
+def get_my_photo(
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+) -> Response:
+    stored = photo.get_photo(store, user=user_service.get_own_user_or_404(db, principal.user_id))
+    return Response(content=stored.data, media_type=stored.content_type, headers={"Cache-Control": "private, no-store"})
+
+
+@router.delete("/me/photo", response_model=MeRead)
+def delete_my_photo(
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    check_version(user.version, if_match, entity_name="User")
+    photo.remove_photo(db, store, user=user, actor_id=principal.user_id)
     return me_service.me_read(db, user)
 
 

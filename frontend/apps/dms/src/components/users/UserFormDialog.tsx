@@ -32,6 +32,7 @@ import type {
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { UserConnectedAccountsSection } from './UserConnectedAccountsSection'
 import { UserMembershipsSection } from './UserMembershipsSection'
+import { UserAvatar } from './UserAvatar'
 import {
   GRANTABLE_ACCESS_ROLES,
   TEXT_CATEGORY_VALUES,
@@ -147,6 +148,8 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
   const [form, setForm] = useState<FormValues>(EMPTY)
   const [signatureFile, setSignatureFile] = useState<File | null>(null)
   const [removeSignature, setRemoveSignature] = useState(false)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [removePhoto, setRemovePhoto] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const idempotency = useIdempotencyKey()
@@ -166,6 +169,8 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
     setForm(user ? fromUser(user) : EMPTY)
     setSignatureFile(null)
     setRemoveSignature(false)
+    setPhotoFile(null)
+    setRemovePhoto(false)
     setError(null)
     setUserVersion(null)
     idempotency.renew()
@@ -271,6 +276,14 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
       } else if (removeSignature && saved.hasSignatureImage) {
         saved = await api.delete<UserAdminRead>(`/dealerships/${dealershipId}/users/${saved.id}/signature`, { 'If-Match': String(saved.version) })
       }
+      // KAN-401: the photo, like the signature, is the file itself with If-Match.
+      if (photoFile) {
+        saved = await api.putBinary<UserAdminRead>(`/dealerships/${dealershipId}/users/${saved.id}/photo`, photoFile, photoFile.type, {
+          'If-Match': String(saved.version),
+        })
+      } else if (removePhoto && saved.hasPhoto) {
+        saved = await api.delete<UserAdminRead>(`/dealerships/${dealershipId}/users/${saved.id}/photo`, { 'If-Match': String(saved.version) })
+      }
       idempotency.renew()
       onSaved(saved)
     } catch (err) {
@@ -321,6 +334,31 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
             <TextInput label={t('usersAdmin.fields.directDial')} value={form.directDial} onChange={(e) => set('directDial', e.currentTarget.value)} placeholder="+41 44 …" />
             <TextInput label={t('usersAdmin.fields.employeeNumber')} value={form.employeeNumber} onChange={(e) => set('employeeNumber', e.currentTarget.value)} />
           </SimpleGrid>
+          <Group align="flex-end">
+            {editing && user.hasPhoto && !removePhoto && (
+              <>
+                <UserAvatar
+                  photoPath={`/dealerships/${dealershipId}/users/${user.id}/photo`}
+                  hasPhoto
+                  version={user.version}
+                  name={userDisplayName(user)}
+                  size="lg"
+                />
+                <Button variant="subtle" size="xs" color="red" onClick={() => setRemovePhoto(true)}>
+                  {t('usersAdmin.fields.photoRemove')}
+                </Button>
+              </>
+            )}
+            <FileInput {...hint(t('usersAdmin.fields.photo'), t('usersAdmin.fields.photoHint'))}
+              accept="image/png,image/jpeg"
+              value={photoFile}
+              onChange={(file) => {
+                setPhotoFile(file)
+                if (file) setRemovePhoto(false)
+              }}
+              clearable
+            />
+          </Group>
 
           <Text fw={600} size="sm">
             {t('usersAdmin.form.sections.organisation')}

@@ -160,8 +160,10 @@ describe('UserFormDialog (KAN-200)', () => {
     )
     const dialog = within(await screen.findByRole('dialog'))
     const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'unterschrift.png', { type: 'image/png' })
-    // Mantine's FileInput is a button over a hidden <input type="file">.
-    const input = screen.getByRole('dialog').querySelector('input[type="file"]') as HTMLInputElement
+    // Mantine's FileInput is a button over a hidden <input type="file">; the
+    // signature's is the last one (the photo's comes first, KAN-401).
+    const inputs = screen.getByRole('dialog').querySelectorAll('input[type="file"]')
+    const input = inputs[inputs.length - 1] as HTMLInputElement
     await user.upload(input, file)
     await user.click(dialog.getByRole('button', { name: 'Speichern' }))
     await waitFor(() => expect(saved).not.toBeNull())
@@ -172,6 +174,32 @@ describe('UserFormDialog (KAN-200)', () => {
     expect(puts[0].body).toBe(file) // the image itself, never base64 or multipart
     expect(backend.callsTo(/\/users\/u-1$/, 'PATCH')).toHaveLength(0) // nothing else changed
     expect(saved!.hasSignatureImage).toBe(true)
+  })
+
+  it('uploads a photo as the raw body with If-Match (KAN-401)', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { method: 'GET', match: /\/users\/u-1\/text-delegations$/, handler: () => ({ categories: [], userVersion: 3 }) },
+      { method: 'PUT', match: /\/users\/u-1\/photo$/, handler: () => existing({ version: 4, hasPhoto: true }) },
+    ])
+    let saved: UserAdminRead | null = null
+    renderWithProviders(
+      <UserFormDialog opened onClose={() => {}} dealershipId={DEALERSHIP} user={existing()} locations={LOCATIONS} colleagues={[COLLEAGUE]} selfId="u-9" onSaved={(u) => { saved = u }} />,
+    )
+    const dialog = within(await screen.findByRole('dialog'))
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], 'anna.jpg', { type: 'image/jpeg' })
+    // The photo's file input comes first (identity section), the signature's after it.
+    const [photoInput] = Array.from(screen.getByRole('dialog').querySelectorAll('input[type="file"]')) as HTMLInputElement[]
+    await user.upload(photoInput, file)
+    await user.click(dialog.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(saved).not.toBeNull())
+    const puts = backend.callsTo(/\/users\/u-1\/photo$/, 'PUT')
+    expect(puts).toHaveLength(1)
+    expect(puts[0].headers.get('If-Match')).toBe('3')
+    expect(puts[0].headers.get('Content-Type')).toBe('image/jpeg')
+    expect(puts[0].body).toBe(file)
+    expect(backend.callsTo(/\/users\/u-1\/signature$/, 'PUT')).toHaveLength(0)
+    expect(saved!.hasPhoto).toBe(true)
   })
 
   it("shows a user's connected accounts to the manager and revokes one (KAN-201)", async () => {
