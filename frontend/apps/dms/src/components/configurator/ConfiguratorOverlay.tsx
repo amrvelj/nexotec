@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Alert,
   Button,
+  CloseButton,
   Group,
   NumberInput,
   SegmentedControl,
@@ -34,6 +35,7 @@ import {
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 import { normalisedVin, vinRefusalKey } from '../../utils/vin'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import {
   CODED_FIELDS,
   CODED_REF_LIST_CODES,
@@ -278,6 +280,7 @@ export function ConfiguratorOverlay({
   onClose,
 }: ConfiguratorOverlayProps) {
   const { t, i18n } = useTranslation()
+  const hint = useFieldHint()
   const [phase, setPhase] = useState<Phase>(existing ? 'configure' : 'find')
   const [mode, setMode] = useState<ConfiguratorMode>(
     existing?.mode ?? (initialMode && allowedModes.includes(initialMode) ? initialMode : allowedModes[0]),
@@ -521,11 +524,11 @@ export function ConfiguratorOverlay({
         : fullSpec(draft.spec)
 
       // KAN-338: the API refuses a malformed VIN (422). A configuration saved
-      // before that rule may hold one, and the configure phase has no VIN
-      // input to correct it (KAN-340) — so an unchanged, malformed stored VIN
+      // before that rule may hold one — so an unchanged, malformed stored VIN
       // is left out of the PATCH (left as stored) instead of blocking every
-      // save. An empty VIN still goes out as null, which clears it and the
-      // vehicle link (KAN-247, KAN-326).
+      // save that does not touch it; the VIN field (KAN-340) corrects or
+      // clears it. An empty VIN still goes out as null, which clears it and
+      // the vehicle link (KAN-247, KAN-326).
       const keepStoredVin =
         configurationId !== null && draft.vin !== '' && draft.vin === savedVin && normalisedVin(draft.vin) === null
       const body: Record<string, unknown> = {
@@ -597,6 +600,7 @@ export function ConfiguratorOverlay({
       // a stale If-Match and 409 forever.
       setCurrentVersion(config.version)
       setSavedVin(config.vin)
+      setLinkedVehicleLabel(config.vehicleId ? (config.vehicleLabel ?? config.vehicleId) : null)
 
       // Options ride a separate PATCH (C-C's own endpoint, unchanged by
       // this ticket) — skipped on a brand-new configuration that never had
@@ -627,8 +631,8 @@ export function ConfiguratorOverlay({
 
       await onCommitted(config)
     } catch (err) {
-      // KAN-351 — the configure phase has no VIN input (KAN-340), so a VIN
-      // the API refuses is said in the overlay's error, in the user's language.
+      // KAN-351 — a VIN the API refuses is said in the overlay's error, in
+      // the user's language.
       const vinRefusal = vinRefusalKey(err)
       if (vinRefusal) setError(t(vinRefusal))
       else setError(err instanceof HostCommitError ? err.message : t('configurator.saveError'))
@@ -640,6 +644,12 @@ export function ConfiguratorOverlay({
   const [currentVersion, setCurrentVersion] = useState(existing?.version ?? 0)
   // The VIN the server holds for this configuration (KAN-338, see save()).
   const [savedVin, setSavedVin] = useState<string | null>(existing?.vin ?? null)
+  // KAN-340: the vehicle-mdm record the saved configuration is linked to —
+  // the server's answer, which follows the VIN (KAN-326); `vehicleLabel` is
+  // that record's vehicle number.
+  const [linkedVehicleLabel, setLinkedVehicleLabel] = useState<string | null>(
+    existing?.vehicleId ? (existing.vehicleLabel ?? existing.vehicleId) : null,
+  )
 
   const readModel: ConfigurationRead | null = useMemo(() => {
     if (!draft) return null
@@ -757,6 +767,35 @@ export function ConfiguratorOverlay({
 
       {section === 'specification' && (
         <Stack gap="lg">
+          {/* KAN-340 (FR-C-11, FR-C-16): the VIN is the advisor's to correct or
+              clear. A cleared VIN goes out as null (KAN-247) and, on a saved
+              configuration, drops the vehicle link with it (KAN-326). */}
+          <Group grow align="flex-start">
+            <TextInput
+              {...hint(t('configurator.vehicleLink.vin'), t('configurator.vehicleLink.vinHint'))}
+              value={draft.vin}
+              onChange={(e) => setDraft({ ...draft, vin: e.currentTarget.value })}
+              rightSection={
+                draft.vin !== '' ? (
+                  <CloseButton
+                    size="sm"
+                    aria-label={t('configurator.vehicleLink.clearVin')}
+                    onClick={() => setDraft({ ...draft, vin: '' })}
+                  />
+                ) : null
+              }
+            />
+            {configurationId !== null && (
+              <Stack gap={2} data-testid="configurator-linked-vehicle">
+                <Text size="sm" fw={500}>
+                  {t('configurator.vehicleLink.linkedVehicle')}
+                </Text>
+                <Text size="sm" c={linkedVehicleLabel ? undefined : 'dimmed'}>
+                  {linkedVehicleLabel ?? t('configurator.vehicleLink.noVehicle')}
+                </Text>
+              </Stack>
+            )}
+          </Group>
           {mode === 'record' && (
             <Group grow>
               <TextInput

@@ -1812,6 +1812,13 @@
     }
   },
   "configurator": {
+    "vehicleLink": {
+      "vin": "VIN",
+      "vinHint": "Enregistré vide, le lien avec le véhicule est supprimé.",
+      "clearVin": "Retirer le VIN",
+      "linkedVehicle": "Véhicule lié",
+      "noVehicle": "Aucun véhicule lié"
+    },
     "mode": {
       "label": "Mode",
       "build": "Véhicule neuf",

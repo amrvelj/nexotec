@@ -1812,6 +1812,13 @@
     }
   },
   "configurator": {
+    "vehicleLink": {
+      "vin": "VIN",
+      "vinHint": "Saved empty, the link to the vehicle is removed.",
+      "clearVin": "Remove VIN",
+      "linkedVehicle": "Linked vehicle",
+      "noVehicle": "No vehicle linked"
+    },
     "mode": {
       "label": "Mode",
       "build": "New vehicle",

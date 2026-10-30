@@ -15,18 +15,13 @@ import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 // vehicle-mdm record follows its VIN: clearing the VIN clears the link, and
 // the API answers `vehicleId: null`, `vehicleLabel: null`.
 //
-// What the UI makes of that, honestly: the configurator never renders
-// `vehicleId` or `vehicleLabel` — neither the overlay nor the summary card
-// shows the car a configuration is linked to (Vehicle 360 reaches the
-// configuration from the car, through `GET /vehicle-mdm/{id}/configuration`,
-// pinned in `pages/ConfiguratorHosts.render.test.tsx`: a 404 renders the
-// empty state). The overlay also has no VIN input of its own in the
-// configure phase: the VIN comes from the identification panel or from the
-// saved configuration. So the one UI path by which a stale link gets
-// cleared is a save of a configuration that holds a link but no VIN (the
-// state KAN-326 fixes for rows saved before it): the overlay sends `vin:
-// null` (KAN-247), the backend answers without a link, and the host renders
-// the answer — with no vehicle, because there never was one on screen.
+// KAN-340: the configure phase shows the VIN with an edit and a clear
+// control, and the vehicle a saved configuration is linked to (its vehicle
+// number, `vehicleLabel`) or «Kein Fahrzeug verknüpft» — the server's answer
+// after each save. The shared summary card still renders no link (Vehicle 360
+// reaches the configuration from the car, through
+// `GET /vehicle-mdm/{id}/configuration`, pinned in
+// `pages/ConfiguratorHosts.render.test.tsx`).
 
 const LINKED_NO_VIN: Partial<ConfigurationRead> = {
   source: 'manual',
@@ -83,16 +78,15 @@ function Host({ existing }: { existing: ConfigurationRead }) {
   )
 }
 
-describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326)', () => {
+describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326, KAN-340)', () => {
   it('a save of a configuration linked without a VIN sends vin: null, and the host shows the answer with no vehicle', async () => {
     const user = userEvent.setup()
     const ctx = install()
     renderWithProviders(<Host existing={configurationRead(LINKED_NO_VIN)} />)
 
-    // Nothing on the overlay names the linked car — there is no link to show.
+    // The overlay names the car the stored configuration is linked to.
     await screen.findByLabelText(i18n.t('configurator.summary.mileage'))
-    expect(screen.queryByText('F-000326')).not.toBeInTheDocument()
-    expect(screen.queryByText(/veh-1/)).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('configurator-linked-vehicle')).getByText('F-000326')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
 
@@ -107,6 +101,54 @@ describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326)', (
     expect(within(card).queryByText(/veh-1/)).not.toBeInTheDocument()
     // The answer the host holds is the backend's: no link.
     expect(within(card).getByText(/142.000 km/)).toBeInTheDocument()
+  })
+
+  it('clearing the VIN sends vin: null, and the overlay then shows no vehicle linked', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['record']}
+        existing={configurationRead({ ...LINKED_NO_VIN, vin: 'WVWZZZ1KZAW000326' })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const vinField = await screen.findByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) })
+    expect(vinField).toHaveValue('WVWZZZ1KZAW000326')
+    const linked = screen.getByTestId('configurator-linked-vehicle')
+    expect(within(linked).getByText('F-000326')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.vehicleLink.clearVin') }))
+    expect(vinField).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    expect(ctx.saved()[0]).toHaveProperty('vin', null)
+    await waitFor(() => expect(within(linked).getByText(i18n.t('configurator.vehicleLink.noVehicle'))).toBeInTheDocument())
+    expect(within(linked).queryByText('F-000326')).not.toBeInTheDocument()
+  })
+
+  it('a corrected VIN sends the new value', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['record']}
+        existing={configurationRead({ ...LINKED_NO_VIN, vin: 'WVWZZZ1KZAW000326' })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const vinField = await screen.findByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) })
+    await user.clear(vinField)
+    await user.type(vinField, 'WVWZZZ1KZAW331338')
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    expect(ctx.saved()[0]).toHaveProperty('vin', 'WVWZZZ1KZAW331338')
   })
 
   it('the summary card shows no vehicle link, before or after the clear — it never renders one', () => {
@@ -131,9 +173,9 @@ describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326)', (
 })
 
 // KAN-338 — the API refuses a malformed VIN (422). A configuration saved
-// before that rule may hold one, and the configure phase has no VIN input to
-// fix it (KAN-340): a save leaves such a VIN out, so the advisor's work still
-// saves. A well-formed VIN, and an empty one (KAN-326's clear), still go out.
+// before that rule may hold one: a save that leaves the VIN field untouched
+// leaves such a VIN out, so the advisor's work still saves (the field,
+// KAN-340, is where it is corrected). A well-formed VIN, and an empty one (KAN-326's clear), still go out.
 describe('ConfiguratorOverlay — a stored VIN the API now refuses never blocks a save (KAN-338)', () => {
   it.each([
     ['a malformed stored VIN is left out of the PATCH', 'WVWZZZ1KZAO331338', false],
