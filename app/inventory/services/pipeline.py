@@ -190,9 +190,11 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
 def promote_to_vehicle_mdm(
     db: Session, *, item: StockItem, vin: str, catalogue_variant_id: uuid.UUID | None = None
 ) -> StockItem:
-    """FR-V-04: VIN arrival on a pipeline item. Idempotent by
-    `pipeline_vehicle_id` (= the stock item's own id) — a second call with
-    the item already promoted is a no-op, not a second event.
+    """FR-V-04: VIN arrival on a pipeline item. Idempotent per stock item:
+    it returns early when the item already carries a `vehicle_id` for the
+    same VIN, so a second call is a no-op, not a second event (KAN-127).
+    No `pipeline_vehicle_id` column exists; that is only FR-V-04's PRD term
+    for the stock item's own id.
 
     `vin` is normalised and validated first (KAN-324), as a create's is, so
     a retry spelling the same VIN differently is the same no-op, and a VIN

@@ -184,8 +184,10 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
         that loads the contract; never stored, never read live from Stock.
         A stored copy could miss a purchase consumed while the contract was
         being written, and nothing would ever correct it. False for a
-        contract with no stock item (a manual configuration: Sales is not
-        told the pipeline item it becomes)."""
+        contract with no stock item yet: a manual configuration's contract
+        gets one when Sales consumes `inventory.stock_item.added` for it
+        (`app/sales/consumers.py`, KAN-144), and the purchase gate applies
+        from then on."""
 
         return column_property(
             exists().where(
