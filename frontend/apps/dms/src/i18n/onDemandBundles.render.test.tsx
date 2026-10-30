@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next'
 
 import i18n, { onDemandBundleLoaders } from './index'
 
-// KAN-438 — only German (the start language) and English (the fallback) ship
-// with the app; French and Italian are fetched on the first switch. The French
+// KAN-438 — only English (the fallback) ships with the app; the start language
+// (German here: nothing stored) is fetched before the first paint — the shared
+// test setup waits for it as main.tsx does — and French and Italian on a switch. The French
 // bundle here is held back by a gate, the way a slow network holds back its
 // chunk, so the test can look at the screen while the switch is pending.
 let releaseFrench: () => void = () => {}

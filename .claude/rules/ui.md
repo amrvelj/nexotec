@@ -155,12 +155,14 @@ second local combobox.
 
 - Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json`. A new key goes into all
   four in the same change; `localeKeyParity.test.ts` fails otherwise.
-- **Only `de` (the default) and `en` (the fallback) ship with the app** (KAN-438): `fr` and `it`
-  are their own chunks (`i18n/index.ts`, `onDemandBundleLoaders`), fetched when first needed.
-  i18next starts in the `ui` preference mirror's language (`storedUiLanguage`, else `de`) and
-  `main.tsx` paints only once `i18nReady` resolves, so a returning French user never sees German
-  first (`architecture/main-waits-for-i18n.test.ts`); a switch waits for its bundle, so it never
-  shows keys. A bundle that cannot be fetched is asked for twice more (350 ms, 700 ms), then the
+- **Only `en` (the fallback) ships with the app** (KAN-438): `de`, `fr` and `it` are their own
+  chunks (`i18n/index.ts`, `onDemandBundleLoaders`), fetched when first needed. i18next starts in
+  the `ui` preference mirror's language (`storedUiLanguage`, else `de`; on a shared browser, the
+  last user's) and `main.tsx` paints only once `i18nReady` resolves, so nobody sees another
+  language first (`architecture/main-waits-for-i18n.test.ts`); a switch waits for its bundle, so
+  it never shows keys. `src/test/setup.ts` waits for `i18nReady` too, so every test starts in
+  German; `i18n/index.ts` imports `formatNumber` from its own module, not the kit's barrel, so
+  that wait loads nothing a test file mocks. A bundle that cannot be fetched is asked for twice more (350 ms, 700 ms), then the
   language shows in English (the fallback) and the next switch fetches again — no reload screen.
   A test that reads `fr`/`it` text through `getFixedT` or `getResource` before anything switched
   to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.

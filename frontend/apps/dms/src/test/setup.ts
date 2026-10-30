@@ -158,3 +158,10 @@ afterEach(async () => {
     )
   }
 })
+
+// KAN-438 — the app paints only once its start language's bundle is in
+// (main.tsx waits for `i18nReady`; German is fetched on demand like French and
+// Italian). Every test starts from that same point: German loaded, English as
+// the fallback.
+const { i18nReady } = await import('../i18n')
+await i18nReady

@@ -19,6 +19,9 @@ vi.mock('./locales/fr.json', async () => {
 })
 
 window.localStorage.setItem('dms.preferences.ui', JSON.stringify({ schemaVersion: 1, uiLanguage: 'fr' }))
+// The shared setup already started i18n with nothing stored; start it afresh,
+// as a page load with this mirror would.
+vi.resetModules()
 const { default: i18n, i18nReady, storedUiLanguage } = await import('./index')
 
 describe('the start language is the one the user last chose (KAN-438)', () => {
@@ -38,6 +41,7 @@ describe('the start language is the one the user last chose (KAN-438)', () => {
     expect(i18n.language).toBe('fr')
     expect(i18n.t('common.retry')).toBe('Réessayer')
     expect(i18n.hasResourceBundle('it', 'translation')).toBe(false)
+    expect(i18n.hasResourceBundle('de', 'translation')).toBe(false)
   })
 
   it('falls back to German for a stored value that is no UI language, and when nothing is stored', () => {

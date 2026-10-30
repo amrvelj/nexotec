@@ -1,18 +1,20 @@
 import i18next, { type BackendModule, type ResourceKey } from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import { formatNumber } from '@nexotec/ui-kit'
+// The one formatter by its own module, not the kit's barrel: the shared test
+// setup imports this file to wait for the start language (KAN-438), and the
+// barrel would load the kit's dependencies before a test file can mock them.
+import { formatNumber } from '@nexotec/ui-kit/src/format/swissNumber'
 import { readLocalMirror, UI_PREFERENCES_STORAGE_KEY } from '../hooks/persistedPreferenceStorage'
-import de from './locales/de.json'
 import en from './locales/en.json'
 
 export const SUPPORTED_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 
-// KAN-438: German (the default language) and English (the fallback) ship with
-// the app; French and Italian (~100 kB each) are their own chunks, fetched when
-// first needed — at start for a user whose last language was one of them
-// (`storedUiLanguage`; main.tsx paints only once `i18nReady` resolves, so that
-// user never sees German first), or on a switch. `changeLanguage` waits for the
+// KAN-438: only English (the fallback) ships with the app; German, French and
+// Italian (~100 kB each) are their own chunks, fetched when first needed — the
+// user's start language at boot (`storedUiLanguage`, German for a new browser;
+// main.tsx paints only once `i18nReady` resolves, so nobody sees another
+// language or a key first), the others on a switch. `changeLanguage` waits for the
 // bundle before it switches, so a switch never shows keys or a half-translated
 // screen. A bundle that cannot be fetched (offline, a chunk removed by a
 // deploy) is asked for twice more (350 ms, then 700 ms); if that fails too, the
@@ -20,6 +22,7 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 // is, and the next switch to it fetches again. Exported only so a render test
 // can hold one bundle back or fail it (onDemandBundles.render.test.tsx).
 export const onDemandBundleLoaders: Partial<Record<SupportedLanguage, () => Promise<{ default: ResourceKey }>>> = {
+  de: () => import('./locales/de.json'),
   fr: () => import('./locales/fr.json'),
   it: () => import('./locales/it.json'),
 }
@@ -64,11 +67,10 @@ export function storedUiLanguage(): SupportedLanguage {
  * which falls back to English); main.tsx renders nothing before it. */
 export const i18nReady: Promise<unknown> = i18next.use(onDemandBundles).use(initReactI18next).init({
   resources: {
-    de: { translation: de },
     en: { translation: en },
   },
-  // The two bundled languages are used as given; the backend is asked only
-  // for a language with no bundle yet (KAN-438).
+  // The bundled language is used as given; the backend is asked only for a
+  // language with no bundle yet (KAN-438).
   partialBundledLanguages: true,
   lng: storedUiLanguage(),
   // A failed bundle read is asked for twice more, 350 ms then 700 ms apart.
