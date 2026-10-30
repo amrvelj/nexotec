@@ -647,7 +647,7 @@
       "specification": "Spezifikation",
       "unknownVehicle": "Fahrzeug nicht im Register",
       "mergedInto": "Zusammengeführt",
-      "mergedIntoTitle": "Durch eine Kundenzusammenführung beendet — Zielkunden öffnen"
+      "mergedIntoTitle": "Bei einer Kundenzusammenführung hier behalten — Zielkunden öffnen"
     },
     "offersContracts": {
       "emptyState": {
@@ -1813,6 +1813,7 @@
   },
   "configurator": {
     "vehicleLink": {
+      "unknownVehicle": "Fahrzeug nicht im Register",
       "vin": "VIN",
       "vinHint": "Leer gespeichert, löst das die Verknüpfung mit dem Fahrzeug.",
       "clearVin": "VIN entfernen",

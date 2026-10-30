@@ -42,6 +42,8 @@ function install(): { saved: () => Record<string, unknown>[] } {
   const routes: FakeRoute[] = [
     ...CODED_REFERENCE_ROUTES,
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+    // KAN-340: the linked record, read to name it as its own header does.
+    { method: 'GET', match: /\/vehicle-mdm\/veh-1$/, handler: () => ({ id: 'veh-1', vehicleNumber: 'F-000326', vin: 'WVWZZZ1KZAW000326' }) },
     {
       method: 'PATCH',
       match: /\/configurations\/cfg-1$/,
@@ -119,6 +121,8 @@ describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326, KAN
     expect(vinField).toHaveValue('WVWZZZ1KZAW000326')
     const linked = screen.getByTestId('configurator-linked-vehicle')
     expect(within(linked).getByText('F-000326')).toBeInTheDocument()
+    // Named as the vehicle's own detail header names it: number and VIN.
+    expect(await within(linked).findByText('WVWZZZ1KZAW000326')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.vehicleLink.clearVin') }))
     expect(vinField).toHaveValue('')

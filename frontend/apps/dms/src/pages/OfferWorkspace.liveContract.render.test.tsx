@@ -28,13 +28,13 @@ const offer = (overrides: Partial<SalesOfferRead> = {}) =>
 
 const CONTRACTED = offer({ liveContractId: 'k7', liveContractNumber: 'V-000007' })
 
-function install(read: SalesOfferRead, tradeIn: () => unknown = () => read) {
+function install(read: SalesOfferRead, tradeIn: () => unknown = () => read, lineItems: unknown[] = []) {
   return installFakeBackend([
     { method: 'GET', match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
     { method: 'GET', match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
     { method: 'GET', match: /^\/customers\/cust-1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => read },
-    { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
+    { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: lineItems }) },
     { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
     { method: 'POST', match: /^\/sales\/offers\/o1\/trade-in$/, handler: tradeIn },
   ])
@@ -170,5 +170,41 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items\/s1/, 'GET').length).toBeGreaterThan(0))
     expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
+  })
+
+  // KAN-501 — the line items moved under the pricing container's own
+  // fieldset: with a frozen snapshot they render, and none of them writes.
+  it('the factory options and accessories stay read-only, and nothing is saved', async () => {
+    const user = userEvent.setup()
+    const option = {
+      id: 'li-1', kind: 'factory_option', code: 'LED', label: 'LED-Scheinwerfer', unitPrice: '800.00', quantity: 1,
+      included: true, discountType: null, discountValue: null, discountResolvedAmount: null, discountSuppressedReason: null, position: 0,
+    }
+    const accessory = { ...option, id: 'li-2', kind: 'accessory', code: 'MAT', label: 'Fussmatten', unitPrice: '120.00', position: 1 }
+    const backend = install(
+      offer({
+        liveContractId: 'k7', liveContractNumber: 'V-000007', vehicleSource: 'stock', stockItemId: 's1', vehicleLabel: 'VW Golf',
+        vehicleSnapshotFrozenAt: '2026-02-01T00:00:00Z', discountType: 'percent',
+      } as Partial<SalesOfferRead>),
+      undefined,
+      [option, accessory],
+    )
+    renderWorkspace()
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'LED-Scheinwerfer' })
+    expect(checkbox).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('common.remove') })).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.lineItems.accessoryLabel') })).toBeDisabled()
+    await user.click(checkbox)
+    expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PUT')).toHaveLength(0)
+    expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
+  })
+
+  it('an offer with a live contract and no customer offers neither search nor create', async () => {
+    install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007' }))
+    renderWorkspace()
+
+    expect(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.createNew') })).toBeDisabled()
   })
 })

@@ -46,17 +46,7 @@ import {
   type CodedFieldKey,
   type ConfiguratorMode,
 } from '../../configurationOptions'
-import type {
-  CatalogueOptionRead,
-  CatalogueSpecificationRead,
-  CatalogueVariantRead,
-  ConfigurationMatchMethod,
-  ConfigurationOptionInput,
-  ConfigurationOptionRead,
-  ConfigurationRead,
-  ReferenceValueRead,
-  VehicleSpecBlockRead,
-} from '../../api/types'
+import type { CatalogueOptionRead, CatalogueSpecificationRead, CatalogueVariantRead, ConfigurationMatchMethod, ConfigurationOptionInput, ConfigurationOptionRead, ConfigurationRead, ReferenceValueRead, VehicleSpecBlockRead, VehicleMdmRead } from '../../api/types'
 
 // KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
 // reference lists in the one label-lookup query this file already has;
@@ -600,7 +590,7 @@ export function ConfiguratorOverlay({
       // a stale If-Match and 409 forever.
       setCurrentVersion(config.version)
       setSavedVin(config.vin)
-      setLinkedVehicleLabel(config.vehicleId ? (config.vehicleLabel ?? config.vehicleId) : null)
+      setLinkedVehicle(config.vehicleId ? { id: config.vehicleId, label: config.vehicleLabel } : null)
 
       // Options ride a separate PATCH (C-C's own endpoint, unchanged by
       // this ticket) — skipped on a brand-new configuration that never had
@@ -645,11 +635,18 @@ export function ConfiguratorOverlay({
   // The VIN the server holds for this configuration (KAN-338, see save()).
   const [savedVin, setSavedVin] = useState<string | null>(existing?.vin ?? null)
   // KAN-340: the vehicle-mdm record the saved configuration is linked to —
-  // the server's answer, which follows the VIN (KAN-326); `vehicleLabel` is
-  // that record's vehicle number.
-  const [linkedVehicleLabel, setLinkedVehicleLabel] = useState<string | null>(
-    existing?.vehicleId ? (existing.vehicleLabel ?? existing.vehicleId) : null,
+  // the server's answer, which follows the VIN (KAN-326). It is named as its
+  // own detail header names it: the vehicle number (`vehicleLabel`, rule 2's
+  // label) and its VIN, read from the record itself.
+  const [linkedVehicle, setLinkedVehicle] = useState<{ id: string; label: string | null } | null>(
+    existing?.vehicleId ? { id: existing.vehicleId, label: existing.vehicleLabel } : null,
   )
+  const linkedVehicleQuery = useQuery({
+    queryKey: ['vehicle-mdm', linkedVehicle?.id],
+    queryFn: () => api.get<VehicleMdmRead>(`/vehicle-mdm/${linkedVehicle?.id}`),
+    enabled: linkedVehicle != null,
+    retry: false,
+  })
 
   const readModel: ConfigurationRead | null = useMemo(() => {
     if (!draft) return null
@@ -790,9 +787,22 @@ export function ConfiguratorOverlay({
                 <Text size="sm" fw={500}>
                   {t('configurator.vehicleLink.linkedVehicle')}
                 </Text>
-                <Text size="sm" c={linkedVehicleLabel ? undefined : 'dimmed'}>
-                  {linkedVehicleLabel ?? t('configurator.vehicleLink.noVehicle')}
-                </Text>
+                {linkedVehicle ? (
+                  <>
+                    <Text size="sm">
+                      {linkedVehicleQuery.data?.vehicleNumber ?? linkedVehicle.label ?? t('configurator.vehicleLink.unknownVehicle')}
+                    </Text>
+                    {linkedVehicleQuery.data?.vin && (
+                      <Text size="xs" c="dimmed" ff="monospace">
+                        {linkedVehicleQuery.data.vin}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    {t('configurator.vehicleLink.noVehicle')}
+                  </Text>
+                )}
               </Stack>
             )}
           </Group>

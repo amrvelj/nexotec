@@ -92,7 +92,7 @@ export function VehiclesTab({
           return (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               {label}
-              <Link to={`/customers/${mergedIntoCustomerId}`} title={t('customerDetail.vehicles.mergedIntoTitle')} style={{ display: 'inline-flex' }}>
+              <Link to={`/customers/${mergedIntoCustomerId}`} title={t('customerDetail.vehicles.mergedIntoTitle')} style={{ display: 'inline-flex', textDecoration: 'none' }}>
                 <Badge tone="slate">{t('customerDetail.vehicles.mergedInto')}</Badge>
               </Link>
             </span>
