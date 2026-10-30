@@ -76,8 +76,31 @@ export function VehiclesTab({
             </span>
           )
         },
+        // KAN-347: fixed like the role column beside it, so the label and its two icons are never clipped.
+        meta: { width: 260 },
       },
-      { id: 'role', header: t('customerDetail.vehicles.columns.role'), cell: ({ row }) => translatedVehiclePartyRoleLabel(t, row.original.role) },
+      {
+        id: 'role',
+        header: t('customerDetail.vehicles.columns.role'),
+        // KAN-347 (ADR-064): a row a customer merge kept closed at its own
+        // start (KAN-177) is not an ordinary ended role — it says so beside
+        // the role, and links to the customer it was merged into.
+        cell: ({ row }) => {
+          const { role, mergedIntoCustomerId } = row.original
+          const label = translatedVehiclePartyRoleLabel(t, role)
+          if (!mergedIntoCustomerId) return label
+          return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {label}
+              <Link to={`/customers/${mergedIntoCustomerId}`} title={t('customerDetail.vehicles.mergedIntoTitle')} style={{ display: 'inline-flex' }}>
+                <Badge tone="slate">{t('customerDetail.vehicles.mergedInto')}</Badge>
+              </Link>
+            </span>
+          )
+        },
+        // Wide enough for the longest role beside the merge badge (FR «Fusionné», DE «Zusammengeführt»).
+        meta: { width: 240 },
+      },
       {
         id: 'effectiveFrom',
         header: t('customerDetail.vehicles.columns.since'),
@@ -87,22 +110,7 @@ export function VehiclesTab({
       {
         id: 'effectiveTo',
         header: t('customerDetail.vehicles.columns.until'),
-        // KAN-347 (ADR-064): a row a customer merge kept closed at its own
-        // start (KAN-177) is not an ordinary ended role — it says so, and
-        // links to the customer it was merged into.
-        cell: ({ row }) => {
-          const { effectiveTo, mergedIntoCustomerId } = row.original
-          const until = effectiveTo ? formatDate(effectiveTo, locale) : '—'
-          if (!mergedIntoCustomerId) return until
-          return (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {until}
-              <Link to={`/customers/${mergedIntoCustomerId}`} title={t('customerDetail.vehicles.mergedIntoTitle')} style={{ display: 'inline-flex' }}>
-                <Badge tone="slate">{t('customerDetail.vehicles.mergedInto')}</Badge>
-              </Link>
-            </span>
-          )
-        },
+        cell: ({ row }) => (row.original.effectiveTo ? formatDate(row.original.effectiveTo, locale) : '—'),
         meta: { align: 'right' },
       },
       {
