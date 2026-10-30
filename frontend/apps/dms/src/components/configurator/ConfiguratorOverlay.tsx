@@ -250,6 +250,10 @@ export interface ConfiguratorOverlayProps {
   initialMode?: ConfiguratorMode
   /** C-F — reopen a saved configuration in phase 2 (edit, re-sync). */
   existing?: ConfigurationRead | null
+  /** KAN-468 — a host that already knows the car (a valuation requested
+   * from the vehicle) prefills phase 1's identification input with its VIN,
+   * so nobody types it twice. */
+  initialVin?: string
   /** Called with the saved configuration when the advisor commits. May be
    * async; a rejected `HostCommitError` is shown in the overlay. */
   onCommitted: (configuration: ConfigurationRead) => void | Promise<void>
@@ -269,6 +273,7 @@ export function ConfiguratorOverlay({
   allowedModes = ALL_MODES,
   initialMode,
   existing = null,
+  initialVin = '',
   onCommitted,
   onClose,
 }: ConfiguratorOverlayProps) {
@@ -279,7 +284,9 @@ export function ConfiguratorOverlay({
   )
   const [section, setSection] = useState<Section>('specification')
   const [draft, setDraft] = useState<Draft | null>(existing ? draftFromRead(existing) : null)
-  const [vinInput, setVinInput] = useState('')
+  const [vinInput, setVinInput] = useState(initialVin)
+  // The host's VIN prefills the first car only; Back starts the next one empty.
+  const [identificationPrefill, setIdentificationPrefill] = useState(initialVin)
   const [configurationId, setConfigurationId] = useState<string | null>(existing?.id ?? null)
   const [resyncOpen, setResyncOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -327,6 +334,7 @@ export function ConfiguratorOverlay({
   const backToFind = () => {
     setConfigurationId(null)
     setVinInput('')
+    setIdentificationPrefill('')
     setCurrentVersion(0)
     setDraft(null)
     setResyncOpen(false)
@@ -671,6 +679,7 @@ export function ConfiguratorOverlay({
             )
           }}
           onQueryChange={setVinInput}
+          initialQuery={identificationPrefill}
         />
 
         <Group>

@@ -851,7 +851,13 @@
       "failedToLoad": "Impossibile caricare il veicolo",
       "copyVin": "Copia telaio",
       "merge": "Unisci con…",
-      "mergeDisabledReason": "Non ancora disponibile"
+      "mergeDisabledReason": "Non ancora disponibile",
+      "allocate": "Assegna a un cliente",
+      "requestValuation": "Richiedi una valutazione",
+      "recordOdometer": "Registra il chilometraggio",
+      "recordAccessory": "Registra un accessorio",
+      "resync": "Aggiorna dal catalogo",
+      "resyncDisabledReason": "Non ancora disponibile"
     },
     "errors": {
       "somethingWentWrong": "Qualcosa è andato storto."

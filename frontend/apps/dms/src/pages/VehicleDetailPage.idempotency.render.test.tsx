@@ -104,6 +104,15 @@ function renderTab(tab: string) {
   )
 }
 
+// Since KAN-468 the header's primary is «Allocate to customer» too (the
+// filled button); the party card's own button is the light one.
+async function partyCardAllocate() {
+  const buttons = await screen.findAllByRole('button', { name: i18n.t('vehicleDetail.parties.allocate') })
+  const inCard = buttons.find((b) => b.getAttribute('data-variant') === 'light')
+  expect(inCard).toBeDefined()
+  return inCard!
+}
+
 const keysOf = (backend: ReturnType<typeof install>, segment: string) =>
   backend.callsTo(new RegExp(`/${segment}$`), 'POST').map((call) => call.headers.get('Idempotency-Key'))
 
@@ -162,7 +171,7 @@ describe('VehicleDetailPage — one Idempotency-Key per create (KAN-266)', () =>
     renderTab('identity')
 
     const allocate = async () => {
-      await user.click(await screen.findByRole('button', { name: i18n.t('vehicleDetail.parties.allocate') }))
+      await user.click(await partyCardAllocate())
       await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer')), 'Muster')
       await user.click(await screen.findByText('Anna Muster'))
     }
@@ -259,7 +268,7 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     const backend = install({ failFirst: 'allocate' })
     renderTab('identity')
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('vehicleDetail.parties.allocate') }))
+    await user.click(await partyCardAllocate())
     await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer')), 'Muster')
     await user.click(await screen.findByText('Anna Muster'))
 
@@ -268,7 +277,7 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     await user.click(await screen.findByText('Anna Muster'))
     await waitFor(() => expect(keysOf(backend, 'allocate')).toHaveLength(2))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-    expect(await screen.findByRole('button', { name: i18n.t('vehicleDetail.parties.allocate') })).toBeInTheDocument()
+    expect(await partyCardAllocate()).toBeInTheDocument()
 
     const [failedKey, retryKey] = keysOf(backend, 'allocate')
     expect(failedKey).toBeTruthy()

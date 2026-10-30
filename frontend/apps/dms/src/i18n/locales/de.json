@@ -851,7 +851,13 @@
       "failedToLoad": "Fahrzeug konnte nicht geladen werden",
       "copyVin": "VIN kopieren",
       "merge": "Zusammenführen mit…",
-      "mergeDisabledReason": "Noch nicht verfügbar"
+      "mergeDisabledReason": "Noch nicht verfügbar",
+      "allocate": "Kunde zuordnen",
+      "requestValuation": "Bewertung anfordern",
+      "recordOdometer": "Kilometerstand erfassen",
+      "recordAccessory": "Zubehör erfassen",
+      "resync": "Aus dem Katalog aktualisieren",
+      "resyncDisabledReason": "Noch nicht verfügbar"
     },
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen."

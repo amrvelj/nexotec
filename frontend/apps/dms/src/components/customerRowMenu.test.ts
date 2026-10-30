@@ -8,7 +8,6 @@ const t = (key: string, options?: Record<string, unknown>) =>
 
 function handlers(over: Partial<CustomerRowMenuHandlers> = {}): CustomerRowMenuHandlers {
   return {
-    onEdit: vi.fn(),
     onNewOffer: vi.fn(),
     onNewContract: vi.fn(),
     onCopyCustomerNumber: vi.fn(),
@@ -92,7 +91,7 @@ describe('buildCustomerRowMenu (KAN-44 / ADR-061 anti-drift, FR-21/FR-22)', () =
   it('carries no Delete/anonymise action anywhere (FR-14 not built; merge is the other tombstone)', () => {
     const menu = buildCustomerRowMenu(t, cust(), handlers({ onMergeInto: vi.fn(), onLinkVehicle: vi.fn() }))
     const allLabels = [
-      menu.primary.label,
+      menu.primary?.label,
       menu.alternative?.label,
       ...Object.values(menu.overflow).flatMap((g: RowMenuAction[] | undefined) => (g ?? []).map((a) => a.label)),
     ].join(' ')
@@ -125,10 +124,56 @@ describe('buildCustomerRowMenu (KAN-44 / ADR-061 anti-drift, FR-21/FR-22)', () =
       handlers({ onNewOffer: undefined, onNewContract: undefined, onMergeInto: vi.fn(), onLinkVehicle: vi.fn() }),
     )
     expect(createFrom(detailMenu).map((a) => a.label)).toEqual(['customerRowMenu.mergeInto'])
-    expect(detailMenu.alternative?.label).toBe('customerRowMenu.linkVehicle')
+    // KAN-468: without «New offer» the primary is «Link vehicle», with no alternative.
+    expect(detailMenu.primary?.label).toBe('customerRowMenu.linkVehicle')
+    expect(detailMenu.alternative).toBeUndefined()
 
     const listMenu = buildCustomerRowMenu(t, cust(), handlers({ onNewOffer: undefined, onNewContract: undefined }))
     expect(createFrom(listMenu)).toEqual([])
+    expect(listMenu.primary).toBeUndefined()
     expect(listMenu.alternative).toBeUndefined()
+  })
+
+  describe('KAN-468 (Anto, 2026-10-26; FR-22 amended) — no «Edit»: every field is edited inline', () => {
+    const detailHandlers = () => handlers({ onMergeInto: vi.fn(), onLinkVehicle: vi.fn() })
+    const allLabels = (menu: ReturnType<typeof buildCustomerRowMenu>) => [
+      menu.primary?.label,
+      menu.alternative?.label,
+      ...Object.values(menu.overflow).flatMap((g: RowMenuAction[] | undefined) => (g ?? []).map((a) => a.label)),
+    ]
+
+    it('the primary is «New offer», with its disabled-with-reason state; the alternative is «Link vehicle»', () => {
+      const onNewOffer = vi.fn()
+      const menu = buildCustomerRowMenu(t, cust(), handlers({ onNewOffer, onLinkVehicle: vi.fn() }))
+      expect(menu.primary?.label).toBe('customerRowMenu.newOffer')
+      expect(menu.alternative?.label).toBe('customerRowMenu.linkVehicle')
+      menu.primary?.onClick()
+      expect(onNewOffer).toHaveBeenCalledOnce()
+
+      const blocked = buildCustomerRowMenu(t, cust({ lifecycleStatus: 'do_not_contact' }), detailHandlers())
+      expect(blocked.primary?.disabled).toBe(true)
+      expect(blocked.primary?.disabledReason).toBe('customerRowMenu.newOfferDisabledDoNotContact')
+    })
+
+    it('neither the header nor the overflow, on the detail or the list, offers «Edit»', () => {
+      for (const menu of [buildCustomerRowMenu(t, cust(), detailHandlers()), buildCustomerRowMenu(t, cust(), handlers())]) {
+        expect(allLabels(menu)).not.toContain('customerRowMenu.edit')
+      }
+    })
+
+    it('the overflow still carries the full row menu: Link vehicle, the flags, the sales actions, merge, copy', () => {
+      const menu = buildCustomerRowMenu(t, cust(), detailHandlers())
+      expect((menu.overflow.edit ?? []).map((a) => a.label)).toEqual([
+        'customerRowMenu.linkVehicle',
+        'customerRowMenu.setDoNotContact',
+        'customerRowMenu.setCreditBlock',
+      ])
+      expect(createFrom(menu).map((a) => a.label)).toEqual([
+        'customerRowMenu.newOffer',
+        'customerRowMenu.newContract',
+        'customerRowMenu.mergeInto',
+      ])
+      expect((menu.overflow.exportPrint ?? []).map((a) => a.label)).toEqual(['customerRowMenu.copyCustomerNumber'])
+    })
   })
 })

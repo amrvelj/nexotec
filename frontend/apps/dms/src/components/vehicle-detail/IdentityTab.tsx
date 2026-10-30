@@ -18,6 +18,10 @@ interface IdentityTabProps {
   onSaveField: (patch: Record<string, unknown>) => Promise<void>
   onReload: () => void
   onAllocate: (customerId: string, role: VehiclePartyRole) => Promise<void>
+  /** The customer picker's open state, owned by the page: the header's
+   * «Allocate to customer» opens it too (KAN-468). */
+  allocating: boolean
+  onAllocatingChange: (open: boolean) => void
   customerCandidates: { id: string; label: string; sublabel?: string }[]
   customerSearch: string
   onCustomerSearchChange: (q: string) => void
@@ -44,6 +48,8 @@ export function IdentityTab({
   onSaveField,
   onReload,
   onAllocate,
+  allocating,
+  onAllocatingChange: setAllocating,
   customerCandidates,
   customerSearch,
   onCustomerSearchChange,
@@ -51,7 +57,6 @@ export function IdentityTab({
 }: IdentityTabProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
-  const [allocating, setAllocating] = useState(false)
   const [allocationSaving, setAllocationSaving] = useState(false)
   const [allocationError, setAllocationError] = useState<string | null>(null)
   const [role, setRole] = useState<VehiclePartyRole>('owner')

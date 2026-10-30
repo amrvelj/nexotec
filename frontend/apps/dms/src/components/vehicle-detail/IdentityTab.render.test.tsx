@@ -6,8 +6,16 @@ import { ApiError } from '../../api/client'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend } from '../../test/fakeBackend'
+import { useState, type ComponentProps } from 'react'
 import { IdentityTab } from './IdentityTab'
 import type { VehicleMdmRead, VehiclePartyAllocationRead } from '../../api/types'
+
+/** The picker's open state lives on the page since KAN-468 (the header's
+ * «Allocate to customer» opens it too); this stands in for the page. */
+function StatefulIdentityTab(props: Omit<ComponentProps<typeof IdentityTab>, 'allocating' | 'onAllocatingChange'>) {
+  const [allocating, setAllocating] = useState(false)
+  return <IdentityTab {...props} allocating={allocating} onAllocatingChange={setAllocating} />
+}
 
 // KAN-140 — the "Beteiligte" card used to print each holder's raw customer
 // UUID as the link text. A seller must see who owns, keeps or drives the
@@ -57,6 +65,8 @@ function renderTab(
       onSaveField={async () => {}}
       onReload={() => {}}
       onAllocate={async () => {}}
+      allocating={false}
+      onAllocatingChange={() => {}}
       customerCandidates={[]}
       customerSearch=""
       onCustomerSearchChange={() => {}}
@@ -132,6 +142,8 @@ describe('IdentityTab first registration date (KAN-333)', () => {
         onSaveField={async () => {}}
         onReload={() => {}}
         onAllocate={async () => {}}
+        allocating={false}
+        onAllocatingChange={() => {}}
         customerCandidates={[]}
         customerSearch=""
         onCustomerSearchChange={() => {}}
@@ -190,7 +202,7 @@ describe('IdentityTab — a refused allocation is translated (KAN-389)', () => {
       await i18n.changeLanguage('fr')
       installFakeBackend([])
       renderWithProviders(
-        <IdentityTab
+        <StatefulIdentityTab
           vehicle={vehicle}
           parties={[]}
           formerParties={[]}

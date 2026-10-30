@@ -851,7 +851,13 @@
       "failedToLoad": "Échec du chargement du véhicule",
       "copyVin": "Copier le n° de châssis",
       "merge": "Fusionner avec…",
-      "mergeDisabledReason": "Pas encore disponible"
+      "mergeDisabledReason": "Pas encore disponible",
+      "allocate": "Attribuer à un client",
+      "requestValuation": "Demander une évaluation",
+      "recordOdometer": "Saisir le kilométrage",
+      "recordAccessory": "Saisir un accessoire",
+      "resync": "Actualiser depuis le catalogue",
+      "resyncDisabledReason": "Pas encore disponible"
     },
     "errors": {
       "somethingWentWrong": "Une erreur est survenue."

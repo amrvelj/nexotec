@@ -788,7 +788,6 @@ export function CustomersListPage() {
             // drift between the two surfaces. Link-vehicle and merge are
             // modal-heavy and stay on the detail screen.
             const menu = buildCustomerRowMenu(t, row, {
-              onEdit: () => navigate(`/customers/${row.id}`),
               onNewOffer: salesEntitled ? () => void createOfferForCustomer(row.id) : undefined,
               onNewContract: salesEntitled ? () => void createContractForCustomer(row.id) : undefined,
               onCopyCustomerNumber: () => void navigator.clipboard.writeText(row.customerNumber),

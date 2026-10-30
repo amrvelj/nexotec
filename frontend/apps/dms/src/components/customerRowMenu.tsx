@@ -1,4 +1,4 @@
-import { Ban, Car, Copy, FileSignature, GitMerge, Handshake, Lock, Pencil } from 'lucide-react'
+import { Ban, Car, Copy, FileSignature, GitMerge, Handshake, Lock } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { CustomerRead } from '../api/types'
 
@@ -14,11 +14,16 @@ import type { CustomerRead } from '../api/types'
  * CONTRACTED. `do_not_contact` stops both, because sending a document is
  * contact. FR-22 (amended 2026-09-07) is where that rule reaches the user:
  * "New contract" is disabled with the block reason named.
+ *
+ * KAN-468 (Anto, 2026-10-26; FR-22 amended): there is no «Edit» anywhere —
+ * every field on the customer is edited inline, so the old primary only
+ * selected the Overview tab and did nothing there. The primary is «New
+ * offer», the alternative «Link vehicle»; the list's row menu opens the
+ * record with its own «Open».
  */
 
 export interface CustomerRowMenuHandlers {
   /** Present on both surfaces. */
-  onEdit: () => void
   onCopyCustomerNumber: () => void
   onToggleDoNotContact: () => void
   onManageCreditBlock: () => void
@@ -43,9 +48,10 @@ export interface CustomerRowMenuHandlers {
 }
 
 export interface CustomerRowMenu {
-  primary: DetailHeaderAction
-  /** "New offer"; for a Betrieb without sales, "Link vehicle" where the
-   * surface offers it (KAN-377), else none. */
+  /** "New offer"; for a Betrieb without sales (KAN-377), "Link vehicle"
+   * where the surface offers it, else none (KAN-468). */
+  primary?: DetailHeaderAction
+  /** "Link vehicle" beside a "New offer" primary, else none. */
   alternative?: DetailHeaderAction
   overflow: RowMenuGroups
 }
@@ -103,7 +109,6 @@ export function buildCustomerRowMenu(
   }
 
   const edit: RowMenuGroups['edit'] = [
-    { label: t('customerRowMenu.edit'), icon: <Pencil size={16} />, onClick: handlers.onEdit },
     ...(linkVehicle ? [linkVehicle] : []),
     {
       label: isDoNotContact ? t('customerRowMenu.removeDoNotContact') : t('customerRowMenu.setDoNotContact'),
@@ -138,8 +143,8 @@ export function buildCustomerRowMenu(
   ]
 
   return {
-    primary: { label: t('customerRowMenu.edit'), icon: <Pencil size={16} />, onClick: handlers.onEdit },
-    alternative: newOffer ?? linkVehicle,
+    primary: newOffer ?? linkVehicle,
+    alternative: newOffer ? linkVehicle : undefined,
     overflow: { edit, createFrom, exportPrint },
   }
 }

@@ -9,7 +9,16 @@ import { api } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
 import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
-import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
+import type {
+  CapabilityCheckRead,
+  ConfigurationRead,
+  CustomerPage,
+  CustomerRead,
+  ValuationCreate,
+  ValuationRead,
+  ValuationSourceValue,
+  VehicleMdmRead,
+} from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
 import { vinRefusalKey } from '../utils/vin'
 import { useFieldHint } from '../hooks/useFieldHint'
@@ -28,6 +37,10 @@ export interface ValuationCreateDialogProps {
    * as `configurationId`: the backend then creates **no** vehicle-mdm record
    * (ADR-070, amending FR-V-17). */
   configuration?: ConfigurationRead | null
+  /** KAN-468 (Anto's option A) — «Request valuation» on a vehicle: its VIN
+   * and first registration prefill the vehicle section when the car was not
+   * captured in the configurator (the captured configuration wins). */
+  vehicle?: Pick<VehicleMdmRead, 'vin' | 'firstRegistrationDate'> | null
 }
 
 const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
@@ -43,7 +56,14 @@ const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
  * neither its UI nor its async per-row persistence model; a small local
  * editor is the honest choice here, not a shortcut around a real gap.
  */
-export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, configuration = null }: ValuationCreateDialogProps) {
+export function ValuationCreateDialog({
+  opened,
+  onClose,
+  onCreated,
+  supersedes,
+  configuration = null,
+  vehicle = null,
+}: ValuationCreateDialogProps) {
   const { t } = useTranslation()
   const hint = useFieldHint()
   // KAN-266: one key per submission — a retry after a failure gets the
@@ -62,7 +82,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
   // linked record) gives the valuation its VIN — shown read-only, never sent
   // beside it. One with no VIN links no car, so the VIN stays free to type.
   const vinFromConfiguration = Boolean(c && (c.vin || c.vehicleId))
-  const [vin, setVin] = useState(c?.vin ?? supersedes?.vehicleVin ?? '')
+  const [vin, setVin] = useState(c?.vin ?? vehicle?.vin ?? supersedes?.vehicleVin ?? '')
   const [make, setMake] = useState(c?.brandDisplayName ?? supersedes?.vehicleMake ?? '')
   const [model, setModel] = useState(c?.modelGroupName ?? supersedes?.vehicleModel ?? '')
   const [trim, setTrim] = useState(c?.variantName ?? supersedes?.vehicleTrim ?? '')
@@ -71,7 +91,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
   // KAN-353: a car first registered before 1981 may carry a chassis number in
   // the VIN field; the API accepts it only with that first registration.
   const [firstRegistration, setFirstRegistration] = useState(
-    c?.firstRegistrationDate ?? supersedes?.vehicleFirstRegistration ?? '',
+    c?.firstRegistrationDate ?? vehicle?.firstRegistrationDate ?? supersedes?.vehicleFirstRegistration ?? '',
   )
 
   const [customerId, setCustomerId] = useState<string | null>(supersedes?.customerId ?? null)

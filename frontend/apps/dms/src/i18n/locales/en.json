@@ -851,7 +851,13 @@
       "failedToLoad": "Failed to load vehicle",
       "copyVin": "Copy VIN",
       "merge": "Merge into…",
-      "mergeDisabledReason": "Not yet available"
+      "mergeDisabledReason": "Not yet available",
+      "allocate": "Allocate to customer",
+      "requestValuation": "Request valuation",
+      "recordOdometer": "Record odometer reading",
+      "recordAccessory": "Record accessory",
+      "resync": "Re-sync from catalogue",
+      "resyncDisabledReason": "Not yet available"
     },
     "errors": {
       "somethingWentWrong": "Something went wrong."
