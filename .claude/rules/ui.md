@@ -4,7 +4,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises Notion "UI/UX Specification —
 the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-076, ADR-084, ADR-092 and
-KAN-35. Verified against main@73baf3f on 2026-10-25. Fix this file in the same PR as any change to what
+KAN-35. Verified against main@73baf3f on 2026-10-25; ADR-084 and i18n bullets re-checked 2026-10-30 (KAN-316, KAN-438). Fix this file in the same PR as any change to what
 it states; /drift-audit re-checks it weekly. -->
 
 # Anything a user can see
@@ -139,7 +139,7 @@ second local combobox.
   build-time setting switches it on (`VITE_OUTBOX_WORKER_ABSENT=true` in `render.yaml`,
   `src/config/deployment.ts`), never the environment's name; its text is an i18n key in all
   four bundles. The top bar stays breadcrumb + search only. The UI/UX Specification's
-  Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
+  Application Shell section shows it (§ Environment notice, KAN-316).
 - **Every screen but the sign-in loads on demand** (KAN-233): a new route's page goes into
   `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
   `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider`, `DmsShell` and `RouteSuspense`
@@ -155,6 +155,11 @@ second local combobox.
 
 - Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json`. A new key goes into all
   four in the same change; `localeKeyParity.test.ts` fails otherwise.
+- **Only `de` (the start language) and `en` (the fallback) ship with the app** (KAN-438): `fr`
+  and `it` are fetched as their own chunks on the first switch (`i18n/index.ts`,
+  `onDemandBundleLoaders`); `changeLanguage` waits for the bundle, so a switch never shows keys.
+  A test that reads `fr`/`it` text through `getFixedT` or `getResource` before anything switched
+  to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.
 - A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`; one missing only from
   the active locale falls back to English (`fallbackLng: 'en'`), never German —
   `localeKeyParity.test.ts` keeps that from shipping. No hardcoded user-visible string,
