@@ -8,10 +8,14 @@ import { ConfiguratorOverlay } from '../../components/configurator/ConfiguratorO
 import { HostCommitError } from '../../components/configurator/hostCommitError'
 import { configurationLabel } from '../../components/configurator/configurationLabel'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
-import type { ConfigurationRead, StockItemCreate, StockItemRead } from '../../api/types'
+import type { ConfigurationRead, StockItemCreateRequest, StockItemRead } from '../../api/types'
 
 /**
- * FR-C-13 — "add a vehicle to the pipeline" from the Stock list. The only
+ * FR-C-13 — «Fahrzeug aufnehmen», the Stock list's one intake (KAN-463,
+ * Anto 2026-10-26: the hand-typed form is gone; every stock vehicle enters
+ * through the configurator, and the API refuses a car without its
+ * configuration). The car lands in the pipeline; its purchase booking puts
+ * it on stock with its VIN (ADR-103, KAN-446). The only
  * host where **both** modes are reachable: `build` for a factory order,
  * `record` for a car being bought in. Keeping `record` here is what makes
  * the offer workspace's build-only rule safe — a used car bought but not
@@ -28,7 +32,7 @@ export function AddToPipelineButton() {
   const idempotency = useIdempotencyKey()
 
   const addToPipeline = async (configuration: ConfigurationRead) => {
-    const body: StockItemCreate = {
+    const body: StockItemCreateRequest = {
       vehicleLabel: configurationLabel(configuration),
       condition: configuration.mode === 'build' ? 'new' : 'used',
       configurationId: configuration.id,
@@ -62,7 +66,7 @@ export function AddToPipelineButton() {
 
   return (
     <Button variant="default" leftSection={<Workflow size={16} />} onClick={open}>
-      {t('stockList.addToPipeline')}
+      {t('stockList.newStockItem')}
     </Button>
   )
 }

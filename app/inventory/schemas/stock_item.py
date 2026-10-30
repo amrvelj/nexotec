@@ -80,6 +80,44 @@ class StockItemCreate(CamelModel):
         return self
 
 
+class StockItemCreateRequest(StockItemCreate):
+    """KAN-463 (Anto, 2026-10-26/28, option A): the body of
+    `POST /v1/inventory/stock-items`. Every stock vehicle a user adds enters
+    through the configurator, so the public endpoint refuses a car without
+    the configuration it produced — the hand-typed intake, which created a
+    label with no vehicle and no technical data, is gone. Enforced here, at
+    the endpoint only (Anto, decision 1a): the contract-confirmation
+    consumers (FR-I-02/02b) and the ADR-091 legacy import build a
+    `StockItemCreate` of their own and never pass this door."""
+
+    configuration_id: uuid.UUID = Field(
+        description=(
+            "The configuration the configurator produced for this car (`build` for a factory order, `record` "
+            "for a car being bought in). Required: without it the create is 422 `configuration_required`."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _configuration_required(cls, data: Any) -> Any:
+        # A named type, as `vehicle_id_requires_vin`'s, so a client can tell
+        # this refusal from a malformed id.
+        if isinstance(data, dict) and data.get("configurationId", data.get("configuration_id")) is None:
+            raise PydanticCustomError(
+                "configuration_required",
+                "configurationId is required: a stock vehicle is added through the configurator.",
+            )
+        return data
+
+
+class StockItemConfigurationAttach(CamelModel):
+    """KAN-463 — «Konfiguration zuordnen»: links the configuration the
+    configurator produced to a stock item that has none (one created by the
+    retired hand-typed intake). Refused when one is already linked."""
+
+    configuration_id: uuid.UUID
+
+
 class StockItemUpdate(CamelModel):
     vehicle_label: str | None = None
     condition: StockItemCondition | None = None

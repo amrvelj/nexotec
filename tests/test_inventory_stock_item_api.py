@@ -3,6 +3,7 @@
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
+from tests.configuration_test_support import stock_configuration_id
 from tests.token_support import dealer_group_of
 
 
@@ -18,21 +19,21 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_create_requires_write_capability(client):
+def test_create_requires_write_capability(client, db_session):
     token = _token()  # no roles, not a manager
     response = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Volkswagen Käfer", "condition": "used"},
+        json={"vehicleLabel": "Volkswagen Käfer", "condition": "used", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
     assert response.status_code == 403, response.text
 
 
-def test_create_and_get_stock_item(client):
+def test_create_and_get_stock_item(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
     created = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Volkswagen Käfer 1303 LS Cabriolet", "condition": "used"},
+        json={"vehicleLabel": "Volkswagen Käfer 1303 LS Cabriolet", "condition": "used", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
     assert created.status_code == 201, created.text
@@ -46,11 +47,11 @@ def test_create_and_get_stock_item(client):
     assert fetched.json()["id"] == body["id"]
 
 
-def test_patch_requires_if_match(client):
+def test_patch_requires_if_match(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
     created = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Škoda Octavia", "condition": "used"},
+        json={"vehicleLabel": "Škoda Octavia", "condition": "used", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     ).json()
 
@@ -63,11 +64,11 @@ def test_patch_requires_if_match(client):
     assert response.json()["odometerKm"] == 42000
 
 
-def test_stale_if_match_returns_409(client):
+def test_stale_if_match_returns_409(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
     created = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Škoda Octavia", "condition": "used"},
+        json={"vehicleLabel": "Škoda Octavia", "condition": "used", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     ).json()
 
@@ -79,12 +80,12 @@ def test_stale_if_match_returns_409(client):
     assert response.status_code == 409, response.text
 
 
-def test_cross_tenant_get_is_404_not_403(client):
+def test_cross_tenant_get_is_404_not_403(client, db_session):
     owner_token = _token(role=AccessRole.INVENTORY)
     other_token = _token(role=AccessRole.INVENTORY)
     created = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Škoda Octavia", "condition": "used"},
+        json={"vehicleLabel": "Škoda Octavia", "condition": "used", "configurationId": stock_configuration_id(db_session, owner_token)},
         headers=_bearer(owner_token),
     ).json()
 
@@ -92,16 +93,16 @@ def test_cross_tenant_get_is_404_not_403(client):
     assert response.status_code == 404, response.text
 
 
-def test_list_stock_items_filters_by_lifecycle_status(client):
+def test_list_stock_items_filters_by_lifecycle_status(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Pipeline car", "condition": "new"},
+        json={"vehicleLabel": "Pipeline car", "condition": "new", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "In-stock car", "condition": "used", "vin": "1HGCM82633A004352"},
+        json={"vehicleLabel": "In-stock car", "condition": "used", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
 
@@ -112,7 +113,7 @@ def test_list_stock_items_filters_by_lifecycle_status(client):
     assert body["items"][0]["vehicleLabel"] == "In-stock car"
 
 
-def test_list_stock_items_filters_by_condition(client):
+def test_list_stock_items_filters_by_condition(client, db_session):
     """KAN-458: «Zustand = Neu» on the Stock grid is applied by the server —
     the grid offered it and never sent it, so used cars stayed listed."""
     token = _token(role=AccessRole.INVENTORY)
@@ -120,12 +121,12 @@ def test_list_stock_items_filters_by_condition(client):
     for label, condition in (("New car", "new"), ("Used car", "used"), ("Demo car", "demo")):
         client.post(
             "/v1/inventory/stock-items",
-            json={"vehicleLabel": label, "condition": condition},
+            json={"vehicleLabel": label, "condition": condition, "configurationId": stock_configuration_id(db_session, token)},
             headers=_bearer(token),
         )
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Other Betrieb's new car", "condition": "new"},
+        json={"vehicleLabel": "Other Betrieb's new car", "condition": "new", "configurationId": stock_configuration_id(db_session, other_tenant)},
         headers=_bearer(other_tenant),
     )
 
@@ -136,17 +137,17 @@ def test_list_stock_items_filters_by_condition(client):
     assert body["total"] == 1
 
 
-def test_list_stock_items_combines_condition_with_lifecycle_status(client):
+def test_list_stock_items_combines_condition_with_lifecycle_status(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
-    client.post("/v1/inventory/stock-items", json={"vehicleLabel": "New pipeline", "condition": "new"}, headers=_bearer(token))
+    client.post("/v1/inventory/stock-items", json={"vehicleLabel": "New pipeline", "condition": "new", "configurationId": stock_configuration_id(db_session, token)}, headers=_bearer(token))
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "New in stock", "condition": "new", "vin": "1HGCM82633A004352"},
+        json={"vehicleLabel": "New in stock", "condition": "new", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Used in stock", "condition": "used", "vin": "WVWZZZ1JZXW000001"},
+        json={"vehicleLabel": "Used in stock", "condition": "used", "vin": "WVWZZZ1JZXW000001", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
 

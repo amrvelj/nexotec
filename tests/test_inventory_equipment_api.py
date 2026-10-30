@@ -8,6 +8,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.stock_item import get_stock_item_or_404
 from app.vehicle.public import get_vehicle_mdm_or_404
+from tests.configuration_test_support import stock_configuration_id
 from tests.token_support import dealer_group_of
 
 _EQUIPMENT_PATH = "/v1/inventory/stock-items/{stock_item_id}/equipment"
@@ -35,11 +36,11 @@ def test_equipment_endpoint_declares_its_response_schema(client):
     assert set(schema["required"]) == {"ausstattungCodes", "extras", "eigenschaften", "providerAusstattung"}
 
 
-def test_equipment_of_a_pipeline_item_is_empty(client):
+def test_equipment_of_a_pipeline_item_is_empty(client, db_session):
     token = _token(uuid.uuid4())
     created = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Factory order", "condition": "new"},
+        json={"vehicleLabel": "Factory order", "condition": "new", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     ).json()
 
@@ -53,7 +54,7 @@ def test_equipment_of_a_promoted_item_comes_from_the_vehicle(client, db_session)
     token = _token(tenant_id)
     created = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Škoda Octavia", "condition": "used"},
+        json={"vehicleLabel": "Škoda Octavia", "condition": "used", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     ).json()
     item = get_stock_item_or_404(db_session, tenant_id, uuid.UUID(created["id"]))

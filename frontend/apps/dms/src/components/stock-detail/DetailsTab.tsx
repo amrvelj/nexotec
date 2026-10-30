@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
+import { AttachConfigurationButton } from './AttachConfigurationButton'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import type { StockItemRead } from '../../api/types'
 
@@ -69,12 +70,21 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
         ]}
       />
 
-      {item.configurationId && (
+      {item.configurationId ? (
         // C-F (KAN-10, FR-C-13) — the configuration this pipeline item points at.
         // KAN-459: it carries block 2 of FR-I-07's order, the technical data,
         // straight after the hero band, in a spec grid of at most four columns.
         <OverviewCard title={t('stockDetail.configuration.title')}>
           <HostConfigurationCard configurationId={item.configurationId} technicalDataColumns={4} />
+        </OverviewCard>
+      ) : (
+        // KAN-463 — an item the retired hand-typed intake created has no
+        // configuration, so no technical data; it is repaired here.
+        <OverviewCard title={t('stockDetail.configuration.title')}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <span style={{ color: slate[5] }}>{t('stockDetail.configuration.missing')}</span>
+            <AttachConfigurationButton item={item} />
+          </div>
         </OverviewCard>
       )}
 

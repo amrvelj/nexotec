@@ -31,7 +31,6 @@ const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'Int
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
 const StockListPage = lazyPage(() => import('./pages/StockListPage'), 'StockListPage')
-const StockCreatePage = lazyPage(() => import('./pages/StockCreatePage'), 'StockCreatePage')
 const StockDetailPage = lazyPage(() => import('./pages/StockDetailPage'), 'StockDetailPage')
 const SalesListPage = lazyPage(() => import('./pages/SalesListPage'), 'SalesListPage')
 const OfferCreateRedirectPage = lazyPage(() => import('./pages/OfferDetailPage'), 'OfferCreateRedirectPage')
@@ -99,7 +98,6 @@ export default function App() {
                   `sales` entitlement — a workshop without it never reaches them. */}
               <Route element={<RequireEntitlement module="sales" />}>
                 <Route path="/stock" element={<StockListPage />} />
-                <Route path="/stock/new" element={<StockCreatePage />} />
                 <Route path="/stock/:id" element={<StockDetailPage />} />
                 <Route path="/sales" element={<SalesListPage />} />
                 <Route path="/sales/offers/new" element={<OfferCreateRedirectPage />} />

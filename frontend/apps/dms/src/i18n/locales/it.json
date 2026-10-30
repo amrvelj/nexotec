@@ -239,7 +239,9 @@
       "purchase_vin_mismatch": "Questo VIN non è quello del veicolo in stock.",
       "brand_code_taken": "Esiste già una marca con questo codice.",
       "photo_not_an_image": "La foto deve essere un'immagine PNG o JPEG.",
-      "photo_too_large": "La foto è troppo grande — al massimo 5 MB."
+      "photo_too_large": "La foto è troppo grande — al massimo 5 MB.",
+      "configuration_already_linked": "A questo veicolo è già assegnata una configurazione. Ricaricare la pagina.",
+      "configuration_vin_differs": "Il VIN della configurazione non è quello di questo veicolo. La configurazione descrive un altro veicolo."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1034,7 +1036,6 @@
       "own": "Magazzino proprio",
       "group": "Magazzino del gruppo"
     },
-    "addToPipeline": "Aggiungere alla pipeline",
     "addToPipelineError": "Non è stato possibile aggiungere il veicolo alla pipeline."
   },
   "stockDetail": {
@@ -1192,22 +1193,10 @@
       "hint": "Le valutazioni vengono create e gestite nel modulo Valutazioni — quest'area mostra solo lo stato attuale."
     },
     "configuration": {
-      "title": "Configurazione"
-    }
-  },
-  "stockCreate": {
-    "title": "Aggiungi veicolo",
-    "fields": {
-      "vehicleLabel": "Denominazione",
-      "condition": "Condizione",
-      "vin": "VIN",
-      "vinDescription": "Se già noto — altrimenti il veicolo resta in pipeline."
-    },
-    "submit": "Aggiungi",
-    "errors": {
-      "somethingWentWrong": "Qualcosa è andato storto.",
-      "vinAlreadyInStock": "Questo VIN è già a magazzino — numero di magazzino {{stockNumber}}.",
-      "openExisting": "Apri il veicolo"
+      "title": "Configurazione",
+      "missing": "A questo veicolo non è assegnata alcuna configurazione. Senza di essa mancano i dati tecnici.",
+      "attach": "Assegna configurazione",
+      "attachError": "Non è stato possibile assegnare la configurazione. Riprovare."
     }
   },
   "salesList": {

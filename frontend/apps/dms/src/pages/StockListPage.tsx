@@ -349,9 +349,6 @@ export function StockListPage() {
         <Group gap="sm">
           <ScopeSwitchMenu scope={scope} onScopeChange={setScope} />
           <AddToPipelineButton />
-          <Button component={Link} to="/stock/new">
-            {t('stockList.newStockItem')}
-          </Button>
         </Group>
       </Group>
 
@@ -437,11 +434,8 @@ export function StockListPage() {
             icon: <Warehouse size={24} />,
             title: t('stockList.emptyState.title'),
             description: t('stockList.emptyState.description'),
-            action: (
-              <Button component={Link} to="/stock/new">
-                {t('stockList.newStockItem')}
-              </Button>
-            ),
+            // KAN-463: the same intake as the header — the configurator.
+            action: <AddToPipelineButton />,
           }}
           emptyFilteredState={{
             icon: <Warehouse size={24} />,

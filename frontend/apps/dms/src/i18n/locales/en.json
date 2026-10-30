@@ -239,7 +239,9 @@
       "purchase_vin_mismatch": "This VIN is not the VIN of the vehicle in stock.",
       "brand_code_taken": "A brand with this code already exists.",
       "photo_not_an_image": "The photo must be a PNG or JPEG image.",
-      "photo_too_large": "The photo is too large — at most 5 MB."
+      "photo_too_large": "The photo is too large — at most 5 MB.",
+      "configuration_already_linked": "A configuration is already assigned to this vehicle. Please reload the page.",
+      "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1034,7 +1036,6 @@
       "own": "Own stock",
       "group": "Group stock"
     },
-    "addToPipeline": "Add to pipeline",
     "addToPipelineError": "The vehicle could not be added to the pipeline."
   },
   "stockDetail": {
@@ -1192,22 +1193,10 @@
       "hint": "Valuations are created and managed in the Valuations module — this area only shows the current pointer."
     },
     "configuration": {
-      "title": "Configuration"
-    }
-  },
-  "stockCreate": {
-    "title": "Add vehicle",
-    "fields": {
-      "vehicleLabel": "Label",
-      "condition": "Condition",
-      "vin": "VIN",
-      "vinDescription": "If already known — otherwise the vehicle stays in the pipeline."
-    },
-    "submit": "Add",
-    "errors": {
-      "somethingWentWrong": "Something went wrong.",
-      "vinAlreadyInStock": "This VIN is already in stock — stock number {{stockNumber}}.",
-      "openExisting": "Open vehicle"
+      "title": "Configuration",
+      "missing": "No configuration is assigned to this vehicle. Without one, the technical data are missing.",
+      "attach": "Assign configuration",
+      "attachError": "The configuration could not be assigned. Please try again."
     }
   },
   "salesList": {

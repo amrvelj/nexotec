@@ -17,7 +17,8 @@ from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockIte
 from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import (
     StockItemConditionChange,
-    StockItemCreate,
+    StockItemConfigurationAttach,
+    StockItemCreateRequest,
     StockItemPage,
     StockItemRead,
     StockItemUpdate,
@@ -55,7 +56,7 @@ def _stock_item_read(item: StockItem) -> StockItemRead:
 
 @router.post("/inventory/stock-items", response_model=StockItemRead, status_code=201)
 def create_stock_item(
-    body: StockItemCreate,
+    body: StockItemCreateRequest,
     principal: Principal = Depends(require_write("stock_items")),
     db: Session = Depends(get_db),
 ):
@@ -123,6 +124,24 @@ def update_stock_item(
     item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.update_stock_item(db, item=item, data=body, actor_id=principal.user_id)
+    return _stock_item_read(item)
+
+
+@router.post("/inventory/stock-items/{stock_item_id}/configuration", response_model=StockItemRead)
+def attach_configuration(
+    stock_item_id: uuid.UUID,
+    body: StockItemConfigurationAttach,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("stock_items")),
+    db: Session = Depends(get_db),
+):
+    """KAN-463 — «Konfiguration zuordnen» for an item without one."""
+
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(item.version, if_match, entity_name="StockItem")
+    item = stock_item_service.attach_configuration(
+        db, item=item, configuration_id=body.configuration_id, actor_id=principal.user_id
+    )
     return _stock_item_read(item)
 
 
