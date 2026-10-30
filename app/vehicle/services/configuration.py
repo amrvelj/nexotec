@@ -759,7 +759,9 @@ def repair_stored_vins(db: Session) -> list[VinRepair]:
       by `require_vin_or_pre_1981_chassis_number` against its stored first
       registration — not a valid VIN, and no first registration before 1981.
       A configuration first registered before 1981 saves as it stands and is
-      never touched: how a chassis number is stored is KAN-391's question.
+      not touched here: a chassis number has a VIN's one spelling (KAN-391,
+      option A), but what becomes of one stored before KAN-338 in another
+      spelling is KAN-502's question.
     - **What it writes:** the VIN normalised as every typed VIN is (upper
       case, no whitespace) when that makes it a valid VIN; otherwise the VIN
       is cleared — it names no car, and cannot be kept. The vehicle link is

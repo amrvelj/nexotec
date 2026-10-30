@@ -331,6 +331,40 @@ def test_a_configuration_of_a_pre_1981_car_keeps_its_chassis_number_and_links_no
     assert _vehicle_count(db_session) == 0
 
 
+# KAN-391 (Anto, option A: "chassis number and VIN is the same"):
+# a chassis number has one spelling, as a VIN has — upper case, no
+# whitespace — and punctuation is refused, never kept "as entered".
+@pytest.mark.parametrize("punctuated", ["911.230.0123", "911 230-0123", "911/2300123"])
+def test_a_punctuated_chassis_number_is_refused_even_for_a_pre_1981_car(client, db_session, punctuated):
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+
+    valuation = client.post(
+        "/v1/valuations",
+        json={"vin": punctuated, "vehicleFirstRegistration": "1972-05-01", "finalOffer": "85000.00", "source": "manual"},
+        headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
+    )
+    configuration = _create_configuration(client, tenant_id, vin=punctuated, firstRegistrationDate="1972-05-01")
+
+    for response in (valuation, configuration):
+        assert response.status_code == 422, response.text
+        assert "vin" in response.text
+    assert db_session.scalar(select(func.count()).select_from(Valuation)) == 0
+
+
+def test_a_chassis_number_typed_two_ways_is_stored_one_way(client, db_session):
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+
+    spellings = ["ab 12 cd 34", " AB12cd34 ", "ab12CD34"]
+    stored = {
+        _create_configuration(client, tenant_id, vin=typed, firstRegistrationDate="1968-04-01").json()["vin"]
+        for typed in spellings
+    }
+
+    assert stored == {"AB12CD34"}
+
+
 @pytest.mark.parametrize("first_registration", [None, "1990-01-01"])
 @pytest.mark.parametrize("not_a_vin", [CHASSIS, *NOT_A_VIN])
 def test_a_configuration_chassis_number_without_a_pre_1981_registration_is_422(
