@@ -7912,8 +7912,9 @@ export interface components {
          *     the configuration it produced — the hand-typed intake, which created a
          *     label with no vehicle and no technical data, is gone. Enforced here, at
          *     the endpoint only (Anto, decision 1a): the contract-confirmation
-         *     consumers (FR-I-02/02b) and the ADR-091 legacy import build a
-         *     `StockItemCreate` of their own and never pass this door.
+         *     consumers (FR-I-02/02b) build a `StockItemCreate` of their own and the
+         *     ADR-091 legacy import writes its rows directly — neither passes this
+         *     door.
          */
         StockItemCreateRequest: {
             condition: components["schemas"]["StockItemCondition"];
