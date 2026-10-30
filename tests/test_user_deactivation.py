@@ -659,6 +659,48 @@ def test_the_expiry_job_keeps_the_last_manager_and_alarms(client, db_session, en
     assert errors and "skipped_last_manager=1" in errors[-1].getMessage()
 
 
+def test_the_expiry_job_keeps_a_sister_betriebs_last_manager_by_membership_and_alarms(
+    client, db_session, engine, caplog
+):
+    """KAN-450: the last-manager rule the job yields to covers the sister
+    Betrieb too. A user homed in A, with a manager in A beside them, who is
+    B's last manager through a membership, is not deactivated
+    (`last_manager_elsewhere`, raised by `update_user`) — skipped and logged
+    as the alarm, like their own Betrieb's last manager."""
+
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    home, sister = create_dealership(client), create_dealership(client)
+    yesterday = str(dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1))
+    create_user(client, home)  # home keeps a manager
+    sisters_home_manager = create_user(client, sister)
+    expired = create_user(client, home, isDealerManager=False, validTo=yesterday)
+    db_session.add(
+        DealershipMembership(
+            user_id=uuid.UUID(expired["id"]), dealership_id=uuid.UUID(sister), is_dealer_manager=True
+        )
+    )
+    db_session.commit()
+    demoted = client.patch(
+        f"/v1/dealerships/{sister}/users/{sisters_home_manager['id']}",
+        json={"isDealerManager": False},
+        headers={**platform_admin_headers(), "If-Match": str(sisters_home_manager["version"])},
+    )
+    assert demoted.status_code == 200, demoted.text
+
+    with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
+        run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+
+    db_session.expire_all()
+    assert db_session.get(User, uuid.UUID(expired["id"])).status.value == "invited"
+    errors = [r for r in caplog.records if r.name == daily_jobs.__name__ and r.levelno == logging.ERROR]
+    assert any(
+        expired["id"] in r.getMessage() and "another dealership they are a member of" in r.getMessage()
+        for r in errors
+    )
+    assert "skipped_last_manager=1" in errors[-1].getMessage()
+
+
 # --- the review's findings (2026-10-19): one transaction, the lifecycle, the window ----
 
 

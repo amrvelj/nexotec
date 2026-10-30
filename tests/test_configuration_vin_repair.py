@@ -4,7 +4,8 @@ lower case — could no longer be saved, because every PATCH judges the stored
 VIN (KAN-353) and the user cannot correct it on screen (KAN-340).
 `repair_stored_vins` (scripts/repair_configuration_vins.py) normalises what
 normalises to a VIN, clears what cannot be one, leaves a pre-1981 car alone
-(KAN-391's question) and audits every change with the old value.
+(a chassis number stored in another spelling is KAN-502's question) and
+audits every change with the old value.
 """
 
 import datetime as dt

@@ -475,9 +475,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // "New offer" / "New contract" can never carry a different enabled state
   // or reason on the two surfaces. FR-14 anonymisation stays out (not
   // built). KAN-58 wires "New contract" for real, on both surfaces.
+  const onNewOffer = salesEntitled ? () => void createOfferForCustomer() : undefined
   const rowMenu = buildCustomerRowMenu(t, customer, {
-    onEdit: () => setActiveTab('overview'),
-    onNewOffer: salesEntitled ? () => void createOfferForCustomer() : undefined,
+    onNewOffer,
     onNewContract: salesEntitled ? () => void createContractForCustomer() : undefined,
     onCopyCustomerNumber: () => void navigator.clipboard.writeText(customer.customerNumber),
     onToggleDoNotContact: toggleDoNotContact,
@@ -489,8 +489,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // buildCustomerRowMenu has no concept of an in-flight request (it's a
   // pure function of customer business state, shared with the list's row
   // menu, which tracks no per-row "creating" state at all). The header's
-  // own alternativeAction below merges `creatingOffer` in by hand for the
-  // same reason — this does the equivalent for "New contract" inside the
+  // primary — «New offer» (KAN-468) — merges `creatingOffer` in by hand for
+  // the same reason — this does the equivalent for "New contract" inside the
   // overflow, so a slow POST /sales/contracts can't be double-fired by
   // reopening the "..." menu before the first request's navigate() lands.
   const overflowActions = {
@@ -514,13 +514,13 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
             <LanguageBadge language={customer.language} />
           </>
         }
-        primaryAction={rowMenu.primary}
-        alternativeAction={
-          rowMenu.alternative && {
-            ...rowMenu.alternative,
-            disabled: rowMenu.alternative.disabled || creatingOffer,
+        primaryAction={
+          rowMenu.primary && {
+            ...rowMenu.primary,
+            disabled: rowMenu.primary.disabled || (rowMenu.primary.onClick === onNewOffer && creatingOffer),
           }
         }
+        alternativeAction={rowMenu.alternative}
         overflowActions={overflowActions}
       />
 

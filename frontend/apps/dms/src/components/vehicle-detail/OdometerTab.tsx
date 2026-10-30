@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Badge, Button, Group, Loader, NumberInput, Select, Stack, Table, TextInput } from '@mantine/core'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +11,10 @@ interface OdometerTabProps {
   readings: VehicleOdometerReadingRead[]
   loading: boolean
   onAdd: (value: number, readingDate: string, source: OdometerSource) => Promise<void>
+  /** KAN-468 — the header's «record …» action asks for the form: the first
+   * input takes the focus, then the request is handed back. */
+  focusRequested?: boolean
+  onFocusHandled?: () => void
 }
 
 const SOURCES: OdometerSource[] = ['service_visit', 'sale', 'valuation', 'manual', 'import']
@@ -22,10 +26,16 @@ const SOURCES: OdometerSource[] = ['service_visit', 'sale', 'valuation', 'manual
  * already guarantees (GET .../odometer-readings has no filter parameter
  * that could exclude one).
  */
-export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
+export function OdometerTab({ readings, loading, onAdd, focusRequested = false, onFocusHandled }: OdometerTabProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [value, setValue] = useState<number | ''>('')
+  const valueInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!focusRequested) return
+    valueInput.current?.focus()
+    onFocusHandled?.()
+  }, [focusRequested, onFocusHandled])
   const [date, setDate] = useState('')
   const [source, setSource] = useState<OdometerSource>('manual')
   const [submitting, setSubmitting] = useState(false)
@@ -51,7 +61,7 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
   return (
     <Stack gap="md">
       <Group align="flex-end">
-        <NumberInput label={t('vehicleDetail.odometer.value')} value={value} onChange={(v) => setValue(typeof v === 'number' ? v : '')} min={0} />
+        <NumberInput ref={valueInput} label={t('vehicleDetail.odometer.value')} value={value} onChange={(v) => setValue(typeof v === 'number' ? v : '')} min={0} />
         <TextInput label={t('vehicleDetail.odometer.date')} type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} />
         <Select
           label={t('vehicleDetail.odometer.source')}

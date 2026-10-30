@@ -143,6 +143,8 @@ describe('an inline-edit refusal is said in the UI language, never the API Engli
         onSaveField={vi.fn().mockRejectedValue(new ApiError(422, 'unprocessable_entity', ENGLISH, { reason: 'invalid_vin' }))}
         onReload={vi.fn()}
         onAllocate={async () => {}}
+        allocating={false}
+        onAllocatingChange={() => {}}
         customerCandidates={[]}
         customerSearch=""
         onCustomerSearchChange={() => {}}

@@ -2413,6 +2413,11 @@ def create_customer_external_id(
     return row
 
 
+_EXTERNAL_ID_UNIQUE_CONSTRAINTS = frozenset(
+    {"uq_customer_external_id_group_system_external", "uq_customer_external_id_customer_system"}
+)
+
+
 def update_customer_external_id(
     db: Session, *, row: CustomerExternalId, data: CustomerExternalIdUpdate, actor_id: uuid.UUID
 ) -> CustomerExternalId:
@@ -2434,6 +2439,14 @@ def update_customer_external_id(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
+        # Only the two unique constraints are a taken pair (KAN-483); any
+        # other integrity failure stays loud — a NOT NULL violation names no
+        # constraint at all. SQLite's driver reports no diagnostics, so there
+        # every failure is still read as the pair.
+        if getattr(exc.orig, "diag", None) is not None and _violated_constraint(exc) not in (
+            _EXTERNAL_ID_UNIQUE_CONSTRAINTS
+        ):
+            raise
         raise ConflictError(
             "This system already has an external ID on this customer, or this external ID is already"
             " used under this system for another customer in this dealer.",

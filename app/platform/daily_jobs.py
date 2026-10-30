@@ -7,9 +7,11 @@ module's own unassigned queue (never silently with the leaver, FR-A-37);
 the audit rows name the job as the reason.
 
 The job acts with platform's own authority (a staff account past its
-`valid_to` expires like any other), one user at a time: a user who is their
-Betrieb's last active manager is NOT deactivated (FR-A-13 outranks the
-expiry), logged at ERROR — the alarm — and tried again the next night; any
+`valid_to` expires like any other), one user at a time: a user who is the
+last active manager of their Betrieb, or of a sister Betrieb they manage
+through a membership (`update_user`'s `last_manager_elsewhere`), is NOT
+deactivated (FR-A-13 outranks the expiry), logged at ERROR — the alarm — and
+tried again the next night; any
 other failure on one user is logged the same way and does not stop the
 others. A hand-over that fails after the status change is retried by the
 next runs for `RETRY_WINDOW` (the user is already deactivated, so the due

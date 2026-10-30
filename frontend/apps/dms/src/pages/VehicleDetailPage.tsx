@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Badge, Loader } from '@mantine/core'
-import { Car, Copy, GitMerge } from 'lucide-react'
+import { Car } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
 import { api } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { buildVehicleRowMenu } from '../components/vehicleRowMenu'
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
 import { isPlateReadLimitError } from '../components/vehicle-detail/plateReadLimit'
@@ -31,9 +33,11 @@ const DEFAULT_TAB = 'identity'
  * FR-V-16 Vehicle 360 — the same DetailHeader/DetailTabs shell
  * CustomerDetailPage already uses, with the vehicle's own field set and
  * tabs (Identity/Plates/Odometer/Accessories, and C-F's read-only
- * Specification). Primary action Edit
- * (identity fields are already inline, so this focuses the Identity
- * tab); alternative is Allocate to customer (ADR-061's action contract).
+ * Specification). The header renders from `buildVehicleRowMenu` (ADR-061;
+ * FR-V-16 as amended by KAN-468): primary «Allocate to customer», which
+ * opens the Identity tab's customer picker; alternative «Request
+ * valuation», a new valuation of this car (Sales only). There is no Edit:
+ * the identity fields are inline.
  */
 export function VehicleDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -42,6 +46,15 @@ export function VehicleDetailPage() {
   const queryClient = useQueryClient()
   const activeTab = searchParams.get('tab') ?? DEFAULT_TAB
   const [customerSearch, setCustomerSearch] = useState('')
+  // The Identity tab's customer picker, opened from the header's primary too.
+  const [allocating, setAllocating] = useState(false)
+  // «Record odometer» / «Record accessory» open their tab with the form focused.
+  const [formToFocus, setFormToFocus] = useState<'odometer' | 'accessories' | null>(null)
+  const formFocusHandled = useCallback(() => setFormToFocus(null), [])
+  const navigate = useNavigate()
+  const { entitlements } = useAuth()
+  // KAN-198 / D-A-04: valuations are a Sales-module surface.
+  const salesEntitled = entitlements.includes('sales')
 
   const setActiveTab = (tab: string) => {
     setSearchParams(
@@ -182,6 +195,23 @@ export function VehicleDetailPage() {
     [t, platesQuery.data, odometerQuery.data, accessoriesQuery.data],
   )
 
+  const rowMenu = buildVehicleRowMenu(t, {
+    onAllocate: () => {
+      setActiveTab('identity')
+      setAllocating(true)
+    },
+    onRecordOdometer: () => {
+      setActiveTab('odometer')
+      setFormToFocus('odometer')
+    },
+    onRecordAccessory: () => {
+      setActiveTab('accessories')
+      setFormToFocus('accessories')
+    },
+    onCopyVin: () => void navigator.clipboard.writeText(vehicle?.vin ?? ''),
+    onRequestValuation: salesEntitled && id ? () => navigate(`/valuations/new?vehicle=${id}`) : undefined,
+  })
+
   if (vehicleQuery.isLoading) return <Loader />
   if (vehicleQuery.isError || !vehicle) {
     return (
@@ -206,27 +236,9 @@ export function VehicleDetailPage() {
             </Badge>
           </>
         }
-        overflowActions={{
-          exportPrint: [
-            {
-              label: t('vehicleDetail.header.copyVin'),
-              icon: <Copy size={16} />,
-              onClick: () => navigator.clipboard.writeText(vehicle.vin),
-            },
-          ],
-          destructive: [
-            {
-              label: t('vehicleDetail.header.merge'),
-              icon: <GitMerge size={16} />,
-              disabled: true,
-              // § ADR-061: "disabled items shown-and-explained, never
-              // hidden" — this had no reason at all before RowMenu grew
-              // `disabledReason` support.
-              disabledReason: t('vehicleDetail.header.mergeDisabledReason'),
-              onClick: () => {},
-            },
-          ],
-        }}
+        primaryAction={rowMenu.primary}
+        alternativeAction={rowMenu.alternative}
+        overflowActions={rowMenu.overflow}
       />
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
@@ -239,6 +251,8 @@ export function VehicleDetailPage() {
           onSaveField={saveField}
           onReload={reload}
           onAllocate={allocate}
+          allocating={allocating}
+          onAllocatingChange={setAllocating}
           customerCandidates={customerCandidates}
           customerSearch={customerSearch}
           onCustomerSearchChange={setCustomerSearch}
@@ -251,7 +265,13 @@ export function VehicleDetailPage() {
           limitReached={isPlateReadLimitError(platesQuery.error)}
         />}
       {activeTab === 'odometer' && (
-        <OdometerTab readings={odometerQuery.data ?? []} loading={odometerQuery.isLoading} onAdd={addOdometerReading} />
+        <OdometerTab
+          readings={odometerQuery.data ?? []}
+          loading={odometerQuery.isLoading}
+          onAdd={addOdometerReading}
+          focusRequested={formToFocus === 'odometer'}
+          onFocusHandled={formFocusHandled}
+        />
       )}
       {activeTab === 'accessories' && (
         <AccessoriesTab
@@ -259,6 +279,8 @@ export function VehicleDetailPage() {
           loading={accessoriesQuery.isLoading}
           onAdd={addAccessory}
           onRemove={removeAccessory}
+          focusRequested={formToFocus === 'accessories'}
+          onFocusHandled={formFocusHandled}
         />
       )}
       {activeTab === 'specification' && <SpecificationTab vehicleId={vehicle.id} />}

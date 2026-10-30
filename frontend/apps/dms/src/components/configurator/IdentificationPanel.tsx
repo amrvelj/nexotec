@@ -39,6 +39,9 @@ export interface IdentificationPanelProps {
   onReuse: (configuration: ConfigurationRead) => void
   /** Carries the typed value into a manual configuration when nothing matched. */
   onQueryChange?: (query: string) => void
+  /** KAN-468 — the input starts from what the host already knows (a
+   * vehicle's VIN); the advisor still starts the identification. */
+  initialQuery?: string
 }
 
 // The one note an advisor must not see: a dealer without the DAT
@@ -54,11 +57,17 @@ const SILENT_NOTES = new Set(['vin_decode_not_entitled'])
  * advisor** — even a single candidate is a row they pick. A best match is a
  * proposal they confirm, never applied.
  */
-export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryChange }: IdentificationPanelProps) {
+export function IdentificationPanel({
+  allowedModes,
+  onStart,
+  onReuse,
+  onQueryChange,
+  initialQuery = '',
+}: IdentificationPanelProps) {
   const { t, i18n } = useTranslation()
   const hint = useFieldHint()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [result, setResult] = useState<IdentificationRead | null>(null)
   // A plate record the advisor picked: its observed facts ride along when
   // the Typenschein it names is resolved next.

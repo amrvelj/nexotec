@@ -71,6 +71,8 @@ function renderDetail(route = '/customers/c1') {
 const offersTab = () => i18n.t('customerDetail.tabs.offersContracts')
 const newOffer = () => new RegExp(i18n.t('customerRowMenu.newOffer'))
 const newContract = () => new RegExp(i18n.t('customerRowMenu.newContract'))
+// KAN-468 removed «Edit» and its key; the label it had, in DE and EN.
+const EDIT = /Bearbeiten|\bEdit\b/
 
 describe('Customer detail for a Betrieb without sales (KAN-377)', () => {
   it('issues no /sales/* request and shows neither the tab nor a sales action', async () => {
@@ -78,7 +80,7 @@ describe('Customer detail for a Betrieb without sales (KAN-377)', () => {
     const backend = installDetail(WORKSHOP_ENTITLEMENTS)
     renderDetail()
 
-    // The header has rendered, with "Link vehicle" as its alternative.
+    // The header has rendered, with "Link vehicle" as its primary (KAN-468).
     expect(await screen.findByRole('button', { name: i18n.t('customerRowMenu.linkVehicle') })).toBeInTheDocument()
     await waitFor(() => expect(backend.callsTo(/\/customers\/c1\/audit-log$/)).not.toHaveLength(0))
 
@@ -121,6 +123,26 @@ describe('Customer detail for a Betrieb without sales (KAN-377)', () => {
   })
 })
 
+describe('Customer detail header (KAN-468; FR-22 amended, ADR-061)', () => {
+  it('has no «Edit»: «New offer» is the primary, «Link vehicle» the alternative', async () => {
+    const user = userEvent.setup()
+    installDetail(['sales'])
+    renderDetail()
+
+    const primary = await screen.findByRole('button', { name: newOffer() })
+    expect(primary).toHaveAttribute('data-variant', 'filled')
+    expect(screen.getByRole('button', { name: i18n.t('customerRowMenu.linkVehicle') })).toHaveAttribute(
+      'data-variant',
+      'default',
+    )
+    expect(screen.queryByRole('button', { name: EDIT })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
+    expect(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.mergeInto')) })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: EDIT })).toBeNull()
+  })
+})
+
 describe('Customers list row menu for a Betrieb without sales (KAN-377)', () => {
   it('offers neither "New offer" nor "New contract"', async () => {
     const user = userEvent.setup()
@@ -132,7 +154,9 @@ describe('Customers list row menu for a Betrieb without sales (KAN-377)', () => 
 
     const [menuButton] = await screen.findAllByRole('button', { name: i18n.t('common.rowActionsLabel') })
     await user.click(menuButton)
-    expect(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.edit')) })).toBeInTheDocument()
+    // KAN-468: the list opens the record with «Open»; there is no «Edit».
+    expect(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customersList.rowActions.open')) })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: EDIT })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: newOffer() })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: newContract() })).toBeNull()
     expect(backend.calls.filter((call) => call.pathname.includes('/sales/'))).toEqual([])

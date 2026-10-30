@@ -664,6 +664,17 @@ class CustomerExternalIdUpdate(CamelModel):
     system_name: str | None = Field(default=None, max_length=100, min_length=1)
     external_id: str | None = Field(default=None, max_length=255, min_length=1)
 
+    @field_validator("system_name", "external_id")
+    @classmethod
+    def _not_null_column_not_cleared(cls, value: str | None, info: ValidationInfo) -> str:
+        # KAN-483: both columns are NOT NULL. A field validator runs only for
+        # a key the body sends, so `None` here is an explicit null — a
+        # malformed request (422 naming the field), never the 409
+        # external_id_taken the NOT NULL constraint used to be answered with.
+        if value is None:
+            raise ValueError(f"{to_camel(info.field_name or '')} cannot be cleared — send a value or leave the field out.")
+        return value
+
 
 class CustomerExternalIdRead(CamelModel):
     id: uuid.UUID

@@ -80,8 +80,10 @@ territory), and it scans the twelve contexts only: the composition roots
 directly under app/ (main, worker, reconciliation_runner) wire contexts
 together. scripts/ is scanned separately, at the end of this file:
 `scripts/migrate_transaction_rows.py`'s shared Sales+Inventory
-transaction is the one bounded exception (ADR-091, KAN-106), and no
-other script may reach two contexts' internals.
+transaction is the one bounded exception (ADR-091, KAN-106). Three other
+scripts reach two contexts' internals and are known and named, each with
+its reason, in `_SCRIPTS_REACHING_SEVERAL_CONTEXTS` (no ruling yet); any
+script beyond those fails by name.
 
 Same discipline as test_no_ambient_group_read.py: explicit names with a
 reason each, never a whole-module or whole-directory exemption.

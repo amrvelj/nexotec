@@ -58,15 +58,16 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   a first registration before 1981-01-01 (on a configuration PATCH, the stored VIN and date count
   for whichever the PATCH leaves out — how a VIN stored before KAN-338 is judged, below);
   otherwise 422 `chassis_number_requires_pre_1981_registration` (`common.chassisNumberNeedsPre1981`).
-  Such a number is stored normalised, as a VIN is (upper case, no spaces; punctuation refused) —
-  the ruling said "stored and printed as entered", which is open for Anto (KAN-391) — and **never** finds, creates or links a
+  Such a number is stored and printed normalised, as a VIN is (upper case, no spaces; punctuation
+  refused): one spelling per car, never "as entered" (KAN-391, Anto, option A: "chassis
+  number and VIN is the same") — and **never** finds, creates or links a
   vehicle-mdm record (`is_chassis_number`) — a valuation is judged on the VIN and date it stores
   (its own, else its configuration's) and links no car when that VIN is a chassis number. **A VIN
   stored before KAN-338** is judged on every configuration PATCH like a typed one, so one that is no
   VIN blocked every save (KAN-395; Anto, 2026-10-20, option B — clean the data once):
   `scripts/repair_configuration_vins.py` (dry run unless `--commit`; `configuration.repair_stored_vins`)
   normalises what normalises to a VIN, clears the rest, leaves a car first registered before 1981
-  alone (KAN-391's question), and audits each change (`vin_repair`, the old value kept); run it
+  alone (one stored before KAN-338 in another spelling is KAN-502's question), and audits each change (`vin_repair`, the old value kept); run it
   once per environment. A valuation's stored VIN is never edited (valuation.md). Stock and the trade-in keep `NormalisedVin`. The
   configurator cannot enter one yet: its configure phase has no VIN input (KAN-340).
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
