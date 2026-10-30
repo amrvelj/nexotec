@@ -105,7 +105,10 @@ def _describe(error: ValidationError, declared: set[str]) -> Iterable[tuple[str,
 
     A oneOf/anyOf failure (every service kind is one branch) is explained by the
     errors of its closest branch rather than by "<the whole mapping> is not valid
-    under any of the given schemas"."""
+    under any of the given schemas", and a sub-error that is itself such a failure
+    (an `envVars` entry is a nested anyOf) is explained the same way (KAN-281). When
+    no branch accepts the mapping's `type`, the one line names every type the schema
+    allows: the closest branch would name only its own."""
     base = "/".join(str(part) for part in error.absolute_path)
     if not base and error.validator == "unevaluatedProperties":
         unknown = set(re.findall(r"'([^']+)'", error.message)) - declared
@@ -115,26 +118,41 @@ def _describe(error: ValidationError, declared: set[str]) -> Iterable[tuple[str,
     if not error.context:
         yield base, error.message
         return
+    label = error.instance.get("name") if isinstance(error.instance, dict) else None
+    yield from _explain_branches(error, f"{label}: " if label else "")
+
+
+def _explain_branches(error: ValidationError, prefix: str) -> Iterable[tuple[str, str]]:
     by_branch: dict[int, list[ValidationError]] = defaultdict(list)
-    for sub in error.context:
+    for sub in error.context or ():
         by_branch[int(sub.relative_schema_path[0])].append(sub)
+    if all(any(_is_discriminator_mismatch(s) for s in subs) for subs in by_branch.values()):
+        allowed = sorted({value for subs in by_branch.values() for s in subs for value in _discriminator_values(s)})
+        kind = error.instance.get("type") if isinstance(error.instance, dict) else None
+        path = "/".join(str(part) for part in [*error.absolute_path, "type"])
+        yield path, f"{prefix}{kind!r} is not a type Render knows; allowed: {', '.join(allowed)}"
+        return
     # A branch whose only complaint is the discriminator (`type: worker` is not `web`)
     # is simply the wrong kind of service; prefer branches that accept the kind.
     candidates = [subs for subs in by_branch.values() if not all(_is_discriminator_mismatch(s) for s in subs)]
     closest = min(candidates or list(by_branch.values()), key=len)
-    label = error.instance.get("name") if isinstance(error.instance, dict) else None
     for sub in closest:
-        path = (
-            "/".join([base] + [str(part) for part in sub.relative_path])
-            if base
-            else "/".join(str(part) for part in sub.relative_path)
-        )
-        prefix = f"{label}: " if label else ""
-        yield path, prefix + sub.message
+        if sub.context:
+            yield from _explain_branches(sub, prefix)
+        else:
+            yield "/".join(str(part) for part in sub.absolute_path), prefix + sub.message
 
 
 def _is_discriminator_mismatch(sub: ValidationError) -> bool:
     return list(sub.relative_path) == ["type"] and sub.validator in ("enum", "const")
+
+
+def _discriminator_values(sub: ValidationError) -> list[str]:
+    """The `type` values one branch accepts: its enum, or its const."""
+    if not _is_discriminator_mismatch(sub):
+        return []
+    value = sub.validator_value
+    return [str(v) for v in value] if isinstance(value, list) else [str(value)]
 
 
 def refresh_schema(url: str = SCHEMA_URL, schema_path: Path = SCHEMA_PATH, meta_path: Path = META_PATH) -> None:
