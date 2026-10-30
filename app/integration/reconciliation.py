@@ -7,8 +7,10 @@ not fixed here) — being registered means it runs whenever `run_all()` is
 next actually invoked, same as every other context's own job.
 """
 
+from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session
 
+from app.core.audit_model import AuditEvent
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
@@ -33,6 +35,21 @@ ACTOR_TABLES = (
     IntegrationCallPayload,
     IntegrationNotification,
 )
+
+
+
+def _not_a_deleted_connection() -> ColumnElement[bool]:
+    """A notification outlives its connection (KAN-494, Anto 2026-10-29,
+    option A — the call log's rule, KAN-470): an id whose delete is on the
+    audit trail (`connections.delete_connection` records it) is expected,
+    not drift. An id that vanished without a recorded delete still is.
+    """
+
+    deleted = select(AuditEvent.entity_id).where(
+        AuditEvent.entity_type == "integration_connection", AuditEvent.action == "delete"
+    )
+    return IntegrationNotification.connection_id.not_in(deleted)
+
 
 CHECKS = [
     ReferenceCheck(
@@ -80,6 +97,7 @@ CHECKS = [
         target_model=IntegrationConnection,
         target_id_column=IntegrationConnection.id,
         nullable=True,  # the daily support digest has no single connection
+        source_where=_not_a_deleted_connection,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]
