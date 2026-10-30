@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
+import { customer } from '../test/fixtures'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -29,6 +30,9 @@ const CONTRACTED = offer({ liveContractId: 'k7', liveContractNumber: 'V-000007' 
 
 function install(read: SalesOfferRead, tradeIn: () => unknown = () => read) {
   return installFakeBackend([
+    { method: 'GET', match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
+    { method: 'GET', match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+    { method: 'GET', match: /^\/customers\/cust-1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => read },
     { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
     { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
@@ -130,5 +134,41 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     await waitFor(() => expect(screen.getByText(refusalText('V-000008'))).toBeInTheDocument())
     expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeNull()
     expect(screen.queryByText(/edit the contract/)).toBeNull()
+  })
+
+  // KAN-501 — read-only must not take the view-only paths with it: the
+  // selected customer and «zum Lagerfahrzeug» still open their overlays
+  // (ADR-059), while the controls that write stay disabled.
+  it('the selected customer still opens as an overlay while the workspace stays read-only', async () => {
+    const user = userEvent.setup()
+    const backend = install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007', customerId: 'cust-1', customerLabel: 'Hans Muster' }))
+    renderWorkspace()
+
+    const customerButton = await screen.findByRole('button', { name: 'Hans Muster' })
+    expect(customerButton).toBeEnabled()
+    await user.click(customerButton)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.leasing.termMonths') })).toBeDisabled()
+    expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
+  })
+
+  it('«zum Lagerfahrzeug» still opens the car, and the pricing inputs stay disabled', async () => {
+    const user = userEvent.setup()
+    const backend = install(
+      offer({
+        liveContractId: 'k7', liveContractNumber: 'V-000007', vehicleSource: 'stock', stockItemId: 's1', vehicleLabel: 'VW Golf',
+        discountType: 'percent', containers: [{ id: 'pricing', requirement: 'required', status: 'in_progress' }],
+      } as Partial<SalesOfferRead>),
+    )
+    renderWorkspace()
+
+    const stockLink = await screen.findByRole('button', { name: i18n.t('offerWorkspace.pricing.noPriceLink') })
+    expect(stockLink).toBeEnabled()
+    // Every field on the workspace, pricing's own included, stays read-only.
+    for (const field of screen.getAllByRole('textbox')) expect(field).toBeDisabled()
+    await user.click(stockLink)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items\/s1/, 'GET').length).toBeGreaterThan(0))
+    expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
   })
 })
