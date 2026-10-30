@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import pytest
@@ -1399,6 +1400,65 @@ def test_external_id_update_and_delete(client):
         f"/v1/customers/{customer['id']}/external-ids/{row['id']}", headers=_bearer(admin_token)
     )
     assert delete.status_code == 204
+
+
+@pytest.mark.parametrize("field", ["systemName", "externalId"])
+def test_external_id_update_with_an_explicit_null_is_422_never_a_taken_conflict(client, field):
+    """KAN-483: both columns are NOT NULL. An explicit null is a malformed
+    request (422 naming the field); before the fix it reached the NOT NULL
+    constraint and was answered 409 external_id_taken, naming a collision
+    that never happened."""
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email=f"ext-null-{field}@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    row = client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-NULL"},
+        headers=_bearer(admin_token),
+    ).json()
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/external-ids/{row['id']}",
+        json={field: None},
+        headers=_bearer(admin_token),
+    )
+    assert response.status_code == 422, response.text
+    assert field in response.text
+
+    dealer_token = _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
+    listed = client.get(f"/v1/customers/{customer['id']}/external-ids", headers=_bearer(dealer_token))
+    assert [(i["systemName"], i["externalId"]) for i in listed.json()["items"]] == [("Salesforce", "SF-NULL")]
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres names the violated constraint")
+def test_external_id_update_answers_external_id_taken_only_for_its_unique_constraints(client, db_session):
+    """KAN-483: the update's IntegrityError handler answers 409
+    external_id_taken only for the two unique constraints it names; any other
+    integrity failure (here the NOT NULL a validated body can no longer
+    reach) stays loud instead of naming a collision."""
+
+    from sqlalchemy.exc import IntegrityError
+
+    from app.customer.models.customer import CustomerExternalId
+    from app.customer.schemas.customer import CustomerExternalIdUpdate
+    from app.customer.services.customer import update_customer_external_id
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="ext-null-svc@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    created = client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-SVC"},
+        headers=_bearer(admin_token),
+    ).json()
+    row = db_session.get(CustomerExternalId, uuid.UUID(created["id"]))
+
+    with pytest.raises(IntegrityError):
+        update_customer_external_id(
+            db_session, row=row, data=CustomerExternalIdUpdate.model_construct(external_id=None),
+            actor_id=uuid.uuid4(),
+        )
 
 
 # --- Customer PRD Phase B: numbers, search, validation ----------------------
