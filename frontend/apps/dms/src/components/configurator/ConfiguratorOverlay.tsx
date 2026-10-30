@@ -46,7 +46,18 @@ import {
   type CodedFieldKey,
   type ConfiguratorMode,
 } from '../../configurationOptions'
-import type { CatalogueOptionRead, CatalogueSpecificationRead, CatalogueVariantRead, ConfigurationMatchMethod, ConfigurationOptionInput, ConfigurationOptionRead, ConfigurationRead, ReferenceValueRead, VehicleSpecBlockRead, VehicleMdmRead } from '../../api/types'
+import type {
+  CatalogueOptionRead,
+  CatalogueSpecificationRead,
+  CatalogueVariantRead,
+  ConfigurationMatchMethod,
+  ConfigurationOptionInput,
+  ConfigurationOptionRead,
+  ConfigurationRead,
+  ReferenceValueRead,
+  VehicleMdmRead,
+  VehicleSpecBlockRead,
+} from '../../api/types'
 
 // KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
 // reference lists in the one label-lookup query this file already has;
@@ -789,9 +800,16 @@ export function ConfiguratorOverlay({
                 </Text>
                 {linkedVehicle ? (
                   <>
-                    <Text size="sm">
-                      {linkedVehicleQuery.data?.vehicleNumber ?? linkedVehicle.label ?? t('configurator.vehicleLink.unknownVehicle')}
-                    </Text>
+                    {/* UI/UX Specification, Typography: mono is mandatory for identifiers. */}
+                    {linkedVehicleQuery.data?.vehicleNumber ?? linkedVehicle.label ? (
+                      <Text size="sm" ff="monospace">
+                        {linkedVehicleQuery.data?.vehicleNumber ?? linkedVehicle.label}
+                      </Text>
+                    ) : (
+                      <Text size="sm" c="dimmed">
+                        {t('configurator.vehicleLink.unknownVehicle')}
+                      </Text>
+                    )}
                     {linkedVehicleQuery.data?.vin && (
                       <Text size="xs" c="dimmed" ff="monospace">
                         {linkedVehicleQuery.data.vin}

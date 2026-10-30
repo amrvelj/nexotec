@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend, type FakeRoute } from '../../test/fakeBackend'
+import { installFakeBackend, status, type FakeRoute } from '../../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, PICKED_CODED_VALUES, configurationRead } from '../../test/configuratorFixtures'
 import type { ConfigurationRead } from '../../api/types'
 import { ConfiguratorOverlay } from './ConfiguratorOverlay'
@@ -132,6 +132,30 @@ describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326, KAN
     expect(ctx.saved()[0]).toHaveProperty('vin', null)
     await waitFor(() => expect(within(linked).getByText(i18n.t('configurator.vehicleLink.noVehicle'))).toBeInTheDocument())
     expect(within(linked).queryByText('F-000326')).not.toBeInTheDocument()
+  })
+
+  it('a link whose record has no label and cannot be read says so, never an id', async () => {
+    installFakeBackend([
+      ...CODED_REFERENCE_ROUTES,
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'GET',
+        match: /\/vehicle-mdm\/veh-gone$/,
+        handler: () => status(404, { error: { code: 'not_found', message: 'Vehicle not found.', details: {} } }),
+      },
+    ])
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['record']}
+        existing={configurationRead({ ...LINKED_NO_VIN, vin: 'WVWZZZ1KZAW000326', vehicleId: 'veh-gone', vehicleLabel: null })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const linked = await screen.findByTestId('configurator-linked-vehicle')
+    expect(await within(linked).findByText(i18n.t('configurator.vehicleLink.unknownVehicle'))).toBeInTheDocument()
+    expect(within(linked).queryByText(/veh-gone/)).not.toBeInTheDocument()
   })
 
   it('a corrected VIN sends the new value', async () => {
