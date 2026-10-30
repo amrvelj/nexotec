@@ -234,7 +234,12 @@
       "vehicle_left_stock": "Ce véhicule a déjà quitté le stock et ne peut pas être réservé.",
       "vehicle_not_purchased": "Le véhicule de ce contrat n’a pas encore été acheté — il pourra être facturé dès que le stock aura enregistré l’achat.",
       "vin_already_in_stock": "Ce VIN est déjà en stock sous {{stockNumber}}.",
-      "wagenbuch_closed": "Ce véhicule est vendu : son Wagenbuch n’accepte plus de nouvelles écritures."
+      "wagenbuch_closed": "Ce véhicule est vendu : son Wagenbuch n’accepte plus de nouvelles écritures.",
+      "purchase_requires_vin": "Ce véhicule ne peut pas être acheté sans son VIN.",
+      "purchase_vin_mismatch": "Ce VIN n'est pas celui du véhicule en stock.",
+      "brand_code_taken": "Une marque avec ce code existe déjà.",
+      "photo_not_an_image": "La photo doit être une image PNG ou JPEG.",
+      "photo_too_large": "La photo est trop grande — 5 Mo au plus."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1086,7 +1091,9 @@
         "supplierIsVatRegistered": "Le fournisseur est assujetti à la TVA",
         "purchasePrice": "Prix d'achat",
         "purchaseDate": "Date d'achat",
-        "purchaseInvoiceRef": "Référence de facture"
+        "purchaseInvoiceRef": "Référence de facture",
+        "vin": "VIN",
+        "vinHint": "Un véhicule du pipeline est acheté avec son VIN, ce qui le met en stock."
       },
       "notionalInputTax": "Déduction fictive de l'impôt préalable",
       "notionalInputTaxNotApplicable": "Non applicable",
@@ -1722,7 +1729,8 @@
     "subtitle": "Parcourir les variantes de véhicules — marque, modèle, finition. Depuis le miroir, jamais le fournisseur.",
     "tabs": {
       "browse": "Parcourir",
-      "mappingGaps": "Lacunes de correspondance"
+      "mappingGaps": "Lacunes de correspondance",
+      "brands": "Marques"
     },
     "mode": {
       "label": "Mode",
@@ -2277,7 +2285,8 @@
       "createdBy": "Créé par",
       "updatedBy": "Modifié par",
       "createdAt": "Créé",
-      "updatedAt": "Modifié"
+      "updatedAt": "Modifié",
+      "otherDealerships": "Autres entreprises"
     },
     "emptyState": {
       "title": "Pas encore d'utilisateurs",
@@ -2320,7 +2329,8 @@
         "validity": "Validité",
         "commercial": "Commercial",
         "signature": "Signature",
-        "connectedAccounts": "Comptes connectés"
+        "connectedAccounts": "Comptes connectés",
+        "memberships": "Autres entreprises"
       }
     },
     "fields": {
@@ -2355,7 +2365,10 @@
       "signatureHint": "PNG ou JPEG, jusqu'à 1 Mo — imprimée sur les documents que l'utilisateur signe.",
       "signatureCurrent": "Signature actuelle",
       "signatureRemove": "Retirer",
-      "connectedAccountsNone": "Aucun compte connecté."
+      "connectedAccountsNone": "Aucun compte connecté.",
+      "photo": "Photo",
+      "photoHint": "PNG ou JPEG, jusqu'à 5 Mo — affichée à côté du nom dans la liste des utilisateurs.",
+      "photoRemove": "Supprimer la photo"
     },
     "deactivate": {
       "title": "Désactiver {{name}}",
@@ -2397,6 +2410,23 @@
     "failureReason": {
       "module_failed": "le module n'a pas pu terminer la transmission ; détails dans le journal",
       "colleague_cannot_act_there": "le collègue ne travaille pas dans chaque entreprise concernée"
+    },
+    "memberships": {
+      "tableLabel": "Accès à d'autres entreprises",
+      "betrieb": "Entreprise",
+      "manager": "Manager",
+      "managerIn": "Manager chez {{betrieb}}",
+      "status": "Statut",
+      "active": "Actif",
+      "endedOn": "Terminé le {{date}}",
+      "end": "Mettre fin à l'accès à {{betrieb}}",
+      "grantTarget": "Donner accès à",
+      "grantAsManager": "En tant que manager",
+      "grant": "Donner accès",
+      "none": "Aucun accès à une autre entreprise.",
+      "noneYouManage": "Seules les entreprises dont vous êtes vous-même manager figurent ici. Les accès à d'autres entreprises ne vous sont pas montrés.",
+      "notYours": "Vous n'êtes pas manager de cette entreprise : vous ne pouvez pas y modifier l'accès.",
+      "failed": "L'accès n'a pas pu être modifié. Veuillez réessayer."
     }
   },
   "account": {
@@ -2476,6 +2506,14 @@
       "invalid": "L'image doit être un PNG ou un JPEG d'au plus 1 Mo.",
       "conflict": "Votre compte a été modifié ailleurs entre-temps. Chargez la nouvelle version – votre saisie ici est alors perdue.",
       "loadLatest": "Charger la nouvelle version"
+    },
+    "photo": {
+      "title": "Photo",
+      "choose": "Choisir une photo",
+      "hint": "PNG ou JPEG, 5 Mo au plus. Votre manager la voit dans la liste des utilisateurs.",
+      "upload": "Téléverser",
+      "remove": "Supprimer",
+      "failed": "La photo n'a pas pu être enregistrée. Veuillez réessayer."
     }
   },
   "recovery": {
@@ -2778,6 +2816,34 @@
       "saveFailed": "Le vendeur responsable n'a pas pu être enregistré.",
       "takeOverFailed": "L'affaire n'a pas pu être reprise.",
       "takenMeanwhile": "Déjà repris par {{owner}} – la liste a été actualisée."
+    }
+  },
+  "brandsAdmin": {
+    "create": "Ajouter une marque",
+    "edit": "Modifier",
+    "createTitle": "Ajouter une marque",
+    "editTitle": "Modifier la marque",
+    "searchPlaceholder": "Rechercher une marque ou un code …",
+    "loadError": "Les marques n'ont pas pu être chargées.",
+    "saveFailed": "La marque n'a pas pu être enregistrée. Veuillez réessayer.",
+    "columns": {
+      "displayName": "Marque",
+      "code": "Code",
+      "updatedAt": "Modifié",
+      "createdAt": "Créé"
+    },
+    "fields": {
+      "code": "Code",
+      "displayName": "Nom"
+    },
+    "emptyState": {
+      "title": "Aucune marque pour l'instant",
+      "description": "Les marques proviennent du catalogue ou sont ajoutées ici."
+    },
+    "emptyFilteredState": {
+      "title": "Aucune marque trouvée",
+      "description": "Aucune marque ne correspond à la recherche.",
+      "action": "Effacer la recherche"
     }
   }
 }

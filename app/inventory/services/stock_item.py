@@ -213,9 +213,9 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
     confirmation; KAN-100). A stock item becomes invoiceable the moment
     BOTH facts are true — VIN known (lifecycle_status=in_stock) and the
     purchase is booked (purchase_price set) — whichever of the two
-    completes second. Called from both promote_to_vehicle_mdm (PR-2, VIN
-    arriving after purchase was already booked) and record_purchase (PR-3,
-    purchase booked after VIN already arrived). Idempotent: a no-op past
+    completes second. Called from both promote_and_flush (PR-2) and
+    record_purchase (PR-3); since KAN-446 a pipeline item's purchase promotes
+    it first, so record_purchase is the one that flips it. Idempotent: a no-op past
     the first time. Returns True iff it just flipped is_invoiceable and
     emitted the event — callers decide whether to commit.
     """
@@ -342,6 +342,8 @@ def list_stock_items(
     q: str | None,
     lifecycle_status: LifecycleStatus | None,
     condition: StockItemCondition | None = None,
+    lifecycle_status_not: LifecycleStatus | None = None,
+    condition_not: StockItemCondition | None = None,
     params: SortPageParams,
 ) -> tuple[list[StockItem], str | None, int, bool]:
     # FR-I-12 (PR-5): a sold (invoiced) item is absent from the active
@@ -360,6 +362,11 @@ def list_stock_items(
         stmt = stmt.where(StockItem.lifecycle_status == lifecycle_status)
     if condition is not None:
         stmt = stmt.where(StockItem.condition == condition)
+    # KAN-476: «ist nicht» — both columns are NOT NULL, so `!=` loses no row.
+    if lifecycle_status_not is not None:
+        stmt = stmt.where(StockItem.lifecycle_status != lifecycle_status_not)
+    if condition_not is not None:
+        stmt = stmt.where(StockItem.condition != condition_not)
 
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=StockItem, params=params)

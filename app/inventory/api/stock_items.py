@@ -68,6 +68,12 @@ def list_stock_items(
     q: str | None = None,
     lifecycle_status: LifecycleStatus | None = None,
     condition: StockItemCondition | None = None,
+    lifecycle_status_not: LifecycleStatus | None = Query(
+        default=None, description="KAN-476: items whose lifecycle status is not this one — the grid's «ist nicht»."
+    ),
+    condition_not: StockItemCondition | None = Query(
+        default=None, description="KAN-476: items whose condition is not this one (Zustand «ist nicht Occasion»)."
+    ),
     sort: str | None = Query(default=None, description="e.g. 'stockNumber:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -79,7 +85,14 @@ def list_stock_items(
         limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = stock_item_service.list_stock_items(
-        db, tenant_id=principal.tenant_id, q=q, lifecycle_status=lifecycle_status, condition=condition, params=params
+        db,
+        tenant_id=principal.tenant_id,
+        q=q,
+        lifecycle_status=lifecycle_status,
+        condition=condition,
+        lifecycle_status_not=lifecycle_status_not,
+        condition_not=condition_not,
+        params=params,
     )
     return StockItemPage(
         items=[_stock_item_read(r) for r in rows],

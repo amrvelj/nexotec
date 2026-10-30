@@ -138,6 +138,9 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # The signature image's key in the object store (app.core.object_store),
     # never the image: `dealerships/<dealership>/users/<user>/signature`.
     signature_image_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # KAN-401: the photo's key in the object store, never the photo:
+    # `dealerships/<dealership>/users/<user>/photo`.
+    photo_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # --- KAN-201 (My account; Users → Personal settings) --------------------
     # The language of the documents this user authors, where a document has

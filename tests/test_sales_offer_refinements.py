@@ -27,6 +27,7 @@ from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, finalize_offer, update_offer
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
+from tests.vin_support import unique_vin
 
 
 def _make_dealership(db_session) -> Dealership:
@@ -67,7 +68,7 @@ def _stock_item(db_session, tenant_id, *, condition=StockItemCondition.NEW, with
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Auto AG", supplier_is_vat_registered=True, purchase_price=Decimal("30000.00"), purchase_date="2026-01-01"
+            supplier_name="Auto AG", supplier_is_vat_registered=True, purchase_price=Decimal("30000.00"), purchase_date="2026-01-01", vin=unique_vin()
         ),
         actor_id=uuid.uuid4(),
     )

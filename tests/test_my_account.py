@@ -29,6 +29,7 @@ from tests.identity_support import (
     create_dealership,
     create_user,
     deactivate,
+    platform_admin_headers,
 )
 from tests.token_support import dealer_group_of
 
@@ -473,3 +474,48 @@ def test_the_same_mailbox_can_be_linked_again_after_a_revoke(client, db_session)
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+# --- photo (KAN-401) -------------------------------------------------------------------
+
+
+def test_a_user_sets_reads_and_removes_their_own_photo(client, object_store, db_session):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership, isDealerManager=False)
+    assert client.get("/v1/me", headers=_as(anna)).json()["hasPhoto"] is False
+
+    put = client.put(
+        "/v1/me/photo",
+        content=_PNG,
+        headers={**_as(anna), "If-Match": str(anna["version"]), "Content-Type": "image/png"},
+    )
+    assert put.status_code == 200, put.text
+    assert put.json()["hasPhoto"] is True
+
+    got = client.get("/v1/me/photo", headers=_as(anna))
+    assert got.status_code == 200 and got.content == _PNG and got.headers["content-type"] == "image/png"
+    assert got.headers["cache-control"] == "private, no-store"
+    [row] = _audit(db_session, anna, "photo_set")
+    assert row.actor_id == uuid.UUID(anna["id"])
+    # The manager's Users screen reads the same photo.
+    by_manager = client.get(f"/v1/dealerships/{dealership}/users/{anna['id']}/photo", headers=platform_admin_headers())
+    assert by_manager.content == _PNG
+
+    removed = client.delete("/v1/me/photo", headers={**_as(anna), "If-Match": str(put.json()["version"])})
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["hasPhoto"] is False
+    assert client.get("/v1/me/photo", headers=_as(anna)).status_code == 404
+
+
+def test_my_photo_upload_refuses_what_is_not_an_image(client, object_store):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+
+    response = client.put(
+        "/v1/me/photo",
+        content=b"GIF89a" + b"\x00" * 16,
+        headers={**_as(anna), "If-Match": str(anna["version"]), "Content-Type": "image/png"},
+    )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["reason"] == "photo_not_an_image"

@@ -27,6 +27,7 @@ const ME = {
   defaultCorrespondenceLanguage: 'de',
   signatureBlock: null,
   hasSignatureImage: false,
+  hasPhoto: false,
   version: 4,
 }
 
@@ -213,6 +214,46 @@ describe('My account (KAN-201)', () => {
     const [put] = backend.callsTo(/\/me\/signature$/, 'PUT')
     expect(put.headers.get('If-Match')).toBe('5')
     expect(put.headers.get('Content-Type')).toBe('image/png')
+  })
+
+  // KAN-401 — the user's own photo on the Profile tab: the raw image with
+  // If-Match; the profile form's own save afterwards carries the new version.
+  it('uploads the photo as the raw body, and the profile save after it is not refused as stale', async () => {
+    const user = userEvent.setup()
+    let me = ME
+    const backend = renderAccount('/account/profile', [
+      { method: 'GET', match: /\/me$/, handler: () => me },
+      {
+        method: 'PUT',
+        match: /\/me\/photo$/,
+        handler: () => (me = { ...me, hasPhoto: true, version: me.version + 1 }),
+      },
+      { method: 'GET', match: /\/me\/photo$/, handler: () => ({ __status: 404 }) },
+      {
+        method: 'PATCH',
+        match: /\/me$/,
+        handler: (req) => (me = { ...me, ...(req.body as object), version: me.version + 1 }),
+      },
+    ])
+
+    await screen.findByDisplayValue('Muster')
+    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], 'anna.jpg', { type: 'image/jpeg' })
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, jpeg)
+    await user.click(screen.getByRole('button', { name: 'Hochladen' }))
+    await waitFor(() => expect(backend.callsTo(/\/me\/photo$/, 'PUT')).toHaveLength(1))
+    const [put] = backend.callsTo(/\/me\/photo$/, 'PUT')
+    expect(put.headers.get('If-Match')).toBe('4')
+    expect(put.headers.get('Content-Type')).toBe('image/jpeg')
+    expect(put.body).toBe(jpeg)
+    expect(await screen.findByRole('button', { name: 'Entfernen' })).toBeInTheDocument()
+
+    const lastName = screen.getByDisplayValue('Muster')
+    await user.clear(lastName)
+    await user.type(lastName, 'Keller')
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/me$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/me$/, 'PATCH')[0].headers.get('If-Match')).toBe('5')
   })
 
   it('shows only the Security tab while a second factor is still owed', async () => {

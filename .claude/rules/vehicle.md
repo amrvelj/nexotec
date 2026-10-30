@@ -38,8 +38,9 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 
 - **VIN is mandatory in vehicle-mdm.** A pre-VIN vehicle is a pipeline stock item in
   `inventory` (ADR-045), to be promoted on VIN arrival by
-  `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04)
-  — no production caller yet (KAN-446).
+  `inventory/services/pipeline.py::promote_and_flush`, idempotent per stock item (FR-V-04).
+  Its one production caller is purchase booking (ADR-103, KAN-446): a pipeline item is bought
+  with its VIN, and the booking promotes it in the same transaction.
 - **A typed VIN is one spelling in every write** (FR-V-15): every request-body field carrying a
   VIN a person typed is normalised (upper-cased, whitespace removed): stock create and the
   trade-in through `app.core.validators.NormalisedVin` (then ISO 3779; 422 otherwise; KAN-244,
@@ -289,7 +290,9 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 ## Catalogue administration
 
 The mapping-gap queue has a screen (`components/MappingGapsQueue.tsx`, on
-`/catalogue?tab=mapping-gaps`); reference data has `/settings/reference`; **brand create and
-edit have no screen** (the API exists; KAN-448).
+`/catalogue?tab=mapping-gaps`); reference data has `/settings/reference`; brands are created and
+renamed on `/catalogue?tab=brands` (`components/catalogue/BrandsAdmin.tsx`, KAN-448) — a tab
+platform staff alone see, since the brand write is `require_access_role()` (platform admin); the
+code is set once, the name is edited with If-Match, a taken code is 409 `brand_code_taken`.
 
 `valuation` is its own context — see `.claude/rules/valuation.md`, not this file.

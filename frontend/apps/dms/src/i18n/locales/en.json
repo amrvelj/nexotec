@@ -234,7 +234,12 @@
       "vehicle_left_stock": "This vehicle has already left stock and cannot be reserved.",
       "vehicle_not_purchased": "The vehicle of this contract has not been purchased yet — it can be invoiced once Stock has booked its purchase.",
       "vin_already_in_stock": "This VIN is already in stock as {{stockNumber}}.",
-      "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries."
+      "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries.",
+      "purchase_requires_vin": "This vehicle cannot be purchased without its VIN.",
+      "purchase_vin_mismatch": "This VIN is not the VIN of the vehicle in stock.",
+      "brand_code_taken": "A brand with this code already exists.",
+      "photo_not_an_image": "The photo must be a PNG or JPEG image.",
+      "photo_too_large": "The photo is too large — at most 5 MB."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1086,7 +1091,9 @@
         "supplierIsVatRegistered": "Supplier is VAT-registered",
         "purchasePrice": "Purchase price",
         "purchaseDate": "Purchase date",
-        "purchaseInvoiceRef": "Invoice reference"
+        "purchaseInvoiceRef": "Invoice reference",
+        "vin": "VIN",
+        "vinHint": "A pipeline vehicle is purchased with its VIN, which puts it on stock."
       },
       "notionalInputTax": "Notional input tax deduction",
       "notionalInputTaxNotApplicable": "Not applicable",
@@ -1722,7 +1729,8 @@
     "subtitle": "Browse vehicle variants — brand, model, trim. From the mirror, never the provider.",
     "tabs": {
       "browse": "Browse",
-      "mappingGaps": "Mapping gaps"
+      "mappingGaps": "Mapping gaps",
+      "brands": "Brands"
     },
     "mode": {
       "label": "Mode",
@@ -2277,7 +2285,8 @@
       "createdBy": "Created by",
       "updatedBy": "Changed by",
       "createdAt": "Created",
-      "updatedAt": "Changed"
+      "updatedAt": "Changed",
+      "otherDealerships": "Other businesses"
     },
     "emptyState": {
       "title": "No users yet",
@@ -2320,7 +2329,8 @@
         "validity": "Validity",
         "commercial": "Commercial",
         "signature": "Signature",
-        "connectedAccounts": "Connected accounts"
+        "connectedAccounts": "Connected accounts",
+        "memberships": "Other businesses"
       }
     },
     "fields": {
@@ -2355,7 +2365,10 @@
       "signatureHint": "PNG or JPEG, up to 1 MB — printed on documents the user signs.",
       "signatureCurrent": "Current signature",
       "signatureRemove": "Remove",
-      "connectedAccountsNone": "No connected accounts."
+      "connectedAccountsNone": "No connected accounts.",
+      "photo": "Photo",
+      "photoHint": "PNG or JPEG, up to 5 MB — shown beside the name in the user list.",
+      "photoRemove": "Remove photo"
     },
     "deactivate": {
       "title": "Deactivate {{name}}",
@@ -2397,6 +2410,23 @@
     "failureReason": {
       "module_failed": "the module could not complete the hand-over; details are in the log",
       "colleague_cannot_act_there": "the colleague does not work in every business involved"
+    },
+    "memberships": {
+      "tableLabel": "Access to other businesses",
+      "betrieb": "Business",
+      "manager": "Manager",
+      "managerIn": "Manager in {{betrieb}}",
+      "status": "Status",
+      "active": "Active",
+      "endedOn": "Ended on {{date}}",
+      "end": "End access to {{betrieb}}",
+      "grantTarget": "Grant access to",
+      "grantAsManager": "As manager",
+      "grant": "Grant access",
+      "none": "No access to another business.",
+      "noneYouManage": "Only businesses you are a manager of yourself are listed here. Access to other businesses is not shown to you.",
+      "notYours": "You are not a manager of this business, so you cannot change access to it.",
+      "failed": "The access could not be changed. Please try again."
     }
   },
   "account": {
@@ -2476,6 +2506,14 @@
       "invalid": "The image must be a PNG or JPEG of at most 1 MB.",
       "conflict": "Your account was changed elsewhere in the meantime. Load the new version – what you entered here is lost.",
       "loadLatest": "Load the new version"
+    },
+    "photo": {
+      "title": "Photo",
+      "choose": "Choose photo",
+      "hint": "PNG or JPEG, at most 5 MB. Your manager sees it in the user list.",
+      "upload": "Upload",
+      "remove": "Remove",
+      "failed": "The photo could not be saved. Please try again."
     }
   },
   "recovery": {
@@ -2778,6 +2816,34 @@
       "saveFailed": "The responsible seller could not be saved.",
       "takeOverFailed": "The deal could not be taken over.",
       "takenMeanwhile": "Already taken over by {{owner}} – the list has been refreshed."
+    }
+  },
+  "brandsAdmin": {
+    "create": "Add brand",
+    "edit": "Edit",
+    "createTitle": "Add brand",
+    "editTitle": "Edit brand",
+    "searchPlaceholder": "Search brand or code …",
+    "loadError": "The brands could not be loaded.",
+    "saveFailed": "The brand could not be saved. Please try again.",
+    "columns": {
+      "displayName": "Brand",
+      "code": "Code",
+      "updatedAt": "Changed",
+      "createdAt": "Created"
+    },
+    "fields": {
+      "code": "Code",
+      "displayName": "Name"
+    },
+    "emptyState": {
+      "title": "No brands yet",
+      "description": "Brands come from the catalogue or are added here."
+    },
+    "emptyFilteredState": {
+      "title": "No brand found",
+      "description": "No brand matches the search.",
+      "action": "Clear search"
     }
   }
 }

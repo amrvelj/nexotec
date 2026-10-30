@@ -268,7 +268,8 @@ describe('CatalogueBrowseGrid filters are sent as offered (KAN-458)', () => {
       {
         id: 'v2',
         name: 'Ohne Diesel',
-        snapshot: { filters: [{ id: 'c', fieldId: 'fuelType', type: 'select', condition: 'isNot', value: 'diesel' }] },
+        // A field this grid does not filter on (KAN-476 made «ist nicht» one it does).
+        snapshot: { filters: [{ id: 'c', fieldId: 'tyreSeason', type: 'select', condition: 'isNot', value: 'winter' }] },
       },
     ]
     installFakeBackend([
@@ -298,15 +299,17 @@ describe('CatalogueBrowseGrid filters are sent as offered (KAN-458)', () => {
     expect(changedDot()).not.toBeNull()
   })
 
-  it('a coded «ist nicht» is neither sent nor counted as an active filter', async () => {
+  it('a coded «ist nicht» is sent as <field>Not and counted as an active filter (KAN-476)', async () => {
     const fake = backend()
     renderWithProviders(<CatalogueBrowseGrid mode="build" />, {
       route: route([{ id: 'a', fieldId: 'fuelType', type: 'select', condition: 'isNot', value: 'diesel' }]),
     })
 
     await screen.findByText('Golf GTI')
-    expect(fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!.params.get('fuelType')).toBeNull()
+    const sent = fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!.params
+    expect(sent.get('fuelTypeNot')).toBe('diesel')
+    expect(sent.get('fuelType')).toBeNull()
     const viewControl = screen.getByRole('button', { name: new RegExp(i18n.t('catalogueBrowse.allVariantsView')) })
-    expect(viewControl.textContent).not.toMatch(/\d/)
+    expect(viewControl.textContent).toMatch(/1/)
   })
 })

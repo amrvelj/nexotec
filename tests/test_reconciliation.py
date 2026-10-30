@@ -1033,6 +1033,9 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # child as above), and a connected account's revoke — the row stays,
         # marked revoked (FR-AU-24); nothing is deleted.
         "/v1/me/signature",
+        # KAN-401: the photo, the same object-store child as the signature.
+        "/v1/dealerships/{dealership_id}/users/{user_id}/photo",
+        "/v1/me/photo",
         "/v1/me/connected-accounts/{account_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}",
         # KAN-203: a bank account is the dealership's own child row (D-A-27),

@@ -71,6 +71,74 @@ describe('RecordPurchaseDialog — a refusal in the UI language (KAN-437)', () =
   })
 })
 
+// KAN-446 (ADR-045, FR-V-04) — a pipeline item is bought with its VIN: the
+// dialog asks for it, holds the booking back without it, sends it, and says a
+// refused VIN in the UI language.
+describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-446)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  const field = (key: string) => screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t(key)) })
+  const fillPurchase = () => {
+    fireEvent.change(field('stockDetail.purchase.fields.supplierName'), { target: { value: 'Hans Muster' } })
+    fireEvent.change(field('stockDetail.purchase.fields.purchasePrice'), { target: { value: '8000' } })
+  }
+  const submitButton = () => screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') })
+
+  it('asks for no VIN for an item already in stock', () => {
+    renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={async () => {}} />)
+
+    expect(screen.queryByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.purchase.fields.vin')) })).toBeNull()
+  })
+
+  it('holds the booking back until the VIN is entered, then sends it', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={onSubmit} />)
+
+    fillPurchase()
+    expect(submitButton()).toBeDisabled()
+
+    fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: ' WVWZZZ1KZAW004461 ' } })
+    expect(submitButton()).toBeEnabled()
+    fireEvent.click(submitButton())
+
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ supplierName: 'Hans Muster', purchasePrice: 8000, vin: 'WVWZZZ1KZAW004461' })
+  })
+
+  it.each([
+    ['purchase_requires_vin', {}, 'apiRefusal.reasons.purchase_requires_vin', {}],
+    ['vin_already_in_stock', { stockNumber: 'S-000042' }, 'apiRefusal.reasons.vin_already_in_stock', { stockNumber: 'S-000042' }],
+  ])('says a %s refusal in French', async (reason, extra, key, params) => {
+    await i18n.changeLanguage('fr')
+    const status = reason === 'vin_already_in_stock' ? 409 : 422
+    const refused = new ApiError(status, 'refused', 'English text for logs only.', { reason, ...extra })
+    renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(refused)} />)
+
+    fillPurchase()
+    fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: 'WVWZZZ1KZAW004461' } })
+    fireEvent.click(submitButton())
+
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t(key, params))
+    expect(screen.queryByText(/English text/)).not.toBeInTheDocument()
+  })
+  it('names a malformed VIN by its rule — the route\'s schema 422 on `vin` — not as «some entries are invalid»', async () => {
+    await i18n.changeLanguage('fr')
+    // What POST …/purchase answers for `WVWZZZ1KZAW00446O` (NormalisedVin refuses it first).
+    const refused = new ApiError(422, 'unprocessable_entity', 'Request validation failed.', {
+      errors: [{ type: 'value_error', loc: ['body', 'vin'], msg: 'Value error, not a VIN' }],
+    })
+    renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(refused)} />)
+
+    fillPurchase()
+    fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: 'WVWZZZ1KZAW00446O' } })
+    fireEvent.click(submitButton())
+
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('common.invalidVin'))
+  })
+})
+
 // KAN-437 — a blocking condition's sentence comes from the API in German
 // only; the banner says it from the marketplace field, in the UI language.
 describe('BlockingConditionBanner — in the UI language (KAN-437)', () => {

@@ -389,3 +389,80 @@ def test_the_users_list_carries_the_users_own_settings_read_only_and_sorts_on_th
     assert patched.json()["department"] == "Verkauf"
     assert patched.json()["correspondenceLanguage"] == "it"
     assert patched.json()["signatureBlock"] == "Adam Abt\nVerkauf"
+
+
+# --- the photo (KAN-401) ---------------------------------------------------------------------
+
+
+def test_the_photo_is_stored_served_and_removed(client, object_store):
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    user = create_user(client, dealership, isDealerManager=False)
+    headers = _manager(dealership, manager)
+    path = f"/v1/dealerships/{dealership}/users/{user['id']}/photo"
+
+    assert client.get(path, headers=headers).status_code == 404
+    assert client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=headers).json()["hasPhoto"] is False
+
+    put = client.put(path, content=_JPEG, headers={**headers, "If-Match": "1", "Content-Type": "image/jpeg"})
+    assert put.status_code == 200, put.text
+    assert put.json()["hasPhoto"] is True and put.json()["version"] == 2
+    assert put.json()["hasSignatureImage"] is False  # a photo is not a signature
+    # The row holds a key under the dealership's own prefix, never the bytes.
+    stored = object_store.get(f"dealerships/{dealership}/users/{user['id']}/photo")
+    assert stored is not None and stored.data == _JPEG and stored.content_type == "image/jpeg"
+
+    got = client.get(path, headers=headers)
+    assert got.status_code == 200 and got.content == _JPEG and got.headers["content-type"] == "image/jpeg"
+    assert got.headers["cache-control"] == "private, no-store"
+    # The list says which rows have one, so the grid asks only for those.
+    listed = client.get(f"/v1/dealerships/{dealership}/users", headers=headers).json()["items"]
+    assert {row["id"]: row["hasPhoto"] for row in listed} == {manager["id"]: False, user["id"]: True}
+
+    stale = client.delete(path, headers={**headers, "If-Match": "1"})
+    assert stale.status_code == 409, stale.text
+    removed = client.delete(path, headers={**headers, "If-Match": "2"})
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["hasPhoto"] is False
+    assert object_store.get(f"dealerships/{dealership}/users/{user['id']}/photo") is None
+    assert client.get(path, headers=headers).status_code == 404
+    audit = client.get(f"/v1/dealerships/{dealership}/audit-log", headers=platform_admin_headers()).json()["items"]
+    actions = [row["action"] for row in audit if row["entityId"] == user["id"]]
+    assert actions.count("photo_set") == 1 and actions.count("photo_removed") == 1
+
+
+@pytest.mark.parametrize(
+    ("content", "content_type", "reason"),
+    [
+        (b"GIF89a" + b"\x00" * 32, "image/gif", "photo_not_an_image"),
+        (_PNG, "image/jpeg", "photo_not_an_image"),  # the header lies about the bytes
+        (b"", "image/png", None),  # no body at all: the request schema's 422
+        (b"\xff\xd8\xff\xe0" + b"\x00" * (5 * 1024 * 1024), "image/jpeg", "photo_too_large"),  # over 5 MiB
+    ],
+)
+def test_a_photo_that_is_not_a_png_or_jpeg_up_to_5_mib_is_refused(client, object_store, content, content_type, reason):
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    user = create_user(client, dealership, isDealerManager=False)
+    response = client.put(
+        f"/v1/dealerships/{dealership}/users/{user['id']}/photo",
+        content=content,
+        headers={**_manager(dealership, manager), "If-Match": "1", "Content-Type": content_type},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"].get("reason") == reason
+    single = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=platform_admin_headers()).json()
+    assert single["hasPhoto"] is False and single["version"] == 1
+
+
+def test_a_photo_just_under_the_cap_is_taken(client, object_store):
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    user = create_user(client, dealership, isDealerManager=False)
+    content = b"\xff\xd8\xff\xe0" + b"\x00" * (5 * 1024 * 1024 - 4)
+    response = client.put(
+        f"/v1/dealerships/{dealership}/users/{user['id']}/photo",
+        content=content,
+        headers={**_manager(dealership, manager), "If-Match": "1", "Content-Type": "image/jpeg"},
+    )
+    assert response.status_code == 200, response.text

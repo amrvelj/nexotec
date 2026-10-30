@@ -4,16 +4,21 @@ import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog } from '@nexotec/ui-kit'
 import { todayLocalIsoDate } from '../../utils/format'
 import { apiRefusalText } from '../../utils/apiRefusal'
+import { vinRefusalKey } from '../../utils/vin'
+import { useFieldHint } from '../../hooks/useFieldHint'
 
 interface RecordPurchaseDialogProps {
   opened: boolean
   onClose: () => void
+  /** KAN-446: a pipeline item is bought with its VIN, which puts it on stock. */
+  requiresVin?: boolean
   onSubmit: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
     purchasePrice: number
     purchaseDate: string
     purchaseInvoiceRef?: string
+    vin?: string
   }) => Promise<void>
 }
 
@@ -25,14 +30,21 @@ interface RecordPurchaseDialogProps {
  * KAN-272 (ADR-035): a failed save says so and keeps the dialog open with
  * what was entered, so the retry — under the same Idempotency-Key — is one
  * click away.
+ *
+ * KAN-446 (ADR-045, FR-V-04): for a pipeline item the VIN is required — the
+ * booking promotes the item into stock with it. The API normalises it; a
+ * malformed one (a schema 422 on `vin`) and one already in stock are said in
+ * the UI language.
  */
-export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurchaseDialogProps) {
+export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onSubmit }: RecordPurchaseDialogProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const [supplierName, setSupplierName] = useState('')
   const [supplierIsVatRegistered, setSupplierIsVatRegistered] = useState(false)
   const [purchasePrice, setPurchasePrice] = useState<number | ''>('')
   const [purchaseDate, setPurchaseDate] = useState(() => todayLocalIsoDate())
   const [purchaseInvoiceRef, setPurchaseInvoiceRef] = useState('')
+  const [vin, setVin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,8 +52,10 @@ export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurcha
     if (opened) setError(null)
   }, [opened])
 
+  const incomplete = !supplierName || purchasePrice === '' || (requiresVin && !vin.trim())
+
   const submit = async () => {
-    if (!supplierName || purchasePrice === '') return
+    if (incomplete) return
     setSubmitting(true)
     setError(null)
     try {
@@ -51,10 +65,14 @@ export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurcha
         purchasePrice: Number(purchasePrice),
         purchaseDate,
         purchaseInvoiceRef: purchaseInvoiceRef || undefined,
+        ...(requiresVin ? { vin: vin.trim() } : {}),
       })
       onClose()
     } catch (err) {
-      setError(apiRefusalText(t, err, 'stockDetail.purchase.error'))
+      // A VIN the API refuses (KAN-351) is named by its rule, never as a
+      // generic «some entries are invalid».
+      const vinRefusal = vinRefusalKey(err)
+      setError(vinRefusal ? t(vinRefusal) : apiRefusalText(t, err, 'stockDetail.purchase.error'))
     } finally {
       setSubmitting(false)
     }
@@ -69,9 +87,17 @@ export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurcha
       submitLabel={t('stockDetail.purchase.submit')}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
-      submitDisabled={!supplierName || purchasePrice === ''}
+      submitDisabled={incomplete}
     >
       <Stack gap="md">
+        {requiresVin && (
+          <TextInput
+            {...hint(t('stockDetail.purchase.fields.vin'), t('stockDetail.purchase.fields.vinHint'))}
+            value={vin}
+            onChange={(e) => setVin(e.currentTarget.value)}
+            required
+          />
+        )}
         <TextInput
           label={t('stockDetail.purchase.fields.supplierName')}
           value={supplierName}

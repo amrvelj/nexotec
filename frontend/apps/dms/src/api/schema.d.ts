@@ -1438,6 +1438,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Photo */
+        get: operations["get_user_photo_v1_dealerships__dealership_id__users__user_id__photo_get"];
+        /**
+         * Put User Photo
+         * @description The user's photo (KAN-401, Users → Fields), set like the signature
+         *     image: the body is the image itself with its Content-Type, the row keeps
+         *     the object-store key only.
+         */
+        put: operations["put_user_photo_v1_dealerships__dealership_id__users__user_id__photo_put"];
+        post?: never;
+        /** Delete User Photo */
+        delete: operations["delete_user_photo_v1_dealerships__dealership_id__users__user_id__photo_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users/{user_id}/signature": {
         parameters: {
             query?: never;
@@ -2109,6 +2133,29 @@ export interface paths {
          *     The row stays, revoked.
          */
         delete: operations["revoke_my_connected_account_v1_me_connected_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Photo */
+        get: operations["get_my_photo_v1_me_photo_get"];
+        /**
+         * Put My Photo
+         * @description The caller's own photo (KAN-401) — the same store, key and rules as
+         *     the manager's route on the Users screen.
+         */
+        put: operations["put_my_photo_v1_me_photo_put"];
+        post?: never;
+        /** Delete My Photo */
+        delete: operations["delete_my_photo_v1_me_photo_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6656,6 +6703,11 @@ export interface components {
             email: string;
             /** Firstname */
             firstName: string;
+            /**
+             * Hasphoto
+             * @default false
+             */
+            hasPhoto?: boolean;
             /** Hassignatureimage */
             hasSignatureImage: boolean;
             /**
@@ -7446,6 +7498,11 @@ export interface components {
             supplierIsVatRegistered: boolean;
             /** Suppliername */
             supplierName: string;
+            /**
+             * Vin
+             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`).
+             */
+            vin?: string | null;
         };
         /**
          * RecordedAction
@@ -8285,6 +8342,11 @@ export interface components {
             /** Firstname */
             firstName: string;
             /**
+             * Hasphoto
+             * @default false
+             */
+            hasPhoto?: boolean;
+            /**
              * Hassignatureimage
              * @default false
              */
@@ -8306,6 +8368,8 @@ export interface components {
             lastName: string;
             /** Linemanageruserid */
             lineManagerUserId?: string | null;
+            /** Otherdealershipnames */
+            otherDealershipNames?: string[];
             /** Phone */
             phone: string | null;
             /** Primarylocationid */
@@ -10251,6 +10315,14 @@ export interface operations {
                 vehicleClass?: string | null;
                 emissionStandard?: string | null;
                 engineCycle?: string | null;
+                fuelTypeNot?: string | null;
+                bodyStyleNot?: string | null;
+                drivetrainNot?: string | null;
+                transmissionNot?: string | null;
+                vehicleKindNot?: string | null;
+                vehicleClassNot?: string | null;
+                emissionStandardNot?: string | null;
+                engineCycleNot?: string | null;
                 psMin?: number | string | null;
                 psMax?: number | string | null;
                 kwMin?: number | string | null;
@@ -10655,6 +10727,18 @@ export interface operations {
                 advisorUserId?: string | null;
                 /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */
                 unassigned?: boolean;
+                /** @description KAN-476: customers whose lifecycle status is not this one. */
+                lifecycle_status_not?: components["schemas"]["CustomerLifecycleStatus"] | null;
+                /** @description KAN-476: customers not of this type. */
+                customer_type_not?: components["schemas"]["CustomerType"] | null;
+                /** @description KAN-476: customers whose language is not this one (none set included). */
+                language_not?: components["schemas"]["Language"] | null;
+                /** @description KAN-476: customers whose primary domicile is not in this canton (none recorded included). */
+                canton_not?: string | null;
+                /** @description KAN-476: customers this user does not advise (unassigned ones included). */
+                advisorUserIdNot?: string | null;
+                /** @description KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen». */
+                assigned?: boolean;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -13231,6 +13315,120 @@ export interface operations {
             };
         };
     };
+    get_user_photo_v1_dealerships__dealership_id__users__user_id__photo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_user_photo_v1_dealerships__dealership_id__users__user_id__photo_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_photo_v1_dealerships__dealership_id__users__user_id__photo_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_user_signature_v1_dealerships__dealership_id__users__user_id__signature_get: {
         parameters: {
             query?: never;
@@ -14202,6 +14400,10 @@ export interface operations {
                 q?: string | null;
                 lifecycle_status?: components["schemas"]["LifecycleStatus"] | null;
                 condition?: components["schemas"]["StockItemCondition"] | null;
+                /** @description KAN-476: items whose lifecycle status is not this one — the grid's «ist nicht». */
+                lifecycle_status_not?: components["schemas"]["LifecycleStatus"] | null;
+                /** @description KAN-476: items whose condition is not this one (Zustand «ist nicht Occasion»). */
+                condition_not?: components["schemas"]["StockItemCondition"] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -15172,6 +15374,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectedAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_photo_v1_me_photo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_my_photo_v1_me_photo_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_photo_v1_me_photo_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
                 };
             };
             /** @description Validation Error */

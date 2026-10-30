@@ -379,3 +379,60 @@ describe('UsersListPage — the user\'s own settings are columns (KAN-413)', () 
     })
   })
 })
+
+// KAN-407 (ADR-060) — «Weitere Betriebe»: the sister Betriebe the user also
+// works in, as the API names them for this reader; shown by default.
+describe('UsersListPage — the «Weitere Betriebe» column (KAN-407)', () => {
+  it('shows each user\'s other Betriebe by name, and a dash for none', async () => {
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/dealerships\/dealership-1\/users$/,
+        handler: () => ({
+          items: [user({ otherDealershipNames: ['Garage Süd AG', 'Garage West AG'] }), USERS[1]],
+          nextCursor: null,
+        }),
+      },
+      ...routes().slice(1),
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Anna Keller')
+
+    expect(screen.getByRole('columnheader', { name: new RegExp(i18n.t('usersAdmin.columns.otherDealerships')) })).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getByText('Garage Süd AG, Garage West AG')).toBeInTheDocument()
+  })
+})
+
+// KAN-401 — the person's photo beside the name: fetched only for a row that
+// has one, initials otherwise.
+describe('UsersListPage — the photo in the name column (KAN-401)', () => {
+  it('shows the photo of a user who has one and the initials of one who has none', async () => {
+    const createObjectURL = vi.fn(() => 'blob:anna-photo')
+    const original = URL.createObjectURL
+    URL.createObjectURL = createObjectURL
+    try {
+      const backend = installFakeBackend([
+        {
+          method: 'GET',
+          match: /\/dealerships\/dealership-1\/users$/,
+          handler: () => ({ items: [user({ hasPhoto: true }), USERS[1]], nextCursor: null }),
+        },
+        {
+          method: 'GET',
+          match: /\/users\/[^/]+\/photo$/,
+          handler: () => new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), { headers: { 'content-type': 'image/jpeg' } }),
+        },
+        ...routes().slice(1),
+      ])
+      renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+      await screen.findByText('Anna Keller')
+
+      expect(await screen.findByRole('img', { name: 'Anna Keller' })).toHaveAttribute('src', 'blob:anna-photo')
+      const photoCalls = backend.callsTo(/\/photo$/, 'GET')
+      expect(photoCalls).toHaveLength(1)
+      expect(photoCalls[0].pathname).toBe(`/dealerships/dealership-1/users/${USERS[0].id}/photo`)
+    } finally {
+      URL.createObjectURL = original
+    }
+  })
+})

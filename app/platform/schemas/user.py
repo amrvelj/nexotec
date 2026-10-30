@@ -148,6 +148,7 @@ class UserAdminRead(CamelModel):
     deactivated_at: dt.datetime | None = None
     deactivation_reason: str | None = None
     has_signature_image: bool = False
+    has_photo: bool = False  # KAN-401: the photo itself is GET …/users/{id}/photo
     # KAN-413 (ADR-060: every stored field can be a column). The user's own
     # personal settings (KAN-201), written only through My account's
     # `PATCH /v1/me`: read-only here, never on `UserUpdate`. Null language =
@@ -160,6 +161,11 @@ class UserAdminRead(CamelModel):
     invitation_expires_at: dt.datetime | None = None
     primary_location_id: uuid.UUID | None = None
     additional_location_ids: list[uuid.UUID] = Field(default_factory=list)
+    # KAN-407 (ADR-060, the «Weitere Betriebe» column): the sister Betriebe the
+    # user is an active member of, by name, as the membership listing shows
+    # them to the reader — platform staff see every one, a dealer manager only
+    # those they manage themselves (KAN-199), anyone else none.
+    other_dealership_names: list[str] = Field(default_factory=list)
 
 
 class UserRead(CamelModel):

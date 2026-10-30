@@ -101,8 +101,8 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
     expect(screen.getAllByRole('option', { name: 'est' }).length).toBeGreaterThan(0)
-    // KAN-458: Stock offers only «est» — «n'est pas» is never sent, so never offered.
-    expect(screen.queryByRole('option', { name: "n'est pas" })).not.toBeInTheDocument()
+    // KAN-476: «n'est pas» is offered again — Stock applies it (`…_not`) — and named in French.
+    expect(screen.getAllByRole('option', { name: "n'est pas" }).length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
     expect(await screen.findByRole('button', { name: 'Modifier le filtre' })).toBeInTheDocument()
     // KAN-415: the saved filter is French text, not "… is Pipeline".

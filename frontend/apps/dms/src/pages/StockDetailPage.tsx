@@ -169,6 +169,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     purchasePrice: number
     purchaseDate: string
     purchaseInvoiceRef?: string
+    vin?: string
   }) => {
     const item = itemQuery.data
     if (!item) return

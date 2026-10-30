@@ -47,7 +47,9 @@ def create_brand(db: Session, *, data: BrandCreate, actor_id: uuid.UUID) -> Bran
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise ConflictError(f"A brand with code '{data.code}' already exists.", details={"code": data.code}) from exc
+        raise ConflictError(
+            f"A brand with code '{data.code}' already exists.", details={"reason": "brand_code_taken", "code": data.code}
+        ) from exc
 
     record_audit_event(
         db, entity_type="vehicle_brand", entity_id=brand.id, tenant_id=None, action="create", actor_id=actor_id,

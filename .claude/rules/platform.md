@@ -107,15 +107,20 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   `membership_end` on the home tenant and mirrored into the target's, `manager_flag_set` in the
   dealership the flag is held in (the home for the user row, the target for a membership). The
   listing shows a dealer manager only the sister dealerships they manage themselves.
+  The Users screen shows and edits them (KAN-407): the edit dialog's «Weitere Betriebe» section
+  (`components/users/UserMembershipsSection.tsx`, saved at once like the connected accounts; a
+  404 reads «not yours to manage», an empty listing never «no access»), and the grid's «Weitere
+  Betriebe» column reads `UserAdminRead.otherDealershipNames` with the same visibility —
+  `user_service.user_reads`/`user_read` take the viewer for it.
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
   manager-flag PUTs, delegation PUT/DELETE, since KAN-200 the deactivation step, the
-  hand-over, the signature PUT/DELETE and the invitation re-send, since KAN-201 the manager's
+  hand-over, the signature PUT/DELETE (since KAN-401 the photo's too) and the invitation re-send, since KAN-201 the manager's
   revoke of a connected account; My account's own writes take the caller's row the same way,
   pinned by their own source test) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included; platform staff's recovery routes take it the same way through `recovery.get_user_for_recovery_or_404`, pinned by their own source test — KAN-202). The
+  would deadlock against one that locked the user first (a source test pins the fifteen, the connected-account revoke and KAN-401's photo PUT/DELETE included; platform staff's recovery routes take it the same way through `recovery.get_user_for_recovery_or_404`, pinned by their own source test — KAN-202). The
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that
@@ -362,6 +367,13 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the key (`signature_image_ref`), never bytes or base64. The local store is dev, test and
   staging only: `get_object_store` refuses it in production at startup (KAN-402 brings the
   bucket), as the mailer refuses its `logging` sender (outside `development`, KAN-397).
+- **Photo (KAN-401):** the signature image's shape for the person's photo — `PUT/GET/DELETE
+  …/users/{id}/photo` (the manager) and `/v1/me/photo` (the user, My account › Profile), the
+  image as the raw body (PNG or JPEG ≤ 5 MiB, judged by its bytes; refusals carry
+  `photo_not_an_image` / `photo_too_large`), stored under `dealerships/<id>/users/<id>/photo`;
+  the row holds the key (`user.photo_ref`), `hasPhoto` is on `UserAdminRead` and `MeRead` (never
+  on the session's `UserRead`). The Users grid shows it beside the name (`UserAvatar`, fetched
+  only for a row that has one, initials otherwise).
 
 ## Document templates (ADR-051)
 

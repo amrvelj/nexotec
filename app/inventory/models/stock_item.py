@@ -222,7 +222,8 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     )
     configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-    # Set once, by promote_to_vehicle_mdm, the moment lifecycle_status
+    # Set once, by promotion (pipeline.promote_and_flush — purchase booking
+    # since KAN-446), the moment lifecycle_status
     # flips pipeline -> in_stock. Ageing (PR-7) is derived from this, never
     # from created_at — a factory order's time in the pipeline doesn't
     # count as ageing on the lot.

@@ -22,8 +22,15 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 - **ADR-045 — pre-VIN vehicles are pipeline stock items here, never vehicle-mdm records.** A
   Sales manual configuration and a trade-in on a confirmed contract both land here as pipeline
-  items; promotion on VIN arrival is FR-V-04 (`services/pipeline.py::promote_to_vehicle_mdm`),
-  which nothing calls yet — no endpoint or consumer reaches it (KAN-446).
+  items; promotion on VIN arrival is FR-V-04 (`services/pipeline.py::promote_and_flush`).
+- **ADR-103 — purchase booking puts a car on stock** (Anto, 2026-10-25, KAN-446): the chain is
+  configuration → pipeline → purchase → contract → invoice. `POST …/stock-items/{id}/purchase`
+  on a pipeline item needs the VIN (`RecordPurchaseRequest.vin`; 422 `purchase_requires_vin`
+  without it) and promotes the item before the purchase facts are written, in one transaction,
+  so `inventory.stock_item.purchased` is published at once; on an item in stock a `vin` that is
+  not the item's is 422 `purchase_vin_mismatch`. A pipeline item is never bought without its
+  VIN, so FR-I-02b's «purchase booked first, VIN later» order no longer exists. Offer and
+  contract stay possible at every phase; invoicing stays gated on the purchase.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
@@ -129,7 +136,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   VIN through `services/vehicle_resolution.py` on a session of their own, so vehicle-mdm's commit
   or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
   has never seen takes the winner's record and carries on — then is stocked or refused
-  `vin_already_in_stock` (KAN-257; promotion has no caller yet, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
+  `vin_already_in_stock` (KAN-257; promotion runs at purchase booking, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
   history; a storno'd car (`storno_pending`, which nothing sets yet — no storno flow exists,
   KAN-146) would still block its VIN. The same car may be in pipeline twice (pipeline
   items carry no VIN until promotion). The legacy transaction import follows the same rule: a car

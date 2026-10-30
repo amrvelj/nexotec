@@ -63,20 +63,30 @@ describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
     expect(call.params.get('lifecycle_status')).toBe('in_stock')
   })
 
-  it('a predicate the grid does not offer — «is not», an unknown field — is neither sent nor shown as active', async () => {
+  it('a predicate the grid does not offer — an unknown field — is neither sent nor shown as active', async () => {
     const backend = installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => EMPTY_PAGE }])
 
     renderWithProviders(<StockListPage />, {
-      route: routeWith([
-        { id: 'p1', fieldId: 'condition', type: 'select', condition: 'isNot', value: 'used' },
-        { id: 'p2', fieldId: 'fuelType', type: 'select', condition: 'is', value: 'petrol' },
-      ]),
+      route: routeWith([{ id: 'p2', fieldId: 'fuelType', type: 'select', condition: 'is', value: 'petrol' }]),
     })
 
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
     const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
-    expect(call.params.get('condition')).toBeNull()
     expect(call.params.get('fuelType')).toBeNull()
     expect((await viewControl()).textContent).not.toMatch(/\d/)
+  })
+
+  it('Zustand «ist nicht Occasion» is sent as condition_not and shown as active (KAN-476)', async () => {
+    const backend = installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => EMPTY_PAGE }])
+
+    renderWithProviders(<StockListPage />, {
+      route: routeWith([{ id: 'p1', fieldId: 'condition', type: 'select', condition: 'isNot', value: 'used' }]),
+    })
+
+    await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
+    const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
+    expect(call.params.get('condition_not')).toBe('used')
+    expect(call.params.get('condition')).toBeNull()
+    expect((await viewControl()).textContent).toMatch(/1/)
   })
 })

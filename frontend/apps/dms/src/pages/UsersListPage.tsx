@@ -22,6 +22,7 @@ import { api, ApiError } from '../api/client'
 import type { LocationList, OwnershipTransfersRead, UserAdminRead, UserDeactivatedRead, UserPage, UserStatus, UserUpdate } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { UserDeactivateDialog } from '../components/users/UserDeactivateDialog'
+import { UserAvatar } from '../components/users/UserAvatar'
 import { UserFormDialog } from '../components/users/UserFormDialog'
 import { buildUserRowMenu } from '../components/users/userRowMenu'
 import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
@@ -252,10 +253,23 @@ export function UsersListPage() {
       {
         id: 'name',
         header: t('usersAdmin.columns.name'),
-        cell: ({ row }) => userDisplayName(row.original),
+        // KAN-401: the person's photo (or initials) beside the name.
+        cell: ({ row }) => (
+          <Group gap="xs" wrap="nowrap">
+            <UserAvatar
+              photoPath={`/dealerships/${dealershipId}/users/${row.original.id}/photo`}
+              hasPhoto={row.original.hasPhoto ?? false}
+              version={row.original.version}
+              name={userDisplayName(row.original)}
+              size="xs"
+            />
+            <span>{userDisplayName(row.original)}</span>
+          </Group>
+        ),
         // Wide enough for a name beside its address at default density: the
-        // pinned column's own minimum (120 px) squeezed the name out.
-        meta: { pinned: 'left', locked: true, width: 300, sortField: 'lastName', secondary: (row) => row.email },
+        // pinned column's own minimum (120 px) squeezed the name out; the
+        // photo beside it (KAN-401) takes another 30 px.
+        meta: { pinned: 'left', locked: true, width: 330, sortField: 'lastName', secondary: (row) => row.email },
       },
       {
         id: 'status',
@@ -287,6 +301,9 @@ export function UsersListPage() {
         cell: ({ row }) => (row.original.isDealerManager ? <Badge tone="purple">{t('usersAdmin.managerBadge')}</Badge> : '—'),
         meta: { sortField: 'isDealerManager', exportValue: (row) => (row.isDealerManager ? t('common.yes') : t('common.no')) },
       },
+      // KAN-407 (ADR-060): the sister Betriebe the user also works in, as far
+      // as the reader may see them (KAN-199); derived, so not sortable.
+      text('otherDealerships', t('usersAdmin.columns.otherDealerships'), (row) => row.otherDealershipNames?.join(', '), true),
       text('primaryLocation', t('usersAdmin.columns.primaryLocation'), (row) => (row.primaryLocationId ? locationName(row.primaryLocationId) : null), true),
       {
         id: 'lastLogin',
@@ -359,7 +376,7 @@ export function UsersListPage() {
         meta: { align: 'right', defaultVisible: false, sortField: 'updatedAt', exportValue: (row) => formatDateTime(row.updatedAt, locale) },
       },
     ]
-  }, [t, locale, locationName, colleagueName])
+  }, [t, locale, locationName, colleagueName, dealershipId])
 
   const columnRegistry: ColumnRegistryEntry[] = useMemo(
     () =>
@@ -539,6 +556,7 @@ export function UsersListPage() {
         colleagues={colleagues.data?.items ?? []}
         selfId={me?.id ?? ''}
         onSaved={() => void onSaved()}
+        onMembershipsChanged={() => void invalidate()}
       />
       <UserDeactivateDialog
         opened={reassigning !== null}

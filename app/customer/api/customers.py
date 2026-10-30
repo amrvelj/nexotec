@@ -26,6 +26,7 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import ModuleCode, holds_entitlement, require_read, require_write
 from app.core.sorting import SortField, parse_sort
+from app.core.validators import CantonCode
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
     CalendarPeriod,
@@ -259,6 +260,25 @@ def list_customers(
     unassigned: bool = Query(
         default=False, description="KAN-200: customers with no advisor — the queue a leaver's hand-over fills."
     ),
+    # KAN-476: «ist nicht» per select field. A customer without a value (no
+    # language, no domicile canton, no advisor) is kept: it is not that value.
+    lifecycle_status_not: CustomerLifecycleStatus | None = Query(
+        default=None, description="KAN-476: customers whose lifecycle status is not this one."
+    ),
+    customer_type_not: CustomerType | None = Query(default=None, description="KAN-476: customers not of this type."),
+    language_not: Language | None = Query(
+        default=None, description="KAN-476: customers whose language is not this one (none set included)."
+    ),
+    canton_not: CantonCode | None = Query(
+        default=None,
+        description="KAN-476: customers whose primary domicile is not in this canton (none recorded included).",
+    ),
+    advisor_user_id_not: uuid.UUID | None = Query(
+        default=None,
+        alias="advisorUserIdNot",
+        description="KAN-476: customers this user does not advise (unassigned ones included).",
+    ),
+    assigned: bool = Query(default=False, description="KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen»."),
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -285,6 +305,12 @@ def list_customers(
         include_merged=include_merged,
         advisor_user_id=advisor_user_id,
         unassigned=unassigned,
+        lifecycle_status_not=lifecycle_status_not,
+        customer_type_not=customer_type_not,
+        language_not=language_not,
+        canton_not=canton_not,
+        advisor_user_id_not=advisor_user_id_not,
+        assigned=assigned,
     )
     projections_by_id = customer_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [

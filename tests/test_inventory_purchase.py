@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
-from app.inventory.models.stock_item import StockItemCondition
+from app.inventory.models.stock_item import LifecycleStatus, StockItemCondition
 from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemRead, StockItemUpdate
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
@@ -132,10 +132,11 @@ def test_record_purchase_with_no_configured_vat_rate_leaves_amount_uncomputed(db
     assert updated.notional_input_tax_amount is None
 
 
-def test_purchase_booked_before_vin_arrival_becomes_invoiceable_on_promotion(db_session):
-    """The other order (FR-I-02b): a trade-in's purchase is booked while
-    it's still pipeline; is_invoiceable only flips once promotion also
-    completes."""
+def test_a_pipeline_item_is_bought_with_its_vin_and_is_invoiceable_at_once(db_session):
+    """KAN-446 (Anto, 2026-10-25) replaces FR-I-02b's other order: a
+    pipeline item's purchase is no longer booked without its VIN. Booked
+    with one, the item is promoted in the same call and becomes invoiceable
+    at once."""
 
     dealership = _make_dealership(db_session)
     item = create_stock_item(
@@ -152,13 +153,15 @@ def test_purchase_booked_before_vin_arrival_becomes_invoiceable_on_promotion(db_
             supplier_is_vat_registered=False,
             purchase_price=Decimal("8000.00"),
             purchase_date=dt.date(2026, 8, 1),
+            vin="WVWUWDJ62012T0KD3",
         ),
         actor_id=uuid.uuid4(),
     )
-    assert updated.is_invoiceable is False  # still pipeline, no VIN yet
-
-    promoted = promote_to_vehicle_mdm(db_session, item=updated, vin="WVWUWDJ62012T0KD3")
-    assert promoted.is_invoiceable is True
+    assert updated.lifecycle_status == LifecycleStatus.IN_STOCK
+    assert updated.vehicle_id is not None
+    assert updated.is_invoiceable is True
+    # A later promotion with the same VIN (a redelivery) is the no-op it always was.
+    assert promote_to_vehicle_mdm(db_session, item=updated, vin="WVWUWDJ62012T0KD3").is_invoiceable is True
 
 
 def test_override_notional_input_tax_is_audited(db_session):

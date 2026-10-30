@@ -149,6 +149,8 @@ _PURCHASE = {
     "supplierIsVatRegistered": True,
     "purchasePrice": "18500.00",
     "purchaseDate": "2026-09-01",
+    # KAN-446: `_item` is a pipeline item, and a pipeline item is bought with its VIN.
+    "vin": "WVWZZZ1KZAW000446",
 }
 
 

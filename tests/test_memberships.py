@@ -464,3 +464,37 @@ def test_a_dealer_manager_cannot_touch_a_staff_accounts_leftover_membership(clie
         ).status_code
         == 204
     )
+
+
+# --- KAN-407: the Users grid's «Weitere Betriebe» column ------------------------------
+
+
+def _listed_names(client, home: str, headers: dict) -> dict[str, list[str]]:
+    response = client.get(f"/v1/dealerships/{home}/users", headers=headers)
+    assert response.status_code == 200, response.text
+    return {item["id"]: item["otherDealershipNames"] for item in response.json()["items"]}
+
+
+def test_the_users_list_names_each_users_active_sister_betriebe_as_the_listing_shows_them(client):
+    home = create_dealership(client, "Garage Nord AG")
+    south = create_dealership(client, "Garage Süd AG", group_of=home)
+    west = create_dealership(client, "Garage West AG", group_of=home)
+    manager = create_user(client, home)
+    assert grant(client, home, manager, south, is_dealer_manager=True).status_code == 201
+    user = create_user(client, home, is_dealer_manager=False)
+    assert grant(client, home, user, west).status_code == 201
+    assert grant(client, home, user, south).status_code == 201
+
+    # Platform staff see every active membership, by name, in name order.
+    assert _listed_names(client, home, platform_admin())[user["id"]] == ["Garage Süd AG", "Garage West AG"]
+    # The manager manages Süd but not West: West stays unnamed, as in the listing.
+    assert _listed_names(client, home, manager_of(home, manager))[user["id"]] == ["Garage Süd AG"]
+    # A manager of the home only learns no sister's name.
+    home_only = create_user(client, home)
+    assert _listed_names(client, home, manager_of(home, home_only))[user["id"]] == []
+
+    # An ended membership leaves the column; the single read says the same.
+    ended = client.delete(f"/v1/dealerships/{home}/users/{user['id']}/memberships/{west}", headers=if_match(client, home, user))
+    assert ended.status_code == 204, ended.text
+    single = client.get(f"/v1/dealerships/{home}/users/{user['id']}", headers=platform_admin())
+    assert single.json()["otherDealershipNames"] == ["Garage Süd AG"]

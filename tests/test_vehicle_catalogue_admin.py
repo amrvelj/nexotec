@@ -59,6 +59,8 @@ def test_duplicate_brand_code_is_conflict(client):
     client.post("/v1/vehicle-mdm/brands", json={"code": "dup", "displayName": "One"}, headers=_bearer(token))
     response = client.post("/v1/vehicle-mdm/brands", json={"code": "dup", "displayName": "Two"}, headers=_bearer(token))
     assert response.status_code == 409, response.text
+    # KAN-448: the brand screen says it in the UI language, from this reason.
+    assert response.json()["error"]["details"] == {"reason": "brand_code_taken", "code": "dup"}
 
 
 def test_mapping_gap_queue_is_platform_admin_only(client):
