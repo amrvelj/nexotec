@@ -72,9 +72,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   form and `/stock/new` are gone. `POST /v1/inventory/stock-items` takes
   `StockItemCreateRequest`, whose `configurationId` is required (422
   `configuration_required`) — at the endpoint only (decision 1a): the FR-I-02/02b consumers
-  and the ADR-091 import build their own `StockItemCreate`.
-  `src/architecture/stock-intake-is-the-configurator.test.ts` keeps any other screen from
-  posting one. An item created before without a configuration is repaired on its detail with
+  build their own `StockItemCreate` and the ADR-091 import writes its rows directly. A
+  configuration whose VIN contradicts the body's is 422 `configuration_vin_differs`.
+  `src/architecture/stock-intake-is-the-configurator.test.ts` lets only the configurator
+  intake name the create path (the server's 422 is the real guard). An item created before without a configuration is repaired on its detail with
   «Konfiguration zuordnen» (decision 2a: no list marker): `POST …/stock-items/{id}/configuration`
   (If-Match, Idempotency-Key, audit `configuration_attached`; 409
   `configuration_already_linked`, 422 `configuration_vin_differs` when both carry a VIN and they

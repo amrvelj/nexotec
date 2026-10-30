@@ -50,7 +50,7 @@ function session(writableCapabilities: string[]): FakeRoute {
   }
 }
 
-function install(writableCapabilities: string[]) {
+function install(writableCapabilities: string[], { zusatztitel = null, photos = [] }: { zusatztitel?: string | null; photos?: string[] } = {}) {
   installFakeBackend([
     session(writableCapabilities),
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
@@ -58,9 +58,13 @@ function install(writableCapabilities: string[]) {
     {
       method: 'GET',
       match: new RegExp(`^/inventory/stock-items/${ID}/publishing/(\\w+)$`),
-      handler: (req) => publishing(req.pathname.split('/').pop() as string),
+      handler: (req) => ({ ...publishing(req.pathname.split('/').pop() as string), zusatztitel }),
     },
-    { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/media$`), handler: () => [] },
+    {
+      method: 'GET',
+      match: new RegExp(`^/inventory/stock-items/${ID}/media$`),
+      handler: () => photos.map((url, i) => ({ id: `m-${i}`, stockItemId: ID, url, position: i + 1 })),
+    },
     {
       method: 'GET',
       match: new RegExp(`^/inventory/stock-items/${ID}/equipment$`),
@@ -78,8 +82,8 @@ function render(tab?: string) {
   )
 }
 
-const SALES = ['stock_items', 'stock_condition']
-const INVENTORY = ['stock_items', 'stock_condition', 'stock_acquisition', 'marketplace_publishing']
+const SALES = ['configurations', 'stock_items', 'stock_condition']
+const INVENTORY = ['configurations', 'stock_items', 'stock_condition', 'stock_acquisition', 'marketplace_publishing']
 
 afterEach(async () => {
   cleanup()
@@ -116,8 +120,15 @@ describe('StockDetailPage — what the role may never use is hidden (KAN-430)', 
     expect(screen.queryByRole('button', { name: i18n.t('stockDetail.wagenbuch.recordButton') })).not.toBeInTheDocument()
   })
 
-  it('shows a salesperson each channel\'s status and the equipment, without publishing, listing texts or photos', async () => {
-    install(SALES)
+  it('offers the cost booking to a role that may book it', async () => {
+    install(INVENTORY)
+    render('wagenbuch')
+
+    expect(await screen.findByRole('button', { name: i18n.t('stockDetail.wagenbuch.recordButton') })).toBeInTheDocument()
+  })
+
+  it('shows a salesperson the channels, texts and photos read-only: no publishing, no editing', async () => {
+    install(SALES, { zusatztitel: 'Top gepflegt', photos: ['https://cdn.example.ch/1.jpg'] })
     render('publishing')
 
     expect(await screen.findByText('Anhängerkupplung')).toBeInTheDocument()
@@ -125,8 +136,20 @@ describe('StockDetailPage — what the role may never use is hidden (KAN-430)', 
     expect(
       screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.publishTo', { channel: 'AutoScout24' }) }),
     ).not.toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('stockDetail.publishing.listingTextTitle'))).not.toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('stockDetail.publishing.media.title'))).not.toBeInTheDocument()
+    // The texts and the photos are the role's to read (KAN-430 hides actions, never data).
+    expect(await screen.findByText('Top gepflegt')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('stockDetail.publishing.media.mainImage'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.media.addPhoto') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.media.remove') })).not.toBeInTheDocument()
+  })
+
+  it('does not offer «Konfiguration zuordnen» to a role that may not write the stock item', async () => {
+    install(['customers'])
+    render()
+
+    expect(await screen.findByText(i18n.t('stockDetail.configuration.missing'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.configuration.attach') })).not.toBeInTheDocument()
   })
 
   it('offers publishing, listing texts and photos to a role that may publish', async () => {

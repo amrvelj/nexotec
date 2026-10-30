@@ -6,13 +6,15 @@ computed from `CAPABILITY_MATRIX` — never a second role table in the
 frontend. `may_write` is the one rule; `require_write` enforces it."""
 
 import re
+import uuid
 from pathlib import Path
 
 import pytest
 
-from app.core.auth import AccessRole
-from app.core.permissions import CAPABILITY_MATRIX, may_write, writable_capabilities
-from tests.identity_support import PasswordLogin, cookie_headers, create_dealership, create_user
+from app.core.auth import AccessRole, Principal
+from app.core.errors import ForbiddenError
+from app.core.permissions import CAPABILITY_MATRIX, may_write, require_write, writable_capabilities
+from tests.identity_support import PasswordLogin, cookie_headers, create_dealership, create_user, platform_admin_headers
 
 _STOCK_ROWS = ("stock_items", "stock_acquisition", "stock_condition", "marketplace_publishing", "stock_reservation")
 
@@ -102,3 +104,49 @@ def test_every_capability_the_spa_asks_about_is_a_matrix_row():
 
     assert names
     assert set(names) <= set(CAPABILITY_MATRIX)
+
+
+@pytest.mark.parametrize("role", [r for r in AccessRole if r is not AccessRole.PLATFORM_ADMIN])
+@pytest.mark.parametrize("manager", [False, True])
+def test_require_write_lets_through_exactly_the_listed_rows(role, manager):
+    """The list and the gate are one rule: the dependency `require_write`
+    builds passes for every listed row and refuses every other."""
+
+    tenant_id = uuid.uuid4()
+    principal = Principal(
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid4(), memberships=frozenset({tenant_id}),
+        active_location_id=None, roles=frozenset({role}), is_dealer_manager=manager,
+    )
+    writable = set(writable_capabilities(roles=principal.roles, is_dealer_manager=manager))
+
+    for name in CAPABILITY_MATRIX:
+        check = require_write(name)
+        if name in writable:
+            assert check(principal) is principal
+        else:
+            with pytest.raises(ForbiddenError):
+                check(principal)
+
+
+def test_switching_to_a_sister_betrieb_follows_the_manager_flag_held_there(client, login):
+    """A manager at home who is a plain member of a sister Betrieb writes
+    there what the role allows, no more."""
+
+    home = create_dealership(client)
+    sister = create_dealership(client)
+    manager = create_user(client, home, accessRoles=["sales"], isDealerManager=True)
+    granted = client.post(
+        f"/v1/dealerships/{home}/users/{manager['id']}/memberships",
+        json={"dealershipId": sister, "isDealerManager": False},
+        headers=platform_admin_headers(),
+    )
+    assert granted.status_code == 201, granted.text
+
+    cookie = login.session_cookie(manager)
+    switched = client.post("/v1/auth/switch-dealership", json={"dealershipId": sister}, headers=cookie_headers(cookie))
+
+    assert switched.status_code == 200, switched.text
+    assert switched.json()["writableCapabilities"] == writable_capabilities(
+        roles=frozenset({AccessRole.SALES}), is_dealer_manager=False
+    )
+    assert "stock_acquisition" not in switched.json()["writableCapabilities"]

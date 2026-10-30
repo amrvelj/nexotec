@@ -65,7 +65,7 @@ export function AddToPipelineButton() {
   }
 
   return (
-    <Button variant="default" leftSection={<Workflow size={16} />} onClick={open}>
+    <Button leftSection={<Workflow size={16} />} onClick={open}>
       {t('stockList.newStockItem')}
     </Button>
   )

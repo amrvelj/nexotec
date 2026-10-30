@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader, SegmentedControl, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
+import { CounterTextarea, KeyValueRow, MediaGallery, OverviewCard, semantic, slate, spacing, type MediaGalleryLabels } from '@nexotec/ui-kit'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
@@ -30,9 +30,9 @@ interface PublishingTabProps {
   locale: string
   /** KAN-430: whether the user's role may publish (`marketplace_publishing`).
    * When not, each channel shows its status without the publish or unpublish
-   * action, and the listing texts and the photos — written only here — are
-   * not shown; the equipment stays. The stock detail passes the session's
-   * answer. */
+   * action, and the listing texts and the photos are shown read-only — the
+   * actions are hidden, never what the role may read. The stock detail
+   * passes the session's answer. */
   canPublish?: boolean
 }
 
@@ -218,6 +218,15 @@ export function PublishingTab({ stockItemId, locale, canPublish = true }: Publis
     }, 'stockDetail.publishing.media.reorderError')
   }
 
+  const mediaLabels: MediaGalleryLabels = {
+    mainImage: t('stockDetail.publishing.media.mainImage'),
+    moveLeft: t('stockDetail.publishing.media.moveLeft'),
+    moveRight: t('stockDetail.publishing.media.moveRight'),
+    remove: t('stockDetail.publishing.media.remove'),
+    addPhoto: t('stockDetail.publishing.media.addPhoto'),
+    countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
+  }
+
   const equipment = equipmentQuery.data
 
   return (
@@ -244,68 +253,63 @@ export function PublishingTab({ stockItemId, locale, canPublish = true }: Publis
         </div>
       </div>
 
-      {canPublish && (
-        <>
-          <OverviewCard title={t('stockDetail.publishing.listingTextTitle')}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-              <SegmentedControl
-                value={activeChannel}
-                onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
-                data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
-              />
-              {listingTextError && (
-                <Alert color="red" role="alert">
-                  {listingTextError}
-                </Alert>
-              )}
-              {/* Keyed by channel: a draft still waiting when the channel changes
-                  is saved to the channel it was typed for. Shown once the
-                  channel's row is loaded: a keystroke typed before it would have
-                  no version to save against and be lost. */}
-              {activePublishing ? (
-                <ListingTextFields
-                  key={activeChannel}
-                  publishing={activePublishing}
-                  resetKey={String(listingTextResync[activeChannel])}
-                  onSave={(patch) => saveListingText(activeChannel, patch)}
-                  titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
-                    count: TITLE_DISPLAY_LIMITS[activeChannel],
-                  })}
-                />
-              ) : activePublishingQuery.isError ? (
-                <Text c="red" size="sm">
-                  {t('stockDetail.publishing.listingTextLoadError')}
-                </Text>
-              ) : (
-                <Loader size="sm" />
-              )}
-            </div>
-          </OverviewCard>
-
-          <OverviewCard title={t('stockDetail.publishing.media.title')}>
-            {mediaError && (
-              <Alert color="red" role="alert" mb="sm">
-                {mediaError}
-              </Alert>
-            )}
-            <MediaGallery
-              items={mediaItems}
-              maxItems={16}
-              onAdd={addMedia}
-              onRemove={removeMedia}
-              onReorder={reorderMedia}
-              labels={{
-                mainImage: t('stockDetail.publishing.media.mainImage'),
-                moveLeft: t('stockDetail.publishing.media.moveLeft'),
-                moveRight: t('stockDetail.publishing.media.moveRight'),
-                remove: t('stockDetail.publishing.media.remove'),
-                addPhoto: t('stockDetail.publishing.media.addPhoto'),
-                countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
-              }}
+      <OverviewCard title={t('stockDetail.publishing.listingTextTitle')}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+          <SegmentedControl
+            value={activeChannel}
+            onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
+            data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
+          />
+          {listingTextError && canPublish && (
+            <Alert color="red" role="alert">
+              {listingTextError}
+            </Alert>
+          )}
+          {/* Keyed by channel: a draft still waiting when the channel changes
+              is saved to the channel it was typed for. Shown once the
+              channel's row is loaded: a keystroke typed before it would have
+              no version to save against and be lost. */}
+          {activePublishing && !canPublish ? (
+            <ListingTextValues publishing={activePublishing} />
+          ) : activePublishing ? (
+            <ListingTextFields
+              key={activeChannel}
+              publishing={activePublishing}
+              resetKey={String(listingTextResync[activeChannel])}
+              onSave={(patch) => saveListingText(activeChannel, patch)}
+              titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
+                count: TITLE_DISPLAY_LIMITS[activeChannel],
+              })}
             />
-          </OverviewCard>
-        </>
-      )}
+          ) : activePublishingQuery.isError ? (
+            <Text c="red" size="sm">
+              {t('stockDetail.publishing.listingTextLoadError')}
+            </Text>
+          ) : (
+            <Loader size="sm" />
+          )}
+        </div>
+      </OverviewCard>
+
+      <OverviewCard title={t('stockDetail.publishing.media.title')}>
+        {mediaError && (
+          <Alert color="red" role="alert" mb="sm">
+            {mediaError}
+          </Alert>
+        )}
+        {canPublish ? (
+          <MediaGallery
+            items={mediaItems}
+            maxItems={16}
+            onAdd={addMedia}
+            onRemove={removeMedia}
+            onReorder={reorderMedia}
+            labels={mediaLabels}
+          />
+        ) : (
+          <MediaGallery items={mediaItems} maxItems={16} labels={mediaLabels} readOnly />
+        )}
+      </OverviewCard>
 
       {equipment && (
         <OverviewCard title={t('stockDetail.publishing.equipment.title')}>
@@ -357,6 +361,22 @@ function ListingTextFields({
         {...hint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
         maxLength={2000}
       />
+    </>
+  )
+}
+
+/** KAN-430 — the listing texts for a role that may read but not publish:
+ * the same four fields, as text. */
+function ListingTextValues({ publishing }: { publishing: PublishingRead }) {
+  const { t } = useTranslation()
+  const fields: ListingTextField[] = ['zusatztitel', 'bemerkungen', 'zustandsbeschreibung', 'haendlerbemerkungen']
+  return (
+    <>
+      {fields.map((name) => (
+        <KeyValueRow key={name} label={t(`stockDetail.publishing.fields.${name}`)}>
+          <span style={{ whiteSpace: 'pre-wrap' }}>{publishing[name] || '—'}</span>
+        </KeyValueRow>
+      ))}
     </>
   )
 }

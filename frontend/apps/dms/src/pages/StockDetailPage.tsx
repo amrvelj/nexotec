@@ -64,6 +64,8 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   // KAN-430 (Anto, option A): what the user's role may never use is hidden.
   const canBookPurchase = useCanWrite('stock_acquisition')
   const canPublish = useCanWrite('marketplace_publishing')
+  const canWriteStockItems = useCanWrite('stock_items')
+  const canWriteConfigurations = useCanWrite('configurations')
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
 
   const setActiveTab = (tab: string) => {
@@ -268,6 +270,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
           onSaveField={saveField}
           onReload={reload}
           canRecordPurchase={canBookPurchase}
+          canAttachConfiguration={canWriteStockItems && canWriteConfigurations}
           onRecordPurchase={recordPurchase}
         />
       )}

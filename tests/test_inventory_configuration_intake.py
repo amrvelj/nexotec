@@ -249,3 +249,22 @@ def test_a_sales_user_may_attach_a_configuration(client, db_session):
 
     assert linked.status_code == 200, linked.text
 
+
+
+def test_a_create_with_a_configuration_of_another_car_is_refused(client, db_session):
+    """The same rule as «Konfiguration zuordnen»: a configuration whose VIN
+    is not the body's describes another car, and its technical data would be
+    shown on this one (found by KAN-463's review)."""
+
+    headers = _headers(uuid.uuid4())
+    other_car = _configuration_with_vin(db_session, headers, "WVWZZZ1KZAW000002")
+
+    refused = client.post(
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "VW Golf", "condition": "used", "vin": VIN, "configurationId": other_car},
+        headers=headers,
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"] == {"field": "configurationId", "reason": "configuration_vin_differs"}
+    assert db_session.scalar(select(func.count()).select_from(StockItem)) == 0

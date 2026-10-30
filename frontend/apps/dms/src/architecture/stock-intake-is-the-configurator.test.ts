@@ -9,10 +9,10 @@ import { fileURLToPath } from 'node:url'
 // KAN-463 (Anto, 2026-10-26): every stock vehicle enters through the
 // configurator. The hand-typed «Fahrzeug aufnehmen» form posted a label and
 // a condition, and the car it created had no vehicle and no technical data.
-// The API now refuses a create without `configurationId`; this keeps a screen
-// from building one again: every post to the create endpoint types its body
-// as `StockItemCreateRequest`, whose `configurationId` the generated schema
-// makes required, so `tsc` refuses a body without it.
+// The API refuses a create without `configurationId` (422, the real guard);
+// this keeps a screen from building one again: only the configurator intake
+// names the create path, and it types its body as `StockItemCreateRequest`,
+// whose `configurationId` the generated schema makes required.
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -24,25 +24,32 @@ function sourceFiles(dir: string): string[] {
   })
 }
 
-// `api.post<…>('/inventory/stock-items', body, …)` — the collection itself,
-// not a sub-resource (`/inventory/stock-items/${id}/…`).
-const CREATE_POST = /api\.post(?:<[^>]*>)?\(\s*['"`]\/inventory\/stock-items['"`]\s*,\s*(\w+)/g
+// Comments are not code: the scan reads what the file executes.
+const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+// The create endpoint's path as a whole string literal — however it is then
+// used (passed inline, kept in a constant, wrapped in another helper). A
+// read of the list carries a query string (`/inventory/stock-items?…`) and
+// a sub-resource a further segment, so neither is this literal.
+const CREATE_PATH_LITERAL = /(['"`])\/inventory\/stock-items\1/
+// A POST to the collection with a query string would still be a create.
+const CREATE_POST_WITH_QUERY = /\.post(?:<[^(]*>)?\(\s*[`'"]\/inventory\/stock-items\?/
 
 describe('the stock intake is the configurator', () => {
-  const posts = sourceFiles(SRC).flatMap((path) => {
-    const source = readFileSync(path, 'utf-8')
-    return [...source.matchAll(CREATE_POST)].map((m) => ({ file: relative(SRC, path), source, body: m[1] }))
+  const files = sourceFiles(SRC).map((path) => ({ file: relative(SRC, path), source: withoutComments(readFileSync(path, 'utf-8')) }))
+
+  it('names the create path in the configurator intake alone', () => {
+    expect(files.filter((f) => CREATE_PATH_LITERAL.test(f.source)).map((f) => f.file)).toEqual([
+      'pages/stock/AddToPipelineButton.tsx',
+    ])
+    expect(files.filter((f) => CREATE_POST_WITH_QUERY.test(f.source)).map((f) => f.file)).toEqual([])
   })
 
-  it('posts a stock item from the configurator intake alone', () => {
-    expect(posts.map((p) => p.file)).toEqual(['pages/stock/AddToPipelineButton.tsx'])
-  })
-
-  it('types every create body as the request that requires a configuration', () => {
-    for (const { file, source, body } of posts) {
-      expect(source, `${file}: ${body}`).toMatch(new RegExp(`const ${body}: StockItemCreateRequest = \\{`))
-      expect(source, `${file}: ${body}`).toMatch(/configurationId: configuration\.id/)
-    }
+  it('types the create body as the request that requires a configuration', () => {
+    const intake = files.find((f) => f.file === 'pages/stock/AddToPipelineButton.tsx')!.source
+    expect(intake).toMatch(/api\.post<StockItemRead>\('\/inventory\/stock-items', body,/)
+    expect(intake).toMatch(/const body: StockItemCreateRequest = \{/)
+    expect(intake).toMatch(/configurationId: configuration\.id/)
   })
 
   it('the generated schema makes configurationId required on the create', () => {

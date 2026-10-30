@@ -17,14 +17,26 @@ export interface MediaGalleryLabels {
   countOf: (count: number, max: number) => string;
 }
 
-export interface MediaGalleryProps {
+interface MediaGalleryBaseProps {
   items: MediaGalleryItem[];
   maxItems: number;
-  onReorder: (orderedIds: string[]) => void;
-  onRemove: (id: string) => void;
-  onAdd: () => void;
   labels: MediaGalleryLabels;
 }
+
+/** KAN-430 — `readOnly` shows the pictures in their order, main image
+ * marked, without the add tile or the move and remove controls: for a
+ * user who may see the car's photos but not publish (the stock detail's
+ * Publikation tab). The handlers belong to the editable gallery only. */
+export type MediaGalleryProps = MediaGalleryBaseProps &
+  (
+    | { readOnly: true }
+    | {
+        readOnly?: false;
+        onReorder: (orderedIds: string[]) => void;
+        onRemove: (id: string) => void;
+        onAdd: () => void;
+      }
+  );
 
 /**
  * § Publishing tab — "picture order IS the product; the main image is
@@ -34,16 +46,18 @@ export interface MediaGalleryProps {
  * click instead of a gesture. The other ui-kit gap this package's own
  * research surfaced, alongside CounterTextarea.
  */
-export function MediaGallery({ items, maxItems, onReorder, onRemove, onAdd, labels }: MediaGalleryProps) {
+export function MediaGallery(props: MediaGalleryProps) {
+  const { items, maxItems, labels } = props;
+  const editable = props.readOnly ? null : props;
   const sorted = [...items].sort((a, b) => a.position - b.position);
   const ids = sorted.map((i) => i.id);
 
   const move = (index: number, delta: number) => {
     const target = index + delta;
-    if (target < 0 || target >= ids.length) return;
+    if (!editable || target < 0 || target >= ids.length) return;
     const next = [...ids];
     [next[index], next[target]] = [next[target], next[index]];
-    onReorder(next);
+    editable.onReorder(next);
   };
 
   return (
@@ -81,42 +95,44 @@ export function MediaGallery({ items, maxItems, onReorder, onRemove, onAdd, labe
                 {labels.mainImage}
               </span>
             )}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: spacing.xs,
-                backgroundColor: slate[0],
-              }}
-            >
-              <Tooltip label={labels.moveLeft}>
-                <ActionIcon variant="subtle" size="sm" disabled={index === 0} onClick={() => move(index, -1)} aria-label={labels.moveLeft}>
-                  <ArrowLeft size={14} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label={labels.remove}>
-                <ActionIcon variant="subtle" size="sm" color="red" onClick={() => onRemove(item.id)} aria-label={labels.remove}>
-                  <Trash2 size={14} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label={labels.moveRight}>
-                <ActionIcon
-                  variant="subtle"
-                  size="sm"
-                  disabled={index === sorted.length - 1}
-                  onClick={() => move(index, 1)}
-                  aria-label={labels.moveRight}
-                >
-                  <ArrowRight size={14} />
-                </ActionIcon>
-              </Tooltip>
-            </div>
+            {editable && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: spacing.xs,
+                  backgroundColor: slate[0],
+                }}
+              >
+                <Tooltip label={labels.moveLeft}>
+                  <ActionIcon variant="subtle" size="sm" disabled={index === 0} onClick={() => move(index, -1)} aria-label={labels.moveLeft}>
+                    <ArrowLeft size={14} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label={labels.remove}>
+                  <ActionIcon variant="subtle" size="sm" color="red" onClick={() => editable.onRemove(item.id)} aria-label={labels.remove}>
+                    <Trash2 size={14} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label={labels.moveRight}>
+                  <ActionIcon
+                    variant="subtle"
+                    size="sm"
+                    disabled={index === sorted.length - 1}
+                    onClick={() => move(index, 1)}
+                    aria-label={labels.moveRight}
+                  >
+                    <ArrowRight size={14} />
+                  </ActionIcon>
+                </Tooltip>
+              </div>
+            )}
           </div>
         ))}
-        {sorted.length < maxItems && (
+        {editable && sorted.length < maxItems && (
           <button
             type="button"
-            onClick={onAdd}
+            onClick={editable.onAdd}
             aria-label={labels.addPhoto}
             style={{
               width: 140,

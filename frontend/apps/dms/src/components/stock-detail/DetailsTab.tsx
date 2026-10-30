@@ -19,6 +19,10 @@ interface DetailsTabProps {
    * (`stock_acquisition`). Hidden when not; the stock detail passes the
    * session's answer. */
   canRecordPurchase?: boolean
+  /** KAN-430: whether the user's role may link a configuration
+   * (`stock_items` and `configurations`); without, the card only says one is
+   * missing. */
+  canAttachConfiguration?: boolean
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -39,7 +43,15 @@ interface DetailsTabProps {
 // KAN-168: the price editors open grouped, with CHF (CHF 42'500), never on the raw 42500.00.
 const chfEditor = chfInlineEditor({ min: 0 })
 
-export function DetailsTab({ item, locale, onSaveField, onReload, canRecordPurchase = true, onRecordPurchase }: DetailsTabProps) {
+export function DetailsTab({
+  item,
+  locale,
+  onSaveField,
+  onReload,
+  canRecordPurchase = true,
+  canAttachConfiguration = true,
+  onRecordPurchase,
+}: DetailsTabProps) {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
@@ -87,7 +99,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, canRecordPurch
         <OverviewCard title={t('stockDetail.configuration.title')}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <span style={{ color: slate[5] }}>{t('stockDetail.configuration.missing')}</span>
-            <AttachConfigurationButton item={item} />
+            {canAttachConfiguration && <AttachConfigurationButton item={item} />}
           </div>
         </OverviewCard>
       )}

@@ -6,5 +6,5 @@
  * it; `tests/test_writable_capabilities.py` checks every one is a matrix row.
  * A module of its own, importing nothing, so test fixtures can read it.
  */
-export const GATED_CAPABILITIES = ['marketplace_publishing', 'stock_acquisition'] as const
+export const GATED_CAPABILITIES = ['configurations', 'marketplace_publishing', 'stock_acquisition', 'stock_items'] as const
 export type GatedCapability = (typeof GATED_CAPABILITIES)[number]

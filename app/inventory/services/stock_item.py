@@ -132,6 +132,16 @@ def _vin_already_in_stock(held_by: StockItem) -> ConflictError:
     )
 
 
+def _configuration_vin_differs() -> UnprocessableEntityError:
+    """KAN-463: a configuration whose VIN is not the stock item's describes
+    another car; linking it would show that car's technical data."""
+
+    return UnprocessableEntityError(
+        "The configuration's VIN is not this stock item's VIN.",
+        details={"field": "configurationId", "reason": "configuration_vin_differs"},
+    )
+
+
 def _check_vin_not_in_stock(db: Session, *, tenant_id: uuid.UUID, vin: str) -> None:
     """Refuse before writing, so the ordinary duplicate is a 409 with a
     reason. Two writers can still race past it; the unique index then
@@ -256,6 +266,10 @@ def create_stock_item(
         configuration.require_mode(
             host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD)
         )
+        # KAN-463: the configuration is the car's technical data, so one
+        # that names another car is refused, as on «Konfiguration zuordnen».
+        if data.vin is not None and configuration.vin is not None and configuration.vin != data.vin:
+            raise _configuration_vin_differs()
         configuration_label = configuration.label
     if data.vin is not None:
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
@@ -314,7 +328,8 @@ def attach_configuration(
     `configuration_already_linked`: a configuration is replaced by editing
     it, never by linking another) and when both carry a VIN and they differ
     (422 `configuration_vin_differs`: it would describe another car).
-    Audited; the caller has checked If-Match."""
+    Allowed on an item that has left stock too: its record keeps the car's
+    data. Audited; the caller has checked If-Match."""
 
     if item.configuration_id is not None:
         raise ConflictError(
@@ -324,10 +339,7 @@ def attach_configuration(
     configuration = get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=configuration_id)
     configuration.require_mode(host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD))
     if item.vin is not None and configuration.vin is not None and configuration.vin != item.vin:
-        raise UnprocessableEntityError(
-            "The configuration's VIN is not this stock item's VIN.",
-            details={"field": "configurationId", "reason": "configuration_vin_differs"},
-        )
+        raise _configuration_vin_differs()
     item.configuration_id = configuration.id
     # Rule 2's three columns: the label is a copy of the configuration's,
     # refreshed now.
