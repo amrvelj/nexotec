@@ -1,13 +1,41 @@
-import i18next from 'i18next'
+import i18next, { type BackendModule, type ResourceKey } from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { formatNumber } from '@nexotec/ui-kit'
 import de from './locales/de.json'
-import fr from './locales/fr.json'
-import it from './locales/it.json'
 import en from './locales/en.json'
 
 export const SUPPORTED_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
+
+// KAN-438: the app starts in German (`lng` below) and falls back to English,
+// so those two bundles ship with the app; French and Italian (~100 kB each)
+// are fetched, as their own chunks, the first time a user switches to them.
+// `changeLanguage` waits for the bundle before it switches, so a switch never
+// shows keys or a half-translated screen — the old language stays until the
+// new one is complete. A bundle that cannot be fetched (offline, a chunk
+// removed by a deploy) is retried by i18next and then falls back to English,
+// as a key missing from the active bundle always has. Exported only so a
+// render test can hold one bundle back (onDemandBundles.render.test.tsx).
+export const onDemandBundleLoaders: Partial<Record<SupportedLanguage, () => Promise<{ default: ResourceKey }>>> = {
+  fr: () => import('./locales/fr.json'),
+  it: () => import('./locales/it.json'),
+}
+
+const onDemandBundles: BackendModule = {
+  type: 'backend',
+  init: () => {},
+  read: (language, _namespace, callback) => {
+    const load = onDemandBundleLoaders[language as SupportedLanguage]
+    if (!load) {
+      callback(new Error(`no locale bundle for ${language}`), false)
+      return
+    }
+    load().then(
+      (bundle) => callback(null, bundle.default),
+      (error: unknown) => callback(error instanceof Error ? error : new Error(String(error)), false),
+    )
+  },
+}
 
 // WP-6c PR-12: "a missing key renders a loud marker and never a German
 // fallback" — fallbackLng still covers the narrower case this app has
@@ -18,13 +46,14 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 // default behaviour renders as the bare key path — legible enough to spot
 // in a code review, but not the deliberate, impossible-to-mistake-for-
 // content marker this app wants a tester or a screen-reader user to see.
-void i18next.use(initReactI18next).init({
+void i18next.use(onDemandBundles).use(initReactI18next).init({
   resources: {
     de: { translation: de },
-    fr: { translation: fr },
-    it: { translation: it },
     en: { translation: en },
   },
+  // The two bundled languages are used as given; the backend is asked only
+  // for a language with no bundle yet (KAN-438).
+  partialBundledLanguages: true,
   lng: 'de',
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
