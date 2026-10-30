@@ -5567,6 +5567,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Mergedintocustomerid */
+            mergedIntoCustomerId?: string | null;
             /** Otherparties */
             otherParties?: components["schemas"]["OtherVehiclePartySummary"][];
             role: components["schemas"]["VehiclePartyRole"];

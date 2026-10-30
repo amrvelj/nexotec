@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button, Group } from '@mantine/core'
 import { Car, FileText, Plus, Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DataGrid, type GridColumnDef } from '@nexotec/ui-kit'
+import { Badge, DataGrid, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate } from '../../utils/format'
 import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
@@ -87,7 +87,22 @@ export function VehiclesTab({
       {
         id: 'effectiveTo',
         header: t('customerDetail.vehicles.columns.until'),
-        cell: ({ row }) => (row.original.effectiveTo ? formatDate(row.original.effectiveTo, locale) : '—'),
+        // KAN-347 (ADR-064): a row a customer merge kept closed at its own
+        // start (KAN-177) is not an ordinary ended role — it says so, and
+        // links to the customer it was merged into.
+        cell: ({ row }) => {
+          const { effectiveTo, mergedIntoCustomerId } = row.original
+          const until = effectiveTo ? formatDate(effectiveTo, locale) : '—'
+          if (!mergedIntoCustomerId) return until
+          return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {until}
+              <Link to={`/customers/${mergedIntoCustomerId}`} title={t('customerDetail.vehicles.mergedIntoTitle')} style={{ display: 'inline-flex' }}>
+                <Badge tone="slate">{t('customerDetail.vehicles.mergedInto')}</Badge>
+              </Link>
+            </span>
+          )
+        },
         meta: { align: 'right' },
       },
       {

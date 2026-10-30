@@ -645,7 +645,9 @@
       "addAction": "Lier un véhicule",
       "inStockTitle": "Dans le stock du groupe — {{stockNumber}}",
       "specification": "Spécification",
-      "unknownVehicle": "Véhicule absent du registre"
+      "unknownVehicle": "Véhicule absent du registre",
+      "mergedInto": "Fusionné",
+      "mergedIntoTitle": "Clôturé par une fusion de clients — ouvrir le client cible"
     },
     "offersContracts": {
       "emptyState": {

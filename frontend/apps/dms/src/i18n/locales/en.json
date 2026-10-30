@@ -645,7 +645,9 @@
       "addAction": "Link vehicle",
       "inStockTitle": "In the group's own stock — {{stockNumber}}",
       "specification": "Specification",
-      "unknownVehicle": "Vehicle not in the register"
+      "unknownVehicle": "Vehicle not in the register",
+      "mergedInto": "Merged",
+      "mergedIntoTitle": "Ended by a customer merge — open the surviving customer"
     },
     "offersContracts": {
       "emptyState": {

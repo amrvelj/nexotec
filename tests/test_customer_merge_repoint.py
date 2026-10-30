@@ -376,6 +376,15 @@ def test_merge_keeps_overlapping_vehicle_party_closed_and_marked_merged(client, 
     assert [item["id"] for item in history.json()["items"]] == [str(overlapping_id)]
     closed_at = history.json()["items"][0]["effectiveTo"]
     assert dt.datetime.fromisoformat(closed_at) == shared_effective_from
+    # KAN-347: the read carries the mark, so the Vehicles tab can tell this
+    # merge from an ordinary ended role; every row a merge did not keep this
+    # way — the survivor's own and the re-pointed one — reads null.
+    assert history.json()["items"][0]["mergedIntoCustomerId"] == survivor["id"]
+    survivor_rows = client.get(
+        f"/v1/customers/{survivor['id']}/vehicles", params={"include_closed": "true"}, headers=_bearer(token)
+    ).json()["items"]
+    assert {item["id"] for item in survivor_rows} == {str(survivor_row_id), str(non_overlapping_id)}
+    assert [item["mergedIntoCustomerId"] for item in survivor_rows] == [None, None]
 
 
 # --- transactions ----------------------------------------------------------------

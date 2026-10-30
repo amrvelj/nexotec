@@ -645,7 +645,9 @@
       "addAction": "Fahrzeug verknüpfen",
       "inStockTitle": "Im eigenen Lager der Gruppe — {{stockNumber}}",
       "specification": "Spezifikation",
-      "unknownVehicle": "Fahrzeug nicht im Register"
+      "unknownVehicle": "Fahrzeug nicht im Register",
+      "mergedInto": "Zusammengeführt",
+      "mergedIntoTitle": "Durch eine Kundenzusammenführung beendet — Zielkunden öffnen"
     },
     "offersContracts": {
       "emptyState": {

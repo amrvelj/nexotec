@@ -645,7 +645,9 @@
       "addAction": "Collega veicolo",
       "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}",
       "specification": "Specifica",
-      "unknownVehicle": "Veicolo non presente nel registro"
+      "unknownVehicle": "Veicolo non presente nel registro",
+      "mergedInto": "Unito",
+      "mergedIntoTitle": "Chiuso da un'unione di clienti — apri il cliente di destinazione"
     },
     "offersContracts": {
       "emptyState": {
