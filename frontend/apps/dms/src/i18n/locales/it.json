@@ -645,7 +645,9 @@
       "addAction": "Collega veicolo",
       "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}",
       "specification": "Specifica",
-      "unknownVehicle": "Veicolo non presente nel registro"
+      "unknownVehicle": "Veicolo non presente nel registro",
+      "mergedInto": "Unito",
+      "mergedIntoTitle": "Conservato qui in un'unione di clienti — apri il cliente di destinazione"
     },
     "offersContracts": {
       "emptyState": {
@@ -1810,6 +1812,14 @@
     }
   },
   "configurator": {
+    "vehicleLink": {
+      "unknownVehicle": "Veicolo non presente nel registro",
+      "vin": "VIN",
+      "vinHint": "Se salvato vuoto, il collegamento con il veicolo viene rimosso.",
+      "clearVin": "Rimuovi VIN",
+      "linkedVehicle": "Veicolo collegato",
+      "noVehicle": "Nessun veicolo collegato"
+    },
     "mode": {
       "label": "Modalità",
       "build": "Veicolo nuovo",

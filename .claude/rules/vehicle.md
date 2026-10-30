@@ -69,7 +69,10 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   normalises what normalises to a VIN, clears the rest, leaves a car first registered before 1981
   alone (one stored before KAN-338 in another spelling is KAN-502's question), and audits each change (`vin_repair`, the old value kept); run it
   once per environment. A valuation's stored VIN is never edited (valuation.md). Stock and the trade-in keep `NormalisedVin`. The
-  configurator cannot enter one yet: its configure phase has no VIN input (KAN-340).
+  configurator's configure phase has a VIN field with a clear control and shows the linked
+  vehicle's number and VIN (as its own detail header names it; read from `GET /vehicle-mdm/{id}`)
+  or «Kein Fahrzeug verknüpft» (KAN-340): a VIN, or such a chassis number, is
+  typed or corrected there; an emptied field saves `vin: null`, which drops the link (KAN-326).
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must

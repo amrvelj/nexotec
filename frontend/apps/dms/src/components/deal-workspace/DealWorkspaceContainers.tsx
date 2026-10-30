@@ -101,13 +101,16 @@ export function useDealCustomer(customerId: string | null | undefined) {
  * The offer workspace's own container, shared since KAN-307 (Anto,
  * 2026-10-12, amending ADR-083): a pending contract picks its buyer the
  * same way, and cannot be signed without one. `onOpenCustomer` opens the
- * record over the deal (ADR-059), never instead of it. */
+ * record over the deal (ADR-059), never instead of it. `readOnly` (an offer
+ * with a live contract, KAN-426) disables picking a buyer but keeps the
+ * selected customer's overlay a click away: it only shows (KAN-501). */
 export function DealCustomerContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
   patch,
   onOpenCustomer,
-}: Pick<DealContainerProps<D>, 'ownerType' | 'deal' | 'patch'> & { onOpenCustomer: () => void }) {
+  readOnly = false,
+}: Pick<DealContainerProps<D>, 'ownerType' | 'deal' | 'patch'> & { onOpenCustomer: () => void; readOnly?: boolean }) {
   const { t } = useTranslation()
   const selectedCustomer = useDealCustomer(deal.customerId).data ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -147,10 +150,10 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
             {ownerType === 'contract' ? t('offerWorkspace.customer.emptyHintContract') : t('offerWorkspace.customer.emptyHint')}
           </Text>
           <Group gap="xs">
-            <Button variant="default" size="xs" onClick={() => setPickerOpen(true)}>
+            <Button variant="default" size="xs" disabled={readOnly} onClick={() => setPickerOpen(true)}>
               {t('offerWorkspace.customer.search')}
             </Button>
-            <Button variant="subtle" size="xs" onClick={() => setCreateOpen(true)}>
+            <Button variant="subtle" size="xs" disabled={readOnly} onClick={() => setCreateOpen(true)}>
               {t('offerWorkspace.customer.createNew')}
             </Button>
           </Group>
@@ -274,7 +277,10 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
 }
 
 /** Preisaufbau — the build-up, the seller's discount and base price, the
- * option and accessory lines. Needs a vehicle first (FR-S-05). */
+ * option and accessory lines. Needs a vehicle first (FR-S-05). `readOnly`
+ * disables every write in it — the build-up's inputs by their own prop, the
+ * line items under a disabled fieldset — while «zum Lagerfahrzeug», which
+ * only opens the car, stays outside it and live (KAN-501). */
 export function DealPricingContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
@@ -303,15 +309,17 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
           </Stack>
         </Alert>
       )}
-      <PriceBuildUp
-        deal={deal}
-        // The save itself, refusal included: the field handles both (KAN-442).
-        onDiscountChange={(change) => patch({ discountType: change.discountType, discountValue: change.discountValue })}
-        onManualBasePriceChange={(value) => patch({ manualBasePrice: value })}
-        onUnsavedChange={onUnsavedChange}
-        disabled={readOnly}
-      />
-      <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />
+      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <PriceBuildUp
+          deal={deal}
+          // The save itself, refusal included: the field handles both (KAN-442).
+          onDiscountChange={(change) => patch({ discountType: change.discountType, discountValue: change.discountValue })}
+          onManualBasePriceChange={(value) => patch({ manualBasePrice: value })}
+          onUnsavedChange={onUnsavedChange}
+          disabled={readOnly}
+        />
+        <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />
+      </fieldset>
     </OverviewCard>
   )
 }

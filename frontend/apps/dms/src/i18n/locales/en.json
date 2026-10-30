@@ -645,7 +645,9 @@
       "addAction": "Link vehicle",
       "inStockTitle": "In the group's own stock — {{stockNumber}}",
       "specification": "Specification",
-      "unknownVehicle": "Vehicle not in the register"
+      "unknownVehicle": "Vehicle not in the register",
+      "mergedInto": "Merged",
+      "mergedIntoTitle": "Kept here by a customer merge — open the surviving customer"
     },
     "offersContracts": {
       "emptyState": {
@@ -1810,6 +1812,14 @@
     }
   },
   "configurator": {
+    "vehicleLink": {
+      "unknownVehicle": "Vehicle not in the register",
+      "vin": "VIN",
+      "vinHint": "Saved empty, the link to the vehicle is removed.",
+      "clearVin": "Remove VIN",
+      "linkedVehicle": "Linked vehicle",
+      "noVehicle": "No vehicle linked"
+    },
     "mode": {
       "label": "Mode",
       "build": "New vehicle",

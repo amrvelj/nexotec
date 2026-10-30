@@ -636,7 +636,7 @@ describe('ConfiguratorOverlay — one Idempotency-Key per first save (KAN-266)',
   })
 })
 
-// KAN-351 — the configure phase has no VIN input (KAN-340): a VIN the API
+// KAN-351 — a VIN the API
 // refuses (422 on `vin`) is said in the overlay's error, translated, never
 // as the generic save error or the API's English text.
 describe('ConfiguratorOverlay — a refused VIN is said in the user language (KAN-351)', () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Loader, NumberInput, Stack, Text, Title } from '@mantine/core'
@@ -229,57 +229,66 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         </Alert>
       )}
 
-      {/* KAN-426: a disabled fieldset makes every input and button of the
-          containers below read-only at once while a live contract exists; the
+      {/* KAN-426: disabled fieldsets (`LockedWhile`) make every input and
+          button of the containers below read-only while a live contract exists; the
           number inputs are also disabled by their own prop and show no
-          steppers (those act on pointer-down, which a fieldset does not stop). */}
-      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <Stack gap="lg">
+          steppers (those act on pointer-down, which a fieldset does not stop).
+          KAN-501: the customer and pricing containers sit outside it and take
+          `readOnly` themselves, so what only shows — the customer overlay,
+          «zum Lagerfahrzeug» — still opens. */}
+      <Stack gap="lg">
+        <LockedWhile readOnly={readOnly}>
           {/* KAN-405: the responsible seller, through the same save queue. */}
           <DealOwnerSelect deal={offer} disabled={readOnly} onChange={(ownerUserId) => patchOffer({ ownerUserId })} />
+        </LockedWhile>
 
-          <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
+        <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} readOnly={readOnly} />
+        <LockedWhile readOnly={readOnly}>
           <DealVehicleContainer {...containerProps} />
-          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} readOnly={readOnly} />
-          <DealTradeInContainer {...containerProps} />
+        </LockedWhile>
+        <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} readOnly={readOnly} />
+        <LockedWhile readOnly={readOnly}>
+          <Stack gap="lg">
+            <DealTradeInContainer {...containerProps} />
 
-          {/* Leasing — S-D03: a refused calculator, free-text only */}
-          <OverviewCard title={t('offerWorkspace.containers.leasing')} badge={<RequirementBadge requirement="optional" />}>
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">{t('offerWorkspace.leasing.hint')}</Text>
-              <Group grow>
-                <ChfInput
-                  label={t('offerWorkspace.leasing.downPayment')}
-                  disabled={readOnly}
-                  hideControls={readOnly}
-                  value={leasingDownPayment}
-                  error={numberFieldError(t, leasingDownPaymentInvalid)}
-                  onChange={setLeasingDownPayment}
-                  onBlur={onLeasingDownPaymentBlur}
-                />
-                <NumberInput
-                  label={t('offerWorkspace.leasing.termMonths')}
-                  disabled={readOnly}
-                  hideControls={readOnly}
-                  value={leasingTermMonths}
-                  error={numberFieldError(t, leasingTermMonthsInvalid)}
-                  onChange={setLeasingTermMonths}
-                  onBlur={onLeasingTermMonthsBlur}
-                />
-                <NumberInput
-                  label={t('offerWorkspace.leasing.kmPerYear')}
-                  disabled={readOnly}
-                  hideControls={readOnly}
-                  value={leasingKmPerYear}
-                  error={numberFieldError(t, leasingKmPerYearInvalid)}
-                  onChange={setLeasingKmPerYear}
-                  onBlur={onLeasingKmPerYearBlur}
-                />
-              </Group>
-            </Stack>
-          </OverviewCard>
-        </Stack>
-      </fieldset>
+            {/* Leasing — S-D03: a refused calculator, free-text only */}
+            <OverviewCard title={t('offerWorkspace.containers.leasing')} badge={<RequirementBadge requirement="optional" />}>
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">{t('offerWorkspace.leasing.hint')}</Text>
+                <Group grow>
+                  <ChfInput
+                    label={t('offerWorkspace.leasing.downPayment')}
+                    disabled={readOnly}
+                    hideControls={readOnly}
+                    value={leasingDownPayment}
+                    error={numberFieldError(t, leasingDownPaymentInvalid)}
+                    onChange={setLeasingDownPayment}
+                    onBlur={onLeasingDownPaymentBlur}
+                  />
+                  <NumberInput
+                    label={t('offerWorkspace.leasing.termMonths')}
+                    disabled={readOnly}
+                    hideControls={readOnly}
+                    value={leasingTermMonths}
+                    error={numberFieldError(t, leasingTermMonthsInvalid)}
+                    onChange={setLeasingTermMonths}
+                    onBlur={onLeasingTermMonthsBlur}
+                  />
+                  <NumberInput
+                    label={t('offerWorkspace.leasing.kmPerYear')}
+                    disabled={readOnly}
+                    hideControls={readOnly}
+                    value={leasingKmPerYear}
+                    error={numberFieldError(t, leasingKmPerYearInvalid)}
+                    onChange={setLeasingKmPerYear}
+                    onBlur={onLeasingKmPerYearBlur}
+                  />
+                </Group>
+              </Stack>
+            </OverviewCard>
+          </Stack>
+        </LockedWhile>
+      </Stack>
 
       <StickyActionFooter
         primaryDisabledReason={continueDisabledReason}
@@ -317,5 +326,15 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
       />
 
     </Stack>
+  )
+}
+
+/** A disabled fieldset over the containers whose every control writes
+ * (KAN-426); its own display, so the page's Stack spaces it like a card. */
+function LockedWhile({ readOnly, children }: { readOnly: boolean; children: ReactNode }) {
+  return (
+    <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      {children}
+    </fieldset>
   )
 }

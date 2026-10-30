@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
-import { screen, within } from '@testing-library/react'
+import { cleanup, screen, within } from '@testing-library/react'
 import i18n, { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend } from '../../test/fakeBackend'
@@ -151,5 +151,36 @@ describe('VehiclesTab (KAN-49 / FR-19)', () => {
 
     await screen.findByText('WVWZZZ1JZXW000001')
     expect(screen.queryByRole('link', { name: /S-/ })).not.toBeInTheDocument()
+  })
+
+  // KAN-347 (ADR-064) — a row a customer merge kept closed at its own start
+  // (KAN-177) is marked as such in the UI language and links to the survivor;
+  // an ordinary ended role carries no mark.
+  describe('a row a customer merge kept closed', () => {
+    afterEach(async () => {
+      cleanup()
+      await i18n.changeLanguage('de')
+    })
+
+    it.each(['de', 'fr', 'it', 'en'] as const)('is marked merged and links to the survivor (%s)', async (language) => {
+      await i18n.changeLanguage(language)
+      install([
+        vehicleParty({ effectiveFrom: '2026-01-01T00:00:00Z', effectiveTo: '2026-01-01T00:00:00Z', mergedIntoCustomerId: 'survivor-1' }),
+      ])
+      renderDetail()
+
+      await screen.findByText('WVWZZZ1JZXW000001')
+      const marker = screen.getByText(i18n.t('customerDetail.vehicles.mergedInto'))
+      expect(marker.closest('a')).toHaveAttribute('href', '/customers/survivor-1')
+      expect(marker.closest('a')).toHaveAttribute('title', i18n.t('customerDetail.vehicles.mergedIntoTitle'))
+    })
+
+    it('an ordinary ended role is not marked', async () => {
+      install([vehicleParty({ effectiveTo: '2026-06-01T00:00:00Z', mergedIntoCustomerId: null })])
+      renderDetail()
+
+      await screen.findByText('WVWZZZ1JZXW000001')
+      expect(screen.queryByText(i18n.t('customerDetail.vehicles.mergedInto'))).not.toBeInTheDocument()
+    })
   })
 })

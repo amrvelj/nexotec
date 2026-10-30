@@ -806,6 +806,10 @@ class CustomerVehicleRead(CamelModel):
     role: VehiclePartyRole
     effective_from: dt.datetime
     effective_to: dt.datetime | None
+    # KAN-347 (ADR-064): the survivor a customer merge kept this row closed
+    # for (KAN-177 — the survivor already held its vehicle, role and start);
+    # null on every other row. Lets a reader tell a merge from an ended role.
+    merged_into_customer_id: uuid.UUID | None = None
     vehicle: VehiclePartySummary
     # KAN-49 / FR-19 — populated in a batch pass by the route, not derivable
     # from the ORM row alone; see list_other_vehicle_parties_batch and

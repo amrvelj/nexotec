@@ -645,7 +645,9 @@
       "addAction": "Fahrzeug verknüpfen",
       "inStockTitle": "Im eigenen Lager der Gruppe — {{stockNumber}}",
       "specification": "Spezifikation",
-      "unknownVehicle": "Fahrzeug nicht im Register"
+      "unknownVehicle": "Fahrzeug nicht im Register",
+      "mergedInto": "Zusammengeführt",
+      "mergedIntoTitle": "Bei einer Kundenzusammenführung hier behalten — Zielkunden öffnen"
     },
     "offersContracts": {
       "emptyState": {
@@ -1810,6 +1812,14 @@
     }
   },
   "configurator": {
+    "vehicleLink": {
+      "unknownVehicle": "Fahrzeug nicht im Register",
+      "vin": "VIN",
+      "vinHint": "Leer gespeichert, löst das die Verknüpfung mit dem Fahrzeug.",
+      "clearVin": "VIN entfernen",
+      "linkedVehicle": "Verknüpftes Fahrzeug",
+      "noVehicle": "Kein Fahrzeug verknüpft"
+    },
     "mode": {
       "label": "Modus",
       "build": "Neuwagen",

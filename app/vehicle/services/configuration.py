@@ -752,8 +752,8 @@ def repair_stored_vins(db: Session) -> list[VinRepair]:
     normalisation and no ISO check, and since KAN-353 every PATCH judges the
     stored value: one that is no VIN counts as a chassis number and is
     refused unless the car was first registered before 1981 — so such a
-    configuration could no longer be saved, and the user cannot correct the
-    VIN on screen (KAN-340).
+    configuration could no longer be saved, and until KAN-340 gave the
+    configure phase a VIN field the user could not correct it on screen.
 
     - **Which rows:** every configuration whose stored `vin` would be refused
       by `require_vin_or_pre_1981_chassis_number` against its stored first

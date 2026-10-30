@@ -107,9 +107,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   `document.generate_offer_document` asks `require_no_live_contract`), and the sent offer's
   «Dokument erzeugen» is disabled before the click and says why — an action, not a field
   (`salesDocuments.liveContract`). The draft workspace reads it as well (KAN-426): such an offer
-  renders read-only (a disabled fieldset over every container, «Offerte generieren» disabled with
+  renders read-only (disabled fieldsets over every write control, «Offerte generieren» disabled with
   the reason) under a banner naming the contract with «Vertrag öffnen», and every container
-  words a save refused `offer_has_contract` in that banner's sentence.
+  words a save refused `offer_has_contract` in that banner's sentence. What only shows stays live
+  (KAN-501): the customer and pricing containers take `readOnly` themselves, so the selected
+  customer's overlay and «zum Lagerfahrzeug» still open.
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;
