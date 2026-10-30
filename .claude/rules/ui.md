@@ -155,9 +155,13 @@ second local combobox.
 
 - Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json`. A new key goes into all
   four in the same change; `localeKeyParity.test.ts` fails otherwise.
-- **Only `de` (the start language) and `en` (the fallback) ship with the app** (KAN-438): `fr`
-  and `it` are fetched as their own chunks on the first switch (`i18n/index.ts`,
-  `onDemandBundleLoaders`); `changeLanguage` waits for the bundle, so a switch never shows keys.
+- **Only `de` (the default) and `en` (the fallback) ship with the app** (KAN-438): `fr` and `it`
+  are their own chunks (`i18n/index.ts`, `onDemandBundleLoaders`), fetched when first needed.
+  i18next starts in the `ui` preference mirror's language (`storedUiLanguage`, else `de`) and
+  `main.tsx` paints only once `i18nReady` resolves, so a returning French user never sees German
+  first (`architecture/main-waits-for-i18n.test.ts`); a switch waits for its bundle, so it never
+  shows keys. A bundle that cannot be fetched is asked for twice more (350 ms, 700 ms), then the
+  language shows in English (the fallback) and the next switch fetches again — no reload screen.
   A test that reads `fr`/`it` text through `getFixedT` or `getResource` before anything switched
   to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.
 - A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`; one missing only from

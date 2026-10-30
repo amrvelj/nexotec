@@ -1,8 +1,9 @@
 import { usePersistedPreference } from './usePersistedPreference'
+import { UI_PREFERENCES_STORAGE_KEY } from './persistedPreferenceStorage'
 import type { Density, UiLanguage } from '@nexotec/ui-kit'
 
 const SCOPE = 'ui'
-const STORAGE_KEY = 'dms.preferences.ui'
+const STORAGE_KEY = UI_PREFERENCES_STORAGE_KEY
 
 interface UiPreferencesPayload {
   schemaVersion: number

@@ -74,15 +74,45 @@ describe('locale bundles load on demand (KAN-438)', () => {
     expect(i18n.t('common.refresh')).toBe(i18n.getResource('en', 'translation', 'common.refresh'))
   })
 
-  it('fetches Italian on its own first switch', async () => {
-    await act(async () => {
-      await i18n.changeLanguage('it')
-    })
-    expect(i18n.language).toBe('it')
-    expect(i18n.hasResourceBundle('it', 'translation')).toBe(true)
-    expect(i18n.t('common.retry')).not.toBe('Erneut versuchen')
-    await act(async () => {
-      await i18n.changeLanguage('de')
-    })
+  it('shows English when every read of a bundle fails, fetches again on the next switch, and retries a failed read', async () => {
+    const real = onDemandBundleLoaders.it!
+    let calls = 0
+    onDemandBundleLoaders.it = () => {
+      calls += 1
+      return Promise.reject(new Error('chunk not reachable'))
+    }
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('it')
+      })
+      expect(calls).toBe(3) // the first read and its two retries
+      expect(i18n.hasResourceBundle('it', 'translation')).toBe(false)
+      expect(i18n.t('common.retry')).toBe(i18n.getResource('en', 'translation', 'common.retry'))
+      expect(i18n.t('kan438.notInAnyBundle')).toBe('⚠ MISSING I18N KEY: kan438.notInAnyBundle')
+
+      // Next switch: asked for again; this time the first read fails and the
+      // retry brings it.
+      calls = 0
+      onDemandBundleLoaders.it = () => {
+        calls += 1
+        return calls < 2 ? Promise.reject(new Error('chunk not reachable')) : real()
+      }
+      await act(async () => {
+        await i18n.changeLanguage('de')
+      })
+      await act(async () => {
+        await i18n.changeLanguage('it')
+      })
+      expect(calls).toBe(2)
+      expect(i18n.language).toBe('it')
+      expect(i18n.hasResourceBundle('it', 'translation')).toBe(true)
+      expect(i18n.t('common.retry')).toBe(i18n.getResource('it', 'translation', 'common.retry'))
+      expect(i18n.t('common.retry')).not.toBe('Erneut versuchen')
+    } finally {
+      onDemandBundleLoaders.it = real
+      await act(async () => {
+        await i18n.changeLanguage('de')
+      })
+    }
   })
 })
