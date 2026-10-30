@@ -50,8 +50,8 @@ export function translatedLedgerCategoryOptions(t: Translate): { value: LedgerCa
 }
 
 /** The Stock grid's filter fields. Each offers only the conditions
- * `/inventory/stock-items` applies — one equality value per field, so no
- * «is not» (KAN-458). */
+ * `/inventory/stock-items` applies (KAN-458): one value per field, «ist» or
+ * «ist nicht» (the endpoint's `…_not`, KAN-476). */
 export function buildStockFilterFields(t: Translate): FilterFieldDef[] {
   return [
     {
@@ -59,14 +59,14 @@ export function buildStockFilterFields(t: Translate): FilterFieldDef[] {
       label: t('stockList.columns.lifecycleStatus'),
       type: 'select',
       options: translatedStockLifecycleOptions(t),
-      conditions: ['is'],
+      conditions: ['is', 'isNot'],
     },
     {
       id: 'condition',
       label: t('stockList.columns.condition'),
       type: 'select',
       options: translatedStockConditionOptions(t),
-      conditions: ['is'],
+      conditions: ['is', 'isNot'],
     },
   ]
 }
@@ -82,6 +82,9 @@ const STOCK_FILTER_PARAM: Record<string, string> = {
 export function applyStockFilters(params: URLSearchParams, predicates: FilterPredicate[]): void {
   for (const predicate of predicates) {
     const param = STOCK_FILTER_PARAM[predicate.fieldId]
-    if (param && predicate.condition === 'is' && typeof predicate.value === 'string') params.set(param, predicate.value)
+    if (!param || typeof predicate.value !== 'string') {
+      // Not a field this grid offers, or no value — `offeredPredicates` passes neither.
+    } else if (predicate.condition === 'is') params.set(param, predicate.value)
+    else if (predicate.condition === 'isNot') params.set(`${param}_not`, predicate.value)
   }
 }

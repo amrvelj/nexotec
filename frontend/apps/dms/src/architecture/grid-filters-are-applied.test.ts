@@ -255,8 +255,11 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
 
   it('reads the endpoints\' declared query parameters from schema.d.ts', () => {
     expect(queryParamsOf('/v1/inventory/stock-items')).toEqual(
-      new Set(['q', 'lifecycle_status', 'condition', 'sort', 'limit', 'cursor']),
+      new Set(['q', 'lifecycle_status', 'condition', 'lifecycle_status_not', 'condition_not', 'sort', 'limit', 'cursor']),
     )
+    // KAN-476: the exclusions «ist nicht» is sent as.
+    expect(queryParamsOf('/v1/customers')).toContain('advisorUserIdNot')
+    expect(queryParamsOf('/v1/catalogue/variants')).toContain('fuelTypeNot')
     expect(queryParamsOf('/v1/customers')).toContain('updated_more_than_days_ago')
     expect(queryParamsOf('/v1/catalogue/variants')).toContain('psMin')
   })

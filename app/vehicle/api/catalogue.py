@@ -75,6 +75,16 @@ def _catalogue_filters(
     vehicleClass: str | None = None,
     emissionStandard: str | None = None,
     engineCycle: str | None = None,
+    # KAN-476: «ist nicht» per coded field; a variant without a value for it
+    # is kept (it is not that value).
+    fuelTypeNot: str | None = None,
+    bodyStyleNot: str | None = None,
+    drivetrainNot: str | None = None,
+    transmissionNot: str | None = None,
+    vehicleKindNot: str | None = None,
+    vehicleClassNot: str | None = None,
+    emissionStandardNot: str | None = None,
+    engineCycleNot: str | None = None,
     psMin: Decimal | None = None,
     psMax: Decimal | None = None,
     kwMin: Decimal | None = None,
@@ -99,6 +109,11 @@ def _catalogue_filters(
         "transmission": transmission, "vehicleKind": vehicleKind, "vehicleClass": vehicleClass,
         "emissionStandard": emissionStandard, "engineCycle": engineCycle,
     }
+    coded_not = {
+        "fuelType": fuelTypeNot, "bodyStyle": bodyStyleNot, "drivetrain": drivetrainNot,
+        "transmission": transmissionNot, "vehicleKind": vehicleKindNot, "vehicleClass": vehicleClassNot,
+        "emissionStandard": emissionStandardNot, "engineCycle": engineCycleNot,
+    }
     numeric_min = {
         "ps": psMin, "kw": kwMin, "displacementCcm": displacementCcmMin, "doors": doorsMin,
         "seats": seatsMin, "co2Gkm": co2GkmMin, "modelYearFrom": modelYearFromMin, "basePrice": basePriceMin,
@@ -109,6 +124,7 @@ def _catalogue_filters(
     }
     return VariantFilters(
         coded={k: v for k, v in coded.items() if v is not None and k in CODED_FACET_COLUMNS},
+        coded_not={k: v for k, v in coded_not.items() if v is not None and k in CODED_FACET_COLUMNS},
         numeric_min={k: v for k, v in numeric_min.items() if v is not None and k in NUMERIC_FACET_COLUMNS},
         numeric_max={k: v for k, v in numeric_max.items() if v is not None and k in NUMERIC_FACET_COLUMNS},
         in_production=inProduction,

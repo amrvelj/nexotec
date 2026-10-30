@@ -10,7 +10,8 @@ const FIELDS: FilterFieldDef[] = [
     param: 'updated_since',
     conditions: ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays', 'moreThanDaysAgo'],
   },
-  { id: 'advisor', label: 'Advisor', type: 'select', param: 'advisorUserId', conditions: ['is'] },
+  { id: 'advisor', label: 'Advisor', type: 'select', param: 'advisorUserId', conditions: ['is', 'isNot'] },
+  { id: 'language', label: 'Language', type: 'select', param: 'language', conditions: ['is', 'isNot'] },
 ]
 function paramsFor(predicates: FilterPredicate[]): Record<string, string> {
   const params = new URLSearchParams()
@@ -52,6 +53,21 @@ describe('applyCustomerFilters (KAN-458)', () => {
   it('the unassigned advisor queue is the API\'s own flag', () => {
     expect(paramsFor([{ id: 'a', fieldId: 'advisor', type: 'select', condition: 'is', value: UNASSIGNED_ADVISOR }])).toEqual({
       unassigned: 'true',
+    })
+  })
+})
+
+describe('applyCustomerFilters — «ist nicht» (KAN-476)', () => {
+  it('sends each select field\'s exclusion under the endpoint\'s own name', () => {
+    expect(paramsFor([{ id: 'a', fieldId: 'language', type: 'select', condition: 'isNot', value: 'de' }])).toEqual({ language_not: 'de' })
+    expect(paramsFor([{ id: 'a', fieldId: 'advisor', type: 'select', condition: 'isNot', value: 'user-7' }])).toEqual({
+      advisorUserIdNot: 'user-7',
+    })
+  })
+
+  it('«ist nicht Nicht zugewiesen» asks for the customers that have an advisor', () => {
+    expect(paramsFor([{ id: 'a', fieldId: 'advisor', type: 'select', condition: 'isNot', value: UNASSIGNED_ADVISOR }])).toEqual({
+      assigned: 'true',
     })
   })
 })

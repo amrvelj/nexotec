@@ -37,10 +37,10 @@ const NUMERIC_FACET_FIELDS = [
 ] as const
 
 /** The conditions `/catalogue/variants` honours exactly (KAN-458): one
- * coded value per field — no «is not» — and the inclusive `…Min`/`…Max`
+ * coded value per field, «ist» or «ist nicht» (`<field>Not`, KAN-476), and the inclusive `…Min`/`…Max`
  * bounds, read as «at least» / «at most»; «equals» is both bounds at once.
  * A strict «greater than» would be answered with ≥ — never offered. */
-const CODED_CONDITIONS = ['is']
+const CODED_CONDITIONS = ['is', 'isNot']
 const NUMERIC_CONDITIONS = ['equals', 'atLeast', 'atMost']
 
 /** Every field the catalogue grid can filter on, whatever the current
@@ -102,7 +102,7 @@ export function buildCatalogueFilterFields(
 
 /**
  * FilterPredicate[] → catalogue `/variants` query params. `/catalogue`
- * accepts one equality per coded field and `<field>Min` / `<field>Max`
+ * accepts one equality or one exclusion (`<field>Not`) per coded field and `<field>Min` / `<field>Max`
  * per numeric field, both inclusive. Every field and condition
  * `buildCatalogueFilterFields` offers is sent;
  * `architecture/grid-filters-are-applied.test.ts` fails if one is not
@@ -112,6 +112,7 @@ export function applyCatalogueFilters(params: URLSearchParams, predicates: Filte
   for (const p of predicates) {
     if (p.fieldId in FACET_LIST_CODE) {
       if (p.condition === 'is' && typeof p.value === 'string') params.set(p.fieldId, p.value)
+      else if (p.condition === 'isNot' && typeof p.value === 'string') params.set(`${p.fieldId}Not`, p.value)
     } else if ((NUMERIC_FACET_FIELDS as readonly string[]).includes(p.fieldId) && typeof p.value === 'number') {
       const value = String(p.value)
       if (p.condition === 'atLeast' || p.condition === 'equals') params.set(`${p.fieldId}Min`, value)

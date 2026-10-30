@@ -10315,6 +10315,14 @@ export interface operations {
                 vehicleClass?: string | null;
                 emissionStandard?: string | null;
                 engineCycle?: string | null;
+                fuelTypeNot?: string | null;
+                bodyStyleNot?: string | null;
+                drivetrainNot?: string | null;
+                transmissionNot?: string | null;
+                vehicleKindNot?: string | null;
+                vehicleClassNot?: string | null;
+                emissionStandardNot?: string | null;
+                engineCycleNot?: string | null;
                 psMin?: number | string | null;
                 psMax?: number | string | null;
                 kwMin?: number | string | null;
@@ -10719,6 +10727,18 @@ export interface operations {
                 advisorUserId?: string | null;
                 /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */
                 unassigned?: boolean;
+                /** @description KAN-476: customers whose lifecycle status is not this one. */
+                lifecycle_status_not?: components["schemas"]["CustomerLifecycleStatus"] | null;
+                /** @description KAN-476: customers not of this type. */
+                customer_type_not?: components["schemas"]["CustomerType"] | null;
+                /** @description KAN-476: customers whose language is not this one (none set included). */
+                language_not?: components["schemas"]["Language"] | null;
+                /** @description KAN-476: customers whose primary domicile is not in this canton (none recorded included). */
+                canton_not?: string | null;
+                /** @description KAN-476: customers this user does not advise (unassigned ones included). */
+                advisorUserIdNot?: string | null;
+                /** @description KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen». */
+                assigned?: boolean;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -14380,6 +14400,10 @@ export interface operations {
                 q?: string | null;
                 lifecycle_status?: components["schemas"]["LifecycleStatus"] | null;
                 condition?: components["schemas"]["StockItemCondition"] | null;
+                /** @description KAN-476: items whose lifecycle status is not this one — the grid's «ist nicht». */
+                lifecycle_status_not?: components["schemas"]["LifecycleStatus"] | null;
+                /** @description KAN-476: items whose condition is not this one (Zustand «ist nicht Occasion»). */
+                condition_not?: components["schemas"]["StockItemCondition"] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;

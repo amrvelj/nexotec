@@ -238,7 +238,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
 })
 
 describe('CustomersListPage — filters track the column registry (ADR-058)', () => {
-  it('offers only a condition the customer list endpoint can honour: select "is", and every relative date condition (KAN-458)', async () => {
+  it('offers only a condition the customer list endpoint can honour: select "is" and "is not" (KAN-476), and every relative date condition (KAN-458)', async () => {
     route()
     const user = userEvent.setup()
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
@@ -251,10 +251,11 @@ describe('CustomersListPage — filters track the column registry (ADR-058)', ()
     const fieldSelect = combos[0]
     const conditionSelect = combos[1]
 
-    // Default field is a select field -> only "is", never "is not".
+    // Default field is a select field -> "is" and, since KAN-476, "is not".
     // The option names are translated keys (KAN-415), not the condition values.
     expect(within(conditionSelect).getAllByRole('option').map((o) => o.textContent)).toEqual([
       i18n.t('common.filterBuilder.conditions.is'),
+      i18n.t('common.filterBuilder.conditions.isNot'),
     ])
 
     // Switch to the date field -> every relative condition, "more than N
@@ -286,15 +287,17 @@ describe('CustomersListPage — every filter it shows is sent (KAN-458)', () => 
     expect(call.params.get('updated_since')).toBeNull()
   })
 
-  it('a predicate the grid does not offer — a select «is not» — is neither sent nor shown as active', async () => {
+  it('a select «is not» is sent as the endpoint\'s exclusion and shown as active (KAN-476)', async () => {
     const backend = route()
     renderWithProviders(<CustomersListPage />, {
       route: filtersRoute([{ id: 'p1', fieldId: 'language', type: 'select', condition: 'isNot', value: 'de' }]),
     })
 
     await waitFor(() => expect(backend.callsTo(/^\/customers$/, 'GET').length).toBeGreaterThan(0))
-    expect(backend.callsTo(/^\/customers$/, 'GET').at(-1)!.params.get('language')).toBeNull()
-    expect(screen.getByRole('button', { name: i18n.t('customersList.allCustomersView') }).textContent).not.toMatch(/\d/)
+    const sent = backend.callsTo(/^\/customers$/, 'GET').at(-1)!.params
+    expect(sent.get('language_not')).toBe('de')
+    expect(sent.get('language')).toBeNull()
+    expect(screen.getByRole('button', { name: i18n.t('customersList.allCustomersView') }).textContent).toMatch(/1/)
   })
 })
 

@@ -328,6 +328,14 @@ export function applyCustomerFilters(params: URLSearchParams, predicates: Filter
     } else if (predicate.condition === 'is' && typeof predicate.value === 'string') {
       if (paramName === 'advisorUserId' && predicate.value === UNASSIGNED_ADVISOR) params.set('unassigned', 'true')
       else params.set(paramName, predicate.value)
+    } else if (predicate.condition === 'isNot' && typeof predicate.value === 'string') {
+      // KAN-476: the endpoint's exclusion — `advisorUserIdNot` beside the
+      // camelCase `advisorUserId`, `…_not` beside the snake_case ones; «ist
+      // nicht Nicht zugewiesen» is the customers that have an advisor.
+      if (paramName === 'advisorUserId') {
+        if (predicate.value === UNASSIGNED_ADVISOR) params.set('assigned', 'true')
+        else params.set('advisorUserIdNot', predicate.value)
+      } else params.set(`${paramName}_not`, predicate.value)
     }
   }
 }

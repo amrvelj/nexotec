@@ -495,6 +495,12 @@ def list_customers(
     updated_more_than_days_ago: int | None = None,
     updated_in_last_days: int | None = None,
     updated_since_start_of: CalendarPeriod | None = None,
+    lifecycle_status_not: CustomerLifecycleStatus | None = None,
+    customer_type_not: CustomerType | None = None,
+    language_not: Language | None = None,
+    canton_not: str | None = None,
+    advisor_user_id_not: uuid.UUID | None = None,
+    assigned: bool = False,
 ) -> tuple[list[Customer], str | None, int, bool]:
     """`advisor_user_id` narrows to one advisor's customers; `unassigned` to
     those with none — the queue FR-A-37 names, which a leaver's hand-over
@@ -507,7 +513,12 @@ def list_customers(
     complement — changed since that same midnight — so the two partition the
     list; `updated_since_start_of` keeps those changed since the current
     day, week, month or year began there (KAN-474). `updated_since` stays the
-    absolute lower bound for incremental sync."""
+    absolute lower bound for incremental sync.
+
+    The `…_not` parameters are the grid's «ist nicht» (KAN-476): a customer
+    with no value for the field (no language, no primary domicile canton,
+    no advisor) is kept, since it is not that value; `assigned` keeps those
+    with an advisor. A merged customer stays hidden as without them."""
 
     stmt = select(Customer).where(Customer.group_id == group_id)
     if advisor_user_id is not None:
@@ -547,6 +558,28 @@ def list_customers(
                 )
             )
         )
+    if lifecycle_status_not is not None:
+        stmt = stmt.where(Customer.lifecycle_status != lifecycle_status_not)
+    if customer_type_not is not None:
+        stmt = stmt.where(Customer.customer_type != customer_type_not)
+    if language_not is not None:
+        stmt = stmt.where(Customer.language.is_distinct_from(language_not))
+    if canton_not is not None:
+        # The same raw is_primary domicile match as `canton` above, negated.
+        stmt = stmt.where(
+            Customer.id.not_in(
+                select(CustomerAddress.customer_id).where(
+                    CustomerAddress.group_id == group_id,
+                    CustomerAddress.address_type == AddressType.DOMICILE,
+                    CustomerAddress.is_primary.is_(True),
+                    CustomerAddress.address_canton == canton_not,
+                )
+            )
+        )
+    if advisor_user_id_not is not None:
+        stmt = stmt.where(Customer.advisor_id.is_distinct_from(advisor_user_id_not))
+    if assigned:
+        stmt = stmt.where(Customer.advisor_id.is_not(None))
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
     if updated_more_than_days_ago is not None:

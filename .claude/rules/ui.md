@@ -91,7 +91,9 @@ second local combobox.
   und höchstens 250» band): the builder replaces a field's filter when one is added on it and
   offers no «duplicate»; a link or saved view with two keeps the first. A field offers only the
   conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
-  (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476). An N-days count is a whole
+  (`atLeast`/`atMost`), and a select field offers «ist nicht» as its endpoint's exclusion —
+  `…_not` on Stock and Customers, `advisorUserIdNot`/`assigned` for the advisor, `<field>Not` on
+  the catalogue; a record without a value is kept (KAN-476). An N-days count is a whole
   number from `MIN_FILTER_DAYS` to `MAX_FILTER_DAYS` (0–36500, the endpoints' `ge`/`le`): the builder
   refuses another in place and holds Save back, and `offeredPredicates` drops one from a link or
   view (KAN-475).

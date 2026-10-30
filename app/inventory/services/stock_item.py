@@ -342,6 +342,8 @@ def list_stock_items(
     q: str | None,
     lifecycle_status: LifecycleStatus | None,
     condition: StockItemCondition | None = None,
+    lifecycle_status_not: LifecycleStatus | None = None,
+    condition_not: StockItemCondition | None = None,
     params: SortPageParams,
 ) -> tuple[list[StockItem], str | None, int, bool]:
     # FR-I-12 (PR-5): a sold (invoiced) item is absent from the active
@@ -360,6 +362,11 @@ def list_stock_items(
         stmt = stmt.where(StockItem.lifecycle_status == lifecycle_status)
     if condition is not None:
         stmt = stmt.where(StockItem.condition == condition)
+    # KAN-476: «ist nicht» — both columns are NOT NULL, so `!=` loses no row.
+    if lifecycle_status_not is not None:
+        stmt = stmt.where(StockItem.lifecycle_status != lifecycle_status_not)
+    if condition_not is not None:
+        stmt = stmt.where(StockItem.condition != condition_not)
 
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=StockItem, params=params)

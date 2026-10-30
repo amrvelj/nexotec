@@ -63,6 +63,7 @@ NUMERIC_FACET_COLUMNS: dict[str, Any] = {
 @dataclass(frozen=True)
 class VariantFilters:
     coded: dict[str, str] = field(default_factory=dict)  # apiField -> value_code
+    coded_not: dict[str, str] = field(default_factory=dict)  # apiField -> value_code excluded (KAN-476)
     numeric_min: dict[str, Decimal] = field(default_factory=dict)  # apiField -> lower bound
     numeric_max: dict[str, Decimal] = field(default_factory=dict)  # apiField -> upper bound
     in_production: bool | None = None  # None → derive from mode
@@ -114,6 +115,10 @@ def _apply_filters(stmt: Select, filters: VariantFilters, in_production: bool | 
         column = CODED_FACET_COLUMNS.get(api_field)
         if column is not None:
             stmt = stmt.where(column == value_code)
+    for api_field, value_code in filters.coded_not.items():
+        column = CODED_FACET_COLUMNS.get(api_field)
+        if column is not None:
+            stmt = stmt.where(column.is_distinct_from(value_code))
     for api_field, lower in filters.numeric_min.items():
         column = NUMERIC_FACET_COLUMNS.get(api_field)
         if column is not None:

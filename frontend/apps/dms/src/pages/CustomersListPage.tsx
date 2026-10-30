@@ -257,7 +257,7 @@ export function CustomersListPage() {
           <CustomerTypeBadge type={row.original.customerType} label={translatedCustomerTypeLabel(t, row.original.customerType)} />
         ),
         meta: {
-          filter: { type: 'select', param: 'customer_type', options: translatedCustomerTypeOptions(t), conditions: ['is'] },
+          filter: { type: 'select', param: 'customer_type', options: translatedCustomerTypeOptions(t), conditions: ['is', 'isNot'] },
           exportValue: (row) => translatedCustomerTypeLabel(t, row.customerType),
         },
       },
@@ -286,7 +286,7 @@ export function CustomersListPage() {
         header: t('customersList.columns.language'),
         cell: ({ row }) => <LanguageBadge language={row.original.language} />,
         meta: {
-          filter: { type: 'select', param: 'language', options: translatedLanguageOptions(t), conditions: ['is'] },
+          filter: { type: 'select', param: 'language', options: translatedLanguageOptions(t), conditions: ['is', 'isNot'] },
           exportValue: (row) => t(`customerEnums.language.${row.language}`),
         },
       },
@@ -297,7 +297,7 @@ export function CustomersListPage() {
           <LifecycleStatusBadge status={row.original.lifecycleStatus} label={translatedLifecycleLabel(t, row.original.lifecycleStatus)} />
         ),
         meta: {
-          filter: { type: 'select', param: 'lifecycle_status', options: translatedLifecycleOptions(t), conditions: ['is'] },
+          filter: { type: 'select', param: 'lifecycle_status', options: translatedLifecycleOptions(t), conditions: ['is', 'isNot'] },
           exportValue: (row) => translatedLifecycleLabel(t, row.lifecycleStatus),
         },
       },
@@ -323,7 +323,7 @@ export function CustomersListPage() {
             type: 'select',
             param: 'advisorUserId',
             options: [{ value: UNASSIGNED_ADVISOR, label: t('customersList.advisorFilter.unassigned') }, ...advisorOptions],
-            conditions: ['is'],
+            conditions: ['is', 'isNot'],
           },
           exportValue: (row) => row.advisorLabel ?? '',
         },
@@ -372,7 +372,7 @@ export function CustomersListPage() {
         cell: ({ row }) => row.original.address?.addressCanton ?? '—',
         meta: {
           defaultVisible: false,
-          filter: { type: 'select', param: 'canton', options: CANTON_OPTIONS, conditions: ['is'] },
+          filter: { type: 'select', param: 'canton', options: CANTON_OPTIONS, conditions: ['is', 'isNot'] },
           exportValue: (row) => row.address?.addressCanton ?? '',
         },
       },
