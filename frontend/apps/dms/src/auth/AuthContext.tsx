@@ -10,6 +10,9 @@ interface AuthContextValue {
    * shell shows and `RequireEntitlement` honours. Presentation only — the
    * API answers 404 for an unlicensed module whatever the SPA renders. */
   entitlements: string[]
+  /** KAN-430: the permission-matrix rows this user may write in the active
+   * dealership — read through `useCanWrite`. Presentation only. */
+  writableCapabilities: string[]
   /** KAN-196 (D-A-36): this session was minted without a second factor
    * while one is required — `ProtectedRoute` sends the user to enrolment. */
   mfaEnrolmentRequired: boolean
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeDealership, setActiveDealership] = useState<DealershipMembershipSummary | null>(null)
   const [memberships, setMemberships] = useState<DealershipMembershipSummary[]>([])
   const [entitlements, setEntitlements] = useState<string[]>([])
+  const [writableCapabilities, setWritableCapabilities] = useState<string[]>([])
   const [mfaEnrolmentRequired, setMfaEnrolmentRequired] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -45,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveDealership(res.activeDealership)
     setMemberships(res.memberships)
     setEntitlements(res.entitlements ?? [])
+    setWritableCapabilities(res.writableCapabilities ?? [])
     setMfaEnrolmentRequired(res.mfaEnrolmentRequired ?? false)
   }, [])
 
@@ -53,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveDealership(null)
     setMemberships([])
     setEntitlements([])
+    setWritableCapabilities([])
     setMfaEnrolmentRequired(false)
   }, [])
 
@@ -119,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activeDealership,
         memberships,
         entitlements,
+        writableCapabilities,
         mfaEnrolmentRequired,
         loading,
         login,

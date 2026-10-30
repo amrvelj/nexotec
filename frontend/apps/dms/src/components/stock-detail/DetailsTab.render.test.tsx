@@ -3,14 +3,18 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { theme } from '@nexotec/ui-kit'
 import i18n from '../../i18n'
+import { TranslatedOverlayProvider } from '../../test/TranslatedOverlayProvider'
 import { DetailsTab } from './DetailsTab'
 import type { StockItemRead } from '../../api/types'
 
 // KAN-160: the commercial card's inline-edit fields show the Swiss-formatted
 // value (`12'500`, `CHF 42'500.00`) — the same figure the spec grid above
 // shows — while the editor still opens on the raw value the API accepts.
+// KAN-463: a car without a configuration offers «Konfiguration zuordnen»,
+// which reads the query client and opens an overlay, so each render carries both.
 
 afterEach(async () => {
   await i18n.changeLanguage('de')
@@ -35,7 +39,11 @@ describe('DetailsTab commercial card', () => {
     const user = userEvent.setup()
     render(
       <MantineProvider theme={theme} env="test">
-        <DetailsTab item={ITEM} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
+        <QueryClientProvider client={new QueryClient()}>
+          <TranslatedOverlayProvider>
+            <DetailsTab item={ITEM} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
+          </TranslatedOverlayProvider>
+        </QueryClientProvider>
       </MantineProvider>,
     )
 
@@ -66,13 +74,17 @@ describe('DetailsTab — date-only fields keep their day west of Greenwich (KAN-
     const user = userEvent.setup()
     render(
       <MantineProvider theme={theme} env="test">
-        <DetailsTab
-          item={{ ...ITEM, firstRegistrationDate: '2021-04-01', purchaseDate: '2026-09-15', purchasePrice: '20000.00' }}
-          locale="de-CH"
-          onSaveField={vi.fn()}
-          onReload={vi.fn()}
-          onRecordPurchase={vi.fn()}
-        />
+        <QueryClientProvider client={new QueryClient()}>
+          <TranslatedOverlayProvider>
+            <DetailsTab
+              item={{ ...ITEM, firstRegistrationDate: '2021-04-01', purchaseDate: '2026-09-15', purchasePrice: '20000.00' }}
+              locale="de-CH"
+              onSaveField={vi.fn()}
+              onReload={vi.fn()}
+              onRecordPurchase={vi.fn()}
+            />
+          </TranslatedOverlayProvider>
+        </QueryClientProvider>
       </MantineProvider>,
     )
 
@@ -92,7 +104,11 @@ describe('DetailsTab — the headline before a selling price is built (KAN-359)'
   function renderItem(item: StockItemRead) {
     return render(
       <MantineProvider theme={theme} env="test">
-        <DetailsTab item={item} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
+        <QueryClientProvider client={new QueryClient()}>
+          <TranslatedOverlayProvider>
+            <DetailsTab item={item} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
+          </TranslatedOverlayProvider>
+        </QueryClientProvider>
       </MantineProvider>,
     )
   }

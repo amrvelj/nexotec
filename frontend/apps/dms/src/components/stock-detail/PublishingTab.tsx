@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader, SegmentedControl, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
+import { CounterTextarea, KeyValueRow, MediaGallery, OverviewCard, semantic, slate, spacing, type MediaGalleryLabels } from '@nexotec/ui-kit'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
@@ -28,6 +28,12 @@ const CHANNEL_LABELS: Record<MarketplaceChannel, string> = {
 interface PublishingTabProps {
   stockItemId: string
   locale: string
+  /** KAN-430: whether the user's role may publish (`marketplace_publishing`).
+   * When not, each channel shows its status without the publish or unpublish
+   * action, and the listing texts and the photos are shown read-only — the
+   * actions are hidden, never what the role may read. The stock detail
+   * passes the session's answer. */
+  canPublish?: boolean
 }
 
 /**
@@ -41,7 +47,7 @@ interface PublishingTabProps {
  * a read-only equipment summary sourced from app.vehicle (equipment is a
  * fact about the car, per ADR-062's own three-concepts rule).
  */
-export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
+export function PublishingTab({ stockItemId, locale, canPublish = true }: PublishingTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [activeChannel, setActiveChannel] = useState<MarketplaceChannel>('autoscout24')
@@ -212,6 +218,15 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
     }, 'stockDetail.publishing.media.reorderError')
   }
 
+  const mediaLabels: MediaGalleryLabels = {
+    mainImage: t('stockDetail.publishing.media.mainImage'),
+    moveLeft: t('stockDetail.publishing.media.moveLeft'),
+    moveRight: t('stockDetail.publishing.media.moveRight'),
+    remove: t('stockDetail.publishing.media.remove'),
+    addPhoto: t('stockDetail.publishing.media.addPhoto'),
+    countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
+  }
+
   const equipment = equipmentQuery.data
 
   return (
@@ -230,6 +245,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
               publishing={publishingByChannel[channel]}
               locale={locale}
               blocked={blockingConditions.length > 0}
+              canPublish={canPublish}
               onPublish={() => publishChannel(channel)}
               onUnpublish={() => unpublishChannel(channel)}
             />
@@ -244,7 +260,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
             data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
           />
-          {listingTextError && (
+          {listingTextError && canPublish && (
             <Alert color="red" role="alert">
               {listingTextError}
             </Alert>
@@ -253,7 +269,9 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
               is saved to the channel it was typed for. Shown once the
               channel's row is loaded: a keystroke typed before it would have
               no version to save against and be lost. */}
-          {activePublishing ? (
+          {activePublishing && !canPublish ? (
+            <ListingTextValues publishing={activePublishing} />
+          ) : activePublishing ? (
             <ListingTextFields
               key={activeChannel}
               publishing={activePublishing}
@@ -279,21 +297,18 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             {mediaError}
           </Alert>
         )}
-        <MediaGallery
-          items={mediaItems}
-          maxItems={16}
-          onAdd={addMedia}
-          onRemove={removeMedia}
-          onReorder={reorderMedia}
-          labels={{
-            mainImage: t('stockDetail.publishing.media.mainImage'),
-            moveLeft: t('stockDetail.publishing.media.moveLeft'),
-            moveRight: t('stockDetail.publishing.media.moveRight'),
-            remove: t('stockDetail.publishing.media.remove'),
-            addPhoto: t('stockDetail.publishing.media.addPhoto'),
-            countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
-          }}
-        />
+        {canPublish ? (
+          <MediaGallery
+            items={mediaItems}
+            maxItems={16}
+            onAdd={addMedia}
+            onRemove={removeMedia}
+            onReorder={reorderMedia}
+            labels={mediaLabels}
+          />
+        ) : (
+          <MediaGallery items={mediaItems} maxItems={16} labels={mediaLabels} readOnly />
+        )}
       </OverviewCard>
 
       {equipment && (
@@ -346,6 +361,22 @@ function ListingTextFields({
         {...hint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
         maxLength={2000}
       />
+    </>
+  )
+}
+
+/** KAN-430 — the listing texts for a role that may read but not publish:
+ * the same four fields, as text. */
+function ListingTextValues({ publishing }: { publishing: PublishingRead }) {
+  const { t } = useTranslation()
+  const fields: ListingTextField[] = ['zusatztitel', 'bemerkungen', 'zustandsbeschreibung', 'haendlerbemerkungen']
+  return (
+    <>
+      {fields.map((name) => (
+        <KeyValueRow key={name} label={t(`stockDetail.publishing.fields.${name}`)}>
+          <span style={{ whiteSpace: 'pre-wrap' }}>{publishing[name] || '—'}</span>
+        </KeyValueRow>
+      ))}
     </>
   )
 }

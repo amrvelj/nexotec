@@ -42,6 +42,8 @@ const CATALOGUE: FakeRoute[] = [
   { method: 'GET', match: /^\/inventory\/stock-items$/, handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }) },
 ]
 
+// KAN-463: an empty list offers the header's «Fahrzeug aufnehmen» again in
+// its empty state; the tests open the header's (the first).
 function LocationProbe() {
   return <div data-testid="path">{useLocation().pathname}</div>
 }
@@ -83,7 +85,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     // A half-typed search on the list underneath must survive the overlay.
     const search = await screen.findByPlaceholderText(i18n.t('stockList.searchPlaceholder'))
     await user.type(search, 'Justy')
-    await user.click(screen.getByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    await user.click(screen.getAllByRole('button', { name: i18n.t('stockList.newStockItem') })[0])
     const overlay = await screen.findByRole('dialog')
     expect(screen.getByPlaceholderText(i18n.t('stockList.searchPlaceholder'))).toHaveValue('Justy')
     expect(screen.getByTestId('path')).toHaveTextContent('/stock')
@@ -115,7 +117,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     ])
     renderWithProviders(<StockListPage />, { route: '/stock' })
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('stockList.newStockItem') }))[0])
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await pickCodedFields()
@@ -147,7 +149,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     ])
     renderWithProviders(<StockListPage />, { route: '/stock' })
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('stockList.newStockItem') }))[0])
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await pickCodedFields()
@@ -183,7 +185,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     ])
     renderWithProviders(<StockListPage />, { route: '/stock' })
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('stockList.newStockItem') }))[0])
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await pickCodedFields()
@@ -209,7 +211,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     ])
     renderWithProviders(<StockListPage />, { route: '/stock' })
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('stockList.newStockItem') }))[0])
     const overlay = await screen.findByRole('dialog')
     await user.type(within(overlay).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.find.idLabel')) }), 'WVWZZZ1KZAW000001')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
@@ -253,7 +255,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
       { route: '/stock' },
     )
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('stockList.newStockItem') }))[0])
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await pickCodedFields()
@@ -297,7 +299,7 @@ describe('Stock list — add to pipeline, one key per opening (KAN-266)', () => 
       { route: '/stock' },
     )
     const addThroughANewConfiguration = async () => {
-      await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+      await user.click((await screen.findAllByRole('button', { name: i18n.t('stockList.newStockItem') }))[0])
       const overlay = await screen.findByRole('dialog')
       await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
       await pickCodedFields()

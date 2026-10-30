@@ -239,7 +239,9 @@
       "purchase_vin_mismatch": "Diese VIN ist nicht die des Fahrzeugs an Lager.",
       "brand_code_taken": "Eine Marke mit diesem Code gibt es bereits.",
       "photo_not_an_image": "Das Foto muss ein PNG- oder JPEG-Bild sein.",
-      "photo_too_large": "Das Foto ist zu gross – höchstens 5 MB."
+      "photo_too_large": "Das Foto ist zu gross – höchstens 5 MB.",
+      "configuration_already_linked": "Diesem Fahrzeug ist bereits eine Konfiguration zugeordnet. Bitte die Seite neu laden.",
+      "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1034,7 +1036,6 @@
       "own": "Eigener Bestand",
       "group": "Gruppenbestand"
     },
-    "addToPipeline": "In die Pipeline aufnehmen",
     "addToPipelineError": "Das Fahrzeug konnte nicht in die Pipeline aufgenommen werden."
   },
   "stockDetail": {
@@ -1099,7 +1100,8 @@
       "notionalInputTaxNotApplicable": "Nicht anwendbar",
       "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
       "isInvoiceable": "Fakturierbar",
-      "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen."
+      "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
+      "notRecorded": "Noch kein Einkauf erfasst."
     },
     "wagenbuch": {
       "result": "Ergebnis",
@@ -1192,22 +1194,10 @@
       "hint": "Bewertungen werden im Modul Bewertungen erstellt und verwaltet — dieser Bereich zeigt nur den aktuellen Stand."
     },
     "configuration": {
-      "title": "Konfiguration"
-    }
-  },
-  "stockCreate": {
-    "title": "Fahrzeug aufnehmen",
-    "fields": {
-      "vehicleLabel": "Bezeichnung",
-      "condition": "Zustand",
-      "vin": "VIN",
-      "vinDescription": "Falls bereits bekannt — sonst bleibt das Fahrzeug in der Pipeline."
-    },
-    "submit": "Aufnehmen",
-    "errors": {
-      "somethingWentWrong": "Etwas ist schiefgelaufen.",
-      "vinAlreadyInStock": "Diese VIN ist bereits an Lager — Lagernummer {{stockNumber}}.",
-      "openExisting": "Fahrzeug öffnen"
+      "title": "Konfiguration",
+      "missing": "Diesem Fahrzeug ist keine Konfiguration zugeordnet. Ohne sie fehlen die technischen Daten.",
+      "attach": "Konfiguration zuordnen",
+      "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen."
     }
   },
   "salesList": {

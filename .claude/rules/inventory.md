@@ -66,6 +66,20 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **A pipeline item can point at a configuration** (`configuration_id`, KAN-10): added from
   the Stock list in either mode (FR-C-13), or carried by a contract's confirmation for a
   configured car or a configured trade-in. It never writes vehicle-mdm (ADR-070).
+- **Every stock vehicle a user adds enters through the configurator** (KAN-463; Anto,
+  2026-10-26, option A): the Stock list's one «Fahrzeug aufnehmen» (header and empty state,
+  `pages/stock/AddToPipelineButton.tsx`) opens it with `build` and `record`; the hand-typed
+  form and `/stock/new` are gone. `POST /v1/inventory/stock-items` takes
+  `StockItemCreateRequest`, whose `configurationId` is required (422
+  `configuration_required`) — at the endpoint only (decision 1a): the FR-I-02/02b consumers
+  build their own `StockItemCreate` and the ADR-091 import writes its rows directly. A
+  configuration whose VIN contradicts the body's is 422 `configuration_vin_differs`.
+  `src/architecture/stock-intake-is-the-configurator.test.ts` lets only the configurator
+  intake name the create path (the server's 422 is the real guard). An item created before without a configuration is repaired on its detail with
+  «Konfiguration zuordnen» (decision 2a: no list marker): `POST …/stock-items/{id}/configuration`
+  (If-Match, Idempotency-Key, audit `configuration_attached`; 409
+  `configuration_already_linked`, 422 `configuration_vin_differs` when both carry a VIN and they
+  differ).
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
   `trade_in`; additive, KAN-144). A directly added item carries neither.

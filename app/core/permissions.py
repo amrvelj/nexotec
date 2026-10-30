@@ -215,17 +215,35 @@ def require_read(capability: str):
     return _check
 
 
+def may_write(capability: str, *, roles: frozenset[AccessRole], is_dealer_manager: bool) -> bool:
+    """The matrix's write cell for these roles — the one rule `require_write`
+    enforces and `writable_capabilities` reports."""
+
+    cap = CAPABILITY_MATRIX[capability]
+    if AccessRole.PLATFORM_ADMIN in roles:
+        return True
+    if roles & cap.write_roles:
+        return True
+    return cap.manager_can_write and is_dealer_manager
+
+
+def writable_capabilities(*, roles: frozenset[AccessRole], is_dealer_manager: bool) -> list[str]:
+    """KAN-430 (Anto, 2026-10-30, option A): the matrix rows these roles may
+    write, for the SPA to hide an action the user's role may never use —
+    computed here so the frontend never keeps a second role table. The
+    server's gates stay the authority; a standard-text delegation (FR-A-28)
+    opens a category beyond what this list says."""
+
+    return sorted(name for name in CAPABILITY_MATRIX if may_write(name, roles=roles, is_dealer_manager=is_dealer_manager))
+
+
 def require_write(capability: str):
     """Dependency factory: `Depends(require_write("customers"))`."""
 
-    cap = CAPABILITY_MATRIX[capability]
+    CAPABILITY_MATRIX[capability]  # an unknown row fails at import, as before
 
     def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
-        if AccessRole.PLATFORM_ADMIN in principal.roles:
-            return principal
-        if principal.roles & cap.write_roles:
-            return principal
-        if cap.manager_can_write and principal.is_dealer_manager:
+        if may_write(capability, roles=principal.roles, is_dealer_manager=principal.is_dealer_manager):
             return principal
         raise ForbiddenError(f"Not permitted to write '{capability}'.")
 

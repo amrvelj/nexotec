@@ -12,6 +12,7 @@ tests/test_inventory_write_capabilities.py."""
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
+from tests.configuration_test_support import stock_configuration_id
 from tests.token_support import dealer_group_of
 
 
@@ -27,13 +28,14 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_reserve_without_a_key_is_accepted_and_a_second_reserve_is_still_a_conflict(client):
+def test_reserve_without_a_key_is_accepted_and_a_second_reserve_is_still_a_conflict(client, db_session):
     """Without a key nothing is replayed, but a car is never reserved twice:
     the second reserve finds it reserved."""
 
     token = _token(AccessRole.PLATFORM_ADMIN)
     created = client.post(
-        "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new"}, headers=_bearer(token)
+        "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new", "configurationId": stock_configuration_id(db_session, token)},
+        headers=_bearer(token),
     ).json()
     path = f"/v1/inventory/stock-items/{created['id']}/reservations"
     body = {"contractId": str(uuid.uuid4())}
@@ -45,10 +47,11 @@ def test_reserve_without_a_key_is_accepted_and_a_second_reserve_is_still_a_confl
     assert second.status_code == 409, second.text
 
 
-def test_reserve_then_release_via_api(client):
+def test_reserve_then_release_via_api(client, db_session):
     token = _token(AccessRole.PLATFORM_ADMIN)
     created = client.post(
-        "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new"}, headers=_bearer(token)
+        "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new", "configurationId": stock_configuration_id(db_session, token)},
+        headers=_bearer(token),
     ).json()
 
     reserved = client.post(

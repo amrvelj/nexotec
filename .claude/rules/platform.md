@@ -162,7 +162,18 @@ when any) — never fixes them.
 Permissions are capability-based: `Capability(read_roles, write_roles, manager_can_write=True,
 manager_can_read=True)` in `app/core/permissions.py`; `require_read` / `require_write` check
 platform_admin, then the roles, then the manager flag (if `manager_can_read` / `manager_can_write`).
-`read_roles=None` = any role; an empty set = manager only. An empty `write_roles` = platform staff
+`read_roles=None` = any role; an empty set = manager only. **The SPA learns what it may offer
+from the session** (KAN-430; Anto, 2026-10-30, option A): `LoginResponse.writableCapabilities`
+(login, `/auth/me`, switch-dealership) lists the rows the user may write in the active
+dealership — `writable_capabilities`, over the same `may_write` rule `require_write` enforces,
+with the roles and the active dealership's manager flag the token carries; the SPA reads it
+through `useCanWrite` and **hides** an action outside it (disabled-with-reason stays for state,
+ADR-061) — the action only, never what the role may read (a salesperson sees the listing
+texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
+about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
+`marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
+list's intake and «Konfiguration zuordnen»), each checked to be a matrix row; never a role table
+in the frontend. An empty `write_roles` = platform staff
 or the manager — except every row with `manager_can_write=False`: the "Nobody" rows (`audit_logs`,
 `wagenbuch`, `stock_reservation`, `ui_translations`, `status_page`, `integration_usage`,
 `module_entitlements`, `setup_checklist`, `support_session_log`) and the platform-only and self-only

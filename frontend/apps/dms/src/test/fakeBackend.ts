@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { GATED_CAPABILITIES } from '../auth/gatedCapabilities'
 
 // A fetch-level fake of the DMS API. Render tests stub `global.fetch` with
 // this rather than mocking `api/client.ts` or any hook, so the real
@@ -70,6 +71,10 @@ const DEFAULT_DEALERSHIP = { id: 'dealership-1', legalName: 'Test Motors AG' }
 // KAN-198: the default session is licensed for every module, so existing
 // screen tests see every nav entry; a test about a workshop shadows /auth/me.
 export const ALL_ENTITLEMENTS = ['sales', 'aftersales', 'parts', 'finance', 'reporting']
+// KAN-430: likewise, the default session may write every row a screen asks
+// about, so existing screen tests see every action; a test about a role
+// that may not shadows /auth/me.
+export const ALL_GATED_CAPABILITIES: string[] = [...GATED_CAPABILITIES]
 
 // The `country` reference list (KAN-32) — a small stand-in for the ~250-row
 // seed. Backs `useCountryOptions`, which every customer screen now hits.
@@ -109,6 +114,7 @@ const INFRA_ROUTES: FakeRoute[] = [
       activeDealership: DEFAULT_DEALERSHIP,
       memberships: [DEFAULT_DEALERSHIP],
       entitlements: ALL_ENTITLEMENTS,
+      writableCapabilities: ALL_GATED_CAPABILITIES,
     }),
   },
   { method: 'GET', match: /\/me\/preferences\//, handler: () => ({ payload: {} }) },

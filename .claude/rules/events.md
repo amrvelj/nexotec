@@ -53,7 +53,8 @@ claim checked against the code). Fix this file in the same PR as any change to w
   still-failing episode re-alarms after 24 h, and the first success logs "daily job recovered"
   (KAN-303; the episode lives in process memory). The worker reports ERROR lines to Sentry and
   exports the heartbeat's gauges over OTLP, each inert while its `DMS_*` variable is unset
-  (KAN-248).
+  (KAN-248), as its own service `<DMS_OTEL_SERVICE_NAME>-worker` (`dms-platform-worker`;
+  KAN-304) beside the web's `dms-platform`.
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84;

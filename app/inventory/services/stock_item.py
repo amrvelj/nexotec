@@ -6,9 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.inventory.models.stock_item import (
@@ -128,6 +129,16 @@ def _vin_already_in_stock(held_by: StockItem) -> ConflictError:
             "stockItemId": str(held_by.id),
             "stockNumber": held_by.stock_number,
         },
+    )
+
+
+def _configuration_vin_differs() -> UnprocessableEntityError:
+    """KAN-463: a configuration whose VIN is not the stock item's describes
+    another car; linking it would show that car's technical data."""
+
+    return UnprocessableEntityError(
+        "The configuration's VIN is not this stock item's VIN.",
+        details={"field": "configurationId", "reason": "configuration_vin_differs"},
     )
 
 
@@ -255,6 +266,10 @@ def create_stock_item(
         configuration.require_mode(
             host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD)
         )
+        # KAN-463: the configuration is the car's technical data, so one
+        # that names another car is refused, as on «Konfiguration zuordnen».
+        if data.vin is not None and configuration.vin is not None and configuration.vin != data.vin:
+            raise _configuration_vin_differs()
         configuration_label = configuration.label
     if data.vin is not None:
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
@@ -297,6 +312,52 @@ def update_stock_item(
     item.version += 1
     db.flush()
     _publish_condition_changed(db, item=item, previous=previous_condition)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def attach_configuration(
+    db: Session, *, item: StockItem, configuration_id: uuid.UUID, actor_id: uuid.UUID | None
+) -> StockItem:
+    """KAN-463 — «Konfiguration zuordnen»: link the configuration the
+    configurator produced to an item that has none (one the retired
+    hand-typed intake created), so the car gets its technical data. Both
+    modes, as on the pipeline intake (FR-C-13); 404 for another tenant's
+    configuration. Refused when the item already has one (409
+    `configuration_already_linked`: a configuration is replaced by editing
+    it, never by linking another) and when both carry a VIN and they differ
+    (422 `configuration_vin_differs`: it would describe another car).
+    Allowed on an item that has left stock too: its record keeps the car's
+    data. Audited; the caller has checked If-Match."""
+
+    if item.configuration_id is not None:
+        raise ConflictError(
+            "This stock item already has a configuration.",
+            details={"reason": "configuration_already_linked", "configurationId": str(item.configuration_id)},
+        )
+    configuration = get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=configuration_id)
+    configuration.require_mode(host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD))
+    if item.vin is not None and configuration.vin is not None and configuration.vin != item.vin:
+        raise _configuration_vin_differs()
+    item.configuration_id = configuration.id
+    # Rule 2's three columns: the label is a copy of the configuration's,
+    # refreshed now.
+    item.configuration_label = configuration.label
+    item.configuration_label_refreshed_at = utcnow()
+    item.updated_by = actor_id
+    item.version += 1
+    db.flush()
+    record_audit_event(
+        db,
+        entity_type="stock_item",
+        entity_id=item.id,
+        tenant_id=item.tenant_id,
+        action="configuration_attached",
+        actor_id=actor_id,
+        before={"configurationId": None},
+        after={"configurationId": str(configuration.id), "configurationLabel": configuration.label},
+    )
     db.commit()
     db.refresh(item)
     return item

@@ -7,10 +7,17 @@ seeds those lists and passes these values; it never relies on an unseeded
 list or a missing field standing in for "not relevant here".
 """
 
+import uuid
+from collections.abc import Mapping
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.auth import decode_token_claims
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.vehicle.models.configuration import ConfigurationMatchMethod, ConfigurationMode, ConfigurationSource
+from app.vehicle.schemas.configuration import ConfigurationCreate
+from app.vehicle.services import configuration as configuration_service
 
 # snake_case, for `ConfigurationCreate(**MANUAL_CODED)` in service tests
 MANUAL_CODED: dict[str, str] = {
@@ -54,3 +61,25 @@ def seed_manual_coded_lists(db: Session) -> None:
 
     for list_code, code in MANUAL_CODED.items():
         seed_reference_list(db, list_code, code)
+
+
+def stock_configuration_id(
+    db: Session, auth: str | Mapping[str, str], *, mode: ConfigurationMode = ConfigurationMode.RECORD
+) -> str:
+    """KAN-463: `POST /v1/inventory/stock-items` takes a car only with the
+    configuration the configurator produced for it. A manual configuration
+    in the tenant of `auth` (a bearer token, or headers carrying one), for a
+    test whose subject is the stock item, not the configuration."""
+
+    token = auth if isinstance(auth, str) else auth["Authorization"].removeprefix("Bearer ")
+    tenant_id = uuid.UUID(decode_token_claims(token)["tenant_id"])
+    seed_manual_coded_lists(db)
+    config = configuration_service.create_configuration(
+        db, tenant_id=tenant_id, actor_id=uuid.uuid4(),
+        data=ConfigurationCreate(
+            source=ConfigurationSource.MANUAL, mode=mode, match_method=ConfigurationMatchMethod.MANUAL,
+            brand_display_name="Škoda", model_group_name="Octavia", variant_name="Combi", **MANUAL_CODED,
+        ),
+    )
+    db.commit()
+    return str(config.id)

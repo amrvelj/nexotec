@@ -42,6 +42,7 @@ import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
+import { useCanWrite } from '../auth/useCanWrite'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
 import type { StockItemPage, StockItemRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
@@ -335,6 +336,12 @@ export function StockListPage() {
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('stockList.allStockView')
 
+  // KAN-430: the intake writes a configuration and a stock item; a role
+  // that may write neither is not offered it.
+  const canWriteStockItems = useCanWrite('stock_items')
+  const canWriteConfigurations = useCanWrite('configurations')
+  const canAddVehicle = canWriteStockItems && canWriteConfigurations
+
   const applyView = (view: SavedView) => {
     setAppliedViewId(view.id)
     if (view.snapshot.sort) setSort(view.snapshot.sort)
@@ -348,10 +355,7 @@ export function StockListPage() {
         <Title order={2}>{t('stockList.title')}</Title>
         <Group gap="sm">
           <ScopeSwitchMenu scope={scope} onScopeChange={setScope} />
-          <AddToPipelineButton />
-          <Button component={Link} to="/stock/new">
-            {t('stockList.newStockItem')}
-          </Button>
+          {canAddVehicle && <AddToPipelineButton />}
         </Group>
       </Group>
 
@@ -437,11 +441,8 @@ export function StockListPage() {
             icon: <Warehouse size={24} />,
             title: t('stockList.emptyState.title'),
             description: t('stockList.emptyState.description'),
-            action: (
-              <Button component={Link} to="/stock/new">
-                {t('stockList.newStockItem')}
-              </Button>
-            ),
+            // KAN-463: the same intake as the header — the configurator.
+            action: canAddVehicle ? <AddToPipelineButton /> : undefined,
           }}
           emptyFilteredState={{
             icon: <Warehouse size={24} />,

@@ -39,6 +39,7 @@ from app.inventory.services.stock_item import create_stock_item
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import create_or_get_vehicle_mdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+from tests.configuration_test_support import stock_configuration_id
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
@@ -58,8 +59,11 @@ def _bearer(tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None
     return {"Authorization": f"Bearer {token}"}
 
 
-def _post(client, headers, **fields):
-    body = {"vehicleLabel": "Volkswagen Golf", "condition": "used", **fields}
+def _post(client, db_session, headers, **fields):
+    body = {
+        "vehicleLabel": "Volkswagen Golf", "condition": "used",
+        "configurationId": stock_configuration_id(db_session, headers), **fields,
+    }
     return client.post("/v1/inventory/stock-items", json=body, headers=headers)
 
 
@@ -84,12 +88,12 @@ def _stock_item_count(db_session) -> int:
         "wVw-ZZZ1KZAW000001".replace("-", " "),  # a no-break space pasted from a document
     ],
 )
-def test_a_differently_spelled_vin_of_a_car_in_stock_is_a_duplicate(client, spelling):
+def test_a_differently_spelled_vin_of_a_car_in_stock_is_a_duplicate(client, spelling, db_session):
     headers = _bearer()
-    first = _post(client, headers, vin=VIN)
+    first = _post(client, db_session, headers, vin=VIN)
     assert first.status_code == 201, first.text
 
-    second = _post(client, headers, vin=spelling)
+    second = _post(client, db_session, headers, vin=spelling)
 
     assert second.status_code == 409, second.text
     assert second.json()["error"]["details"] == {
@@ -100,7 +104,7 @@ def test_a_differently_spelled_vin_of_a_car_in_stock_is_a_duplicate(client, spel
 
 
 def test_the_vin_is_stored_as_vehicle_mdm_spells_it(client, db_session):
-    created = _post(client, _bearer(), vin=" wvw zzz1kzaw000001 ")
+    created = _post(client, db_session, _bearer(), vin=" wvw zzz1kzaw000001 ")
 
     assert created.status_code == 201, created.text
     assert created.json()["vin"] == VIN
@@ -124,7 +128,7 @@ def test_the_vin_is_stored_as_vehicle_mdm_spells_it(client, db_session):
     ],
 )
 def test_a_vin_still_malformed_after_normalising_is_422_and_writes_nothing(client, db_session, malformed):
-    refused = _post(client, _bearer(), vin=malformed)
+    refused = _post(client, db_session, _bearer(), vin=malformed)
 
     assert refused.status_code == 422, refused.text
     errors = refused.json()["error"]["details"]["errors"]
@@ -139,7 +143,7 @@ def test_a_vin_still_malformed_after_normalising_is_422_and_writes_nothing(clien
 def test_a_create_with_a_vin_ignores_the_clients_vehicle_id_and_creates_the_vehicle(client, db_session):
     someone_elses = uuid.uuid4()
 
-    created = _post(client, _bearer(), vin=VIN, vehicleId=str(someone_elses))
+    created = _post(client, db_session, _bearer(), vin=VIN, vehicleId=str(someone_elses))
 
     assert created.status_code == 201, created.text
     vehicle = _vehicle_by_vin(db_session, VIN)
@@ -152,7 +156,7 @@ def test_the_vehicle_a_create_resolves_names_the_user_who_created_it(client, db_
     """KAN-243: a null created_by means a system write; a user's stock create is not one."""
     user_id = uuid.uuid4()
 
-    created = _post(client, _bearer(user_id=user_id), vin=VIN)
+    created = _post(client, db_session, _bearer(user_id=user_id), vin=VIN)
 
     assert created.status_code == 201, created.text
     assert _vehicle_by_vin(db_session, VIN).created_by == user_id
@@ -162,7 +166,7 @@ def test_a_create_with_a_vin_vehicle_mdm_knows_uses_that_record(client, db_sessi
     known, _created = create_or_get_vehicle_mdm(db_session, vin=VIN)
     other, _created = create_or_get_vehicle_mdm(db_session, vin="ZFA31200000123456")
 
-    created = _post(client, _bearer(), vin=VIN.lower(), vehicleId=str(other.id))
+    created = _post(client, db_session, _bearer(), vin=VIN.lower(), vehicleId=str(other.id))
 
     assert created.status_code == 201, created.text
     assert created.json()["vehicleId"] == str(known.id)
@@ -179,7 +183,7 @@ def test_a_create_without_a_vin_refuses_a_vehicle_id_and_writes_nothing(client, 
     sent — a vehicle-mdm record nobody had checked exists, or another car's —
     and the item carried it until a promotion replaced it."""
 
-    refused = _post(client, _bearer(), vehicleId=str(uuid.uuid4()))
+    refused = _post(client, db_session, _bearer(), vehicleId=str(uuid.uuid4()))
 
     assert refused.status_code == 422, refused.text
     body = refused.json()["error"]
@@ -188,11 +192,14 @@ def test_a_create_without_a_vin_refuses_a_vehicle_id_and_writes_nothing(client, 
     assert [e["type"] for e in errors] == ["vehicle_id_requires_vin"]
     assert [e["loc"] for e in errors] == [["body"]]
     assert _stock_item_count(db_session) == 0
-    assert db_session.scalar(select(func.count()).select_from(OutboxMessage)) == 0
+    # The configuration the body names published its own event (KAN-463);
+    # Stock published nothing.
+    inventory_events = select(func.count()).select_from(OutboxMessage).where(OutboxMessage.producer == "inventory")
+    assert db_session.scalar(inventory_events) == 0
 
 
-def test_a_create_without_a_vin_and_without_a_vehicle_id_is_still_a_pipeline_item(client):
-    created = _post(client, _bearer())
+def test_a_create_without_a_vin_and_without_a_vehicle_id_is_still_a_pipeline_item(client, db_session):
+    created = _post(client, db_session, _bearer())
 
     assert created.status_code == 201, created.text
     assert created.json()["vehicleId"] is None
@@ -214,7 +221,7 @@ def test_the_schema_itself_refuses_a_vehicle_id_without_a_vin():
 
 
 def test_the_openapi_says_vehicle_id_is_ignored_with_a_vin_and_refused_without(client):
-    schema = client.get("/openapi.json").json()["components"]["schemas"]["StockItemCreate"]["properties"]
+    schema = client.get("/openapi.json").json()["components"]["schemas"]["StockItemCreateRequest"]["properties"]
 
     assert "Ignored when `vin` is sent" in schema["vehicleId"]["description"]
     assert "refused" in schema["vehicleId"]["description"]
@@ -453,7 +460,7 @@ def test_a_create_that_loses_the_insert_race_uses_the_winners_record(client, db_
 
     misses = _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
 
-    created = _post(client, _bearer(), vin=VIN, vehicleId=str(uuid.uuid4()))
+    created = _post(client, db_session, _bearer(), vin=VIN, vehicleId=str(uuid.uuid4()))
 
     assert misses == [VIN]
     assert created.status_code == 201, created.text
@@ -480,7 +487,7 @@ def test_a_create_that_loses_the_race_to_its_own_dealership_is_409_vin_already_i
 
     _lose_the_first_lookup(monkeypatch, engine, winner=the_same_dealership_takes_the_car_in)
 
-    refused = _post(client, _bearer(tenant_id), vin=VIN)
+    refused = _post(client, db_session, _bearer(tenant_id), vin=VIN)
 
     assert refused.status_code == 409, refused.text
     assert refused.json()["error"]["details"] == {

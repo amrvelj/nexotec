@@ -41,6 +41,18 @@ class LoginResponse(CamelModel):
     # factor while one is required — the SPA sends the user to enrolment
     # before any other screen.
     mfa_enrolment_required: bool = False
+    # KAN-430 (Anto, 2026-10-30, option A): the permission-matrix rows this
+    # user may write in the active dealership (`stock_acquisition`,
+    # `marketplace_publishing`, …), from `CAPABILITY_MATRIX` — the SPA hides
+    # an action outside them. Presentation only: every write is still gated
+    # by the server.
+    writable_capabilities: list[str] = Field(
+        default_factory=list,
+        description=(
+            "The permission-matrix rows this user may write in the active dealership. The SPA hides an action "
+            "outside them; the API's own gate on each write stays the authority."
+        ),
+    )
 
 
 class SwitchDealershipRequest(CamelModel):

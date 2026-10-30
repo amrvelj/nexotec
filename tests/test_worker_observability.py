@@ -239,6 +239,8 @@ data = reader.get_metrics_data()
 print(json.dumps({
     "metrics": sorted({m.name for rm in data.resource_metrics for sm in rm.scope_metrics for m in sm.metrics}),
     "tracerProvider": type(trace.get_tracer_provider()).__name__,
+    "metricServiceNames": sorted({rm.resource.attributes["service.name"] for rm in data.resource_metrics}),
+    "traceServiceName": trace.get_tracer_provider().resource.attributes["service.name"],
 }))
 """
 
@@ -272,6 +274,9 @@ def test_with_an_otlp_endpoint_the_heartbeat_alarm_gauges_are_exported_from_the_
         "dms.reconciliation.age_seconds",
     ]
     assert probe["tracerProvider"] == "TracerProvider"
+    # KAN-304: the worker reports as its own service, never as the web's.
+    assert probe["metricServiceNames"] == ["dms-platform-worker"]
+    assert probe["traceServiceName"] == "dms-platform-worker"
 
 
 def test_the_worker_entrypoint_configures_observability_before_it_runs():
@@ -288,3 +293,18 @@ def test_the_worker_entrypoint_configures_observability_before_it_runs():
 
     assert calls[0] == "configure_observability"
     assert "run" in calls
+
+
+def test_the_web_process_and_the_worker_report_as_two_services(monkeypatch):
+    """KAN-304 — before, both reported as `dms-platform` with nothing to tell
+    them apart. One setting names both (`DMS_OTEL_SERVICE_NAME`)."""
+
+    web = observability.otel_resource_attributes("web")
+    worker_attributes = observability.otel_resource_attributes("worker")
+
+    assert web["service.name"] == "dms-platform"
+    assert worker_attributes["service.name"] == "dms-platform-worker"
+    assert web["deployment.environment"] == worker_attributes["deployment.environment"]
+    renamed = get_settings().model_copy(update={"otel_service_name": "dms-staging"})
+    monkeypatch.setattr(observability, "get_settings", lambda: renamed)
+    assert observability.otel_resource_attributes("worker")["service.name"] == "dms-staging-worker"

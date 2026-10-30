@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.core.auth import AccessRole, create_access_token
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import StockItem
+from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 
@@ -51,10 +52,9 @@ def _auth(token: str, **extra: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", **extra}
 
 
-def _create(client, token: str, **body: str) -> dict:
-    response = client.post(
-        "/v1/inventory/stock-items", json={"vehicleLabel": "VW Golf (Eintausch)", "condition": "used", **body}, headers=_auth(token)
-    )
+def _create(client, db_session, token: str, **body: str) -> dict:
+    body = {"vehicleLabel": "VW Golf (Eintausch)", "condition": "used", "configurationId": stock_configuration_id(db_session, token), **body}
+    response = client.post("/v1/inventory/stock-items", json=body, headers=_auth(token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -80,7 +80,7 @@ def _events(db_session, item_id: str) -> list[str]:
 
 def test_a_pipeline_item_without_a_vin_cannot_be_bought(client, db_session):
     token = _token(client)
-    item = _create(client, token)
+    item = _create(client, db_session, token)
 
     response = _purchase(client, token, item)
 
@@ -95,7 +95,7 @@ def test_a_pipeline_item_without_a_vin_cannot_be_bought(client, db_session):
 
 def test_buying_a_pipeline_item_with_its_vin_puts_it_on_stock_and_makes_it_invoiceable(client, db_session):
     token = _token(client)
-    item = _create(client, token)
+    item = _create(client, db_session, token)
 
     # Spelt as a person types it: normalised before anything is read or written.
     response = _purchase(client, token, item, vin=" wvwzzz1kzaw 004461 ")
@@ -118,8 +118,8 @@ def test_buying_a_pipeline_item_with_its_vin_puts_it_on_stock_and_makes_it_invoi
 
 def test_a_vin_another_item_holds_in_stock_is_refused_and_nothing_is_booked(client, db_session):
     token = _token(client)
-    holder = _create(client, token, vin=VIN)
-    item = _create(client, token)
+    holder = _create(client, db_session, token, vin=VIN)
+    item = _create(client, db_session, token)
 
     response = _purchase(client, token, item, vin=VIN)
 
@@ -135,18 +135,18 @@ def test_a_vin_another_item_holds_in_stock_is_refused_and_nothing_is_booked(clie
     assert _events(db_session, item["id"]).count("inventory.stock_item.purchased") == 0
 
 
-def test_a_malformed_vin_is_refused(client):
+def test_a_malformed_vin_is_refused(client, db_session):
     token = _token(client)
-    item = _create(client, token)
+    item = _create(client, db_session, token)
 
     response = _purchase(client, token, item, vin="WVWZZZ1KZAW00446O")  # an O is never in a VIN
 
     assert response.status_code == 422, response.text
 
 
-def test_an_item_in_stock_is_bought_without_a_vin_or_with_its_own_but_not_with_another(client):
+def test_an_item_in_stock_is_bought_without_a_vin_or_with_its_own_but_not_with_another(client, db_session):
     token = _token(client)
-    item = _create(client, token, vin=VIN)
+    item = _create(client, db_session, token, vin=VIN)
 
     other = _purchase(client, token, item, vin="WVWZZZ1KZAW004462")
     assert other.status_code == 422, other.text
@@ -156,7 +156,7 @@ def test_an_item_in_stock_is_bought_without_a_vin_or_with_its_own_but_not_with_a
     assert own.status_code == 200, own.text
     assert own.json()["isInvoiceable"] is True
 
-    second = _create(client, token, vin="WVWZZZ1KZAW004463")
+    second = _create(client, db_session, token, vin="WVWZZZ1KZAW004463")
     without = _purchase(client, token, second)
     assert without.status_code == 200, without.text
     assert without.json()["isInvoiceable"] is True

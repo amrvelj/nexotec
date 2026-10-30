@@ -29,6 +29,7 @@ from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.vehicle.public import create_or_get_vehicle_mdm
+from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 
@@ -316,9 +317,10 @@ def _bearer() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_post_with_a_vin_in_stock_returns_409_with_the_reason(client):
+def test_post_with_a_vin_in_stock_returns_409_with_the_reason(client, db_session):
     headers = _bearer()
     body = {"vehicleLabel": "Volkswagen Golf", "condition": "used", "vin": VIN}
+    body["configurationId"] = stock_configuration_id(db_session, headers)
     first = client.post("/v1/inventory/stock-items", json=body, headers=headers)
     assert first.status_code == 201, first.text
 

@@ -12,6 +12,7 @@ import uuid
 
 from app.core.auth import AccessRole, create_access_token
 from app.integration.models.connection import IntegrationConnection
+from tests.configuration_test_support import stock_configuration_id
 from tests.test_integration_gateway import _make_provider
 from tests.token_support import dealer_group_of
 
@@ -28,10 +29,9 @@ def _token(*roles: AccessRole, manager: bool = False) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _stock_item(client, headers: dict[str, str]) -> dict:
-    response = client.post(
-        "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new"}, headers=headers
-    )
+def _stock_item(client, db_session, headers: dict[str, str]) -> dict:
+    body = {"vehicleLabel": "Škoda Octavia", "condition": "new", "configurationId": stock_configuration_id(db_session, headers)}
+    response = client.post("/v1/inventory/stock-items", json=body, headers=headers)
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -43,9 +43,9 @@ def _options(code: str, price: str) -> dict:
 # --- PUT /v1/inventory/stock-items/{id}/options --------------------------------------
 
 
-def test_options_put_from_a_stale_read_is_a_409_not_a_lost_update(client):
+def test_options_put_from_a_stale_read_is_a_409_not_a_lost_update(client, db_session):
     headers = _token(AccessRole.INVENTORY)
-    item = _stock_item(client, headers)
+    item = _stock_item(client, db_session, headers)
     path = f"/v1/inventory/stock-items/{item['id']}/options"
     read_version = str(item["version"])
 
@@ -64,9 +64,9 @@ def test_options_put_from_a_stale_read_is_a_409_not_a_lost_update(client):
     assert [o["code"] for o in options] == ["PA1"]
 
 
-def test_options_put_without_if_match_is_refused(client):
+def test_options_put_without_if_match_is_refused(client, db_session):
     headers = _token(AccessRole.INVENTORY)
-    item = _stock_item(client, headers)
+    item = _stock_item(client, db_session, headers)
     response = client.put(
         f"/v1/inventory/stock-items/{item['id']}/options", json=_options("PA1", "1.00"), headers=headers
     )
@@ -77,9 +77,9 @@ def test_options_put_without_if_match_is_refused(client):
 # --- PATCH /v1/inventory/stock-items/{id}/publishing/{channel} ------------------------
 
 
-def test_listing_text_patch_from_a_stale_read_is_a_409_not_a_lost_update(client):
+def test_listing_text_patch_from_a_stale_read_is_a_409_not_a_lost_update(client, db_session):
     headers = _token(AccessRole.INVENTORY)
-    item = _stock_item(client, headers)
+    item = _stock_item(client, db_session, headers)
     path = f"/v1/inventory/stock-items/{item['id']}/publishing/autoscout24"
     row = client.get(path, headers=headers).json()
     read_version = str(row["version"])
@@ -94,21 +94,21 @@ def test_listing_text_patch_from_a_stale_read_is_a_409_not_a_lost_update(client)
     assert client.get(path, headers=headers).json()["zusatztitel"] == "Anna's title"
 
 
-def test_listing_text_patch_without_if_match_is_refused(client):
+def test_listing_text_patch_without_if_match_is_refused(client, db_session):
     headers = _token(AccessRole.INVENTORY)
-    item = _stock_item(client, headers)
+    item = _stock_item(client, db_session, headers)
     path = f"/v1/inventory/stock-items/{item['id']}/publishing/carmarket"
     response = client.patch(path, json={"zusatztitel": "x"}, headers=headers)
     assert response.status_code == 400, response.text
     assert client.get(path, headers=headers).json()["zusatztitel"] is None
 
 
-def test_listing_text_versions_are_per_channel(client):
+def test_listing_text_versions_are_per_channel(client, db_session):
     """If-Match names the channel's own row: a save on one channel never
     stales another's."""
 
     headers = _token(AccessRole.INVENTORY)
-    item = _stock_item(client, headers)
+    item = _stock_item(client, db_session, headers)
     base = f"/v1/inventory/stock-items/{item['id']}/publishing"
     as24 = client.get(f"{base}/autoscout24", headers=headers).json()
     autolina = client.get(f"{base}/autolina", headers=headers).json()

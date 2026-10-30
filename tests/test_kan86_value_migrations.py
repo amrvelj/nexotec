@@ -33,6 +33,7 @@ import app.model_registry  # noqa: F401  registers every model on Base.metadata
 from app.core.auth import AccessRole
 from app.core.enum_type import StoredEnum
 from app.db import Base
+from tests.configuration_test_support import stock_configuration_id
 from tests.enum_test_support import (
     _bearer,
     _create_customer,
@@ -378,7 +379,8 @@ def test_name_form_rows_serve_from_the_endpoints_after_the_upgrade(client, db_se
     customer = _create_customer(client, tenant_id, "Named")
     _to_name_form(db_session, customer["id"])
     inventory = _bearer(_token(tenant_id, AccessRole.INVENTORY))
-    response = client.post("/v1/inventory/stock-items", json={"vehicleLabel": "VW Golf", "condition": "new"}, headers=inventory)
+    body = {"vehicleLabel": "VW Golf", "condition": "new", "configurationId": stock_configuration_id(db_session, inventory)}
+    response = client.post("/v1/inventory/stock-items", json=body, headers=inventory)
     assert response.status_code == 201, response.text
     stock_id = response.json()["id"]
     db_session.execute(

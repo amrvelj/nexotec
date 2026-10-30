@@ -1847,6 +1847,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inventory/stock-items/{stock_item_id}/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach Configuration
+         * @description KAN-463 — «Konfiguration zuordnen» for an item without one.
+         */
+        post: operations["attach_configuration_v1_inventory_stock_items__stock_item_id__configuration_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/inventory/stock-items/{stock_item_id}/equipment": {
         parameters: {
             query?: never;
@@ -6582,6 +6602,11 @@ export interface components {
              */
             mfaEnrolmentRequired?: boolean;
             user: components["schemas"]["UserRead"];
+            /**
+             * Writablecapabilities
+             * @description The permission-matrix rows this user may write in the active dealership. The SPA hides an action outside them; the API's own gate on each write stays the authority.
+             */
+            writableCapabilities?: string[];
         };
         /**
          * LoginStatusRead
@@ -7866,11 +7891,39 @@ export interface components {
         StockItemConditionChange: {
             condition: components["schemas"]["StockItemCondition"];
         };
-        /** StockItemCreate */
-        StockItemCreate: {
+        /**
+         * StockItemConfigurationAttach
+         * @description KAN-463 — «Konfiguration zuordnen»: links the configuration the
+         *     configurator produced to a stock item that has none (one created by the
+         *     retired hand-typed intake). Refused when one is already linked.
+         */
+        StockItemConfigurationAttach: {
+            /**
+             * Configurationid
+             * Format: uuid
+             */
+            configurationId: string;
+        };
+        /**
+         * StockItemCreateRequest
+         * @description KAN-463 (Anto, 2026-10-26/28, option A): the body of
+         *     `POST /v1/inventory/stock-items`. Every stock vehicle a user adds enters
+         *     through the configurator, so the public endpoint refuses a car without
+         *     the configuration it produced — the hand-typed intake, which created a
+         *     label with no vehicle and no technical data, is gone. Enforced here, at
+         *     the endpoint only (Anto, decision 1a): the contract-confirmation
+         *     consumers (FR-I-02/02b) build a `StockItemCreate` of their own and the
+         *     ADR-091 legacy import writes its rows directly — neither passes this
+         *     door.
+         */
+        StockItemCreateRequest: {
             condition: components["schemas"]["StockItemCondition"];
-            /** Configurationid */
-            configurationId?: string | null;
+            /**
+             * Configurationid
+             * Format: uuid
+             * @description The configuration the configurator produced for this car (`build` for a factory order, `record` for a car being bought in). Required: without it the create is 422 `configuration_required`.
+             */
+            configurationId: string;
             /** Effectiveprice */
             effectivePrice?: number | string | null;
             /** Firstregistrationdate */
@@ -14454,7 +14507,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StockItemCreate"];
+                "application/json": components["schemas"]["StockItemCreateRequest"];
             };
         };
         responses: {
@@ -14572,6 +14625,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["StockItemConditionChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_configuration_v1_inventory_stock_items__stock_item_id__configuration_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockItemConfigurationAttach"];
             };
         };
         responses: {

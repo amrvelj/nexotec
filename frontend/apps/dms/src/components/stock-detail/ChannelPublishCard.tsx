@@ -17,6 +17,8 @@ interface ChannelPublishCardProps {
   publishing: PublishingRead | undefined
   locale: string
   blocked: boolean
+  /** KAN-430: false hides publish and unpublish — the status stays. */
+  canPublish?: boolean
   onPublish: () => Promise<void>
   onUnpublish: () => Promise<void>
 }
@@ -41,7 +43,7 @@ interface ChannelPublishCardProps {
  * for a publish, inside the still-open confirmation for an unpublish — so
  * the retry, under the same Idempotency-Key, is one click away.
  */
-export function ChannelPublishCard({ channel, publishing, locale, blocked, onPublish, onUnpublish }: ChannelPublishCardProps) {
+export function ChannelPublishCard({ channel, publishing, locale, blocked, canPublish = true, onPublish, onUnpublish }: ChannelPublishCardProps) {
   const { t } = useTranslation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -108,7 +110,7 @@ export function ChannelPublishCard({ channel, publishing, locale, blocked, onPub
             ? t('stockDetail.publishing.lastPublishedAt', { date: formatDateTime(publishing.lastPublishedAt, locale) })
             : t('stockDetail.publishing.neverPublished')}
         </span>
-        {isPublished ? (
+        {!canPublish ? null : isPublished ? (
           <Button variant="default" color="red" onClick={openUnpublish}>
             {t('stockDetail.publishing.unpublish', { channel: CHANNEL_LABEL_KEY[channel] })}
           </Button>

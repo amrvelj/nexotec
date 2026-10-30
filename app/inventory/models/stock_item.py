@@ -204,8 +204,8 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # WP-7 PR-2 (ADR-045). Set only for an item that originated from a
     # Sales auto-create path (manual configuration or trade-in) — never
     # user-editable, the sole reason it exists is idempotency (see
-    # __table_args__ above). A manually-created item (StockCreatePage,
-    # PR-1) never has one.
+    # __table_args__ above). An item added from the Stock list (the
+    # configurator intake, KAN-463) never has one.
     pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)

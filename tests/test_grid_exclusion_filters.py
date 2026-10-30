@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from app.core.auth import AccessRole, create_access_token
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
-from tests.configuration_test_support import seed_reference_list
+from tests.configuration_test_support import seed_reference_list, stock_configuration_id
 from tests.dealership_support import valid_uid
 from tests.membership_support import create_user
 from tests.test_catalogue_browse import _enable_browse
@@ -49,11 +49,12 @@ def _ids(response) -> set[str]:
 # --- Stock -------------------------------------------------------------------------------------
 
 
-def test_stock_excludes_a_condition_and_a_lifecycle_status(client):
+def test_stock_excludes_a_condition_and_a_lifecycle_status(client, db_session):
     headers = _headers(uuid.uuid4(), AccessRole.INVENTORY)
 
     def create(**body):
-        response = client.post("/v1/inventory/stock-items", json={"vehicleLabel": "VW Golf", **body}, headers=headers)
+        body = {"vehicleLabel": "VW Golf", "configurationId": stock_configuration_id(db_session, headers), **body}
+        response = client.post("/v1/inventory/stock-items", json=body, headers=headers)
         assert response.status_code == 201, response.text
         return response.json()["id"]
 

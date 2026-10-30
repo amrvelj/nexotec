@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
+import { AttachConfigurationButton } from './AttachConfigurationButton'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import type { StockItemRead } from '../../api/types'
 
@@ -14,6 +15,14 @@ interface DetailsTabProps {
   locale: string
   onSaveField: (patch: Record<string, unknown>) => Promise<void>
   onReload: () => void
+  /** KAN-430: whether the user's role may book the purchase
+   * (`stock_acquisition`). Hidden when not; the stock detail passes the
+   * session's answer. */
+  canRecordPurchase?: boolean
+  /** KAN-430: whether the user's role may link a configuration
+   * (`stock_items` and `configurations`); without, the card only says one is
+   * missing. */
+  canAttachConfiguration?: boolean
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -34,7 +43,15 @@ interface DetailsTabProps {
 // KAN-168: the price editors open grouped, with CHF (CHF 42'500), never on the raw 42500.00.
 const chfEditor = chfInlineEditor({ min: 0 })
 
-export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurchase }: DetailsTabProps) {
+export function DetailsTab({
+  item,
+  locale,
+  onSaveField,
+  onReload,
+  canRecordPurchase = true,
+  canAttachConfiguration = true,
+  onRecordPurchase,
+}: DetailsTabProps) {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
@@ -69,12 +86,21 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
         ]}
       />
 
-      {item.configurationId && (
+      {item.configurationId ? (
         // C-F (KAN-10, FR-C-13) — the configuration this pipeline item points at.
         // KAN-459: it carries block 2 of FR-I-07's order, the technical data,
         // straight after the hero band, in a spec grid of at most four columns.
         <OverviewCard title={t('stockDetail.configuration.title')}>
           <HostConfigurationCard configurationId={item.configurationId} technicalDataColumns={4} />
+        </OverviewCard>
+      ) : (
+        // KAN-463 — an item the retired hand-typed intake created has no
+        // configuration, so no technical data; it is repaired here.
+        <OverviewCard title={t('stockDetail.configuration.title')}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <span style={{ color: slate[5] }}>{t('stockDetail.configuration.missing')}</span>
+            {canAttachConfiguration && <AttachConfigurationButton item={item} />}
+          </div>
         </OverviewCard>
       )}
 
@@ -144,9 +170,13 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
       <ProgressiveDisclosure label={t('stockDetail.purchase.title')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {item.purchasePrice == null ? (
-            <Button variant="default" onClick={() => setPurchaseDialogOpen(true)} style={{ alignSelf: 'flex-start' }}>
-              {t('stockDetail.purchase.recordButton')}
-            </Button>
+            canRecordPurchase ? (
+              <Button variant="default" onClick={() => setPurchaseDialogOpen(true)} style={{ alignSelf: 'flex-start' }}>
+                {t('stockDetail.purchase.recordButton')}
+              </Button>
+            ) : (
+              <span style={{ color: slate[5] }}>{t('stockDetail.purchase.notRecorded')}</span>
+            )
           ) : (
             <OverviewCard title={t('stockDetail.purchase.title')}>
               <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>{item.supplierName}</KeyValueRow>

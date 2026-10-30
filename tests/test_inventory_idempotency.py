@@ -17,6 +17,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemMedia
+from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 
@@ -78,14 +79,14 @@ def _twice(client, path: str, token: str, body: dict | None, **extra: str):
     return key, first.json()
 
 
-def _item_body(**overrides) -> dict:
-    body = {"vehicleLabel": "Škoda Octavia", "condition": "new"}
+def _item_body(db_session, token: str, **overrides) -> dict:
+    body = {"vehicleLabel": "Škoda Octavia", "condition": "new", "configurationId": stock_configuration_id(db_session, token)}
     body.update(overrides)
     return body
 
 
-def _item(client, token: str) -> dict:
-    response = client.post("/v1/inventory/stock-items", json=_item_body(), headers=_headers(token))
+def _item(client, db_session, token: str) -> dict:
+    response = client.post("/v1/inventory/stock-items", json=_item_body(db_session, token), headers=_headers(token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -97,17 +98,18 @@ def test_create_stock_item_twice_under_one_key_makes_one_item(client, db_session
     token = _token()
     label = f"Škoda Octavia {uuid.uuid4().hex[:6]}"
 
-    _twice(client, "/v1/inventory/stock-items", token, _item_body(vehicleLabel=label))
+    _twice(client, "/v1/inventory/stock-items", token, _item_body(db_session, token, vehicleLabel=label))
 
     assert _count(db_session, StockItem, StockItem.vehicle_label == label) == 1
 
 
 def test_create_stock_item_with_a_reused_key_and_another_body_is_a_409(client, db_session):
     token = _token()
-    key, _ = _twice(client, "/v1/inventory/stock-items", token, _item_body())
+    body = _item_body(db_session, token)
+    key, _ = _twice(client, "/v1/inventory/stock-items", token, body)
     other = f"VW Golf {uuid.uuid4().hex[:6]}"
 
-    response = client.post("/v1/inventory/stock-items", json=_item_body(vehicleLabel=other), headers=_headers(token, key))
+    response = client.post("/v1/inventory/stock-items", json={**body, "vehicleLabel": other}, headers=_headers(token, key))
 
     _assert_key_conflict(response, key)
     assert _count(db_session, StockItem, StockItem.vehicle_label == other) == 0
@@ -118,7 +120,7 @@ def test_create_stock_item_with_a_reused_key_and_another_body_is_a_409(client, d
 
 def test_a_retried_condition_change_replays_its_success_instead_of_a_version_conflict(client, db_session):
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
 
     _, body = _twice(
         client, f"/v1/inventory/stock-items/{item['id']}/condition", token, {"condition": "demo"}, **{"If-Match": "1"}
@@ -131,7 +133,7 @@ def test_a_retried_condition_change_replays_its_success_instead_of_a_version_con
 
 def test_condition_change_with_a_reused_key_and_another_condition_is_a_409(client, db_session):
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     path = f"/v1/inventory/stock-items/{item['id']}/condition"
     key, body = _twice(client, path, token, {"condition": "demo"}, **{"If-Match": "1"})
 
@@ -156,7 +158,7 @@ _PURCHASE = {
 
 def test_a_retried_purchase_replays_its_success_instead_of_a_version_conflict(client, db_session):
     token = _dealership_token(client)
-    item = _item(client, token)
+    item = _item(client, db_session, token)
 
     _, body = _twice(client, f"/v1/inventory/stock-items/{item['id']}/purchase", token, _PURCHASE, **{"If-Match": "1"})
 
@@ -166,7 +168,7 @@ def test_a_retried_purchase_replays_its_success_instead_of_a_version_conflict(cl
 
 def test_purchase_with_a_reused_key_and_another_price_is_a_409(client, db_session):
     token = _dealership_token(client)
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     path = f"/v1/inventory/stock-items/{item['id']}/purchase"
     key, body = _twice(client, path, token, _PURCHASE, **{"If-Match": "1"})
 
@@ -191,7 +193,7 @@ def test_record_cost_twice_under_one_key_makes_one_entry(client, db_session):
     without the key as well; the 409 below is what the key adds."""
 
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
 
     _twice(client, f"/v1/inventory/stock-items/{item['id']}/ledger-entries", token, _cost("inv-4711"))
 
@@ -200,7 +202,7 @@ def test_record_cost_twice_under_one_key_makes_one_entry(client, db_session):
 
 def test_record_cost_with_a_reused_key_and_another_entry_is_a_409(client, db_session):
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     path = f"/v1/inventory/stock-items/{item['id']}/ledger-entries"
     key, _ = _twice(client, path, token, _cost("inv-4711"))
 
@@ -223,7 +225,7 @@ def _media(client, token: str, item_id: str, url: str) -> dict:
 
 def test_add_media_twice_under_one_key_makes_one_photo(client, db_session):
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
 
     _twice(client, f"/v1/inventory/stock-items/{item['id']}/media", token, {"url": "https://cdn.example.ch/1.jpg"})
 
@@ -232,7 +234,7 @@ def test_add_media_twice_under_one_key_makes_one_photo(client, db_session):
 
 def test_add_media_with_a_reused_key_and_another_photo_is_a_409(client, db_session):
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     path = f"/v1/inventory/stock-items/{item['id']}/media"
     key, _ = _twice(client, path, token, {"url": "https://cdn.example.ch/1.jpg"})
 
@@ -247,7 +249,7 @@ def test_reorder_media_twice_under_one_key_answers_the_same(client, db_session):
     without the key as well; the 409 below is what the key adds."""
 
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     first = _media(client, token, item["id"], "https://cdn.example.ch/1.jpg")
     second = _media(client, token, item["id"], "https://cdn.example.ch/2.jpg")
 
@@ -261,7 +263,7 @@ def test_reorder_media_twice_under_one_key_answers_the_same(client, db_session):
 
 def test_reorder_media_with_a_reused_key_and_another_order_is_a_409(client, db_session):
     token = _token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     first = _media(client, token, item["id"], "https://cdn.example.ch/1.jpg")
     second = _media(client, token, item["id"], "https://cdn.example.ch/2.jpg")
     path = f"/v1/inventory/stock-items/{item['id']}/media/reorder"
@@ -279,7 +281,7 @@ def _publishable_item(client, db_session, token: str) -> dict:
 
     response = client.post(
         "/v1/inventory/stock-items",
-        json=_item_body(odometerKm=10, effectivePrice="24900.00"),
+        json=_item_body(db_session, token, odometerKm=10, effectivePrice="24900.00"),
         headers=_headers(token),
     )
     assert response.status_code == 201, response.text
@@ -365,7 +367,7 @@ def test_reserve_twice_under_one_key_reserves_once_and_answers_the_same(client, 
     """Run again, the second reserve would find the car reserved and 409."""
 
     token = _reserver_token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
 
     _, body = _twice(
         client, f"/v1/inventory/stock-items/{item['id']}/reservations", token, {"contractId": str(uuid.uuid4())}
@@ -379,7 +381,7 @@ def test_reserve_twice_under_one_key_reserves_once_and_answers_the_same(client, 
 
 def test_reserve_with_a_reused_key_and_another_contract_is_a_409_for_the_key(client, db_session):
     token = _reserver_token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     contract_id = str(uuid.uuid4())
     key = str(uuid.uuid4())
     assert _reserve(client, token, item["id"], contract_id, key).status_code == 201
@@ -397,7 +399,7 @@ def test_a_late_retry_of_a_reserve_never_re_reserves_a_released_car(client, db_s
     nothing, even after the reservation was released."""
 
     token = _reserver_token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     key = str(uuid.uuid4())
     contract_id = str(uuid.uuid4())
     first = _reserve(client, token, item["id"], contract_id, key)
@@ -419,7 +421,7 @@ def test_release_twice_under_one_key_answers_the_same(client, db_session):
     """Run again, the second release would find no active reservation and 404."""
 
     token = _reserver_token()
-    item = _item(client, token)
+    item = _item(client, db_session, token)
     reserved = _reserve(client, token, item["id"], str(uuid.uuid4()))
     assert reserved.status_code == 201, reserved.text
 
@@ -433,8 +435,8 @@ def test_release_with_a_reused_key_on_another_reservation_is_a_409(client, db_se
     """Release has no body: what makes it another request is its target."""
 
     token = _reserver_token()
-    first_item = _item(client, token)
-    other_item = _item(client, token)
+    first_item = _item(client, db_session, token)
+    other_item = _item(client, db_session, token)
     first = _reserve(client, token, first_item["id"], str(uuid.uuid4()))
     other = _reserve(client, token, other_item["id"], str(uuid.uuid4()))
     key, _ = _twice(client, f"/v1/inventory/reservations/{first.json()['reservationId']}/release", token, None)

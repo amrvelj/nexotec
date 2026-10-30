@@ -26,6 +26,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.core.permissions import CAPABILITY_MATRIX
 from app.main import app
+from tests.configuration_test_support import stock_configuration_id
 from tests.route_walk import api_routes
 from tests.token_support import dealer_group_of
 
@@ -36,6 +37,7 @@ EXPECTED_CAPABILITY: dict[tuple[str, str], str] = {
     ("POST", "/v1/inventory/stock-items"): "stock_items",
     ("PATCH", "/v1/inventory/stock-items/{stock_item_id}"): "stock_items",
     ("PUT", "/v1/inventory/stock-items/{stock_item_id}/options"): "stock_items",
+    ("POST", "/v1/inventory/stock-items/{stock_item_id}/configuration"): "stock_items",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/condition"): "stock_condition",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/purchase"): "stock_acquisition",
     ("PATCH", "/v1/inventory/stock-items/{stock_item_id}/purchase/notional-input-tax"): "stock_acquisition",
@@ -94,12 +96,13 @@ def _token(tenant_id: uuid.UUID, *roles: AccessRole, is_dealer_manager: bool = F
 
 
 @pytest.fixture
-def stock_item(client) -> tuple[uuid.UUID, dict]:
+def stock_item(client, db_session) -> tuple[uuid.UUID, dict]:
     tenant_id = uuid.uuid4()
+    inventory = _token(tenant_id, AccessRole.INVENTORY)
     response = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Škoda Octavia", "condition": "used"},
-        headers=_token(tenant_id, AccessRole.INVENTORY),
+        json={"vehicleLabel": "Škoda Octavia", "condition": "used", "configurationId": stock_configuration_id(db_session, inventory)},
+        headers=inventory,
     )
     assert response.status_code == 201, response.text
     return tenant_id, response.json()
@@ -144,7 +147,7 @@ def test_a_sales_user_is_refused_a_direct_release(client, stock_item):
     assert response.status_code == 403, response.text
 
 
-def test_a_sales_user_may_create_and_edit_a_stock_item(client):
+def test_a_sales_user_may_create_and_edit_a_stock_item(client, db_session):
     """Anto's ruling (2026-10-17): the matrix's "Stock and pipeline vehicles"
     row is inventory AND sales — create, patch, options and condition."""
 
@@ -152,7 +155,9 @@ def test_a_sales_user_may_create_and_edit_a_stock_item(client):
     sales = _token(tenant_id, AccessRole.SALES)
 
     created = client.post(
-        "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new"}, headers=sales
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "Škoda Octavia", "condition": "new", "configurationId": stock_configuration_id(db_session, sales)},
+        headers=sales,
     )
     assert created.status_code == 201, created.text
     item = created.json()

@@ -15,6 +15,9 @@ interface WagenbuchTabProps {
    * is closed to new entries (FR-I-12, refused server-side with a 422), so
    * "record cost" is shown disabled with that reason (ADR-061). */
   leftStockDate?: string | null
+  /** KAN-430: whether the user's role may book a cost (`stock_acquisition`).
+   * Hidden when not; the stock detail passes the session's answer. */
+  canRecordCost?: boolean
 }
 
 /**
@@ -24,7 +27,7 @@ interface WagenbuchTabProps {
  * CustomerDetail's own HistoryTab, which uses the identical pattern
  * rather than the top-level overview grid machinery.
  */
-export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = null }: WagenbuchTabProps) {
+export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = null, canRecordCost = true }: WagenbuchTabProps) {
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const closedReasonId = useId()
@@ -51,21 +54,23 @@ export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = nu
         <span style={{ fontWeight: 700, fontSize: 18 }}>{formatCurrencyChf(total)}</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-        <Button
-          variant="default"
-          onClick={() => setDialogOpen(true)}
-          disabled={Boolean(leftStockDate)}
-          aria-describedby={leftStockDate ? closedReasonId : undefined}
-        >
-          {t('stockDetail.wagenbuch.recordButton')}
-        </Button>
-        {leftStockDate && (
-          <span id={closedReasonId} style={{ color: slate[5], fontSize: 13 }}>
-            {t('stockDetail.wagenbuch.closed', { date: leftStockDate })}
-          </span>
-        )}
-      </div>
+      {canRecordCost && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+          <Button
+            variant="default"
+            onClick={() => setDialogOpen(true)}
+            disabled={Boolean(leftStockDate)}
+            aria-describedby={leftStockDate ? closedReasonId : undefined}
+          >
+            {t('stockDetail.wagenbuch.recordButton')}
+          </Button>
+          {leftStockDate && (
+            <span id={closedReasonId} style={{ color: slate[5], fontSize: 13 }}>
+              {t('stockDetail.wagenbuch.closed', { date: leftStockDate })}
+            </span>
+          )}
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <span style={{ color: slate[5], fontSize: 14 }}>{t('stockDetail.wagenbuch.empty')}</span>
