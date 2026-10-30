@@ -48,6 +48,7 @@ const REASON_KEYS: Record<string, string> = {
       'access_window_closed',
       'accounting_period_closed',
       'already_revoked',
+      'brand_code_taken',
       'catalogue_variant_missing',
       'category_automatic_only',
       'coded_field_locked',

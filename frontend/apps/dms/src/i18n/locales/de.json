@@ -236,7 +236,8 @@
       "vin_already_in_stock": "Diese VIN ist bereits im Bestand als {{stockNumber}}.",
       "wagenbuch_closed": "Dieses Fahrzeug ist verkauft – sein Wagenbuch nimmt keine neuen Einträge mehr an.",
       "purchase_requires_vin": "Ohne VIN kann dieses Fahrzeug nicht eingekauft werden.",
-      "purchase_vin_mismatch": "Diese VIN ist nicht die des Fahrzeugs an Lager."
+      "purchase_vin_mismatch": "Diese VIN ist nicht die des Fahrzeugs an Lager.",
+      "brand_code_taken": "Eine Marke mit diesem Code gibt es bereits."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1726,7 +1727,8 @@
     "subtitle": "Fahrzeugvarianten durchsuchen — Marke, Modell, Ausstattung. Aus dem Spiegel, nicht vom Anbieter.",
     "tabs": {
       "browse": "Durchsuchen",
-      "mappingGaps": "Zuordnungslücken"
+      "mappingGaps": "Zuordnungslücken",
+      "brands": "Marken"
     },
     "mode": {
       "label": "Modus",
@@ -2801,6 +2803,34 @@
       "saveFailed": "Der verantwortliche Verkäufer konnte nicht gespeichert werden.",
       "takeOverFailed": "Der Vorgang konnte nicht übernommen werden.",
       "takenMeanwhile": "Bereits von {{owner}} übernommen – die Liste ist aktualisiert."
+    }
+  },
+  "brandsAdmin": {
+    "create": "Marke erfassen",
+    "edit": "Bearbeiten",
+    "createTitle": "Marke erfassen",
+    "editTitle": "Marke bearbeiten",
+    "searchPlaceholder": "Marke oder Code suchen …",
+    "loadError": "Die Marken konnten nicht geladen werden.",
+    "saveFailed": "Die Marke konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "columns": {
+      "displayName": "Marke",
+      "code": "Code",
+      "updatedAt": "Geändert",
+      "createdAt": "Erfasst"
+    },
+    "fields": {
+      "code": "Code",
+      "displayName": "Name"
+    },
+    "emptyState": {
+      "title": "Noch keine Marken",
+      "description": "Marken kommen aus dem Katalog oder werden hier erfasst."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Marke gefunden",
+      "description": "Keine Marke passt zur Suche.",
+      "action": "Suche zurücksetzen"
     }
   }
 }

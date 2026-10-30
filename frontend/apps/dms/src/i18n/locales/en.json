@@ -236,7 +236,8 @@
       "vin_already_in_stock": "This VIN is already in stock as {{stockNumber}}.",
       "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries.",
       "purchase_requires_vin": "This vehicle cannot be purchased without its VIN.",
-      "purchase_vin_mismatch": "This VIN is not the VIN of the vehicle in stock."
+      "purchase_vin_mismatch": "This VIN is not the VIN of the vehicle in stock.",
+      "brand_code_taken": "A brand with this code already exists."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1726,7 +1727,8 @@
     "subtitle": "Browse vehicle variants — brand, model, trim. From the mirror, never the provider.",
     "tabs": {
       "browse": "Browse",
-      "mappingGaps": "Mapping gaps"
+      "mappingGaps": "Mapping gaps",
+      "brands": "Brands"
     },
     "mode": {
       "label": "Mode",
@@ -2801,6 +2803,34 @@
       "saveFailed": "The responsible seller could not be saved.",
       "takeOverFailed": "The deal could not be taken over.",
       "takenMeanwhile": "Already taken over by {{owner}} – the list has been refreshed."
+    }
+  },
+  "brandsAdmin": {
+    "create": "Add brand",
+    "edit": "Edit",
+    "createTitle": "Add brand",
+    "editTitle": "Edit brand",
+    "searchPlaceholder": "Search brand or code …",
+    "loadError": "The brands could not be loaded.",
+    "saveFailed": "The brand could not be saved. Please try again.",
+    "columns": {
+      "displayName": "Brand",
+      "code": "Code",
+      "updatedAt": "Changed",
+      "createdAt": "Created"
+    },
+    "fields": {
+      "code": "Code",
+      "displayName": "Name"
+    },
+    "emptyState": {
+      "title": "No brands yet",
+      "description": "Brands come from the catalogue or are added here."
+    },
+    "emptyFilteredState": {
+      "title": "No brand found",
+      "description": "No brand matches the search.",
+      "action": "Clear search"
     }
   }
 }

@@ -236,7 +236,8 @@
       "vin_already_in_stock": "Ce VIN est déjà en stock sous {{stockNumber}}.",
       "wagenbuch_closed": "Ce véhicule est vendu : son Wagenbuch n’accepte plus de nouvelles écritures.",
       "purchase_requires_vin": "Ce véhicule ne peut pas être acheté sans son VIN.",
-      "purchase_vin_mismatch": "Ce VIN n'est pas celui du véhicule en stock."
+      "purchase_vin_mismatch": "Ce VIN n'est pas celui du véhicule en stock.",
+      "brand_code_taken": "Une marque avec ce code existe déjà."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1726,7 +1727,8 @@
     "subtitle": "Parcourir les variantes de véhicules — marque, modèle, finition. Depuis le miroir, jamais le fournisseur.",
     "tabs": {
       "browse": "Parcourir",
-      "mappingGaps": "Lacunes de correspondance"
+      "mappingGaps": "Lacunes de correspondance",
+      "brands": "Marques"
     },
     "mode": {
       "label": "Mode",
@@ -2801,6 +2803,34 @@
       "saveFailed": "Le vendeur responsable n'a pas pu être enregistré.",
       "takeOverFailed": "L'affaire n'a pas pu être reprise.",
       "takenMeanwhile": "Déjà repris par {{owner}} – la liste a été actualisée."
+    }
+  },
+  "brandsAdmin": {
+    "create": "Ajouter une marque",
+    "edit": "Modifier",
+    "createTitle": "Ajouter une marque",
+    "editTitle": "Modifier la marque",
+    "searchPlaceholder": "Rechercher une marque ou un code …",
+    "loadError": "Les marques n'ont pas pu être chargées.",
+    "saveFailed": "La marque n'a pas pu être enregistrée. Veuillez réessayer.",
+    "columns": {
+      "displayName": "Marque",
+      "code": "Code",
+      "updatedAt": "Modifié",
+      "createdAt": "Créé"
+    },
+    "fields": {
+      "code": "Code",
+      "displayName": "Nom"
+    },
+    "emptyState": {
+      "title": "Aucune marque pour l'instant",
+      "description": "Les marques proviennent du catalogue ou sont ajoutées ici."
+    },
+    "emptyFilteredState": {
+      "title": "Aucune marque trouvée",
+      "description": "Aucune marque ne correspond à la recherche.",
+      "action": "Effacer la recherche"
     }
   }
 }

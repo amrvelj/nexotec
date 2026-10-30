@@ -290,7 +290,9 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 ## Catalogue administration
 
 The mapping-gap queue has a screen (`components/MappingGapsQueue.tsx`, on
-`/catalogue?tab=mapping-gaps`); reference data has `/settings/reference`; **brand create and
-edit have no screen** (the API exists; KAN-448).
+`/catalogue?tab=mapping-gaps`); reference data has `/settings/reference`; brands are created and
+renamed on `/catalogue?tab=brands` (`components/catalogue/BrandsAdmin.tsx`, KAN-448) — a tab
+platform staff alone see, since the brand write is `require_access_role()` (platform admin); the
+code is set once, the name is edited with If-Match, a taken code is 409 `brand_code_taken`.
 
 `valuation` is its own context — see `.claude/rules/valuation.md`, not this file.
