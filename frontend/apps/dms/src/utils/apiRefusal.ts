@@ -83,6 +83,8 @@ const REASON_KEYS: Record<string, string> = {
       'phone_already_on_customer',
       'primary_unset_directly',
       'provider_code_already_mapped',
+      'purchase_requires_vin',
+      'purchase_vin_mismatch',
       'too_many_images',
       'unknown_fields',
       'unrecognised_identifier',

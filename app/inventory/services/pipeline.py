@@ -190,6 +190,18 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
 def promote_to_vehicle_mdm(
     db: Session, *, item: StockItem, vin: str, catalogue_variant_id: uuid.UUID | None = None
 ) -> StockItem:
+    """FR-V-04 as its own unit of work: `promote_and_flush`, then commit.
+    Purchase booking (KAN-446) promotes inside its own transaction instead."""
+
+    item = promote_and_flush(db, item=item, vin=vin, catalogue_variant_id=catalogue_variant_id)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def promote_and_flush(
+    db: Session, *, item: StockItem, vin: str, catalogue_variant_id: uuid.UUID | None = None
+) -> StockItem:
     """FR-V-04: VIN arrival on a pipeline item. Idempotent per stock item:
     it returns early when the item already carries a `vehicle_id` for the
     same VIN, so a second call is a no-op, not a second event (KAN-127).
@@ -199,7 +211,7 @@ def promote_to_vehicle_mdm(
     `vin` is normalised and validated first (KAN-324), as a create's is, so
     a retry spelling the same VIN differently is the same no-op, and a VIN
     still malformed after normalising is refused (422) before any read or
-    write.
+    write. It never commits: the caller's transaction does (KAN-446).
     """
 
     vin = _normalised_vin(vin)
@@ -257,6 +269,5 @@ def promote_to_vehicle_mdm(
     # BEFORE its VIN arrives (FR-I-02b's "awaiting purchase booking" case
     # is the other order; this is the promotion-completes-second order).
     mark_purchased_if_ready(db, item)
-    db.commit()
-    db.refresh(item)
+    db.flush()
     return item

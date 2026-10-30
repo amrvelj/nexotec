@@ -234,7 +234,9 @@
       "vehicle_left_stock": "This vehicle has already left stock and cannot be reserved.",
       "vehicle_not_purchased": "The vehicle of this contract has not been purchased yet — it can be invoiced once Stock has booked its purchase.",
       "vin_already_in_stock": "This VIN is already in stock as {{stockNumber}}.",
-      "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries."
+      "wagenbuch_closed": "This vehicle has been sold — its Wagenbuch takes no new entries.",
+      "purchase_requires_vin": "This vehicle cannot be purchased without its VIN.",
+      "purchase_vin_mismatch": "This VIN is not the VIN of the vehicle in stock."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1086,7 +1088,9 @@
         "supplierIsVatRegistered": "Supplier is VAT-registered",
         "purchasePrice": "Purchase price",
         "purchaseDate": "Purchase date",
-        "purchaseInvoiceRef": "Invoice reference"
+        "purchaseInvoiceRef": "Invoice reference",
+        "vin": "VIN",
+        "vinHint": "A pipeline vehicle is purchased with its VIN, which puts it on stock."
       },
       "notionalInputTax": "Notional input tax deduction",
       "notionalInputTaxNotApplicable": "Not applicable",

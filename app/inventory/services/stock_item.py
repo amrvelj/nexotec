@@ -213,9 +213,9 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
     confirmation; KAN-100). A stock item becomes invoiceable the moment
     BOTH facts are true — VIN known (lifecycle_status=in_stock) and the
     purchase is booked (purchase_price set) — whichever of the two
-    completes second. Called from both promote_to_vehicle_mdm (PR-2, VIN
-    arriving after purchase was already booked) and record_purchase (PR-3,
-    purchase booked after VIN already arrived). Idempotent: a no-op past
+    completes second. Called from both promote_and_flush (PR-2) and
+    record_purchase (PR-3); since KAN-446 a pipeline item's purchase promotes
+    it first, so record_purchase is the one that flips it. Idempotent: a no-op past
     the first time. Returns True iff it just flipped is_invoiceable and
     emitted the event — callers decide whether to commit.
     """

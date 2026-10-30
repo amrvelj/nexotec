@@ -20,6 +20,7 @@ interface DetailsTabProps {
     purchasePrice: number
     purchaseDate: string
     purchaseInvoiceRef?: string
+    vin?: string
   }) => Promise<void>
 }
 
@@ -173,6 +174,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
       <RecordPurchaseDialog
         opened={purchaseDialogOpen}
         onClose={() => setPurchaseDialogOpen(false)}
+        requiresVin={item.lifecycleStatus === 'pipeline'}
         onSubmit={onRecordPurchase}
       />
     </div>

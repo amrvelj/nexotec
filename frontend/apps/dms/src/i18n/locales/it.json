@@ -234,7 +234,9 @@
       "vehicle_left_stock": "Questo veicolo ha già lasciato lo stock e non può essere riservato.",
       "vehicle_not_purchased": "Il veicolo di questo contratto non è ancora stato acquistato: potrà essere fatturato non appena lo stock avrà registrato l’acquisto.",
       "vin_already_in_stock": "Questo VIN è già in stock come {{stockNumber}}.",
-      "wagenbuch_closed": "Questo veicolo è venduto: il suo Wagenbuch non accetta più nuove registrazioni."
+      "wagenbuch_closed": "Questo veicolo è venduto: il suo Wagenbuch non accetta più nuove registrazioni.",
+      "purchase_requires_vin": "Questo veicolo non può essere acquistato senza il suo VIN.",
+      "purchase_vin_mismatch": "Questo VIN non è quello del veicolo in stock."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1086,7 +1088,9 @@
         "supplierIsVatRegistered": "Il fornitore è soggetto a IVA",
         "purchasePrice": "Prezzo di acquisto",
         "purchaseDate": "Data di acquisto",
-        "purchaseInvoiceRef": "Riferimento fattura"
+        "purchaseInvoiceRef": "Riferimento fattura",
+        "vin": "VIN",
+        "vinHint": "Un veicolo della pipeline viene acquistato con il suo VIN, che lo mette in stock."
       },
       "notionalInputTax": "Deduzione fittizia dell'imposta precedente",
       "notionalInputTaxNotApplicable": "Non applicabile",

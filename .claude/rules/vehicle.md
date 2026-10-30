@@ -38,8 +38,9 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 
 - **VIN is mandatory in vehicle-mdm.** A pre-VIN vehicle is a pipeline stock item in
   `inventory` (ADR-045), to be promoted on VIN arrival by
-  `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04)
-  — no production caller yet (KAN-446).
+  `inventory/services/pipeline.py::promote_and_flush`, idempotent per stock item (FR-V-04).
+  Its one production caller is purchase booking (ADR-103, KAN-446): a pipeline item is bought
+  with its VIN, and the booking promotes it in the same transaction.
 - **A typed VIN is one spelling in every write** (FR-V-15): every request-body field carrying a
   VIN a person typed is normalised (upper-cased, whitespace removed): stock create and the
   trade-in through `app.core.validators.NormalisedVin` (then ISO 3779; 422 otherwise; KAN-244,

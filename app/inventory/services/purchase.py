@@ -11,8 +11,10 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.inventory.models.stock_item import StockItem
+from app.core.errors import UnprocessableEntityError
+from app.inventory.models.stock_item import LifecycleStatus, StockItem
 from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
+from app.inventory.services.pipeline import promote_and_flush
 from app.inventory.services.stock_item import mark_purchased_if_ready
 from app.platform.public import get_dealership_or_404
 
@@ -36,7 +38,27 @@ def record_purchase(
     Vorsteuerabzug: real input tax was already deducted along the normal
     chain), true for a private individual (the dealer paid no VAT on
     acquisition, so Art. 28a lets it deduct a notional amount instead).
+
+    KAN-446 (Anto, 2026-10-25): purchase booking is what puts a car on stock.
+    A pipeline item cannot be bought without its VIN; with one, it is
+    promoted (FR-V-04) in this same transaction before the purchase facts
+    are written, so `mark_purchased_if_ready` below publishes
+    `inventory.stock_item.purchased` at once. A refused promotion (a VIN
+    already in stock) writes neither.
     """
+
+    if item.lifecycle_status == LifecycleStatus.PIPELINE:
+        if data.vin is None:
+            raise UnprocessableEntityError(
+                f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
+                details={"reason": "purchase_requires_vin", "stockItemId": str(item.id)},
+            )
+        item = promote_and_flush(db, item=item, vin=data.vin)
+    elif data.vin is not None and data.vin != item.vin:
+        raise UnprocessableEntityError(
+            f"Stock item {item.id} carries VIN {item.vin}, not {data.vin}.",
+            details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
+        )
 
     dealership = get_dealership_or_404(db, item.tenant_id)
     applicable = not data.supplier_is_vat_registered

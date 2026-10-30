@@ -234,7 +234,9 @@
       "vehicle_left_stock": "Dieses Fahrzeug hat den Bestand bereits verlassen und kann nicht reserviert werden.",
       "vehicle_not_purchased": "Das Fahrzeug dieses Vertrags ist noch nicht eingekauft – er kann verrechnet werden, sobald der Einkauf im Bestand erfasst ist.",
       "vin_already_in_stock": "Diese VIN ist bereits im Bestand als {{stockNumber}}.",
-      "wagenbuch_closed": "Dieses Fahrzeug ist verkauft – sein Wagenbuch nimmt keine neuen Einträge mehr an."
+      "wagenbuch_closed": "Dieses Fahrzeug ist verkauft – sein Wagenbuch nimmt keine neuen Einträge mehr an.",
+      "purchase_requires_vin": "Ohne VIN kann dieses Fahrzeug nicht eingekauft werden.",
+      "purchase_vin_mismatch": "Diese VIN ist nicht die des Fahrzeugs an Lager."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1086,7 +1088,9 @@
         "supplierIsVatRegistered": "Lieferant ist MWST-pflichtig",
         "purchasePrice": "Einkaufspreis",
         "purchaseDate": "Einkaufsdatum",
-        "purchaseInvoiceRef": "Rechnungsreferenz"
+        "purchaseInvoiceRef": "Rechnungsreferenz",
+        "vin": "VIN",
+        "vinHint": "Ein Fahrzeug in der Pipeline wird mit seiner VIN eingekauft und kommt damit an Lager."
       },
       "notionalInputTax": "Fiktiver Vorsteuerabzug",
       "notionalInputTaxNotApplicable": "Nicht anwendbar",
