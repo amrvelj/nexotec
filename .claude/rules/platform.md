@@ -120,7 +120,7 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   pinned by their own source test) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included; platform staff's recovery routes take it the same way through `recovery.get_user_for_recovery_or_404`, pinned by their own source test — KAN-202). The
+  would deadlock against one that locked the user first (a source test pins the fifteen, the connected-account revoke and KAN-401's photo PUT/DELETE included; platform staff's recovery routes take it the same way through `recovery.get_user_for_recovery_or_404`, pinned by their own source test — KAN-202). The
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that

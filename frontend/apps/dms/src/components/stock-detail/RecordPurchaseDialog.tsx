@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog } from '@nexotec/ui-kit'
 import { todayLocalIsoDate } from '../../utils/format'
 import { apiRefusalText } from '../../utils/apiRefusal'
+import { vinRefusalKey } from '../../utils/vin'
 import { useFieldHint } from '../../hooks/useFieldHint'
 
 interface RecordPurchaseDialogProps {
@@ -31,8 +32,9 @@ interface RecordPurchaseDialogProps {
  * click away.
  *
  * KAN-446 (ADR-045, FR-V-04): for a pipeline item the VIN is required — the
- * booking promotes the item into stock with it. The API normalises it and
- * says why it refuses one (malformed, already in stock), in the UI language.
+ * booking promotes the item into stock with it. The API normalises it; a
+ * malformed one (a schema 422 on `vin`) and one already in stock are said in
+ * the UI language.
  */
 export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onSubmit }: RecordPurchaseDialogProps) {
   const { t } = useTranslation()
@@ -67,7 +69,10 @@ export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onS
       })
       onClose()
     } catch (err) {
-      setError(apiRefusalText(t, err, 'stockDetail.purchase.error'))
+      // A VIN the API refuses (KAN-351) is named by its rule, never as a
+      // generic «some entries are invalid».
+      const vinRefusal = vinRefusalKey(err)
+      setError(vinRefusal ? t(vinRefusal) : apiRefusalText(t, err, 'stockDetail.purchase.error'))
     } finally {
       setSubmitting(false)
     }

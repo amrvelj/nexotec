@@ -189,6 +189,7 @@ def browse_variants(
     params = SortPageParams(
         limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
     )
+    catalogue_browse.validate_coded_exclusions(db, filters)
     rows, next_cursor, total, total_is_estimate, browse_available = catalogue_browse.browse_variants(
         db,
         tenant_id=principal.tenant_id,

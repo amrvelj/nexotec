@@ -265,9 +265,10 @@ def promote_and_flush(
             payload={"vin": vin, "vehicleId": str(vehicle.id)},
         ),
     )
-    # WP-7 PR-5 (ADR-052) — a trade-in's purchase is sometimes booked
-    # BEFORE its VIN arrives (FR-I-02b's "awaiting purchase booking" case
-    # is the other order; this is the promotion-completes-second order).
+    # WP-7 PR-5 (ADR-052) — an item whose purchase was booked before its VIN
+    # arrived (possible until KAN-446, ADR-103) is invoiceable the moment it
+    # is promoted. Since then purchase booking promotes first, and this is a
+    # no-op there: the purchase facts are written after it.
     mark_purchased_if_ready(db, item)
     db.flush()
     return item

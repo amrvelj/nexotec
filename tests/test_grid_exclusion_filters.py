@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from app.core.auth import AccessRole, create_access_token
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
+from tests.configuration_test_support import seed_reference_list
 from tests.dealership_support import valid_uid
 from tests.membership_support import create_user
 from tests.test_catalogue_browse import _enable_browse
@@ -166,3 +167,20 @@ def test_catalogue_variants_exclude_a_coded_value_keeping_those_without_one(clie
     response = client.get("/v1/catalogue/variants?mode=record&fuelTypeNot=petrol", headers=_headers(tenant))
     assert response.status_code == 200, response.text
     assert {v["variantName"] for v in response.json()["items"]} == {"Golf TDI", "Golf (unbekannt)"}
+
+
+# --- Typed: an unknown value is 422, never a filter that excludes nothing ---------------------
+
+
+def test_an_unknown_canton_or_catalogue_code_to_exclude_is_422(client, db_session):
+    tenant = _dealership(client)
+    assert client.get("/v1/customers?canton_not=XX", headers=_headers(tenant, manager=True)).status_code == 422
+
+    _enable_browse(db_session, tenant)
+    response = client.get("/v1/catalogue/variants?mode=record&fuelTypeNot=nonsense", headers=_headers(tenant))
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"] == {"invalid": {"fuelTypeNot": "nonsense"}}
+    # An active value of the list is accepted even where no variant carries it.
+    seed_reference_list(db_session, "fuel_type", "petrol", "diesel")
+    db_session.commit()
+    assert client.get("/v1/catalogue/variants?mode=record&fuelTypeNot=diesel", headers=_headers(tenant)).status_code == 200

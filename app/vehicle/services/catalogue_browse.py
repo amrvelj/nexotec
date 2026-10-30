@@ -29,7 +29,9 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.config import get_settings
+from app.core.errors import UnprocessableEntityError
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.platform.public import get_active_reference_value_codes
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantTypeApproval
 from app.vehicle.schemas.catalogue import CatalogueBrowseMode
 from app.vehicle.services.catalogue_entitlements import get_catalogue_entitlements
@@ -108,6 +110,29 @@ def _scope_stmt(*, brand_id: uuid.UUID | None, model_group_id: uuid.UUID | None)
     elif brand_id is not None:
         stmt = stmt.where(ModelGroup.brand_id == brand_id)
     return stmt
+
+
+def validate_coded_exclusions(db: Session, filters: VariantFilters) -> None:
+    """KAN-476: an «ist nicht» value must be a code of its field's reference
+    list (the column's name is the list's code) — an active value, or one a
+    variant in the mirror still carries (a retired code the facets can still
+    offer). Anything else is 422 naming the parameter, never a filter that
+    quietly excludes nothing."""
+
+    invalid: dict[str, str] = {}
+    for api_field, value_code in filters.coded_not.items():
+        column = CODED_FACET_COLUMNS[api_field]
+        if value_code in (get_active_reference_value_codes(db, column.key) or set()):
+            continue
+        if db.scalar(select(ModelVariant.id).where(column == value_code).limit(1)) is None:
+            invalid[f"{api_field}Not"] = value_code
+    if invalid:
+        raise UnprocessableEntityError(
+            "Not a code of the field's reference list: "
+            + ", ".join(f"{name}={code!r}" for name, code in invalid.items())
+            + ".",
+            details={"invalid": invalid},
+        )
 
 
 def _apply_filters(stmt: Select, filters: VariantFilters, in_production: bool | None) -> Select:

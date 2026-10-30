@@ -136,6 +136,23 @@ describe('Catalogue › Marken (KAN-448)', () => {
     expect(screen.queryByText(/already exists/)).toBeNull()
   })
 
+  it('loads every page of brands, so the search finds one beyond the first page', async () => {
+    const saurer: BrandRead = { ...VW, id: 'brand-saurer', code: 'saurer', displayName: 'Saurer' }
+    installFakeBackend([
+      me(['platform_admin']),
+      {
+        method: 'GET',
+        match: /\/vehicle-mdm\/brands$/,
+        handler: (req) => (req.params.get('cursor') ? { items: [saurer], nextCursor: null } : { items: [VW], nextCursor: 'page-2' }),
+      },
+      ...BROWSE,
+    ])
+    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?tab=brands&brandsQ=saur' })
+
+    expect(await screen.findByText('Saurer')).toBeInTheDocument()
+    expect(screen.queryByText('Volkswagen')).toBeNull()
+  })
+
   it('is no tab for anyone but platform staff, and their link opens Browse', async () => {
     installFakeBackend([me(['sales']), { method: 'GET', match: /\/vehicle-mdm\/brands$/, handler: () => ({ items: [VW], nextCursor: null }) }, ...BROWSE])
     renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?tab=brands' })

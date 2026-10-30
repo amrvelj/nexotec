@@ -110,7 +110,6 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
   it.each([
     ['purchase_requires_vin', {}, 'apiRefusal.reasons.purchase_requires_vin', {}],
     ['vin_already_in_stock', { stockNumber: 'S-000042' }, 'apiRefusal.reasons.vin_already_in_stock', { stockNumber: 'S-000042' }],
-    ['invalid_vin', {}, 'common.invalidVin', {}],
   ])('says a %s refusal in French', async (reason, extra, key, params) => {
     await i18n.changeLanguage('fr')
     const status = reason === 'vin_already_in_stock' ? 409 : 422
@@ -123,6 +122,20 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
 
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t(key, params))
     expect(screen.queryByText(/English text/)).not.toBeInTheDocument()
+  })
+  it('names a malformed VIN by its rule — the route\'s schema 422 on `vin` — not as «some entries are invalid»', async () => {
+    await i18n.changeLanguage('fr')
+    // What POST …/purchase answers for `WVWZZZ1KZAW00446O` (NormalisedVin refuses it first).
+    const refused = new ApiError(422, 'unprocessable_entity', 'Request validation failed.', {
+      errors: [{ type: 'value_error', loc: ['body', 'vin'], msg: 'Value error, not a VIN' }],
+    })
+    renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(refused)} />)
+
+    fillPurchase()
+    fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: 'WVWZZZ1KZAW00446O' } })
+    fireEvent.click(submitButton())
+
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('common.invalidVin'))
   })
 })
 

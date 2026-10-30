@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, Button, Stack, TextInput } from '@mantine/core'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, Tags } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, FormDialog, type GridColumnDef, type RowMenuGroups, type SortSpec } from '@nexotec/ui-kit'
@@ -66,17 +66,25 @@ export function BrandsAdmin() {
   const [error, setError] = useState<string | null>(null)
   const createKey = useIdempotencyKey()
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } = useInfiniteQuery({
+  // Every brand, page by page: the endpoint takes no search, and a few
+  // hundred brands at most is one screen's worth — the search below then
+  // finds a brand whether or not it was on the first page.
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: QUERY_KEY,
-    queryFn: async ({ pageParam }: { pageParam: string | null }) => {
-      const params = new URLSearchParams({ limit: '100' })
-      if (pageParam) params.set('cursor', pageParam)
-      return api.get<BrandPage>(`/vehicle-mdm/brands?${params.toString()}`)
+    queryFn: async () => {
+      const brands: BrandRead[] = []
+      let cursor: string | null = null
+      do {
+        const params = new URLSearchParams({ limit: '100' })
+        if (cursor) params.set('cursor', cursor)
+        const page: BrandPage = await api.get<BrandPage>(`/vehicle-mdm/brands?${params.toString()}`)
+        brands.push(...page.items)
+        cursor = page.nextCursor
+      } while (cursor)
+      return brands
     },
-    initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
-  const allRows = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
+  const allRows = useMemo(() => data ?? [], [data])
   const needle = query.trim().toLocaleLowerCase()
   const rows = useMemo(
     () => (needle ? allRows.filter((b) => b.code.toLocaleLowerCase().includes(needle) || b.displayName.toLocaleLowerCase().includes(needle)) : allRows),
@@ -164,9 +172,9 @@ export function BrandsAdmin() {
         onSortChange={setSort}
         density={density}
         loading={isLoading}
-        fetchingNextPage={isFetchingNextPage}
-        hasNextPage={Boolean(hasNextPage)}
-        onLoadMore={() => fetchNextPage()}
+        fetchingNextPage={false}
+        hasNextPage={false}
+        onLoadMore={() => {}}
         error={isError ? t('brandsAdmin.loadError') : null}
         onRetry={() => refetch()}
         total={null}

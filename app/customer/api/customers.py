@@ -26,6 +26,7 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import ModuleCode, holds_entitlement, require_read, require_write
 from app.core.sorting import SortField, parse_sort
+from app.core.validators import CantonCode
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
     CalendarPeriod,
@@ -268,7 +269,7 @@ def list_customers(
     language_not: Language | None = Query(
         default=None, description="KAN-476: customers whose language is not this one (none set included)."
     ),
-    canton_not: str | None = Query(
+    canton_not: CantonCode | None = Query(
         default=None,
         description="KAN-476: customers whose primary domicile is not in this canton (none recorded included).",
     ),

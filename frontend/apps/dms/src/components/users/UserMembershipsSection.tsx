@@ -3,7 +3,7 @@ import { Alert, Button, Checkbox, Group, Select, Stack, Switch, Table, Text } fr
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../../api/client'
-import type { MembershipList, MembershipRead } from '../../api/types'
+import type { DealershipPage, DealershipRead, MembershipList, MembershipRead } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
@@ -40,6 +40,19 @@ export function UserMembershipsSection({
     queryKey: ['users', dealershipId, userId, 'memberships'],
     queryFn: () => api.get<MembershipList>(path),
   })
+  // Platform staff hold no sister membership (KAN-199), so their grant
+  // targets are the Betrieb's dealer group, read from the platform listing.
+  const home = useQuery({
+    queryKey: ['dealerships', dealershipId],
+    queryFn: () => api.get<DealershipRead>(`/dealerships/${dealershipId}`),
+    enabled: isPlatformStaff,
+  })
+  const groupId = home.data?.dealerGroupId
+  const sisters = useQuery({
+    queryKey: ['dealerships', 'group', groupId],
+    queryFn: () => api.get<DealershipPage>(`/dealerships?dealer_group_id=${groupId}&limit=100`),
+    enabled: isPlatformStaff && Boolean(groupId),
+  })
   const grantKey = useIdempotencyKey()
   const [target, setTarget] = useState<string | null>(null)
   const [targetIsManager, setTargetIsManager] = useState(false)
@@ -48,15 +61,16 @@ export function UserMembershipsSection({
 
   const items = listing.data?.items ?? []
   const activeIds = new Set(items.filter((m) => m.active).map((m) => m.dealershipId))
-  // The Betriebe the signed-in user works in themselves, beside this one and
-  // those the user is already in: the API decides whether they manage them.
+  // A dealer manager: the Betriebe they work in themselves; platform staff:
+  // the Betrieb's dealer group. Either way not this one and not those the
+  // user is already in — the API decides whether the grant is allowed.
   const grantable = useMemo(
     () =>
-      myBetriebe
+      (isPlatformStaff ? (sisters.data?.items ?? []) : myBetriebe)
         .filter((b) => b.id !== dealershipId && !activeIds.has(b.id))
         .map((b) => ({ value: b.id, label: b.legalName })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [myBetriebe, dealershipId, listing.data],
+    [isPlatformStaff, sisters.data, myBetriebe, dealershipId, listing.data],
   )
 
   const run = async (action: () => Promise<unknown>) => {

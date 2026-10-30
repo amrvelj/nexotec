@@ -157,10 +157,33 @@ describe('UserMembershipsSection (KAN-407)', () => {
     expect(screen.queryByText(/was not found/)).toBeNull()
   })
 
-  it('tells platform staff plainly that the user has no other access', async () => {
-    installFakeBackend([me(['platform_admin']), { method: 'GET', match: /\/memberships$/, handler: () => ({ items: [], userVersion: 1 }) }])
+  it('tells platform staff plainly that the user has no other access, and offers the Betrieb\'s dealer group to grant', async () => {
+    const user = userEvent.setup()
+    const staff = me(['platform_admin'])
+    // Platform staff hold no sister membership (KAN-199): their session lists their home only.
+    const staffSession = { ...staff, handler: () => ({ ...(staff.handler as () => Record<string, unknown>)(), memberships: [{ id: HOME, legalName: 'Garage Nord AG' }] }) }
+    const backend = installFakeBackend([
+      staffSession,
+      { method: 'GET', match: /\/memberships$/, handler: () => ({ items: [], userVersion: 1 }) },
+      { method: 'GET', match: /^\/dealerships\/dealership-1$/, handler: () => ({ id: HOME, legalName: 'Garage Nord AG', dealerGroupId: 'g-1' }) },
+      {
+        method: 'GET',
+        match: /^\/dealerships$/,
+        handler: (req) => ({
+          items: req.params.get('dealer_group_id') === 'g-1' ? [{ id: HOME, legalName: 'Garage Nord AG' }, SOUTH, WEST] : [],
+          nextCursor: null,
+        }),
+      },
+      { method: 'POST', match: /\/memberships$/, handler: () => status(201, membership()) },
+    ])
     renderWithProviders(<UserMembershipsSection dealershipId={HOME} userId="u-1" onUserVersion={() => {}} />)
 
     expect(await screen.findByText('Kein Zugang zu einem weiteren Betrieb.')).toBeInTheDocument()
+    await user.click(await screen.findByRole('textbox', { name: 'Zugang gewähren zu' }))
+    expect(screen.queryByRole('option', { name: 'Garage Nord AG' })).toBeNull()
+    await user.click(await screen.findByRole('option', { name: 'Garage Süd AG' }))
+    await user.click(screen.getByRole('button', { name: 'Zugang gewähren' }))
+    await waitFor(() => expect(backend.callsTo(/\/memberships$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/\/memberships$/, 'POST')[0].body).toEqual({ dealershipId: SOUTH.id, isDealerManager: false })
   })
 })
