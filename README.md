@@ -115,7 +115,12 @@ genuinely inert until configured — see `.env.example`'s commented-out
 `DMS_OTEL_*`/`DMS_SENTRY_DSN` vars. Point `DMS_OTEL_EXPORTER_OTLP_ENDPOINT`
 at Grafana Cloud's OTLP gateway to get distributed traces (via
 `opentelemetry-instrumentation-fastapi`, auto-instrumented) and RED metrics
-per endpoint for free; `app.worker`'s heartbeat (`app/worker.py::_heartbeat`)
+per endpoint for free. The two processes report as two services (KAN-304):
+the web process as `DMS_OTEL_SERVICE_NAME` (default `dms-platform`), the
+worker as the same name with `-worker` (`dms-platform-worker`), so its traces
+and the gauges below sit under their own entry in Grafana's service list and
+an alert scoped to one process needs no attribute filter. `app.worker`'s
+heartbeat (`app/worker.py::_heartbeat`)
 additionally emits five gauges every 30s once metrics are configured (four
 with a suggested alert; consumer lag is a dashboard signal, KAN-286):
 

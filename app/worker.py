@@ -75,7 +75,8 @@ def configure_observability() -> None:
 
     configure_logging()
     configure_sentry()
-    configure_tracing()
+    # KAN-304: reported as its own service, never under the web's name.
+    configure_tracing(process="worker")
 
 
 def register_handlers(transport: InProcessTransport) -> None:

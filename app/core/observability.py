@@ -25,7 +25,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 import jwt
 from fastapi import FastAPI
@@ -173,12 +173,26 @@ def _otlp_headers(raw: str | None) -> dict[str, str]:
     return headers
 
 
-def configure_tracing(app: FastAPI | None = None) -> None:
+def otel_resource_attributes(process: Literal["web", "worker"]) -> dict[str, str]:
+    """KAN-304 — what each process reports as. The worker is its own
+    service, `<otel_service_name>-worker` (`dms-platform-worker` by
+    default), so Grafana lists it beside the web process rather than mixing
+    nightly jobs into the request charts, and an alert on either needs no
+    filter to be right. One setting names both: a deployment that renames
+    the service renames the worker with it."""
+
+    settings = get_settings()
+    service_name = settings.otel_service_name if process == "web" else f"{settings.otel_service_name}-{process}"
+    return {"service.name": service_name, "deployment.environment": settings.environment}
+
+
+def configure_tracing(app: FastAPI | None = None, *, process: Literal["web", "worker"] = "web") -> None:
     """Registers the OTLP trace and metric providers. `app` is None for a
     process with no HTTP server (app.worker, KAN-248): it gets the same
     providers — the alarm gauges above are recorded there, and stay no-ops
     until a MeterProvider exists in that process — and no FastAPI
-    instrumentation."""
+    instrumentation. `process` names the service it reports as
+    (`otel_resource_attributes`)."""
 
     settings = get_settings()
     if not settings.otel_exporter_otlp_endpoint:
@@ -194,7 +208,7 @@ def configure_tracing(app: FastAPI | None = None) -> None:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-    resource = Resource.create({"service.name": settings.otel_service_name, "deployment.environment": settings.environment})
+    resource = Resource.create(otel_resource_attributes(process))
     headers = _otlp_headers(settings.otel_exporter_otlp_headers)
 
     tracer_provider = TracerProvider(resource=resource)
