@@ -1,7 +1,9 @@
 # Workshop terminal authentication — design (ADR-028)
 
 **Status: designed, not built.** This document exists so the eventual build isn't a
-retrofit onto a live OIDC integration — ADR-028's own rationale for doing this now.
+retrofit onto a live staff login — ADR-028's own rationale for doing this now. (It
+was written against WP-4's OIDC front door; since KAN-196 that login is Nexotec's
+own, described under Context.)
 Nothing in this file is implemented; there is no `device_terminal` table, no PIN
 endpoint, no code path that issues a technician-scoped token. It is prose and a
 schema sketch, reviewed for shape now so the actual build (a future work package)
@@ -19,13 +21,13 @@ never mentions an IdP, and nothing about the design below routes through the sta
 login or its credential store (D-A-14: realms never share one): the terminal
 path issues an `aud=dms` token with `roles=[technician]`, from a device credential
 plus a PIN. Worth stating plainly so a future reader doesn't
-wonder why a shop-floor terminal isn't "just more OIDC": a technician standing at a
-shared terminal with a 4–6 digit PIN is not the same trust model as an office
+wonder why a shop-floor terminal isn't "just another staff login": a technician
+standing at a shared terminal with a 4–6 digit PIN is not the same trust model as an office
 worker signing into their own browser, and forcing the same flow onto both would
 make the terminal case worse without making the office case better.
 
-Reason it exists: technicians will not type an email address and complete an OIDC
-redirect with oily hands between jobs. Force them to and they'll share one login,
+Reason it exists: technicians will not type an e-mail address, a password and a
+second factor with oily hands between jobs. Force them to and they'll share one login,
 at which point labour-time data — the entire point of the `technician` role
 (Roles & Permissions RP-4) — becomes worthless. Because the device itself is
 already authenticated (see below), the PIN only has to be a **second factor**, not
@@ -90,8 +92,8 @@ until `exp`, full stop, regardless of activity. Two ways to get a genuine
   insufficient in practice.
 
 Neither is implemented. This is a decision for whoever builds this package, not
-one WP-4 is making on their behalf — recorded here so it doesn't get re-litigated
-from scratch.
+one this design makes on their behalf — recorded here so it doesn't get
+re-litigated from scratch.
 
 ## Data model (prose sketch — explicitly not a migration)
 
@@ -106,19 +108,25 @@ reviewed before someone has to invent it under deadline pressure.
   `CustomerPhone`/`CustomerEmail` denormalize `group_id` rather than joining
   through their parent — a lookup on login should not need a join to prove tenant
   scope), `pin_hash`, `failed_attempts`, `locked_until` — the same lockout shape
-  the now-retired `Credential` table had, reused here because it's still the
-  right shape for *this* narrower purpose (a short PIN really does need
-  brute-force protection that a device-scoped OIDC token doesn't).
+  as the staff password store, `credential` (`failed_login_attempts`,
+  `locked_until`; KAN-196), in a table of its own because the realms never share
+  a credential store (D-A-14). A short PIN needs that brute-force protection even
+  though the device has already authenticated itself.
 
 ## Bolt-on point
 
-The only thing this reuses from WP-4 is `create_access_token()` itself — same
-preserved-file guarantee (`app/core/auth.py::get_current_principal`'s contract)
-holds for this future work exactly as it did for Zitadel: this design's whole job
-is "arrive at a `user_id` + a hardcoded `{TECHNICIAN}` role set, then call the
-function that already exists." Net-new work is entirely additive: a PIN/badge
-service **parallel to**, not a modification of, `app/platform/services/oidc.py`;
-the two device-model tables above; and whichever idle-timeout mechanism is chosen.
-Nothing about the OIDC integration itself needs to change to make room for this,
-which is the entire reason ADR-028 asked for this design to exist now rather than
-being discovered as a retrofit problem later.
+The only thing this reuses from the staff login is the session layer's token,
+`create_access_token()` — the same preserved-file guarantee
+(`app/core/auth.py::get_current_principal`'s contract) holds for this future work
+as it did when WP-4's Zitadel front door issued the staff session: this design's
+whole job is "arrive at a `user_id` + a hardcoded `{TECHNICIAN}` role set, then
+mint a token with it." Net-new work is entirely additive: a PIN/badge service
+**parallel to**, not a modification of, the staff identity service
+(`app/platform/services/identity.py`, `LocalPasswordProvider`); the two
+device-model tables above; and whichever idle-timeout mechanism is chosen. Nothing
+about the staff login itself needs to change to make room for this, which is the
+entire reason ADR-028 asked for this design to exist now rather than being
+discovered as a retrofit problem later. Open (KAN-254): every staff token is
+minted through `_mint_session` (`app/platform/api/auth.py`), which checks the
+user's status and writes the session row; how the terminal path gets the same
+status check needs an ADR.
