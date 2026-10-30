@@ -142,6 +142,8 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
 
   it('French UI: the overlay DmsShell mounts names its close button in French', async () => {
     const user = userEvent.setup()
+    // KAN-438: fr loads on demand; load the bundle the expected name is read from.
+    await i18n.loadLanguages('fr')
     installFakeBackend([
       {
         method: 'GET',

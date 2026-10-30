@@ -211,7 +211,9 @@ describe('CustomerCreateFlow — every string is translated (KAN-48, FR-13)', ()
     expect(screen.queryByText(en.customerCreate.validation.companyNameRequired)).toBeNull()
   })
 
-  it('the meaningful field labels are genuinely translated, not English copies (fr/it)', () => {
+  it('the meaningful field labels are genuinely translated, not English copies (fr/it)', async () => {
+    // KAN-438: fr/it load on demand; load the bundles the values are read from.
+    await i18n.loadLanguages(['fr', 'it'])
     // localeKeyParity guarantees the keys exist; this guards the values for
     // the labels that carry meaning (short tokens like "Type"/"Source"/"UID"
     // are legitimately identical across languages and are not checked).

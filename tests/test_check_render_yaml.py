@@ -7,7 +7,9 @@ does not know fails and names the field, a misspelt service key is named rather
 than drowned in "not valid under any of the given schemas", an unknown top-level
 key is still reported, a file that is not YAML fails with a message that says so,
 `main()` returns the exit code the lane relies on, and the vendored schema matches
-its provenance sidecar. No network: the schema is the copy under scripts/dev/.
+its provenance sidecar. KAN-281: a service `type` Render does not know is one line
+naming every allowed type, a misspelt key inside an `envVars` entry is named, and
+CI's step reports even when mypy before it fails. No network: the schema is the copy under scripts/dev/.
 """
 
 import hashlib
@@ -15,6 +17,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from scripts import check_render_yaml
 
@@ -49,6 +52,44 @@ def test_a_misspelt_service_key_is_named(tmp_path: Path) -> None:
 def test_an_unknown_top_level_key_is_still_reported(tmp_path: Path) -> None:
     problems = check_render_yaml.validate(_blueprint_with(tmp_path, "services:\n", "servicez:\n"))
     assert any("servicez" in p for p in problems), problems
+
+
+def test_a_service_type_render_does_not_know_is_one_line_naming_every_allowed_type(tmp_path: Path) -> None:
+    problems = check_render_yaml.validate(_blueprint_with(tmp_path, "    type: web\n", "    type: webz\n"))
+    assert len(problems) == 1, problems
+    assert "services/0/type" in problems[0] and "'webz'" in problems[0], problems
+    assert "allowed: cron, keyvalue, pserv, redis, web, worker, workflow" in problems[0], problems
+
+
+def test_a_misspelt_key_in_an_env_var_entry_is_named(tmp_path: Path) -> None:
+    blueprint = _blueprint_with(tmp_path, "      - key: PYTHON_VERSION\n", "      - keyz: PYTHON_VERSION\n")
+    problems = check_render_yaml.validate(blueprint)
+    assert any("services/0/envVars/0" in p and "'keyz' was unexpected" in p for p in problems), problems
+    assert not any("not valid under any of the given schemas" in p for p in problems), problems
+
+
+def test_an_error_inside_from_database_is_named_where_it_is(tmp_path: Path) -> None:
+    # A tie between envVars branches went to the first one, which called the correct
+    # `fromDatabase` key unexpected (KAN-281 review); the deepest complaint wins now.
+    blueprint = _blueprint_with(tmp_path, "property: connectionString", "property: connstr")
+    problems = check_render_yaml.validate(blueprint)
+    assert any("fromDatabase/property" in p and "'connstr'" in p for p in problems), problems
+    assert not any("'fromDatabase' was unexpected" in p for p in problems), problems
+
+
+def test_a_valid_kind_is_explained_by_its_own_branch(tmp_path: Path) -> None:
+    # `type: cron` without a schedule: the cron branch speaks, never another kind's
+    # "'workflow' was expected" (the closest branch used to win even when it rejected the kind).
+    problems = check_render_yaml.validate(_blueprint_with(tmp_path, "    type: web\n", "    type: cron\n"))
+    assert any("'schedule' is a required property" in p for p in problems), problems
+    assert not any(p.split(": ")[1].endswith("/type") for p in problems), problems
+
+
+def test_ci_runs_the_check_even_when_mypy_before_it_fails() -> None:
+    workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8"))
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+    [step] = [step for step in steps if step.get("run") == "python scripts/check_render_yaml.py"]
+    assert step.get("if") == "${{ !cancelled() }}"
 
 
 def test_a_file_that_is_not_yaml_fails_with_a_yaml_message(tmp_path: Path) -> None:

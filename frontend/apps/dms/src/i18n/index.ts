@@ -1,13 +1,50 @@
-import i18next from 'i18next'
+import i18next, { type BackendModule, type ResourceKey } from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import { formatNumber } from '@nexotec/ui-kit'
-import de from './locales/de.json'
-import fr from './locales/fr.json'
-import it from './locales/it.json'
+// The one formatter by its own module, not the kit's barrel: the shared test
+// setup imports this file to wait for the start language (KAN-438), and the
+// barrel would load the kit's dependencies before a test file can mock them.
+import { formatNumber } from '@nexotec/ui-kit/src/format/swissNumber'
+import { readLocalMirror, UI_PREFERENCES_STORAGE_KEY } from '../hooks/persistedPreferenceStorage'
 import en from './locales/en.json'
 
 export const SUPPORTED_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
+
+// KAN-438: only English (the fallback) ships with the app; German, French and
+// Italian (~100 kB each) are their own chunks, fetched when first needed — the
+// user's start language at boot (`storedUiLanguage`, German for a new browser;
+// main.tsx paints only once `i18nReady` resolves, so nobody sees another
+// language or a key first), the others on a switch. `changeLanguage` waits for the
+// bundle before it switches, so a switch never shows keys or a half-translated
+// screen. A bundle that cannot be fetched (offline, a chunk removed by a
+// deploy) is asked for twice more (350 ms, then 700 ms); if that fails too, the
+// language is shown in English, as a key missing from the active bundle always
+// is, and the next switch to it fetches again. Exported only so a render test
+// can hold one bundle back or fail it (onDemandBundles.render.test.tsx).
+export const onDemandBundleLoaders: Partial<Record<SupportedLanguage, () => Promise<{ default: ResourceKey }>>> = {
+  de: () => import('./locales/de.json'),
+  fr: () => import('./locales/fr.json'),
+  it: () => import('./locales/it.json'),
+}
+
+const onDemandBundles: BackendModule = {
+  type: 'backend',
+  init: () => {},
+  read: (language, _namespace, callback) => {
+    const load = onDemandBundleLoaders[language as SupportedLanguage]
+    if (!load) {
+      callback(new Error(`no locale bundle for ${language}`), false)
+      return
+    }
+    // `true` with the error is i18next's "retry this read": it asks again up to
+    // `maxRetries` times, and a read that still fails leaves the language
+    // unloaded, not failed, so the next switch to it fetches again.
+    load().then(
+      (bundle) => callback(null, bundle.default),
+      (error: unknown) => callback(error instanceof Error ? error : new Error(String(error)), true),
+    )
+  },
+}
 
 // WP-6c PR-12: "a missing key renders a loud marker and never a German
 // fallback" — fallbackLng still covers the narrower case this app has
@@ -18,14 +55,27 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 // default behaviour renders as the bare key path — legible enough to spot
 // in a code review, but not the deliberate, impossible-to-mistake-for-
 // content marker this app wants a tester or a screen-reader user to see.
-void i18next.use(initReactI18next).init({
+/** The language the user last chose in this browser — the `ui` preference
+ * mirror the shell reads on its first frame — or German. The server's
+ * preference still wins once it arrives (DmsShell switches to it). */
+export function storedUiLanguage(): SupportedLanguage {
+  const { uiLanguage } = readLocalMirror<{ uiLanguage?: unknown }>(UI_PREFERENCES_STORAGE_KEY, {})
+  return (SUPPORTED_LANGUAGES as readonly unknown[]).includes(uiLanguage) ? (uiLanguage as SupportedLanguage) : 'de'
+}
+
+/** Resolves once the start language's bundle is in (or could not be fetched,
+ * which falls back to English); main.tsx renders nothing before it. */
+export const i18nReady: Promise<unknown> = i18next.use(onDemandBundles).use(initReactI18next).init({
   resources: {
-    de: { translation: de },
-    fr: { translation: fr },
-    it: { translation: it },
     en: { translation: en },
   },
-  lng: 'de',
+  // The bundled language is used as given; the backend is asked only for a
+  // language with no bundle yet (KAN-438).
+  partialBundledLanguages: true,
+  lng: storedUiLanguage(),
+  // A failed bundle read is asked for twice more, 350 ms then 700 ms apart.
+  maxRetries: 2,
+  retryTimeout: 350,
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
   parseMissingKeyHandler: (key) => `⚠ MISSING I18N KEY: ${key}`,

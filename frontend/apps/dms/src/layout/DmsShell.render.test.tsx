@@ -87,6 +87,8 @@ afterEach(async () => {
 
 describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () => {
   it.each(LANGUAGES)('renders the sidebar chrome in %s', async (lng) => {
+    // KAN-438: fr/it load on demand; load the bundle the expected text is read from.
+    await i18n.loadLanguages(lng)
     renderShell(lng)
     const tr = (key: string) => i18n.getFixedT(lng)(key)
 
@@ -101,6 +103,8 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
   })
 
   it.each(LANGUAGES)('collapsed: the account menu carries language and notifications in %s', async (lng) => {
+    // KAN-438: fr/it load on demand; load the bundle the expected text is read from.
+    await i18n.loadLanguages(lng)
     renderShell(lng, { wide: false })
     const tr = (key: string) => i18n.getFixedT(lng)(key)
 

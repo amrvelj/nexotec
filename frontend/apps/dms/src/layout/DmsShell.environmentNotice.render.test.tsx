@@ -48,6 +48,8 @@ function renderShell(uiLanguage: (typeof LANGUAGES)[number]) {
 }
 
 async function shellIsUp(lng: (typeof LANGUAGES)[number]) {
+  // KAN-438: fr/it load on demand; load the bundle the expected text is read from.
+  await i18n.loadLanguages(lng)
   await screen.findByRole('navigation', { name: i18n.getFixedT(lng)('shell.sidebar.mainNavigation') })
 }
 
@@ -102,7 +104,8 @@ describe('DmsShell environment notice — staging runs no outbox worker (KAN-275
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('the four translations say different things (no bundle copies another)', () => {
+  it('the four translations say different things (no bundle copies another)', async () => {
+    await i18n.loadLanguages([...LANGUAGES])
     const texts = LANGUAGES.map((lng) => i18n.getFixedT(lng)(KEY))
     expect(new Set(texts).size).toBe(LANGUAGES.length)
     for (const text of texts) expect(text).not.toMatch(MARKER)

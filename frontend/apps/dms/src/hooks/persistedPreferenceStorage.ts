@@ -6,6 +6,10 @@
  * `readLocalMirror`, which this generalizes to an arbitrary payload shape
  * and storage key instead of the one hardcoded `ui` scope.
  */
+/** The `ui` scope's mirror (`useUiPreferences`); i18n also reads it at start
+ * to open in the user's last language (KAN-438). */
+export const UI_PREFERENCES_STORAGE_KEY = 'dms.preferences.ui'
+
 export function readLocalMirror<T>(storageKey: string, defaults: T): T {
   try {
     const raw = localStorage.getItem(storageKey)

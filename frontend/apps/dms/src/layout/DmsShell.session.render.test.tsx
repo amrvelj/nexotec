@@ -77,6 +77,8 @@ describe('DmsShell — a refused dealership switch is said (KAN-237)', () => {
     'shows the translated refusal and keeps the active dealership (%s)',
     async (lng) => {
       const user = userEvent.setup()
+      // KAN-438: fr loads on demand; load the bundle the expected text is read from.
+      await i18n.loadLanguages(lng)
       const tr = i18n.getFixedT(lng)
       const backend = install(
         lng,
