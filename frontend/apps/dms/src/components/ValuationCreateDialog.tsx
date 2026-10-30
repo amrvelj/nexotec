@@ -17,7 +17,6 @@ import type {
   ValuationCreate,
   ValuationRead,
   ValuationSourceValue,
-  VehicleMdmRead,
 } from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
 import { vinRefusalKey } from '../utils/vin'
@@ -37,10 +36,19 @@ export interface ValuationCreateDialogProps {
    * as `configurationId`: the backend then creates **no** vehicle-mdm record
    * (ADR-070, amending FR-V-17). */
   configuration?: ConfigurationRead | null
-  /** KAN-468 (Anto's option A) — «Request valuation» on a vehicle: its VIN
-   * and first registration prefill the vehicle section when the car was not
-   * captured in the configurator (the captured configuration wins). */
-  vehicle?: Pick<VehicleMdmRead, 'vin' | 'firstRegistrationDate'> | null
+  /** KAN-468 (Anto's option A) — «Request valuation» on a vehicle: its VIN,
+   * first registration and its catalogue variant's make, model and trim
+   * prefill the vehicle section when the car was not captured in the
+   * configurator (the captured configuration wins). */
+  vehicle?: ValuationVehiclePrefill | null
+}
+
+export interface ValuationVehiclePrefill {
+  vin: string
+  firstRegistrationDate: string | null
+  make: string | null
+  model: string | null
+  trim: string | null
 }
 
 const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
@@ -83,9 +91,9 @@ export function ValuationCreateDialog({
   // beside it. One with no VIN links no car, so the VIN stays free to type.
   const vinFromConfiguration = Boolean(c && (c.vin || c.vehicleId))
   const [vin, setVin] = useState(c?.vin ?? vehicle?.vin ?? supersedes?.vehicleVin ?? '')
-  const [make, setMake] = useState(c?.brandDisplayName ?? supersedes?.vehicleMake ?? '')
-  const [model, setModel] = useState(c?.modelGroupName ?? supersedes?.vehicleModel ?? '')
-  const [trim, setTrim] = useState(c?.variantName ?? supersedes?.vehicleTrim ?? '')
+  const [make, setMake] = useState(c?.brandDisplayName ?? vehicle?.make ?? supersedes?.vehicleMake ?? '')
+  const [model, setModel] = useState(c?.modelGroupName ?? vehicle?.model ?? supersedes?.vehicleModel ?? '')
+  const [trim, setTrim] = useState(c?.variantName ?? vehicle?.trim ?? supersedes?.vehicleTrim ?? '')
   const [plate, setPlate] = useState(c?.licencePlate ?? supersedes?.vehiclePlate ?? '')
   const [mileage, setMileage] = useState<number | ''>(c?.mileageKm ?? supersedes?.mileage ?? '')
   // KAN-353: a car first registered before 1981 may carry a chassis number in

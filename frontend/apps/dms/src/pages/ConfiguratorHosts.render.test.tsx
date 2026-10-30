@@ -96,10 +96,18 @@ describe('Valuation → new valuation (FR-C-14)', () => {
     const user = userEvent.setup()
     const vehicle = {
       id: 'veh-1', vin: 'WVWZZZ1JZXW000001', vehicleNumber: 'F-000001', stammnummer: null, typeApprovalNumber: null,
-      catalogueVariantId: null, mergedIntoVehicleId: null, catalogueMatchStatus: 'unverified', vehicleStatus: 'active',
+      catalogueVariantId: 'var-1', mergedIntoVehicleId: null, catalogueMatchStatus: 'matched', vehicleStatus: 'active',
       firstRegistrationDate: '1999-04-01', version: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
     }
-    installFakeBackend([{ method: 'GET', match: /^\/vehicle-mdm\/veh-1$/, handler: () => vehicle }, ...CATALOGUE])
+    installFakeBackend([
+      { method: 'GET', match: /^\/vehicle-mdm\/veh-1$/, handler: () => vehicle },
+      {
+        method: 'GET',
+        match: /^\/catalogue\/variants\/var-1$/,
+        handler: () => ({ id: 'var-1', brandDisplayName: 'Volkswagen', modelGroupName: 'Golf', variantName: '1.6 Comfortline' }),
+      },
+      ...CATALOGUE,
+    ])
     renderWithProviders(
       <Routes>
         <Route path="/valuations/new" element={<ValuationCreatePage />} />
@@ -120,6 +128,10 @@ describe('Valuation → new valuation (FR-C-14)', () => {
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
     expect(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'))).toHaveValue(vehicle.vin)
     expect(within(dialog).getByLabelText(i18n.t('valuationCreate.firstRegistration'))).toHaveValue('1999-04-01')
+    // Make, model and trim come from the catalogue variant the car is matched to.
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'))).toHaveValue('Volkswagen')
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.model'))).toHaveValue('Golf')
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.trim'))).toHaveValue('1.6 Comfortline')
 
     // Closing returns to the vehicle it was requested from.
     await user.click(within(dialog).getByRole('button', { name: i18n.t('common.cancel') }))

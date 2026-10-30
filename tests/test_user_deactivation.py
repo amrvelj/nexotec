@@ -659,7 +659,6 @@ def test_the_expiry_job_keeps_the_last_manager_and_alarms(client, db_session, en
     assert errors and "skipped_last_manager=1" in errors[-1].getMessage()
 
 
-
 def test_the_expiry_job_keeps_a_sister_betriebs_last_manager_by_membership_and_alarms(
     client, db_session, engine, caplog
 ):

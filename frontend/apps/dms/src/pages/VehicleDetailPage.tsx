@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Badge, Loader } from '@mantine/core'
@@ -48,6 +48,9 @@ export function VehicleDetailPage() {
   const [customerSearch, setCustomerSearch] = useState('')
   // The Identity tab's customer picker, opened from the header's primary too.
   const [allocating, setAllocating] = useState(false)
+  // «Record odometer» / «Record accessory» open their tab with the form focused.
+  const [formToFocus, setFormToFocus] = useState<'odometer' | 'accessories' | null>(null)
+  const formFocusHandled = useCallback(() => setFormToFocus(null), [])
   const navigate = useNavigate()
   const { entitlements } = useAuth()
   // KAN-198 / D-A-04: valuations are a Sales-module surface.
@@ -197,8 +200,14 @@ export function VehicleDetailPage() {
       setActiveTab('identity')
       setAllocating(true)
     },
-    onRecordOdometer: () => setActiveTab('odometer'),
-    onRecordAccessory: () => setActiveTab('accessories'),
+    onRecordOdometer: () => {
+      setActiveTab('odometer')
+      setFormToFocus('odometer')
+    },
+    onRecordAccessory: () => {
+      setActiveTab('accessories')
+      setFormToFocus('accessories')
+    },
     onCopyVin: () => void navigator.clipboard.writeText(vehicle?.vin ?? ''),
     onRequestValuation: salesEntitled && id ? () => navigate(`/valuations/new?vehicle=${id}`) : undefined,
   })
@@ -256,7 +265,13 @@ export function VehicleDetailPage() {
           limitReached={isPlateReadLimitError(platesQuery.error)}
         />}
       {activeTab === 'odometer' && (
-        <OdometerTab readings={odometerQuery.data ?? []} loading={odometerQuery.isLoading} onAdd={addOdometerReading} />
+        <OdometerTab
+          readings={odometerQuery.data ?? []}
+          loading={odometerQuery.isLoading}
+          onAdd={addOdometerReading}
+          focusRequested={formToFocus === 'odometer'}
+          onFocusHandled={formFocusHandled}
+        />
       )}
       {activeTab === 'accessories' && (
         <AccessoriesTab
@@ -264,6 +279,8 @@ export function VehicleDetailPage() {
           loading={accessoriesQuery.isLoading}
           onAdd={addAccessory}
           onRemove={removeAccessory}
+          focusRequested={formToFocus === 'accessories'}
+          onFocusHandled={formFocusHandled}
         />
       )}
       {activeTab === 'specification' && <SpecificationTab vehicleId={vehicle.id} />}

@@ -350,6 +350,7 @@ def test_a_punctuated_chassis_number_is_refused_even_for_a_pre_1981_car(client, 
         assert response.status_code == 422, response.text
         assert "vin" in response.text
     assert db_session.scalar(select(func.count()).select_from(Valuation)) == 0
+    assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == 0
 
 
 def test_a_chassis_number_typed_two_ways_is_stored_one_way(client, db_session):

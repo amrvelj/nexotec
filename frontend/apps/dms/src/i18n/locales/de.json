@@ -1570,7 +1570,8 @@
     "noProviderCapability": "Die auto-i-dat-Bewertung ist für diesen Betrieb nicht verfügbar — den Eintauschwert unten manuell erfassen.",
     "configurator": {
       "skip": "Ohne Konfigurator von Hand erfassen"
-    }
+    },
+    "vehicleNotLoaded": "Das Fahrzeug konnte nicht geladen werden. Erfassen Sie es hier selbst."
   },
   "integrationsList": {
     "title": "Integrationen",
@@ -2052,7 +2053,6 @@
     }
   },
   "customerRowMenu": {
-    "edit": "Bearbeiten",
     "newOffer": "Neue Offerte",
     "newOfferDisabledDoNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
     "newContract": "Neuer Vertrag",

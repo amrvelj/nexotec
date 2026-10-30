@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActionIcon, Alert, Button, Group, Loader, Stack, Table, TextInput } from '@mantine/core'
 import { Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -12,15 +12,32 @@ interface AccessoriesTabProps {
   loading: boolean
   onAdd: (accessoryType: string, description: string, validFrom: string) => Promise<void>
   onRemove: (accessoryId: string) => Promise<void>
+  /** KAN-468 — the header's «record …» action asks for the form: the first
+   * input takes the focus, then the request is handed back. */
+  focusRequested?: boolean
+  onFocusHandled?: () => void
 }
 
 /** FR-V-13: append-only — removing sets validTo, the row is never
  * deleted, and stays visible (struck through) rather than disappearing.
  */
-export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: AccessoriesTabProps) {
+export function AccessoriesTab({
+  accessories,
+  loading,
+  onAdd,
+  onRemove,
+  focusRequested = false,
+  onFocusHandled,
+}: AccessoriesTabProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [type, setType] = useState('')
+  const typeInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!focusRequested) return
+    typeInput.current?.focus()
+    onFocusHandled?.()
+  }, [focusRequested, onFocusHandled])
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +72,7 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
   return (
     <Stack gap="md">
       <Group align="flex-end">
-        <TextInput label={t('vehicleDetail.accessories.type')} value={type} onChange={(e) => setType(e.currentTarget.value)} />
+        <TextInput ref={typeInput} label={t('vehicleDetail.accessories.type')} value={type} onChange={(e) => setType(e.currentTarget.value)} />
         <TextInput label={t('vehicleDetail.accessories.description')} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
         <Button leftSection={<Plus size={14} />} onClick={() => void submit()} loading={submitting} disabled={!type}>
           {t('vehicleDetail.accessories.add')}

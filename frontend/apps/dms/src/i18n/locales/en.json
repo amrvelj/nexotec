@@ -1570,7 +1570,8 @@
     "noProviderCapability": "auto-i-dat valuation is not available for this business — enter the trade-in value manually below.",
     "configurator": {
       "skip": "Enter by hand instead"
-    }
+    },
+    "vehicleNotLoaded": "The vehicle could not be loaded. Enter it here yourself."
   },
   "integrationsList": {
     "title": "Integrations",
@@ -2052,7 +2053,6 @@
     }
   },
   "customerRowMenu": {
-    "edit": "Edit",
     "newOffer": "New offer",
     "newOfferDisabledDoNotContact": "This customer is marked do-not-contact.",
     "newContract": "New contract",

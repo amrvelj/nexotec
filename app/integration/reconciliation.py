@@ -37,7 +37,6 @@ ACTOR_TABLES = (
 )
 
 
-
 def _not_a_deleted_connection() -> ColumnElement[bool]:
     """A notification outlives its connection (KAN-494, Anto 2026-10-29,
     option A — the call log's rule, KAN-470): an id whose delete is on the

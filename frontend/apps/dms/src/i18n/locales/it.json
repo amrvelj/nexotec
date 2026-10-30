@@ -852,7 +852,7 @@
       "copyVin": "Copia telaio",
       "merge": "Unisci con…",
       "mergeDisabledReason": "Non ancora disponibile",
-      "allocate": "Assegna a un cliente",
+      "allocate": "Assegna a cliente",
       "requestValuation": "Richiedi una valutazione",
       "recordOdometer": "Registra il chilometraggio",
       "recordAccessory": "Registra un accessorio",
@@ -1570,7 +1570,8 @@
     "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa azienda — inserire manualmente il valore di permuta qui sotto.",
     "configurator": {
       "skip": "Rilevare a mano senza configuratore"
-    }
+    },
+    "vehicleNotLoaded": "Non è stato possibile caricare il veicolo. Inseritelo qui voi stessi."
   },
   "integrationsList": {
     "title": "Integrazioni",
@@ -2052,7 +2053,6 @@
     }
   },
   "customerRowMenu": {
-    "edit": "Modifica",
     "newOffer": "Nuova offerta",
     "newOfferDisabledDoNotContact": "Questo cliente è contrassegnato come «non contattare».",
     "newContract": "Nuovo contratto",

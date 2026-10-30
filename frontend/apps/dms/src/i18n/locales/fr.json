@@ -1570,7 +1570,8 @@
     "noProviderCapability": "L'évaluation auto-i-dat n'est pas disponible pour cette entreprise — saisir la valeur de reprise manuellement ci-dessous.",
     "configurator": {
       "skip": "Saisir à la main sans configurateur"
-    }
+    },
+    "vehicleNotLoaded": "Le véhicule n'a pas pu être chargé. Saisissez-le ici vous-même."
   },
   "integrationsList": {
     "title": "Intégrations",
@@ -2052,7 +2053,6 @@
     }
   },
   "customerRowMenu": {
-    "edit": "Modifier",
     "newOffer": "Nouvelle offre",
     "newOfferDisabledDoNotContact": "Ce client est marqué « ne pas contacter ».",
     "newContract": "Nouveau contrat",

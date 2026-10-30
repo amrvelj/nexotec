@@ -475,8 +475,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // "New offer" / "New contract" can never carry a different enabled state
   // or reason on the two surfaces. FR-14 anonymisation stays out (not
   // built). KAN-58 wires "New contract" for real, on both surfaces.
+  const onNewOffer = salesEntitled ? () => void createOfferForCustomer() : undefined
   const rowMenu = buildCustomerRowMenu(t, customer, {
-    onNewOffer: salesEntitled ? () => void createOfferForCustomer() : undefined,
+    onNewOffer,
     onNewContract: salesEntitled ? () => void createContractForCustomer() : undefined,
     onCopyCustomerNumber: () => void navigator.clipboard.writeText(customer.customerNumber),
     onToggleDoNotContact: toggleDoNotContact,
@@ -516,8 +517,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
         primaryAction={
           rowMenu.primary && {
             ...rowMenu.primary,
-            disabled:
-              rowMenu.primary.disabled || (rowMenu.primary.label === t('customerRowMenu.newOffer') && creatingOffer),
+            disabled: rowMenu.primary.disabled || (rowMenu.primary.onClick === onNewOffer && creatingOffer),
           }
         }
         alternativeAction={rowMenu.alternative}

@@ -71,6 +71,8 @@ function renderDetail(route = '/customers/c1') {
 const offersTab = () => i18n.t('customerDetail.tabs.offersContracts')
 const newOffer = () => new RegExp(i18n.t('customerRowMenu.newOffer'))
 const newContract = () => new RegExp(i18n.t('customerRowMenu.newContract'))
+// KAN-468 removed «Edit» and its key; the label it had, in DE and EN.
+const EDIT = /Bearbeiten|\bEdit\b/
 
 describe('Customer detail for a Betrieb without sales (KAN-377)', () => {
   it('issues no /sales/* request and shows neither the tab nor a sales action', async () => {
@@ -133,11 +135,11 @@ describe('Customer detail header (KAN-468; FR-22 amended, ADR-061)', () => {
       'data-variant',
       'default',
     )
-    expect(screen.queryByRole('button', { name: new RegExp(i18n.t('customerRowMenu.edit')) })).toBeNull()
+    expect(screen.queryByRole('button', { name: EDIT })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
     expect(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.mergeInto')) })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.edit')) })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: EDIT })).toBeNull()
   })
 })
 
@@ -154,7 +156,7 @@ describe('Customers list row menu for a Betrieb without sales (KAN-377)', () => 
     await user.click(menuButton)
     // KAN-468: the list opens the record with «Open»; there is no «Edit».
     expect(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customersList.rowActions.open')) })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.edit')) })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: EDIT })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: newOffer() })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: newContract() })).toBeNull()
     expect(backend.calls.filter((call) => call.pathname.includes('/sales/'))).toEqual([])

@@ -110,6 +110,27 @@ describe('Vehicle 360 header (KAN-468)', () => {
     expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeInTheDocument()
   })
 
+  it('«Record odometer» and «Record accessory» focus their form, also on their own tab', async () => {
+    const user = userEvent.setup()
+    install()
+    render(`/vehicles/${ID}?tab=odometer`)
+    const more = async () => user.click(await screen.findByRole('button', { name: i18n.t('common.moreActions') }))
+    const item = (key: string) => screen.findByRole('menuitem', { name: new RegExp(i18n.t(`vehicleDetail.header.${key}`)) })
+
+    // Already on the Odometer tab: the action is no no-op, it takes the user to the form.
+    await more()
+    await user.click(await item('recordOdometer'))
+    expect(screen.getByLabelText(i18n.t('vehicleDetail.odometer.value'))).toHaveFocus()
+
+    await more()
+    await user.click(await item('recordAccessory'))
+    expect(await screen.findByLabelText(i18n.t('vehicleDetail.accessories.type'))).toHaveFocus()
+    expect(screen.getByRole('tab', { name: new RegExp(i18n.t('vehicleDetail.tabs.accessories')) })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+  })
+
   it('«Request valuation» opens a new valuation of this car', async () => {
     const user = userEvent.setup()
     install()
