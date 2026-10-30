@@ -27,6 +27,7 @@ const ME = {
   defaultCorrespondenceLanguage: 'de',
   signatureBlock: null,
   hasSignatureImage: false,
+  hasPhoto: false,
   version: 4,
 }
 

@@ -15,6 +15,7 @@ from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import create_offer, update_offer
 from tests.dealership_support import valid_uid
+from tests.vin_support import unique_vin
 
 
 def _make_dealership(db_session) -> Dealership:
@@ -61,7 +62,7 @@ def _priced_stock_item(db_session, tenant_id):
             supplier_name="Auto AG",
             supplier_is_vat_registered=True,
             purchase_price=Decimal("42000.00"),
-            purchase_date="2026-01-01",
+            purchase_date="2026-01-01", vin=unique_vin(),
         ),
         actor_id=uuid.uuid4(),
     )
@@ -118,7 +119,7 @@ def _priced_stock_item_with_landed_cost(db_session, tenant_id):
             supplier_name="Privat, Hans Muster",
             supplier_is_vat_registered=False,
             purchase_price=Decimal("30000.00"),
-            purchase_date="2026-01-01",
+            purchase_date="2026-01-01", vin=unique_vin(),
             landed_cost=Decimal("30800.00"),  # purchase price + prep/transport
         ),
         actor_id=uuid.uuid4(),
@@ -238,7 +239,7 @@ def _priced_stock_item_no_landed_cost_but_vat_free_supplier(db_session, tenant_i
             supplier_name="Privat, Hans Muster",
             supplier_is_vat_registered=False,
             purchase_price=Decimal("30000.00"),
-            purchase_date="2026-01-01",
+            purchase_date="2026-01-01", vin=unique_vin(),
         ),
         actor_id=uuid.uuid4(),
     )
