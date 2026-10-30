@@ -1100,7 +1100,8 @@
       "notionalInputTaxNotApplicable": "Nicht anwendbar",
       "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
       "isInvoiceable": "Fakturierbar",
-      "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen."
+      "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
+      "notRecorded": "Noch kein Einkauf erfasst."
     },
     "wagenbuch": {
       "result": "Ergebnis",

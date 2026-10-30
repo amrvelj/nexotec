@@ -30,7 +30,7 @@ from app.core.auth import (
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.idempotent_route import IdempotentRoute
-from app.core.permissions import ModuleCode
+from app.core.permissions import ModuleCode, writable_capabilities
 from app.db import get_db
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
@@ -221,6 +221,11 @@ def _login_response(
         entitlements=sorted(ModuleCode(code) for code in entitlements),
         mfa_enrolment_required=_enrolment_required(
             db, user=user, dealership_id=active_dealership.id, mfa_used=mfa_used
+        ),
+        # The same roles and manager flag the session's token carries (`_mint_session`).
+        writable_capabilities=writable_capabilities(
+            roles=frozenset(AccessRole(role) for role in user.access_roles),
+            is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=active_dealership.id),
         ),
     )
 

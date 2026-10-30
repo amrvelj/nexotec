@@ -1,0 +1,104 @@
+"""KAN-430 (Anto, 2026-10-30, option A): an action a user's role may never
+use is hidden, not offered and then refused. The SPA learns which rows of the
+permission matrix the signed-in user may write from the session read
+(`writableCapabilities` on login, `/auth/me` and the dealership switch),
+computed from `CAPABILITY_MATRIX` — never a second role table in the
+frontend. `may_write` is the one rule; `require_write` enforces it."""
+
+import re
+from pathlib import Path
+
+import pytest
+
+from app.core.auth import AccessRole
+from app.core.permissions import CAPABILITY_MATRIX, may_write, writable_capabilities
+from tests.identity_support import PasswordLogin, cookie_headers, create_dealership, create_user
+
+_STOCK_ROWS = ("stock_items", "stock_acquisition", "stock_condition", "marketplace_publishing", "stock_reservation")
+
+
+@pytest.fixture
+def login(client, mailbox) -> PasswordLogin:
+    return PasswordLogin(client, mailbox)
+
+
+def test_a_salesperson_writes_stock_items_but_not_the_purchase_or_the_publishing():
+    """The case the ticket names: since KAN-376 a sales user creates stock
+    items, and the stock detail offered them the purchase booking, the cost
+    booking and the publishing, which their role may not use."""
+
+    writable = writable_capabilities(roles=frozenset({AccessRole.SALES}), is_dealer_manager=False)
+
+    assert "stock_items" in writable
+    assert "stock_acquisition" not in writable
+    assert "marketplace_publishing" not in writable
+
+
+def test_inventory_writes_the_purchase_and_the_publishing():
+    writable = writable_capabilities(roles=frozenset({AccessRole.INVENTORY}), is_dealer_manager=False)
+
+    assert {"stock_items", "stock_acquisition", "marketplace_publishing"} <= set(writable)
+
+
+def test_the_manager_writes_every_row_but_the_nobody_cells_and_platform_staff_every_row():
+    manager = writable_capabilities(roles=frozenset(), is_dealer_manager=True)
+    staff = writable_capabilities(roles=frozenset({AccessRole.PLATFORM_ADMIN}), is_dealer_manager=False)
+
+    assert set(manager) == {name for name, cap in CAPABILITY_MATRIX.items() if cap.manager_can_write or cap.write_roles}
+    assert staff == sorted(CAPABILITY_MATRIX)
+
+
+def test_an_auditor_writes_nothing():
+    assert writable_capabilities(roles=frozenset({AccessRole.AUDITOR}), is_dealer_manager=False) == []
+
+
+@pytest.mark.parametrize("role", [r for r in AccessRole if r is not AccessRole.PLATFORM_ADMIN])
+@pytest.mark.parametrize("manager", [False, True])
+def test_the_list_is_exactly_the_rows_require_write_lets_through(role, manager):
+    roles = frozenset({role})
+
+    expected = sorted(
+        name
+        for name, cap in CAPABILITY_MATRIX.items()
+        if roles & cap.write_roles or (cap.manager_can_write and manager)
+    )
+
+    assert writable_capabilities(roles=roles, is_dealer_manager=manager) == expected
+    assert all(may_write(name, roles=roles, is_dealer_manager=manager) for name in expected)
+
+
+def test_the_session_read_carries_the_users_writable_rows(client, login):
+    dealership_id = create_dealership(client)
+    salesperson = create_user(client, dealership_id, accessRoles=["sales"], isDealerManager=False)
+
+    signed_in = login.login(salesperson)
+    me = client.get("/v1/auth/me", headers=cookie_headers(login.session_cookie(salesperson)))
+
+    assert signed_in.status_code == 200, signed_in.text
+    assert me.status_code == 200, me.text
+    expected = writable_capabilities(roles=frozenset({AccessRole.SALES}), is_dealer_manager=False)
+    assert signed_in.json()["session"]["writableCapabilities"] == expected
+    assert me.json()["writableCapabilities"] == expected
+    stock = {row for row in me.json()["writableCapabilities"] if row in _STOCK_ROWS}
+    assert stock == {"stock_items", "stock_condition"}
+
+
+def test_the_managers_session_read_follows_the_manager_flag_of_the_active_dealership(client, login):
+    dealership_id = create_dealership(client)
+    manager = create_user(client, dealership_id, accessRoles=["sales"], isDealerManager=True)
+
+    me = client.get("/v1/auth/me", headers=cookie_headers(login.session_cookie(manager)))
+
+    assert me.status_code == 200, me.text
+    assert {"stock_acquisition", "marketplace_publishing"} <= set(me.json()["writableCapabilities"])
+
+
+def test_every_capability_the_spa_asks_about_is_a_matrix_row():
+    """The SPA names the rows a screen asks about (`useCanWrite`) and nothing
+    else; a name that is not a row would hide an action for everyone."""
+
+    source = (Path(__file__).parent.parent / "frontend/apps/dms/src/auth/gatedCapabilities.ts").read_text()
+    names = re.findall(r"'([a-z_]+)'", source.split("GATED_CAPABILITIES = [", 1)[1].split("]", 1)[0])
+
+    assert names
+    assert set(names) <= set(CAPABILITY_MATRIX)

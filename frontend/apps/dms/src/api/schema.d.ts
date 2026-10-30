@@ -6602,6 +6602,11 @@ export interface components {
              */
             mfaEnrolmentRequired?: boolean;
             user: components["schemas"]["UserRead"];
+            /**
+             * Writablecapabilities
+             * @description The permission-matrix rows this user may write in the active dealership. The SPA hides an action outside them; the API's own gate on each write stays the authority.
+             */
+            writableCapabilities?: string[];
         };
         /**
          * LoginStatusRead

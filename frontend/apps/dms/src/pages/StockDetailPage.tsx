@@ -13,6 +13,7 @@ import { EvaluationTab } from '../components/stock-detail/EvaluationTab'
 import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
 import type { LedgerCategory, LedgerEntryPage, SalesContractRead, SalesOfferRead, StockItemRead } from '../api/types'
+import { useCanWrite } from '../auth/useCanWrite'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatDate } from '../utils/format'
 import { apiRefusalText } from '../utils/apiRefusal'
@@ -60,6 +61,9 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const [searchParams, setSearchParams] = useSearchParams()
   const [embeddedTab, setEmbeddedTab] = useState(DEFAULT_TAB)
   const queryClient = useQueryClient()
+  // KAN-430 (Anto, option A): what the user's role may never use is hidden.
+  const canBookPurchase = useCanWrite('stock_acquisition')
+  const canPublish = useCanWrite('marketplace_publishing')
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
 
   const setActiveTab = (tab: string) => {
@@ -258,11 +262,24 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === 'details' && (
-        <DetailsTab item={item} locale={locale} onSaveField={saveField} onReload={reload} onRecordPurchase={recordPurchase} />
+        <DetailsTab
+          item={item}
+          locale={locale}
+          onSaveField={saveField}
+          onReload={reload}
+          canRecordPurchase={canBookPurchase}
+          onRecordPurchase={recordPurchase}
+        />
       )}
-      {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} />}
+      {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} canPublish={canPublish} />}
       {activeTab === 'wagenbuch' && (
-        <WagenbuchTab entries={ledgerEntries} locale={locale} onRecordCost={recordCost} leftStockDate={leftStockDate} />
+        <WagenbuchTab
+          entries={ledgerEntries}
+          locale={locale}
+          onRecordCost={recordCost}
+          leftStockDate={leftStockDate}
+          canRecordCost={canBookPurchase}
+        />
       )}
       {activeTab === 'evaluation' && <EvaluationTab stockItemId={item.id} locale={locale} />}
     </div>

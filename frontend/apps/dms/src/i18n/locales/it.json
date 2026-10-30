@@ -1100,7 +1100,8 @@
       "notionalInputTaxNotApplicable": "Non applicabile",
       "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
       "isInvoiceable": "Fatturabile",
-      "error": "Non è stato possibile registrare l’acquisto. Riprovare."
+      "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
+      "notRecorded": "Nessun acquisto ancora registrato."
     },
     "wagenbuch": {
       "result": "Risultato",

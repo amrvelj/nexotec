@@ -28,6 +28,12 @@ const CHANNEL_LABELS: Record<MarketplaceChannel, string> = {
 interface PublishingTabProps {
   stockItemId: string
   locale: string
+  /** KAN-430: whether the user's role may publish (`marketplace_publishing`).
+   * When not, each channel shows its status without the publish or unpublish
+   * action, and the listing texts and the photos — written only here — are
+   * not shown; the equipment stays. The stock detail passes the session's
+   * answer. */
+  canPublish?: boolean
 }
 
 /**
@@ -41,7 +47,7 @@ interface PublishingTabProps {
  * a read-only equipment summary sourced from app.vehicle (equipment is a
  * fact about the car, per ADR-062's own three-concepts rule).
  */
-export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
+export function PublishingTab({ stockItemId, locale, canPublish = true }: PublishingTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [activeChannel, setActiveChannel] = useState<MarketplaceChannel>('autoscout24')
@@ -230,6 +236,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
               publishing={publishingByChannel[channel]}
               locale={locale}
               blocked={blockingConditions.length > 0}
+              canPublish={canPublish}
               onPublish={() => publishChannel(channel)}
               onUnpublish={() => unpublishChannel(channel)}
             />
@@ -237,64 +244,68 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
         </div>
       </div>
 
-      <OverviewCard title={t('stockDetail.publishing.listingTextTitle')}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-          <SegmentedControl
-            value={activeChannel}
-            onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
-            data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
-          />
-          {listingTextError && (
-            <Alert color="red" role="alert">
-              {listingTextError}
-            </Alert>
-          )}
-          {/* Keyed by channel: a draft still waiting when the channel changes
-              is saved to the channel it was typed for. Shown once the
-              channel's row is loaded: a keystroke typed before it would have
-              no version to save against and be lost. */}
-          {activePublishing ? (
-            <ListingTextFields
-              key={activeChannel}
-              publishing={activePublishing}
-              resetKey={String(listingTextResync[activeChannel])}
-              onSave={(patch) => saveListingText(activeChannel, patch)}
-              titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
-                count: TITLE_DISPLAY_LIMITS[activeChannel],
-              })}
-            />
-          ) : activePublishingQuery.isError ? (
-            <Text c="red" size="sm">
-              {t('stockDetail.publishing.listingTextLoadError')}
-            </Text>
-          ) : (
-            <Loader size="sm" />
-          )}
-        </div>
-      </OverviewCard>
+      {canPublish && (
+        <>
+          <OverviewCard title={t('stockDetail.publishing.listingTextTitle')}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+              <SegmentedControl
+                value={activeChannel}
+                onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
+                data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
+              />
+              {listingTextError && (
+                <Alert color="red" role="alert">
+                  {listingTextError}
+                </Alert>
+              )}
+              {/* Keyed by channel: a draft still waiting when the channel changes
+                  is saved to the channel it was typed for. Shown once the
+                  channel's row is loaded: a keystroke typed before it would have
+                  no version to save against and be lost. */}
+              {activePublishing ? (
+                <ListingTextFields
+                  key={activeChannel}
+                  publishing={activePublishing}
+                  resetKey={String(listingTextResync[activeChannel])}
+                  onSave={(patch) => saveListingText(activeChannel, patch)}
+                  titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
+                    count: TITLE_DISPLAY_LIMITS[activeChannel],
+                  })}
+                />
+              ) : activePublishingQuery.isError ? (
+                <Text c="red" size="sm">
+                  {t('stockDetail.publishing.listingTextLoadError')}
+                </Text>
+              ) : (
+                <Loader size="sm" />
+              )}
+            </div>
+          </OverviewCard>
 
-      <OverviewCard title={t('stockDetail.publishing.media.title')}>
-        {mediaError && (
-          <Alert color="red" role="alert" mb="sm">
-            {mediaError}
-          </Alert>
-        )}
-        <MediaGallery
-          items={mediaItems}
-          maxItems={16}
-          onAdd={addMedia}
-          onRemove={removeMedia}
-          onReorder={reorderMedia}
-          labels={{
-            mainImage: t('stockDetail.publishing.media.mainImage'),
-            moveLeft: t('stockDetail.publishing.media.moveLeft'),
-            moveRight: t('stockDetail.publishing.media.moveRight'),
-            remove: t('stockDetail.publishing.media.remove'),
-            addPhoto: t('stockDetail.publishing.media.addPhoto'),
-            countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
-          }}
-        />
-      </OverviewCard>
+          <OverviewCard title={t('stockDetail.publishing.media.title')}>
+            {mediaError && (
+              <Alert color="red" role="alert" mb="sm">
+                {mediaError}
+              </Alert>
+            )}
+            <MediaGallery
+              items={mediaItems}
+              maxItems={16}
+              onAdd={addMedia}
+              onRemove={removeMedia}
+              onReorder={reorderMedia}
+              labels={{
+                mainImage: t('stockDetail.publishing.media.mainImage'),
+                moveLeft: t('stockDetail.publishing.media.moveLeft'),
+                moveRight: t('stockDetail.publishing.media.moveRight'),
+                remove: t('stockDetail.publishing.media.remove'),
+                addPhoto: t('stockDetail.publishing.media.addPhoto'),
+                countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
+              }}
+            />
+          </OverviewCard>
+        </>
+      )}
 
       {equipment && (
         <OverviewCard title={t('stockDetail.publishing.equipment.title')}>

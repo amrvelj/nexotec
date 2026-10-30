@@ -1100,7 +1100,8 @@
       "notionalInputTaxNotApplicable": "Not applicable",
       "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
       "isInvoiceable": "Invoiceable",
-      "error": "The purchase could not be recorded. Please try again."
+      "error": "The purchase could not be recorded. Please try again.",
+      "notRecorded": "No purchase recorded yet."
     },
     "wagenbuch": {
       "result": "Result",

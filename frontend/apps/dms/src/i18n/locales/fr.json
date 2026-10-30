@@ -1100,7 +1100,8 @@
       "notionalInputTaxNotApplicable": "Non applicable",
       "notionalInputTaxRateNotConfigured": "Taux de TVA pas encore configuré",
       "isInvoiceable": "Facturable",
-      "error": "L’achat n’a pas pu être enregistré. Veuillez réessayer."
+      "error": "L’achat n’a pas pu être enregistré. Veuillez réessayer.",
+      "notRecorded": "Aucun achat saisi pour l'instant."
     },
     "wagenbuch": {
       "result": "Résultat",

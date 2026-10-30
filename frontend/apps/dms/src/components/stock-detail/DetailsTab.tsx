@@ -15,6 +15,10 @@ interface DetailsTabProps {
   locale: string
   onSaveField: (patch: Record<string, unknown>) => Promise<void>
   onReload: () => void
+  /** KAN-430: whether the user's role may book the purchase
+   * (`stock_acquisition`). Hidden when not; the stock detail passes the
+   * session's answer. */
+  canRecordPurchase?: boolean
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -35,7 +39,7 @@ interface DetailsTabProps {
 // KAN-168: the price editors open grouped, with CHF (CHF 42'500), never on the raw 42500.00.
 const chfEditor = chfInlineEditor({ min: 0 })
 
-export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurchase }: DetailsTabProps) {
+export function DetailsTab({ item, locale, onSaveField, onReload, canRecordPurchase = true, onRecordPurchase }: DetailsTabProps) {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
@@ -154,9 +158,13 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
       <ProgressiveDisclosure label={t('stockDetail.purchase.title')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {item.purchasePrice == null ? (
-            <Button variant="default" onClick={() => setPurchaseDialogOpen(true)} style={{ alignSelf: 'flex-start' }}>
-              {t('stockDetail.purchase.recordButton')}
-            </Button>
+            canRecordPurchase ? (
+              <Button variant="default" onClick={() => setPurchaseDialogOpen(true)} style={{ alignSelf: 'flex-start' }}>
+                {t('stockDetail.purchase.recordButton')}
+              </Button>
+            ) : (
+              <span style={{ color: slate[5] }}>{t('stockDetail.purchase.notRecorded')}</span>
+            )
           ) : (
             <OverviewCard title={t('stockDetail.purchase.title')}>
               <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>{item.supplierName}</KeyValueRow>
