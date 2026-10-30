@@ -9,10 +9,16 @@ has fewer open questions.
 
 ## Context
 
-WP-4 moved staff authentication to Zitadel. Shared workshop terminals are a
-deliberately **separate, local, device-scoped** path — ADR-028's own text never
-mentions an IdP, and nothing about the design below routes through
-`app/platform/services/oidc.py`. Worth stating plainly so a future reader doesn't
+Nexotec owns staff authentication (D-A-07; KAN-196 removed WP-4's Zitadel front
+door): an office user signs in with e-mail and password at `POST /v1/auth/login`
+(`app/platform/api/auth.py`), checked by `LocalPasswordProvider`
+(`app/platform/services/identity.py`), with the second factor in the `mfa_*` tables
+and the signed-in session in `session`. Shared workshop terminals are a
+deliberately **separate, local, device-scoped** realm (D-A-13) — ADR-028's own text
+never mentions an IdP, and nothing about the design below routes through the staff
+login or its credential store (D-A-14: realms never share one): the terminal
+path issues an `aud=dms` token with `roles=[technician]`, from a device credential
+plus a PIN. Worth stating plainly so a future reader doesn't
 wonder why a shop-floor terminal isn't "just more OIDC": a technician standing at a
 shared terminal with a 4–6 digit PIN is not the same trust model as an office
 worker signing into their own browser, and forcing the same flow onto both would
