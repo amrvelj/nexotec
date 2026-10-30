@@ -132,10 +132,16 @@ def _explain_branches(error: ValidationError, prefix: str) -> Iterable[tuple[str
         path = "/".join(str(part) for part in [*error.absolute_path, "type"])
         yield path, f"{prefix}{kind!r} is not a type Render knows; allowed: {', '.join(allowed)}"
         return
-    # A branch whose only complaint is the discriminator (`type: worker` is not `web`)
-    # is simply the wrong kind of service; prefer branches that accept the kind.
-    candidates = [subs for subs in by_branch.values() if not all(_is_discriminator_mismatch(s) for s in subs)]
-    closest = min(candidates or list(by_branch.values()), key=len)
+    # A branch that rejects the discriminator (`type: worker` is not `web`) is the
+    # wrong kind of service, whatever else it complains about; the check above made
+    # sure some branch accepts the kind. Among those, the fewest complaints wins, and
+    # on a tie the deepest one: an error inside `fromDatabase` beats a branch that
+    # only says `fromDatabase` itself is unexpected (KAN-281 review).
+    candidates = [subs for subs in by_branch.values() if not any(_is_discriminator_mismatch(s) for s in subs)]
+    closest = min(
+        candidates or list(by_branch.values()),
+        key=lambda subs: (len(subs), -max(len(s.absolute_path) for s in subs)),
+    )
     for sub in closest:
         if sub.context:
             yield from _explain_branches(sub, prefix)

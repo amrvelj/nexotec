@@ -62,9 +62,27 @@ def test_a_service_type_render_does_not_know_is_one_line_naming_every_allowed_ty
 
 
 def test_a_misspelt_key_in_an_env_var_entry_is_named(tmp_path: Path) -> None:
-    problems = check_render_yaml.validate(_blueprint_with(tmp_path, "      - key: PYTHON_VERSION\n", "      - keyz: PYTHON_VERSION\n"))
+    blueprint = _blueprint_with(tmp_path, "      - key: PYTHON_VERSION\n", "      - keyz: PYTHON_VERSION\n")
+    problems = check_render_yaml.validate(blueprint)
     assert any("services/0/envVars/0" in p and "'keyz' was unexpected" in p for p in problems), problems
     assert not any("not valid under any of the given schemas" in p for p in problems), problems
+
+
+def test_an_error_inside_from_database_is_named_where_it_is(tmp_path: Path) -> None:
+    # A tie between envVars branches went to the first one, which called the correct
+    # `fromDatabase` key unexpected (KAN-281 review); the deepest complaint wins now.
+    blueprint = _blueprint_with(tmp_path, "property: connectionString", "property: connstr")
+    problems = check_render_yaml.validate(blueprint)
+    assert any("fromDatabase/property" in p and "'connstr'" in p for p in problems), problems
+    assert not any("'fromDatabase' was unexpected" in p for p in problems), problems
+
+
+def test_a_valid_kind_is_explained_by_its_own_branch(tmp_path: Path) -> None:
+    # `type: cron` without a schedule: the cron branch speaks, never another kind's
+    # "'workflow' was expected" (the closest branch used to win even when it rejected the kind).
+    problems = check_render_yaml.validate(_blueprint_with(tmp_path, "    type: web\n", "    type: cron\n"))
+    assert any("'schedule' is a required property" in p for p in problems), problems
+    assert not any(p.split(": ")[1].endswith("/type") for p in problems), problems
 
 
 def test_ci_runs_the_check_even_when_mypy_before_it_fails() -> None:
