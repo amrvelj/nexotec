@@ -55,6 +55,7 @@ export function AccountPhotoCard({ me, onWritten }: { me: MeRead; onWritten: (da
         <Group align="flex-end">
           <UserAvatar photoPath="/me/photo" hasPhoto={me.hasPhoto ?? false} version={me.version} name={name} size="xl" />
           <FileInput {...hint(t('account.photo.choose'), t('account.photo.hint'))}
+            style={{ flex: 1 }}
             accept="image/png,image/jpeg"
             value={file}
             onChange={setFile}

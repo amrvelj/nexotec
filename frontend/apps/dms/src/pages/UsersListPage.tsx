@@ -267,8 +267,9 @@ export function UsersListPage() {
           </Group>
         ),
         // Wide enough for a name beside its address at default density: the
-        // pinned column's own minimum (120 px) squeezed the name out.
-        meta: { pinned: 'left', locked: true, width: 300, sortField: 'lastName', secondary: (row) => row.email },
+        // pinned column's own minimum (120 px) squeezed the name out; the
+        // photo beside it (KAN-401) takes another 30 px.
+        meta: { pinned: 'left', locked: true, width: 330, sortField: 'lastName', secondary: (row) => row.email },
       },
       {
         id: 'status',

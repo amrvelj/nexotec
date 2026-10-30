@@ -350,6 +350,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
               </>
             )}
             <FileInput {...hint(t('usersAdmin.fields.photo'), t('usersAdmin.fields.photoHint'))}
+              style={{ flex: 1 }}
               accept="image/png,image/jpeg"
               value={photoFile}
               onChange={(file) => {
