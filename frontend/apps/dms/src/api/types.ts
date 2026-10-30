@@ -73,6 +73,8 @@ export type UserDeactivateRequest = Schemas['UserDeactivateRequest']
 export type UserDeactivatedRead = Schemas['UserDeactivatedRead']
 export type StandardTextCategory = Schemas['StandardTextCategory']
 export type TextDelegationsRead = Schemas['TextDelegationsRead']
+export type MembershipRead = Schemas['MembershipRead']
+export type MembershipList = Schemas['MembershipList']
 export type TextDelegationsUpdate = Schemas['TextDelegationsUpdate']
 
 // Customer — core, contact channels, external IDs, vehicles

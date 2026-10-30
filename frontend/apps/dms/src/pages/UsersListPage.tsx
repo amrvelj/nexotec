@@ -287,6 +287,9 @@ export function UsersListPage() {
         cell: ({ row }) => (row.original.isDealerManager ? <Badge tone="purple">{t('usersAdmin.managerBadge')}</Badge> : '—'),
         meta: { sortField: 'isDealerManager', exportValue: (row) => (row.isDealerManager ? t('common.yes') : t('common.no')) },
       },
+      // KAN-407 (ADR-060): the sister Betriebe the user also works in, as far
+      // as the reader may see them (KAN-199); derived, so not sortable.
+      text('otherDealerships', t('usersAdmin.columns.otherDealerships'), (row) => row.otherDealershipNames?.join(', '), true),
       text('primaryLocation', t('usersAdmin.columns.primaryLocation'), (row) => (row.primaryLocationId ? locationName(row.primaryLocationId) : null), true),
       {
         id: 'lastLogin',
@@ -539,6 +542,7 @@ export function UsersListPage() {
         colleagues={colleagues.data?.items ?? []}
         selfId={me?.id ?? ''}
         onSaved={() => void onSaved()}
+        onMembershipsChanged={() => void invalidate()}
       />
       <UserDeactivateDialog
         opened={reassigning !== null}

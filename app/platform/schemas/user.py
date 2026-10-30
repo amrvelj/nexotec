@@ -160,6 +160,11 @@ class UserAdminRead(CamelModel):
     invitation_expires_at: dt.datetime | None = None
     primary_location_id: uuid.UUID | None = None
     additional_location_ids: list[uuid.UUID] = Field(default_factory=list)
+    # KAN-407 (ADR-060, the «Weitere Betriebe» column): the sister Betriebe the
+    # user is an active member of, by name, as the membership listing shows
+    # them to the reader — platform staff see every one, a dealer manager only
+    # those they manage themselves (KAN-199), anyone else none.
+    other_dealership_names: list[str] = Field(default_factory=list)
 
 
 class UserRead(CamelModel):

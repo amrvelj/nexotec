@@ -379,3 +379,26 @@ describe('UsersListPage — the user\'s own settings are columns (KAN-413)', () 
     })
   })
 })
+
+// KAN-407 (ADR-060) — «Weitere Betriebe»: the sister Betriebe the user also
+// works in, as the API names them for this reader; shown by default.
+describe('UsersListPage — the «Weitere Betriebe» column (KAN-407)', () => {
+  it('shows each user\'s other Betriebe by name, and a dash for none', async () => {
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/dealerships\/dealership-1\/users$/,
+        handler: () => ({
+          items: [user({ otherDealershipNames: ['Garage Süd AG', 'Garage West AG'] }), USERS[1]],
+          nextCursor: null,
+        }),
+      },
+      ...routes().slice(1),
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Anna Keller')
+
+    expect(screen.getByRole('columnheader', { name: new RegExp(i18n.t('usersAdmin.columns.otherDealerships')) })).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getByText('Garage Süd AG, Garage West AG')).toBeInTheDocument()
+  })
+})

@@ -2281,7 +2281,8 @@
       "createdBy": "Erstellt von",
       "updatedBy": "Geändert von",
       "createdAt": "Erstellt",
-      "updatedAt": "Geändert"
+      "updatedAt": "Geändert",
+      "otherDealerships": "Weitere Betriebe"
     },
     "emptyState": {
       "title": "Noch keine Benutzer",
@@ -2324,7 +2325,8 @@
         "validity": "Gültigkeit",
         "commercial": "Kommerziell",
         "signature": "Unterschrift",
-        "connectedAccounts": "Verbundene Konten"
+        "connectedAccounts": "Verbundene Konten",
+        "memberships": "Weitere Betriebe"
       }
     },
     "fields": {
@@ -2401,6 +2403,23 @@
     "failureReason": {
       "module_failed": "Modul konnte die Übergabe nicht abschliessen; Details im Protokoll",
       "colleague_cannot_act_there": "Kollege arbeitet nicht in jedem betroffenen Betrieb"
+    },
+    "memberships": {
+      "tableLabel": "Zugänge zu weiteren Betrieben",
+      "betrieb": "Betrieb",
+      "manager": "Manager",
+      "managerIn": "Manager in {{betrieb}}",
+      "status": "Status",
+      "active": "Aktiv",
+      "endedOn": "Beendet am {{date}}",
+      "end": "Zugang zu {{betrieb}} beenden",
+      "grantTarget": "Zugang gewähren zu",
+      "grantAsManager": "Als Manager",
+      "grant": "Zugang gewähren",
+      "none": "Kein Zugang zu einem weiteren Betrieb.",
+      "noneYouManage": "Hier stehen nur Betriebe, in denen Sie selbst Manager sind. Zugänge zu anderen Betrieben sehen Sie nicht.",
+      "notYours": "In diesem Betrieb sind Sie nicht Manager – den Zugang dort können Sie nicht ändern.",
+      "failed": "Der Zugang konnte nicht geändert werden. Bitte erneut versuchen."
     }
   },
   "account": {

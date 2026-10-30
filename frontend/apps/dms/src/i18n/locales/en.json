@@ -2281,7 +2281,8 @@
       "createdBy": "Created by",
       "updatedBy": "Changed by",
       "createdAt": "Created",
-      "updatedAt": "Changed"
+      "updatedAt": "Changed",
+      "otherDealerships": "Other businesses"
     },
     "emptyState": {
       "title": "No users yet",
@@ -2324,7 +2325,8 @@
         "validity": "Validity",
         "commercial": "Commercial",
         "signature": "Signature",
-        "connectedAccounts": "Connected accounts"
+        "connectedAccounts": "Connected accounts",
+        "memberships": "Other businesses"
       }
     },
     "fields": {
@@ -2401,6 +2403,23 @@
     "failureReason": {
       "module_failed": "the module could not complete the hand-over; details are in the log",
       "colleague_cannot_act_there": "the colleague does not work in every business involved"
+    },
+    "memberships": {
+      "tableLabel": "Access to other businesses",
+      "betrieb": "Business",
+      "manager": "Manager",
+      "managerIn": "Manager in {{betrieb}}",
+      "status": "Status",
+      "active": "Active",
+      "endedOn": "Ended on {{date}}",
+      "end": "End access to {{betrieb}}",
+      "grantTarget": "Grant access to",
+      "grantAsManager": "As manager",
+      "grant": "Grant access",
+      "none": "No access to another business.",
+      "noneYouManage": "Only businesses you are a manager of yourself are listed here. Access to other businesses is not shown to you.",
+      "notYours": "You are not a manager of this business, so you cannot change access to it.",
+      "failed": "The access could not be changed. Please try again."
     }
   },
   "account": {

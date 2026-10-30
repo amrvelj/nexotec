@@ -2281,7 +2281,8 @@
       "createdBy": "Creato da",
       "updatedBy": "Modificato da",
       "createdAt": "Creato",
-      "updatedAt": "Modificato"
+      "updatedAt": "Modificato",
+      "otherDealerships": "Altre aziende"
     },
     "emptyState": {
       "title": "Ancora nessun utente",
@@ -2324,7 +2325,8 @@
         "validity": "Validità",
         "commercial": "Commerciale",
         "signature": "Firma",
-        "connectedAccounts": "Account collegati"
+        "connectedAccounts": "Account collegati",
+        "memberships": "Altre aziende"
       }
     },
     "fields": {
@@ -2401,6 +2403,23 @@
     "failureReason": {
       "module_failed": "il modulo non ha potuto completare il trasferimento; dettagli nel registro",
       "colleague_cannot_act_there": "il collega non lavora in ogni azienda coinvolta"
+    },
+    "memberships": {
+      "tableLabel": "Accessi ad altre aziende",
+      "betrieb": "Azienda",
+      "manager": "Manager",
+      "managerIn": "Manager presso {{betrieb}}",
+      "status": "Stato",
+      "active": "Attivo",
+      "endedOn": "Terminato il {{date}}",
+      "end": "Termina l'accesso a {{betrieb}}",
+      "grantTarget": "Concedi accesso a",
+      "grantAsManager": "Come manager",
+      "grant": "Concedi accesso",
+      "none": "Nessun accesso a un'altra azienda.",
+      "noneYouManage": "Qui figurano solo le aziende di cui sei tu stesso manager. Gli accessi ad altre aziende non ti vengono mostrati.",
+      "notYours": "Non sei manager di questa azienda: non puoi modificarne l'accesso.",
+      "failed": "Non è stato possibile modificare l'accesso. Riprova."
     }
   },
   "account": {

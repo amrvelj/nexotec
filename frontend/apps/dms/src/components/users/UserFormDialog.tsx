@@ -31,6 +31,7 @@ import type {
 } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { UserConnectedAccountsSection } from './UserConnectedAccountsSection'
+import { UserMembershipsSection } from './UserMembershipsSection'
 import {
   GRANTABLE_ACCESS_ROLES,
   TEXT_CATEGORY_VALUES,
@@ -54,6 +55,8 @@ export interface UserFormDialogProps {
   /** The signed-in user: their own manager flag cannot be edited here. */
   selfId: string
   onSaved: (user: UserAdminRead) => void
+  /** KAN-407: a sister-Betrieb access changed (saved at once, not with the form). */
+  onMembershipsChanged?: () => void
 }
 
 interface FormValues {
@@ -137,7 +140,7 @@ const FORM_ID = 'user-form'
  * here (the last-manager rule would refuse it anyway, FR-A-13); the API
  * says so for a colleague who is the last one.
  */
-export function UserFormDialog({ opened, onClose, dealershipId, user, locations, colleagues, selfId, onSaved }: UserFormDialogProps) {
+export function UserFormDialog({ opened, onClose, dealershipId, user, locations, colleagues, selfId, onSaved, onMembershipsChanged }: UserFormDialogProps) {
   const { t } = useTranslation()
   const hint = useFieldHint()
   const managerHintId = useId()
@@ -148,6 +151,9 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
   const [error, setError] = useState<string | null>(null)
   const idempotency = useIdempotencyKey()
   const editing = user !== null
+  // KAN-407: a membership write saved from its section moves the user's
+  // version on; the form's own writes check the newest one.
+  const [userVersion, setUserVersion] = useState<number | null>(null)
 
   const delegations = useQuery({
     queryKey: ['users', dealershipId, user?.id, 'text-delegations'],
@@ -161,6 +167,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
     setSignatureFile(null)
     setRemoveSignature(false)
     setError(null)
+    setUserVersion(null)
     idempotency.renew()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, user?.id])
@@ -241,8 +248,8 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
         if (orNull(form.validTo) !== orNull(before.validTo)) patch.validTo = orNull(form.validTo)
         saved =
           Object.keys(patch).length > 0
-            ? await api.patch<UserAdminRead>(`/dealerships/${dealershipId}/users/${user.id}`, patch, { 'If-Match': String(user.version) })
-            : user
+            ? await api.patch<UserAdminRead>(`/dealerships/${dealershipId}/users/${user.id}`, patch, { 'If-Match': String(userVersion ?? user.version) })
+            : { ...user, version: userVersion ?? user.version }
       }
       // Delegations are a child collection with their own full-replacement PUT (KAN-199).
       const currentDelegations = delegations.data?.categories ?? []
@@ -440,6 +447,17 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
 
           {editing && (
             <>
+              <Text fw={600} size="sm">
+                {t('usersAdmin.form.sections.memberships')}
+              </Text>
+              <UserMembershipsSection
+                dealershipId={dealershipId}
+                userId={user.id}
+                onUserVersion={(version) => {
+                  setUserVersion(version)
+                  onMembershipsChanged?.()
+                }}
+              />
               <Text fw={600} size="sm">
                 {t('usersAdmin.form.sections.connectedAccounts')}
               </Text>

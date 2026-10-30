@@ -380,7 +380,7 @@ def create_user(
     # sets their own password through its link; nobody sets it for them.
     identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
     db.commit()
-    return user_service.user_read(db, user)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}", response_model=UserAdminRead)
@@ -392,7 +392,7 @@ def get_user(
 ):
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
-    return user_service.user_read(db, user)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 
 @router.patch("/dealerships/{dealership_id}/users/{user_id}", response_model=UserAdminRead)
@@ -425,7 +425,7 @@ def update_user(
         actor_roles=principal.roles,
         on_email_change=on_email_change,
     )
-    return user_service.user_read(db, user)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 
 # U-03: only indexed or small-table columns are sortable; `user` is a few
@@ -481,7 +481,7 @@ def list_users(
     rows, next_cursor = user_service.list_users(
         db, dealership_id=dealership_id, role=role, status=status, params=params, q=q
     )
-    return UserPage(items=user_service.user_reads(db, rows), next_cursor=next_cursor)
+    return UserPage(items=user_service.user_reads(db, rows, viewer_id=principal.user_id, viewer_roles=principal.roles), next_cursor=next_cursor)
 
 
 # --- Locations, the deactivation step, the signature image (KAN-200) ----------
@@ -582,7 +582,7 @@ def deactivate_user(
         actor_roles=principal.roles,
         employment_status=body.employment_status,
     )
-    return UserDeactivatedRead(user=user_service.user_read(db, updated), transfers=results, failed=failed)
+    return UserDeactivatedRead(user=user_service.user_read(db, updated, viewer_id=principal.user_id, viewer_roles=principal.roles), transfers=results, failed=failed)
 
 
 @router.put("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserAdminRead)
@@ -616,7 +616,7 @@ def put_user_signature(
         content_type=request.headers.get("content-type", ""),
         actor_id=principal.user_id,
     )
-    return user_service.user_read(db, user)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}/signature")
@@ -648,7 +648,7 @@ def delete_user_signature(
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
     signature.remove_signature(db, store, user=user, actor_id=principal.user_id)
-    return user_service.user_read(db, user)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 
 # --- Memberships, manager flag, text delegations (KAN-199) ------------------
@@ -746,7 +746,7 @@ def set_home_manager_flag(
     user = membership_service.set_home_manager_flag(
         db, user=user, is_dealer_manager=body.is_dealer_manager, actor_id=principal.user_id, actor_roles=principal.roles
     )
-    return user_service.user_read(db, user)
+    return user_service.user_read(db, user, viewer_id=principal.user_id, viewer_roles=principal.roles)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}/text-delegations", response_model=TextDelegationsRead)

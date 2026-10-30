@@ -2281,7 +2281,8 @@
       "createdBy": "Créé par",
       "updatedBy": "Modifié par",
       "createdAt": "Créé",
-      "updatedAt": "Modifié"
+      "updatedAt": "Modifié",
+      "otherDealerships": "Autres entreprises"
     },
     "emptyState": {
       "title": "Pas encore d'utilisateurs",
@@ -2324,7 +2325,8 @@
         "validity": "Validité",
         "commercial": "Commercial",
         "signature": "Signature",
-        "connectedAccounts": "Comptes connectés"
+        "connectedAccounts": "Comptes connectés",
+        "memberships": "Autres entreprises"
       }
     },
     "fields": {
@@ -2401,6 +2403,23 @@
     "failureReason": {
       "module_failed": "le module n'a pas pu terminer la transmission ; détails dans le journal",
       "colleague_cannot_act_there": "le collègue ne travaille pas dans chaque entreprise concernée"
+    },
+    "memberships": {
+      "tableLabel": "Accès à d'autres entreprises",
+      "betrieb": "Entreprise",
+      "manager": "Manager",
+      "managerIn": "Manager chez {{betrieb}}",
+      "status": "Statut",
+      "active": "Actif",
+      "endedOn": "Terminé le {{date}}",
+      "end": "Mettre fin à l'accès à {{betrieb}}",
+      "grantTarget": "Donner accès à",
+      "grantAsManager": "En tant que manager",
+      "grant": "Donner accès",
+      "none": "Aucun accès à une autre entreprise.",
+      "noneYouManage": "Seules les entreprises dont vous êtes vous-même manager figurent ici. Les accès à d'autres entreprises ne vous sont pas montrés.",
+      "notYours": "Vous n'êtes pas manager de cette entreprise : vous ne pouvez pas y modifier l'accès.",
+      "failed": "L'accès n'a pas pu être modifié. Veuillez réessayer."
     }
   },
   "account": {

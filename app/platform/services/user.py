@@ -941,14 +941,18 @@ def invitation_expiries(db: Session, *, user_ids: Iterable[uuid.UUID]) -> dict[u
     return result
 
 
-def user_reads(db: Session, users: list[User]) -> list[UserAdminRead]:
-    """The Users screen's read shape: the row plus its sites and, for an
-    invited user, when the invitation runs out — read in two queries for the
+def user_reads(
+    db: Session, users: list[User], *, viewer_id: uuid.UUID | None, viewer_roles: frozenset[AccessRole]
+) -> list[UserAdminRead]:
+    """The Users screen's read shape: the row plus its sites, the sister
+    Betriebe the viewer may see it in (KAN-407) and, for an invited user,
+    when the invitation runs out — read in a fixed number of queries for the
     whole page, never one per row."""
 
     ids = [user.id for user in users]
     locations = user_location.locations_of(db, user_ids=ids)
     expiries = invitation_expiries(db, user_ids=[user.id for user in users if user.status == UserStatus.INVITED])
+    other_names = _other_dealership_names(db, user_ids=ids, viewer_id=viewer_id, viewer_roles=viewer_roles)
     reads: list[UserAdminRead] = []
     for user in users:
         primary, additional = locations[user.id]
@@ -959,14 +963,57 @@ def user_reads(db: Session, users: list[User]) -> list[UserAdminRead]:
                     "invitation_expires_at": expiries.get(user.id),
                     "primary_location_id": primary,
                     "additional_location_ids": additional,
+                    "other_dealership_names": other_names.get(user.id, []),
                 }
             )
         )
     return reads
 
 
-def user_read(db: Session, user: User) -> UserAdminRead:
-    return user_reads(db, [user])[0]
+def user_read(
+    db: Session, user: User, *, viewer_id: uuid.UUID | None, viewer_roles: frozenset[AccessRole]
+) -> UserAdminRead:
+    return user_reads(db, [user], viewer_id=viewer_id, viewer_roles=viewer_roles)[0]
+
+
+def _other_dealership_names(
+    db: Session, *, user_ids: list[uuid.UUID], viewer_id: uuid.UUID | None, viewer_roles: frozenset[AccessRole]
+) -> dict[uuid.UUID, list[str]]:
+    """KAN-407: each user's active sister memberships by Betrieb name, with
+    the visibility `membership.list_memberships` applies — platform staff
+    see all; a dealer manager only the Betriebe they hold the flag in
+    themselves (the home through `User.is_dealer_manager`, a sister through
+    its membership's own flag), so a manager of one side learns nothing
+    about the other, not even its name (KAN-199)."""
+
+    if not user_ids:
+        return {}
+    rows = db.execute(
+        select(DealershipMembership.user_id, DealershipMembership.dealership_id, Dealership.legal_name)
+        .join(Dealership, Dealership.id == DealershipMembership.dealership_id)
+        .where(DealershipMembership.user_id.in_(user_ids), membership_is_active())
+        .order_by(Dealership.legal_name, Dealership.id)
+    ).all()
+    if AccessRole.PLATFORM_ADMIN not in viewer_roles:
+        viewer = db.get(User, viewer_id) if viewer_id is not None else None
+        managed: set[uuid.UUID] = set()
+        if viewer is not None:
+            if viewer.is_dealer_manager:
+                managed.add(viewer.tenant_id)
+            managed |= set(
+                db.scalars(
+                    select(DealershipMembership.dealership_id).where(
+                        DealershipMembership.user_id == viewer.id,
+                        DealershipMembership.is_dealer_manager.is_(True),
+                        membership_is_active(),
+                    )
+                ).all()
+            )
+        rows = [row for row in rows if row.dealership_id in managed]
+    names: dict[uuid.UUID, list[str]] = {}
+    for user_id, _dealership_id, name in rows:
+        names.setdefault(user_id, []).append(name)
+    return names
 
 
 def _has_credential(db: Session, user: User) -> bool:

@@ -107,6 +107,11 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   `membership_end` on the home tenant and mirrored into the target's, `manager_flag_set` in the
   dealership the flag is held in (the home for the user row, the target for a membership). The
   listing shows a dealer manager only the sister dealerships they manage themselves.
+  The Users screen shows and edits them (KAN-407): the edit dialog's «Weitere Betriebe» section
+  (`components/users/UserMembershipsSection.tsx`, saved at once like the connected accounts; a
+  404 reads «not yours to manage», an empty listing never «no access»), and the grid's «Weitere
+  Betriebe» column reads `UserAdminRead.otherDealershipNames` with the same visibility —
+  `user_service.user_reads`/`user_read` take the viewer for it.
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
   manager-flag PUTs, delegation PUT/DELETE, since KAN-200 the deactivation step, the
