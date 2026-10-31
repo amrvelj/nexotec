@@ -265,7 +265,7 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   origins (Websites) and to Places API (New) — **configured on staging and verified** (2026-10-26,
   KAN-451: Anto's staging pick went through on a key restricted to the staging origin and to Places
   API (New), so Google honours the Websites restriction on browser calls); production still to come,
-  with its own key. Never a proxy that routes the suggestion list through our API. The SPA calls Places API (New) directly
+  with its own key. The SPA calls Places API (New) directly
   (`utils/googlePlaces.ts`, one session token per keystroke run, reset by a pick or a cleared field);
   the suggestion list is never persisted or logged and never reaches our API (an architecture scan
   pins it); a refusal from Google shows no dropdown at all; only the picked address is written, into

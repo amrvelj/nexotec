@@ -68,7 +68,6 @@ from app.integration.public import (
 )
 from app.vehicle.models.catalogue import ModelVariant, VariantPrice
 from app.vehicle.models.configuration import ConfigurationMatchMethod, VehicleConfiguration
-from app.vehicle.models.provider import ProviderEntityRef
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import plate_lookup_cache
 from app.vehicle.services.catalogue import find_model_variants_by_type_approval
@@ -92,7 +91,6 @@ _CANTONS = frozenset(
     }
 )
 
-_ENTITY_TYPE_MODEL_VARIANT = "model_variant"
 _PLATE_CALL_LABEL = "kontrollschild"
 _BEST_MATCH_CALL_LABEL = "vehicle_data"
 
@@ -591,17 +589,6 @@ def identify(
     return _identify_werkscode(db, werkscode=value)
 
 
-def _variant_for_fz_key(db: Session, *, provider_code: str, fz_key: str) -> ModelVariant | None:
-    ref = db.scalar(
-        select(ProviderEntityRef).where(
-            ProviderEntityRef.entity_type == _ENTITY_TYPE_MODEL_VARIANT,
-            ProviderEntityRef.provider == provider_code,
-            ProviderEntityRef.provider_key == fz_key,
-        )
-    )
-    return db.get(ModelVariant, ref.entity_id) if ref is not None else None
-
-
 def propose_best_match(
     db: Session,
     *,
@@ -616,8 +603,8 @@ def propose_best_match(
     """FR-C-02 step 5. Asks `FahrzeugeMatch` and returns a proposal for the
     advisor to confirm. It creates no configuration and changes none. The
     variant the provider names is mirrored if this catalogue does not hold
-    it yet (the same upsert the catalogue sync uses), so the confirmed
-    configuration can link it."""
+    it yet, and visited if it does (the same upsert the catalogue sync uses),
+    so the confirmed configuration can link it."""
 
     type_approval_number = type_approval_number.strip().upper()
     if not _TYPENSCHEIN_RE.match(type_approval_number):
@@ -645,10 +632,12 @@ def propose_best_match(
             "The provider found no match for this Typenschein and Neupreis.", details={"reason": "no_best_match"}
         ) from exc
 
-    variant = _variant_for_fz_key(db, provider_code=provider_code, fz_key=result.vehicle.fz_key)
-    if variant is None:
-        variant = upsert_model_variant(db, provider_code=provider_code, master=result.vehicle)
-        db.commit()
+    # The catalogue's own upsert, also for a variant this catalogue holds: a
+    # visit links its Typenscheine and fills only NULL fields (KAN-83), so a
+    # variant mirrored before KAN-42 gets its links here (KAN-190) — no
+    # backfill ever asks a provider for them (KAN-485).
+    variant = upsert_model_variant(db, provider_code=provider_code, master=result.vehicle)
+    db.commit()
 
     candidate = _candidate(db, variant, first_registration_date=first_registration_date)
     reference_price = candidate.new_price_for_year or candidate.base_price

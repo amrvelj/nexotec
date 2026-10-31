@@ -82,9 +82,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   differ). **One configuration, one stock item** (KAN-509, FR-C-11): create and attach refuse a
   configuration another stock item of the Betrieb holds — 409 `configuration_held_by_stock_item`
   with the holder's `stockItemId` and `stockNumber` — under a per-(tenant, configuration) advisory
-  lock, so two racing writers cannot both win. The FR-I-02/02b consumers do not take it (an
-  offer's configuration becomes its one pipeline item); no unique index backs it yet (a
-  migration — KAN-513).
+  lock, so two racing writers cannot both win. The FR-I-02/02b consumers do not take it (they
+  key on the contract, so a second contract on the same offer would carry the offer's
+  configuration into a second pipeline item); no unique index backs it yet (a migration —
+  KAN-513).
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
   `trade_in`; additive, KAN-144). A directly added item carries neither.

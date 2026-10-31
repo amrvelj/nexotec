@@ -262,9 +262,10 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   specification — a procurement step, not an engineering one (KAN-81).
 - **Typenschein** — `vehicle_type_approval` is many-to-many with `vehicle_model_variant`;
   `type_approval_number` is indexed, not unique. Use `find_model_variants_by_type_approval`
-  for the reverse lookup. A variant mirrored before KAN-42 has no links; its next single lookup
-  links them (`upsert_model_variant` on an existing variant) — no backfill asks a provider for
-  them (KAN-190, KAN-485).
+  for the reverse lookup. A variant mirrored before KAN-42 has no links; identification's best
+  match visits an existing variant with `upsert_model_variant`, which links them (as
+  `sync_catalogue_variant` would, once KAN-211 calls it) — no backfill asks a provider for them
+  (KAN-190, KAN-485).
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
   drivetrain (groups 012 and 022 are Hinten/Vorne/Allrad). The seeded code map (migration
   `7c4e9a2b6d13`, asserted in `tests/test_provider_code_map_seed.py`) maps 112 →

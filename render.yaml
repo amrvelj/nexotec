@@ -163,10 +163,10 @@ services:
       # forms. Nexotec's browser key — public configuration, not a secret
       # (its purpose is to reach the browser; what protects it is Google
       # Cloud's restriction of the key to Places API (New) and to this
-      # origin — both in place on the staging key, and the Websites half
-      # verified by the runbook's staging pick, step 7, on 2026-10-26: Google
-      # honours it on browser calls (KAN-456); production gets its own key),
-      # but kept out of the repository like every credential. Pasted once in this service's Environment tab
+      # origin — both in place on the staging key and verified by the
+      # runbook's staging pick, step 7, on 2026-10-26: Google honours the
+      # Websites restriction on browser calls (KAN-456); production gets its
+      # own key), but kept out of the repository like every credential. Pasted once in this service's Environment tab
       # (Render ignores sync: false variables on a Blueprint update, so
       # adding it here holds up no sync); unset, the feature is off
       # everywhere and the Business screen says so. The step-by-step:
