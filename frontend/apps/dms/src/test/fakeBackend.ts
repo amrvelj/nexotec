@@ -48,6 +48,20 @@ export interface FakeBackend {
   callsTo: (pattern: RegExp, method?: string) => RecordedCall[]
 }
 
+// KAN-506 — requests a fake backend has received and not answered yet
+// (a handler still holding one), across every backend installed in this
+// file. A request answered after the test ended settles its screen's state
+// updates whenever it lands — after the file's jsdom has been torn down, if
+// the test was the file's last: React's update then reads `window` and the
+// run exits 1 with every test green. A file whose tests leave saves in
+// flight waits for this to empty before the test ends.
+const unanswered = new Set<RecordedCall>()
+
+/** `METHOD /path` of every request no handler has answered yet. */
+export function unansweredFakeRequests(): string[] {
+  return [...unanswered].map((call) => `${call.method} ${call.path}`)
+}
+
 const DEFAULT_USER = {
   id: 'user-1',
   dealershipId: 'dealership-1',
@@ -189,7 +203,8 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
     // against the bare resource path (`/customers`, `/me/preferences/ui`).
     const pathname = url.pathname.replace(/^\/v1(?=\/|$)/, '')
     const headers = new Headers(init?.headers)
-    calls.push({ method, path: pathname + url.search, pathname, params: url.searchParams, body, headers })
+    const call: RecordedCall = { method, path: pathname + url.search, pathname, params: url.searchParams, body, headers }
+    calls.push(call)
 
     const route = all.find((r) => (r.method ?? 'GET').toUpperCase() === method && r.match.test(pathname))
     if (!route) {
@@ -200,7 +215,12 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
     }
     // A handler may return a promise — a test holds a request "in flight"
     // until it resolves it (KAN-288).
-    return toResponse(await route.handler({ url, pathname, method, params: url.searchParams, body, headers }))
+    unanswered.add(call)
+    try {
+      return toResponse(await route.handler({ url, pathname, method, params: url.searchParams, body, headers }))
+    } finally {
+      unanswered.delete(call)
+    }
   }
 
   vi.stubGlobal('fetch', vi.fn(fetchImpl))
