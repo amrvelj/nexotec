@@ -3,6 +3,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
+from app.core.permissions import may_write
 from app.platform.models.reference_data import ReferenceList
 
 
@@ -90,6 +91,45 @@ def test_a_dealer_manager_cannot_create_a_reference_value(client, db_session):
     response = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(token))
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "forbidden"
+
+
+@pytest.mark.parametrize("role", [None, *AccessRole])
+@pytest.mark.parametrize("manager", [False, True])
+def test_the_screens_capability_and_the_apis_gate_agree(client, db_session, role, manager):
+    """KAN-471: the Reference data screen offers «Neuer Wert» and the inline
+    edits only to a session whose `writableCapabilities` holds the matrix row
+    "Canonical taxonomy, provider catalogue" (`canonical_taxonomy`; the PRD's
+    Platform Administration › Reference data). The POST and the PATCH keep
+    their own gate, so this pins that the two say the same for every role,
+    with and without the manager flag: whoever the row lets write, the API
+    lets write, and nobody else."""
+
+    _seed_list(db_session, "fuel_type")
+    roles = frozenset({role}) if role is not None else frozenset()
+    headers = _bearer(_token(role, is_dealer_manager=manager))
+    offered = may_write("canonical_taxonomy", roles=roles, is_dealer_manager=manager)
+
+    created = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=headers)
+    if offered:
+        assert created.status_code == 201, created.text
+        version = created.json()["version"]
+    else:
+        assert created.status_code == 403, created.text
+        seeded = client.post(
+            "/v1/reference-data/fuel_type",
+            json=_value_payload(),
+            headers=_bearer(_token(AccessRole.PLATFORM_ADMIN)),
+        )
+        assert seeded.status_code == 201, seeded.text
+        version = seeded.json()["version"]
+    patched = client.patch(
+        "/v1/reference-data/fuel_type/diesel",
+        json={"labelEn": "Diesel fuel"},
+        headers={**headers, "If-Match": str(version)},
+    )
+
+    assert offered is (role is AccessRole.PLATFORM_ADMIN)
+    assert patched.status_code == (200 if offered else 403), patched.text
 
 
 def test_create_reference_value_requires_authentication(client, db_session):

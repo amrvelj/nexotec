@@ -7,6 +7,7 @@ paths:
   - "app/core/config.py"
   - "app/main.py"
   - "tests/architecture/test_no_password_credential_storage.py"
+  - "tests/test_membership_across_dealer_groups.py"
   - "tests/architecture/test_no_layout_code_outside_document_render.py"
   - "frontend/apps/dms/src/auth/**"
   - "frontend/apps/dms/src/pages/Auth*"
@@ -92,6 +93,13 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   `group_id` / `dealer_group_id` in `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)`
   (a multi-line `text()` escapes it). A new group read is an ADR plus an allowlist entry.
   Cross-tenant reads return 404, never 403.
+- **A membership may cross dealer groups** (ADR-106, recorded by KAN-379 from Anto's KAN-423 pick
+  of 2026-10-23 — option A, not B «memberships never cross groups» — and confirmed by Anto on
+  2026-10-31): `grant_membership` does not ask for the target's group, and
+  switch-dealership mints the **target's** `group_id`, so while switched the person reads that
+  group's customers, never the home group's. A hand-over to a colleague who works in no Betrieb of
+  a record's group is refused instead (below). `tests/test_membership_across_dealer_groups.py` pins
+  the grant and the switch.
 - **No group-level administrator** (D-A-01). The manager flag is held per dealership (KAN-98):
   `User.is_dealer_manager` for the home dealership, `dealership_membership.is_dealer_manager`
   per sister dealership (default false, never copied from the home flag).
@@ -172,7 +180,9 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen»), each checked to be a matrix row; never a role table
+list's intake and «Konfiguration zuordnen», `canonical_taxonomy` — the PRD's Platform
+Administration › Reference data — for the Reference data screen's «Neuer Wert» and inline edits,
+platform staff only, KAN-471), each checked to be a matrix row; never a role table
 in the frontend. An empty `write_roles` = platform staff
 or the manager — except every row with `manager_can_write=False`: the "Nobody" rows (`audit_logs`,
 `wagenbuch`, `stock_reservation`, `ui_translations`, `status_page`, `integration_usage`,

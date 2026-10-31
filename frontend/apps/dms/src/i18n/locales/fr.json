@@ -1696,6 +1696,8 @@
     "emptyFiltered": "Aucune valeur ne correspond au filtre.",
     "required": "Champ obligatoire",
     "missingTip": "Cette ligne ne peut pas être enregistrée tant qu’une langue manque.",
+    "missingTipReadOnly": "Une langue manque dans cette ligne.",
+    "readOnly": "Nexotec gère ces listes pour toutes les entreprises. Vous pouvez les consulter ici, mais pas les modifier.",
     "columns": {
       "code": "Code",
       "status": "État"
