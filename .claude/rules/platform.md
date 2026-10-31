@@ -18,6 +18,8 @@ paths:
   - "frontend/apps/dms/src/pages/PasswordReset*"
   - "frontend/apps/dms/src/pages/UsersListPage*"
   - "frontend/apps/dms/src/pages/BusinessPage*"
+  - "frontend/apps/dms/src/pages/BrandingPage*"
+  - "frontend/apps/dms/src/components/branding/**"
   - "frontend/apps/dms/src/components/account/**"
   - "frontend/apps/dms/src/components/business/**"
   - "frontend/apps/dms/src/components/recovery/**"
@@ -395,13 +397,35 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the row holds the key (`user.photo_ref`), `hasPhoto` is on `UserAdminRead` and `MeRead` (never
   on the session's `UserRead`). The Users grid shows it beside the name (`UserAvatar`, fetched
   only for a row that has one, initials otherwise).
+- **Branding (KAN-205; PRD Logo and brand assets):** `/administration/branding` («Logo und
+  Farben»; capability `branding`: any role reads, the manager writes). `branding_asset` holds one
+  row per variant (`primary` · `mono_dark` · `favicon`; a variant without its own file falls back to
+  `primary`) with the object-store key `dealerships/<id>/branding/<kind>/<asset id>` — never bytes;
+  a replaced file gets a new key, the old object goes after the commit. `PUT/GET/DELETE
+  …/branding/assets/{kind}` (the file as the raw body, judged by its bytes in
+  `services/logo_validation.py`: SVG sanitised with the standard library — Expat refuses every
+  entity declaration, then an element allowlist — or PNG ≥ 600 px on the long edge, ≤ 10'000 px,
+  ≤ 5 MiB; JPEG refused; reasons `logo_*`), `GET/PATCH …/branding` (`brand_primary_color`,
+  `brand_secondary_color`, the five `logo_on_*` placements — app header off by default) and
+  `GET …/branding/preview` (a PDF from `render_document`). Every write takes If-Match on the
+  **dealership's** version and moves it, and is audited (`branding_updated` with the contrast
+  verdict, `branding_asset_set` / `_removed`). The contrast check (WCAG AA 4.5:1: primary/white,
+  secondary/white, secondary/primary; `services/brand_colors.py`, mirrored by
+  `components/branding/contrast.ts`) **warns, it does not block** — Anto's ruling on block vs.
+  warn is open (KAN-205 hand-over). No public URL and no signed URL: the SPA reads the file
+  through the authenticated GET (private, no-store, a CSP sandbox), the renderer from the store
+  in-process; a signed URL comes with the bucket (KAN-402) for a reader without a session. The
+  WP-6b `logo_url` is read by the renderer only until `scripts/migrate_logo_urls_to_branding_assets.py`
+  (dry run by default) has moved it.
 
 ## Document templates (ADR-051)
 
 One shared template layer (`app/platform/models/document_template.py`). WeasyPrint only in
 `app/platform/services/document_render.py`; no HTML-tag string literal (`<table`, `<div`,
 `<style`, `<html`) elsewhere in `app/` (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
-`DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
+`DocumentPreview` only displays the PDF the renderer produced — never a second renderer. The
+header's logo is the primary branding asset, inlined from the object store while the
+`document_header` placement is on (KAN-205); the layout around it is [P2-4]'s.
 
 ## Authentication (D-A-07…D-A-12, D-A-16, D-A-36, D-A-37) — built by KAN-196, except where a bullet says so
 

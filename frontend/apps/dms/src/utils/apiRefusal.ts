@@ -70,6 +70,14 @@ const REASON_KEYS: Record<string, string> = {
       'invalid_type_approval_number',
       'last_usable_contact_point',
       'legacy_sale',
+      'logo_dimensions_too_large',
+      'logo_file_too_large',
+      'logo_format_jpeg',
+      'logo_format_unsupported',
+      'logo_png_damaged',
+      'logo_svg_entities',
+      'logo_svg_invalid',
+      'logo_too_small',
       'merged_party_row',
       'missing_config_fields',
       'missing_containers',
@@ -117,6 +125,13 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
     fields: listed(d.missingConfigKeys, (key) =>
       i18n.exists(`integrationEnums.configKey.${key}`) ? t(`integrationEnums.configKey.${key}`) : key,
     ),
+  }),
+  // KAN-205: the upload's pixel size and the minimum it falls short of.
+  logo_dimensions_too_large: (d) => ({ max: typeof d.maxLongEdge === 'number' ? d.maxLongEdge : 10000 }),
+  logo_too_small: (d) => ({
+    width: typeof d.width === 'number' ? d.width : '—',
+    height: typeof d.height === 'number' ? d.height : '—',
+    min: typeof d.minLongEdge === 'number' ? d.minLongEdge : 600,
   }),
   missing_containers: (d, t) => ({
     containers: Array.isArray(d.missingContainers)

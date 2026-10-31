@@ -19,6 +19,7 @@ generalizes). Keep the two in sync by hand if either changes; there is no
 shared build step between a Python string and a TypeScript module.
 """
 
+import base64
 import html
 import re
 import uuid
@@ -27,6 +28,7 @@ from sqlalchemy.orm import Session
 from weasyprint import HTML
 
 from app.core.i18n import SwissLanguage, format_currency_chf
+from app.core.object_store import ObjectStore, StoredObject
 from app.platform.models.dealership import Dealership, Location
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.schemas.document_content import (
@@ -38,6 +40,7 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
+from app.platform.services.branding import document_header_logo
 from app.platform.services.dealership import get_dealership_or_404, get_location_or_404
 from app.platform.services.document_template import get_document_template
 
@@ -169,15 +172,21 @@ def _render_metadata(metadata: list[KeyValueRow]) -> str:
     return f'<div class="doc-meta">{rows}</div>'
 
 
-def _render_logo(dealership: Dealership) -> str:
-    """An uploaded logo (dealership.logo_url) if there is one; otherwise an
-    initials mark in the dealership's own brand colour — the same fallback
-    the frontend shell's own BrandMark component uses, so a dealership
-    that hasn't uploaded a logo still renders an on-brand, recognizable
-    letterhead rather than a generic placeholder.
+def _render_logo(dealership: Dealership, logo: StoredObject | None = None) -> str:
+    """The uploaded logo (KAN-205: the primary branding asset, read from the
+    object store and inlined, so the renderer fetches nothing over the
+    network) if there is one; else the WP-6b external `logo_url` until
+    scripts/migrate_logo_urls_to_branding_assets.py has moved it; otherwise
+    an initials mark in the dealership's own brand colour — the same
+    fallback the frontend shell's own BrandMark component uses, so a
+    dealership that hasn't uploaded a logo still renders an on-brand,
+    recognizable letterhead rather than a generic placeholder.
     """
 
-    if dealership.logo_url:
+    if logo is not None:
+        inline = base64.b64encode(logo.data).decode("ascii")
+        return f'<img src="data:{_esc(logo.content_type)};base64,{inline}" alt="">'
+    if dealership.logo_url and dealership.logo_on_document_header:
         return f'<img src="{_esc(dealership.logo_url)}" alt="">'
     color = dealership.brand_primary_color
     if not color or not _HEX_COLOR.match(color):
@@ -226,6 +235,7 @@ def _compose_html(
     location: Location | None,
     correspondence_language: SwissLanguage,
     content: ContentDefinition,
+    logo: StoredObject | None = None,
 ) -> str:
     header_note = _template_field(template, "header_note", correspondence_language)
     footer_text = _template_field(template, "footer_text", correspondence_language)
@@ -245,7 +255,7 @@ def _compose_html(
   </div>
   <div class="doc-head">
     <div class="doc-dealer">
-      <div class="doc-logo">{_render_logo(dealership)}</div>
+      <div class="doc-logo">{_render_logo(dealership, logo)}</div>
       <div>{_letterhead_lines(dealership)}</div>
     </div>
     {_render_metadata(content.metadata or [])}
@@ -265,6 +275,7 @@ def render_document(
     correspondence_language: SwissLanguage,
     content: ContentDefinition,
     location_id: uuid.UUID | None = None,
+    store: ObjectStore | None = None,
 ) -> bytes:
     """Renders `content` inside `dealership`'s shared frame (letterhead,
     per-location footer address, the dealership's own template boilerplate
@@ -277,6 +288,9 @@ def render_document(
     dealership = get_dealership_or_404(db, dealership_id)
     template = get_document_template(db, dealership_id)
     location = get_location_or_404(db, location_id) if location_id is not None else None
+    # KAN-205: the header's logo comes from the object store — `store` is
+    # the caller's (a route's dependency), else the application's.
+    logo = document_header_logo(db, dealership, store=store)
 
     html_string = _compose_html(
         dealership=dealership,
@@ -284,5 +298,6 @@ def render_document(
         location=location,
         correspondence_language=correspondence_language,
         content=content,
+        logo=logo,
     )
     return HTML(string=html_string).write_pdf()

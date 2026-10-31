@@ -28,6 +28,7 @@ from app.inventory.models.stock_item_publishing import StockItemMedia, StockItem
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
+from app.platform.models.branding_asset import BrandingAsset
 from app.platform.models.connected_account import UserConnectedAccount
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
@@ -88,6 +89,7 @@ __all__ = [
     "AuthSession",
     "AuthToken",
     "Brand",
+    "BrandingAsset",
     "ColourCache",
     "Credential",
     "Customer",

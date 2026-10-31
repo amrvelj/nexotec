@@ -23,7 +23,8 @@
       "catalogue": "Catalogo",
       "users": "Utenti",
       "accountRecovery": "Recupero account",
-      "business": "Azienda"
+      "business": "Azienda",
+      "branding": "Logo e colori"
     },
     "signOut": "Disconnetti",
     "environmentNotice": {
@@ -242,7 +243,15 @@
       "photo_too_large": "La foto è troppo grande — al massimo 5 MB.",
       "configuration_already_linked": "A questo veicolo è già assegnata una configurazione. Ricaricare la pagina.",
       "configuration_vin_differs": "Il VIN della configurazione non è quello di questo veicolo. La configurazione descrive un altro veicolo.",
-      "configuration_held_by_stock_item": "Questa configurazione appartiene già al veicolo {{stockNumber}} in stock. Ogni veicolo ha la propria configurazione."
+      "configuration_held_by_stock_item": "Questa configurazione appartiene già al veicolo {{stockNumber}} in stock. Ogni veicolo ha la propria configurazione.",
+      "logo_format_jpeg": "Il JPEG non è accettato per un logo: non ha trasparenza e viene stampato con un riquadro grigio dietro su ogni documento. Caricate un SVG (preferito) o un PNG.",
+      "logo_format_unsupported": "Un logo deve essere un file SVG (preferito) o PNG.",
+      "logo_too_small": "Questo PNG misura {{width, number}} × {{height, number}} px. Un logo stampato largo 50 mm ha bisogno di circa {{min, number}} px sul lato lungo per restare nitido a 300 dpi. Caricate un PNG più grande – o un SVG, nitido a ogni dimensione.",
+      "logo_dimensions_too_large": "L’immagine supera {{max, number}} px sul lato lungo – più di quanto serva a qualsiasi documento.",
+      "logo_file_too_large": "Il file del logo è troppo grande — al massimo 5 MB.",
+      "logo_png_damaged": "Il file PNG è danneggiato e non può essere letto.",
+      "logo_svg_invalid": "Il file SVG non è un documento SVG valido.",
+      "logo_svg_entities": "Il file SVG dichiara entità XML, che possono servire ad attaccare i sistemi che lo leggono. Esportate di nuovo il logo senza DTD."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -2843,6 +2852,67 @@
       "title": "Nessuna marca trovata",
       "description": "Nessuna marca corrisponde alla ricerca.",
       "action": "Cancella ricerca"
+    }
+  },
+  "branding": {
+    "title": "Logo e colori",
+    "subtitle": "Il logo e i colori della vostra azienda – su ogni documento, sui cartellini dei prezzi e negli annunci. L’anteprima mostra l’intestazione come viene stampata.",
+    "loadError": "Non è stato possibile caricare logo e colori.",
+    "logo": {
+      "title": "Logo",
+      "formatHint": "SVG preferito, PNG con almeno 600 px sul lato lungo. Il JPEG non è accettato: non ha trasparenza e viene stampato con un riquadro grigio.",
+      "kinds": {
+        "primary": "Logo principale",
+        "mono_dark": "Monocromo scuro",
+        "favicon": "Favicon"
+      },
+      "kindHints": {
+        "primary": "Obbligatorio. Le altre varianti lo usano finché non hanno un file proprio.",
+        "mono_dark": "Per un’intestazione a colori su carta bianca. Senza file proprio si usa il logo principale.",
+        "favicon": "La piccola icona nella scheda del browser del sito web. Senza file proprio si usa il logo principale."
+      },
+      "choose": "Scegli file",
+      "upload": "Carica",
+      "remove": "Rimuovi",
+      "none": "Ancora nessun logo",
+      "usesPrimary": "Usa il logo principale",
+      "svgFile": "SVG · nitido a ogni dimensione",
+      "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+      "failed": "Non è stato possibile salvare il logo."
+    },
+    "colours": {
+      "title": "Colori",
+      "primary": "Colore primario",
+      "primaryHint": "Il colore della vostra azienda sui documenti, p. es. dietro il segno del logo.",
+      "secondary": "Colore secondario (facoltativo)",
+      "secondaryHint": "Un secondo colore per gli accenti. Lasciate vuoto se la vostra azienda non ne ha.",
+      "explanation": "Il testo sui documenti ha bisogno di contrasto sufficiente per essere leggibile: almeno 4.5 : 1 secondo il WCAG AA. Un colore primario chiaro – il giallo, per esempio – rende illeggibile il testo bianco su di esso in ogni documento.",
+      "pairs": {
+        "primary_on_white": "Colore primario e bianco",
+        "secondary_on_white": "Colore secondario e bianco",
+        "secondary_on_primary": "Colore secondario e colore primario"
+      },
+      "ratio": "{{ratio}} : 1",
+      "passes": "AA raggiunto",
+      "fails": "Contrasto insufficiente",
+      "savedWithWarning": "Salvato. Almeno una combinazione di colori non raggiunge 4.5 : 1 – il testo su di essa è difficile da leggere sui documenti.",
+      "invalid": "Un colore si scrive #RRGGBB, p. es. #7C3AED.",
+      "failed": "Non è stato possibile salvare i colori."
+    },
+    "placements": {
+      "title": "Dove appare il logo",
+      "documentHeader": "Intestazione dei documenti",
+      "priceTag": "Cartellino del prezzo",
+      "listing": "Annunci",
+      "emailSignature": "Firma e-mail",
+      "appHeader": "Intestazione dell’applicazione",
+      "failed": "Non è stato possibile salvare le impostazioni."
+    },
+    "preview": {
+      "title": "Anteprima dell’intestazione",
+      "loading": "L’anteprima è in preparazione …",
+      "error": "Non è stato possibile creare l’anteprima.",
+      "note": "Stato salvato, nella lingua di corrispondenza dell’azienda."
     }
   }
 }
