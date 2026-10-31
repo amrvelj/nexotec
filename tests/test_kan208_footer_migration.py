@@ -21,7 +21,7 @@ from scripts.check_concurrent_alembic_upgrade import UPGRADE_TIMEOUT_S, libpq_ur
 from tests.dealership_support import valid_uid
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-_BEFORE = "c4f1a9e2b7d3"
+_BEFORE = "444ddb84d8c9"  # the platform head before KAN-208 once the batch is chained (KAN-205)
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
