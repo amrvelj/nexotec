@@ -217,6 +217,7 @@ source_modules = [
 ]
 forbidden_modules = [
     "app.platform.api",
+    "app.platform.consumers",
     "app.platform.daily_jobs",
     "app.platform.models",
     "app.platform.reconciliation",

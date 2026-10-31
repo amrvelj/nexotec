@@ -412,6 +412,41 @@ def _seed_country_reference_list(engine):
 
 
 @pytest.fixture(autouse=True)
+def _seed_notification_catalogue(engine):
+    """The notification catalogue (`notification_event`, KAN-216) in every
+    test DB, as the platform migration seeds it in every deployed one: every
+    security event source raises a notification inside its own transaction,
+    and a code with no row raises (FR-A-47). The rows come from the code
+    declaration (`notification_catalogue.CATALOGUE`);
+    `tests/test_migrated_notification_catalogue.py` pins that the migration
+    seeds the same rows."""
+
+    from sqlalchemy import insert
+
+    from app.core.uuid7 import uuid7
+    from app.platform.models.notification import NotificationEvent
+    from app.platform.services.notification_catalogue import CATALOGUE
+
+    with engine.begin() as conn:
+        conn.execute(
+            insert(NotificationEvent.__table__),
+            [
+                {
+                    "id": uuid7(),
+                    "code": spec.code.value,
+                    "family": spec.family.value,
+                    "default_timing": spec.default_timing.value,
+                    "switchable": spec.switchable,
+                    "title_key": spec.title_key,
+                    "body_key": spec.body_key,
+                }
+                for spec in CATALOGUE
+            ],
+        )
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _token_dealer_groups(engine):
     """Test tokens carry their Betrieb's real dealer group, as a minted
     session does (KAN-424): `tests/token_support.py::dealer_group_of` reads

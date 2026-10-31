@@ -113,7 +113,16 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
 
     await userEvent.click(within(nav).getByRole('button', { name: tr('shell.sidebar.accountMenu') }))
     expect(await screen.findByText(tr('shell.sidebar.language'))).toBeInTheDocument()
-    expect(screen.getByText(tr('shell.sidebar.notificationsSoon'))).toBeInTheDocument()
+    // KAN-216: the notifications entry is live — it opens the inbox.
+    expect(screen.getByRole('menuitem', { name: i18n.getFixedT(lng)('notifications.bellLabel', { count: 0 }) })).toBeInTheDocument()
+  })
+
+  it('the bell shows the unread count and opens the inbox (KAN-216)', async () => {
+    renderShell('de')
+    const nav = await screen.findByRole('navigation', { name: 'Hauptnavigation' })
+    const bell = await within(nav).findByRole('button', { name: 'Benachrichtigungen, 0 ungelesen' })
+    await userEvent.click(bell)
+    expect(await screen.findByTestId('location')).toHaveTextContent('/notifications')
   })
 
   it("the account menu's My account entry opens the profile tab (KAN-201)", async () => {

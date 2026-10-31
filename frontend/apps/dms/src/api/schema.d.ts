@@ -2464,6 +2464,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Notification Preferences
+         * @description Every family with the caller's choice or the platform default (FR-A-48).
+         */
+        get: operations["list_my_notification_preferences_v1_me_notification_preferences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notification-preferences/{family}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put My Notification Preference
+         * @description The caller's own choice for one family — the user decides everything,
+         *     never the manager (D-A-40). If-Match on the version the list returned
+         *     (0 for the first save). `security` is a 422 (`family_locked`).
+         */
+        put: operations["put_my_notification_preference_v1_me_notification_preferences__family__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Notifications
+         * @description The inbox (FR-A-50), newest first, cursor-paginated. A notification
+         *     held for the daily digest is not listed until the digest releases it.
+         */
+        get: operations["list_my_notifications_v1_me_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark All My Notifications Read */
+        post: operations["mark_all_my_notifications_read_v1_me_notifications_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Unread Count
+         * @description The bell's badge.
+         */
+        get: operations["my_unread_count_v1_me_notifications_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/{notification_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark My Notification
+         * @description Read or unread again. Unversioned (the reader's own stamp, idempotent):
+         *     no If-Match.
+         */
+        patch: operations["mark_my_notification_v1_me_notifications__notification_id__patch"];
+        trace?: never;
+    };
     "/v1/me/photo": {
         parameters: {
             query?: never;
@@ -2518,6 +2639,68 @@ export interface paths {
         post?: never;
         /** Delete My Preference */
         delete: operations["delete_my_preference_v1_me_preferences__scope__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register My Push Subscription
+         * @description This browser's subscription, bound to the calling session (FR-A-49):
+         *     when the session is revoked, the subscription goes. Registering the same
+         *     browser again moves it to this session.
+         */
+        post: operations["register_my_push_subscription_v1_me_push_subscriptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push-subscriptions/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete My Push Subscription
+         * @description Push off on this device. Unversioned: no If-Match.
+         */
+        delete: operations["delete_my_push_subscription_v1_me_push_subscriptions__subscription_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Push Config
+         * @description Whether this deployment sends Web Push, and the key to subscribe with.
+         */
+        get: operations["my_push_config_v1_me_push_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7630,6 +7813,11 @@ export interface components {
             /** Canonicalvaluecode */
             canonicalValueCode: string;
         };
+        /** MarkAllReadResult */
+        MarkAllReadResult: {
+            /** Marked */
+            marked: number;
+        };
         /**
          * MarketplaceChannel
          * @enum {string}
@@ -7840,6 +8028,100 @@ export interface components {
          * @enum {string}
          */
         NewPriceSource: "catalogue" | "document" | "customer";
+        /**
+         * NotificationFamily
+         * @enum {string}
+         */
+        NotificationFamily: "security" | "administration" | "assignment";
+        /** NotificationPage */
+        NotificationPage: {
+            /** Items */
+            items: components["schemas"]["NotificationRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /** NotificationPreferenceList */
+        NotificationPreferenceList: {
+            /** Items */
+            items: components["schemas"]["NotificationPreferenceRead"][];
+        };
+        /** NotificationPreferenceRead */
+        NotificationPreferenceRead: {
+            family: components["schemas"]["NotificationFamily"];
+            /** Hasevents */
+            hasEvents: boolean;
+            /** Inapp */
+            inApp: boolean;
+            /** Push */
+            push: boolean;
+            /** Switchable */
+            switchable: boolean;
+            timing: components["schemas"]["NotificationTiming"];
+            /** Version */
+            version: number;
+        };
+        /** NotificationPreferenceUpdate */
+        NotificationPreferenceUpdate: {
+            /**
+             * Inapp
+             * @default true
+             */
+            inApp?: boolean;
+            /** Push */
+            push: boolean;
+            timing: components["schemas"]["NotificationTiming"];
+        };
+        /**
+         * NotificationRead
+         * @description One inbox entry. The SPA renders `titleKey` / `bodyKey` with `params`
+         *     in the user's UI language; `link` is the SPA path of the subject.
+         */
+        NotificationRead: {
+            /** Bodykey */
+            bodyKey: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Deliveredat
+             * Format: date-time
+             */
+            deliveredAt: string;
+            /** Eventcode */
+            eventCode: string;
+            family: components["schemas"]["NotificationFamily"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Link */
+            link: string;
+            /** Params */
+            params: {
+                [key: string]: string | number | boolean;
+            };
+            /** Readat */
+            readAt: string | null;
+            /** Subjectid */
+            subjectId: string | null;
+            /** Subjecttype */
+            subjectType: string;
+            /** Titlekey */
+            titleKey: string;
+        };
+        /** NotificationReadUpdate */
+        NotificationReadUpdate: {
+            /** Read */
+            read: boolean;
+        };
+        /**
+         * NotificationTiming
+         * @enum {string}
+         */
+        NotificationTiming: "immediate" | "digest" | "off";
         /**
          * NotionalInputTaxOverrideRequest
          * @description FR-I-xx / Art. 28a MWSTG. `reason` is required — an override is
@@ -8533,6 +8815,57 @@ export interface components {
          * @enum {string}
          */
         PublishingState: "not_published" | "published";
+        /**
+         * PushConfigRead
+         * @description Whether this deployment can send Web Push, and the VAPID application
+         *     server key the browser subscribes with (null when it cannot).
+         */
+        PushConfigRead: {
+            /** Available */
+            available: boolean;
+            /** Vapidpublickey */
+            vapidPublicKey: string | null;
+        };
+        /**
+         * PushSubscriptionCreate
+         * @description The browser's `PushSubscription.toJSON()`: endpoint and keys
+         *     (`expirationTime` is accepted and ignored).
+         */
+        PushSubscriptionCreate: {
+            /** Endpoint */
+            endpoint: string;
+            /** Expirationtime */
+            expirationTime?: number | null;
+            keys: components["schemas"]["PushSubscriptionKeys"];
+        };
+        /** PushSubscriptionKeys */
+        PushSubscriptionKeys: {
+            /** Auth */
+            auth: string;
+            /** P256Dh */
+            p256dh: string;
+        };
+        /**
+         * PushSubscriptionRead
+         * @description Never the endpoint or the keys once stored.
+         */
+        PushSubscriptionRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sessionid
+             * Format: uuid
+             */
+            sessionId: string;
+        };
         /**
          * QrReferenceType
          * @enum {string}
@@ -9711,6 +10044,11 @@ export interface components {
         UnpublishRequest: {
             /** Confirm */
             confirm: boolean;
+        };
+        /** UnreadCountRead */
+        UnreadCountRead: {
+            /** Count */
+            count: number;
         };
         /**
          * UsageRead
@@ -17783,6 +18121,224 @@ export interface operations {
             };
         };
     };
+    list_my_notification_preferences_v1_me_notification_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferenceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_my_notification_preference_v1_me_notification_preferences__family__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                family: components["schemas"]["NotificationFamily"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferenceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_notifications_v1_me_notifications_get: {
+        parameters: {
+            query?: {
+                /** @description Only the unread ones. */
+                unread?: boolean;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_my_notifications_read_v1_me_notifications_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkAllReadResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_unread_count_v1_me_notifications_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_my_notification_v1_me_notifications__notification_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                notification_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationReadUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_my_photo_v1_me_photo_get: {
         parameters: {
             query?: never;
@@ -18016,6 +18572,111 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_my_push_subscription_v1_me_push_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSubscriptionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_push_subscription_v1_me_push_subscriptions__subscription_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                subscription_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_push_config_v1_me_push_config_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushConfigRead"];
+                };
             };
             /** @description Validation Error */
             422: {

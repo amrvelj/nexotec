@@ -2478,7 +2478,8 @@
       "profile": "Profil",
       "security": "Sécurité",
       "connectedAccounts": "Comptes connectés",
-      "signature": "Signature"
+      "signature": "Signature",
+      "notifications": "Notifications"
     },
     "languages": {
       "de": "Allemand",
@@ -2500,9 +2501,7 @@
       "betriebDefault": "Comme l'entreprise ({{language}})",
       "saved": "Enregistré.",
       "conflict": "Votre compte a été modifié ailleurs entre-temps. « Annuler » affiche la nouvelle version ; vos saisies sont alors perdues.",
-      "invalid": "Veuillez vérifier les saisies : numéros avec indicatif du pays, p. ex. +41 79 123 45 67.",
-      "notificationsTitle": "Notifications",
-      "notificationsSoon": "Vous choisirez bientôt ici les notifications que vous recevez dans l'application et en push."
+      "invalid": "Veuillez vérifier les saisies : numéros avec indicatif du pays, p. ex. +41 79 123 45 67."
     },
     "connected": {
       "emptyTitle": "Aucun compte connecté",
@@ -3289,6 +3288,125 @@
     "errors": {
       "saveFailed": "Le texte n'a pas pu être enregistré.",
       "previewFailed": "L'aperçu n'a pas pu être créé."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bellLabel": "Notifications, {{count, number}} non lues",
+    "filterAll": "Toutes",
+    "filterUnread": "Non lues",
+    "markAllRead": "Tout marquer comme lu",
+    "markRead": "Marquer comme lue",
+    "markUnread": "Marquer comme non lue",
+    "open": "Ouvrir",
+    "unread": "Non lue",
+    "emptyTitle": "Aucune notification",
+    "emptyBody": "Ici apparaissent les avis concernant votre compte, par exemple une connexion depuis un nouvel appareil. Ils sont conservés 90 jours.",
+    "emptyUnread": "Aucune notification non lue.",
+    "loadMore": "Charger plus",
+    "retention": "Les notifications sont conservées 90 jours.",
+    "digest": {
+      "pushTitle": "Nouvelles notifications"
+    },
+    "families": {
+      "security": {
+        "name": "Sécurité",
+        "description": "Connexions, deuxième facteur, mot de passe, sessions et récupérations de votre compte."
+      },
+      "administration": {
+        "name": "Administration",
+        "description": "Avis sur l'entreprise pour les managers, par exemple des accès qui expirent."
+      },
+      "assignment": {
+        "name": "Attributions",
+        "description": "Ce qui vous est attribué, par exemple un lead ou un ordre."
+      }
+    },
+    "timings": {
+      "immediate": "Immédiatement",
+      "digest": "Résumé quotidien",
+      "off": "Désactivé"
+    },
+    "preferences": {
+      "title": "Notifications",
+      "intro": "Les notifications apparaissent dans la boîte de réception et, si vous le souhaitez, en push sur vos appareils – jamais par e-mail. Vous seul décidez.",
+      "family": "Type",
+      "timing": "Remise",
+      "push": "Push",
+      "locked": "Les avis de sécurité arrivent toujours immédiatement, dans la boîte de réception et en push, et ne peuvent pas être désactivés.",
+      "noEventsYet": "Aucun avis de ce type pour l'instant.",
+      "conflict": "Le réglage a été modifié entre-temps ailleurs. Vous voyez maintenant l'état actuel.",
+      "failed": "Le réglage n'a pas pu être enregistré."
+    },
+    "device": {
+      "title": "Push sur cet appareil",
+      "intro": "Un push n'affiche que le titre et mène à la boîte de réception ; le contenu reste dans Nexotec. Il vaut pour cet appareil tant que vous y êtes connecté.",
+      "enable": "Activer le push sur cet appareil",
+      "disable": "Désactiver le push sur cet appareil",
+      "active": "Le push est actif sur cet appareil.",
+      "inactive": "Le push n'est pas actif sur cet appareil.",
+      "unavailable": "Le push n'est pas encore configuré sur cette installation.",
+      "unsupported": "Ce navigateur ne prend pas en charge les notifications push.",
+      "denied": "Le navigateur bloque les notifications de Nexotec. Autorisez-les dans les réglages du navigateur.",
+      "failed": "Le push n'a pas pu être configuré sur cet appareil."
+    },
+    "events": {
+      "newDeviceLogin": {
+        "title": "Connexion depuis un nouvel appareil",
+        "body": "Votre compte a été connecté depuis un appareil jamais utilisé auparavant. Si ce n'était pas vous, mettez fin à cette session sous Mon compte › Sécurité et changez votre mot de passe."
+      },
+      "factorEnrolled": {
+        "title": "Deuxième facteur ajouté",
+        "body": "Un deuxième facteur a été ajouté à votre compte. Si ce n'était pas vous, contactez immédiatement le support Nexotec."
+      },
+      "factorRemoved": {
+        "title": "Deuxième facteur supprimé",
+        "body": "Un deuxième facteur a été supprimé de votre compte. Si ce n'était pas vous, contactez immédiatement le support Nexotec."
+      },
+      "recoveryCodeUsed": {
+        "title": "Code de récupération utilisé",
+        "body": "L'un de vos codes de récupération a été utilisé pour une connexion. Restants : {{remaining, number}}."
+      },
+      "accountLocked": {
+        "title": "Compte temporairement verrouillé",
+        "body": "Après plusieurs tentatives de connexion échouées, votre compte est temporairement verrouillé. Si ce n'était pas vous, réinitialisez votre mot de passe."
+      },
+      "passwordChanged": {
+        "title": "Mot de passe modifié",
+        "body": "Le mot de passe de votre compte a été modifié. Si ce n'était pas vous, réinitialisez-le immédiatement et contactez le support Nexotec."
+      },
+      "sessionRevokedByOther": {
+        "title": "Sessions terminées par une autre personne",
+        "body": "Une ou plusieurs sessions de votre compte ont été terminées par une autre personne. Reconnectez-vous pour continuer."
+      },
+      "impersonationStarted": {
+        "title": "Le support Nexotec travaille dans votre compte",
+        "body": "Un collaborateur du support Nexotec travaille dans votre compte. Vous pouvez mettre fin à la session à tout moment depuis le bandeau."
+      },
+      "impersonationEnded": {
+        "title": "Session de support terminée",
+        "body": "La session du support Nexotec dans votre compte est terminée."
+      },
+      "connectedAccountLinked": {
+        "title": "Compte connecté associé",
+        "body": "Un compte externe a été associé à votre compte. Si ce n'était pas vous, dissociez-le sous Mon compte › Comptes connectés."
+      },
+      "connectedAccountRevoked": {
+        "title": "Compte connecté dissocié",
+        "body": "Un compte externe connecté a été dissocié. Nexotec n'y agit plus en votre nom."
+      },
+      "platformRecoveryAction": {
+        "title": "Récupération par le support Nexotec",
+        "body": "Le support Nexotec a effectué une récupération sur votre compte : {{action}}."
+      }
+    },
+    "recoveryActions": {
+      "invitationReissued": "invitation renvoyée",
+      "mfaReset": "deuxième facteur réinitialisé",
+      "lockoutCleared": "verrouillage levé",
+      "sessionsRevoked": "toutes les sessions terminées",
+      "managerGranted": "droit de manager accordé",
+      "emailChanged": "adresse de connexion modifiée"
     }
   }
 }

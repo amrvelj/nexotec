@@ -41,6 +41,12 @@ from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.module_entitlement import ModuleEntitlement
+from app.platform.models.notification import (
+    Notification,
+    NotificationEvent,
+    PushSubscription,
+    UserNotificationPreference,
+)
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
@@ -134,12 +140,15 @@ __all__ = [
     "ModelVariant",
     "ModelVariantEnergyRating",
     "ModuleEntitlement",
+    "Notification",
+    "NotificationEvent",
     "OutboxMessage",
     "PlateLookupCacheEntry",
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",
     "ProviderSyncState",
+    "PushSubscription",
     "ReconciliationOrphan",
     "ReconciliationRun",
     "ReferenceList",
@@ -167,6 +176,7 @@ __all__ = [
     "User",
     "UserConnectedAccount",
     "UserLocation",
+    "UserNotificationPreference",
     "UserPreference",
     "Valuation",
     "ValuationDeduction",

@@ -10,11 +10,12 @@ const TAB_LABEL_KEY: Record<AccountTab, string> = {
   security: 'account.tabs.security',
   'connected-accounts': 'account.tabs.connectedAccounts',
   signature: 'account.tabs.signature',
+  notifications: 'account.tabs.notifications',
 }
 
 /**
  * My account (KAN-201; Dealer Administration "My account" — every user, not
- * only the manager): Profile · Security · Connected accounts · Signature,
+ * only the manager): Profile · Security · Connected accounts · Signature · Notifications (KAN-216),
  * one route per tab so a link names the tab. A session that still owes a
  * second factor sees the Security tab alone — the API refuses the others
  * until a factor is enrolled (KAN-196).

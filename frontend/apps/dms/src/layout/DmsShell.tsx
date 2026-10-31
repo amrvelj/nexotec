@@ -34,6 +34,8 @@ import { api, ApiError } from '../api/client'
 import { customerName } from '../utils/customer'
 import type { CustomerPage, VehicleSearchResult } from '../api/types'
 import { filterNavGroupsByEntitlements } from './navEntitlements'
+import { useUnreadNotificationCount } from '../hooks/useNotifications'
+import { rebindPushToThisSession } from '../utils/webPush'
 
 // Translated at render time (not a module-level constant) — labels must
 // re-render when the user switches UI language via the top bar.
@@ -269,7 +271,7 @@ export function DmsShell({ children }: { children: ReactNode }) {
 }
 
 function DmsShellInner({ children }: { children: ReactNode }) {
-  const { user, activeDealership, memberships, entitlements, logout, switchDealership } = useAuth()
+  const { user, activeDealership, memberships, entitlements, logout, switchDealership, mfaEnrolmentRequired } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
@@ -297,6 +299,17 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   useEffect(() => {
     void i18n.changeLanguage(uiLanguage)
   }, [uiLanguage, i18n])
+
+  // KAN-216 (D-A-40): the bell. A session that still owes a second factor
+  // reaches no inbox (the API confines it to enrolment), so it shows none.
+  const inboxReachable = !mfaEnrolmentRequired
+  const unread = useUnreadNotificationCount(inboxReachable)
+  const unreadCount = unread.data?.count ?? 0
+  // A browser that already pushes binds its subscription to this new
+  // session (FR-A-49: the previous session's went with it).
+  useEffect(() => {
+    if (inboxReachable) void rebindPushToThisSession()
+  }, [inboxReachable, user?.id])
 
   if (!user) return <>{children}</>
 
@@ -334,6 +347,14 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         },
         activeDealership: activeDealership ?? undefined,
         memberships,
+        notifications: inboxReachable
+          ? {
+              unreadCount,
+              onOpen: () => navigate('/notifications'),
+              ariaLabel: t('notifications.bellLabel', { count: unreadCount }),
+              active: location.pathname === '/notifications',
+            }
+          : undefined,
         onSwitchDealership: (dealershipId) => {
           setSwitchError(null)
           // KAN-237 — a refused switch is said, in the UI language, and

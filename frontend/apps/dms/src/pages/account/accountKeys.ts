@@ -4,7 +4,7 @@ export const ME_KEY = ['me'] as const
 export const CONNECTED_KEY = ['me', 'connected-accounts'] as const
 
 /** The tabs of My account, in order; each is its own route under /account. */
-export const ACCOUNT_TABS = ['profile', 'security', 'connected-accounts', 'signature'] as const
+export const ACCOUNT_TABS = ['profile', 'security', 'connected-accounts', 'signature', 'notifications'] as const
 export type AccountTab = (typeof ACCOUNT_TABS)[number]
 
 /** A phone number as the API takes it (E.164): the spaces people type go. */

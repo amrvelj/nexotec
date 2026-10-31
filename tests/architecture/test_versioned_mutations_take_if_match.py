@@ -29,6 +29,7 @@ from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.mfa import MfaPasskey, MfaTotp
+from app.platform.models.notification import Notification, PushSubscription
 from app.platform.models.user_preference import UserPreference
 from app.vehicle.models.vehicle_history import VehicleAccessory
 from tests.route_walk import api_routes
@@ -113,6 +114,9 @@ UNVERSIONED = {
     ("DELETE", "/v1/auth/sessions/{session_id}"): (AuthSession, "revoking one's own session; one row, idempotent"),
     ("DELETE", "/v1/auth/mfa/totp"): (MfaTotp, "removing one's own factor"),
     ("DELETE", "/v1/auth/mfa/passkeys/{passkey_id}"): (MfaPasskey, "removing one's own passkey"),
+    # KAN-216: the reader's own read/unread stamp on an inbox entry, idempotent.
+    ("PATCH", "/v1/me/notifications/{notification_id}"): (Notification, "one's own read/unread stamp"),
+    ("DELETE", "/v1/me/push-subscriptions/{subscription_id}"): (PushSubscription, "switching push off on one's device"),
 }
 
 

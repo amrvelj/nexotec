@@ -26,6 +26,8 @@ from app.platform.services.dealership import (
 )
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
+from app.platform.services.notification_catalogue import NotificationEventCode
+from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
@@ -52,6 +54,12 @@ from app.platform.services.user import (
 # dealership → seed), with the closed Placeholder set it fills from the
 # caller's values; an unresolvable token is a 422 carrying
 # PLACEHOLDER_UNRESOLVED (A-RULE-4).
+# KAN-216 (D-A-40, FR-A-47): notify / NotificationEventCode /
+# NotificationSubject are the staff-notification contract. A module raises a
+# notification with notify(db, NotificationEventCode.X, user_id=…, subject=…)
+# in its own transaction and registers its codes in the catalogue (the
+# declaration and a platform migration) in the same PR. An unknown code
+# raises UnknownNotificationEvent. Never an e-mail.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "Addressee",
@@ -64,6 +72,8 @@ __all__ = [
     "LineItemsBlock",
     "LineStyle",
     "Location",
+    "NotificationEventCode",
+    "NotificationSubject",
     "ParagraphBlock",
     "Placeholder",
     "RenderedStandardText",
@@ -71,6 +81,7 @@ __all__ = [
     "StandardTextAppliesTo",
     "StandardTextCategory",
     "StandardTextSlot",
+    "UnknownNotificationEvent",
     "User",
     "UserDisplayLabel",
     "actor_reference_checks",
@@ -86,6 +97,7 @@ __all__ = [
     "list_dealer_manager_emails",
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
+    "notify",
     "render_document",
     "render_standard_text",
 ]

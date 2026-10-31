@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow  # re-exported for the API's cookie max-age
 from app.core.config import get_settings
 from app.platform.models.auth_session import AuthSession
+from app.platform.services import push_subscriptions
 
 _settings = get_settings()
 _TOUCH_GRANULARITY = dt.timedelta(minutes=1)
@@ -78,6 +79,9 @@ def revoke(db: Session, row: AuthSession, *, reason: str) -> None:
     if row.revoked_at is None:
         row.revoked_at = utcnow()
         row.revoked_reason = reason[:32]
+    # FR-A-49 (KAN-216): a device whose session is revoked loses its Web Push
+    # subscription, in the revocation's own transaction.
+    push_subscriptions.delete_for_session(db, row.id)
 
 
 def revoke_all_for_user(
@@ -95,7 +99,26 @@ def revoke_all_for_user(
     if except_session_id is not None:
         stmt = stmt.where(AuthSession.id != except_session_id)
     result = db.execute(stmt)
+    # FR-A-49 (KAN-216): every revoked session's Web Push subscription goes.
+    push_subscriptions.delete_for_revoked_sessions(db, user_id=user_id)
     return int(result.rowcount or 0)  # type: ignore[attr-defined]
+
+
+def is_new_device(db: Session, row: AuthSession | None) -> bool:
+    """Whether this session's device (its user agent, as `device_summary`
+    holds it) matches none of the user's earlier sessions — and there was an
+    earlier one: the first sign-in ever is no stranger's (KAN-216,
+    `security.new_device_login`). A browser update changes the user agent and
+    reads as a new device; there is no device cookie to tell otherwise."""
+
+    if row is None:
+        return False
+    earlier = set(
+        db.scalars(
+            select(AuthSession.device_summary).where(AuthSession.user_id == row.user_id, AuthSession.id != row.id)
+        ).all()
+    )
+    return bool(earlier) and row.device_summary not in earlier
 
 
 def list_for_user(db: Session, *, user_id: uuid.UUID) -> list[AuthSession]:

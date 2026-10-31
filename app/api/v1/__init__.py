@@ -25,6 +25,7 @@ from app.platform.api.document_template import router as document_template_route
 from app.platform.api.health import router as health_router
 from app.platform.api.locations import router as locations_router
 from app.platform.api.me import router as me_router
+from app.platform.api.notifications import router as notifications_router
 from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.reference_data import router as reference_data_router
 from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
@@ -87,4 +88,5 @@ api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_preferences_router)
 api_v1_router.include_router(me_router)
+api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(auth_account_router)

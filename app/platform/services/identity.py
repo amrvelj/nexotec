@@ -306,8 +306,17 @@ def set_password(
     credential.last_failed_at = None
     credential.locked_until = None
     db.flush()
+    # `replaced`: the password took another's place (a reset, a re-issued
+    # invitation) — the `security` family tells the user (KAN-216); a first
+    # password is the invitation's own step.
     auth_events.record(
-        db, event, user_id=user.id, dealership_id=user.tenant_id, actor_id=actor_id, ip_address=ip_address
+        db,
+        event,
+        user_id=user.id,
+        dealership_id=user.tenant_id,
+        actor_id=actor_id,
+        ip_address=ip_address,
+        details={"replaced": bool(previous)},
     )
     if verdict.breach_check_pending:
         auth_events.record(

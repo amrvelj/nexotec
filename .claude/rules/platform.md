@@ -40,6 +40,11 @@ paths:
   - "scripts/import_ui_translation_bundles.py"
   - "frontend/apps/dms/src/**/*ogin*"
   - "frontend/apps/dms/src/layout/DmsShell.tsx"
+  - "frontend/apps/dms/src/pages/Notifications*"
+  - "frontend/apps/dms/src/hooks/useNotifications.ts"
+  - "frontend/apps/dms/src/utils/webPush.ts"
+  - "frontend/apps/dms/public/sw.js"
+  - "tests/test_*notification*.py"
   - "tests/architecture/test_no_ambient_group_read.py"
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
   - "tests/test_auth.py"
@@ -455,6 +460,37 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
 - **Notifications (D-A-40):** staff notifications are in-app and push only, never e-mail; the
   user decides everything; `security` family is always immediate and cannot be switched off.
+  **Built (KAN-216):** `app/platform/models/notification.py` — `notification_event` (the
+  catalogue, seeded by the platform migration with literal rows; the code declaration is
+  `services/notification_catalogue.py`, `NotificationEventCode`; `tests/test_migrated_notification_catalogue.py`
+  keeps the two equal), `user_notification_preference` (per family; no row = immediate, in-app
+  and push; If-Match, version 0 for the first save), `notification` (the inbox, the record, 90 days)
+  and `push_subscription` (per session, keys `EncryptedString`). `platform.public.notify(db, code,
+  user_id=…, subject=NotificationSubject(type, link, id))` runs in the caller's transaction and
+  publishes `platform.notification.delivered`; an unknown code raises (`UnknownNotificationEvent`),
+  every call site names a literal registered code (`tests/architecture/test_notify_call_sites_use_registered_codes.py`)
+  and no notification module reaches the mailer (`test_notifications_never_reach_the_mail_port.py`).
+  A new module's events: the declaration **and** a platform migration inserting the rows, in the PR
+  that raises them. `security` is locked (immediate, in-app and push); `in_app` cannot be switched
+  off while a family delivers (422 `in_app_is_the_record`); `digest` holds rows (`delivered_at`
+  NULL) until the daily `platform.notifications.digest`; `platform.notifications.purge` drops rows
+  past 90 days and subscriptions of revoked sessions. The **security family hangs on
+  `auth_events.record`** (`services/security_alerts.py::on_auth_event`): new-device login
+  (`details.newDevice`: the user agent matches none of the user's earlier sessions, and there was
+  one), factor enrolled/removed, recovery code used, lockout, password reset or a replaced password
+  (`details.replaced`), a session ended by someone else (actor ≠ user), connected account revoked;
+  platform recovery through the KAN-202 seam (`security.platform_recovery_action`, the action as a
+  closed code, never the reason). Connected-account linking and impersonation start/end are in the
+  catalogue only. **Web Push** is a port (`services/web_push.py`): the only adapter is
+  `UnconfiguredWebPushSender` — no VAPID key is configured (its home is `app/core/config.py`, a
+  preserved file: a decision for Anto), so `GET /v1/me/push/config` says unavailable and nothing is
+  pushed; the consumers `platform.web_push_on_notification` / `_on_digest` push title + link
+  only through it. A revoked session's subscription is deleted in `auth_sessions.revoke*`. API
+  (`api/notifications.py`): `GET /v1/me/notifications` (`unread`, cursor), `…/unread-count`,
+  `PATCH …/{id}` (`read`), `POST …/read-all`, `GET/PUT /v1/me/notification-preferences[/{family}]`,
+  `GET /v1/me/push/config`, `POST/DELETE /v1/me/push-subscriptions[/{id}]`. SPA: the sidebar's bell
+  (`SidebarProps.notifications`), `/notifications`, My account › Notifications, `public/sw.js`
+  (served from the dist root by `app/main.py::spa_file_response`).
 - **Customer messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the
   Betrieb brings its own SMS/WhatsApp provider; consent lives on the customer.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and
@@ -471,7 +507,7 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `profile_updated` audit row; any other field, the e-mail address included, is a 422) and
   `PUT/GET/DELETE /v1/me/signature` (the manager's rules and key). A session that owes a factor
   reaches none of them (the guard's enrolment paths), and the SPA shows it the Security tab alone.
-  Notification preferences are a placeholder until KAN-216.
+  Notification preferences are the Notifications tab (`/account/notifications`, KAN-216).
 - **Signature image (KAN-200; Anto, 2026-10-19: the manager sets it too):** `PUT/GET/DELETE
   …/users/{id}/signature`, the image as the raw body (PNG or JPEG ≤ 1 MiB, judged by its
   bytes), stored under `dealerships/<id>/users/<id>/signature` in the object store
@@ -651,9 +687,10 @@ header's logo is the primary branding asset, inlined from the object store while
   without; ≤500 characters), its own auth event kind (`recovery_*`, the staff member the actor,
   the reason in `details` — **the Betrieb's manager reads it** in `GET …/auth-events`, Anto
   2026-10-22), an audit row `recovery_<action>` (the reason in the audit row's `reason`), and
-  a `security` notice through `services/security_notifications.py` — a seam KAN-216 fills;
-  until then it logs that a notice is owed and **nothing reaches the user** (a re-issued
-  invitation still goes by e-mail, as the flow it is). Staff never recover their own account
+  a `security` notice through `services/security_notifications.py` — since KAN-216 the
+  catalogue's sink, an inbox entry `security.platform_recovery_action` (and a push, once one can
+  be sent) in the action's own transaction; a re-issued invitation still goes by e-mail, as the
+  flow it is. Staff never recover their own account
   (403) nor a deactivated one (409); clear-lockout on an account with no failures is a 409
   (`not_locked`); every refusal the recovery service makes carries a stable `details.rule` (the
   gate's 403s, a missing user's 404, the If-Match 400/409 and a validation 422 do not; the
@@ -685,8 +722,9 @@ header's logo is the primary branding asset, inlined from the object store while
   reactivation of a deactivated user who holds no credential, which lands on `invited` — also
   for an account that was active before KAN-196 and never set a password: the manager may then
   correct its e-mail and resend the invitation (Anto, 2026-10-20: kept as built, knowingly). **Open with Anto:** the new address is
-  not confirmed before it takes over the channel. **Not built:** FR-AU-26's `security`
-  notification family itself (KAN-216; the e-mail-change notice is the one notice sent). No step-up
+  not confirmed before it takes over the channel. FR-AU-26's `security` notification family is
+  built (KAN-216, above under Notifications); the e-mail-change mail to the old address stays the
+  e-mail-change flow's own step, not a notification. No step-up
   re-authentication (A-12: no).
 - argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4; the target is ~250 ms
   a verify on the instance that serves logins, measured with `scripts/benchmark_argon2.py` — the
