@@ -7,7 +7,9 @@ One row per dealership, not one per document type — the brief describes
 already carries the true letterhead facts (legal name, address, phone,
 logo, brand colour — see app.platform.models.dealership). This table adds
 only what doesn't already exist anywhere: the editable header-note/footer-
-text boilerplate, in all four languages. A dealership with no row here yet
+text boilerplate, in all four languages. Since KAN-208 only the header note
+is left here; document wording lives in the standard-text library
+(app.platform.models.standard_text). A dealership with no row here yet
 is not an error — app.platform.services.document_render treats a missing
 template the same as one with every field empty, so a brand-new dealership
 can render documents on day one before anyone has customized anything.
@@ -39,7 +41,6 @@ class DocumentTemplate(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     header_note_it: Mapped[str | None] = mapped_column(Text, nullable=True)
     header_note_en: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    footer_text_de: Mapped[str | None] = mapped_column(Text, nullable=True)
-    footer_text_fr: Mapped[str | None] = mapped_column(Text, nullable=True)
-    footer_text_it: Mapped[str | None] = mapped_column(Text, nullable=True)
-    footer_text_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The footer_text_* columns moved into the standard-text library as
+    # `invoice.footer.carried_over` (KAN-208): a footer is a standard text,
+    # never a column scattered across tables (PRD "Standard texts").

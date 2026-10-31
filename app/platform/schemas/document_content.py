@@ -105,3 +105,9 @@ class ContentDefinition(CamelModel):
     metadata: list[KeyValueRow] | None = None
     addressee: Addressee | None = None
     blocks: list[DocumentBlock] = Field(default_factory=list)
+    # KAN-208: the document's footer standard text (e.g. `offer.footer.*`),
+    # already resolved and rendered by the caller through
+    # app.platform.public.render_standard_text and frozen with the document;
+    # the render layer prints it in the running footer above the address
+    # line. None (and every document generated before KAN-208) prints none.
+    footer_text: str | None = None

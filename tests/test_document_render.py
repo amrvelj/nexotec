@@ -102,12 +102,12 @@ def test_compose_html_tolerates_no_template_row(db_session):
     assert "None" not in html_out
 
 
-def test_compose_html_uses_the_template_boilerplate_in_the_requested_language(db_session):
+def test_compose_html_uses_the_template_header_note_in_the_requested_language(db_session):
     dealership = _make_dealership(db_session)
     template = DocumentTemplate(
         dealership_id=dealership.id,
-        footer_text_de="Vielen Dank für Ihr Vertrauen.",
-        footer_text_fr="Merci de votre confiance.",
+        header_note_de="Vielen Dank für Ihr Vertrauen.",
+        header_note_fr="Merci de votre confiance.",
         version=1,
     )
     db_session.add(template)
@@ -126,6 +126,26 @@ def test_compose_html_uses_the_template_boilerplate_in_the_requested_language(db
     assert "Merci de votre confiance." not in html_de
     assert "Merci de votre confiance." in html_fr
     assert "Vielen Dank für Ihr Vertrauen." not in html_fr
+
+
+def test_compose_html_prints_the_contents_own_footer_text(db_session):
+    """KAN-208: the footer wording is the document's own standard text,
+    frozen in its content — printed in the running footer, escaped, its line
+    breaks kept; a content without one prints no footer text."""
+
+    dealership = _make_dealership(db_session)
+    content = _sample_content().model_copy(update={"footer_text": "Gültig 30 Tage.\nZwischenverkauf <vorbehalten>."})
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=content,
+    )
+    assert '<div class="doc-footer-text">Gültig 30 Tage.\nZwischenverkauf &lt;vorbehalten&gt;.</div>' in html_out
+
+    bare = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    assert 'class="doc-footer-text"' not in bare
 
 
 def test_compose_html_all_four_line_styles_render_distinct_markup(db_session):

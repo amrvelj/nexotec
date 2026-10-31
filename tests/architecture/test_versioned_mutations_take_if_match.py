@@ -56,6 +56,11 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/bank-accounts": "a new bank-account row (KAN-203); with isDefault the previous "
     "default is demoted under the dealership row lock — a row the caller did not name, audited as its own update, "
     "so no If-Match applies to it (D-A-27; Anto's ruling 2026-10-24: the default is chosen explicitly and moves)",
+    "/v1/dealerships/{dealership_id}/standard-texts/{category}": "a new standard-text row (KAN-208); with isDefault "
+    "the slot's previous default of the same Betrieb, scope and language is demoted in the same transaction — a row "
+    "the caller did not name, its version bumped and audited as its own update (the bank account's precedent)",
+    "/v1/dealerships/{dealership_id}/standard-text-previews": "the editor's preview (KAN-208): renders a body on "
+    "sample data and writes nothing",
     "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428,
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
     "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "

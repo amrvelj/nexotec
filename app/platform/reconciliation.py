@@ -23,6 +23,7 @@ from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
 from app.platform.services.actor_reference import actor_reference_checks
@@ -45,6 +46,7 @@ ACTOR_TABLES = (
     ModuleEntitlement,  # granted_by (KAN-198): an actor column under another name
     DealershipMembership,  # granted_by (KAN-199)
     StandardTextDelegation,  # granted_by (KAN-199)
+    StandardText,  # created_by / updated_by (KAN-208)
     Credential,  # created_by / updated_by (KAN-196)
     DealershipAuthConfig,
     AuthToken,  # created_by: the issuer (KAN-196)

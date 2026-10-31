@@ -4,6 +4,8 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 """
 
 from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
+from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.user import User
 from app.platform.schemas.document_content import (
     Addressee,
@@ -25,6 +27,8 @@ from app.platform.services.dealership import (
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.reference_data import get_active_reference_value_codes
+from app.platform.services.standard_text import RenderedStandardText, render_standard_text
+from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.services.user import (
     UserDisplayLabel,
     get_active_user_acting_in,
@@ -42,7 +46,14 @@ from app.platform.services.user import (
 # block types and calls render_document. SwissLanguage itself is imported
 # straight from app.core.i18n, not re-exported here — app.core is already
 # universally importable.
+#
+# KAN-208: render_standard_text is the standard-text resolver every module
+# prints its wording through (language → Betrieb default → DE; location →
+# dealership → seed), with the closed Placeholder set it fills from the
+# caller's values; an unresolvable token is a 422 carrying
+# PLACEHOLDER_UNRESOLVED (A-RULE-4).
 __all__ = [
+    "PLACEHOLDER_UNRESOLVED",
     "Addressee",
     "ContentDefinition",
     "DealerGroup",
@@ -54,7 +65,12 @@ __all__ = [
     "LineStyle",
     "Location",
     "ParagraphBlock",
+    "Placeholder",
+    "RenderedStandardText",
     "SignatureBlock",
+    "StandardTextAppliesTo",
+    "StandardTextCategory",
+    "StandardTextSlot",
     "User",
     "UserDisplayLabel",
     "actor_reference_checks",
@@ -71,4 +87,5 @@ __all__ = [
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "render_document",
+    "render_standard_text",
 ]

@@ -22,10 +22,6 @@ _LANGUAGE_FIELDS = (
     "header_note_fr",
     "header_note_it",
     "header_note_en",
-    "footer_text_de",
-    "footer_text_fr",
-    "footer_text_it",
-    "footer_text_en",
 )
 
 

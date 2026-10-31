@@ -277,6 +277,7 @@ _READS = {
     "app.platform.public.list_user_dealership_ids",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
+    "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
     # session of its own (tests/test_inventory_reservation_sweep.py).
     "app.sales.public.get_contract_statuses",
