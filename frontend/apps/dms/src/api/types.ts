@@ -28,6 +28,18 @@ export type ConnectedAccountListRead = Schemas['ConnectedAccountListRead']
 // The manager's narrower read: provider, scopes, status (D-A-15).
 export type ConnectedAccountManagerRead = Schemas['ConnectedAccountManagerRead']
 export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerListRead']
+// KAN-216: staff notifications — the inbox, the per-family preferences, Web Push.
+export type NotificationRead = Schemas['NotificationRead']
+export type NotificationPage = Schemas['NotificationPage']
+export type UnreadCountRead = Schemas['UnreadCountRead']
+export type NotificationFamily = Schemas['NotificationFamily']
+export type NotificationTiming = Schemas['NotificationTiming']
+export type NotificationPreferenceRead = Schemas['NotificationPreferenceRead']
+export type NotificationPreferenceList = Schemas['NotificationPreferenceList']
+export type NotificationPreferenceUpdate = Schemas['NotificationPreferenceUpdate']
+export type PushConfigRead = Schemas['PushConfigRead']
+export type PushSubscriptionCreate = Schemas['PushSubscriptionCreate']
+export type PushSubscriptionRead = Schemas['PushSubscriptionRead']
 // KAN-202: platform staff's account recovery (FR-AU-25…27).
 export type RecoveryAction = Schemas['RecoveryAction']
 export type RecoveryRequest = Schemas['RecoveryRequest']

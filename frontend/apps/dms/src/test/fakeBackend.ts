@@ -139,6 +139,8 @@ const INFRA_ROUTES: FakeRoute[] = [
   // matched on pathname like every other route, the host is in `req.url`).
   { method: 'GET', match: /\/dealerships\/[^/]+\/address-autocomplete$/, handler: () => ({ enabled: false, browserKey: null }) },
   { method: 'PUT', match: /\/me\/preferences\//, handler: () => ({ ok: true }) },
+  // KAN-216 — the shell's bell asks for the unread count; none by default.
+  { method: 'GET', match: /\/me\/notifications\/unread-count$/, handler: () => ({ count: 0 }) },
   {
     method: 'GET',
     match: /\/reference-data\/country$/,

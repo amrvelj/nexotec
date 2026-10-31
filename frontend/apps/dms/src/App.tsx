@@ -18,6 +18,8 @@ const AccountConnectedAccountsPage = lazyPage(() => import('./pages/account/Acco
 const AccountLayout = lazyPage(() => import('./pages/account/AccountLayout'), 'AccountLayout')
 const AccountProfilePage = lazyPage(() => import('./pages/account/AccountProfilePage'), 'AccountProfilePage')
 const AccountSignaturePage = lazyPage(() => import('./pages/account/AccountSignaturePage'), 'AccountSignaturePage')
+const AccountNotificationsPage = lazyPage(() => import('./pages/account/AccountNotificationsPage'), 'AccountNotificationsPage')
+const NotificationsPage = lazyPage(() => import('./pages/NotificationsPage'), 'NotificationsPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 const CustomersListPage = lazyPage(() => import('./pages/CustomersListPage'), 'CustomersListPage')
 const CustomerCreatePage = lazyPage(() => import('./pages/CustomerCreatePage'), 'CustomerCreatePage')
@@ -74,7 +76,11 @@ export default function App() {
                 <Route path="security" element={<AccountSecurityPage />} />
                 <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
                 <Route path="signature" element={<AccountSignaturePage />} />
+                {/* KAN-216: the user's own notification preferences and this device's push. */}
+                <Route path="notifications" element={<AccountNotificationsPage />} />
               </Route>
+              {/* KAN-216 (FR-A-50): the inbox — the bell in the sidebar opens it. */}
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/customers" element={<CustomersListPage />} />
               <Route path="/customers/new" element={<CustomerCreatePage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />

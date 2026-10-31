@@ -62,12 +62,13 @@ function renderAccount(route: string, routes: FakeRoute[]) {
 }
 
 describe('My account (KAN-201)', () => {
-  it('opens on the profile and offers the four tabs', async () => {
+  it('opens on the profile and offers the five tabs', async () => {
     renderAccount('/account', [{ method: 'GET', match: /\/me$/, handler: () => ME }])
 
     expect(await screen.findByRole('heading', { name: 'Mein Konto' })).toBeInTheDocument()
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent)
-    expect(tabs).toEqual(['Profil', 'Sicherheit', 'Verbundene Konten', 'Unterschrift'])
+    // KAN-216 added Benachrichtigungen.
+    expect(tabs).toEqual(['Profil', 'Sicherheit', 'Verbundene Konten', 'Unterschrift', 'Benachrichtigungen'])
     expect(screen.getByRole('tab', { name: 'Profil' })).toHaveAttribute('aria-selected', 'true')
     expect(await screen.findByDisplayValue('Muster')).toBeInTheDocument()
   })
@@ -98,7 +99,6 @@ describe('My account (KAN-201)', () => {
     expect(await screen.findByRole('textbox', { name: /^Sprache der Anwendung/ })).toHaveValue('Deutsch')
     const documents = screen.getByRole('textbox', { name: /^Sprache meiner Dokumente/ })
     expect(documents).toHaveValue('Wie der Betrieb (Deutsch)')
-    expect(screen.getByText('Benachrichtigungen')).toBeInTheDocument()
   })
 
   it('explains connected accounts while none is linked', async () => {
