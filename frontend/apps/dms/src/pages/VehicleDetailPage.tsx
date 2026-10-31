@@ -64,9 +64,7 @@ export function VehicleDetailPage() {
         else next.set('tab', tab)
         return next
       },
-      // A row-menu action handed over by the list (KAN-503) is used up by
-      // the tab change it causes: drop it so a reload never repeats it.
-      { replace: true, state: null },
+      { replace: true },
     )
   }
 
@@ -197,36 +195,43 @@ export function VehicleDetailPage() {
     [t, platesQuery.data, odometerQuery.data, accessoriesQuery.data],
   )
 
-  const startAction = (action: VehicleOpenAction) => {
-    if (action === 'allocate') {
-      setActiveTab('identity')
-      setAllocating(true)
-    } else if (action === 'recordOdometer') {
-      setActiveTab('odometer')
-      setFormToFocus('odometer')
-    } else {
-      setActiveTab('accessories')
-      setFormToFocus('accessories')
-    }
+  const startAllocating = () => {
+    setActiveTab('identity')
+    setAllocating(true)
+  }
+  const startRecordingOdometer = () => {
+    setActiveTab('odometer')
+    setFormToFocus('odometer')
+  }
+  const startRecordingAccessory = () => {
+    setActiveTab('accessories')
+    setFormToFocus('accessories')
+  }
+  const startAction: Record<VehicleOpenAction, () => void> = {
+    allocate: startAllocating,
+    recordOdometer: startRecordingOdometer,
+    recordAccessory: startRecordingAccessory,
   }
 
   // KAN-503 — the Vehicles list's row menu opens the car at the action
   // picked there (router state, never the URL). It runs once the vehicle has
-  // loaded, exactly as the header's would; its tab change drops the state.
+  // loaded, exactly as the header's would. The tab change it makes is a
+  // navigation without state, which drops the action: a reload, Back or
+  // Forward never runs it again.
   const location = useLocation()
   const openAction = readVehicleOpenAction(location.state)
   const vehicleLoaded = Boolean(vehicleQuery.data)
   useEffect(() => {
-    if (openAction && vehicleLoaded) startAction(openAction)
+    if (openAction && vehicleLoaded) startAction[openAction]()
     // startAction is recreated on every render; the action runs once per
     // navigation that carries it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openAction, vehicleLoaded])
 
   const rowMenu = buildVehicleRowMenu(t, {
-    onAllocate: () => startAction('allocate'),
-    onRecordOdometer: () => startAction('recordOdometer'),
-    onRecordAccessory: () => startAction('recordAccessory'),
+    onAllocate: startAllocating,
+    onRecordOdometer: startRecordingOdometer,
+    onRecordAccessory: startRecordingAccessory,
     onCopyVin: () => void navigator.clipboard.writeText(vehicle?.vin ?? ''),
     onRequestValuation: salesEntitled && id ? () => navigate(`/valuations/new?vehicle=${id}`) : undefined,
   })

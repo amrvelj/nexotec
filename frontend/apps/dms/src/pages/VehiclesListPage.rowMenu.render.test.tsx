@@ -70,11 +70,23 @@ function Where() {
   return <div data-testid="location">{location.pathname + location.search}</div>
 }
 
+// The router state the detail screen sees, so a test can tell that the
+// list's action was used up.
+function DetailWithState() {
+  const location = useLocation()
+  return (
+    <>
+      <div data-testid="router-state">{JSON.stringify(location.state)}</div>
+      <VehicleDetailPage />
+    </>
+  )
+}
+
 function render() {
   renderWithProviders(
     <Routes>
       <Route path="/vehicles" element={<VehiclesListPage />} />
-      <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
+      <Route path="/vehicles/:id" element={<DetailWithState />} />
       <Route path="/valuations/new" element={<Where />} />
     </Routes>,
     { route: '/vehicles' },
@@ -163,6 +175,33 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
       'aria-selected',
       'true',
     )
+  })
+
+  it('the action is used up once it has run: a reload, Back or Forward never repeats it', async () => {
+    const user = userEvent.setup()
+    install()
+    render()
+
+    await openRowMenu(user)
+    await user.click(await item('allocate'))
+
+    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('router-state')).toHaveTextContent('null'))
+  })
+
+  it('«VIN kopieren» copies that row\'s VIN without leaving the list', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn(() => Promise.resolve())
+    install()
+    render()
+    // user-event installs its own clipboard on setup; replace it after.
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    await openRowMenu(user)
+    await user.click(await item('copyVin'))
+
+    expect(writeText).toHaveBeenCalledWith(vehicle.vin)
+    expect(screen.getByText('F-000001')).toBeInTheDocument()
   })
 
   it('«Bewertung anfordern» starts a new valuation of that car', async () => {
