@@ -7,8 +7,10 @@ import { AlertTriangle, Car, Copy, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, Picker, SelectionBar, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
+import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
+import { buildVehicleRowMenu, vehicleOpenState, type VehicleOpenAction } from '../components/vehicleRowMenu'
 import type { VehicleMdmRead, VehicleSearchResult } from '../api/types'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
@@ -32,6 +34,9 @@ export function VehiclesListPage() {
   useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.vehicles')])
   const navigate = useNavigate()
   const { density, setDensity } = useUiPreferencesContext()
+  const { entitlements } = useAuth()
+  // KAN-198 / D-A-04: valuations are a Sales-module surface.
+  const salesEntitled = entitlements.includes('sales')
 
   // § ADR-056 — search and sort live in the URL, as on Customers and
   // Stock, so a vehicle search can be bookmarked, shared and reloaded.
@@ -230,6 +235,33 @@ export function VehiclesListPage() {
         onSortChange={setSort}
         density={density}
         rowHref={(row) => `/vehicles/${row.id}`}
+        rowActions={(row) => {
+          // KAN-503 / ADR-061 — the SAME builder Vehicle 360's header uses,
+          // so the list and the detail cannot drift apart (FR-V-16: the
+          // actions on a vehicle in the list are the actions on its own
+          // screen). The ones that need the detail's own state — the
+          // customer picker, the odometer and accessory forms — open the
+          // car right there.
+          const openAt = (action: VehicleOpenAction) =>
+            navigate(`/vehicles/${row.id}`, { state: vehicleOpenState(action) })
+          const menu = buildVehicleRowMenu(t, {
+            onAllocate: () => openAt('allocate'),
+            onRecordOdometer: () => openAt('recordOdometer'),
+            onRecordAccessory: () => openAt('recordAccessory'),
+            onCopyVin: () => void navigator.clipboard.writeText(row.vin),
+            onRequestValuation: salesEntitled ? () => navigate(`/valuations/new?vehicle=${row.id}`) : undefined,
+          })
+          return {
+            navigate: [
+              {
+                label: t('vehiclesList.rowActions.open'),
+                icon: <ExternalLink size={16} />,
+                onClick: () => navigate(`/vehicles/${row.id}`),
+              },
+            ],
+            ...menu.overflow,
+          }
+        }}
         selection={{
             selectedIds,
             onSelectionChange: setSelectedIds,

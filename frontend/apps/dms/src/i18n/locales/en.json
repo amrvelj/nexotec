@@ -844,6 +844,9 @@
       "count": "{{count, number}} selected",
       "clear": "Clear selection",
       "copyIds": "Copy IDs"
+    },
+    "rowActions": {
+      "open": "Open"
     }
   },
   "vehicleCreate": {
