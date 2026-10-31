@@ -2891,7 +2891,7 @@
   },
   "translations": {
     "title": "Übersetzungen",
-    "subtitle": "Texte der Benutzeroberfläche in vier Sprachen, zur Laufzeit ausgeliefert. Eine Veröffentlichung gilt sofort für alle Betriebe; Betriebe können UI-Texte nicht ändern.",
+    "subtitle": "Die Texte, die Nexotec in vier Sprachen ausliefert: die Benutzeroberfläche, zur Laufzeit ausgeliefert, und die Standardtext-Vorlagen. Eine Veröffentlichung gilt sofort für alle Betriebe; Betriebe können UI-Texte nicht ändern.",
     "badge": "Plattform",
     "sourcesLabel": "Quelle",
     "sources": {

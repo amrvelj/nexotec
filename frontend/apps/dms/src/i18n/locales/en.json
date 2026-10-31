@@ -2891,7 +2891,7 @@
   },
   "translations": {
     "title": "Translations",
-    "subtitle": "User-interface strings in four languages, served at runtime. A publish applies to every business at once; businesses cannot change UI strings.",
+    "subtitle": "The texts Nexotec ships in four languages: the user interface, served at runtime, and the standard-text seeds. A publish applies to every business at once; businesses cannot change UI strings.",
     "badge": "Platform",
     "sourcesLabel": "Source",
     "sources": {
