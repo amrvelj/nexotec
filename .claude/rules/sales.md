@@ -242,6 +242,10 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   as typed, marked `common.notNegative`, unsaved, never committed. The inputs still take «-» (one
   refusing it empties itself when its text is replaced by «-», and that clear would be saved —
   KAN-480's hazard).
+- **A discount never exceeds what it is taken off** (KAN-190): `pricing.resolve_discount` caps
+  the resolved amount at its base — the line, or the deal's total before discount — for an
+  amount and for a percentage over 100, so no line and no total goes negative (a kept discount
+  re-applied to a cheaper re-frozen line, KAN-10). The typed `discountValue` is stored as typed.
 - **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
   builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`
   (`contract_completeness.has_price`). The pricing container still shows "in progress" for it.

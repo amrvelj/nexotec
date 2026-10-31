@@ -11,7 +11,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -32,9 +32,13 @@ class AuthTokenKind(str, enum.Enum):
 class AuthToken(PrimaryKeyMixin, Base):
     __tablename__ = "auth_token"
 
+    # KAN-431: the migration's constraint name, not SQLAlchemy's default
+    # `{table}_{column}_key` — the schema gate compares indexes by name.
+    __table_args__ = (UniqueConstraint("token_hash", name="uq_auth_token_token_hash"),)
+
     user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False, index=True)
     kind: Mapped[AuthTokenKind] = mapped_column(StoredEnum(AuthTokenKind, length=32), nullable=False)
-    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     consumed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

@@ -131,9 +131,10 @@ describe('Grids with no saved layout show their default subset (KAN-361)', () =>
     expect(headerTexts().some((text) => text.startsWith(drivetrain))).toBe(true)
   })
 
-  // Sales and Valuations declare no defaultVisible: false column today, so
-  // nothing is hidden by default; what can be checked is that the panel and
-  // the grid read the same layout — every ticked column is on screen.
+  // Sales declares no defaultVisible: false column today (Valuations has one
+  // since KAN-190, its configuration — configurationLabelColumns.render.test.tsx);
+  // what is checked here is that the panel and the grid read the same
+  // layout — every ticked column is on screen, every unticked one is not.
   it.each([
     ['Sales', () => <SalesListPage />, '/sales', { match: /^\/sales\/deals$/, handler: () => page([DEAL]) }, 'O-000361'],
     ['Valuations', () => <ValuationsListPage />, '/valuations', { match: /^\/valuations$/, handler: () => page([VALUATION]) }, 'B-000361'],

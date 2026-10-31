@@ -106,11 +106,12 @@ def test_every_capability_the_spa_asks_about_is_a_matrix_row():
     assert set(names) <= set(CAPABILITY_MATRIX)
 
 
-@pytest.mark.parametrize("role", [r for r in AccessRole if r is not AccessRole.PLATFORM_ADMIN])
+@pytest.mark.parametrize("role", list(AccessRole))
 @pytest.mark.parametrize("manager", [False, True])
 def test_require_write_lets_through_exactly_the_listed_rows(role, manager):
     """The list and the gate are one rule: the dependency `require_write`
-    builds passes for every listed row and refuses every other."""
+    builds passes for every listed row and refuses every other — for every
+    role, platform staff included (KAN-511)."""
 
     tenant_id = uuid.uuid4()
     principal = Principal(

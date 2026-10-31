@@ -241,7 +241,8 @@
       "photo_not_an_image": "Das Foto muss ein PNG- oder JPEG-Bild sein.",
       "photo_too_large": "Das Foto ist zu gross – höchstens 5 MB.",
       "configuration_already_linked": "Diesem Fahrzeug ist bereits eine Konfiguration zugeordnet. Bitte die Seite neu laden.",
-      "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug."
+      "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug.",
+      "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1021,11 +1022,13 @@
       "purchaseDate": "Einkaufsdatum",
       "orderDate": "Bestelldatum",
       "expectedDelivery": "Voraussichtliche Lieferung",
-      "pipelineRef": "Pipeline-Referenz"
+      "pipelineRef": "Pipeline-Referenz",
+      "configuration": "Konfiguration"
     },
     "emptyState": {
       "title": "Kein Fahrzeug im Lager",
-      "description": "Nehmen Sie ein Fahrzeug ins Lager auf, um zu beginnen."
+      "description": "Nehmen Sie ein Fahrzeug ins Lager auf, um zu beginnen.",
+      "descriptionReadOnly": "Sobald der Betrieb ein Fahrzeug ins Lager aufnimmt, erscheint es hier."
     },
     "emptyFilteredState": {
       "title": "Keine Treffer",
@@ -1481,7 +1484,8 @@
       "finalOffer": "Eintauschangebot",
       "source": "Quelle",
       "status": "Status",
-      "validUntil": "Gültig bis"
+      "validUntil": "Gültig bis",
+      "configuration": "Konfiguration"
     },
     "emptyState": {
       "title": "Noch keine Bewertungen",

@@ -731,3 +731,53 @@ describe('PublishingTab — listing text keeps a local draft (KAN-425)', () => {
     expect(backend.callsTo(/\/publishing\/carmarket$/, 'PATCH')).toHaveLength(0)
   })
 })
+
+// KAN-430 hid the writes from a role that may not publish; KAN-511 pins it
+// on the component itself, and the read-only Händlerbemerkungen keep the
+// hint that they are internal.
+describe('PublishingTab — read-only for a role that may not publish (canPublish={false})', () => {
+  const READ_ONLY_ROW = {
+    id: 'pub-1', stockItemId: 'st-1', channel: 'autoscout24', state: 'not_published', transmissionStatus: 'not_sent',
+    lastPublishedAt: null, lastAttemptedAt: null, lastTransmissionError: null, zusatztitel: 'Top gepflegt',
+    bemerkungen: null, zustandsbeschreibung: null, haendlerbemerkungen: 'Kunde Meier fragt nach', youtubeUrl: null,
+    pdfDocumentRef: null, version: 1, blockingConditions: [],
+  }
+
+  const install = () =>
+    installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [{ id: 'm-1', stockItemId: 'st-1', url: 'https://cdn.example.ch/1.jpg', position: 1 }] },
+      {
+        method: 'GET',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/(\w+)$/,
+        handler: (req) => ({ ...READ_ONLY_ROW, channel: req.pathname.split('/').pop() }),
+      },
+    ])
+
+  it('shows the texts and the photos, and offers no publishing, no editing and no photo change', async () => {
+    install()
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" canPublish={false} />)
+
+    expect(await screen.findByText('Top gepflegt')).toBeInTheDocument()
+    expect(screen.getByText('Kunde Meier fragt nach')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.publishTo', { channel: 'AutoScout24' }) }),
+    ).not.toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('stockDetail.publishing.media.mainImage'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.media.addPhoto') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.media.remove') })).not.toBeInTheDocument()
+  })
+
+  it('says the Händlerbemerkungen are internal, as their input does', async () => {
+    install()
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" canPublish={false} />)
+
+    const label = await screen.findByText(i18n.t('stockDetail.publishing.fields.haendlerbemerkungen'))
+    const row = label.parentElement as HTMLElement
+    expect(within(row).getByRole('img', { name: i18n.t('common.fieldHintIcon') })).toBeInTheDocument()
+    expect(within(row).getByText(i18n.t('stockDetail.publishing.haendlerbemerkungenHint'))).toBeInTheDocument()
+    // Only the internal field carries the hint.
+    expect(screen.getAllByRole('img', { name: i18n.t('common.fieldHintIcon') })).toHaveLength(1)
+  })
+})

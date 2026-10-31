@@ -13,7 +13,7 @@ interrupting the user's work over.
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, Integer, String
+from sqlalchemy import JSON, ForeignKey, Integer, PrimaryKeyConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import utcnow
@@ -23,6 +23,9 @@ from app.db import Base
 
 class UserPreference(Base):
     __tablename__ = "user_preference"
+    # KAN-431: the migration's primary-key name, not SQLAlchemy's default
+    # `user_preference_pkey` — the schema gate compares indexes by name.
+    __table_args__ = (PrimaryKeyConstraint("user_id", "scope", name="pk_user_preference"),)
 
     # No synthetic id: the doc specifies primary key (user_id, scope)
     # directly, and there is no use case for referencing a preference row

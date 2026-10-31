@@ -9,19 +9,24 @@ If-Match, audited, refused when one is already linked. The server-side paths
 (FR-I-02/02b consumers, the ADR-091 legacy import) build their own
 `StockItemCreate` and are not this door."""
 
+import threading
+import time
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token, decode_token_claims
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services import stock_item as stock_item_service
 from app.inventory.services.stock_item import create_stock_item
 from app.vehicle.models.configuration import ConfigurationMode
 from app.vehicle.services import configuration as configuration_service
 from tests.configuration_test_support import stock_configuration_id
+from tests.test_sales_contract_edit import _postgres_only_row_locks
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
@@ -268,3 +273,127 @@ def test_a_create_with_a_configuration_of_another_car_is_refused(client, db_sess
     assert refused.status_code == 422, refused.text
     assert refused.json()["error"]["details"] == {"field": "configurationId", "reason": "configuration_vin_differs"}
     assert db_session.scalar(select(func.count()).select_from(StockItem)) == 0
+
+
+def test_a_create_with_a_configuration_of_the_same_car_is_taken(client, db_session):
+    """KAN-511: the positive control of the create's VIN check — a
+    configuration carrying the body's own VIN is the same car."""
+
+    headers = _headers(uuid.uuid4())
+    same_car = _configuration_with_vin(db_session, headers, VIN)
+
+    created = client.post(
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "VW Golf", "condition": "used", "vin": VIN, "configurationId": same_car},
+        headers=headers,
+    )
+
+    assert created.status_code == 201, created.text
+    assert created.json()["configurationId"] == same_car
+    assert created.json()["vin"] == VIN
+
+
+# --- one configuration, one stock item (KAN-509, FR-C-11) ------------------------
+
+
+def _held_by(holder: StockItem) -> dict[str, str]:
+    return {
+        "reason": "configuration_held_by_stock_item",
+        "stockItemId": str(holder.id),
+        "stockNumber": holder.stock_number,
+    }
+
+
+def _create_with(client, headers: dict[str, str], configuration_id: str):
+    return client.post(
+        "/v1/inventory/stock-items",
+        json={"vehicleLabel": "Škoda Octavia Combi", "condition": "new", "configurationId": configuration_id},
+        headers=headers,
+    )
+
+
+def test_a_create_with_a_configuration_another_item_holds_is_refused(client, db_session):
+    tenant_id = uuid.uuid4()
+    headers = _headers(tenant_id)
+    configuration_id = stock_configuration_id(db_session, headers)
+    first = _create_with(client, headers, configuration_id)
+    assert first.status_code == 201, first.text
+    holder = db_session.get(StockItem, uuid.UUID(first.json()["id"]))
+
+    refused = _create_with(client, headers, configuration_id)
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["details"] == _held_by(holder)
+    assert db_session.scalar(select(func.count()).select_from(StockItem)) == 1
+
+
+def test_attaching_a_configuration_another_item_holds_is_refused(client, db_session):
+    tenant_id = uuid.uuid4()
+    headers = _headers(tenant_id)
+    configuration_id = stock_configuration_id(db_session, headers)
+    created = _create_with(client, headers, configuration_id)
+    assert created.status_code == 201, created.text
+    holder = db_session.get(StockItem, uuid.UUID(created.json()["id"]))
+    item = _hand_typed_item(db_session, tenant_id)
+
+    refused = _attach(client, item, configuration_id, headers)
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["details"] == _held_by(holder)
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).configuration_id is None
+    assert _attach_audit_rows(db_session, item.id) == []
+
+
+def test_another_betriebs_item_holding_the_same_id_does_not_count(client, db_session):
+    """The check is the tenant's own stock: nothing about another Betrieb's
+    items leaks, and its configurations are 404 here anyway."""
+
+    tenant_id = uuid.uuid4()
+    headers = _headers(tenant_id)
+    configuration_id = stock_configuration_id(db_session, headers)
+    other = _hand_typed_item(db_session, uuid.uuid4())
+    other.configuration_id = uuid.UUID(configuration_id)
+    db_session.commit()
+
+    created = _create_with(client, headers, configuration_id)
+
+    assert created.status_code == 201, created.text
+
+
+@_postgres_only_row_locks
+def test_an_attach_waits_for_a_create_linking_the_same_configuration_and_is_then_refused(client, db_session, engine):
+    """Two writers racing: the holder has linked the configuration to its
+    item and not committed yet; the attach sent meanwhile waits for it
+    (the advisory lock), then sees the holder's item and is refused. Without
+    the lock it would not see the uncommitted item and link the
+    configuration a second time."""
+
+    tenant_id = uuid.uuid4()
+    headers = _headers(tenant_id)
+    configuration_id = stock_configuration_id(db_session, headers)
+    holder = _hand_typed_item(db_session, tenant_id)
+    item = _hand_typed_item(db_session, tenant_id)
+    result: dict = {}
+
+    holding = Session(bind=engine)
+    try:
+        held = stock_item_service.get_stock_item_for_update_or_404(holding, tenant_id, holder.id)
+        stock_item_service._lock_configuration(holding, tenant_id=tenant_id, configuration_id=uuid.UUID(configuration_id))
+        held.configuration_id = uuid.UUID(configuration_id)
+        holding.flush()
+        sender = threading.Thread(target=lambda: result.update(response=_attach(client, item, configuration_id, headers)))
+        sender.start()
+        time.sleep(0.8)
+        blocked_while_held = sender.is_alive()
+        holding.commit()
+        sender.join(10)
+    finally:
+        holding.close()
+
+    assert blocked_while_held, "the attach did not wait for the configuration's lock"
+    response = result["response"]
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == _held_by(holder)
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).configuration_id is None

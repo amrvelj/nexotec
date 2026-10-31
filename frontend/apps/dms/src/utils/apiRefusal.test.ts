@@ -40,6 +40,13 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     expect(text).toBe(fr.apiRefusal.reasons.vin_already_in_stock.replace('{{stockNumber}}', 'S-000042'))
   })
 
+  // KAN-509: one configuration, one stock car.
+  it('names the stock car that already holds the configuration', async () => {
+    await i18n.changeLanguage('it')
+    const text = apiRefusalText(t, refusal(409, { reason: 'configuration_held_by_stock_item', stockItemId: 'si-1', stockNumber: 'S-000007' }), FALLBACK)
+    expect(text).toBe(it_.apiRefusal.reasons.configuration_held_by_stock_item.replace('{{stockNumber}}', 'S-000007'))
+  })
+
   // KAN-472: the reasons whose sentence names what the refusal carries.
   it('names the containers an offer still misses, by their names in the UI language', async () => {
     await i18n.changeLanguage('it')

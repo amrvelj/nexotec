@@ -505,6 +505,31 @@ def test_a_best_match_is_a_proposal_and_writes_no_configuration(db_session):
     assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == configurations_before
 
 
+def test_a_best_match_on_a_variant_mirrored_without_its_typenscheine_links_them(db_session):
+    """KAN-190 item 3: a variant mirrored before KAN-42 has no
+    `vehicle_variant_type_approval` rows, and no backfill may ask a provider
+    for them (KAN-485). The best match is a single lookup that already holds
+    the provider's master data, so it visits an existing variant with the
+    catalogue's own upsert, which links its Typenscheine (and fills only NULL
+    fields)."""
+
+    from app.vehicle.models.catalogue import VariantTypeApproval
+    from app.vehicle.services.catalogue import find_model_variants_by_type_approval
+
+    tenant_id = _connected_tenant(db_session)
+    db_session.query(VariantTypeApproval).delete()
+    db_session.commit()
+    assert find_model_variants_by_type_approval(db_session, "2CD456") == []
+
+    svc.propose_best_match(
+        db_session, tenant_id=tenant_id, actor_id=None, type_approval_number="2CD456",
+        new_price=Decimal(48900), new_price_source=NewPriceSource.DOCUMENT,
+    )
+
+    db_session.expire_all()
+    assert [v.name for v in find_model_variants_by_type_approval(db_session, "2CD456")] == ["Golf GTI 2.0 TSI DSG"]
+
+
 def test_a_unique_best_match_still_needs_confirmation(db_session):
     tenant_id = _connected_tenant(db_session)
     proposal = svc.propose_best_match(

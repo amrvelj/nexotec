@@ -241,7 +241,8 @@
       "photo_not_an_image": "La photo doit être une image PNG ou JPEG.",
       "photo_too_large": "La photo est trop grande — 5 Mo au plus.",
       "configuration_already_linked": "Une configuration est déjà attribuée à ce véhicule. Veuillez recharger la page.",
-      "configuration_vin_differs": "Le VIN de la configuration n'est pas celui de ce véhicule. La configuration décrit un autre véhicule."
+      "configuration_vin_differs": "Le VIN de la configuration n'est pas celui de ce véhicule. La configuration décrit un autre véhicule.",
+      "configuration_held_by_stock_item": "Cette configuration appartient déjà au véhicule {{stockNumber}} du stock. Chaque véhicule a sa propre configuration."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1021,11 +1022,13 @@
       "purchaseDate": "Date d'achat",
       "orderDate": "Date de commande",
       "expectedDelivery": "Livraison prévue",
-      "pipelineRef": "Référence pipeline"
+      "pipelineRef": "Référence pipeline",
+      "configuration": "Configuration"
     },
     "emptyState": {
       "title": "Aucun véhicule en stock",
-      "description": "Ajoutez un véhicule au stock pour commencer."
+      "description": "Ajoutez un véhicule au stock pour commencer.",
+      "descriptionReadOnly": "Les véhicules apparaissent ici dès que l'entreprise les ajoute au stock."
     },
     "emptyFilteredState": {
       "title": "Aucun résultat",
@@ -1481,7 +1484,8 @@
       "finalOffer": "Offre de reprise",
       "source": "Source",
       "status": "Statut",
-      "validUntil": "Valide jusqu’au"
+      "validUntil": "Valide jusqu’au",
+      "configuration": "Configuration"
     },
     "emptyState": {
       "title": "Aucune évaluation",

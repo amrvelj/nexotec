@@ -307,6 +307,13 @@ export function StockListPage() {
         cell: ({ row }) => row.original.pipelineRef ?? '—',
         meta: { defaultVisible: false, mono: true },
       },
+      // KAN-190 (ADR-060): the configuration's label, rule 2's copy on the item.
+      {
+        id: 'configurationLabel',
+        header: t('stockList.columns.configuration'),
+        cell: ({ row }) => row.original.configurationLabel ?? '—',
+        meta: { defaultVisible: false },
+      },
     ],
     [t, locale]
   )
@@ -440,7 +447,8 @@ export function StockListPage() {
           emptyState={{
             icon: <Warehouse size={24} />,
             title: t('stockList.emptyState.title'),
-            description: t('stockList.emptyState.description'),
+            // KAN-511: a reader is not told to add a car it is not offered.
+            description: t(canAddVehicle ? 'stockList.emptyState.description' : 'stockList.emptyState.descriptionReadOnly'),
             // KAN-463: the same intake as the header — the configurator.
             action: canAddVehicle ? <AddToPipelineButton /> : undefined,
           }}

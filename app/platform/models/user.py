@@ -24,7 +24,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, Date, String, false
+from sqlalchemy import JSON, Boolean, CheckConstraint, Date, String, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -67,7 +67,13 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # KAN-196: the address is the sign-in and recovery channel, resolved
     # case-insensitively — stored lower-cased, so the unique index above
     # cannot admit a second spelling of one mailbox.
-    __table_args__ = (CheckConstraint("email = lower(email)", name="ck_user_email_lower"),)
+    __table_args__ = (
+        CheckConstraint("email = lower(email)", name="ck_user_email_lower"),
+        # KAN-431: the migrations' constraint names, not SQLAlchemy's default
+        # `user_{column}_key` — the schema gate compares indexes by name.
+        UniqueConstraint("email", name="uq_user_email"),
+        UniqueConstraint("auth_identity_id", name="uq_user_auth_identity_id"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
@@ -75,7 +81,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
 
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     role: Mapped[UserRole] = mapped_column(StoredEnum(UserRole, length=32), nullable=False)
@@ -105,7 +111,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # non-null for the federation seam. No credential is stored on this row,
     # ever: the password hash lives in `credential` and nowhere else
     # (tests/architecture/test_no_password_credential_storage.py).
-    auth_identity_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    auth_identity_id: Mapped[str] = mapped_column(String(255), nullable=False)
 
     status: Mapped[UserStatus] = mapped_column(
         StoredEnum(UserStatus, length=32), nullable=False, default=UserStatus.INVITED

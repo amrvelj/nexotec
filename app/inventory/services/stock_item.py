@@ -1,8 +1,9 @@
 """StockItem service layer (WP-7 PR-1)."""
 
+import hashlib
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -142,6 +143,47 @@ def _configuration_vin_differs() -> UnprocessableEntityError:
     )
 
 
+def _lock_configuration(db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID) -> None:
+    """KAN-509: pg_advisory_xact_lock on a 64-bit key derived from (tenant,
+    configuration), released by the transaction's commit or rollback. Create
+    and attach take it before they look for another holder, so two writers
+    linking one configuration to two items run one after the other and the
+    second sees the first's item. SQLite (the fast local lane, ADR-011) has
+    no advisory locks and serialises writers on its own, so this is a no-op
+    there. Same idiom as app.inventory.services.reservation.lock_contract.
+    """
+
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    digest = hashlib.sha256(f"inventory.configuration:{tenant_id}:{configuration_id}".encode()).digest()
+    key = int.from_bytes(digest[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+
+
+def _check_configuration_not_held(db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID) -> None:
+    """KAN-509 (FR-C-11): a configuration is one car's technical data, so
+    two stock items never share one — editing it would change both cars.
+    Only another *stock item* holding it is refused: the same configuration
+    legitimately has an offer, a contract and that one item as hosts
+    (FR-I-02). The caller holds `_lock_configuration`."""
+
+    held_by = db.scalar(
+        select(StockItem)
+        .where(StockItem.tenant_id == tenant_id, StockItem.configuration_id == configuration_id)
+        .order_by(StockItem.created_at)
+        .limit(1)
+    )
+    if held_by is not None:
+        raise ConflictError(
+            f"This configuration already belongs to stock item {held_by.stock_number}.",
+            details={
+                "reason": "configuration_held_by_stock_item",
+                "stockItemId": str(held_by.id),
+                "stockNumber": held_by.stock_number,
+            },
+        )
+
+
 def _check_vin_not_in_stock(db: Session, *, tenant_id: uuid.UUID, vin: str) -> None:
     """Refuse before writing, so the ordinary duplicate is a 409 with a
     reason. Two writers can still race past it; the unique index then
@@ -273,6 +315,13 @@ def create_stock_item(
         configuration_label = configuration.label
     if data.vin is not None:
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
+    if data.configuration_id is not None:
+        # KAN-509: after the VIN check, so the same car posted twice is still
+        # refused as `vin_already_in_stock`, the refusal that names it; both
+        # before vehicle-mdm is touched.
+        _lock_configuration(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
+        _check_configuration_not_held(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
+    if data.vin is not None:
         # KAN-244 (Anto, option C): the item's vehicle is the one its VIN
         # resolves to, as on promotion — a client's vehicleId is ignored.
         # Resolved on vehicle-mdm's own session, before any write of ours, so
@@ -327,8 +376,9 @@ def attach_configuration(
     configuration. Refused when the item already has one (409
     `configuration_already_linked`: a configuration is replaced by editing
     it, never by linking another) and when both carry a VIN and they differ
-    (422 `configuration_vin_differs`: it would describe another car).
-    Allowed on an item that has left stock too: its record keeps the car's
+    (422 `configuration_vin_differs`: it would describe another car), and
+    when another stock item holds it (409 `configuration_held_by_stock_item`,
+    KAN-509). Allowed on an item that has left stock too: its record keeps the car's
     data. Audited; the caller has checked If-Match."""
 
     if item.configuration_id is not None:
@@ -340,6 +390,8 @@ def attach_configuration(
     configuration.require_mode(host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD))
     if item.vin is not None and configuration.vin is not None and configuration.vin != item.vin:
         raise _configuration_vin_differs()
+    _lock_configuration(db, tenant_id=item.tenant_id, configuration_id=configuration.id)
+    _check_configuration_not_held(db, tenant_id=item.tenant_id, configuration_id=configuration.id)
     item.configuration_id = configuration.id
     # Rule 2's three columns: the label is a copy of the configuration's,
     # refreshed now.

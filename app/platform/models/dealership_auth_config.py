@@ -9,7 +9,7 @@ row is a Betrieb with MFA enforced.
 import enum
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey
+from sqlalchemy import Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -25,7 +25,11 @@ class AuthMethod(str, enum.Enum):
 class DealershipAuthConfig(PrimaryKeyMixin, TimestampMixin, VersionedMixin, Base):
     __tablename__ = "dealership_auth_config"
 
-    dealership_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("dealership.id"), nullable=False, unique=True)
+    # KAN-431: the migration's constraint name, not SQLAlchemy's default
+    # `{table}_{column}_key` — the schema gate compares indexes by name.
+    __table_args__ = (UniqueConstraint("dealership_id", name="uq_dealership_auth_config_dealership_id"),)
+
+    dealership_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("dealership.id"), nullable=False)
     auth_method: Mapped[AuthMethod] = mapped_column(
         StoredEnum(AuthMethod, length=16), nullable=False, default=AuthMethod.LOCAL
     )

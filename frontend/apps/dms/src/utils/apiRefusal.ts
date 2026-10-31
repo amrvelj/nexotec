@@ -56,6 +56,7 @@ const REASON_KEYS: Record<string, string> = {
       'coded_fields_required',
       'colleague_cannot_act_there',
       'configuration_already_linked',
+      'configuration_held_by_stock_item',
       'configuration_mode_fixed',
       'configuration_mode_not_allowed',
       'configuration_vin_differs',
@@ -107,6 +108,7 @@ const REASON_KEYS: Record<string, string> = {
 // in the UI language too (a container's name, a date in the user's locale).
 const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<string, unknown>> = {
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
+  configuration_held_by_stock_item: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
   // A connection's settings by their labels on the connect form; a key the
