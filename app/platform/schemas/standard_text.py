@@ -117,3 +117,52 @@ class StandardTextRegistryRead(CamelModel):
 
     placeholders: list[str]
     targets: list[StandardTextTargetRead]
+
+
+# --- the Translations panel's seed library (KAN-209, FR-A-29) ---------------------------
+
+
+class StandardTextSeedRead(CamelModel):
+    """One seed row (code × language) as the panel edits it, with the
+    wording Nexotec ships for it — what the diff compares and a revert
+    restores (null for a code the release does not ship)."""
+
+    id: uuid.UUID
+    language: SwissLanguage
+    title: str
+    body: str
+    shipped_title: str | None
+    shipped_body: str | None
+    # The live title or body is not the shipped wording.
+    edited: bool
+    active: bool
+    version: int
+    updated_at: dt.datetime
+    updated_by: uuid.UUID | None
+
+
+class StandardTextSeedGroup(CamelModel):
+    """One code with its row per language — the panel's four columns."""
+
+    code: str
+    category: StandardTextCategory
+    applies_to: StandardTextAppliesTo
+    slot: StandardTextSlot
+    de: StandardTextSeedRead | None = None
+    fr: StandardTextSeedRead | None = None
+    it: StandardTextSeedRead | None = None
+    en: StandardTextSeedRead | None = None
+
+
+class StandardTextSeedList(CamelModel):
+    """Every matching code. The library is a bounded set (the starter library
+    is 12 codes × 4 languages), so the list is complete, never paged."""
+
+    items: list[StandardTextSeedGroup]
+
+
+class StandardTextSeedUpdate(CamelModel):
+    """A platform_admin's edit of one seed row: its title, its body or both."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    body: str | None = Field(default=None, min_length=1, max_length=_BODY_MAX)

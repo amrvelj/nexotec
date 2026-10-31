@@ -272,7 +272,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   placeholders, 422 `ui_translation_placeholders_changed`). `POST /v1/i18n/missing-translations`
   (a session, ≤ 50 keys, the log capped at 5000 rows). The screen is `/platform/translations`
   (Administration › Translations); its sources are `components/translations/translationSources.ts`
-  — the standard-text seeds (KAN-208) and `ai_prompt` seeds join there.
+  — `ui` and `standardTexts` (the seed library below); `ai_prompt` seeds ([P3-7], not built) join
+  there, each a panel on the shared `FourLanguageEditor`.
 - **Standard texts — built (KAN-208).** `standard_text` (`app/platform/models/standard_text.py`):
   one row per scope × code × language — platform seeds (`dealership_id` NULL, `source =
   platform_seed`), a Betrieb's own texts and its overrides of seeds (`overridden_from_id` +
@@ -290,7 +291,15 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `dealership.name` and `location.phone` — the Betrieb's phone: `location` has no phone column).
   Seeds: `services/standard_text_seed.py`, 12 codes × 4 languages, installed by the migration
   (`ec4559d84ad3`) and the `standard_text_seeds` test fixture; `update_platform_seed` is the
-  platform_admin edit (no endpoint yet — the Translations panel is KAN-209's).
+  platform_admin edit, behind the Translations panel's seed tab (KAN-209,
+  `app/platform/api/standard_text_seeds.py`): `GET /v1/platform/standard-text-seeds` (`q`,
+  `category`; by code, each language with the shipped title/body from `standard_text_seed.py` and
+  `edited`; any role reads), `PUT …/{seed_id}` (title and/or body) and `POST …/{seed_id}/revert`
+  (back to the shipped wording; 422 `standard_text_seed_not_shipped` for a code the release does
+  not ship) — `require_write("ui_translations")`, the matrix's one row for "UI translations and
+  seed library"; If-Match on the seed row; audited `seed_update` / `seed_revert`; the body checked
+  by `validate_body`. Every edit moves the seed's version, so every override of it reads
+  `seedChanged`.
   API: `GET /v1/standard-text-registry`, `GET /v1/dealerships/{id}/standard-texts` (any role;
   `writableCategories` says what the gate lets the caller write), `POST …/standard-text-previews`
   (sample data, the same renderer), `POST …/standard-texts/{category}` and `PATCH/DELETE

@@ -105,6 +105,11 @@ export type StandardTextPreviewRequest = Schemas['StandardTextPreviewRequest']
 export type StandardTextPreviewRead = Schemas['StandardTextPreviewRead']
 export type StandardTextRegistryRead = Schemas['StandardTextRegistryRead']
 export type StandardTextTargetRead = Schemas['StandardTextTargetRead']
+// KAN-209: the seed library in Platform Administration › Translations.
+export type StandardTextSeedRead = Schemas['StandardTextSeedRead']
+export type StandardTextSeedGroup = Schemas['StandardTextSeedGroup']
+export type StandardTextSeedList = Schemas['StandardTextSeedList']
+export type StandardTextSeedUpdate = Schemas['StandardTextSeedUpdate']
 
 // Customer — core, contact channels, external IDs, vehicles
 export type CustomerType = Schemas['CustomerType']

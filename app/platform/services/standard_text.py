@@ -716,6 +716,7 @@ def update_platform_seed(
     changes: Mapping[str, Any],
     if_match_version: int,
     actor_id: uuid.UUID | None,
+    action: str = "seed_update",
 ) -> StandardText:
     """A platform_admin edit of one seed (code × language), versioned. It
     never touches a dealer's override — the bump of `version` is what every
@@ -739,7 +740,7 @@ def update_platform_seed(
         entity_type="standard_text",
         entity_id=seed.id,
         tenant_id=None,
-        action="seed_update",
+        action=action,
         actor_id=actor_id,
         before={k: v for k, v in before.items() if after[k] != v},
         after={k: v for k, v in after.items() if before[k] != v},
@@ -747,6 +748,64 @@ def update_platform_seed(
     db.commit()
     db.refresh(seed)
     return seed
+
+
+def shipped_seed(code: str, language: SwissLanguage) -> tuple[str, str] | None:
+    """The (title, body) Nexotec ships for a seed — `standard_text_seed.py`,
+    what the migration installed — or None for a code it does not ship. The
+    Translations panel diffs a seed against it and a revert restores it
+    (KAN-209)."""
+
+    for seed in SEED_TEXTS:
+        if seed.code == code:
+            return seed.titles[language], seed.bodies[language]
+    return None
+
+
+def search_platform_seeds(
+    db: Session, *, q: str | None, category: StandardTextCategory | None
+) -> list[StandardText]:
+    """Every seed row (code × language) of each code where any language's
+    code, title or body matches `q` (case-insensitive), in the category."""
+
+    rows = list_platform_seeds(db)
+    if category is not None:
+        rows = [row for row in rows if row.category == category]
+    if q:
+        needle = q.strip().casefold()
+        hits = {
+            row.code
+            for row in rows
+            if needle in row.code.casefold() or needle in row.title.casefold() or needle in row.body.casefold()
+        }
+        rows = [row for row in rows if row.code in hits]
+    return rows
+
+
+def revert_platform_seed(
+    db: Session, *, seed: StandardText, if_match_version: int, actor_id: uuid.UUID | None
+) -> StandardText:
+    """Puts the shipped title and body back (KAN-209). A revert is a seed edit
+    like any other: the version moves and every override pointing here is
+    flagged "the standard text has changed, review yours"."""
+
+    shipped = shipped_seed(seed.code, seed.language)
+    if shipped is None:
+        check_version(seed.version, if_match_version, entity_name="StandardText")
+        raise _refuse(
+            "standard_text_seed_not_shipped",
+            "Nexotec ships no wording for this seed; there is nothing to restore.",
+            code=seed.code,
+        )
+    title, body = shipped
+    return update_platform_seed(
+        db,
+        seed=seed,
+        changes={"title": title, "body": body},
+        if_match_version=if_match_version,
+        actor_id=actor_id,
+        action="seed_revert",
+    )
 
 
 def seed_rows() -> list[dict[str, Any]]:

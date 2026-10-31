@@ -284,7 +284,8 @@
       "standard_text_template_whatsapp_only": "Eine Vorlagengenehmigung gibt es nur für WhatsApp-Texte.",
       "standard_text_template_id_required": "Eine genehmigte WhatsApp-Vorlage braucht die Vorlagen-ID des Anbieters.",
       "standard_text_not_an_override": "Nur ein angepasster Standardtext hat eine Vorlage zu prüfen.",
-      "standard_text_seed_language_missing": "Diese Vorlage gibt es in dieser Sprache nicht."
+      "standard_text_seed_language_missing": "Diese Vorlage gibt es in dieser Sprache nicht.",
+      "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -2894,7 +2895,8 @@
     "badge": "Plattform",
     "sourcesLabel": "Quelle",
     "sources": {
-      "ui": "UI-Texte"
+      "ui": "UI-Texte",
+      "standardTexts": "Standardtext-Vorlagen"
     },
     "search": {
       "label": "Suchen",
@@ -2942,7 +2944,7 @@
       "close": "Schliessen",
       "revert": "Ausgelieferten Text wiederherstellen",
       "published": "Veröffentlicht. Die Änderung erscheint bei jedem Benutzer beim nächsten Laden der Texte.",
-      "readOnly": "Nur Plattformadministratoren von Nexotec können UI-Texte ändern.",
+      "readOnly": "Nur Plattformadministratoren von Nexotec können diese Texte ändern.",
       "noRow": "In dieser Sprache nicht ausgeliefert.",
       "nothingChanged": "Keine Änderung zum Veröffentlichen."
     },
@@ -2956,6 +2958,27 @@
         "count": "Meldungen",
         "last": "Zuletzt gemeldet"
       }
+    },
+    "seeds": {
+      "subtitle": "Die Vorlagen, die Nexotec jedem Betrieb mitliefert. Eine Änderung überschreibt nie die Anpassung eines Betriebs; der Betrieb sieht, dass sich die Vorlage geändert hat.",
+      "search": {
+        "label": "Suchen",
+        "placeholder": "Code, Titel oder Text"
+      },
+      "category": {
+        "label": "Kategorie",
+        "all": "Alle Kategorien"
+      },
+      "count_one": "{{count, number}} Vorlage",
+      "count_other": "{{count, number}} Vorlagen",
+      "columns": {
+        "code": "Code",
+        "target": "Verwendung"
+      },
+      "fieldTitle": "Titel",
+      "fieldBody": "Text",
+      "empty": "Keine Vorlagen gefunden.",
+      "loadError": "Die Vorlagen konnten nicht geladen werden."
     }
   },
   "locations": {

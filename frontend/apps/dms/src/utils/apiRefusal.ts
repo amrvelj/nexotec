@@ -108,6 +108,7 @@ const REASON_KEYS: Record<string, string> = {
       'standard_text_placeholder_invalid',
       'standard_text_placeholder_unresolved',
       'standard_text_seed_language_missing',
+      'standard_text_seed_not_shipped',
       'standard_text_slot_unknown',
       'standard_text_target_required',
       'standard_text_target_unknown',
