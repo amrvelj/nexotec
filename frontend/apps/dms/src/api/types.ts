@@ -271,6 +271,13 @@ export type DealershipSettingsUpdate = Schemas['DealershipSettingsUpdate']
 export type AddressAutocompleteConfigRead = Schemas['AddressAutocompleteConfigRead']
 export type ChartOfAccountsVariant = Schemas['ChartOfAccountsVariant']
 export type PeriodLockPolicy = Schemas['PeriodLockPolicy']
+// KAN-205 — Dealer Administration › Branding.
+export type BrandingRead = Schemas['BrandingRead']
+export type BrandingUpdate = Schemas['BrandingUpdate']
+export type BrandingAssetRead = Schemas['BrandingAssetRead']
+export type BrandingAssetKind = Schemas['BrandingAssetKind']
+export type BrandingPlacements = Schemas['BrandingPlacements']
+export type ContrastPairRead = Schemas['ContrastPairRead']
 export type CatalogueSyncStatusRead = Schemas['CatalogueSyncStatusRead']
 
 // ============================================================================

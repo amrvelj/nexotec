@@ -1097,6 +1097,79 @@ export interface paths {
         patch: operations["update_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Branding */
+        get: operations["get_branding_v1_dealerships__dealership_id__branding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Branding
+         * @description Colours and placements. The contrast verdict comes back with the
+         *     saved state; a failing pair is a warning, not a refusal.
+         */
+        patch: operations["update_branding_v1_dealerships__dealership_id__branding_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/branding/assets/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Branding Asset
+         * @description The file a reader of this variant gets — its own, else the primary's
+         *     (the read's `assets[].source` says which). 404 when there is no logo.
+         */
+        get: operations["get_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__get"];
+        /**
+         * Put Branding Asset
+         * @description One logo variant, replaced as a whole. The body is the file itself —
+         *     never base64, never multipart; the row keeps the object-store key only.
+         *     A plain `def`, like the photo PUT: the store write and the row lock run
+         *     in the threadpool.
+         */
+        put: operations["put_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__put"];
+        post?: never;
+        /** Delete Branding Asset */
+        delete: operations["delete_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/branding/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Branding Preview
+         * @description The document header as it prints today: a PDF from the one renderer
+         *     (ADR-051 — never a second, client-side one), in the Betrieb's default
+         *     correspondence language, with the saved logo, colours and placements.
+         */
+        get: operations["get_branding_preview_v1_dealerships__dealership_id__branding_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/document-template": {
         parameters: {
             query?: never;
@@ -3995,6 +4068,101 @@ export interface components {
             displayName?: string | null;
         };
         /**
+         * BrandingAssetKind
+         * @enum {string}
+         */
+        BrandingAssetKind: "primary" | "mono_dark" | "favicon";
+        /**
+         * BrandingAssetRead
+         * @description One logo variant. `source` says which file a reader is served:
+         *     `own` (this variant's file), `primary` (no file of its own, so the
+         *     primary's — PRD: "the others fall back to it"), or `none` (no logo at
+         *     all). The file fields describe this variant's own file and are null
+         *     without one.
+         */
+        BrandingAssetRead: {
+            /** Bytesize */
+            byteSize?: number | null;
+            /** Height */
+            height?: number | null;
+            kind: components["schemas"]["BrandingAssetKind"];
+            /** Mimetype */
+            mimeType?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "own" | "primary" | "none";
+            /** Uploadedat */
+            uploadedAt?: string | null;
+            /** Uploadedby */
+            uploadedBy?: string | null;
+            /** Width */
+            width?: number | null;
+        };
+        /**
+         * BrandingPlacements
+         * @description Where the logo appears — each a switch of its own (PRD: "a dealer often
+         *     wants the logo on a price tag but not in the app chrome").
+         */
+        BrandingPlacements: {
+            /** Appheader */
+            appHeader: boolean;
+            /** Documentheader */
+            documentHeader: boolean;
+            /** Emailsignature */
+            emailSignature: boolean;
+            /** Listing */
+            listing: boolean;
+            /** Pricetag */
+            priceTag: boolean;
+        };
+        /** BrandingPlacementsUpdate */
+        BrandingPlacementsUpdate: {
+            /** Appheader */
+            appHeader?: boolean | null;
+            /** Documentheader */
+            documentHeader?: boolean | null;
+            /** Emailsignature */
+            emailSignature?: boolean | null;
+            /** Listing */
+            listing?: boolean | null;
+            /** Pricetag */
+            priceTag?: boolean | null;
+        };
+        /** BrandingRead */
+        BrandingRead: {
+            /** Assets */
+            assets: components["schemas"]["BrandingAssetRead"][];
+            contrast: components["schemas"]["ContrastCheckRead"];
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            placements: components["schemas"]["BrandingPlacements"];
+            /** Primarycolor */
+            primaryColor: string;
+            /** Secondarycolor */
+            secondaryColor: string | null;
+            /** Version */
+            version: number;
+        };
+        /** BrandingUpdate */
+        BrandingUpdate: {
+            placements?: components["schemas"]["BrandingPlacementsUpdate"] | null;
+            /**
+             * Primarycolor
+             * @description #RRGGBB
+             */
+            primaryColor?: string | null;
+            /**
+             * Secondarycolor
+             * @description #RRGGBB, or null to clear it
+             */
+            secondaryColor?: string | null;
+        };
+        /**
          * CalendarPeriod
          * @description `GET /v1/customers?updated_since_start_of=` — the current calendar day,
          *     week (from Monday), month or year in the session time zone, resolved by
@@ -5105,6 +5273,37 @@ export interface components {
             vehicleLabel?: string | null;
             /** Vehiclesource */
             vehicleSource?: ("stock" | "manual") | null;
+        };
+        /**
+         * ContrastCheckRead
+         * @description WCAG AA for normal text (4.5:1), each pair judged on its own.
+         */
+        ContrastCheckRead: {
+            /**
+             * Minimumratio
+             * @default 4.5
+             */
+            minimumRatio?: number;
+            /** Pairs */
+            pairs: components["schemas"]["ContrastPairRead"][];
+            /** Passes */
+            passes: boolean;
+        };
+        /** ContrastPairRead */
+        ContrastPairRead: {
+            /** Background */
+            background: string;
+            /** Foreground */
+            foreground: string;
+            /**
+             * Pair
+             * @enum {string}
+             */
+            pair: "primary_on_white" | "secondary_on_white" | "secondary_on_primary";
+            /** Passes */
+            passes: boolean;
+            /** Ratio */
+            ratio: number;
         };
         /**
          * CustodyEventCreate
@@ -13270,6 +13469,230 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BankAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_branding_v1_dealerships__dealership_id__branding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_branding_v1_dealerships__dealership_id__branding_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                kind: components["schemas"]["BrandingAssetKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                kind: components["schemas"]["BrandingAssetKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/svg+xml": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                kind: components["schemas"]["BrandingAssetKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_branding_preview_v1_dealerships__dealership_id__branding_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

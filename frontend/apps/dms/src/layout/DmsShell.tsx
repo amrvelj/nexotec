@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   MapPin,
+  Palette,
   Plug,
   Receipt,
   ShieldCheck,
@@ -99,6 +100,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-204 — Dealer Administration › Locations. Any role reads; the manager
         // writes at the API (`locations`); the entry is never role-hidden.
         { label: t('shell.nav.locations'), href: '/administration/locations', icon: MapPin, status: 'active' },
+        // KAN-205 — Dealer Administration › Logo and colours (PRD "Logo and
+        // brand assets"). Any role reads, the manager writes; never role-hidden.
+        { label: t('shell.nav.branding'), href: '/administration/branding', icon: Palette, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under

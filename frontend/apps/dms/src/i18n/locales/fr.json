@@ -25,7 +25,8 @@
       "accountRecovery": "Récupération de compte",
       "business": "Entreprise",
       "translations": "Traductions",
-      "locations": "Sites"
+      "locations": "Sites",
+      "branding": "Logo et couleurs"
     },
     "signOut": "Se déconnecter",
     "environmentNotice": {
@@ -261,7 +262,15 @@
       "location_validity_inverted": "« Valable jusqu'au » précède « Valable dès ».",
       "unknown_bank_account": "Ce compte bancaire n'appartient pas à cette entreprise.",
       "unknown_holiday_calendar": "Ce calendrier des jours fériés n'existe pas.",
-      "year_out_of_range": "Cette année est hors du calendrier."
+      "year_out_of_range": "Cette année est hors du calendrier.",
+      "logo_format_jpeg": "Le JPEG n’est pas accepté pour un logo : il n’a pas de transparence et s’imprime avec un cadre gris derrière lui sur chaque document. Téléversez un SVG (de préférence) ou un PNG.",
+      "logo_format_unsupported": "Un logo doit être un fichier SVG (de préférence) ou PNG.",
+      "logo_too_small": "Ce PNG mesure {{width, number}} × {{height, number}} px. Un logo imprimé sur 50 mm de large a besoin d’environ {{min, number}} px sur son grand côté pour rester net à 300 dpi. Téléversez un PNG plus grand – ou un SVG, net à toutes les tailles.",
+      "logo_dimensions_too_large": "L’image dépasse {{max, number}} px sur son grand côté – plus qu’aucun document n’en a besoin.",
+      "logo_file_too_large": "Le fichier du logo est trop grand — 5 Mo au plus.",
+      "logo_png_damaged": "Le fichier PNG est endommagé et ne peut pas être lu.",
+      "logo_svg_invalid": "Le fichier SVG n’est pas un document SVG valide.",
+      "logo_svg_entities": "Le fichier SVG déclare des entités XML, qui peuvent servir à attaquer les systèmes qui le lisent. Exportez à nouveau le logo sans DTD."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -3069,6 +3078,67 @@
       "letterheadHint": "Vide : le bloc d'adresse de l'entreprise. Remplace uniquement le bloc d'adresse du modèle commun, jamais le modèle.",
       "bankAccount": "Compte bancaire",
       "bankAccountInherit": "Comme l'entreprise (compte de facturation)"
+    }
+  },
+  "branding": {
+    "title": "Logo et couleurs",
+    "subtitle": "Le logo et les couleurs de votre entreprise – sur chaque document, sur les étiquettes de prix et dans les annonces. L’aperçu montre l’en-tête tel qu’il s’imprime.",
+    "loadError": "Le logo et les couleurs n’ont pas pu être chargés.",
+    "logo": {
+      "title": "Logo",
+      "formatHint": "SVG de préférence, PNG d’au moins 600 px sur le grand côté. Le JPEG n’est pas accepté : il n’a pas de transparence et s’imprime avec un cadre gris.",
+      "kinds": {
+        "primary": "Logo principal",
+        "mono_dark": "Monochrome foncé",
+        "favicon": "Favicon"
+      },
+      "kindHints": {
+        "primary": "Obligatoire. Les autres variantes l’utilisent tant qu’elles n’ont pas leur propre fichier.",
+        "mono_dark": "Pour un en-tête en couleur sur papier blanc. Sans fichier propre, le logo principal est utilisé.",
+        "favicon": "La petite icône dans l’onglet du navigateur du site web. Sans fichier propre, le logo principal est utilisé."
+      },
+      "choose": "Choisir un fichier",
+      "upload": "Téléverser",
+      "remove": "Supprimer",
+      "none": "Pas encore de logo",
+      "usesPrimary": "Utilise le logo principal",
+      "svgFile": "SVG · net à toutes les tailles",
+      "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+      "failed": "Le logo n’a pas pu être enregistré."
+    },
+    "colours": {
+      "title": "Couleurs",
+      "primary": "Couleur primaire",
+      "primaryHint": "La couleur de votre entreprise sur les documents, p. ex. derrière le signe du logo.",
+      "secondary": "Couleur secondaire (facultative)",
+      "secondaryHint": "Une deuxième couleur pour les accents. Laissez vide si votre entreprise n’en a pas.",
+      "explanation": "Le texte des documents a besoin d’un contraste suffisant pour être lisible : au moins 4.5 : 1 selon le WCAG AA. Une couleur primaire claire – du jaune, par exemple – rend illisible le texte blanc posé dessus sur chaque document.",
+      "pairs": {
+        "primary_on_white": "Couleur primaire et blanc",
+        "secondary_on_white": "Couleur secondaire et blanc",
+        "secondary_on_primary": "Couleur secondaire et couleur primaire"
+      },
+      "ratio": "{{ratio}} : 1",
+      "passes": "AA atteint",
+      "fails": "Contraste insuffisant",
+      "savedWithWarning": "Enregistré. Au moins une combinaison de couleurs n’atteint pas 4.5 : 1 – le texte posé dessus est difficile à lire sur les documents.",
+      "invalid": "Une couleur s’écrit #RRGGBB, p. ex. #7C3AED.",
+      "failed": "Les couleurs n’ont pas pu être enregistrées."
+    },
+    "placements": {
+      "title": "Où le logo apparaît",
+      "documentHeader": "En-tête des documents",
+      "priceTag": "Étiquette de prix",
+      "listing": "Annonces",
+      "emailSignature": "Signature e-mail",
+      "appHeader": "En-tête de l’application",
+      "failed": "Les réglages n’ont pas pu être enregistrés."
+    },
+    "preview": {
+      "title": "Aperçu de l’en-tête",
+      "loading": "L’aperçu est en cours de création …",
+      "error": "L’aperçu n’a pas pu être créé.",
+      "note": "État enregistré, dans la langue de correspondance de l’entreprise."
     }
   }
 }

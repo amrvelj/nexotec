@@ -25,7 +25,8 @@
       "accountRecovery": "Account recovery",
       "business": "Business",
       "translations": "Translations",
-      "locations": "Locations"
+      "locations": "Locations",
+      "branding": "Logo and colours"
     },
     "signOut": "Sign out",
     "environmentNotice": {
@@ -261,7 +262,15 @@
       "location_validity_inverted": "'Valid to' lies before 'Valid from'.",
       "unknown_bank_account": "This bank account does not belong to this business.",
       "unknown_holiday_calendar": "This holiday calendar does not exist.",
-      "year_out_of_range": "This year lies outside the calendar."
+      "year_out_of_range": "This year lies outside the calendar.",
+      "logo_format_jpeg": "JPEG is not accepted for a logo: it has no transparency, so it prints with a grey box behind it on every document. Upload an SVG (preferred) or a PNG.",
+      "logo_format_unsupported": "A logo must be an SVG (preferred) or a PNG file.",
+      "logo_too_small": "This PNG is {{width, number}} × {{height, number}} px. A logo printed 50 mm wide needs roughly {{min, number}} px on its long edge to stay sharp at 300 dpi — upload a larger PNG, or an SVG, which is sharp at any size.",
+      "logo_dimensions_too_large": "The image is larger than {{max, number}} px on its long edge — more than any document needs.",
+      "logo_file_too_large": "The logo file is too large — at most 5 MB.",
+      "logo_png_damaged": "The PNG file is damaged and cannot be read.",
+      "logo_svg_invalid": "The SVG file is not a well-formed SVG document.",
+      "logo_svg_entities": "The SVG declares XML entities, which can be used to attack the systems that read it. Export the logo again without a DTD."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -3069,6 +3078,67 @@
       "letterheadHint": "Empty: the business's address block. Replaces only the address block of the shared template, never the template.",
       "bankAccount": "Bank account",
       "bankAccountInherit": "As the business (invoice account)"
+    }
+  },
+  "branding": {
+    "title": "Logo and colours",
+    "subtitle": "Your business’s logo and colours — on every document, on price tags and in listings. The preview shows the letterhead as it prints.",
+    "loadError": "The logo and colours could not be loaded.",
+    "logo": {
+      "title": "Logo",
+      "formatHint": "SVG preferred, PNG at least 600 px on the long edge. JPEG is not accepted: it has no transparency and prints with a grey box.",
+      "kinds": {
+        "primary": "Primary logo",
+        "mono_dark": "Single-colour dark",
+        "favicon": "Favicon"
+      },
+      "kindHints": {
+        "primary": "Required. The other variants use it until they have a file of their own.",
+        "mono_dark": "For a colour letterhead on white paper. Without a file of its own, the primary logo is used.",
+        "favicon": "The small icon in the website’s browser tab. Without a file of its own, the primary logo is used."
+      },
+      "choose": "Choose file",
+      "upload": "Upload",
+      "remove": "Remove",
+      "none": "No logo yet",
+      "usesPrimary": "Uses the primary logo",
+      "svgFile": "SVG · sharp at any size",
+      "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+      "failed": "The logo could not be saved."
+    },
+    "colours": {
+      "title": "Colours",
+      "primary": "Primary colour",
+      "primaryHint": "Your business’s colour on documents, e.g. behind the logo mark.",
+      "secondary": "Secondary colour (optional)",
+      "secondaryHint": "A second colour for accents. Leave it empty if your business has none.",
+      "explanation": "Text on documents needs enough contrast to be readable: at least 4.5 : 1 under WCAG AA. A light primary colour — yellow, say — makes white text on it unreadable on every document.",
+      "pairs": {
+        "primary_on_white": "Primary colour and white",
+        "secondary_on_white": "Secondary colour and white",
+        "secondary_on_primary": "Secondary and primary colour"
+      },
+      "ratio": "{{ratio}} : 1",
+      "passes": "Meets AA",
+      "fails": "Not enough contrast",
+      "savedWithWarning": "Saved. At least one colour pair falls short of 4.5 : 1 — text on it is hard to read on documents.",
+      "invalid": "A colour is written #RRGGBB, e.g. #7C3AED.",
+      "failed": "The colours could not be saved."
+    },
+    "placements": {
+      "title": "Where the logo appears",
+      "documentHeader": "Document letterhead",
+      "priceTag": "Price tag",
+      "listing": "Listings",
+      "emailSignature": "E-mail signature",
+      "appHeader": "Application header",
+      "failed": "The settings could not be saved."
+    },
+    "preview": {
+      "title": "Letterhead preview",
+      "loading": "Creating the preview …",
+      "error": "The preview could not be created.",
+      "note": "The saved state, in the business’s correspondence language."
     }
   }
 }

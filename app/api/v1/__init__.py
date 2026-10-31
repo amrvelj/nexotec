@@ -18,6 +18,7 @@ from app.inventory.api.reservations import router as inventory_reservations_rout
 from app.inventory.api.stock_items import router as stock_items_router
 from app.platform.api.auth import account_router as auth_account_router
 from app.platform.api.auth import router as auth_router
+from app.platform.api.branding import router as branding_router
 from app.platform.api.dealer_groups import router as dealer_groups_router
 from app.platform.api.dealerships import router as dealerships_router
 from app.platform.api.document_template import router as document_template_router
@@ -48,6 +49,7 @@ api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(dealerships_router)
 api_v1_router.include_router(locations_router)
+api_v1_router.include_router(branding_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)

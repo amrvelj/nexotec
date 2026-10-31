@@ -25,7 +25,8 @@
       "accountRecovery": "Kontowiederherstellung",
       "business": "Betrieb",
       "translations": "Übersetzungen",
-      "locations": "Standorte"
+      "locations": "Standorte",
+      "branding": "Logo und Farben"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -261,7 +262,15 @@
       "location_validity_inverted": "«Gültig bis» liegt vor «Gültig ab».",
       "unknown_bank_account": "Diese Bankverbindung gehört nicht zu diesem Betrieb.",
       "unknown_holiday_calendar": "Diesen Feiertagskalender gibt es nicht.",
-      "year_out_of_range": "Dieses Jahr liegt ausserhalb des Kalenders."
+      "year_out_of_range": "Dieses Jahr liegt ausserhalb des Kalenders.",
+      "logo_format_jpeg": "JPEG wird für ein Logo nicht angenommen: Es hat keine Transparenz und wird auf jedem Dokument mit einem grauen Kasten dahinter gedruckt. Laden Sie ein SVG (bevorzugt) oder ein PNG hoch.",
+      "logo_format_unsupported": "Ein Logo muss eine SVG- (bevorzugt) oder eine PNG-Datei sein.",
+      "logo_too_small": "Dieses PNG ist {{width, number}} × {{height, number}} px gross. Ein Logo, das 50 mm breit gedruckt wird, braucht an der langen Seite rund {{min, number}} px, damit es bei 300 dpi scharf bleibt. Laden Sie ein grösseres PNG hoch – oder ein SVG, das in jeder Grösse scharf ist.",
+      "logo_dimensions_too_large": "Das Bild ist an der langen Seite grösser als {{max, number}} px – mehr, als ein Dokument je braucht.",
+      "logo_file_too_large": "Die Logodatei ist zu gross – höchstens 5 MB.",
+      "logo_png_damaged": "Die PNG-Datei ist beschädigt und kann nicht gelesen werden.",
+      "logo_svg_invalid": "Die SVG-Datei ist kein gültiges SVG-Dokument.",
+      "logo_svg_entities": "Die SVG-Datei deklariert XML-Entitäten, mit denen sich die Systeme angreifen lassen, die sie lesen. Exportieren Sie das Logo ohne DTD erneut."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -3069,6 +3078,67 @@
       "letterheadHint": "Leer: der Adressblock des Betriebs. Ersetzt nur den Adressblock der gemeinsamen Vorlage, nie die Vorlage.",
       "bankAccount": "Bankverbindung",
       "bankAccountInherit": "Wie der Betrieb (Rechnungskonto)"
+    }
+  },
+  "branding": {
+    "title": "Logo und Farben",
+    "subtitle": "Das Logo und die Farben Ihres Betriebs – auf jedem Dokument, auf Preisschildern und in Inseraten. Die Vorschau zeigt den Briefkopf so, wie er gedruckt wird.",
+    "loadError": "Logo und Farben konnten nicht geladen werden.",
+    "logo": {
+      "title": "Logo",
+      "formatHint": "SVG bevorzugt, PNG mit mindestens 600 px an der langen Seite. JPEG wird nicht angenommen: Es hat keine Transparenz und druckt mit einem grauen Kasten.",
+      "kinds": {
+        "primary": "Hauptlogo",
+        "mono_dark": "Einfarbig dunkel",
+        "favicon": "Favicon"
+      },
+      "kindHints": {
+        "primary": "Pflicht. Die anderen Varianten verwenden es, solange sie keine eigene Datei haben.",
+        "mono_dark": "Für einen farbigen Briefkopf auf weissem Papier. Ohne eigene Datei wird das Hauptlogo verwendet.",
+        "favicon": "Das kleine Symbol im Browser-Tab der Website. Ohne eigene Datei wird das Hauptlogo verwendet."
+      },
+      "choose": "Datei wählen",
+      "upload": "Hochladen",
+      "remove": "Entfernen",
+      "none": "Noch kein Logo",
+      "usesPrimary": "Verwendet das Hauptlogo",
+      "svgFile": "SVG · in jeder Grösse scharf",
+      "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+      "failed": "Das Logo konnte nicht gespeichert werden."
+    },
+    "colours": {
+      "title": "Farben",
+      "primary": "Primärfarbe",
+      "primaryHint": "Die Farbe Ihres Betriebs auf Dokumenten, z. B. hinter dem Logo-Zeichen.",
+      "secondary": "Sekundärfarbe (optional)",
+      "secondaryHint": "Eine zweite Farbe für Akzente. Leer lassen, wenn Ihr Betrieb keine hat.",
+      "explanation": "Text auf Dokumenten braucht genug Kontrast, um lesbar zu sein: mindestens 4.5 : 1 nach WCAG AA. Eine helle Primärfarbe – etwa Gelb – macht weisse Schrift darauf auf jedem Dokument unleserlich.",
+      "pairs": {
+        "primary_on_white": "Primärfarbe und Weiss",
+        "secondary_on_white": "Sekundärfarbe und Weiss",
+        "secondary_on_primary": "Sekundärfarbe und Primärfarbe"
+      },
+      "ratio": "{{ratio}} : 1",
+      "passes": "AA erfüllt",
+      "fails": "Zu wenig Kontrast",
+      "savedWithWarning": "Gespeichert. Mindestens eine Farbkombination erreicht 4.5 : 1 nicht – Text darauf ist auf Dokumenten schwer lesbar.",
+      "invalid": "Eine Farbe wird als #RRGGBB geschrieben, z. B. #7C3AED.",
+      "failed": "Die Farben konnten nicht gespeichert werden."
+    },
+    "placements": {
+      "title": "Wo das Logo erscheint",
+      "documentHeader": "Briefkopf der Dokumente",
+      "priceTag": "Preisschild",
+      "listing": "Inserate",
+      "emailSignature": "E-Mail-Signatur",
+      "appHeader": "Kopfzeile der Anwendung",
+      "failed": "Die Einstellungen konnten nicht gespeichert werden."
+    },
+    "preview": {
+      "title": "Vorschau des Briefkopfs",
+      "loading": "Die Vorschau wird erstellt …",
+      "error": "Die Vorschau konnte nicht erstellt werden.",
+      "note": "Gespeicherter Stand, in der Korrespondenzsprache des Betriebs."
     }
   }
 }

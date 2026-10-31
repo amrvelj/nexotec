@@ -30,6 +30,7 @@ const UsersListPage = lazyPage(() => import('./pages/UsersListPage'), 'UsersList
 const BusinessPage = lazyPage(() => import('./pages/BusinessPage'), 'BusinessPage')
 const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'LocationsListPage')
 const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
+const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPage')
 const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
@@ -95,6 +96,7 @@ export default function App() {
               <Route path="/administration/business" element={<BusinessPage />} />
               <Route path="/administration/locations" element={<LocationsListPage />} />
               <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
+              <Route path="/administration/branding" element={<BrandingPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
               {/* KAN-209 — Platform Administration › Translations (D-A-23). */}
               <Route path="/platform/translations" element={<TranslationsPage />} />
