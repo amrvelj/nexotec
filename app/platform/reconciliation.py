@@ -24,6 +24,7 @@ from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text_delegation import StandardTextDelegation
+from app.platform.models.ui_translation import UiTranslation
 from app.platform.models.user import User
 from app.platform.services.actor_reference import actor_reference_checks
 
@@ -52,6 +53,7 @@ ACTOR_TABLES = (
     UserConnectedAccount,  # created_by / updated_by / revoked_by (KAN-201)
     DealershipBankAccount,  # created_by / updated_by (KAN-203)
     DealershipSettings,  # created_by / updated_by (KAN-203)
+    UiTranslation,  # created_by / updated_by: the platform admin who published (KAN-209)
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]

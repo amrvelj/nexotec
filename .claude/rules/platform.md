@@ -26,6 +26,10 @@ paths:
   - "frontend/apps/dms/src/layout/navEntitlements.ts"
   - "frontend/apps/dms/src/**/ProtectedRoute*"
   - "frontend/apps/dms/src/**/ReferenceDataPage*"
+  - "frontend/apps/dms/src/**/TranslationsPage*"
+  - "frontend/apps/dms/src/components/translations/**"
+  - "frontend/apps/dms/src/i18n/runtimeTranslations*"
+  - "scripts/import_ui_translation_bundles.py"
   - "frontend/apps/dms/src/**/*ogin*"
   - "frontend/apps/dms/src/layout/DmsShell.tsx"
   - "tests/architecture/test_no_ambient_group_read.py"
@@ -239,8 +243,26 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `require_write_or_delegated("standard_texts")` in `app/core/permissions.py`, which asks the
   checker platform registers (`app/platform/services/text_delegation.py`) for the route's
   `{category}` — proven on a probe route; no standard-text endpoint exists yet. The seed
-  library and the UI strings (`ui_translation`, served at runtime, not built) are edited by
-  `platform_admin` through the UI (D-A-23). Dealers never override UI strings.
+  library and the UI strings are edited by `platform_admin` through the UI (D-A-23). Dealers
+  never override UI strings — no endpoint exists for it.
+- **UI strings at runtime — built (KAN-209, FR-A-30…32):** `ui_translation` (namespace = a
+  bundle's top-level object, key = the dotted path below it, language, `value`, `seed_value`,
+  `source` `bundle_seed`/`platform`, version), `ui_translation_revision` (one global version)
+  and `missing_translation` (`app/platform/models/ui_translation.py`, the service
+  `services/ui_translation.py` is their one writer). `scripts/import_ui_translation_bundles.py`
+  (dry run by default, `--commit`, re-runnable) seeds `bundle_seed` rows from the bundles —
+  a script, not a migration: the bundles live in the frontend tree. **Only `platform` values
+  are served:** `GET /v1/i18n/{language}` (unauthenticated — the sign-in page needs it; the SPA
+  asks without credentials) returns them with `ETag` = the global revision and
+  `Cache-Control: public, no-cache` (a 304 while nothing was published); a seed row is never
+  served, so a later bundle change is never shadowed by its seeded copy. Panel API under
+  `/v1/platform/ui-translations` (read: any role; `PUT …/{namespace}/{key}/{language}` and
+  `POST …/revert`: `require_write("ui_translations")`, If-Match, audited
+  `ui_translation_published`/`_reverted`, tenant null; a value must keep the seed's
+  placeholders, 422 `ui_translation_placeholders_changed`). `POST /v1/i18n/missing-translations`
+  (a session, ≤ 50 keys, the log capped at 5000 rows). The screen is `/platform/translations`
+  (Administration › Translations); its sources are `components/translations/translationSources.ts`
+  — the standard-text seeds (KAN-208) and `ai_prompt` seeds join there.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. Frozen at activation (A-RULE-3).
 - **Activation gate (D-A-21):** a Betrieb is `pending_onboarding` until every applicable

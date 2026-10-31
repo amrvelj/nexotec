@@ -40,6 +40,7 @@ from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text_delegation import StandardTextDelegation
+from app.platform.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
 from app.platform.models.user import User
 from app.platform.models.user_location import UserLocation
 from app.platform.models.user_preference import UserPreference
@@ -119,6 +120,7 @@ __all__ = [
     "MfaPasskey",
     "MfaRecoveryCode",
     "MfaTotp",
+    "MissingTranslation",
     "ModelGroup",
     "ModelVariant",
     "ModelVariantEnergyRating",
@@ -150,6 +152,8 @@ __all__ = [
     "Transaction",
     "TypeApproval",
     "TyreSpecCache",
+    "UiTranslation",
+    "UiTranslationRevision",
     "User",
     "UserConnectedAccount",
     "UserLocation",
