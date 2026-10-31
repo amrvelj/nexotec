@@ -844,6 +844,9 @@
       "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
+    },
+    "rowActions": {
+      "open": "Öffnen"
     }
   },
   "vehicleCreate": {

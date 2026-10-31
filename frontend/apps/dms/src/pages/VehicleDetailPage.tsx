@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Badge, Loader } from '@mantine/core'
 import { Car } from 'lucide-react'
@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { buildVehicleRowMenu } from '../components/vehicleRowMenu'
+import { buildVehicleRowMenu, readVehicleOpenAction, type VehicleOpenAction } from '../components/vehicleRowMenu'
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
 import { isPlateReadLimitError } from '../components/vehicle-detail/plateReadLimit'
@@ -195,19 +195,43 @@ export function VehicleDetailPage() {
     [t, platesQuery.data, odometerQuery.data, accessoriesQuery.data],
   )
 
+  const startAllocating = () => {
+    setActiveTab('identity')
+    setAllocating(true)
+  }
+  const startRecordingOdometer = () => {
+    setActiveTab('odometer')
+    setFormToFocus('odometer')
+  }
+  const startRecordingAccessory = () => {
+    setActiveTab('accessories')
+    setFormToFocus('accessories')
+  }
+  const startAction: Record<VehicleOpenAction, () => void> = {
+    allocate: startAllocating,
+    recordOdometer: startRecordingOdometer,
+    recordAccessory: startRecordingAccessory,
+  }
+
+  // KAN-503 — the Vehicles list's row menu opens the car at the action
+  // picked there (router state, never the URL). It runs once the vehicle has
+  // loaded, exactly as the header's would. The tab change it makes is a
+  // navigation without state, which drops the action: a reload, Back or
+  // Forward never runs it again.
+  const location = useLocation()
+  const openAction = readVehicleOpenAction(location.state)
+  const vehicleLoaded = Boolean(vehicleQuery.data)
+  useEffect(() => {
+    if (openAction && vehicleLoaded) startAction[openAction]()
+    // startAction is recreated on every render; the action runs once per
+    // navigation that carries it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAction, vehicleLoaded])
+
   const rowMenu = buildVehicleRowMenu(t, {
-    onAllocate: () => {
-      setActiveTab('identity')
-      setAllocating(true)
-    },
-    onRecordOdometer: () => {
-      setActiveTab('odometer')
-      setFormToFocus('odometer')
-    },
-    onRecordAccessory: () => {
-      setActiveTab('accessories')
-      setFormToFocus('accessories')
-    },
+    onAllocate: startAllocating,
+    onRecordOdometer: startRecordingOdometer,
+    onRecordAccessory: startRecordingAccessory,
     onCopyVin: () => void navigator.clipboard.writeText(vehicle?.vin ?? ''),
     onRequestValuation: salesEntitled && id ? () => navigate(`/valuations/new?vehicle=${id}`) : undefined,
   })

@@ -1,12 +1,32 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend, status } from '../../test/fakeBackend'
+import { installFakeBackend, status, unansweredFakeRequests } from '../../test/fakeBackend'
 import type { EquipmentRead } from '../../api/types'
 import { PublishingTab } from './PublishingTab'
+
+// KAN-506 — every request a test starts is answered while its screen is
+// still there. Two tests here end with a listing-text save at the server
+// (the last one, and the slow third save of "an earlier save landing");
+// when the file's last test did, the save settled after vitest had torn
+// jsdom down, the save queue's state update read `window`, and the whole
+// run exited 1 with every test green (1 run in 3). So each test waits for
+// its saves, then unmounts — a draft still waiting is saved then — and
+// waits for that save too, before the shared cleanup runs.
+const answered = async () => {
+  await waitFor(() => expect(unansweredFakeRequests()).toEqual([]))
+  // The client and the save queue finish on the answer's own promise
+  // chain; one task later they are done.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+}
+afterEach(async () => {
+  await answered()
+  cleanup()
+  await answered()
+})
 
 // KAN-152 item 3 — the equipment card reads the generated EquipmentRead
 // (the endpoint now declares its response_model), never a hand-written

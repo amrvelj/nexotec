@@ -24,6 +24,27 @@ export interface VehicleRowMenuHandlers {
   onRequestValuation?: () => void
 }
 
+/**
+ * KAN-503 — the row-menu actions that need Vehicle 360's own state (the
+ * Identity tab's customer picker, the odometer and accessory forms). The
+ * Vehicles list opens the vehicle with one of these in the router state
+ * (`vehicleOpenState`); the detail screen runs the same handler as its
+ * header, then drops the state, so a reload or Back never repeats it.
+ */
+export type VehicleOpenAction = 'allocate' | 'recordOdometer' | 'recordAccessory'
+
+const OPEN_ACTIONS: readonly VehicleOpenAction[] = ['allocate', 'recordOdometer', 'recordAccessory']
+
+export function vehicleOpenState(action: VehicleOpenAction): { vehicleOpenAction: VehicleOpenAction } {
+  return { vehicleOpenAction: action }
+}
+
+/** The action a navigation asked for, or null for any other state. */
+export function readVehicleOpenAction(state: unknown): VehicleOpenAction | null {
+  const action = (state as { vehicleOpenAction?: unknown } | null)?.vehicleOpenAction
+  return OPEN_ACTIONS.find((known) => known === action) ?? null
+}
+
 export interface VehicleRowMenu {
   primary: DetailHeaderAction
   alternative?: DetailHeaderAction
