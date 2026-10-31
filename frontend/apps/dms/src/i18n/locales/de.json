@@ -23,7 +23,8 @@
       "catalogue": "Katalog",
       "users": "Benutzer",
       "accountRecovery": "Kontowiederherstellung",
-      "business": "Betrieb"
+      "business": "Betrieb",
+      "translations": "Übersetzungen"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -242,7 +243,9 @@
       "photo_too_large": "Das Foto ist zu gross – höchstens 5 MB.",
       "configuration_already_linked": "Diesem Fahrzeug ist bereits eine Konfiguration zugeordnet. Bitte die Seite neu laden.",
       "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug.",
-      "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration."
+      "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration.",
+      "ui_translation_blank": "Ein UI-Text darf nicht leer sein.",
+      "ui_translation_placeholders_changed": "Der Text muss die Platzhalter des ausgelieferten Textes behalten."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -2843,6 +2846,76 @@
       "title": "Keine Marke gefunden",
       "description": "Keine Marke passt zur Suche.",
       "action": "Suche zurücksetzen"
+    }
+  },
+  "translations": {
+    "title": "Übersetzungen",
+    "subtitle": "Texte der Benutzeroberfläche in vier Sprachen, zur Laufzeit ausgeliefert. Eine Veröffentlichung gilt sofort für alle Betriebe; Betriebe können UI-Texte nicht ändern.",
+    "badge": "Plattform",
+    "sourcesLabel": "Quelle",
+    "sources": {
+      "ui": "UI-Texte"
+    },
+    "search": {
+      "label": "Suchen",
+      "placeholder": "Schlüssel oder Text"
+    },
+    "namespace": {
+      "label": "Bereich",
+      "all": "Alle Bereiche"
+    },
+    "editedOnly": "Nur bearbeitete",
+    "count_one": "{{count, number}} Schlüssel",
+    "count_other": "{{count, number}} Schlüssel",
+    "countEstimate": "Mehr als {{count, number}} Schlüssel",
+    "columns": {
+      "key": "Schlüssel",
+      "actions": "Aktionen"
+    },
+    "languages": {
+      "de": "Deutsch",
+      "fr": "Französisch",
+      "it": "Italienisch",
+      "en": "Englisch"
+    },
+    "status": {
+      "seed": "Ausgeliefert",
+      "platform": "Bearbeitet",
+      "absent": "Nicht ausgeliefert"
+    },
+    "open": "Bearbeiten",
+    "view": "Ansehen",
+    "empty": "Keine Schlüssel gefunden.",
+    "noSeed": "Es sind noch keine UI-Texte importiert. Der Import läuft mit scripts/import_ui_translation_bundles.py --commit.",
+    "loadError": "Die Übersetzungen konnten nicht geladen werden.",
+    "loadMore": "Weitere laden",
+    "editor": {
+      "keyLabel": "Schlüssel",
+      "seedLabel": "Ausgeliefert",
+      "sameAsSeed": "Entspricht dem ausgelieferten Text.",
+      "diffLabel": "Abweichung vom ausgelieferten Text",
+      "removed": "entfernt",
+      "added": "neu",
+      "placeholdersHint": "Platzhalter wie {{example}} müssen erhalten bleiben.",
+      "publish": "Veröffentlichen",
+      "discard": "Änderungen verwerfen",
+      "close": "Schliessen",
+      "revert": "Ausgelieferten Text wiederherstellen",
+      "published": "Veröffentlicht. Die Änderung erscheint bei jedem Benutzer beim nächsten Laden der Texte.",
+      "readOnly": "Nur Plattformadministratoren von Nexotec können UI-Texte ändern.",
+      "noRow": "In dieser Sprache nicht ausgeliefert.",
+      "nothingChanged": "Keine Änderung zum Veröffentlichen."
+    },
+    "missing": {
+      "title": "Gemeldete fehlende Schlüssel",
+      "subtitle": "Schlüssel, die ein Browser weder hier noch in den ausgelieferten Texten fand und als Warnmarke anzeigte.",
+      "empty": "Keine fehlenden Schlüssel gemeldet.",
+      "columns": {
+        "key": "Schlüssel",
+        "language": "Sprache",
+        "count": "Meldungen",
+        "last": "Zuletzt gemeldet"
+      }
     }
   }
 }

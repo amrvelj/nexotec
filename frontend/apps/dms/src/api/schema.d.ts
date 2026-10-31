@@ -1535,6 +1535,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/i18n/missing-translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report Missing Translations */
+        post: operations["report_missing_translations_v1_i18n_missing_translations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/i18n/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ui Translation Map */
+        get: operations["get_ui_translation_map_v1_i18n__language__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/integrations/call-payloads/{payload_id}": {
         parameters: {
             query?: never;
@@ -2258,6 +2292,91 @@ export interface paths {
          *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ui Translations */
+        get: operations["list_ui_translations_v1_platform_ui_translations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Missing Translations */
+        get: operations["list_missing_translations_v1_platform_ui_translations_missing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/namespaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ui Translation Namespaces */
+        get: operations["list_ui_translation_namespaces_v1_platform_ui_translations_namespaces_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/{namespace}/{key}/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Publish Ui Translation */
+        put: operations["publish_ui_translation_v1_platform_ui_translations__namespace___key___language__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/{namespace}/{key}/{language}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Ui Translation */
+        post: operations["revert_ui_translation_v1_platform_ui_translations__namespace___key___language__revert_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6857,6 +6976,43 @@ export interface components {
             /** Code */
             code: string;
         };
+        /** MissingTranslationPage */
+        MissingTranslationPage: {
+            /** Items */
+            items: components["schemas"]["MissingTranslationRead"][];
+        };
+        /** MissingTranslationRead */
+        MissingTranslationRead: {
+            /**
+             * Firstreportedat
+             * Format: date-time
+             */
+            firstReportedAt: string;
+            /** Key */
+            key: string;
+            language: components["schemas"]["SwissLanguage"];
+            /**
+             * Lastreportedat
+             * Format: date-time
+             */
+            lastReportedAt: string;
+            /** Reportcount */
+            reportCount: number;
+        };
+        /**
+         * MissingTranslationReport
+         * @description Keys the browser rendered as the loud marker in `language`.
+         */
+        MissingTranslationReport: {
+            /** Keys */
+            keys: string[];
+            language: components["schemas"]["SwissLanguage"];
+        };
+        /** MissingTranslationReportResult */
+        MissingTranslationReportResult: {
+            /** Recorded */
+            recorded: number;
+        };
         /**
          * ModuleCode
          * @description The module entitlements a Betrieb can hold (D-A-04, D-A-10): what
@@ -8334,6 +8490,96 @@ export interface components {
          * @enum {string}
          */
         TransmissionStatus: "pending" | "transmitted" | "failed";
+        /** UiTranslationKeyPage */
+        UiTranslationKeyPage: {
+            /** Items */
+            items: components["schemas"]["UiTranslationKeyRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
+        };
+        /**
+         * UiTranslationKeyRead
+         * @description One key with its row per language — the panel's four columns. A
+         *     language the seed never had is null.
+         */
+        UiTranslationKeyRead: {
+            de?: components["schemas"]["UiTranslationRead"] | null;
+            en?: components["schemas"]["UiTranslationRead"] | null;
+            fr?: components["schemas"]["UiTranslationRead"] | null;
+            it?: components["schemas"]["UiTranslationRead"] | null;
+            /** Key */
+            key: string;
+            /** Namespace */
+            namespace: string;
+        };
+        /**
+         * UiTranslationMap
+         * @description `GET /v1/i18n/{language}`: what the platform has published for that
+         *     language, as `"<namespace>.<key>": value`. Every key absent here is the
+         *     shipped bundle's (FR-A-30).
+         */
+        UiTranslationMap: {
+            language: components["schemas"]["SwissLanguage"];
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+            /**
+             * Version
+             * @description The global UI-translation version this map was read at; the ETag carries it.
+             */
+            version: number;
+        };
+        /** UiTranslationNamespaces */
+        UiTranslationNamespaces: {
+            /** Items */
+            items: string[];
+        };
+        /**
+         * UiTranslationPublish
+         * @description The value a platform admin publishes for one key in one language.
+         */
+        UiTranslationPublish: {
+            /** Value */
+            value: string;
+        };
+        /** UiTranslationRead */
+        UiTranslationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Namespace */
+            namespace: string;
+            /** Seedvalue */
+            seedValue: string;
+            source: components["schemas"]["UiTranslationSource"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Value */
+            value: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * UiTranslationSource
+         * @description Where a row's live `value` comes from (FR-A-30).
+         * @enum {string}
+         */
+        UiTranslationSource: "bundle_seed" | "platform";
         /** UnpublishRequest */
         UnpublishRequest: {
             /** Confirm */
@@ -13732,6 +13978,85 @@ export interface operations {
             };
         };
     };
+    report_missing_translations_v1_i18n_missing_translations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MissingTranslationReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingTranslationReportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ui_translation_map_v1_i18n__language__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string | null;
+            };
+            path: {
+                language: components["schemas"]["SwissLanguage"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationMap"];
+                };
+            };
+            /** @description The map the caller holds (its If-None-Match) is current. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_call_payload_v1_integrations_call_payloads__payload_id__get: {
         parameters: {
             query: {
@@ -15863,6 +16188,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ui_translations_v1_platform_ui_translations_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                namespace?: string | null;
+                /** @description Only keys with a platform value in at least one language. */
+                edited?: boolean;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationKeyPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_missing_translations_v1_platform_ui_translations_missing_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingTranslationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ui_translation_namespaces_v1_platform_ui_translations_namespaces_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationNamespaces"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_ui_translation_v1_platform_ui_translations__namespace___key___language__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                language: components["schemas"]["SwissLanguage"];
+                namespace: string;
+                key: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiTranslationPublish"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_ui_translation_v1_platform_ui_translations__namespace___key___language__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                language: components["schemas"]["SwissLanguage"];
+                namespace: string;
+                key: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationRead"];
                 };
             };
             /** @description Validation Error */

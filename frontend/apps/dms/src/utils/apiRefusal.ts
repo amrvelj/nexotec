@@ -92,6 +92,8 @@ const REASON_KEYS: Record<string, string> = {
       'purchase_requires_vin',
       'purchase_vin_mismatch',
       'too_many_images',
+      'ui_translation_blank',
+      'ui_translation_placeholders_changed',
       'unknown_fields',
       'unrecognised_identifier',
       'use_deactivate_endpoint',

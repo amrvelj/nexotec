@@ -23,7 +23,8 @@
       "catalogue": "Catalogue",
       "users": "Utilisateurs",
       "accountRecovery": "Récupération de compte",
-      "business": "Entreprise"
+      "business": "Entreprise",
+      "translations": "Traductions"
     },
     "signOut": "Se déconnecter",
     "environmentNotice": {
@@ -242,7 +243,9 @@
       "photo_too_large": "La photo est trop grande — 5 Mo au plus.",
       "configuration_already_linked": "Une configuration est déjà attribuée à ce véhicule. Veuillez recharger la page.",
       "configuration_vin_differs": "Le VIN de la configuration n'est pas celui de ce véhicule. La configuration décrit un autre véhicule.",
-      "configuration_held_by_stock_item": "Cette configuration appartient déjà au véhicule {{stockNumber}} du stock. Chaque véhicule a sa propre configuration."
+      "configuration_held_by_stock_item": "Cette configuration appartient déjà au véhicule {{stockNumber}} du stock. Chaque véhicule a sa propre configuration.",
+      "ui_translation_blank": "Un texte de l'interface ne peut pas être vide.",
+      "ui_translation_placeholders_changed": "Le texte doit conserver les espaces réservés du texte livré."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -2843,6 +2846,76 @@
       "title": "Aucune marque trouvée",
       "description": "Aucune marque ne correspond à la recherche.",
       "action": "Effacer la recherche"
+    }
+  },
+  "translations": {
+    "title": "Traductions",
+    "subtitle": "Textes de l'interface en quatre langues, servis à l'exécution. Une publication s'applique immédiatement à toutes les entreprises ; les entreprises ne peuvent pas modifier les textes de l'interface.",
+    "badge": "Plateforme",
+    "sourcesLabel": "Source",
+    "sources": {
+      "ui": "Textes de l'interface"
+    },
+    "search": {
+      "label": "Rechercher",
+      "placeholder": "Clé ou texte"
+    },
+    "namespace": {
+      "label": "Domaine",
+      "all": "Tous les domaines"
+    },
+    "editedOnly": "Modifiés uniquement",
+    "count_one": "{{count, number}} clé",
+    "count_other": "{{count, number}} clés",
+    "countEstimate": "Plus de {{count, number}} clés",
+    "columns": {
+      "key": "Clé",
+      "actions": "Actions"
+    },
+    "languages": {
+      "de": "Allemand",
+      "fr": "Français",
+      "it": "Italien",
+      "en": "Anglais"
+    },
+    "status": {
+      "seed": "Livré",
+      "platform": "Modifié",
+      "absent": "Non livré"
+    },
+    "open": "Modifier",
+    "view": "Afficher",
+    "empty": "Aucune clé trouvée.",
+    "noSeed": "Aucun texte de l'interface n'a encore été importé. L'import se lance avec scripts/import_ui_translation_bundles.py --commit.",
+    "loadError": "Les traductions n'ont pas pu être chargées.",
+    "loadMore": "Charger plus",
+    "editor": {
+      "keyLabel": "Clé",
+      "seedLabel": "Livré",
+      "sameAsSeed": "Identique au texte livré.",
+      "diffLabel": "Écart par rapport au texte livré",
+      "removed": "supprimé",
+      "added": "nouveau",
+      "placeholdersHint": "Les espaces réservés comme {{example}} doivent être conservés.",
+      "publish": "Publier",
+      "discard": "Annuler les modifications",
+      "close": "Fermer",
+      "revert": "Rétablir le texte livré",
+      "published": "Publié. La modification apparaît chez chaque utilisateur au prochain chargement des textes.",
+      "readOnly": "Seuls les administrateurs de la plateforme Nexotec peuvent modifier les textes de l'interface.",
+      "noRow": "Non livré dans cette langue.",
+      "nothingChanged": "Aucune modification à publier."
+    },
+    "missing": {
+      "title": "Clés manquantes signalées",
+      "subtitle": "Clés qu'un navigateur n'a trouvées ni ici ni dans les textes livrés et qu'il a affichées comme marque d'avertissement.",
+      "empty": "Aucune clé manquante signalée.",
+      "columns": {
+        "key": "Clé",
+        "language": "Langue",
+        "count": "Signalements",
+        "last": "Dernier signalement"
+      }
     }
   }
 }

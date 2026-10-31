@@ -9,6 +9,7 @@ import {
   ChartColumn,
   Cog,
   Database,
+  Globe,
   Handshake,
   Languages,
   LayoutDashboard,
@@ -100,6 +101,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // Administration, like every other admin entry — A-RULE-7).
         { label: t('shell.nav.accountRecovery'), href: '/administration/account-recovery', icon: LifeBuoy, status: 'active' },
         { label: t('shell.nav.referenceData'), href: '/settings/reference', icon: Languages, status: 'active' },
+        // KAN-209 — Platform Administration › Translations (D-A-23). Platform staff
+        // write at the API; anyone reads. Never role-hidden (A-RULE-7).
+        { label: t('shell.nav.translations'), href: '/platform/translations', icon: Globe, status: 'active' },
       ],
     },
   ]

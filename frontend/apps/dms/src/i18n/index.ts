@@ -27,6 +27,23 @@ export const onDemandBundleLoaders: Partial<Record<SupportedLanguage, () => Prom
   it: () => import('./locales/it.json'),
 }
 
+/** KAN-209 — the seams the runtime UI strings (`runtimeTranslations.ts`) plug
+ * into; both stay unset unless `startRuntimeTranslations()` ran (main.tsx
+ * does; a test opts in), so a test that never asks for them sees the bundles
+ * alone and reaches no network.
+ *
+ * - `afterBundleRead` sees a language's bundle as fetched and returns what
+ *   i18next stores — the bundle with the platform's published values over it
+ *   — so a switch to that language shows the published text at once, never
+ *   the bundle text first. It never rejects: a runtime map that cannot be
+ *   fetched leaves the bundle as it is.
+ * - `onMissingKey` hears every key that resolved in neither the active
+ *   language nor the fallback, the moment it renders as the marker. */
+export const runtimeTranslationHooks: {
+  afterBundleRead?: (language: SupportedLanguage, bundle: ResourceKey) => Promise<ResourceKey>
+  onMissingKey?: (key: string, language: string) => void
+} = {}
+
 const onDemandBundles: BackendModule = {
   type: 'backend',
   init: () => {},
@@ -40,7 +57,14 @@ const onDemandBundles: BackendModule = {
     // `maxRetries` times, and a read that still fails leaves the language
     // unloaded, not failed, so the next switch to it fetches again.
     load().then(
-      (bundle) => callback(null, bundle.default),
+      (bundle) => {
+        const afterRead = runtimeTranslationHooks.afterBundleRead
+        if (!afterRead) {
+          callback(null, bundle.default)
+          return
+        }
+        void afterRead(language as SupportedLanguage, bundle.default).then((merged) => callback(null, merged))
+      },
       (error: unknown) => callback(error instanceof Error ? error : new Error(String(error)), true),
     )
   },
@@ -78,7 +102,15 @@ export const i18nReady: Promise<unknown> = i18next.use(onDemandBundles).use(init
   retryTimeout: 350,
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
-  parseMissingKeyHandler: (key) => `⚠ MISSING I18N KEY: ${key}`,
+  // KAN-209: a key in neither the platform's published values nor any
+  // bundle is reported (FR-A-30) — never rendered blank, never German.
+  parseMissingKeyHandler: (key) => {
+    runtimeTranslationHooks.onMissingKey?.(key, i18next.language)
+    return `⚠ MISSING I18N KEY: ${key}`
+  },
+  // KAN-209: published values can land after the first paint (a slow runtime
+  // map); `added` re-renders every translated component when they do.
+  react: { bindI18nStore: 'added' },
 })
 
 // KAN-160: i18next's built-in `number` formatter is Intl's own number format in the

@@ -12,5 +12,6 @@ export const GATED_CAPABILITIES = [
   'marketplace_publishing',
   'stock_acquisition',
   'stock_items',
+  'ui_translations',
 ] as const
 export type GatedCapability = (typeof GATED_CAPABILITIES)[number]
