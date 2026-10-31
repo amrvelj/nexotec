@@ -55,11 +55,20 @@ from app.platform.services.user import (
 # caller's values; an unresolvable token is a 422 carrying
 # PLACEHOLDER_UNRESOLVED (A-RULE-4).
 # KAN-216 (D-A-40, FR-A-47): notify / NotificationEventCode /
-# NotificationSubject are the staff-notification contract. A module raises a
-# notification with notify(db, NotificationEventCode.X, user_id=…, subject=…)
-# in its own transaction and registers its codes in the catalogue (the
-# declaration and a platform migration) in the same PR. An unknown code
-# raises UnknownNotificationEvent. Never an e-mail.
+# NotificationSubject are the staff-notification catalogue's entry point.
+# notify(db, …) writes platform's own tables (the inbox row and its outbox
+# row) in the session it is given, so today it is PLATFORM-INTERNAL: every
+# caller is platform's own security family. Called from another context it
+# would write platform's tables inside that context's transaction — the
+# shared transaction rule 12 / ADR-047 forbid. The first module to raise a
+# notification needs a decided design and an ADR first — e.g. its own outbox
+# event that platform consumes, or a call on a session of its own with a
+# compensating action — and that design classified in
+# tests/architecture/test_adr_047_no_shared_transaction.py, which refuses an
+# unclassified cross-context call to notify by name. Whatever the design, the
+# module registers its codes in the catalogue (the declaration and a platform
+# migration) in the same PR. An unknown code raises UnknownNotificationEvent.
+# Never an e-mail.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "Addressee",

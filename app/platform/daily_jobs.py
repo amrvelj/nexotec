@@ -183,14 +183,15 @@ def run_daily_notification_digest(db: Session) -> None:
 
 def run_daily_notification_purge(db: Session) -> None:
     """`platform.notifications.purge`: the inbox keeps 90 days (FR-A-50);
-    and — the belt to `auth_sessions.revoke*`, which delete them at once —
-    no push subscription outlives a revoked session (FR-A-49)."""
+    and no push subscription outlives its session (FR-A-49) — revoked ones
+    went with the revocation (`auth_sessions.revoke*`); this takes the
+    sessions that ran out, and any revoked one that slipped past."""
 
     purged = notifications.purge_expired(db)
-    orphaned = push_subscriptions.delete_for_revoked_sessions(db)
+    orphaned = push_subscriptions.delete_for_dead_sessions(db)
     db.commit()
     logger.info(
-        "platform.notifications.purge: %d notification(s) past 90 days, %d subscription(s) of revoked sessions",
+        "platform.notifications.purge: %d notification(s) past 90 days, %d subscription(s) of ended sessions",
         purged,
         orphaned,
         extra={"purged": purged, "orphanedSubscriptions": orphaned},

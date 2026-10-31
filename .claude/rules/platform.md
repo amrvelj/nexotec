@@ -465,16 +465,23 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `services/notification_catalogue.py`, `NotificationEventCode`; `tests/test_migrated_notification_catalogue.py`
   keeps the two equal), `user_notification_preference` (per family; no row = immediate, in-app
   and push; If-Match, version 0 for the first save), `notification` (the inbox, the record, 90 days)
-  and `push_subscription` (per session, keys `EncryptedString`). `platform.public.notify(db, code,
+  and `push_subscription` (per session, keys `EncryptedString` — whether those keys may be stored
+  is open with Anto, CLAUDE.md names the TOTP seed as the only secret). `platform.public.notify(db, code,
   user_id=…, subject=NotificationSubject(type, link, id))` runs in the caller's transaction and
   publishes `platform.notification.delivered`; an unknown code raises (`UnknownNotificationEvent`),
   every call site names a literal registered code (`tests/architecture/test_notify_call_sites_use_registered_codes.py`)
   and no notification module reaches the mailer (`test_notifications_never_reach_the_mail_port.py`).
-  A new module's events: the declaration **and** a platform migration inserting the rows, in the PR
-  that raises them. `security` is locked (immediate, in-app and push); `in_app` cannot be switched
+  **`notify` is platform-internal today** (every caller is the security family): from another
+  context it would write platform's tables inside that context's transaction, which rule 12 /
+  ADR-047 forbid. The first module to raise a notification needs a decided design and an ADR
+  before it calls — its own outbox event that platform consumes, or a call on a session of its
+  own with a compensating action — classified in `test_adr_047_no_shared_transaction.py`, which
+  refuses an unclassified cross-context `notify` by name (pinned by
+  `test_notify_call_sites_use_registered_codes.py`). Its events: the declaration **and** a
+  platform migration inserting the rows, in the PR that raises them. `security` is locked (immediate, in-app and push); `in_app` cannot be switched
   off while a family delivers (422 `in_app_is_the_record`); `digest` holds rows (`delivered_at`
   NULL) until the daily `platform.notifications.digest`; `platform.notifications.purge` drops rows
-  past 90 days and subscriptions of revoked sessions. The **security family hangs on
+  past 90 days and subscriptions whose session ran out. The **security family hangs on
   `auth_events.record`** (`services/security_alerts.py::on_auth_event`): new-device login
   (`details.newDevice`: the user agent matches none of the user's earlier sessions, and there was
   one), factor enrolled/removed, recovery code used, lockout, password reset or a replaced password
@@ -485,7 +492,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `UnconfiguredWebPushSender` — no VAPID key is configured (its home is `app/core/config.py`, a
   preserved file: a decision for Anto), so `GET /v1/me/push/config` says unavailable and nothing is
   pushed; the consumers `platform.web_push_on_notification` / `_on_digest` push title + link
-  only through it. A revoked session's subscription is deleted in `auth_sessions.revoke*`. API
+  only through it, and only to a **live** session's subscriptions (not revoked, not idle, not past
+  its absolute end); a revoked session's subscription is deleted in `auth_sessions.revoke*`. API
   (`api/notifications.py`): `GET /v1/me/notifications` (`unread`, cursor), `…/unread-count`,
   `PATCH …/{id}` (`read`), `POST …/read-all`, `GET/PUT /v1/me/notification-preferences[/{family}]`,
   `GET /v1/me/push/config`, `POST/DELETE /v1/me/push-subscriptions[/{id}]`. SPA: the sidebar's bell
@@ -589,7 +597,8 @@ header's logo is the primary branding asset, inlined from the object store while
   login; `enforce_live_session` is an **app-level dependency** in `app/main.py` that 401s a
   token whose row is revoked, idle (`session_idle_minutes`, 120) or past its absolute end
   (**next midnight Europe/Zurich** — Anto, 2026-10-17), and touches the row at most once a
-  minute. A token without `sid` (tests, bootstrap) is left to the route. Logout revokes the
+  minute — never for a request marked `X-DMS-Background` (the bell's unread-count poll, KAN-216),
+  which is checked but is not activity, so an unattended tab still idles out. A token without `sid` (tests, bootstrap) is left to the route. Logout revokes the
   row and is the one route the guard lets a dead session reach. A status change to suspended
   or deactivated, a change of roles, manager flag or membership (the claims live for the
   session's day), a password reset, an accepted invitation and platform staff's

@@ -140,9 +140,7 @@ def test_a_code_outside_the_catalogue_cannot_be_sent(client, db_session):
 
 def test_notify_writes_the_inbox_row_and_its_outbox_row_in_the_callers_transaction(client, db_session):
     anna = create_user(client, create_dealership(client))
-    row = notify(
-        db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT
-    )
+    row = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     assert row is not None and row.delivered_at is not None
     # Nothing commits on its own: a rolled-back action owes nobody a notification.
     db_session.rollback()
@@ -236,9 +234,7 @@ def test_the_inbox_pages_with_a_cursor(client, login, db_session):
 def test_the_purge_keeps_ninety_days(client, db_session):
     anna = create_user(client, create_dealership(client))
     old = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
-    recent = notify(
-        db_session, NotificationEventCode.PASSWORD_CHANGED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT
-    )
+    recent = notify(db_session, NotificationEventCode.PASSWORD_CHANGED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     old.created_at = old.created_at - dt.timedelta(days=91)
     recent.created_at = recent.created_at - dt.timedelta(days=89)
     db_session.commit()
@@ -290,7 +286,9 @@ def test_a_family_preference_is_saved_with_if_match(client, login):
     assert first.json()["timing"] == "digest" and first.json()["push"] is False and first.json()["version"] == 1
     stale = client.put(path, json={"timing": "off", "push": False}, headers={**cookie_headers(cookie), "If-Match": "0"})
     assert stale.status_code == 409, stale.text
-    second = client.put(path, json={"timing": "off", "push": False}, headers={**cookie_headers(cookie), "If-Match": "1"})
+    second = client.put(
+        path, json={"timing": "off", "push": False}, headers={**cookie_headers(cookie), "If-Match": "1"}
+    )
     assert second.status_code == 200 and second.json()["version"] == 2
     # The inbox is the record: in-app cannot be switched off.
     refused = client.put(
@@ -306,16 +304,22 @@ def test_off_writes_nothing_and_digest_holds_until_the_daily_job(client, login, 
     anna, cookie = _user_row(client, login)
     user_id = uuid.UUID(anna["id"])
     path = "/v1/me/notification-preferences/administration"
-    assert client.put(
-        path, json={"timing": "off", "push": True}, headers={**cookie_headers(cookie), "If-Match": "0"}
-    ).status_code == 200
+    assert (
+        client.put(
+            path, json={"timing": "off", "push": True}, headers={**cookie_headers(cookie), "If-Match": "0"}
+        ).status_code
+        == 200
+    )
     assert notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT) is None
     db_session.commit()
     assert _inbox(db_session, anna) == []
 
-    assert client.put(
-        path, json={"timing": "digest", "push": True}, headers={**cookie_headers(cookie), "If-Match": "1"}
-    ).status_code == 200
+    assert (
+        client.put(
+            path, json={"timing": "digest", "push": True}, headers={**cookie_headers(cookie), "If-Match": "1"}
+        ).status_code
+        == 200
+    )
     held = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT)
     # A security event in the same day is not held: it is not switchable.
     notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id, subject=_SUBJECT)
@@ -323,7 +327,10 @@ def test_off_writes_nothing_and_digest_holds_until_the_daily_job(client, login, 
     assert held is not None and held.delivered_at is None
     listed = client.get("/v1/me/notifications", headers=cookie_headers(cookie)).json()["items"]
     assert [i["eventCode"] for i in listed] == ["security.account_locked"]
-    assert client.patch(f"/v1/me/notifications/{held.id}", json={"read": True}, headers=cookie_headers(cookie)).status_code == 404
+    assert (
+        client.patch(f"/v1/me/notifications/{held.id}", json={"read": True}, headers=cookie_headers(cookie)).status_code
+        == 404
+    )
     assert _outbox(db_session, notifications.DELIVERED_EVENT)[0].payload["eventCode"] == "security.account_locked"
 
     from app.platform.daily_jobs import run_daily_notification_digest
@@ -485,11 +492,14 @@ def test_no_push_for_a_read_notification_a_family_without_push_or_no_sender(
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, read))
 
-    assert client.put(
-        "/v1/me/notification-preferences/administration",
-        json={"timing": "immediate", "push": False},
-        headers={**cookie_headers(cookie), "If-Match": "0"},
-    ).status_code == 200
+    assert (
+        client.put(
+            "/v1/me/notification-preferences/administration",
+            json={"timing": "immediate", "push": False},
+            headers={**cookie_headers(cookie), "If-Match": "0"},
+        ).status_code
+        == 200
+    )
     silent = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT)
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, silent))
@@ -516,11 +526,14 @@ def test_a_subscription_the_push_service_reports_gone_is_deleted(client, login, 
 def test_the_digest_pushes_one_pointer_to_the_inbox(client, login, db_session, sender, probe_event):
     anna, cookie = _user_row(client, login)
     _subscribe(client, cookie)
-    assert client.put(
-        "/v1/me/notification-preferences/administration",
-        json={"timing": "digest", "push": True},
-        headers={**cookie_headers(cookie), "If-Match": "0"},
-    ).status_code == 200
+    assert (
+        client.put(
+            "/v1/me/notification-preferences/administration",
+            json={"timing": "digest", "push": True},
+            headers={**cookie_headers(cookie), "If-Match": "0"},
+        ).status_code
+        == 200
+    )
     for _ in range(2):
         notify(db_session, probe_event, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     db_session.commit()
@@ -590,9 +603,7 @@ def test_enrolling_using_a_recovery_code_and_removing_a_factor_notify(client, lo
 
     step = client.post("/v1/auth/login", json={"email": anna["email"], "password": STRONG_PASSWORD})
     assert step.json()["mfaRequired"] is True, step.text
-    verified = client.post(
-        "/v1/auth/mfa/verify", json={"challengeId": step.json()["challengeId"], "code": codes[0]}
-    )
+    verified = client.post("/v1/auth/mfa/verify", json={"challengeId": step.json()["challengeId"], "code": codes[0]})
     assert verified.status_code == 200, verified.text
     assert "security.recovery_code_used" in _codes(db_session, anna)
     used = next(n for n in _inbox(db_session, anna) if n.event_code == "security.recovery_code_used")
@@ -621,7 +632,11 @@ def test_platform_recovery_notifies_the_action_and_the_sessions_ended_by_someone
 def test_ending_my_own_session_is_not_someone_elses_doing(client, login, db_session):
     anna, first = _user_row(client, login)
     second = login.session_cookie(anna)
-    sid = db_session.scalar(select(AuthSession.id).where(AuthSession.user_id == uuid.UUID(anna["id"])).order_by(AuthSession.created_at.desc()))
+    sid = db_session.scalar(
+        select(AuthSession.id)
+        .where(AuthSession.user_id == uuid.UUID(anna["id"]))
+        .order_by(AuthSession.created_at.desc())
+    )
     assert client.delete(f"/v1/auth/sessions/{sid}", headers=cookie_headers(first)).status_code == 204
     assert client.post("/v1/auth/logout", headers=cookie_headers(first)).status_code == 200
     assert "security.session_revoked_by_other" not in _codes(db_session, anna)
@@ -650,7 +665,12 @@ def test_a_connected_account_revoke_notifies(client, login, db_session):
         (AuthEventKind.PASSWORD_SET, {"replaced": True}, True, "security.password_changed"),
         (AuthEventKind.PASSWORD_SET, {"replaced": False}, True, None),
         (AuthEventKind.SESSION_REVOKED, {"count": 1, "reason": "logout"}, True, None),
-        (AuthEventKind.SESSION_REVOKED, {"count": 2, "reason": "suspended"}, False, "security.session_revoked_by_other"),
+        (
+            AuthEventKind.SESSION_REVOKED,
+            {"count": 2, "reason": "suspended"},
+            False,
+            "security.session_revoked_by_other",
+        ),
         (AuthEventKind.LOGIN_SUCCEEDED, {"amr": ["pwd"], "newDevice": False}, True, None),
         (AuthEventKind.LOGIN_FAILED, {"reason": "password"}, True, None),
         (AuthEventKind.EMAIL_CHANGED, {}, False, None),
@@ -680,18 +700,68 @@ def test_the_family_is_complete_for_every_platform_recovery_kind():
     }
 
 
-def test_subscriptions_of_revoked_sessions_are_purged_daily(client, login, db_session):
-    _, cookie = _user_row(client, login)
-    created = _subscribe(client, cookie)
-    session = db_session.get(AuthSession, uuid.UUID(created["sessionId"]))
-    # A session ended without going through auth_sessions (the belt's case).
+def _live_session(db_session, user: dict) -> AuthSession:
+    db_session.expire_all()
+    return db_session.scalars(
+        select(AuthSession)
+        .where(AuthSession.user_id == uuid.UUID(user["id"]), AuthSession.revoked_at.is_(None))
+        .order_by(AuthSession.created_at.desc())
+    ).first()
+
+
+def test_the_bells_poll_does_not_keep_a_session_alive(client, login, db_session):
+    """FR-AU-19: an unattended tab must reach its idle end. The bell polls
+    the unread count every minute; marked as a background request, the poll
+    is checked but does not extend the session — a normal request does."""
+
+    anna, cookie = _user_row(client, login)
+    row = _live_session(db_session, anna)
+    now = dt.datetime.now(dt.UTC)
+    row.last_seen_at = now - dt.timedelta(minutes=30)
+    row.idle_expires_at = now + dt.timedelta(minutes=5)
+    db_session.commit()
+    before = (row.last_seen_at, row.idle_expires_at)
+
+    poll = {**cookie_headers(cookie), "X-DMS-Background": "poll"}
+    assert client.get("/v1/me/notifications/unread-count", headers=poll).status_code == 200
+    row = _live_session(db_session, anna)
+    assert (row.last_seen_at, row.idle_expires_at) == before
+
+    assert client.get("/v1/me/notifications/unread-count", headers=cookie_headers(cookie)).status_code == 200
+    row = _live_session(db_session, anna)
+    assert row.idle_expires_at > now + dt.timedelta(minutes=100) or row.idle_expires_at == row.absolute_expires_at
+
+    # The poll is still judged: once the session idled out it is refused.
+    row.idle_expires_at = now - dt.timedelta(seconds=1)
+    db_session.commit()
+    assert client.get("/v1/me/notifications/unread-count", headers=poll).status_code == 401
+
+
+@pytest.mark.parametrize("ended", ["idle", "absolute", "revoked"])
+def test_a_session_that_ran_out_gets_no_push_and_loses_its_subscription_daily(client, login, db_session, sender, ended):
+    anna, first = _user_row(client, login)
+    second = login.session_cookie(anna)
+    gone = _subscribe(client, first, "https://push.example.test/send/ended")
+    kept = _subscribe(client, second, "https://push.example.test/send/live")
+    past = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=1)
+    column = {"idle": "idle_expires_at", "absolute": "absolute_expires_at", "revoked": "revoked_at"}[ended]
+    # Ended without passing auth_sessions (a revoke through it deletes the row at once).
     db_session.execute(
-        AuthSession.__table__.update().where(AuthSession.id == session.id).values(revoked_at=session.created_at)
+        AuthSession.__table__.update().where(AuthSession.id == uuid.UUID(gone["sessionId"])).values(**{column: past})
     )
     db_session.commit()
-    assert push_subscriptions.delete_for_revoked_sessions(db_session) == 1
+
+    row = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     db_session.commit()
-    assert db_session.scalar(select(func.count(PushSubscription.id))) == 0
+    consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, row))
+    assert [target.endpoint for target, _ in sender.sent] == ["https://push.example.test/send/live"]
+
+    from app.platform.daily_jobs import run_daily_notification_purge
+
+    run_daily_notification_purge(db_session)
+    db_session.expire_all()
+    assert [str(i) for i in db_session.scalars(select(PushSubscription.id)).all()] == [kept["id"]]
+    assert push_subscriptions.delete_for_dead_sessions(db_session) == 0
 
 
 def test_timing_enum_is_what_the_preference_offers():
