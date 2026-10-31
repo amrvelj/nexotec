@@ -22,6 +22,7 @@ from app.platform.api.dealer_groups import router as dealer_groups_router
 from app.platform.api.dealerships import router as dealerships_router
 from app.platform.api.document_template import router as document_template_router
 from app.platform.api.health import router as health_router
+from app.platform.api.locations import router as locations_router
 from app.platform.api.me import router as me_router
 from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.reference_data import router as reference_data_router
@@ -45,6 +46,7 @@ from app.vehicle.api.vehicles import router as vehicles_router
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(dealerships_router)
+api_v1_router.include_router(locations_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)

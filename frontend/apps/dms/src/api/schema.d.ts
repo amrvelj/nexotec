@@ -1142,11 +1142,92 @@ export interface paths {
         };
         /**
          * List Locations
-         * @description The Betrieb's sites, for the Users screen's location picker (FR-A-02).
-         *     Read-only here: the Locations screen (Phase 2) is where they are made.
+         * @description The Betrieb's sites, active and deactivated (the Users screen's picker
+         *     offers only the active ones to a new assignment).
          */
         get: operations["list_locations_v1_dealerships__dealership_id__locations_get"];
         put?: never;
+        /** Create Location */
+        post: operations["create_location_v1_dealerships__dealership_id__locations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Location */
+        get: operations["get_location_v1_dealerships__dealership_id__locations__location_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Location
+         * @description PATCH; `isActive: false` deactivates (never a delete), refused for the
+         *     last active location (409 `last_active_location`, FR-A-03).
+         */
+        patch: operations["update_location_v1_dealerships__dealership_id__locations__location_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/closures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Closures */
+        get: operations["list_closures_v1_dealerships__dealership_id__locations__location_id__closures_get"];
+        put?: never;
+        /** Create Closure */
+        post: operations["create_closure_v1_dealerships__dealership_id__locations__location_id__closures_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/closures/{closure_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Closure */
+        delete: operations["delete_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Closure */
+        patch: operations["update_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/opening-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Opening Hours */
+        get: operations["get_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_get"];
+        /**
+         * Set Opening Hours
+         * @description Replaces the week. If-Match is the location's version, which the PUT
+         *     bumps — the hours are part of the location.
+         */
+        put: operations["set_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1527,6 +1608,48 @@ export interface paths {
          *     endpoint must never cause.
          */
         get: operations["healthz_v1_healthz_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/holiday-calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Holiday Calendars
+         * @description Every canton's calendar (a canton whose holidays differ by region has
+         *     one per region), each with its holidays as rules. Reference data: the
+         *     same for every Betrieb.
+         */
+        get: operations["list_holiday_calendars_v1_holiday_calendars_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/holiday-calendars/{calendar_id}/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Holiday Dates
+         * @description The calendar's holidays in one year, in date order.
+         */
+        get: operations["list_holiday_dates_v1_holiday_calendars__calendar_id__dates_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4086,6 +4209,80 @@ export interface components {
          * @enum {string}
          */
         ChartOfAccountsVariant: "kmu" | "kaefer";
+        /**
+         * ClosureCreate
+         * @description A closure of the whole site (Betriebsferien, a one-off closed day),
+         *     both days inclusive.
+         */
+        ClosureCreate: {
+            /**
+             * Endson
+             * Format: date
+             */
+            endsOn: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Startson
+             * Format: date
+             */
+            startsOn: string;
+        };
+        /** ClosureList */
+        ClosureList: {
+            /** Items */
+            items: components["schemas"]["ClosureRead"][];
+        };
+        /** ClosureRead */
+        ClosureRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Endson
+             * Format: date
+             */
+            endsOn: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Startson
+             * Format: date
+             */
+            startsOn: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
+        };
+        /** ClosureUpdate */
+        ClosureUpdate: {
+            /** Endson */
+            endsOn?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Startson */
+            startsOn?: string | null;
+        };
         /** ConfigurationCreate */
         ConfigurationCreate: {
             /**
@@ -6295,6 +6492,105 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HolidayCalendarList */
+        HolidayCalendarList: {
+            /** Items */
+            items: components["schemas"]["HolidayCalendarRead"][];
+        };
+        /** HolidayCalendarRead */
+        HolidayCalendarRead: {
+            /** Canton */
+            canton: string;
+            /** Code */
+            code: string;
+            /** Holidays */
+            holidays: components["schemas"]["HolidayRead"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+            /** Source */
+            source: string;
+        };
+        /**
+         * HolidayCondition
+         * @enum {string}
+         */
+        HolidayCondition: "always" | "only_on_monday" | "not_on_tuesday_or_saturday";
+        /** HolidayDateList */
+        HolidayDateList: {
+            /**
+             * Calendarid
+             * Format: uuid
+             */
+            calendarId: string;
+            /** Items */
+            items: components["schemas"]["HolidayDateRead"][];
+            /** Year */
+            year: number;
+        };
+        /** HolidayDateRead */
+        HolidayDateRead: {
+            /** Afternoononly */
+            afternoonOnly: boolean;
+            /** Code */
+            code: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+        };
+        /**
+         * HolidayRead
+         * @description A holiday as its rule: `fixed_date` (month, day), `easter_offset`
+         *     (days from Easter Sunday) or a named rule. `condition` drops it in a year
+         *     the canton does not observe it; `afternoonOnly` is Solothurn's Labour Day.
+         */
+        HolidayRead: {
+            /** Afternoononly */
+            afternoonOnly: boolean;
+            /** Code */
+            code: string;
+            condition: components["schemas"]["HolidayCondition"];
+            /** Day */
+            day: number | null;
+            /** Easteroffsetdays */
+            easterOffsetDays: number | null;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+            /** Month */
+            month: number | null;
+            rule: components["schemas"]["HolidayRule"];
+        };
+        /**
+         * HolidayRule
+         * @enum {string}
+         */
+        HolidayRule: "fixed_date" | "easter_offset" | "naefelser_fahrt" | "jeune_genevois" | "federal_fast_monday";
         /**
          * IdentificationNote
          * @description Why the waterfall did what it did — rendered as a hint, never as an
@@ -6554,6 +6850,60 @@ export interface components {
             /** Zustandsbeschreibung */
             zustandsbeschreibung?: string | null;
         };
+        /**
+         * LocationCreate
+         * @description A new site. `code` is the dealer's short key, fixed once saved;
+         *     without `holidayCalendarId` the canton's own calendar is taken where the
+         *     canton has one (a canton whose holidays differ by region has none — the
+         *     dealer picks the region).
+         */
+        LocationCreate: {
+            /** Addresscanton */
+            addressCanton?: string | null;
+            /** Addresscountry */
+            addressCountry?: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber?: string | null;
+            /** Addresslocality */
+            addressLocality?: string | null;
+            /** Addresspostalcode */
+            addressPostalCode?: string | null;
+            /** Addressstreet */
+            addressStreet?: string | null;
+            /** Bankaccountoverrideid */
+            bankAccountOverrideId?: string | null;
+            /** Code */
+            code: string;
+            /** Contactperson */
+            contactPerson?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Geolat */
+            geoLat?: number | null;
+            /** Geolng */
+            geoLng?: number | null;
+            /** Holidaycalendarid */
+            holidayCalendarId?: string | null;
+            /** Leademail */
+            leadEmail?: string | null;
+            /** Letterheadaddressoverride */
+            letterheadAddressOverride?: string | null;
+            /** Locationtypes */
+            locationTypes?: components["schemas"]["LocationType"][];
+            /** Name */
+            name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /**
+         * LocationDepartment
+         * @enum {string}
+         */
+        LocationDepartment: "sales" | "service" | "parts";
         /** LocationList */
         LocationList: {
             /** Items */
@@ -6561,19 +6911,144 @@ export interface components {
         };
         /**
          * LocationRead
-         * @description A site of the Betrieb, for the Users screen's location picker
-         *     (KAN-200). The Locations screen itself is Phase 2.
+         * @description A site of the Betrieb. `bankAccountOverrideId` is filled only for the
+         *     roles that read banking (manager, finance, auditor, platform staff —
+         *     ADR-100); for anyone else it is null, as if no override existed.
+         *     `calendarRef` and `warehouseRef` are Aftersales' and Parts' to fill;
+         *     read-only here.
          */
         LocationRead: {
+            /** Addresscanton */
+            addressCanton: string | null;
+            /** Addresscountry */
+            addressCountry: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber: string | null;
             /** Addresslocality */
             addressLocality: string | null;
+            /** Addresspostalcode */
+            addressPostalCode: string | null;
+            /** Addressstreet */
+            addressStreet: string | null;
+            /** Bankaccountoverrideid */
+            bankAccountOverrideId: string | null;
+            /** Calendarref */
+            calendarRef: string | null;
+            /** Code */
+            code: string | null;
+            /** Contactperson */
+            contactPerson: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Email */
+            email: string | null;
+            /** Geolat */
+            geoLat: number | null;
+            /** Geolng */
+            geoLng: number | null;
+            /** Holidaycalendarid */
+            holidayCalendarId: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Isactive */
+            isActive: boolean;
+            /** Leademail */
+            leadEmail: string | null;
+            /** Letterheadaddressoverride */
+            letterheadAddressOverride: string | null;
+            /** Locationtypes */
+            locationTypes: components["schemas"]["LocationType"][];
             /** Name */
             name: string;
+            /** Phone */
+            phone: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Validfrom */
+            validFrom: string | null;
+            /** Validto */
+            validTo: string | null;
+            /** Version */
+            version: number;
+            /** Warehouseref */
+            warehouseRef: string | null;
+        };
+        /**
+         * LocationType
+         * @description What a site is (PRD Locations, `location_type`): drives which modules
+         *     offer it as a choice. A location holds a list of these.
+         * @enum {string}
+         */
+        LocationType: "showroom" | "workshop" | "body_shop" | "parts_warehouse" | "storage" | "admin";
+        /**
+         * LocationUpdate
+         * @description PATCH semantics: a field not sent keeps its value, null clears a
+         *     nullable one. `code` may be set once, on a location saved without one;
+         *     after that it is refused (422 `location_code_immutable`). `isActive:
+         *     false` deactivates — never a delete (A-RULE-1) — and is refused for the
+         *     Betrieb's last active location (409 `last_active_location`, FR-A-03).
+         */
+        LocationUpdate: {
+            /** Addresscanton */
+            addressCanton?: string | null;
+            /** Addresscountry */
+            addressCountry?: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber?: string | null;
+            /** Addresslocality */
+            addressLocality?: string | null;
+            /** Addresspostalcode */
+            addressPostalCode?: string | null;
+            /** Addressstreet */
+            addressStreet?: string | null;
+            /** Bankaccountoverrideid */
+            bankAccountOverrideId?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Contactperson */
+            contactPerson?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Geolat */
+            geoLat?: number | null;
+            /** Geolng */
+            geoLng?: number | null;
+            /** Holidaycalendarid */
+            holidayCalendarId?: string | null;
+            /** Isactive */
+            isActive?: boolean | null;
+            /** Leademail */
+            leadEmail?: string | null;
+            /** Letterheadaddressoverride */
+            letterheadAddressOverride?: string | null;
+            /** Locationtypes */
+            locationTypes?: components["schemas"]["LocationType"][] | null;
+            /** Name */
+            name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -7091,6 +7566,85 @@ export interface components {
             vehicleLabel?: string | null;
             /** Vehiclesource */
             vehicleSource?: string | null;
+        };
+        /**
+         * OpeningHoursDay
+         * @description One open weekday (ISO: 1 = Monday … 7 = Sunday) — one interval and an
+         *     optional second one, e.g. 08:00–12:00 and 13:30–18:00. `department` is
+         *     sent only when the hours differ per department.
+         */
+        OpeningHoursDay: {
+            /**
+             * Closesat
+             * Format: time
+             */
+            closesAt: string;
+            department?: components["schemas"]["LocationDepartment"] | null;
+            /**
+             * Opensat
+             * Format: time
+             */
+            opensAt: string;
+            /** Secondclosesat */
+            secondClosesAt?: string | null;
+            /** Secondopensat */
+            secondOpensAt?: string | null;
+            /** Weekday */
+            weekday: number;
+        };
+        /**
+         * OpeningHoursRead
+         * @description Every stored row. `perDepartment` is derived: false when the three
+         *     departments hold the same week (what the one-set mode writes) — the
+         *     screen opens in that mode.
+         */
+        OpeningHoursRead: {
+            /** Hours */
+            hours: components["schemas"]["OpeningHoursRow"][];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationversion */
+            locationVersion: number;
+            /** Perdepartment */
+            perDepartment: boolean;
+        };
+        /** OpeningHoursRow */
+        OpeningHoursRow: {
+            /**
+             * Closesat
+             * Format: time
+             */
+            closesAt: string;
+            department: components["schemas"]["LocationDepartment"];
+            /**
+             * Opensat
+             * Format: time
+             */
+            opensAt: string;
+            /** Secondclosesat */
+            secondClosesAt: string | null;
+            /** Secondopensat */
+            secondOpensAt: string | null;
+            /** Weekday */
+            weekday: number;
+        };
+        /**
+         * OpeningHoursUpdate
+         * @description The site's whole week, replacing what is stored (PUT, If-Match on the
+         *     location's version). `perDepartment: false` — the default mode, one set
+         *     for the whole site — sends days without a department and the service
+         *     writes each for Sales, Service and Parts alike (D-A-27: stored per
+         *     department always). `perDepartment: true` sends a department on every
+         *     day. A weekday that is not sent is closed.
+         */
+        OpeningHoursUpdate: {
+            /** Hours */
+            hours: components["schemas"]["OpeningHoursDay"][];
+            /** Perdepartment */
+            perDepartment: boolean;
         };
         /** OptionInput */
         OptionInput: {
@@ -12635,7 +13189,10 @@ export interface operations {
     };
     list_locations_v1_dealerships__dealership_id__locations_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description true: active sites only; false: deactivated only. */
+                active?: boolean | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -12655,6 +13212,357 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_location_v1_dealerships__dealership_id__locations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_location_v1_dealerships__dealership_id__locations__location_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_location_v1_dealerships__dealership_id__locations__location_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_closures_v1_dealerships__dealership_id__locations__location_id__closures_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_closure_v1_dealerships__dealership_id__locations__location_id__closures_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosureCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                closure_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                closure_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosureUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpeningHoursRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpeningHoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpeningHoursRead"];
                 };
             };
             /** @description Validation Error */
@@ -13728,6 +14636,77 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    list_holiday_calendars_v1_holiday_calendars_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayCalendarList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_holiday_dates_v1_holiday_calendars__calendar_id__dates_get: {
+        parameters: {
+            query?: {
+                /** @description Defaults to the current year in Switzerland. */
+                year?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                calendar_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayDateList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

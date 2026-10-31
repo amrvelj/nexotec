@@ -21,6 +21,8 @@ from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.models.location_schedule import LocationClosure
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text_delegation import StandardTextDelegation
@@ -52,6 +54,9 @@ ACTOR_TABLES = (
     UserConnectedAccount,  # created_by / updated_by / revoked_by (KAN-201)
     DealershipBankAccount,  # created_by / updated_by (KAN-203)
     DealershipSettings,  # created_by / updated_by (KAN-203)
+    HolidayCalendar,  # created_by / updated_by (KAN-204; seeded rows carry none)
+    Holiday,
+    LocationClosure,  # created_by / updated_by (KAN-204)
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]
