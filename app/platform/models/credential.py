@@ -18,7 +18,7 @@ compared with `==` — argon2's constant-time verify only.
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, Boolean, ForeignKey, Integer, Text
+from sqlalchemy import JSON, Boolean, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
@@ -29,7 +29,11 @@ from app.db import Base
 class Credential(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "credential"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False, unique=True)
+    # KAN-431: the migration's constraint name, not SQLAlchemy's default
+    # `{table}_{column}_key` — the schema gate compares indexes by name.
+    __table_args__ = (UniqueConstraint("user_id", name="uq_credential_user_id"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     password_history: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     password_set_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

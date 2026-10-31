@@ -156,6 +156,44 @@ def test_a_drifted_database_is_reported(migrated_url):
     ], found
 
 
+def test_a_constraint_named_differently_is_reported(migrated_url):
+    """KAN-431: `compare_metadata` matches a unique constraint (or a primary
+    key) by its columns, so one the two sides name differently printed no
+    difference, and its definition was never compared. Renamed on the
+    migrated database, it is reported by name — undone afterwards."""
+
+    engine = create_engine(migrated_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text('ALTER TABLE "user" RENAME CONSTRAINT uq_user_email TO user_email_key'))
+            conn.execute(text("ALTER TABLE user_preference RENAME CONSTRAINT pk_user_preference TO user_preference_pkey"))
+        try:
+            found = schema_differences(migrated_url)
+        finally:
+            with engine.begin() as conn:
+                conn.execute(text('ALTER TABLE "user" RENAME CONSTRAINT user_email_key TO uq_user_email'))
+                conn.execute(text("ALTER TABLE user_preference RENAME CONSTRAINT user_preference_pkey TO pk_user_preference"))
+    finally:
+        engine.dispose()
+
+    # A named unique constraint is compare_metadata's own finding once the
+    # model names it (KAN-431 named all of them); a primary key it never
+    # compares by name, so that one is the index comparison's.
+    assert found == [
+        "add_constraint: UniqueConstraint uq_user_email on user (email)",
+        (
+            "migrated_only_index_by_name: user_preference.user_preference_pkey: "
+            "'CREATE UNIQUE INDEX user_preference_pkey ON user_preference USING btree (user_id, scope)'"
+        ),
+        (
+            "model_only_index_by_name: user_preference.pk_user_preference: "
+            "'CREATE UNIQUE INDEX pk_user_preference ON user_preference USING btree (user_id, scope)'"
+        ),
+        "remove_constraint: UniqueConstraint user_email_key on user (email)",
+    ], found
+    assert schema_differences(migrated_url) == []
+
+
 def test_a_partial_index_predicate_that_differs_is_reported(migrated_url):
     """KAN-414: the KAN-201 review's probe. `compare_metadata` does not compare
     `postgresql_where`, so `uq_user_connected_account_live` recreated without

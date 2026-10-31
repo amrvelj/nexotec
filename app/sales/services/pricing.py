@@ -22,13 +22,19 @@ def resolve_discount(discount_type: str | None, discount_value: Decimal | None, 
     """{type, value} -> resolvedAmount (FR-S's own discount shape). No
     discount configured is exactly `amount=0`, never None, so callers
     never have to special-case "no discount" separately from "0 discount".
+    Capped at `base_amount` (KAN-190).
     """
 
     if discount_type is None or discount_value is None:
         return Decimal(0)
     if discount_type == "percent":
-        return (base_amount * discount_value / Decimal(100)).quantize(_CENTS)
-    return discount_value
+        resolved = (base_amount * discount_value / Decimal(100)).quantize(_CENTS)
+    else:
+        resolved = discount_value
+    # KAN-190: never more than the amount it is taken off, so no line and
+    # no total turns negative — an amount kept from before a re-freeze made
+    # the line cheaper, or a percentage over 100.
+    return min(resolved, max(base_amount, Decimal(0)))
 
 
 def _cost_basis_from_snapshot(snapshot: dict) -> Decimal | None:

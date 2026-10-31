@@ -51,7 +51,9 @@ export function OverviewCard({ title, badge, children }: OverviewCardProps) {
 }
 
 export interface KeyValueRowProps {
-  label: string;
+  /** A string, or a hinted label (the app's `useFieldHint()`, KAN-511): a
+   * read-only value keeps the hint its input carries. */
+  label: NonNullable<ReactNode>;
   children: ReactNode;
 }
 

@@ -152,6 +152,25 @@ describe('StockDetailPage — what the role may never use is hidden (KAN-430)', 
     expect(screen.queryByRole('button', { name: i18n.t('stockDetail.configuration.attach') })).not.toBeInTheDocument()
   })
 
+  // KAN-511: the attach writes the configuration and the stock item, so either row alone is not enough.
+  it.each([
+    ['only the stock item', ['stock_items']],
+    ['only the configuration', ['configurations']],
+  ])('does not offer «Konfiguration zuordnen» to a role that may write %s', async (_, writableCapabilities) => {
+    install(writableCapabilities)
+    render()
+
+    expect(await screen.findByText(i18n.t('stockDetail.configuration.missing'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.configuration.attach') })).not.toBeInTheDocument()
+  })
+
+  it('offers «Konfiguration zuordnen» to a role that may write both', async () => {
+    install(['stock_items', 'configurations'])
+    render()
+
+    expect(await screen.findByRole('button', { name: i18n.t('stockDetail.configuration.attach') })).toBeInTheDocument()
+  })
+
   it('offers publishing, listing texts and photos to a role that may publish', async () => {
     install(INVENTORY)
     render('publishing')

@@ -34,6 +34,15 @@ const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, 
 const CREATE_PATH_LITERAL = /(['"`])\/inventory\/stock-items\1/
 // A POST to the collection with a query string would still be a create.
 const CREATE_POST_WITH_QUERY = /\.post(?:<[^(]*>)?\(\s*[`'"]\/inventory\/stock-items\?/
+// KAN-511 — the spellings the first scan missed (the server's 422 stays the
+// real guard): a trailing slash, an interpolation straight after the
+// collection (`…/stock-items${x}`; a sub-resource has its slash first), and
+// the path built by concatenation from an `/inventory/` literal.
+const CREATE_PATH_EVASIONS = [
+  /(['"`])\/inventory\/stock-items\/\1/,
+  /`\/inventory\/stock-items\$\{/,
+  /(['"`])\/inventory\/?\1\s*\+/,
+]
 
 describe('the stock intake is the configurator', () => {
   const files = sourceFiles(SRC).map((path) => ({ file: relative(SRC, path), source: withoutComments(readFileSync(path, 'utf-8')) }))
@@ -43,6 +52,28 @@ describe('the stock intake is the configurator', () => {
       'pages/stock/AddToPipelineButton.tsx',
     ])
     expect(files.filter((f) => CREATE_POST_WITH_QUERY.test(f.source)).map((f) => f.file)).toEqual([])
+  })
+
+  it('refuses the create path spelt another way', () => {
+    for (const pattern of CREATE_PATH_EVASIONS) {
+      expect(files.filter((f) => pattern.test(f.source)).map((f) => f.file), String(pattern)).toEqual([])
+    }
+  })
+
+  it('would see each of those spellings', () => {
+    const spellings = [
+      "api.post('/inventory/stock-items/', body)",
+      'api.post(`/inventory/stock-items${suffix}`, body)',
+      "api.post('/inventory/' + 'stock-items', body)",
+      "api.post('/inventory' + '/stock-items', body)",
+    ]
+    for (const spelling of spellings) {
+      expect(CREATE_PATH_EVASIONS.some((pattern) => pattern.test(spelling)), spelling).toBe(true)
+    }
+    // A sub-resource and the list read are not a create.
+    for (const legit of ['api.post(`/inventory/stock-items/${id}/configuration`, body)', "api.get('/inventory/stock-items?q=golf')"]) {
+      expect(CREATE_PATH_EVASIONS.some((pattern) => pattern.test(legit)), legit).toBe(false)
+    }
   })
 
   it('types the create body as the request that requires a configuration', () => {

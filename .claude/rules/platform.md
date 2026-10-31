@@ -262,10 +262,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   resolved from the secrets manager, never a column: `GET /v1/dealerships/{id}/address-autocomplete`
   hands it to the SPA (any role) only while the switch is on and the key is set; unset, the feature is
   off everywhere and the section says so. What protects the key is Google Cloud's restriction to our
-  origins and to Places API (New) — **not configured or verified yet** (KAN-451: the go-live guide,
-  the key on staging, one real pick; whether Places API (New) honours an HTTP-referrer restriction
-  on browser calls is checked there — if not, the alternative is Anto's decision, never a proxy that
-  routes the suggestion list through our API). The SPA calls Places API (New) directly
+  origins (Websites) and to Places API (New) — **configured on staging and verified** (2026-10-26,
+  KAN-451: Anto's staging pick went through on a key restricted to the staging origin and to Places
+  API (New), so Google honours the Websites restriction on browser calls); production still to come,
+  with its own key. Never a proxy that routes the suggestion list through our API. The SPA calls Places API (New) directly
   (`utils/googlePlaces.ts`, one session token per keystroke run, reset by a pick or a cleared field);
   the suggestion list is never persisted or logged and never reaches our API (an architecture scan
   pins it); a refusal from Google shows no dropdown at all; only the picked address is written, into

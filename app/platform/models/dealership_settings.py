@@ -21,7 +21,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, ForeignKey, Integer, String, true
+from sqlalchemy import DECIMAL, Boolean, ForeignKey, Integer, String, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -54,9 +54,11 @@ SHIPPED_ADDRESS_AUTOCOMPLETE_ENABLED = True
 class DealershipSettings(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "dealership_settings"
 
-    dealership_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("dealership.id"), nullable=False, unique=True
-    )
+    # KAN-431: the migration's constraint name, not SQLAlchemy's default
+    # `{table}_{column}_key` — the schema gate compares indexes by name.
+    __table_args__ = (UniqueConstraint("dealership_id", name="uq_dealership_settings_dealership_id"),)
+
+    dealership_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("dealership.id"), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default=SHIPPED_CURRENCY)
     cash_rounding: Mapped[Decimal] = mapped_column(DECIMAL(4, 2), nullable=False, default=SHIPPED_CASH_ROUNDING)
     default_payment_terms_days: Mapped[int] = mapped_column(

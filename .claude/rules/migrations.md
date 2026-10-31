@@ -97,7 +97,9 @@ in the same PR as any change to what it states. -->
   database and fails on anything `alembic check` would report — a migration-only index, a
   constraint the model names differently, a comment one side lacks — and, since KAN-414, on an
   index both sides have whose stored definition (`pg_get_indexdef`: a partial index's `WHERE`
-  included) differs, which `alembic check` does not see. Declare every index and
+  included) differs, which `alembic check` does not see, and since KAN-431 on an index only one
+  side has by name on a table both have — a primary key or unique constraint named differently,
+  which `compare_metadata` matches by columns. Declare every index and
   constraint on the model with the migration's exact name and shape; a column comment the
   model declares and the migration omitted is fixed by a comment-only migration in that
   context's chain (`*_column_comments_match_the_models_kan_170.py` is the pattern).

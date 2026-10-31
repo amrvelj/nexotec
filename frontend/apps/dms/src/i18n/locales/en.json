@@ -241,7 +241,8 @@
       "photo_not_an_image": "The photo must be a PNG or JPEG image.",
       "photo_too_large": "The photo is too large — at most 5 MB.",
       "configuration_already_linked": "A configuration is already assigned to this vehicle. Please reload the page.",
-      "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle."
+      "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle.",
+      "configuration_held_by_stock_item": "This configuration already belongs to vehicle {{stockNumber}} in stock. Every vehicle has its own configuration."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1021,11 +1022,13 @@
       "purchaseDate": "Purchase date",
       "orderDate": "Order date",
       "expectedDelivery": "Expected delivery",
-      "pipelineRef": "Pipeline reference"
+      "pipelineRef": "Pipeline reference",
+      "configuration": "Configuration"
     },
     "emptyState": {
       "title": "No vehicles in stock",
-      "description": "Add a vehicle to stock to get started."
+      "description": "Add a vehicle to stock to get started.",
+      "descriptionReadOnly": "Vehicles appear here once the business adds them to stock."
     },
     "emptyFilteredState": {
       "title": "No results",
@@ -1481,7 +1484,8 @@
       "finalOffer": "Trade-in offer",
       "source": "Source",
       "status": "Status",
-      "validUntil": "Valid until"
+      "validUntil": "Valid until",
+      "configuration": "Configuration"
     },
     "emptyState": {
       "title": "No valuations yet",

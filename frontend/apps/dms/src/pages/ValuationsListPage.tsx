@@ -173,6 +173,13 @@ export function ValuationsListPage() {
         cell: ({ row }) => formatDate(row.original.validUntil, locale),
         meta: { sortField: 'validUntil', align: 'right' },
       },
+      // KAN-190 (ADR-060): the configuration's label, rule 2's copy on the valuation.
+      {
+        id: 'configurationLabel',
+        header: t('valuationsList.columns.configuration'),
+        cell: ({ row }) => row.original.configurationLabel ?? '—',
+        meta: { defaultVisible: false },
+      },
     ],
     [t, locale]
   )

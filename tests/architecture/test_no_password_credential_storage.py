@@ -14,6 +14,8 @@ mapped schema, across every mapped table.
 
 import re
 
+from sqlalchemy import UniqueConstraint
+
 import app.model_registry
 from app.db import Base
 
@@ -27,7 +29,16 @@ def test_the_credential_table_exists_with_its_password_column():
     assert app.model_registry
     table = Base.metadata.tables["credential"]
     assert "password_hash" in table.columns
-    assert table.columns["user_id"].unique, "one credential set per user"
+    # One credential set per user: a unique constraint on exactly user_id. Since
+    # KAN-431 the model names it (`uq_credential_user_id`, the migration's
+    # name) in __table_args__ instead of `unique=True` on the column, so the
+    # ruling is read from the table's constraints — the same ruling.
+    unique_column_sets = [
+        {column.name for column in constraint.columns}
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    ]
+    assert {"user_id"} in unique_column_sets or table.columns["user_id"].unique, "one credential set per user"
 
 
 def test_password_shaped_columns_live_in_credential_and_nowhere_else():

@@ -107,4 +107,32 @@ describe('Stock list — one intake (KAN-463)', () => {
     expect(await screen.findByText(i18n.t('stockList.emptyState.title'))).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: intake() })).not.toBeInTheDocument()
   })
+
+  // KAN-511: the intake writes both rows, so either one alone is not enough.
+  it.each([
+    ['only stock items', ['stock_items']],
+    ['only configurations', ['configurations']],
+  ])('offers no intake to a role that may write %s', async (_, writableCapabilities) => {
+    install({ items: [ITEM], writableCapabilities })
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+
+    expect(await screen.findByText('VW Golf 8 GTI')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: intake() })).not.toBeInTheDocument()
+  })
+
+  it('tells a reader where the cars come from instead of asking it to add one (KAN-511)', async () => {
+    install({ items: [], writableCapabilities: ['stock_items'] })
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+
+    expect(await screen.findByText(i18n.t('stockList.emptyState.descriptionReadOnly'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('stockList.emptyState.description'))).not.toBeInTheDocument()
+  })
+
+  it('asks a writer to add the first car', async () => {
+    install({ items: [] })
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+
+    expect(await screen.findByText(i18n.t('stockList.emptyState.description'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('stockList.emptyState.descriptionReadOnly'))).not.toBeInTheDocument()
+  })
 })

@@ -421,6 +421,32 @@ def test_a_lookup_links_each_variant_to_its_typenscheine_once(db_session):
     assert db_session.query(VariantTypeApproval).count() == 3
 
 
+def test_a_variant_mirrored_without_its_typenscheine_is_linked_by_its_next_lookup(db_session):
+    """KAN-190 item 3: a variant mirrored before KAN-42 has no
+    `vehicle_variant_type_approval` rows. No backfill fetches them — no
+    provider is ever asked for its whole catalogue (ADR-023 as amended,
+    KAN-485) — and none is needed: every single lookup of an existing
+    variant links its Typenscheine (`upsert_model_variant`), so the next one
+    repairs it. Here the links are removed after a first lookup, as such a
+    variant has none."""
+
+    from app.vehicle.models.catalogue import VariantTypeApproval
+    from app.vehicle.services.catalogue import find_model_variants_by_type_approval
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+    look_up_demo_variants(db_session, tenant_id)
+    db_session.query(VariantTypeApproval).delete()
+    db_session.commit()
+    assert find_model_variants_by_type_approval(db_session, "2CD456") == []
+
+    look_up_demo_variants(db_session, tenant_id)
+
+    assert [v.name for v in find_model_variants_by_type_approval(db_session, "2CD456")] == ["Golf GTI 2.0 TSI DSG"]
+    assert db_session.query(VariantTypeApproval).count() == 3
+
+
 # --- per-lookup isolation (KAN-78) -------------------------------------------
 
 

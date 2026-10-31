@@ -90,14 +90,18 @@ def _index_definitions(connection, schema: str) -> dict[tuple[str, str], str]:
     return {(table, index): qualifier.sub("", definition) for table, index, definition in rows}
 
 
-def index_definition_differences(connection) -> list[str]:
-    """Every index both sides have, by name, whose stored definition differs.
-    An index only one side has is not reported here: a plain index is
-    `compare_metadata`'s add_index/remove_index, alembic_version exists only
-    on the migrated side, and an index backing a primary key or unique
-    constraint that the two sides name differently is matched by
-    `compare_metadata` on its columns — its definition is not compared
-    (KAN-431 tracks that name drift)."""
+def index_definition_differences(connection, reported: frozenset[str] = frozenset()) -> list[str]:
+    """Every index both sides have, by name, whose stored definition differs,
+    and every index only one side has on a table both sides have (KAN-431).
+
+    `compare_metadata` matches an index backing a primary key or unique
+    constraint by its columns, so a constraint the two sides name
+    differently (`dealer_pkey` against `dealership_pkey`) passed it, and its
+    definition was never compared here either. Reported by name instead, a
+    name drift goes red. An index or constraint `compare_metadata` already
+    reported (`reported`, by name: a plain index or a unique constraint one
+    side lacks) is not said twice; alembic_version, a table the models do
+    not have, is left out by the both-sides rule."""
 
     if connection.in_transaction():
         connection.rollback()  # compare_metadata's reads; the scratch schema needs its own transaction
@@ -109,17 +113,30 @@ def index_definition_differences(connection) -> list[str]:
         models = _index_definitions(connection, _MODELS_SCHEMA)
     finally:
         transaction.rollback()
-    return [
+    changed = [
         f"modify_index: {table}.{index}: migrated {migrated[(table, index)]!r}, model {models[(table, index)]!r}"
         for table, index in sorted(migrated.keys() & models.keys())
         if migrated[(table, index)] != models[(table, index)]
     ]
+    tables = {table for table, _ in migrated} & {table for table, _ in models}
+    one_sided = [
+        f"{side}_index_by_name: {table}.{index}: {definitions[(table, index)]!r}"
+        for side, definitions, other in (("migrated_only", migrated, models), ("model_only", models, migrated))
+        for table, index in sorted(definitions.keys() - other.keys())
+        if table in tables and index not in reported
+    ]
+    return changed + one_sided
 
 
 def schema_differences(connection) -> list[str]:
     context = MigrationContext.configure(connection, opts=dict(COMPARE_OPTS))
-    found = [describe(diff) for diff in flatten(compare_metadata(context, Base.metadata))]
-    return sorted(found + index_definition_differences(connection))
+    diffs = flatten(compare_metadata(context, Base.metadata))
+    reported = frozenset(
+        diff[1].name
+        for diff in diffs
+        if diff[0] in ("add_index", "remove_index", "add_constraint", "remove_constraint") and diff[1].name
+    )
+    return sorted([describe(diff) for diff in diffs] + index_definition_differences(connection, reported))
 
 
 def main(url: str, *, fail: bool = False) -> int:

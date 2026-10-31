@@ -3,7 +3,8 @@ import { Alert, Badge, Button, Card, Checkbox, Group, Loader, Stack, Table, Text
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
-import { specFieldLabelKey } from '../../configurationOptions'
+import { ALL_SPEC_FIELDS, CODED_FIELDS, specFieldLabelKey } from '../../configurationOptions'
+import { useReferenceLabelLookup, type ReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 import type { ConfigurationRead, ResyncFieldRead } from '../../api/types'
 
 export interface ConfigurationResyncPanelProps {
@@ -22,14 +23,24 @@ const CODED_LABEL_KEYS: Record<string, string> = {
   transmission: 'catalogueBrowse.columns.transmission',
 }
 
-function display(value: ResyncFieldRead['current']): string {
+// KAN-190: a coded field and a spec field on a reference list hold a code;
+// it is shown by its label in the UI language, as the summary card shows it.
+const LIST_CODES: Record<string, string> = Object.fromEntries([
+  ...CODED_FIELDS.map((f) => [f.key, f.listCode] as const),
+  ...ALL_SPEC_FIELDS.filter((f) => f.kind === 'ref').map((f) => [f.key as string, f.listCode!] as const),
+])
+
+const camelKey = (field: string) => field.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+
+function display(field: string, value: ResyncFieldRead['current'], labels: ReferenceLabelLookup): string {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? '✓' : '✗'
-  return String(value)
+  const listCode = LIST_CODES[camelKey(field)]
+  return listCode ? labels.label(listCode, String(value)) : String(value)
 }
 
 function fieldLabelKey(field: string): string {
-  const key = field.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+  const key = camelKey(field)
   return CODED_LABEL_KEYS[key] ?? specFieldLabelKey(key)
 }
 
@@ -81,6 +92,8 @@ export function ConfigurationResyncPanel({ configurationId, version, onClose, on
   }
 
   const fields = preview.data ?? []
+  const listCodes = [...new Set(fields.map((f) => LIST_CODES[camelKey(f.field)]).filter((code): code is string => code != null))]
+  const labels = useReferenceLabelLookup(listCodes)
 
   return (
     <Card withBorder padding="md" data-testid="resync-panel">
@@ -122,8 +135,8 @@ export function ConfigurationResyncPanel({ configurationId, version, onClose, on
                         </Badge>
                       )}
                     </Table.Td>
-                    <Table.Td>{display(f.current)}</Table.Td>
-                    <Table.Td>{display(f.catalogue)}</Table.Td>
+                    <Table.Td>{display(f.field, f.current, labels)}</Table.Td>
+                    <Table.Td>{display(f.field, f.catalogue, labels)}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

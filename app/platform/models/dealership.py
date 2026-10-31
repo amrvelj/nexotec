@@ -22,7 +22,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, Index, Integer, String
+from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, Index, Integer, PrimaryKeyConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -88,6 +88,11 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         # rows the migration had to leave at NULL (an old tax_id that was not a
         # valid UID, reported by KAN-197's migration) do not collide.
         Index("uq_dealership_uid", "uid", unique=True),
+        # KAN-431: the table was renamed from `dealer` and its primary key
+        # kept the old name in every migrated database. The model names it
+        # so (no rename migration: the name is only a name), and the schema
+        # gate, which compares indexes by name, sees it.
+        PrimaryKeyConstraint("id", name="dealer_pkey"),
     )
 
     legal_name: Mapped[str] = mapped_column(String(200), nullable=False)

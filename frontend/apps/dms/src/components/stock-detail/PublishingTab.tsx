@@ -369,11 +369,26 @@ function ListingTextFields({
  * the same four fields, as text. */
 function ListingTextValues({ publishing }: { publishing: PublishingRead }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const fields: ListingTextField[] = ['zusatztitel', 'bemerkungen', 'zustandsbeschreibung', 'haendlerbemerkungen']
+  // KAN-511: read-only, the internal field still says it is internal — the
+  // same hint as its input, the icon with the hint hidden for assistive
+  // technology beside it.
+  const labelOf = (name: ListingTextField) => {
+    const label = t(`stockDetail.publishing.fields.${name}`)
+    if (name !== 'haendlerbemerkungen') return label
+    const hinted = hint(label, t('stockDetail.publishing.haendlerbemerkungenHint'))
+    return (
+      <>
+        {hinted.label}
+        {hinted.description}
+      </>
+    )
+  }
   return (
     <>
       {fields.map((name) => (
-        <KeyValueRow key={name} label={t(`stockDetail.publishing.fields.${name}`)}>
+        <KeyValueRow key={name} label={labelOf(name)}>
           <span style={{ whiteSpace: 'pre-wrap' }}>{publishing[name] || '—'}</span>
         </KeyValueRow>
       ))}
