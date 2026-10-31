@@ -23,7 +23,8 @@
       "catalogue": "Katalog",
       "users": "Benutzer",
       "accountRecovery": "Kontowiederherstellung",
-      "business": "Betrieb"
+      "business": "Betrieb",
+      "locations": "Standorte"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -242,7 +243,22 @@
       "photo_too_large": "Das Foto ist zu gross – höchstens 5 MB.",
       "configuration_already_linked": "Diesem Fahrzeug ist bereits eine Konfiguration zugeordnet. Bitte die Seite neu laden.",
       "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug.",
-      "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration."
+      "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration.",
+      "bank_account_used_by_location": "Ein Standort verwendet dieses Konto als abweichende Bankverbindung. Entfernen Sie die Abweichung zuerst beim Standort.",
+      "closure_period_inverted": "Das Ende der Schliessung liegt vor ihrem Beginn.",
+      "last_active_location": "Ein Betrieb hat immer mindestens einen aktiven Standort. Aktivieren oder erfassen Sie zuerst einen anderen.",
+      "location_address_incomplete": "Eine Adresse braucht Strasse, Nummer, PLZ und Ort.",
+      "location_canton_not_swiss": "Der Kanton gilt nur für eine Schweizer Adresse.",
+      "location_canton_required": "Eine Schweizer Adresse braucht ihren Kanton.",
+      "location_code_immutable": "Das Kürzel eines Standorts ist nach dem Speichern festgelegt – Dokumente und Marktplätze führen es.",
+      "location_code_taken": "Ein anderer Standort dieses Betriebs hat dieses Kürzel bereits.",
+      "location_geo_incomplete": "Breiten- und Längengrad gehören zusammen – erfassen oder leeren Sie beide.",
+      "location_inactive": "Einem deaktivierten Standort kann niemand neu zugewiesen werden.",
+      "location_postal_code_invalid": "Diese PLZ passt nicht zum Land der Adresse.",
+      "location_validity_inverted": "«Gültig bis» liegt vor «Gültig ab».",
+      "unknown_bank_account": "Diese Bankverbindung gehört nicht zu diesem Betrieb.",
+      "unknown_holiday_calendar": "Diesen Feiertagskalender gibt es nicht.",
+      "year_out_of_range": "Dieses Jahr liegt ausserhalb des Kalenders."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -2843,6 +2859,137 @@
       "title": "Keine Marke gefunden",
       "description": "Keine Marke passt zur Suche.",
       "action": "Suche zurücksetzen"
+    }
+  },
+  "locations": {
+    "title": "Standorte",
+    "subtitle": "Die Standorte des Betriebs mit Adresse, Kontakten, Öffnungszeiten, Feiertagen und Schliessungen. Ein Standort wird deaktiviert, nie gelöscht.",
+    "loadError": "Die Standorte konnten nicht geladen werden.",
+    "notFound": "Diesen Standort gibt es in diesem Betrieb nicht.",
+    "readOnly": "Nur ein Manager dieses Betriebs ändert dessen Standorte.",
+    "new": "Neuer Standort",
+    "count": "{{count, number}} Standorte",
+    "saveError": "Der Standort konnte nicht gespeichert werden.",
+    "columns": {
+      "name": "Name",
+      "code": "Kürzel",
+      "types": "Art",
+      "address": "Adresse",
+      "canton": "Kanton",
+      "phone": "Telefon",
+      "leadEmail": "E-Mail für Anfragen",
+      "holidayCalendar": "Feiertagskalender",
+      "status": "Status",
+      "validFrom": "Gültig ab",
+      "validTo": "Gültig bis"
+    },
+    "status": {
+      "active": "Aktiv",
+      "inactive": "Deaktiviert"
+    },
+    "empty": {
+      "title": "Noch kein Standort",
+      "description": "Legen Sie den ersten Standort des Betriebs an."
+    },
+    "actions": {
+      "open": "Öffnen",
+      "deactivate": "Deaktivieren",
+      "activate": "Aktivieren",
+      "lastActive": "Der letzte aktive Standort bleibt aktiv – ein Betrieb hat immer mindestens einen.",
+      "deactivateConfirm": "Der Standort {{name}} wird deaktiviert. Dokumente, die ihn nennen, bleiben unverändert; neuen Benutzern kann er nicht mehr zugewiesen werden."
+    },
+    "types": {
+      "showroom": "Showroom",
+      "workshop": "Werkstatt",
+      "body_shop": "Carrosserie",
+      "parts_warehouse": "Teilelager",
+      "storage": "Fahrzeuglager",
+      "admin": "Verwaltung"
+    },
+    "create": {
+      "title": "Neuer Standort",
+      "submit": "Anlegen"
+    },
+    "master": {
+      "title": "Stammdaten",
+      "name": "Name",
+      "code": "Kürzel",
+      "codeHint": "Kurzes, festes Kürzel, z. B. ZH-NORD – erscheint in Dokumentnummern und Marktplatz-Zuordnungen und ist nach dem Speichern nicht mehr änderbar.",
+      "codeFixed": "Das Kürzel ist festgelegt.",
+      "types": "Art des Standorts",
+      "typesHint": "Mehrfachauswahl – die meisten Standorte sind zweierlei, z. B. Showroom und Werkstatt.",
+      "validFrom": "Gültig ab",
+      "validTo": "Gültig bis"
+    },
+    "address": {
+      "title": "Adresse und Karte",
+      "geoLat": "Breitengrad",
+      "geoLng": "Längengrad",
+      "geoHint": "WGS 84 in Dezimalgrad, z. B. 47.414100 und 8.546900 – für Marktplätze und die Karte auf der Website.",
+      "pin": "Kartenpunkt",
+      "noGeo": "Keine Koordinaten erfasst.",
+      "openMap": "In OpenStreetMap öffnen"
+    },
+    "contacts": {
+      "title": "Kontakte",
+      "contactPerson": "Ansprechperson",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "leadEmail": "E-Mail für Anfragen",
+      "leadEmailHint": "Hierhin gehen die Anfragen von Marktplätzen für diesen Standort."
+    },
+    "hours": {
+      "title": "Öffnungszeiten",
+      "perDepartment": "Zeiten je Abteilung unterschiedlich",
+      "perDepartmentHint": "Aus: eine Zeitenreihe für den ganzen Standort, gespeichert für Verkauf, Service und Teile gleich.",
+      "departments": {
+        "sales": "Verkauf",
+        "service": "Service",
+        "parts": "Teile"
+      },
+      "weekdays": {
+        "1": "Montag",
+        "2": "Dienstag",
+        "3": "Mittwoch",
+        "4": "Donnerstag",
+        "5": "Freitag",
+        "6": "Samstag",
+        "7": "Sonntag"
+      },
+      "open": "Geöffnet",
+      "closed": "Geschlossen",
+      "opensAt": "Von",
+      "closesAt": "Bis",
+      "secondOpensAt": "Nachmittag von",
+      "secondClosesAt": "Nachmittag bis",
+      "invalid": "Prüfen Sie die Zeiten von {{day}}: jedes Ende nach seinem Beginn, das zweite Zeitfenster nach dem ersten.",
+      "none": "Noch keine Öffnungszeiten erfasst."
+    },
+    "holidays": {
+      "title": "Feiertage und Schliessungen",
+      "calendar": "Feiertagskalender",
+      "calendarHint": "Die kantonalen Feiertage, die den Sonntagen gleichgestellt sind, und der 1. August – wo sie innerhalb des Kantons abweichen, je Region. Von Nexotec gepflegt (Quelle: SECO).",
+      "noCalendar": "Kein Feiertagskalender gewählt.",
+      "year": "Feiertage {{year}}",
+      "afternoonOnly": "ab Mittag",
+      "closures": "Schliessungen",
+      "closuresHint": "Betriebsferien und einzelne geschlossene Tage dieses Standorts – zusätzlich zu den Feiertagen.",
+      "noClosures": "Keine Schliessungen erfasst.",
+      "addClosure": "Schliessung hinzufügen",
+      "editClosure": "Schliessung bearbeiten",
+      "removeClosure": "Schliessung entfernen",
+      "startsOn": "Von",
+      "endsOn": "Bis",
+      "reason": "Grund",
+      "period": "{{from}} – {{to}}"
+    },
+    "overrides": {
+      "title": "Abweichungen vom Betrieb",
+      "disclosure": "Briefkopf und Bankverbindung dieses Standorts",
+      "letterhead": "Adressblock im Briefkopf",
+      "letterheadHint": "Leer: der Adressblock des Betriebs. Ersetzt nur den Adressblock der gemeinsamen Vorlage, nie die Vorlage.",
+      "bankAccount": "Bankverbindung",
+      "bankAccountInherit": "Wie der Betrieb (Rechnungskonto)"
     }
   }
 }

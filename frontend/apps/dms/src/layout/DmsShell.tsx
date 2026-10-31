@@ -13,6 +13,7 @@ import {
   Languages,
   LayoutDashboard,
   LifeBuoy,
+  MapPin,
   Plug,
   Receipt,
   ShieldCheck,
@@ -94,6 +95,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // the Betrieb's master data is configured). Any role reads it; the
         // writes are the manager's at the API, the entry is never role-hidden.
         { label: t('shell.nav.business'), href: '/administration/business', icon: Building2, status: 'active' },
+        // KAN-204 — Dealer Administration › Locations. Any role reads; the manager
+        // writes at the API (`locations`); the entry is never role-hidden.
+        { label: t('shell.nav.locations'), href: '/administration/locations', icon: MapPin, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under

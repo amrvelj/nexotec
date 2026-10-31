@@ -23,7 +23,8 @@
       "catalogue": "Catalogo",
       "users": "Utenti",
       "accountRecovery": "Recupero account",
-      "business": "Azienda"
+      "business": "Azienda",
+      "locations": "Sedi"
     },
     "signOut": "Disconnetti",
     "environmentNotice": {
@@ -242,7 +243,22 @@
       "photo_too_large": "La foto è troppo grande — al massimo 5 MB.",
       "configuration_already_linked": "A questo veicolo è già assegnata una configurazione. Ricaricare la pagina.",
       "configuration_vin_differs": "Il VIN della configurazione non è quello di questo veicolo. La configurazione descrive un altro veicolo.",
-      "configuration_held_by_stock_item": "Questa configurazione appartiene già al veicolo {{stockNumber}} in stock. Ogni veicolo ha la propria configurazione."
+      "configuration_held_by_stock_item": "Questa configurazione appartiene già al veicolo {{stockNumber}} in stock. Ogni veicolo ha la propria configurazione.",
+      "bank_account_used_by_location": "Una sede usa questo conto come conto bancario derogatorio. Rimuovete prima la deroga sulla sede.",
+      "closure_period_inverted": "La fine della chiusura precede il suo inizio.",
+      "last_active_location": "Un'azienda ha sempre almeno una sede attiva. Attivate o create prima un'altra sede.",
+      "location_address_incomplete": "Un indirizzo richiede via, numero, NPA e località.",
+      "location_canton_not_swiss": "Il cantone vale solo per un indirizzo svizzero.",
+      "location_canton_required": "Un indirizzo svizzero richiede il suo cantone.",
+      "location_code_immutable": "Il codice di una sede è fissato dopo il salvataggio – documenti e portali lo riportano.",
+      "location_code_taken": "Un'altra sede di questa azienda ha già questo codice.",
+      "location_geo_incomplete": "Latitudine e longitudine vanno insieme – inseritele o svuotatele entrambe.",
+      "location_inactive": "Nessuno può essere assegnato di nuovo a una sede disattivata.",
+      "location_postal_code_invalid": "Questo NPA non corrisponde al paese dell'indirizzo.",
+      "location_validity_inverted": "«Valida fino al» precede «Valida dal».",
+      "unknown_bank_account": "Questo conto bancario non appartiene a questa azienda.",
+      "unknown_holiday_calendar": "Questo calendario dei giorni festivi non esiste.",
+      "year_out_of_range": "Quest'anno è fuori dal calendario."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -2843,6 +2859,137 @@
       "title": "Nessuna marca trovata",
       "description": "Nessuna marca corrisponde alla ricerca.",
       "action": "Cancella ricerca"
+    }
+  },
+  "locations": {
+    "title": "Sedi",
+    "subtitle": "Le sedi dell'azienda con indirizzo, contatti, orari, giorni festivi e chiusure. Una sede si disattiva, non si elimina mai.",
+    "loadError": "Non è stato possibile caricare le sedi.",
+    "notFound": "Questa sede non esiste in questa azienda.",
+    "readOnly": "Solo un manager di questa azienda modifica le sue sedi.",
+    "new": "Nuova sede",
+    "count": "{{count, number}} sedi",
+    "saveError": "Non è stato possibile salvare la sede.",
+    "columns": {
+      "name": "Nome",
+      "code": "Codice",
+      "types": "Tipo",
+      "address": "Indirizzo",
+      "canton": "Cantone",
+      "phone": "Telefono",
+      "leadEmail": "E-mail per le richieste",
+      "holidayCalendar": "Calendario dei giorni festivi",
+      "status": "Stato",
+      "validFrom": "Valida dal",
+      "validTo": "Valida fino al"
+    },
+    "status": {
+      "active": "Attiva",
+      "inactive": "Disattivata"
+    },
+    "empty": {
+      "title": "Nessuna sede",
+      "description": "Create la prima sede dell'azienda."
+    },
+    "actions": {
+      "open": "Apri",
+      "deactivate": "Disattiva",
+      "activate": "Attiva",
+      "lastActive": "L'ultima sede attiva resta attiva – un'azienda ne ha sempre almeno una.",
+      "deactivateConfirm": "La sede {{name}} sarà disattivata. I documenti che la citano restano invariati; non può più essere assegnata a nuovi utenti."
+    },
+    "types": {
+      "showroom": "Showroom",
+      "workshop": "Officina",
+      "body_shop": "Carrozzeria",
+      "parts_warehouse": "Magazzino ricambi",
+      "storage": "Deposito veicoli",
+      "admin": "Amministrazione"
+    },
+    "create": {
+      "title": "Nuova sede",
+      "submit": "Crea"
+    },
+    "master": {
+      "title": "Dati anagrafici",
+      "name": "Nome",
+      "code": "Codice",
+      "codeHint": "Codice breve e fisso, ad es. ZH-NORD – compare nei numeri dei documenti e nelle associazioni dei portali e non è più modificabile dopo il salvataggio.",
+      "codeFixed": "Il codice è fissato.",
+      "types": "Tipo di sede",
+      "typesHint": "Scelta multipla – la maggior parte delle sedi è due cose insieme, ad es. showroom e officina.",
+      "validFrom": "Valida dal",
+      "validTo": "Valida fino al"
+    },
+    "address": {
+      "title": "Indirizzo e mappa",
+      "geoLat": "Latitudine",
+      "geoLng": "Longitudine",
+      "geoHint": "WGS 84 in gradi decimali, ad es. 47.414100 e 8.546900 – per i portali e la mappa del sito web.",
+      "pin": "Punto sulla mappa",
+      "noGeo": "Nessuna coordinata registrata.",
+      "openMap": "Apri in OpenStreetMap"
+    },
+    "contacts": {
+      "title": "Contatti",
+      "contactPerson": "Persona di contatto",
+      "phone": "Telefono",
+      "email": "E-mail",
+      "leadEmail": "E-mail per le richieste",
+      "leadEmailHint": "Qui arrivano le richieste dei portali per questa sede."
+    },
+    "hours": {
+      "title": "Orari di apertura",
+      "perDepartment": "Orari diversi per reparto",
+      "perDepartmentHint": "Disattivato: un solo orario per tutta la sede, salvato uguale per vendita, assistenza e ricambi.",
+      "departments": {
+        "sales": "Vendita",
+        "service": "Assistenza",
+        "parts": "Ricambi"
+      },
+      "weekdays": {
+        "1": "Lunedì",
+        "2": "Martedì",
+        "3": "Mercoledì",
+        "4": "Giovedì",
+        "5": "Venerdì",
+        "6": "Sabato",
+        "7": "Domenica"
+      },
+      "open": "Aperto",
+      "closed": "Chiuso",
+      "opensAt": "Dalle",
+      "closesAt": "Alle",
+      "secondOpensAt": "Pomeriggio dalle",
+      "secondClosesAt": "Pomeriggio alle",
+      "invalid": "Verificate gli orari di {{day}}: ogni fine dopo il suo inizio, la seconda fascia dopo la prima.",
+      "none": "Nessun orario di apertura registrato."
+    },
+    "holidays": {
+      "title": "Giorni festivi e chiusure",
+      "calendar": "Calendario dei giorni festivi",
+      "calendarHint": "I giorni festivi cantonali parificati alla domenica e il 1° agosto – per regione dove differiscono all'interno del cantone. Gestiti da Nexotec (fonte: SECO).",
+      "noCalendar": "Nessun calendario dei giorni festivi scelto.",
+      "year": "Giorni festivi {{year}}",
+      "afternoonOnly": "da mezzogiorno",
+      "closures": "Chiusure",
+      "closuresHint": "Ferie aziendali e singoli giorni di chiusura di questa sede – in aggiunta ai giorni festivi.",
+      "noClosures": "Nessuna chiusura registrata.",
+      "addClosure": "Aggiungi chiusura",
+      "editClosure": "Modifica chiusura",
+      "removeClosure": "Rimuovi chiusura",
+      "startsOn": "Dal",
+      "endsOn": "Al",
+      "reason": "Motivo",
+      "period": "{{from}} – {{to}}"
+    },
+    "overrides": {
+      "title": "Deroghe all'azienda",
+      "disclosure": "Intestazione e conto bancario di questa sede",
+      "letterhead": "Blocco indirizzo dell'intestazione",
+      "letterheadHint": "Vuoto: il blocco indirizzo dell'azienda. Sostituisce solo il blocco indirizzo del modello comune, mai il modello.",
+      "bankAccount": "Conto bancario",
+      "bankAccountInherit": "Come l'azienda (conto di fatturazione)"
     }
   }
 }

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../test/fakeBackend'
 import type { LocationRead, UserAdminRead } from '../../api/types'
+import { location } from '../../test/fixtures'
 import { UserFormDialog } from './UserFormDialog'
 
 // KAN-200 — the one user form: an invitation sends every field the PRD
@@ -14,8 +15,8 @@ import { UserFormDialog } from './UserFormDialog'
 
 const DEALERSHIP = 'dealership-1'
 const LOCATIONS: LocationRead[] = [
-  { id: 'loc-1', name: 'Zürich Nord', addressLocality: 'Zürich' },
-  { id: 'loc-2', name: 'Zürich Süd', addressLocality: 'Zürich' },
+  location({ id: 'loc-1', name: 'Zürich Nord' }),
+  location({ id: 'loc-2', name: 'Zürich Süd', code: 'ZH-SUED' }),
 ]
 
 function existing(overrides: Partial<UserAdminRead> = {}): UserAdminRead {
