@@ -1,11 +1,15 @@
 """Staff notifications (KAN-216; Dealer Administration D-A-40, FR-A-47…50).
 
 `notify(db, code, user_id=…, subject=…)` is the one way a notification is
-raised, from any context (`app.platform.public.notify`). It runs inside the
-caller's own transaction: the inbox row and its outbox row commit with the
-fact they report, or not at all (rule 4) — a rolled-back action owes nobody
-a notification. A code with no catalogue row raises `UnknownNotificationEvent`
-(FR-A-47: an event not in the catalogue cannot be sent).
+raised. It runs inside the caller's own transaction: the inbox row and its
+outbox row commit with the fact they report, or not at all (rule 4) — a
+rolled-back action owes nobody a notification. That makes it
+**platform-internal**: every caller today is platform's own security family.
+Another context calling it would write platform's tables in its own
+transaction (rule 12 / ADR-047); the first such module needs a decided
+design and an ADR before it calls (see `app/platform/public.py`). A code
+with no catalogue row raises `UnknownNotificationEvent` (FR-A-47: an event
+not in the catalogue cannot be sent).
 
 What happens is the user's decision (FR-A-48), per family:
 

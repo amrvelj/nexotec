@@ -9,6 +9,7 @@ import type { NotificationPreferenceRead, NotificationRead } from '../api/types'
 import { NotificationsPage } from './NotificationsPage'
 import { AccountLayout } from './account/AccountLayout'
 import { AccountNotificationsPage } from './account/AccountNotificationsPage'
+import { useUnreadNotificationCount } from '../hooks/useNotifications'
 
 // KAN-216 — the inbox (FR-A-50: every notification, read/unread, a link to
 // its subject) and the preferences in My account (FR-A-48: the user decides,
@@ -216,5 +217,21 @@ describe('notification preferences in My account (KAN-216)', () => {
     ])
     // jsdom has no service worker or PushManager.
     expect(await screen.findByText('Dieser Browser unterstützt keine Push-Benachrichtigungen.')).toBeInTheDocument()
+  })
+})
+
+function BellCount() {
+  const unread = useUnreadNotificationCount(true)
+  return <div data-testid="count">{unread.data?.count ?? '-'}</div>
+}
+
+describe('the bell (KAN-216)', () => {
+  it('polls as a background request, so an unattended tab still idles out (FR-AU-19)', async () => {
+    const backend = installFakeBackend([
+      { method: 'GET', match: /\/me\/notifications\/unread-count$/, handler: () => ({ count: 2 }) },
+    ])
+    renderWithProviders(<BellCount />)
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('2'))
+    expect(backend.callsTo(/unread-count$/)[0].headers.get('X-DMS-Background')).toBe('poll')
   })
 })

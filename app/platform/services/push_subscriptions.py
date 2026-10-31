@@ -4,11 +4,14 @@ A browser registers its subscription from a signed-in session; the row is
 that session's. **A revoked session loses its subscription** — logout, the
 user ending a session in My account, a reset, a deactivation, platform
 staff's revoke: `auth_sessions.revoke` and `revoke_all_for_user` delete the
-rows of every session they end, in the same transaction. A session that ran
-out (idle or past midnight) is not revoked and keeps its subscription until
-the browser signs in again, which moves the row to the new session (one row
-per endpoint, whoever registers it last owns it — a shared PC's next user
-takes the browser over, the previous user's row goes with it).
+rows of every session they end, in the same transaction. **Only a live
+session's subscription is pushed to** (`live_targets`: not revoked, not idle
+past its timeout, not past its absolute end) — a session that ran out is as
+dead for push as for the API. Its row waits for the daily purge
+(`delete_for_dead_sessions`) or for the browser's next sign-in, which moves
+the row to the new session (one row per endpoint, whoever registers it last
+owns it — a shared PC's next user takes the browser over, the previous user's
+row goes with it).
 
 The keys are encrypted at rest; the endpoint is a capability URL and never
 leaves the server once stored.
@@ -23,6 +26,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.notification import PushSubscription
@@ -97,13 +101,11 @@ def delete_for_session(db: Session, session_id: uuid.UUID) -> int:
     return int(result.rowcount or 0)  # type: ignore[attr-defined]
 
 
-def delete_for_revoked_sessions(db: Session, *, user_id: uuid.UUID | None = None) -> int:
-    """Every subscription whose session is revoked — the user's, or (the
-    daily purge's belt) everyone's."""
+def delete_for_revoked_sessions(db: Session, *, user_id: uuid.UUID) -> int:
+    """Every subscription of the user whose session is revoked — called by
+    the revocation itself (`auth_sessions.revoke_all_for_user`)."""
 
-    revoked = select(AuthSession.id).where(AuthSession.revoked_at.is_not(None))
-    if user_id is not None:
-        revoked = revoked.where(AuthSession.user_id == user_id)
+    revoked = select(AuthSession.id).where(AuthSession.revoked_at.is_not(None), AuthSession.user_id == user_id)
     result = db.execute(
         delete(PushSubscription)
         .where(PushSubscription.session_id.in_(revoked))
@@ -112,13 +114,40 @@ def delete_for_revoked_sessions(db: Session, *, user_id: uuid.UUID | None = None
     return int(result.rowcount or 0)  # type: ignore[attr-defined]
 
 
+def _session_is_live(now):
+    # `AuthSession.is_live` as SQL: not revoked, not idle past its end, not
+    # past the absolute end.
+    return (
+        AuthSession.revoked_at.is_(None),
+        AuthSession.idle_expires_at > now,
+        AuthSession.absolute_expires_at > now,
+    )
+
+
+def delete_for_dead_sessions(db: Session) -> int:
+    """The daily purge: every subscription whose session will never be live
+    again — revoked, idle past its timeout or past its absolute end (a session
+    is never revived). The browser keeps its own subscription and registers it
+    again at its next sign-in."""
+
+    live = select(AuthSession.id).where(*_session_is_live(utcnow()))
+    result = db.execute(
+        delete(PushSubscription)
+        .where(PushSubscription.session_id.not_in(live))
+        .execution_options(synchronize_session=False)
+    )
+    return int(result.rowcount or 0)  # type: ignore[attr-defined]
+
+
 def live_targets(db: Session, *, user_id: uuid.UUID) -> list[tuple[PushSubscription, PushTarget]]:
-    """The user's subscriptions whose session is not revoked."""
+    """The user's subscriptions whose session is live — not revoked, not idle
+    past its timeout, not past its absolute end. A device signed out by time
+    gets no push, as it gets no API."""
 
     rows = db.scalars(
         select(PushSubscription)
         .join(AuthSession, AuthSession.id == PushSubscription.session_id)
-        .where(PushSubscription.user_id == user_id, AuthSession.revoked_at.is_(None))
+        .where(PushSubscription.user_id == user_id, *_session_is_live(utcnow()))
         .order_by(PushSubscription.created_at)
     ).all()
     return [(row, PushTarget(endpoint=row.endpoint, p256dh=row.p256dh, auth=row.auth)) for row in rows]

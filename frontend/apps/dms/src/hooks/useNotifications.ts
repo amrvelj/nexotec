@@ -13,10 +13,15 @@ export const PUSH_CONFIG_KEY = ['me', 'push', 'config'] as const
 /** The inbox is the record; the bell asks for its count once a minute. */
 const UNREAD_POLL_MS = 60_000
 
+/** A request the app makes on its own, not because the user did something:
+ * the session guard checks it but does not count it as activity, so an
+ * unattended tab still reaches its idle end (FR-AU-19; `session_guard.py`). */
+export const BACKGROUND_REQUEST_HEADERS = { 'X-DMS-Background': 'poll' } as const
+
 export function useUnreadNotificationCount(enabled: boolean) {
   return useQuery({
     queryKey: UNREAD_COUNT_KEY,
-    queryFn: () => api.get<UnreadCountRead>('/me/notifications/unread-count'),
+    queryFn: () => api.get<UnreadCountRead>('/me/notifications/unread-count', BACKGROUND_REQUEST_HEADERS),
     enabled,
     refetchInterval: enabled ? UNREAD_POLL_MS : false,
   })
