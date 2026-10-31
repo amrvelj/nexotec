@@ -2434,7 +2434,8 @@
       "profile": "Profil",
       "security": "Sicherheit",
       "connectedAccounts": "Verbundene Konten",
-      "signature": "Unterschrift"
+      "signature": "Unterschrift",
+      "notifications": "Benachrichtigungen"
     },
     "languages": {
       "de": "Deutsch",
@@ -2456,9 +2457,7 @@
       "betriebDefault": "Wie der Betrieb ({{language}})",
       "saved": "Gespeichert.",
       "conflict": "Ihr Konto wurde inzwischen anderswo geändert. Mit «Abbrechen» sehen Sie den neuen Stand; Ihre Eingaben gehen dabei verloren.",
-      "invalid": "Bitte prüfen Sie die Eingaben: Telefonnummern mit Landesvorwahl, z. B. +41 79 123 45 67.",
-      "notificationsTitle": "Benachrichtigungen",
-      "notificationsSoon": "Hier legen Sie bald fest, welche Benachrichtigungen Sie in der App und als Push erhalten."
+      "invalid": "Bitte prüfen Sie die Eingaben: Telefonnummern mit Landesvorwahl, z. B. +41 79 123 45 67."
     },
     "connected": {
       "emptyTitle": "Noch keine verbundenen Konten",
@@ -2843,6 +2842,125 @@
       "title": "Keine Marke gefunden",
       "description": "Keine Marke passt zur Suche.",
       "action": "Suche zurücksetzen"
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "bellLabel": "Benachrichtigungen, {{count, number}} ungelesen",
+    "filterAll": "Alle",
+    "filterUnread": "Ungelesen",
+    "markAllRead": "Alle als gelesen markieren",
+    "markRead": "Als gelesen markieren",
+    "markUnread": "Als ungelesen markieren",
+    "open": "Öffnen",
+    "unread": "Ungelesen",
+    "emptyTitle": "Keine Benachrichtigungen",
+    "emptyBody": "Hier erscheinen Hinweise zu Ihrem Konto, etwa eine Anmeldung von einem neuen Gerät. Sie bleiben 90 Tage erhalten.",
+    "emptyUnread": "Keine ungelesenen Benachrichtigungen.",
+    "loadMore": "Weitere laden",
+    "retention": "Benachrichtigungen bleiben 90 Tage erhalten.",
+    "digest": {
+      "pushTitle": "Neue Benachrichtigungen"
+    },
+    "families": {
+      "security": {
+        "name": "Sicherheit",
+        "description": "Anmeldungen, zweiter Faktor, Passwort, Sitzungen und Wiederherstellungen Ihres Kontos."
+      },
+      "administration": {
+        "name": "Verwaltung",
+        "description": "Hinweise zum Betrieb für Manager, etwa ablaufende Zugangsdaten."
+      },
+      "assignment": {
+        "name": "Zuweisungen",
+        "description": "Was Ihnen zugewiesen wird, etwa ein Lead oder ein Auftrag."
+      }
+    },
+    "timings": {
+      "immediate": "Sofort",
+      "digest": "Tägliche Zusammenfassung",
+      "off": "Aus"
+    },
+    "preferences": {
+      "title": "Benachrichtigungen",
+      "intro": "Benachrichtigungen erscheinen im Posteingang und, wenn Sie wollen, als Push auf Ihren Geräten – nie per E-Mail. Sie entscheiden allein.",
+      "family": "Art",
+      "timing": "Zustellung",
+      "push": "Push",
+      "locked": "Sicherheitsmeldungen kommen immer sofort, im Posteingang und als Push, und lassen sich nicht abschalten.",
+      "noEventsYet": "Noch keine Meldungen dieser Art.",
+      "conflict": "Die Einstellung wurde inzwischen an anderer Stelle geändert. Sie sehen jetzt den aktuellen Stand.",
+      "failed": "Die Einstellung konnte nicht gespeichert werden."
+    },
+    "device": {
+      "title": "Push auf diesem Gerät",
+      "intro": "Ein Push zeigt nur den Titel und führt zum Posteingang; der Inhalt bleibt in Nexotec. Er gilt für dieses Gerät, solange Sie hier angemeldet sind.",
+      "enable": "Push auf diesem Gerät aktivieren",
+      "disable": "Push auf diesem Gerät deaktivieren",
+      "active": "Push ist auf diesem Gerät aktiv.",
+      "inactive": "Push ist auf diesem Gerät nicht aktiv.",
+      "unavailable": "Push ist auf dieser Installation noch nicht eingerichtet.",
+      "unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen.",
+      "denied": "Der Browser blockiert Benachrichtigungen für Nexotec. Erlauben Sie sie in den Browsereinstellungen.",
+      "failed": "Push konnte auf diesem Gerät nicht eingerichtet werden."
+    },
+    "events": {
+      "newDeviceLogin": {
+        "title": "Anmeldung von einem neuen Gerät",
+        "body": "Ihr Konto wurde von einem Gerät aus angemeldet, das bisher nie verwendet wurde. Waren Sie das nicht, beenden Sie die Sitzung unter Mein Konto › Sicherheit und ändern Sie Ihr Passwort."
+      },
+      "factorEnrolled": {
+        "title": "Zweiter Faktor eingerichtet",
+        "body": "Für Ihr Konto wurde ein zweiter Faktor eingerichtet. Waren Sie das nicht, wenden Sie sich sofort an den Nexotec-Support."
+      },
+      "factorRemoved": {
+        "title": "Zweiter Faktor entfernt",
+        "body": "Von Ihrem Konto wurde ein zweiter Faktor entfernt. Waren Sie das nicht, wenden Sie sich sofort an den Nexotec-Support."
+      },
+      "recoveryCodeUsed": {
+        "title": "Wiederherstellungscode verwendet",
+        "body": "Für eine Anmeldung wurde einer Ihrer Wiederherstellungscodes verwendet. Übrig: {{remaining, number}}."
+      },
+      "accountLocked": {
+        "title": "Konto vorübergehend gesperrt",
+        "body": "Nach mehreren falschen Anmeldeversuchen ist Ihr Konto vorübergehend gesperrt. Waren das nicht Sie, setzen Sie Ihr Passwort zurück."
+      },
+      "passwordChanged": {
+        "title": "Passwort geändert",
+        "body": "Das Passwort Ihres Kontos wurde geändert. Waren Sie das nicht, setzen Sie es sofort zurück und wenden Sie sich an den Nexotec-Support."
+      },
+      "sessionRevokedByOther": {
+        "title": "Sitzungen von jemand anderem beendet",
+        "body": "Eine oder mehrere Sitzungen Ihres Kontos wurden von jemand anderem beendet. Melden Sie sich neu an, um weiterzuarbeiten."
+      },
+      "impersonationStarted": {
+        "title": "Der Nexotec-Support arbeitet in Ihrem Konto",
+        "body": "Ein Mitarbeiter des Nexotec-Supports arbeitet in Ihrem Konto. Sie können die Sitzung jederzeit über das Banner beenden."
+      },
+      "impersonationEnded": {
+        "title": "Support-Sitzung beendet",
+        "body": "Die Sitzung des Nexotec-Supports in Ihrem Konto ist beendet."
+      },
+      "connectedAccountLinked": {
+        "title": "Verbundenes Konto verknüpft",
+        "body": "Mit Ihrem Konto wurde ein externes Konto verknüpft. Waren Sie das nicht, trennen Sie es unter Mein Konto › Verbundene Konten."
+      },
+      "connectedAccountRevoked": {
+        "title": "Verbundenes Konto getrennt",
+        "body": "Die Verbindung zu einem externen Konto wurde getrennt. Nexotec handelt dort nicht mehr in Ihrem Namen."
+      },
+      "platformRecoveryAction": {
+        "title": "Wiederherstellung durch den Nexotec-Support",
+        "body": "Der Nexotec-Support hat an Ihrem Konto eine Wiederherstellung vorgenommen: {{action}}."
+      }
+    },
+    "recoveryActions": {
+      "invitationReissued": "Einladung neu ausgestellt",
+      "mfaReset": "zweiter Faktor zurückgesetzt",
+      "lockoutCleared": "Sperre aufgehoben",
+      "sessionsRevoked": "alle Sitzungen beendet",
+      "managerGranted": "Manager-Recht erteilt",
+      "emailChanged": "Anmeldeadresse geändert"
     }
   }
 }

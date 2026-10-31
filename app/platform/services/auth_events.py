@@ -1,6 +1,10 @@
 """The append-only auth event stream (FR-AU-20/21, KAN-196) and the per-IP
 throttle that reads it (FR-AU-08). `record` only adds; nothing updates or
-deletes a row. Never a secret in `details`."""
+deletes a row. Never a secret in `details`.
+
+Since KAN-216 `record` is also where the `security` notification family
+hangs (`security_alerts.on_auth_event`): the notification the event owes
+the user is written in the same transaction as the event."""
 
 import datetime as dt
 import uuid
@@ -11,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.platform.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.services import security_alerts
 
 
 def record(
@@ -34,6 +39,7 @@ def record(
     )
     db.add(event)
     db.flush()
+    security_alerts.on_auth_event(db, event)
     return event
 
 

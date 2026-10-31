@@ -38,6 +38,12 @@ from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.module_entitlement import ModuleEntitlement
+from app.platform.models.notification import (
+    Notification,
+    NotificationEvent,
+    PushSubscription,
+    UserNotificationPreference,
+)
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
@@ -123,12 +129,15 @@ __all__ = [
     "ModelVariant",
     "ModelVariantEnergyRating",
     "ModuleEntitlement",
+    "Notification",
+    "NotificationEvent",
     "OutboxMessage",
     "PlateLookupCacheEntry",
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",
     "ProviderSyncState",
+    "PushSubscription",
     "ReconciliationOrphan",
     "ReconciliationRun",
     "ReferenceList",
@@ -153,6 +162,7 @@ __all__ = [
     "User",
     "UserConnectedAccount",
     "UserLocation",
+    "UserNotificationPreference",
     "UserPreference",
     "Valuation",
     "ValuationDeduction",

@@ -2434,7 +2434,8 @@
       "profile": "Profile",
       "security": "Security",
       "connectedAccounts": "Connected accounts",
-      "signature": "Signature"
+      "signature": "Signature",
+      "notifications": "Notifications"
     },
     "languages": {
       "de": "German",
@@ -2456,9 +2457,7 @@
       "betriebDefault": "Same as the business ({{language}})",
       "saved": "Saved.",
       "conflict": "Your account was changed elsewhere in the meantime. Cancel shows the new version; your entries are lost.",
-      "invalid": "Please check your entries: phone numbers with the country code, e.g. +41 79 123 45 67.",
-      "notificationsTitle": "Notifications",
-      "notificationsSoon": "Soon you will choose here which notifications you receive in the app and as push."
+      "invalid": "Please check your entries: phone numbers with the country code, e.g. +41 79 123 45 67."
     },
     "connected": {
       "emptyTitle": "No connected accounts yet",
@@ -2843,6 +2842,125 @@
       "title": "No brand found",
       "description": "No brand matches the search.",
       "action": "Clear search"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bellLabel": "Notifications, {{count, number}} unread",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "open": "Open",
+    "unread": "Unread",
+    "emptyTitle": "No notifications",
+    "emptyBody": "Notices about your account appear here, a sign-in from a new device for example. They are kept for 90 days.",
+    "emptyUnread": "No unread notifications.",
+    "loadMore": "Load more",
+    "retention": "Notifications are kept for 90 days.",
+    "digest": {
+      "pushTitle": "New notifications"
+    },
+    "families": {
+      "security": {
+        "name": "Security",
+        "description": "Sign-ins, second factor, password, sessions and recoveries of your account."
+      },
+      "administration": {
+        "name": "Administration",
+        "description": "Notices about the business for managers, expiring credentials for example."
+      },
+      "assignment": {
+        "name": "Assignments",
+        "description": "What is handed to you, a lead or a job for example."
+      }
+    },
+    "timings": {
+      "immediate": "Immediately",
+      "digest": "Daily digest",
+      "off": "Off"
+    },
+    "preferences": {
+      "title": "Notifications",
+      "intro": "Notifications appear in your inbox and, if you want, as a push on your devices – never by e-mail. You alone decide.",
+      "family": "Kind",
+      "timing": "Delivery",
+      "push": "Push",
+      "locked": "Security notices always arrive immediately, in the inbox and as a push, and cannot be switched off.",
+      "noEventsYet": "No notices of this kind yet.",
+      "conflict": "The setting was changed elsewhere in the meantime. You now see where it stands.",
+      "failed": "The setting could not be saved."
+    },
+    "device": {
+      "title": "Push on this device",
+      "intro": "A push shows only the title and leads to the inbox; the content stays in Nexotec. It applies to this device while you are signed in here.",
+      "enable": "Turn on push on this device",
+      "disable": "Turn off push on this device",
+      "active": "Push is on for this device.",
+      "inactive": "Push is off for this device.",
+      "unavailable": "Push is not set up on this installation yet.",
+      "unsupported": "This browser does not support push notifications.",
+      "denied": "The browser blocks notifications from Nexotec. Allow them in the browser settings.",
+      "failed": "Push could not be set up on this device."
+    },
+    "events": {
+      "newDeviceLogin": {
+        "title": "Sign-in from a new device",
+        "body": "Your account was signed in from a device it has never been used on before. If this was not you, end that session in My account › Security and change your password."
+      },
+      "factorEnrolled": {
+        "title": "Second factor added",
+        "body": "A second factor was added to your account. If this was not you, contact Nexotec support at once."
+      },
+      "factorRemoved": {
+        "title": "Second factor removed",
+        "body": "A second factor was removed from your account. If this was not you, contact Nexotec support at once."
+      },
+      "recoveryCodeUsed": {
+        "title": "Recovery code used",
+        "body": "One of your recovery codes was used to sign in. Left: {{remaining, number}}."
+      },
+      "accountLocked": {
+        "title": "Account temporarily locked",
+        "body": "Your account is temporarily locked after several failed sign-in attempts. If this was not you, reset your password."
+      },
+      "passwordChanged": {
+        "title": "Password changed",
+        "body": "The password of your account was changed. If this was not you, reset it at once and contact Nexotec support."
+      },
+      "sessionRevokedByOther": {
+        "title": "Sessions ended by someone else",
+        "body": "One or more sessions of your account were ended by someone else. Sign in again to carry on."
+      },
+      "impersonationStarted": {
+        "title": "Nexotec support is working in your account",
+        "body": "A Nexotec support employee is working in your account. You can end the session at any time from the banner."
+      },
+      "impersonationEnded": {
+        "title": "Support session ended",
+        "body": "The Nexotec support session in your account has ended."
+      },
+      "connectedAccountLinked": {
+        "title": "Connected account linked",
+        "body": "An external account was linked to your account. If this was not you, disconnect it in My account › Connected accounts."
+      },
+      "connectedAccountRevoked": {
+        "title": "Connected account disconnected",
+        "body": "A connected external account was disconnected. Nexotec no longer acts on your behalf there."
+      },
+      "platformRecoveryAction": {
+        "title": "Recovery by Nexotec support",
+        "body": "Nexotec support carried out a recovery on your account: {{action}}."
+      }
+    },
+    "recoveryActions": {
+      "invitationReissued": "invitation re-issued",
+      "mfaReset": "second factor reset",
+      "lockoutCleared": "lock cleared",
+      "sessionsRevoked": "every session ended",
+      "managerGranted": "manager right granted",
+      "emailChanged": "sign-in address changed"
     }
   }
 }

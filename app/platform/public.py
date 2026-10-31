@@ -24,6 +24,8 @@ from app.platform.services.dealership import (
 )
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
+from app.platform.services.notification_catalogue import NotificationEventCode
+from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.user import (
     UserDisplayLabel,
@@ -42,6 +44,13 @@ from app.platform.services.user import (
 # block types and calls render_document. SwissLanguage itself is imported
 # straight from app.core.i18n, not re-exported here — app.core is already
 # universally importable.
+#
+# KAN-216 (D-A-40, FR-A-47): notify / NotificationEventCode /
+# NotificationSubject are the staff-notification contract. A module raises a
+# notification with notify(db, NotificationEventCode.X, user_id=…, subject=…)
+# in its own transaction and registers its codes in the catalogue (the
+# declaration and a platform migration) in the same PR. An unknown code
+# raises UnknownNotificationEvent. Never an e-mail.
 __all__ = [
     "Addressee",
     "ContentDefinition",
@@ -53,8 +62,11 @@ __all__ = [
     "LineItemsBlock",
     "LineStyle",
     "Location",
+    "NotificationEventCode",
+    "NotificationSubject",
     "ParagraphBlock",
     "SignatureBlock",
+    "UnknownNotificationEvent",
     "User",
     "UserDisplayLabel",
     "actor_reference_checks",
@@ -70,5 +82,6 @@ __all__ = [
     "list_dealer_manager_emails",
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
+    "notify",
     "render_document",
 ]

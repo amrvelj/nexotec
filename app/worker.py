@@ -52,7 +52,12 @@ from app.inventory.consumers import (
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.ownership_registry import register_ownership_providers
-from app.platform.daily_jobs import run_daily_user_expiry
+from app.platform.consumers import handle_digest_released_message, handle_notification_delivered_message
+from app.platform.daily_jobs import (
+    run_daily_notification_digest,
+    run_daily_notification_purge,
+    run_daily_user_expiry,
+)
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
@@ -126,6 +131,18 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.unpublished",
         consumer_name="inventory.marketplace_transmission_on_unpublish",
         handler=handle_stock_item_unpublished_message,
+    )
+    # KAN-216 (D-A-40, FR-A-49/50) — Web Push is a pointer to the inbox: the
+    # title and link of a delivered notification, and one pointer per digest.
+    transport.register(
+        "platform.notification.delivered",
+        consumer_name="platform.web_push_on_notification",
+        handler=handle_notification_delivered_message,
+    )
+    transport.register(
+        "platform.notification_digest.released",
+        consumer_name="platform.web_push_on_digest",
+        handler=handle_digest_released_message,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":
@@ -208,7 +225,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Nine daily jobs, run in registration order once per day on this
+    """Eleven daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -252,6 +269,10 @@ def register_daily_jobs() -> None:
        to the modules' queues; a release a module refused is retried for 30
        days (a repair of the owning step, after reconciliation like Stock's
        sweep, so the night's report still names the record first).
+    10. ``platform.notifications.digest`` — KAN-216 (FR-A-48): notifications
+       held for a family set to ``digest`` reach the inbox; one push each.
+    11. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
+       inbox keeps 90 days; no push subscription outlives a revoked session.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
@@ -265,6 +286,10 @@ def register_daily_jobs() -> None:
     # 9. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
     #    and their open records released to the modules' queues.
     register_daily_job("platform.user_expiry", run_daily_user_expiry)
+    # 10./11. KAN-216 (FR-A-48, FR-A-50): the day's digests reach the inbox
+    #    with one push each; the inbox keeps 90 days.
+    register_daily_job("platform.notifications.digest", run_daily_notification_digest)
+    register_daily_job("platform.notifications.purge", run_daily_notification_purge)
 
 
 def run(*, max_iterations: int | None = None) -> None:
