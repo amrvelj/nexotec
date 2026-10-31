@@ -1,8 +1,10 @@
 """KAN-208 migration ec4559d84ad3, run for real on a throwaway Postgres
 database: the seeded library is installed, every non-empty
 `document_template.footer_text_*` becomes an `invoice.footer.carried_over`
-dealer text of its Betrieb (one row per language, verified by query), the
-four columns are gone — and the downgrade puts each footer back, creating the
+dealer text of its Betrieb and its **default** offer and contract footer (one
+row per language each, verified by query), so an offer and a contract
+generated after the upgrade print the footer they printed before; the four
+columns are gone — and the downgrade puts each footer back, creating the
 template row where none exists any more."""
 
 import os
@@ -10,6 +12,7 @@ import pathlib
 import subprocess
 import sys
 import uuid
+from decimal import Decimal
 
 import psycopg
 import pytest
@@ -17,6 +20,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.sales.models.contract import ContractStatus, SalesContract
+from app.sales.models.offer import OfferStatus, SalesOffer
+from app.sales.services.document import generate_contract_document, generate_offer_document
 from scripts.check_concurrent_alembic_upgrade import UPGRADE_TIMEOUT_S, libpq_url, sqlalchemy_url_for
 from tests.dealership_support import valid_uid
 
@@ -110,12 +116,68 @@ def test_the_footers_move_into_the_library_and_come_back_on_downgrade(scratch_ur
             assert {(r.is_default, r.active, r.category, r.applies_to, r.slot, r.scope) for r in carried} == {
                 (False, True, "document", "invoice", "footer", "dealership")
             }
+            # The same footer is the Betrieb's default offer and contract footer,
+            # one row per language it had, a dealer text of its own.
+            for code, applies_to in (("offer.footer.carried_over", "offer"), ("contract.footer.carried_over", "contract")):
+                rows = conn.execute(
+                    text(
+                        "SELECT dealership_id, language, body, is_default, active, source, overridden_from_id, "
+                        "category, applies_to, slot, scope FROM standard_text WHERE code = :code ORDER BY body"
+                    ),
+                    {"code": code},
+                ).all()
+                assert [(r.dealership_id, r.language, r.body) for r in rows] == [
+                    (dropped, "de", "Bis bald."),
+                    (kept, "de", "Danke."),
+                    (kept, "fr", "Merci."),
+                ], code
+                assert {
+                    (r.is_default, r.active, r.source, r.overridden_from_id, r.category, r.applies_to, r.slot, r.scope)
+                    for r in rows
+                } == {(True, True, "dealer", None, "document", applies_to, "footer", "dealership")}, code
+            own_rows = conn.execute(text("SELECT count(*) FROM standard_text WHERE dealership_id = :d"), {"d": bare})
+            assert own_rows.scalar() == 0  # a Betrieb without a footer gets no row
             columns = conn.execute(
                 text("SELECT column_name FROM information_schema.columns WHERE table_name = 'document_template'")
             ).scalars().all()
             assert not [c for c in columns if c.startswith("footer_text")]
             assert "header_note_de" in columns
             conn.execute(text("DELETE FROM document_template WHERE dealership_id = :d"), {"d": dropped})
+
+        # The documents themselves, generated on the migrated rows: the footer
+        # an offer and a contract printed from the template is the footer they
+        # print now. A language without one (EN here) and a Betrieb without one
+        # get the seed default — the ticket's stated change.
+        with Session(engine, expire_on_commit=False) as session:
+
+            def footers(dealership_id: uuid.UUID, language: str) -> tuple[str | None, str | None]:
+                offer = SalesOffer(
+                    tenant_id=dealership_id, offer_number=f"O-{uuid.uuid4().hex[:6]}", status=OfferStatus.OPEN,
+                    customer_label="Peter Beispiel", vehicle_label="VW Golf GTI", customer_language=language,
+                )
+                contract = SalesContract(
+                    tenant_id=dealership_id, contract_number=f"C-{uuid.uuid4().hex[:6]}",
+                    status=ContractStatus.PENDING, customer_label="Peter Beispiel", vehicle_source="manual",
+                    vehicle_label="VW Golf GTI", gross_price=Decimal("36000.00"), customer_language=language,
+                )
+                session.add_all([offer, contract])
+                session.flush()
+                offer_document = generate_offer_document(session, offer=offer, actor_id=None)
+                contract_document = generate_contract_document(session, contract=contract, actor_id=None)
+                return (
+                    offer_document.content_definition["footer_text"],
+                    contract_document.content_definition["footer_text"],
+                )
+
+            assert footers(kept, "de") == ("Danke.", "Danke.")
+            assert footers(kept, "fr") == ("Merci.", "Merci.")
+            assert footers(dropped, "de") == ("Bis bald.", "Bis bald.")
+            offer_seed, contract_seed = footers(bare, "de")
+            assert offer_seed is not None and offer_seed.startswith("Diese Offerte ist 30 Tage ab dem ")
+            assert contract_seed is not None and contract_seed.startswith("Garage Leer AG bearbeitet Ihre Personendaten")
+            offer_en, contract_en = footers(kept, "en")
+            assert offer_en is not None and offer_en.startswith("This offer is valid for 30 days")
+            assert contract_en is not None and contract_en.startswith("Garage Behalten AG processes your personal data")
     finally:
         engine.dispose()
 

@@ -21,7 +21,8 @@ to app.sales.i18n never alters an already-generated document (ADR-041's
 posture, applied to text).
 
 KAN-208: the offer's wording around the figures — its introduction
-(`offer` / `intro`) and footer (`offer` / `footer`) — is the Betrieb's
+(`offer` / `intro`) and footer (`offer` / `footer`), and the contract's
+footer (`contract` / `footer`) — is the Betrieb's
 standard text, resolved and rendered by platform's resolver
 (app.platform.public.render_standard_text: the customer's language → the
 Betrieb's default → DE, the Betrieb's own wording before the seed) with the
@@ -225,16 +226,18 @@ def build_offer_content(
 
 
 def build_contract_content(
-    contract: SalesContract, *, language: SwissLanguage, vat_rate: Decimal | None
+    contract: SalesContract, *, language: SwissLanguage, vat_rate: Decimal | None, footer: str | None = None
 ) -> ContentDefinition:
     """See build_offer_content's own docstring — same explicit-language,
-    explicit-rate posture.
+    explicit-rate posture. `footer` is the contract's footer standard text,
+    already rendered (KAN-208, `contract_footer`); None prints none.
     """
 
     return ContentDefinition(
         title=t(language, "contract.title", number=contract.contract_number),
         metadata=[KeyValueRow(label=t(language, "date"), value=utcnow().date().isoformat())],
         addressee=Addressee(lines=[contract.customer_label or "—"]),
+        footer_text=footer,
         blocks=[
             _vehicle_block(contract.vehicle_label, language=language),
             LineItemsBlock(
@@ -321,6 +324,29 @@ def offer_standard_texts(db: Session, *, offer: SalesOffer, language: SwissLangu
     return intro, footer
 
 
+def contract_footer(db: Session, *, contract: SalesContract, language: SwissLanguage) -> str | None:
+    """The contract's footer (`contract` / `footer`), through platform's
+    resolver — the footer the contract printed from the document template
+    before KAN-208 is the Betrieb's default footer text since then. The same
+    facts the offer supplies, the contract's own."""
+
+    rendered = render_standard_text(
+        db,
+        dealership_id=contract.tenant_id,
+        category=StandardTextCategory.DOCUMENT,
+        applies_to=StandardTextAppliesTo.CONTRACT,
+        slot=StandardTextSlot.FOOTER,
+        language=language,
+        values={
+            Placeholder.DOCUMENT_NUMBER.value: contract.contract_number,
+            Placeholder.DOCUMENT_DATE.value: format_date_ch(utcnow().date()),
+            Placeholder.VEHICLE_MAKE_MODEL.value: contract.vehicle_label,
+            Placeholder.USER_FULL_NAME.value: contract.owner_label,
+        },
+    )
+    return rendered.text if rendered is not None else None
+
+
 def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesDocument:
     # KAN-495 (Anto, 2026-10-29, option a): an offer with a live contract
     # prints no new offer document — the contract is the live record (ADR-083)
@@ -362,7 +388,8 @@ def generate_contract_document(db: Session, *, contract: SalesContract, actor_id
     require_complete(contract, action="printed")
     language = SwissLanguage(contract.customer_language) if contract.customer_language else _DEFAULT_LANGUAGE
     dealership = get_dealership_or_404(db, contract.tenant_id)
-    content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate)
+    footer = contract_footer(db, contract=contract, language=language)
+    content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate, footer=footer)
     document = SalesDocument(
         tenant_id=contract.tenant_id,
         owner_type=DocumentOwnerType.CONTRACT,

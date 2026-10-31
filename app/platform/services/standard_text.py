@@ -132,12 +132,15 @@ def _dealership_name(dealership: Dealership) -> str:
 
 def platform_values(dealership: Dealership, location: Location | None) -> dict[str, str | None]:
     """The two tokens platform resolves from its own records (see
-    standard_text_placeholders.PLATFORM_RESOLVED). `location` carries no
-    phone column yet, so `location.phone` is the Betrieb's phone either way."""
+    standard_text_placeholders.PLATFORM_RESOLVED). `location.phone` is the
+    phone of the location the render is scoped to when that location has one
+    (KAN-204's `location.phone`), else the Betrieb's — the PRD's location →
+    dealership fallback; a render without a location uses the Betrieb's."""
 
+    phone = location.phone if location is not None and (location.phone or "").strip() else dealership.phone
     return {
         Placeholder.DEALERSHIP_NAME.value: _dealership_name(dealership),
-        Placeholder.LOCATION_PHONE.value: dealership.phone,
+        Placeholder.LOCATION_PHONE.value: phone,
     }
 
 

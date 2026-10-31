@@ -332,6 +332,51 @@ def test_render_standard_text_fills_platforms_tokens_and_fails_on_the_callers_mi
     assert exc.value.details["code"] == seed.code
 
 
+def test_location_phone_is_the_locations_own_and_falls_back_to_the_betriebs(db_session, standard_text_seeds):
+    """{{location.phone}}: the phone of the location the render is scoped to
+    (KAN-204's `location.phone`) when it has one, else the Betrieb's — also
+    for a render without a location."""
+
+    dealership = _dealership(db_session)
+    with_phone = Location(tenant_id=dealership.id, name="Filiale Winterthur", phone="+41522223344")
+    without_phone = Location(tenant_id=dealership.id, name="Filiale Uster", phone=None)
+    blank_phone = Location(tenant_id=dealership.id, name="Filiale Wetzikon", phone="  ")
+    db_session.add_all([with_phone, without_phone, blank_phone])
+    db_session.commit()
+    seed = _seed(db_session, "offer.intro.standard", _DE)
+    _dealer_row(db_session, dealership, code=seed.code, language=_DE, body="Telefon {{location.phone}}", seed=seed)
+
+    def rendered(location):
+        result = render_standard_text(
+            db_session,
+            dealership_id=dealership.id,
+            category=_DOC,
+            applies_to=_OFFER,
+            slot=StandardTextSlot.INTRO,
+            language=_DE,
+            values={},
+            location_id=location.id if location else None,
+        )
+        assert result is not None
+        return result.text
+
+    assert rendered(with_phone) == "Telefon +41522223344"
+    assert rendered(without_phone) == "Telefon +41441234567"
+    assert rendered(blank_phone) == "Telefon +41441234567"
+    assert rendered(None) == "Telefon +41441234567"
+    # The editor's preview, scoped to a location, uses the same rule.
+    preview = service.preview(
+        db_session,
+        dealership_id=dealership.id,
+        category=_DOC,
+        applies_to=_OFFER,
+        language=_DE,
+        body="{{location.phone}}",
+        location_id=with_phone.id,
+    )
+    assert preview == "+41522223344"
+
+
 # --- the API ------------------------------------------------------------------------
 
 
