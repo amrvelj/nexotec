@@ -20,6 +20,7 @@ import { CircleAlert, Check, Languages, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { useCanWrite } from '../auth/useCanWrite'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { apiRefusalText, isStaleVersion, refusedField } from '../utils/apiRefusal'
 import { useInlineEditRefusal } from '../hooks/useInlineEditRefusal'
@@ -43,6 +44,13 @@ import {
 export function ReferenceDataPage() {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
+  // KAN-471: the reference lists are the PRD's "canonical taxonomy" row
+  // (Platform Administration › Reference data — the canonical taxonomy, the
+  // reference lists), written by platform staff only. Everyone else reads
+  // them here and is offered neither «Neuer Wert» nor an inline edit
+  // (KAN-430: hide the action, never the data). The API's own gate on the
+  // POST and the PATCH stays the authority.
+  const canWrite = useCanWrite('canonical_taxonomy')
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -154,9 +162,15 @@ export function ReferenceDataPage() {
               onChange={(e) => setQuery(e.currentTarget.value)}
               w={260}
             />
-            <Button variant="light" leftSection={<Plus size={16} />} onClick={() => setCreateOpen(true)} ml="auto">
-              {t('referenceData.create.trigger')}
-            </Button>
+            {canWrite ? (
+              <Button variant="light" leftSection={<Plus size={16} />} onClick={() => setCreateOpen(true)} ml="auto">
+                {t('referenceData.create.trigger')}
+              </Button>
+            ) : (
+              <Text c="dimmed" size="sm" ml="auto">
+                {t('referenceData.readOnly')}
+              </Text>
+            )}
           </Group>
 
           {isError && !forbidden && (
@@ -212,18 +226,24 @@ export function ReferenceDataPage() {
                         const empty = missing.has(field)
                         return (
                           <Table.Td key={field}>
-                            <InlineEditField
-                              value={row[field]}
-                              isEmpty={empty}
-                              emptyLabel={t('referenceData.required')}
-                              describeError={describeError}
-                              isConflict={isStaleVersion}
-                              onReload={() => void refetch()}
-                              reloadLabel={reloadLabel}
-                              onSave={async (raw) => {
-                                await patchLabel.mutateAsync({ row, field, value: raw })
-                              }}
-                            />
+                            {canWrite ? (
+                              <InlineEditField
+                                value={row[field]}
+                                isEmpty={empty}
+                                emptyLabel={t('referenceData.required')}
+                                describeError={describeError}
+                                isConflict={isStaleVersion}
+                                onReload={() => void refetch()}
+                                reloadLabel={reloadLabel}
+                                onSave={async (raw) => {
+                                  await patchLabel.mutateAsync({ row, field, value: raw })
+                                }}
+                              />
+                            ) : (
+                              <Text span size="sm" fs={empty ? 'italic' : undefined} c={empty ? 'dimmed' : undefined}>
+                                {empty ? t('referenceData.required') : row[field]}
+                              </Text>
+                            )}
                           </Table.Td>
                         )
                       })}
@@ -253,15 +273,17 @@ export function ReferenceDataPage() {
           (KAN-40) — catalogue owns provider-code mapping, this screen owns
           canonical-vocabulary editing. */}
 
-      <CreateValueDialog
-        opened={createOpen}
-        listCode={list}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          setCreateOpen(false)
-          void queryClient.invalidateQueries({ queryKey })
-        }}
-      />
+      {canWrite && (
+        <CreateValueDialog
+          opened={createOpen}
+          listCode={list}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => {
+            setCreateOpen(false)
+            void queryClient.invalidateQueries({ queryKey })
+          }}
+        />
+      )}
     </Stack>
   )
 }

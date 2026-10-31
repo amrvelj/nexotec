@@ -1696,6 +1696,7 @@
     "emptyFiltered": "Nessun valore corrisponde al filtro.",
     "required": "Campo obbligatorio",
     "missingTip": "Questa riga non può essere salvata finché manca una lingua.",
+    "readOnly": "Nexotec gestisce questi elenchi per tutte le aziende. Puoi consultarli qui, ma non modificarli.",
     "columns": {
       "code": "Codice",
       "status": "Stato"

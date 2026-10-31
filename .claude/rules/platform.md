@@ -172,7 +172,9 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen»), each checked to be a matrix row; never a role table
+list's intake and «Konfiguration zuordnen», `canonical_taxonomy` — the PRD's Platform
+Administration › Reference data — for the Reference data screen's «Neuer Wert» and inline edits,
+platform staff only, KAN-471), each checked to be a matrix row; never a role table
 in the frontend. An empty `write_roles` = platform staff
 or the manager — except every row with `manager_can_write=False`: the "Nobody" rows (`audit_logs`,
 `wagenbuch`, `stock_reservation`, `ui_translations`, `status_page`, `integration_usage`,

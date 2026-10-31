@@ -1696,6 +1696,7 @@
     "emptyFiltered": "Keine Werte entsprechen dem Filter.",
     "required": "Pflichtfeld",
     "missingTip": "Diese Zeile kann nicht gespeichert werden, solange eine Sprache fehlt.",
+    "readOnly": "Nexotec pflegt diese Listen für alle Betriebe. Sie sehen sie hier, ändern können Sie sie nicht.",
     "columns": {
       "code": "Code",
       "status": "Status"
