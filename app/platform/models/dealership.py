@@ -23,7 +23,20 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, JSON, Boolean, Date, ForeignKey, Index, Integer, PrimaryKeyConstraint, String, false, text, true
+from sqlalchemy import (
+    DECIMAL,
+    JSON,
+    Boolean,
+    Date,
+    ForeignKey,
+    Index,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+    false,
+    text,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
