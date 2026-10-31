@@ -1060,6 +1060,11 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/customers/{customer_id}/external-ids/{external_id_row_id}",
         "/v1/customers/{customer_id}/vehicles/{party_id}",
         "/v1/me/preferences/{scope}",
+        # KAN-216: a browser's Web Push subscription (push off on one's own
+        # device) — a real delete of the user's own child row, bound to a
+        # session and never the target of any dropped FK; a revoked session
+        # deletes it the same way (FR-A-49).
+        "/v1/me/push-subscriptions/{subscription_id}",
         # WP-7 PR-8: stock_item_media is inventory's own new child row
         # (ADR-062) — a real hard delete this time (removing a photo from
         # a listing genuinely removes the row, unlike the closed-not-
