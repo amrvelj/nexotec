@@ -66,6 +66,7 @@ _STYLE = f"""
 }}
 body {{ font-family: {_FONT_FAMILY}; font-size: 13px; color: {_SLATE_9}; margin: 0; }}
 .doc-footer {{ position: running(doc-footer); font-size: 9px; color: {_SLATE_5}; }}
+.doc-footer-text {{ white-space: pre-line; }}
 .doc-head {{ display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }}
 .doc-dealer {{ display: flex; gap: 10px; font-size: 12px; line-height: 1.5; color: {_SLATE_6}; }}
 .doc-logo {{
@@ -85,7 +86,7 @@ body {{ font-family: {_FONT_FAMILY}; font-size: 13px; color: {_SLATE_9}; margin:
 .doc-kv-row {{ display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; }}
 .doc-kv-row span {{ color: {_SLATE_5}; }}
 .doc-kv-row b {{ font-family: {_FONT_FAMILY_MONO}; font-size: 12.5px; }}
-.doc-paragraph {{ margin: 14px 0; line-height: 1.6; }}
+.doc-paragraph {{ margin: 14px 0; line-height: 1.6; white-space: pre-line; }}
 .doc-lines {{ display: grid; margin: 14px 0; }}
 .doc-line {{
   display: flex; justify-content: space-between; gap: 16px; padding: 6px 0;
@@ -238,12 +239,14 @@ def _compose_html(
     logo: StoredObject | None = None,
 ) -> str:
     header_note = _template_field(template, "header_note", correspondence_language)
-    footer_text = _template_field(template, "footer_text", correspondence_language)
+    # The footer wording is the document's own standard text (KAN-208),
+    # frozen in its content — no longer a template column.
+    footer_text = content.footer_text
 
     body_blocks = "".join(_render_block(block) for block in content.blocks)
 
     header_note_html = f'<div class="doc-paragraph">{_esc(header_note)}</div>' if header_note else ""
-    footer_boilerplate_html = f"<div>{_esc(footer_text)}</div>" if footer_text else ""
+    footer_boilerplate_html = f'<div class="doc-footer-text">{_esc(footer_text)}</div>' if footer_text else ""
 
     return f"""<!doctype html>
 <html lang="{correspondence_language.value}">
@@ -278,8 +281,9 @@ def render_document(
     store: ObjectStore | None = None,
 ) -> bytes:
     """Renders `content` inside `dealership`'s shared frame (letterhead,
-    per-location footer address, the dealership's own template boilerplate
-    if any) as a PDF, in `correspondence_language` — never the caller's UI
+    per-location footer address, the dealership's own header note if any,
+    the content's own footer standard text) as a PDF, in
+    `correspondence_language` — never the caller's UI
     locale. Tolerates a dealership with no DocumentTemplate row at all
     (renders with empty boilerplate, never an error) so a brand-new
     dealership can generate documents on day one.

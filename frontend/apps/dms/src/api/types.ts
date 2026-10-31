@@ -94,6 +94,17 @@ export type TextDelegationsRead = Schemas['TextDelegationsRead']
 export type MembershipRead = Schemas['MembershipRead']
 export type MembershipList = Schemas['MembershipList']
 export type TextDelegationsUpdate = Schemas['TextDelegationsUpdate']
+// KAN-208: the standard-text library (Dealer Administration › Standard texts).
+export type StandardTextAppliesTo = Schemas['StandardTextAppliesTo']
+export type StandardTextSlot = Schemas['StandardTextSlot']
+export type StandardTextRead = Schemas['StandardTextRead']
+export type StandardTextList = Schemas['StandardTextList']
+export type StandardTextCreate = Schemas['StandardTextCreate']
+export type StandardTextUpdate = Schemas['StandardTextUpdate']
+export type StandardTextPreviewRequest = Schemas['StandardTextPreviewRequest']
+export type StandardTextPreviewRead = Schemas['StandardTextPreviewRead']
+export type StandardTextRegistryRead = Schemas['StandardTextRegistryRead']
+export type StandardTextTargetRead = Schemas['StandardTextTargetRead']
 
 // Customer — core, contact channels, external IDs, vehicles
 export type CustomerType = Schemas['CustomerType']

@@ -1049,6 +1049,11 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # child, never an FK target) and its object-store file; audited with
         # the file's values, the dealership row is never deleted.
         "/v1/dealerships/{dealership_id}/branding/assets/{kind}",
+        # KAN-208: a Betrieb's own standard text (an adaptation of a seed or
+        # its own wording) — removing an adaptation returns the slot to the
+        # seed; audited with the row's values. A seed, the one row another
+        # row points at (`overridden_from_id`), is never reachable here.
+        "/v1/dealerships/{dealership_id}/standard-texts/{category}/{text_id}",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",

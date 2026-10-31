@@ -1330,6 +1330,80 @@ export interface paths {
         patch: operations["update_dealership_settings_v1_dealerships__dealership_id__settings_patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/standard-text-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Standard Text
+         * @description The editor's preview with sample data, through the renderer a
+         *     document uses — an unknown or invalid token is the same 422 a real
+         *     render gives (`standard_text_placeholder_unresolved`). Writes nothing.
+         */
+        post: operations["preview_standard_text_v1_dealerships__dealership_id__standard_text_previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-texts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Standard Texts */
+        get: operations["list_standard_texts_v1_dealerships__dealership_id__standard_texts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-texts/{category}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Standard Text */
+        post: operations["create_standard_text_v1_dealerships__dealership_id__standard_texts__category__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-texts/{category}/{text_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Standard Text */
+        delete: operations["delete_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Standard Text */
+        patch: operations["update_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__patch"];
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users": {
         parameters: {
             query?: never;
@@ -3068,6 +3142,28 @@ export interface paths {
         put?: never;
         /** Attach Trade In Valuation */
         post: operations["attach_trade_in_valuation_v1_sales_offers__offer_id__trade_in_valuation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/standard-text-registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Standard Text Registry
+         * @description The closed placeholder set and, per (category, appliesTo), its slots
+         *     and the placeholders valid there (FR-A-07). Static; the same for every
+         *     Betrieb.
+         */
+        get: operations["get_standard_text_registry_v1_standard_text_registry_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6644,14 +6740,6 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
-            /** Footertextde */
-            footerTextDe: string | null;
-            /** Footertexten */
-            footerTextEn: string | null;
-            /** Footertextfr */
-            footerTextFr: string | null;
-            /** Footertextit */
-            footerTextIt: string | null;
             /** Headernotede */
             headerNoteDe: string | null;
             /** Headernoteen */
@@ -6669,19 +6757,14 @@ export interface components {
         };
         /**
          * DocumentTemplateUpdate
-         * @description All fields optional — PATCH semantics, partial update. A field left
-         *     unset is left unchanged; a field explicitly set to null clears it back
-         *     to "not customized yet".
+         * @description The header note in four languages — KAN-208 moved the footer text
+         *     into the standard-text library (`invoice.footer.carried_over`). All
+         *     fields optional — PATCH semantics, partial update. A field left unset
+         *     is left unchanged; a field explicitly set to null clears it back to
+         *     "not customized yet". A field this schema does not know — a stale
+         *     client's `footerText*` among them — is a 422, never silently dropped.
          */
         DocumentTemplateUpdate: {
-            /** Footertextde */
-            footerTextDe?: string | null;
-            /** Footertexten */
-            footerTextEn?: string | null;
-            /** Footertextfr */
-            footerTextFr?: string | null;
-            /** Footertextit */
-            footerTextIt?: string | null;
             /** Headernotede */
             headerNoteDe?: string | null;
             /** Headernoteen */
@@ -8786,13 +8869,184 @@ export interface components {
             vin: string;
         };
         /**
+         * StandardTextAppliesTo
+         * @description The document and message types a text may be used on (PRD
+         *     `applies_to`; FR-A-52's registered types the starter set needs).
+         * @enum {string}
+         */
+        StandardTextAppliesTo: "offer" | "contract" | "invoice" | "appointment_reminder" | "vehicle_ready" | "workshop_order" | "customer_note";
+        /**
          * StandardTextCategory
          * @description The PRD's standard-text categories (Dealer Administration, "Standard
          *     texts" data model): document texts · e-mail bodies · SMS · internal note
-         *     templates · workshop job texts.
+         *     templates · workshop job texts — and WhatsApp (FR-A-52/54, added by
+         *     KAN-208: the send dialog's third channel, its texts carry the provider's
+         *     template approval).
          * @enum {string}
          */
-        StandardTextCategory: "document" | "email" | "sms" | "internal_note" | "workshop";
+        StandardTextCategory: "document" | "email" | "sms" | "whatsapp" | "internal_note" | "workshop";
+        /**
+         * StandardTextCreate
+         * @description A new text of the Betrieb (`code` omitted: the server names it), a
+         *     further language or location variant of one of its texts, or the
+         *     adaptation of a seed (`code` = the seed's). The category is the path's.
+         */
+        StandardTextCreate: {
+            /**
+             * Active
+             * @default true
+             */
+            active?: boolean;
+            appliesTo?: components["schemas"]["StandardTextAppliesTo"] | null;
+            /** Body */
+            body: string;
+            /** Code */
+            code?: string | null;
+            /** Isdefault */
+            isDefault?: boolean | null;
+            language: components["schemas"]["SwissLanguage"];
+            /** Locationid */
+            locationId?: string | null;
+            /** Providertemplateid */
+            providerTemplateId?: string | null;
+            slot?: components["schemas"]["StandardTextSlot"] | null;
+            /** Sortorder */
+            sortOrder?: number | null;
+            /**
+             * Templateapproved
+             * @default false
+             */
+            templateApproved?: boolean;
+            /** Title */
+            title: string;
+        };
+        /** StandardTextList */
+        StandardTextList: {
+            /** Items */
+            items: components["schemas"]["StandardTextRead"][];
+            /** Writablecategories */
+            writableCategories: components["schemas"]["StandardTextCategory"][];
+        };
+        /** StandardTextPreviewRead */
+        StandardTextPreviewRead: {
+            /** Text */
+            text: string;
+        };
+        /** StandardTextPreviewRequest */
+        StandardTextPreviewRequest: {
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            /** Body */
+            body: string;
+            category: components["schemas"]["StandardTextCategory"];
+            language: components["schemas"]["SwissLanguage"];
+            /** Locationid */
+            locationId?: string | null;
+        };
+        /** StandardTextRead */
+        StandardTextRead: {
+            /** Active */
+            active: boolean;
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            /** Body */
+            body: string;
+            category: components["schemas"]["StandardTextCategory"];
+            /** Code */
+            code: string;
+            /** Dealershipid */
+            dealershipId: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isdefault */
+            isDefault: boolean;
+            language: components["schemas"]["SwissLanguage"];
+            /** Locationid */
+            locationId: string | null;
+            /** Overriddenfromid */
+            overriddenFromId: string | null;
+            /** Providertemplateid */
+            providerTemplateId: string | null;
+            scope: components["schemas"]["StandardTextScope"];
+            /** Seedchanged */
+            seedChanged: boolean;
+            slot: components["schemas"]["StandardTextSlot"];
+            /** Sortorder */
+            sortOrder: number;
+            source: components["schemas"]["StandardTextSource"];
+            /** Templateapproved */
+            templateApproved: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StandardTextRegistryRead
+         * @description The closed placeholder set and where each text may be used — what
+         *     the editor offers (FR-A-07).
+         */
+        StandardTextRegistryRead: {
+            /** Placeholders */
+            placeholders: string[];
+            /** Targets */
+            targets: components["schemas"]["StandardTextTargetRead"][];
+        };
+        /**
+         * StandardTextScope
+         * @enum {string}
+         */
+        StandardTextScope: "dealership" | "location";
+        /**
+         * StandardTextSlot
+         * @description Where on the document or message the text sits (PRD).
+         * @enum {string}
+         */
+        StandardTextSlot: "header" | "intro" | "body" | "footer" | "terms" | "closing";
+        /**
+         * StandardTextSource
+         * @enum {string}
+         */
+        StandardTextSource: "platform_seed" | "dealer";
+        /** StandardTextTargetRead */
+        StandardTextTargetRead: {
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            category: components["schemas"]["StandardTextCategory"];
+            /** Placeholders */
+            placeholders: string[];
+            /** Slots */
+            slots: components["schemas"]["StandardTextSlot"][];
+        };
+        /**
+         * StandardTextUpdate
+         * @description PATCH semantics: a field not sent keeps its value. `seedReviewed:
+         *     true` records that the seed's current wording was reviewed (an
+         *     adaptation only).
+         */
+        StandardTextUpdate: {
+            /** Active */
+            active?: boolean | null;
+            /** Body */
+            body?: string | null;
+            /** Isdefault */
+            isDefault?: boolean | null;
+            /** Providertemplateid */
+            providerTemplateId?: string | null;
+            /** Seedreviewed */
+            seedReviewed?: boolean | null;
+            /** Sortorder */
+            sortOrder?: number | null;
+            /** Templateapproved */
+            templateApproved?: boolean | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * StockItemCondition
          * @enum {string}
@@ -14320,6 +14574,204 @@ export interface operations {
             };
         };
     };
+    preview_standard_text_v1_dealerships__dealership_id__standard_text_previews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextPreviewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_standard_texts_v1_dealerships__dealership_id__standard_texts_get: {
+        parameters: {
+            query?: {
+                category?: components["schemas"]["StandardTextCategory"] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_standard_text_v1_dealerships__dealership_id__standard_texts__category__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category: components["schemas"]["StandardTextCategory"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category: components["schemas"]["StandardTextCategory"];
+                text_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category: components["schemas"]["StandardTextCategory"];
+                text_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_v1_dealerships__dealership_id__users_get: {
         parameters: {
             query?: {
@@ -19120,6 +19572,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_standard_text_registry_v1_standard_text_registry_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextRegistryRead"];
                 };
             };
             /** @description Validation Error */

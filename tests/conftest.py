@@ -454,3 +454,20 @@ def client(engine) -> TestClient:
     finally:
         fastapi_app.dependency_overrides.pop(get_db, None)
         fastapi_app.dependency_overrides.pop(get_session_factory, None)
+
+
+@pytest.fixture()
+def standard_text_seeds(engine) -> int:
+    """KAN-208: the seeded standard-text library, installed as the migration
+    installs it — every test starts with empty tables, so a test that needs
+    the seeds asks for them."""
+
+    from app.platform.services.standard_text import install_platform_seeds
+
+    session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
+    try:
+        added = install_platform_seeds(session)
+        session.commit()
+    finally:
+        session.close()
+    return added
