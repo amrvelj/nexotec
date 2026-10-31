@@ -2881,7 +2881,13 @@
       "holidayCalendar": "Feiertagskalender",
       "status": "Status",
       "validFrom": "Gültig ab",
-      "validTo": "Gültig bis"
+      "validTo": "Gültig bis",
+      "country": "Land",
+      "contactPerson": "Ansprechperson",
+      "email": "E-Mail",
+      "geo": "Koordinaten",
+      "letterhead": "Adressblock im Briefkopf",
+      "updatedAt": "Geändert am"
     },
     "status": {
       "active": "Aktiv",

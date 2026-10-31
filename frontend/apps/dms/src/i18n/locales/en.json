@@ -2881,7 +2881,13 @@
       "holidayCalendar": "Holiday calendar",
       "status": "Status",
       "validFrom": "Valid from",
-      "validTo": "Valid to"
+      "validTo": "Valid to",
+      "country": "Country",
+      "contactPerson": "Contact person",
+      "email": "E-mail",
+      "geo": "Coordinates",
+      "letterhead": "Letterhead address block",
+      "updatedAt": "Updated"
     },
     "status": {
       "active": "Active",

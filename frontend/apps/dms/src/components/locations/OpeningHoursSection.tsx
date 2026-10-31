@@ -109,6 +109,15 @@ export function OpeningHoursSection({ location, dealershipId, canWrite }: Sectio
           </Text>
         )}
         <Table withRowBorders={false} verticalSpacing={4} aria-label={t('locations.hours.title')}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th />
+              <Table.Th>{t('locations.hours.opensAt')}</Table.Th>
+              <Table.Th>{t('locations.hours.closesAt')}</Table.Th>
+              <Table.Th>{t('locations.hours.secondOpensAt')}</Table.Th>
+              <Table.Th>{t('locations.hours.secondClosesAt')}</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
           <Table.Tbody>
             {WEEKDAYS.map((weekday) => {
               const day = week[weekday]

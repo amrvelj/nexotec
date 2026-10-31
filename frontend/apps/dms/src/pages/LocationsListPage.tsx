@@ -4,7 +4,15 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { MapPin, Plus } from 'lucide-react'
-import { Badge, DataGrid, useSetBreadcrumb, type GridColumnDef } from '@nexotec/ui-kit'
+import {
+  Badge,
+  ColumnConfigPanel,
+  DataGrid,
+  defaultColumnLayout,
+  useSetBreadcrumb,
+  type ColumnRegistryEntry,
+  type GridColumnDef,
+} from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import type { HolidayCalendarList, LocationList, LocationRead } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -12,18 +20,24 @@ import { useCanWrite } from '../auth/useCanWrite'
 import { LocationCreateDialog, DeactivateLocationDialog } from '../components/locations/LocationDialogs'
 import { addressLine, holidayCalendarsKey, labelIn, locationsKey } from '../components/locations/locationOptions'
 import { useLocationRowMenu } from '../components/locations/useLocationRowMenu'
+import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
 import { useDataGridLabels } from '../hooks/useDataGridLabels'
+import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDateOnly } from '../utils/format'
+import { formatDateOnly, formatDateTime } from '../utils/format'
+
+const GRID_KEY = 'administration.locations.list'
 
 /**
  * Dealer Administration › Locations (KAN-204; PRD Locations, D-A-02,
  * FR-A-03, A-RULE-1): the Betrieb's sites, active and deactivated, each
  * opening its own screen. Any role reads; the manager creates, deactivates
  * and activates (the actions are hidden from a role without the write,
- * KAN-430). A Betrieb has a handful of sites, so the grid holds them all in
- * the API's name order — no paging, no server sort.
+ * KAN-430). Every stored field is a column (ADR-060), a subset visible by
+ * default, the layout the user's own (Columns panel). A Betrieb has a
+ * handful of sites, so the grid holds them all in the API's name order — no
+ * paging, no server sort.
  */
 export function LocationsListPage() {
   const { t, i18n } = useTranslation()
@@ -34,6 +48,8 @@ export function LocationsListPage() {
   const canWrite = useCanWrite('locations')
   const { density } = useUiPreferencesContext()
   const labels = useDataGridLabels()
+  const columnPanelLabels = useColumnPanelLabels()
+  const gridPrefs = useGridPreferences(GRID_KEY, { sort: [] })
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [creating, setCreating] = useState(false)
 
@@ -68,12 +84,38 @@ export function LocationsListPage() {
       },
       { id: 'address', header: t('locations.columns.address'), cell: ({ row }) => addressLine(row.original) || '—' },
       { id: 'canton', header: t('locations.columns.canton'), cell: ({ row }) => row.original.addressCanton ?? '—' },
+      {
+        id: 'country',
+        header: t('locations.columns.country'),
+        cell: ({ row }) => row.original.addressCountry ?? '—',
+        meta: { defaultVisible: false },
+      },
       { id: 'phone', header: t('locations.columns.phone'), cell: ({ row }) => row.original.phone ?? '—', meta: { mono: true } },
+      {
+        id: 'contactPerson',
+        header: t('locations.columns.contactPerson'),
+        cell: ({ row }) => row.original.contactPerson ?? '—',
+        meta: { defaultVisible: false },
+      },
+      { id: 'email', header: t('locations.columns.email'), cell: ({ row }) => row.original.email ?? '—', meta: { defaultVisible: false } },
       { id: 'leadEmail', header: t('locations.columns.leadEmail'), cell: ({ row }) => row.original.leadEmail ?? '—' },
+      {
+        id: 'geo',
+        header: t('locations.columns.geo'),
+        cell: ({ row }) =>
+          row.original.geoLat !== null && row.original.geoLng !== null ? `${row.original.geoLat.toFixed(6)}, ${row.original.geoLng.toFixed(6)}` : '—',
+        meta: { mono: true, defaultVisible: false },
+      },
       {
         id: 'holidayCalendar',
         header: t('locations.columns.holidayCalendar'),
         cell: ({ row }) => calendarLabel(row.original.holidayCalendarId) || '—',
+      },
+      {
+        id: 'letterhead',
+        header: t('locations.columns.letterhead'),
+        cell: ({ row }) => row.original.letterheadAddressOverride?.replace(/\s*\n\s*/g, ', ') ?? '—',
+        meta: { defaultVisible: false },
       },
       {
         id: 'validFrom',
@@ -99,9 +141,27 @@ export function LocationsListPage() {
             </Badge>
           ),
       },
+      {
+        id: 'updatedAt',
+        header: t('locations.columns.updatedAt'),
+        cell: ({ row }) => formatDateTime(row.original.updatedAt, locale),
+        meta: { defaultVisible: false },
+      },
     ],
     [t, calendarLabel, locale],
   )
+
+  const columnRegistry: ColumnRegistryEntry[] = useMemo(
+    () =>
+      columns.map((c) => ({
+        id: String(c.id),
+        label: typeof c.header === 'string' ? c.header : String(c.id),
+        defaultVisible: c.meta?.defaultVisible ?? true,
+        locked: c.meta?.locked,
+      })),
+    [columns],
+  )
+  const columnLayout = useMemo(() => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry), [gridPrefs.columnLayout, columnRegistry])
 
   return (
     <Stack gap="md">
@@ -112,11 +172,14 @@ export function LocationsListPage() {
             {t('locations.subtitle')}
           </Text>
         </div>
-        {canWrite && (
-          <Button leftSection={<Plus size={16} />} onClick={() => setCreating(true)}>
-            {t('locations.new')}
-          </Button>
-        )}
+        <Group gap="sm">
+          <ColumnConfigPanel registry={columnRegistry} layout={columnLayout} onLayoutChange={gridPrefs.setColumnLayout} labels={columnPanelLabels} />
+          {canWrite && (
+            <Button leftSection={<Plus size={16} />} onClick={() => setCreating(true)}>
+              {t('locations.new')}
+            </Button>
+          )}
+        </Group>
       </Group>
       {locations.isError && (
         <Alert color="red" role="alert">
@@ -147,6 +210,8 @@ export function LocationsListPage() {
         labels={labels}
         emptyState={{ icon: <MapPin size={24} />, title: t('locations.empty.title'), description: t('locations.empty.description') }}
         rowActions={menu.groups}
+        columnLayout={columnLayout}
+        onColumnLayoutChange={gridPrefs.setColumnLayout}
       />
       <LocationCreateDialog
         opened={creating}

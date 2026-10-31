@@ -2881,7 +2881,13 @@
       "holidayCalendar": "Calendrier des jours fériés",
       "status": "Statut",
       "validFrom": "Valable dès",
-      "validTo": "Valable jusqu'au"
+      "validTo": "Valable jusqu'au",
+      "country": "Pays",
+      "contactPerson": "Personne de contact",
+      "email": "E-mail",
+      "geo": "Coordonnées",
+      "letterhead": "Bloc d'adresse de l'en-tête",
+      "updatedAt": "Modifié le"
     },
     "status": {
       "active": "Actif",
