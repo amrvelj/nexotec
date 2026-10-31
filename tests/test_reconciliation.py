@@ -1041,6 +1041,10 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # KAN-203: a bank account is the dealership's own child row (D-A-27),
         # never an FK target; the delete is audited with the row's values.
         "/v1/dealerships/{dealership_id}/bank-accounts/{account_id}",
+        # KAN-204: a closure is a location's own child row (the dealer's
+        # Betriebsferien plan), never an FK target; the delete is audited. A
+        # location itself has no DELETE — it is deactivated (A-RULE-1).
+        "/v1/dealerships/{dealership_id}/locations/{location_id}/closures/{closure_id}",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",
