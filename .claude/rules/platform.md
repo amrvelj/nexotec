@@ -293,7 +293,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the outer chain, location → dealership → seed inside it; a dealership row masks its seed even
   switched off; a slot resolves to its default (narrowest scope, then `sort_order`, `code`) or to
   nothing. Other contexts call `platform.public.render_standard_text` (platform fills
-  `dealership.name` and `location.phone` — the Betrieb's phone: `location` has no phone column).
+  `dealership.name` and `location.phone` — the Betrieb's phone even for a location variant:
+  `platform_values` predates `location.phone` (KAN-204) and does not read it yet — open).
   Seeds: `services/standard_text_seed.py`, 12 codes × 4 languages, installed by the migration
   (`ec4559d84ad3`) and the `standard_text_seeds` test fixture; `update_platform_seed` is the
   platform_admin edit, behind the Translations panel's seed tab (KAN-209,
@@ -310,8 +311,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   (sample data, the same renderer), `POST …/standard-texts/{category}` and `PATCH/DELETE
   …/standard-texts/{category}/{text_id}` (If-Match) behind the delegation-aware gate, every lookup
   bound to the path's category; a seed is never written there. Screen `/administration/texts`
-  (`pages/StandardTextsPage.tsx`; the Betrieb's scope only — location variants are API-only until a
-  Locations screen exists). `document_template.footer_text_*` moved into
+  (`pages/StandardTextsPage.tsx`; the Betrieb's scope only — location variants are API-only: the
+  Locations screen, KAN-204, does not edit them). `document_template.footer_text_*` moved into
   `invoice.footer.carried_over` dealer texts and was dropped.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. Frozen at activation (A-RULE-3).
@@ -371,7 +372,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   without). `code` is unique per Betrieb and fixed once saved (422 `location_code_immutable`; a
   row saved without one gets it once); a location is referenced by id only. `location_types` (JSON
   list), contacts incl. `lead_email`, `geo_lat`/`geo_lng` (both or neither), validity, the
-  `letterhead_address_override` (address block only; the logo override waits for branding assets)
+  `letterhead_address_override` (the address block only — stored and edited, **not yet read by
+  `document_render`**, whose header is still the Betrieb's; a per-location logo override is **not
+  built**: no column, no API — the header logo is the Betrieb's primary branding asset, KAN-205)
   and `bank_account_override_id` (an account of the same Betrieb; read only by the banking roles,
   null for anyone else — ADR-100; such an account cannot be deleted, 409
   `bank_account_used_by_location`); `calendar_ref` and `warehouse_ref` stay empty for Aftersales

@@ -25,14 +25,26 @@ Locations, D-A-02, D-A-27, FR-A-03, A-RULE-1)
   Jeûne fédéral, Appenzell's St Stephen's Day) and their sources are in the
   seed module's docstring.
 
-Backfill (pure SQL, renders offline):
+Every data step renders offline (`alembic upgrade … --sql`, KAN-174): the
+seed is INSERTs over typed lightweight tables, the backfills are literal
+SQL, and only the closing row counts are skipped offline
+(tests/test_platform_chain_renders_offline.py renders the chain).
+
+Backfill (tests/test_kan204_locations_migration.py runs it on existing rows
+and checks the result by query):
 - every existing location: `location_types` = [], `is_active` = true, and
-  the calendar of its canton where the canton has exactly one;
+  the calendar whose code is its canton code, where one exists — the 22
+  cantons with a single calendar, and Neuchâtel and Solothurn, whose main
+  calendar carries the canton code beside their regional one (Le Landeron,
+  Bucheggberg). Aargau and Fribourg have no calendar under the bare canton
+  code (theirs are per district or per the commune's confession), and a
+  location without a canton has none: the dealer picks;
 - FR-A-03: every dealership without a location gets one from its registered
   seat — named after the trade name or legal name, no code (the dealer sets
-  it once), the seat's phone and canton calendar — as `create_dealership`
-  now does for a new Betrieb. These rows carry a v4 id from
-  gen_random_uuid(), as KAN-198's and KAN-203's backfills did.
+  it once), the seat's phone, and its canton's calendar by the same rule —
+  as `create_dealership` now does for a new Betrieb. These rows carry a v4
+  id from gen_random_uuid(), as KAN-198's and KAN-203's backfills did; a
+  second run inserts nothing.
 
 Downgrade drops the four tables and the new columns. The first locations
 the backfill created stay (a location is never deleted, A-RULE-1; they are
@@ -243,59 +255,57 @@ def upgrade() -> None:
         op.execute("-- KAN-204 counts skipped: they read rows and need a live database")
 
 
+# Typed lightweight tables: every value renders as a literal under `--sql`
+# (an untyped column holding a UUID has no literal renderer), and `op.execute`
+# runs the same statement online and prints it offline. The ids are UUIDv7,
+# minted here, so an offline render carries fixed ids like an online run.
+_CALENDAR_TABLE = sa.table(
+    "holiday_calendar",
+    sa.column("id", _UUID),
+    sa.column("code", sa.String()),
+    sa.column("canton", sa.String()),
+    sa.column("label_de", sa.String()),
+    sa.column("label_fr", sa.String()),
+    sa.column("label_it", sa.String()),
+    sa.column("label_en", sa.String()),
+    sa.column("source", sa.String()),
+    sa.column("sort_order", sa.Integer()),
+    sa.column("active", sa.Boolean()),
+    sa.column("version", sa.Integer()),
+    sa.column("created_at", sa.DateTime(timezone=True)),
+    sa.column("updated_at", sa.DateTime(timezone=True)),
+)
+_HOLIDAY_TABLE = sa.table(
+    "holiday",
+    sa.column("id", _UUID),
+    sa.column("calendar_id", _UUID),
+    sa.column("code", sa.String()),
+    sa.column("label_de", sa.String()),
+    sa.column("label_fr", sa.String()),
+    sa.column("label_it", sa.String()),
+    sa.column("label_en", sa.String()),
+    sa.column("rule", sa.String()),
+    sa.column("month", sa.SmallInteger()),
+    sa.column("day", sa.SmallInteger()),
+    sa.column("easter_offset_days", sa.SmallInteger()),
+    sa.column("condition", sa.String()),
+    sa.column("afternoon_only", sa.Boolean()),
+    sa.column("sort_order", sa.Integer()),
+    sa.column("version", sa.Integer()),
+    sa.column("created_at", sa.DateTime(timezone=True)),
+    sa.column("updated_at", sa.DateTime(timezone=True)),
+)
+
+
 def _seed_holiday_calendars() -> None:
-    bind = op.get_bind()
-    calendar_table = sa.table(
-        "holiday_calendar",
-        *(
-            sa.column(name)
-            for name in (
-                "id",
-                "code",
-                "canton",
-                "label_de",
-                "label_fr",
-                "label_it",
-                "label_en",
-                "source",
-                "sort_order",
-                "active",
-                "version",
-                "created_at",
-                "updated_at",
-            )
-        ),
-    )
-    holiday_table = sa.table(
-        "holiday",
-        *(
-            sa.column(name)
-            for name in (
-                "id",
-                "calendar_id",
-                "code",
-                "label_de",
-                "label_fr",
-                "label_it",
-                "label_en",
-                "rule",
-                "month",
-                "day",
-                "easter_offset_days",
-                "condition",
-                "afternoon_only",
-                "sort_order",
-                "version",
-                "created_at",
-                "updated_at",
-            )
-        ),
-    )
+    """One INSERT per calendar and one multi-row INSERT for its holidays —
+    pure DDL/DML with literal values, so the step renders offline (KAN-174)."""
+
     now = sa.func.now()
     for calendar_order, calendar in enumerate(CALENDARS):
         calendar_id = uuid7()
-        bind.execute(
-            calendar_table.insert().values(
+        op.execute(
+            _CALENDAR_TABLE.insert().values(
                 id=calendar_id,
                 code=calendar.code,
                 canton=calendar.canton,
@@ -311,29 +321,32 @@ def _seed_holiday_calendars() -> None:
                 updated_at=now,
             )
         )
-        for holiday_order, entry in enumerate(calendar.holidays):
-            definition = HOLIDAYS[entry.code]
-            bind.execute(
-                holiday_table.insert().values(
-                    id=uuid7(),
-                    calendar_id=calendar_id,
-                    code=entry.code,
-                    label_de=definition.label_de,
-                    label_fr=definition.label_fr,
-                    label_it=definition.label_it,
-                    label_en=definition.label_en,
-                    rule=definition.rule,
-                    month=definition.month,
-                    day=definition.day,
-                    easter_offset_days=definition.easter_offset_days,
-                    condition=entry.condition,
-                    afternoon_only=entry.afternoon_only,
-                    sort_order=holiday_order,
-                    version=1,
-                    created_at=now,
-                    updated_at=now,
-                )
+        op.execute(
+            _HOLIDAY_TABLE.insert().values(
+                [
+                    {
+                        "id": uuid7(),
+                        "calendar_id": calendar_id,
+                        "code": entry.code,
+                        "label_de": HOLIDAYS[entry.code].label_de,
+                        "label_fr": HOLIDAYS[entry.code].label_fr,
+                        "label_it": HOLIDAYS[entry.code].label_it,
+                        "label_en": HOLIDAYS[entry.code].label_en,
+                        "rule": HOLIDAYS[entry.code].rule,
+                        "month": HOLIDAYS[entry.code].month,
+                        "day": HOLIDAYS[entry.code].day,
+                        "easter_offset_days": HOLIDAYS[entry.code].easter_offset_days,
+                        "condition": entry.condition,
+                        "afternoon_only": entry.afternoon_only,
+                        "sort_order": holiday_order,
+                        "version": 1,
+                        "created_at": now,
+                        "updated_at": now,
+                    }
+                    for holiday_order, entry in enumerate(calendar.holidays)
+                ]
             )
+        )
 
 
 def downgrade() -> None:
