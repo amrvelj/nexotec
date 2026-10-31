@@ -517,6 +517,27 @@ def test_a_delegation_writes_its_one_category_only(client, standard_text_seeds):
     nobody = bearer(token(AccessRole.SALES, tenant_id=home))
     assert _create(client, home, "email", {"code": "email.offer_sent", "language": "fr", "title": "x", "body": "y"}, nobody).status_code == 403
 
+    # The library tells each caller what the gate will let through (the editor offers no more).
+    def writable(headers):
+        response = client.get(f"/v1/dealerships/{home}/standard-texts", headers=headers)
+        return response.json()["writableCategories"]
+
+    assert writable(delegate) == ["email"]
+    assert writable(nobody) == []
+    assert writable(platform_admin()) == ["document", "email", "sms", "whatsapp", "internal_note", "workshop"]
+
+
+def test_whatsapp_is_a_delegable_category(client):
+    home = create_dealership(client)
+    user = create_user(client, home, is_dealer_manager=False)
+    granted = client.put(
+        f"/v1/dealerships/{home}/users/{user['id']}/text-delegations",
+        json={"categories": ["whatsapp"]},
+        headers={**platform_admin(), "If-Match": "1"},
+    )
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["categories"] == ["whatsapp"]
+
 
 def test_another_betriebs_path_is_404_for_a_manager(client, standard_text_seeds):
     home = create_dealership(client)

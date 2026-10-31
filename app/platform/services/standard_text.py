@@ -43,10 +43,12 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
+from app.core.auth import Principal
 from app.core.base import utcnow
 from app.core.concurrency import check_version
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
+from app.core.permissions import may_write
 from app.core.uuid7 import uuid7
 from app.platform.models.dealership import Dealership, Location
 from app.platform.models.standard_text import (
@@ -67,6 +69,7 @@ from app.platform.services.standard_text_placeholders import (
     validate_body,
 )
 from app.platform.services.standard_text_seed import SEED_TEXTS
+from app.platform.services.text_delegation import holds_delegation
 
 FALLBACK_LANGUAGE = SwissLanguage.DE
 
@@ -390,6 +393,23 @@ def get_dealer_text_or_404(
     if row is None:
         raise NotFoundError(f"Standard text {text_id} was not found.")
     return row
+
+
+def writable_categories(db: Session, principal: Principal, dealership_id: uuid.UUID) -> list[StandardTextCategory]:
+    """What `require_write_or_delegated("standard_texts")` would let this
+    principal write here: every category for whoever holds the matrix's
+    write cell, else the delegated ones of the active Betrieb (never another
+    Betrieb's — a delegation does not travel)."""
+
+    if may_write("standard_texts", roles=principal.roles, is_dealer_manager=principal.is_dealer_manager):
+        return list(StandardTextCategory)
+    if principal.tenant_id != dealership_id:
+        return []
+    return [
+        category
+        for category in StandardTextCategory
+        if holds_delegation(db, principal, "standard_texts", category.value)
+    ]
 
 
 # --- dealer writes -----------------------------------------------------------------

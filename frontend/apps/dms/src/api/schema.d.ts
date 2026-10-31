@@ -8015,6 +8015,8 @@ export interface components {
         StandardTextList: {
             /** Items */
             items: components["schemas"]["StandardTextRead"][];
+            /** Writablecategories */
+            writableCategories: components["schemas"]["StandardTextCategory"][];
         };
         /** StandardTextPreviewRead */
         StandardTextPreviewRead: {

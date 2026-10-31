@@ -103,7 +103,10 @@ def list_standard_texts(
     require_tenant_match(dealership_id, principal)
     rows = standard_text_service.list_texts(db, dealership_id=dealership_id, category=category)
     versions = standard_text_service.seed_versions(db, rows)
-    return StandardTextList(items=[standard_text_read(row, versions) for row in rows])
+    return StandardTextList(
+        items=[standard_text_read(row, versions) for row in rows],
+        writable_categories=standard_text_service.writable_categories(db, principal, dealership_id),
+    )
 
 
 @router.post("/dealerships/{dealership_id}/standard-text-previews", response_model=StandardTextPreviewRead)

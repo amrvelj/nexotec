@@ -47,6 +47,10 @@ class StandardTextRead(CamelModel):
 
 class StandardTextList(CamelModel):
     items: list[StandardTextRead]
+    # The categories the caller may write in this Betrieb — every one for the
+    # manager and platform staff, a delegate's own (FR-A-28) — so the editor
+    # offers what the gate will let through. The gate stays the authority.
+    writable_categories: list[StandardTextCategory]
 
 
 class StandardTextCreate(CamelModel):

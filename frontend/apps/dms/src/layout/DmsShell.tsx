@@ -9,6 +9,7 @@ import {
   ChartColumn,
   Cog,
   Database,
+  FileText,
   Handshake,
   Languages,
   LayoutDashboard,
@@ -95,6 +96,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // writes are the manager's at the API, the entry is never role-hidden.
         { label: t('shell.nav.business'), href: '/administration/business', icon: Building2, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
+        // KAN-208 — Dealer Administration › Standard texts. Any role reads; a
+        // category is written by the manager or its delegate (FR-A-28) — the
+        // entry is never role-hidden (A-RULE-7).
+        { label: t('shell.nav.standardTexts'), href: '/administration/texts', icon: FileText, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
         // Administration, like every other admin entry — A-RULE-7).

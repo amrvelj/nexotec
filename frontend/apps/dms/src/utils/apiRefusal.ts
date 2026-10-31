@@ -91,6 +91,20 @@ const REASON_KEYS: Record<string, string> = {
       'provider_code_already_mapped',
       'purchase_requires_vin',
       'purchase_vin_mismatch',
+      // KAN-208 — the standard-text library and the documents that print it.
+      'standard_text_category_mismatch',
+      'standard_text_code_target_mismatch',
+      'standard_text_code_unknown',
+      'standard_text_exists',
+      'standard_text_not_an_override',
+      'standard_text_placeholder_invalid',
+      'standard_text_placeholder_unresolved',
+      'standard_text_seed_language_missing',
+      'standard_text_slot_unknown',
+      'standard_text_target_required',
+      'standard_text_target_unknown',
+      'standard_text_template_id_required',
+      'standard_text_template_whatsapp_only',
       'too_many_images',
       'unknown_fields',
       'unrecognised_identifier',
@@ -127,9 +141,17 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   provider_code_already_mapped: (d) => ({
     mapping: d.canonicalListCode != null && d.canonicalValueCode != null ? `${String(d.canonicalListCode)}/${String(d.canonicalValueCode)}` : '—',
   }),
+  // KAN-208 (A-RULE-4): the tokens at fault, as the text spells them.
+  standard_text_placeholder_invalid: (d) => ({ placeholders: placeholderTokens(d.placeholders) }),
+  standard_text_placeholder_unresolved: (d) => ({ placeholders: placeholderTokens(d.placeholders) }),
   too_many_images: (d) => ({ max: typeof d.maxImages === 'number' ? d.maxImages : 16 }),
   vin_already_in_stock: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
 }
+
+const placeholderTokens = (value: unknown): string =>
+  Array.isArray(value) && value.length > 0
+    ? value.map((item) => (item && typeof item === 'object' && 'token' in item && item.token ? `{{${String(item.token)}}}` : '{{ }}')).join(', ')
+    : '—'
 
 const listed = (value: unknown, label: (item: string) => string = (item) => item): string =>
   Array.isArray(value) && value.length > 0 ? value.map((item) => label(String(item))).join(', ') : '—'

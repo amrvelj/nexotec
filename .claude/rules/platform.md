@@ -20,6 +20,10 @@ paths:
   - "frontend/apps/dms/src/pages/BusinessPage*"
   - "frontend/apps/dms/src/components/account/**"
   - "frontend/apps/dms/src/components/business/**"
+  - "frontend/apps/dms/src/pages/StandardTextsPage*"
+  - "frontend/apps/dms/src/components/standardTexts/**"
+  - "tests/test_standard_texts.py"
+  - "tests/test_kan208_footer_migration.py"
   - "frontend/apps/dms/src/components/recovery/**"
   - "frontend/apps/dms/src/components/users/**"
   - "frontend/apps/dms/src/**/RequireEntitlement*"
@@ -235,12 +239,39 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
 - **Standard texts are delegable per category** (`standard_text_delegation`, FR-A-28) — built
   (KAN-199): `PUT/GET/DELETE /v1/dealerships/{id}/users/{user_id}/text-delegations` (manager
   or platform staff; full replacement; audit `text_delegation_set`; ended by deactivation);
-  categories `document · email · sms · internal_note · workshop`. The gate is
+  categories `document · email · sms · whatsapp · internal_note · workshop` (`whatsapp` added
+  by KAN-208). The gate is
   `require_write_or_delegated("standard_texts")` in `app/core/permissions.py`, which asks the
   checker platform registers (`app/platform/services/text_delegation.py`) for the route's
-  `{category}` — proven on a probe route; no standard-text endpoint exists yet. The seed
+  `{category}`. The seed
   library and the UI strings (`ui_translation`, served at runtime, not built) are edited by
   `platform_admin` through the UI (D-A-23). Dealers never override UI strings.
+- **Standard texts — built (KAN-208).** `standard_text` (`app/platform/models/standard_text.py`):
+  one row per scope × code × language — platform seeds (`dealership_id` NULL, `source =
+  platform_seed`), a Betrieb's own texts and its overrides of seeds (`overridden_from_id` +
+  `overridden_seed_version`; "the standard text has changed, review yours" is **derived on read**
+  — the seed's `version` past the reviewed one, cleared by PATCH `seedReviewed: true`), and
+  location variants. `category` + `applies_to` + `slot` say where a text is used; the closed
+  registry (`services/standard_text_placeholders.py`: the PRD's eight tokens, `TARGETS` with the
+  slots and tokens valid per (category, applies_to)) refuses on save an unknown, invalid or
+  malformed token (422 `standard_text_placeholder_invalid`), and **a render fails** on any of those
+  or a token without a value (422 `standard_text_placeholder_unresolved`, A-RULE-4). Resolution
+  (`services/standard_text.py`): language requested → `default_correspondence_language` → DE as
+  the outer chain, location → dealership → seed inside it; a dealership row masks its seed even
+  switched off; a slot resolves to its default (narrowest scope, then `sort_order`, `code`) or to
+  nothing. Other contexts call `platform.public.render_standard_text` (platform fills
+  `dealership.name` and `location.phone` — the Betrieb's phone: `location` has no phone column).
+  Seeds: `services/standard_text_seed.py`, 12 codes × 4 languages, installed by the migration
+  (`ec4559d84ad3`) and the `standard_text_seeds` test fixture; `update_platform_seed` is the
+  platform_admin edit (no endpoint yet — the Translations panel is KAN-209's).
+  API: `GET /v1/standard-text-registry`, `GET /v1/dealerships/{id}/standard-texts` (any role;
+  `writableCategories` says what the gate lets the caller write), `POST …/standard-text-previews`
+  (sample data, the same renderer), `POST …/standard-texts/{category}` and `PATCH/DELETE
+  …/standard-texts/{category}/{text_id}` (If-Match) behind the delegation-aware gate, every lookup
+  bound to the path's category; a seed is never written there. Screen `/administration/texts`
+  (`pages/StandardTextsPage.tsx`; the Betrieb's scope only — location variants are API-only until a
+  Locations screen exists). `document_template.footer_text_*` moved into
+  `invoice.footer.carried_over` dealer texts and was dropped.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. Frozen at activation (A-RULE-3).
 - **Activation gate (D-A-21):** a Betrieb is `pending_onboarding` until every applicable
@@ -398,7 +429,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
 
 ## Document templates (ADR-051)
 
-One shared template layer (`app/platform/models/document_template.py`). WeasyPrint only in
+One shared template layer (`app/platform/models/document_template.py` — the header note only
+since KAN-208; a document's footer wording is its own standard text, frozen in
+`ContentDefinition.footer_text` and printed in the running footer). WeasyPrint only in
 `app/platform/services/document_render.py`; no HTML-tag string literal (`<table`, `<div`,
 `<style`, `<html`) elsewhere in `app/` (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
 `DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
