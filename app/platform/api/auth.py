@@ -516,8 +516,9 @@ def switch_dealership(
     sister dealership's data the user switches active dealership here, they
     don't gain a second simultaneous tenant_id. group_id is re-resolved from
     the TARGET dealership's own dealer_group_id, not assumed unchanged from
-    the caller's current token, since a membership could in principle span
-    two different groups.
+    the caller's current token: a membership may span two dealer groups
+    (ADR-106; Anto, 2026-10-23, KAN-423), and while switched the user reads
+    the target group's customers, never the home group's.
 
     A fresh token is a renewed session, so it is minted like a login
     (KAN-141): the user's status and memberships are re-read from the

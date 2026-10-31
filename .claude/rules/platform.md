@@ -92,6 +92,12 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   `group_id` / `dealer_group_id` in `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)`
   (a multi-line `text()` escapes it). A new group read is an ADR plus an allowlist entry.
   Cross-tenant reads return 404, never 403.
+- **A membership may cross dealer groups** (ADR-106; Anto, 2026-10-23, KAN-423 — option A, not B
+  «memberships never cross groups»): `grant_membership` does not ask for the target's group, and
+  switch-dealership mints the **target's** `group_id`, so while switched the person reads that
+  group's customers, never the home group's. A hand-over to a colleague who works in no Betrieb of
+  a record's group is refused instead (below). `tests/test_membership_across_dealer_groups.py` pins
+  the grant and the switch.
 - **No group-level administrator** (D-A-01). The manager flag is held per dealership (KAN-98):
   `User.is_dealer_manager` for the home dealership, `dealership_membership.is_dealer_manager`
   per sister dealership (default false, never copied from the home flag).
