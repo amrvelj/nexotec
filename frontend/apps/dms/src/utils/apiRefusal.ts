@@ -77,6 +77,7 @@ const REASON_KEYS: Record<string, string> = {
       'logo_png_damaged',
       'logo_svg_entities',
       'logo_svg_invalid',
+      'logo_too_many_pixels',
       'logo_too_small',
       'merged_party_row',
       'missing_config_fields',
@@ -161,6 +162,11 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   }),
   // KAN-205: the upload's pixel size and the minimum it falls short of.
   logo_dimensions_too_large: (d) => ({ max: typeof d.maxLongEdge === 'number' ? d.maxLongEdge : 10000 }),
+  logo_too_many_pixels: (d) => ({
+    width: typeof d.width === 'number' ? d.width : '—',
+    height: typeof d.height === 'number' ? d.height : '—',
+    max: typeof d.maxMegapixels === 'number' ? d.maxMegapixels : 16,
+  }),
   logo_too_small: (d) => ({
     width: typeof d.width === 'number' ? d.width : '—',
     height: typeof d.height === 'number' ? d.height : '—',

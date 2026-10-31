@@ -16,7 +16,8 @@ Dealer Administration PRD, Logo and brand assets:
 No data step: an existing `dealership.logo_url` is an external URL, and a
 migration makes no network call. `scripts/migrate_logo_urls_to_branding_assets.py`
 moves those into the store (dry run by default, a report either way); the
-renderer keeps reading `logo_url` for a Betrieb it has not moved yet.
+renderer never prints `logo_url` (it loads `data:` URIs only), so a Betrieb
+not moved yet prints the initials mark.
 
 Revision ID: 444ddb84d8c9
 Revises: 83d8634ff337

@@ -530,8 +530,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   a replaced file gets a new key, the old object goes after the commit. `PUT/GET/DELETE
   …/branding/assets/{kind}` (the file as the raw body, judged by its bytes in
   `services/logo_validation.py`: SVG sanitised with the standard library — Expat refuses every
-  entity declaration, then an element allowlist — or PNG ≥ 600 px on the long edge, ≤ 10'000 px,
-  ≤ 5 MiB; JPEG refused; reasons `logo_*`), `GET/PATCH …/branding` (`brand_primary_color`,
+  entity declaration, then an element allowlist; any CSS holding a backslash (an escape can spell
+  `url(`/`@import`) and any `style` element with a child element are dropped — or PNG ≥ 600 px on
+  the long edge, ≤ 10'000 px, ≤ 16 MP, ≤ 5 MiB; JPEG refused; reasons `logo_*`), `GET/PATCH …/branding` (`brand_primary_color`,
   `brand_secondary_color`, the five `logo_on_*` placements — app header off by default) and
   `GET …/branding/preview` (a PDF from `render_document`). Every write takes If-Match on the
   **dealership's** version and moves it, and is audited (`branding_updated` with the contrast
@@ -541,8 +542,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   warn is open (KAN-205 hand-over). No public URL and no signed URL: the SPA reads the file
   through the authenticated GET (private, no-store, a CSP sandbox), the renderer from the store
   in-process; a signed URL comes with the bucket (KAN-402) for a reader without a session. The
-  WP-6b `logo_url` is read by the renderer only until `scripts/migrate_logo_urls_to_branding_assets.py`
-  (dry run by default) has moved it.
+  WP-6b `logo_url` is never printed (the renderer fetches no external URL, below);
+  `scripts/migrate_logo_urls_to_branding_assets.py` (dry run by default) moves it into the store.
 
 ## Document templates (ADR-051)
 
@@ -553,7 +554,10 @@ since KAN-208; a document's footer wording is its own standard text, frozen in
 `<style`, `<html`) elsewhere in `app/` (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
 `DocumentPreview` only displays the PDF the renderer produced — never a second renderer. The
 header's logo is the primary branding asset, inlined from the object store while the
-`document_header` placement is on (KAN-205); the layout around it is [P2-4]'s.
+`document_header` placement is on (KAN-205); the layout around it is [P2-4]'s. **WeasyPrint
+loads `data:` URIs and nothing else** (`document_render.local_url_fetcher`, KAN-205 review):
+every byte a document prints is in its own HTML, so an http(s), file or relative reference —
+from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a render).
 
 ## Authentication (D-A-07…D-A-12, D-A-16, D-A-36, D-A-37) — built by KAN-196, except where a bullet says so
 

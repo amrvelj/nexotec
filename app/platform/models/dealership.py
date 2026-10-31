@@ -196,8 +196,9 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     brand_primary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7C3AED")
     # KAN-205 (PRD Logo and brand assets): the uploaded logo files are
     # `branding_asset` rows, not this row — logo_url is the WP-6b external
-    # reference, read only until scripts/migrate_logo_urls_to_branding_assets.py
-    # has moved it into the store. The secondary colour is optional; both
+    # reference, read only by scripts/migrate_logo_urls_to_branding_assets.py,
+    # which moves it into the store (the renderer fetches no external URL).
+    # The secondary colour is optional; both
     # colours are contrast-checked on save (services/brand_colors.py). Where
     # the logo appears is one switch per placement — a dealer often wants it
     # on a price tag but not in the app chrome, so the app header is off by

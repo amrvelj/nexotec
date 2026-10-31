@@ -285,7 +285,8 @@
       "standard_text_template_id_required": "Eine genehmigte WhatsApp-Vorlage braucht die Vorlagen-ID des Anbieters.",
       "standard_text_not_an_override": "Nur ein angepasster Standardtext hat eine Vorlage zu prüfen.",
       "standard_text_seed_language_missing": "Diese Vorlage gibt es in dieser Sprache nicht.",
-      "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen."
+      "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen.",
+      "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",

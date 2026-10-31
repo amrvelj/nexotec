@@ -169,6 +169,32 @@ describe('BrandingPage (KAN-205)', () => {
     expect(alert).toHaveTextContent('600 px')
   })
 
+  it('names the size of a PNG with too many pixels (KAN-205 review)', async () => {
+    installFakeBackend(
+      routes([
+        {
+          method: 'PUT',
+          match: /\/branding\/assets\/primary$/,
+          handler: () =>
+            status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: '…',
+                details: { reason: 'logo_too_many_pixels', width: 10000, height: 10000, maxMegapixels: 16 },
+              },
+            }),
+        },
+      ]),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<BrandingPage />, { route: '/administration/branding' })
+    const group = await screen.findByRole('group', { name: 'Hauptlogo' })
+    await user.upload(group.querySelector('input[type="file"]') as HTMLInputElement, new File(['png'], 'huge.png', { type: 'image/png' }))
+    await user.click(within(group).getByRole('button', { name: 'Hochladen' }))
+    const alert = await within(group).findByRole('alert')
+    expect(alert).toHaveTextContent("Dieses PNG hat 10'000 × 10'000 px – mehr als 16 Megapixel")
+  })
+
   it('saves only the placement that changed', async () => {
     const backend = installFakeBackend(routes([{ method: 'PATCH', match: /\/branding$/, handler: () => branding({ version: 4 }) }]))
     const user = userEvent.setup()

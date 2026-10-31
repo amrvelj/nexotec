@@ -7,6 +7,11 @@ Administration PRD, Logo and brand assets).
 - **PNG at ≥ 600 px on the long edge** — WeasyPrint lays out at 96 CSS
   px/inch; a logo printed 50 mm wide needs roughly 600 px to survive at
   300 dpi. Refused with that explanation, never "file too small".
+- **A PNG has at most 16 megapixels** (`MAX_PIXELS`; KAN-205 review): an A4
+  page at 300 dpi is 8.7 MP, so a logo with more pixels than two full pages
+  at print resolution carries nothing a document can show — and decoded as
+  RGBA it is 64 MiB of memory on every render that prints it. The long edge
+  is capped at 10'000 px as well (a 10'000 × 1'600 banner is within both).
 - **Judged by the bytes**, never by the Content-Type the client sent: a
   JPEG labelled `image/png` is still a JPEG.
 - **SVG is sanitised**, not trusted: it is XML that a browser or a renderer
@@ -15,7 +20,8 @@ Administration PRD, Logo and brand assets).
 Every refusal is a 422 with a stable `details.reason` the SPA translates.
 
 The SVG sanitiser uses the standard library only (Anto's routine: no new
-dependency where a robust approach exists in what we have). Two layers:
+dependency where a robust approach exists in what we have). Two layers,
+and the renderer behind them as a third wall:
 
 1. Expat reads the document once with handlers that refuse every entity
    declaration (internal or external, general or parameter) and never load
@@ -33,6 +39,15 @@ dependency where a robust approach exists in what we have). Two layers:
    that reaches outside the document (`url(` other than `url(#…)`,
    `@import`, `image-set(`, `javascript:`, `expression(`). Comments and processing
    instructions are not carried over.
+   CSS is judged as a CSS parser would read it, not as the text looks
+   (KAN-205 review): a backslash is a CSS escape (`\\75rl(` is `url(`,
+   `@\\69mport` is `@import`), so a `style` element or attribute value
+   holding one is dropped rather than decoded — a logo has no use for it.
+   A `style` element is its text alone: one with any child element is
+   dropped, so no text can hide in a child's tail.
+3. The renderer is the third wall: WeasyPrint loads `data:` URIs only
+   (`document_render.local_url_fetcher`), so whatever slipped through here
+   still connects nowhere.
 """
 
 import dataclasses
@@ -48,6 +63,7 @@ from app.core.errors import UnprocessableEntityError
 
 MIN_PNG_LONG_EDGE_PX = 600
 MAX_LONG_EDGE_PX = 10_000
+MAX_PIXELS = 16_000_000
 MAX_BYTES = 5 * 1024 * 1024
 
 _PNG = b"\x89PNG\r\n\x1a\n"
@@ -111,15 +127,17 @@ def _validate_png(data: bytes) -> ValidatedLogo:
             fmt = image.format
             width, height = image.size
             image.verify()
-    except Image.DecompressionBombError:
-        raise _too_many_pixels() from None
+    except Image.DecompressionBombError:  # past Pillow's own ceiling, far beyond ours
+        raise _too_many_pixels(None, None) from None
     except (OSError, SyntaxError, ValueError, EOFError, struct.error):  # what Pillow raises on a broken file
         raise _refuse("The PNG file is damaged and cannot be read.", "logo_png_damaged") from None
     if fmt != "PNG":
         raise _refuse("A logo must be an SVG (preferred) or a PNG file.", "logo_format_unsupported")
     long_edge = max(width, height)
     if long_edge > MAX_LONG_EDGE_PX:
-        raise _too_many_pixels()
+        raise _long_edge_too_large()
+    if width * height > MAX_PIXELS:
+        raise _too_many_pixels(width, height)
     if long_edge < MIN_PNG_LONG_EDGE_PX:
         raise _refuse(
             f"This PNG is {width} × {height} px. A logo printed 50 mm wide needs roughly "
@@ -133,11 +151,22 @@ def _validate_png(data: bytes) -> ValidatedLogo:
     return ValidatedLogo(data=data, mime_type="image/png", width=width, height=height)
 
 
-def _too_many_pixels() -> UnprocessableEntityError:
+def _long_edge_too_large() -> UnprocessableEntityError:
     return _refuse(
         f"The image is larger than {MAX_LONG_EDGE_PX} px on its long edge — more than any document needs.",
         "logo_dimensions_too_large",
         maxLongEdge=MAX_LONG_EDGE_PX,
+    )
+
+
+def _too_many_pixels(width: int | None, height: int | None) -> UnprocessableEntityError:
+    return _refuse(
+        f"The image has more than {MAX_PIXELS // 1_000_000} megapixels — more than two A4 pages at 300 dpi, "
+        "which no logo needs, and every document that prints it would have to decode them all.",
+        "logo_too_many_pixels",
+        width=width,
+        height=height,
+        maxMegapixels=MAX_PIXELS // 1_000_000,
     )
 
 
@@ -207,8 +236,12 @@ def _local_name(tag: str) -> tuple[str | None, str]:
 
 def _reaches_outside(value: str) -> bool:
     """True when a CSS or attribute value would load something from outside
-    the document or run code."""
+    the document or run code — or could, once a CSS parser has decoded its
+    escapes: any backslash counts (`\\75rl(` reads `url(`), as checking the
+    decoded form would need a CSS tokenizer of our own."""
 
+    if "\\" in value:
+        return True
     if _DANGEROUS_CSS.search(value):
         return True
     return any(not target.startswith("#") for _quote, target in _URL_CALL.findall(value))
@@ -259,16 +292,13 @@ def _sanitised_children(source: ET.Element, target: ET.Element) -> None:
             _safe_href("image", child.get(attr, "")) for attr in _HREF_ATTRIBUTES if child.get(attr)
         ):
             continue  # an image of anything but an inline PNG/JPEG would be fetched
+        if name == "style" and (len(child) > 0 or _reaches_outside(child.text or "")):
+            # A stylesheet is its text alone: a child element would carry
+            # text (its tail) that no check here reads.
+            continue
         copy = ET.SubElement(target, child.tag)
         _copy_attributes(child, copy, name)
-        if name == "style":
-            css = child.text or ""
-            if _reaches_outside(css):
-                target.remove(copy)
-                continue
-            copy.text = css
-        else:
-            copy.text = child.text
+        copy.text = child.text
         _sanitised_children(child, copy)
         copy.tail = child.tail
 

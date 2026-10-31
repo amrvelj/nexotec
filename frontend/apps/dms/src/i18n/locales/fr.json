@@ -285,7 +285,8 @@
       "standard_text_template_id_required": "Un modèle WhatsApp approuvé nécessite l'ID du modèle chez le fournisseur.",
       "standard_text_not_an_override": "Seul un texte standard adapté a un modèle à vérifier.",
       "standard_text_seed_language_missing": "Ce modèle n'existe pas dans cette langue.",
-      "standard_text_seed_not_shipped": "Nexotec ne livre aucun texte pour ce modèle ; il n'y a rien à rétablir."
+      "standard_text_seed_not_shipped": "Nexotec ne livre aucun texte pour ce modèle ; il n'y a rien à rétablir.",
+      "logo_too_many_pixels": "Ce PNG mesure {{width, number}} × {{height, number}} px – plus de {{max, number}} mégapixels. Aucun logo n’en a besoin : une page A4 entière à 300 dpi en compte à peine 9, et chaque document portant le logo devrait tous les charger. Réduisez l’image ou téléversez un SVG."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",

@@ -26,6 +26,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 from weasyprint import HTML
+from weasyprint.urls import URLFetcher
 
 from app.core.i18n import SwissLanguage, format_currency_chf
 from app.core.object_store import ObjectStore, StoredObject
@@ -176,19 +177,21 @@ def _render_metadata(metadata: list[KeyValueRow]) -> str:
 def _render_logo(dealership: Dealership, logo: StoredObject | None = None) -> str:
     """The uploaded logo (KAN-205: the primary branding asset, read from the
     object store and inlined, so the renderer fetches nothing over the
-    network) if there is one; else the WP-6b external `logo_url` until
-    scripts/migrate_logo_urls_to_branding_assets.py has moved it; otherwise
-    an initials mark in the dealership's own brand colour — the same
-    fallback the frontend shell's own BrandMark component uses, so a
-    dealership that hasn't uploaded a logo still renders an on-brand,
-    recognizable letterhead rather than a generic placeholder.
+    network) if there is one; otherwise an initials mark in the dealership's
+    own brand colour — the same fallback the frontend shell's own BrandMark
+    component uses, so a dealership that hasn't uploaded a logo still
+    renders an on-brand, recognizable letterhead rather than a generic
+    placeholder.
+
+    The WP-6b external `logo_url` is never printed: the renderer fetches
+    nothing outside the document (`local_url_fetcher`), so it would only
+    print an empty box. scripts/migrate_logo_urls_to_branding_assets.py
+    moves it into the store.
     """
 
     if logo is not None:
         inline = base64.b64encode(logo.data).decode("ascii")
         return f'<img src="data:{_esc(logo.content_type)};base64,{inline}" alt="">'
-    if dealership.logo_url and dealership.logo_on_document_header:
-        return f'<img src="{_esc(dealership.logo_url)}" alt="">'
     color = dealership.brand_primary_color
     if not color or not _HEX_COLOR.match(color):
         color = _DEFAULT_BRAND_COLOR
@@ -304,4 +307,21 @@ def render_document(
         content=content,
         logo=logo,
     )
-    return HTML(string=html_string).write_pdf()
+    return write_pdf(html_string)
+
+
+def local_url_fetcher() -> URLFetcher:
+    """What WeasyPrint may load while it renders: `data:` URIs and nothing
+    else (KAN-205 review). Every byte a document prints is in its own HTML —
+    the logo inlined from the object store, an SVG logo's inline rasters —
+    so a URL to anywhere else (http, https, file, ftp, a relative path) is
+    refused before any connection is made. It is the second wall behind the
+    SVG sanitiser: a stylesheet or image reference that slipped through it
+    still reaches nothing. A fresh fetcher per render — it keeps request
+    state between calls."""
+
+    return URLFetcher(allowed_protocols={"data"}, allow_redirects=False, timeout=1)
+
+
+def write_pdf(html_string: str) -> bytes:
+    return HTML(string=html_string, url_fetcher=local_url_fetcher()).write_pdf()

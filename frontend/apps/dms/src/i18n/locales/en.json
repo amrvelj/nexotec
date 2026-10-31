@@ -285,7 +285,8 @@
       "standard_text_template_id_required": "An approved WhatsApp template needs the provider's template ID.",
       "standard_text_not_an_override": "Only an adapted standard text has a template to review.",
       "standard_text_seed_language_missing": "This template does not exist in this language.",
-      "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore."
+      "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore.",
+      "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",

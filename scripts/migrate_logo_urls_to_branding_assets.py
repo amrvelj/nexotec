@@ -23,8 +23,10 @@ For each Betrieb with a `logo_url`, one line of the report:
   the one fact.
 - `rejected <reason>` — fetched but refused by that validation (the same
   `details.reason` the upload gives, e.g. `logo_format_jpeg`,
-  `logo_too_small`); `logo_url` stays, and the renderer keeps printing it,
-  until the manager uploads a logo that passes.
+  `logo_too_small`); `logo_url` stays for a person to look at, and documents
+  print the initials mark until the manager uploads a logo that passes — the
+  renderer never fetches an external URL (KAN-205 review: it loads `data:`
+  URIs only), so a `logo_url` alone prints nothing.
 - `unfetchable <why>` — not http(s), the request failed, the answer was not
   200, or the body exceeded the upload's size cap; `logo_url` stays.
 - `skipped: has a primary logo` — a Betrieb that already uploaded one; its

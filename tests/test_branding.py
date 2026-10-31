@@ -20,8 +20,10 @@ What is pinned here:
 - scripts/migrate_logo_urls_to_branding_assets.py.
 """
 
+import base64
 import importlib.util
 import io
+import socket
 import uuid
 from pathlib import Path
 
@@ -43,7 +45,7 @@ _SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "migrate_logo_url
 
 def _png(width: int, height: int, mode: str = "RGBA") -> bytes:
     buffer = io.BytesIO()
-    color = {"RGBA": (12, 34, 56, 0), "RGB": (12, 34, 56), "L": 40}[mode]
+    color = {"RGBA": (12, 34, 56, 0), "RGB": (12, 34, 56), "L": 40, "1": 0}[mode]
     Image.new(mode, (width, height), color).save(buffer, format="PNG")
     return buffer.getvalue()
 
@@ -240,6 +242,117 @@ def test_an_inline_png_inside_an_svg_is_kept():
     assert b"data:image/png;base64,iVBORw0KGgo=" in sanitise_svg(svg)
 
 
+# --- the KAN-205 review's bypasses: each one closed ----------------------------------
+#
+# A CSS escape spells `url(` or `@import` without those letters (`\75` is
+# "u", `\69` is "i"), and text after a child element inside a `style` element
+# is that child's tail — both slipped past the first sanitiser, and the
+# renderer fetched what they named (SSRF on every render).
+
+_EVIL = b"evil.example"
+
+
+def _svg_with(body: bytes) -> bytes:
+    return b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' + body + b'<rect width="10" height="10"/></svg>'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(rb"<style>@font-face{font-family:x;src:\75rl(http://evil.example:8080/f)}</style>", id="escaped-url"),
+        pytest.param(rb"<style>@font-face{font-family:x;src:\000075rl(http://evil.example/f)}</style>", id="long-escape"),
+        pytest.param(rb'<style>@\69mport "http://evil.example/x.css";</style>', id="escaped-import"),
+        pytest.param(rb"<style>@\49MPORT url(http://evil.example/x.css);</style>", id="escaped-import-upper"),
+    ],
+)
+def test_a_css_escape_in_a_style_element_drops_it(body):
+    clean = sanitise_svg(_svg_with(body))
+    assert _EVIL not in clean and b"\\" not in clean and b"<style" not in clean
+    assert b"<rect" in clean  # the drawing stays
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        pytest.param(rb'style="fill:\75rl(http://evil.example/p.svg#x)"', id="style-attribute"),
+        pytest.param(rb'fill="\75rl(http://evil.example/p.svg#x)"', id="presentation-attribute"),
+        pytest.param(rb'style="fill:&#92;75rl(http://evil.example/p.svg#x)"', id="escape-behind-a-char-reference"),
+    ],
+)
+def test_a_css_escape_in_an_attribute_drops_the_attribute(attribute):
+    clean = sanitise_svg(b'<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" ' + attribute + b"/></svg>")
+    assert _EVIL not in clean and b"\\" not in clean
+    assert b'<rect width="10"' in clean
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(b"<style><g/>@import url(http://evil.example/x.css);</style>", id="tail-after-child"),
+        pytest.param(b"<style>.a{fill:red}<g/>@font-face{src:url(http://evil.example/f)}</style>", id="tail-after-safe-css"),
+        pytest.param(b"<style><g>@import url(http://evil.example/x.css);</g></style>", id="text-inside-child"),
+        pytest.param(b"<style><title/>.a{fill:red}</style>", id="harmless-text-still-dropped"),
+    ],
+)
+def test_a_style_element_with_a_child_element_is_dropped_whole(body):
+    clean = sanitise_svg(_svg_with(body))
+    assert _EVIL not in clean and b"<style" not in clean and b"@import" not in clean
+
+
+def test_a_stylesheet_hidden_in_an_upload_never_reaches_the_store(client, object_store, db_session):
+    dealership = _create_dealership(client)
+    hostile = _svg_with(rb"<style>@font-face{font-family:x;src:\75rl(http://evil.example:8080/f)}</style>")
+    put = _upload(client, dealership["id"], "primary", hostile, version=dealership["version"], content_type="image/svg+xml")
+    assert put.status_code == 200, put.text
+    row = db_session.query(BrandingAsset).filter_by(dealership_id=uuid.UUID(dealership["id"])).one()
+    assert _EVIL not in object_store.get(row.object_key).data
+
+
+# --- the renderer's own wall: it loads data: URIs and nothing else -------------------
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://127.0.0.1:9/x", "https://example.com/logo.png", "file:///etc/hostname", "ftp://example.com/x", "logo.png"],
+)
+def test_the_renderer_fetcher_refuses_everything_but_data_uris(url):
+    with pytest.raises(ValueError):
+        document_render.local_url_fetcher()(url)
+
+
+def test_the_renderer_fetcher_serves_a_data_uri():
+    response = document_render.local_url_fetcher()("data:text/plain;base64,aGk=")
+    assert response.read() == b"hi"
+
+
+def test_a_render_connects_nowhere_whatever_the_html_names():
+    """End to end: a document whose HTML names a listening local port — as an
+    image, a stylesheet, an @import, a font and inside an inline SVG — renders
+    without a single connection reaching that port. (With WeasyPrint's default
+    fetcher this test fails: the listener sees the connection.)"""
+
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(8)
+        listener.settimeout(0.5)
+        target = f"http://127.0.0.1:{listener.getsockname()[1]}"
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg"><style>@import url(' + target + "/svg.css);</style>"
+            '<image href="' + target + '/svg.png" width="1" height="1"/></svg>'
+        )
+        inline_svg = base64.b64encode(svg.encode()).decode()
+        page = (
+            f'<html><head><link rel="stylesheet" href="{target}/a.css">'
+            f"<style>@import url({target}/b.css); @font-face {{ font-family: x; src: url({target}/f.woff) }}"
+            f" body {{ font-family: x; background: url({target}/bg.png) }}</style></head>"
+            f'<body><img src="{target}/logo.png"><img src="data:image/svg+xml;base64,{inline_svg}">x</body></html>'
+        )
+        pdf = document_render.write_pdf(page)
+        assert pdf.startswith(b"%PDF")
+        with pytest.raises(TimeoutError):
+            listener.accept()
+
+
 # --- upload: one test per refusal ------------------------------------------------
 
 
@@ -294,13 +407,37 @@ def test_too_small_names_the_size_and_the_print_reason(client, object_store):
     assert "50 mm" in error["message"] and "600 px" in error["message"]
 
 
-def test_a_file_over_5_mib_is_refused_before_it_is_read(client, object_store):
+def test_a_body_over_5_mib_is_refused_before_it_is_decoded(client, object_store):
+    # The request body is read; it is never opened as an image.
     dealership = _create_dealership(client)
     refused = _upload(
         client, dealership["id"], "primary", b"\x89PNG\r\n\x1a\n" + b"\x00" * (5 * 1024 * 1024), version=dealership["version"]
     )
     assert refused.status_code == 422
     assert refused.json()["error"]["details"]["reason"] == "logo_file_too_large"
+
+
+def test_a_png_of_100_megapixels_is_refused_though_it_fits_in_5_mib(client, object_store):
+    # The review's case: 10'000 × 10'000 px is within the long-edge cap and,
+    # one colour, compresses to a few kilobytes.
+    big = _png(10_000, 10_000, mode="1")
+    assert len(big) < 5 * 1024 * 1024
+    dealership = _create_dealership(client)
+    refused = _upload(client, dealership["id"], "primary", big, version=dealership["version"])
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"] == {
+        "reason": "logo_too_many_pixels",
+        "width": 10_000,
+        "height": 10_000,
+        "maxMegapixels": 16,
+    }
+
+
+def test_the_pixel_cap_is_16_megapixels_exactly():
+    assert validate_logo(_png(4_000, 4_000, mode="1")).width == 4_000
+    with pytest.raises(UnprocessableEntityError) as refused:
+        validate_logo(_png(4_000, 4_001, mode="1"))
+    assert refused.value.details["reason"] == "logo_too_many_pixels"
 
 
 # --- variants and replacement ----------------------------------------------------
