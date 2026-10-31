@@ -18,11 +18,12 @@ reference after Aftersales ships is the expensive version, so the column
 exists now rather than then.
 """
 
+import datetime as dt
 import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, Index, Integer, PrimaryKeyConstraint, String
+from sqlalchemy import DECIMAL, JSON, Boolean, Date, ForeignKey, Index, Integer, PrimaryKeyConstraint, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -248,8 +249,31 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         return self._override_address("billing_address")
 
 
+class LocationType(str, enum.Enum):
+    """What a site is (PRD Locations, `location_type`): drives which modules
+    offer it as a choice. A location holds a list of these."""
+
+    SHOWROOM = "showroom"
+    WORKSHOP = "workshop"
+    BODY_SHOP = "body_shop"
+    PARTS_WAREHOUSE = "parts_warehouse"
+    STORAGE = "storage"
+    ADMIN = "admin"
+
+
 class Location(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "location"
+    __table_args__ = (
+        # A partial unique index, so the rows still without a code do not collide.
+        Index(
+            "uq_location_tenant_id_code",
+            "tenant_id",
+            "code",
+            unique=True,
+            postgresql_where=text("code IS NOT NULL"),
+            sqlite_where=text("code IS NOT NULL"),
+        ),
+    )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
 
@@ -264,3 +288,54 @@ class Location(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
     # nothing reads this until Aftersales ships, but retrofitting it onto a
     # year of real location data is the version nobody enjoys.
     calendar_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # --- KAN-204: full master data (D-A-02; PRD Locations) -------------------
+    # The short stable key the dealer chooses ("ZH-NORD") — a label in
+    # document numbers and marketplace mappings, never the reference (A-RULE-1:
+    # a location is referenced by id). Unique per Betrieb; immutable once
+    # saved (the service refuses a change; until number ranges and documents
+    # exist, "used" means "saved"). NULL only on a row that predates KAN-204
+    # or the one created with a new Betrieb, until the dealer sets it — once.
+    code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Multi-valued: codes of `LocationType` (showroom, workshop, …) — most
+    # sites are two of these. A JSON list like `association_memberships`.
+    location_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+
+    contact_person: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    # Where marketplace enquiries for this site are routed (PRD: "the field
+    # dealers actually complain about when it is missing").
+    lead_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+
+    # WGS 84, for marketplaces and the website map. Both or neither.
+    geo_lat: Mapped[Decimal | None] = mapped_column(DECIMAL(9, 6), nullable=True)
+    geo_lng: Mapped[Decimal | None] = mapped_column(DECIMAL(9, 6), nullable=True)
+
+    # Platform reference data (holiday_calendar): the canton — or the
+    # canton's region — whose public holidays this site observes. Same
+    # context, so a real FK.
+    holiday_calendar_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("holiday_calendar.id"), nullable=True, index=True
+    )
+
+    # Overrides — NULL inherits the Betrieb's value. The letterhead override
+    # replaces only the address block of the shared template (PRD Branding:
+    # never a second template); the logo override waits for branding assets.
+    letterhead_address_override: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # An account of this Betrieb's `dealership_bank_account` collection, for a
+    # site that was acquired and kept its account. Read only by the roles that
+    # read banking (ADR-100).
+    bank_account_override_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("dealership_bank_account.id"), nullable=True
+    )
+
+    # Sites open and close; a closed site stays referenceable by historic
+    # documents — deactivate, never delete (A-RULE-1). FR-A-03: at least one
+    # active location per Betrieb.
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    valid_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    valid_to: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+
+    # Parts fills it (the PRD: added now for the same reason calendar_ref was).
+    warehouse_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)

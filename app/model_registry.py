@@ -36,6 +36,8 @@ from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
@@ -104,6 +106,8 @@ __all__ = [
     "DealershipMembership",
     "DealershipSettings",
     "DocumentTemplate",
+    "Holiday",
+    "HolidayCalendar",
     "IdempotencyRecord",
     "ImageRef",
     "IntegrationCallLog",
@@ -116,6 +120,8 @@ __all__ = [
     "InventoryCancelledContract",
     "LegalBasis",
     "Location",
+    "LocationClosure",
+    "LocationOpeningHours",
     "MappingGap",
     "MfaPasskey",
     "MfaRecoveryCode",

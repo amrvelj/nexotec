@@ -9,6 +9,7 @@
 export const GATED_CAPABILITIES = [
   'canonical_taxonomy',
   'configurations',
+  'locations',
   'marketplace_publishing',
   'stock_acquisition',
   'stock_items',

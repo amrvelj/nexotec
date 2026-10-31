@@ -20,6 +20,8 @@ paths:
   - "frontend/apps/dms/src/pages/BusinessPage*"
   - "frontend/apps/dms/src/components/account/**"
   - "frontend/apps/dms/src/components/business/**"
+  - "frontend/apps/dms/src/components/locations/**"
+  - "frontend/apps/dms/src/pages/Location*"
   - "frontend/apps/dms/src/components/recovery/**"
   - "frontend/apps/dms/src/components/users/**"
   - "frontend/apps/dms/src/**/RequireEntitlement*"
@@ -45,6 +47,7 @@ paths:
   - "tests/membership_support.py"
   - "tests/test_dealership.py"
   - "tests/dealership_support.py"
+  - "tests/test_kan204_locations.py"
   - "tests/test_entitlements.py"
   - "tests/test_text_delegations.py"
   - "tests/test_permission_matrix_mirrors_prd.py"
@@ -312,6 +315,30 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   platform staff; a write answers 404 to everyone but the manager and platform staff — finance and
   auditor included, so a write probe tells no more than a read (`require_banking_read` /
   `require_banking_write` in `app/core/permissions.py`); the SPA then shows no Banking section at all.
+- **Locations (PRD Locations; D-A-02, D-A-27, FR-A-03, A-RULE-1) — built (KAN-204):**
+  `/administration/locations` (list + one screen per site) on `app/platform/api/locations.py`:
+  `/v1/dealerships/{id}/locations` list/create/read/PATCH — **no delete**; `isActive: false`
+  deactivates, refused for the Betrieb's last active location (409 `last_active_location`, judged
+  under the dealership row lock). A new Betrieb gets its first location from its registered seat
+  (`create_dealership` → `location.new_first_location`; the migration backfilled one per Betrieb
+  without). `code` is unique per Betrieb and fixed once saved (422 `location_code_immutable`; a
+  row saved without one gets it once); a location is referenced by id only. `location_types` (JSON
+  list), contacts incl. `lead_email`, `geo_lat`/`geo_lng` (both or neither), validity, the
+  `letterhead_address_override` (address block only; the logo override waits for branding assets)
+  and `bank_account_override_id` (an account of the same Betrieb; read only by the banking roles,
+  null for anyone else — ADR-100; such an account cannot be deleted, 409
+  `bank_account_used_by_location`); `calendar_ref` and `warehouse_ref` stay empty for Aftersales
+  and Parts. **No `vat_override`** — open with Anto (ADR-057's one VAT figure). Opening hours:
+  `location_opening_hours`, stored **per department always**; `PUT …/opening-hours` replaces the
+  week under the location's If-Match (`perDepartment: false` sends days without a department and
+  the service writes them for sales, service and parts). Closures: `location_closure` (from, to,
+  reason; versioned; POST/PATCH/DELETE). **Holiday calendars are platform reference data**
+  (`holiday_calendar` + `holiday`, read by anyone at `GET /v1/holiday-calendars` and
+  `…/{id}/dates?year=`): the cantonal holidays equal to Sundays (Art. 20a ArG) plus 1 August from
+  SECO's «Feiertage Schweiz» (Stand 12.12.2024), 34 calendars — one per canton, one per region
+  where SECO lists sub-cantonal differences (AG by district, FR by confession, NE/Le Landeron,
+  SO/Bucheggberg); a holiday is a rule (fixed day, Easter offset, or a named rule) computed per
+  year (`services/holidays.py`). Location is never a scoping boundary: nothing filters by it.
 - **Support access (D-A-05, D-A-24):** a Nexotec employee steps into the user's session with
   **full write from the start**; token carries `sub` = staff and `actingFor` = the user; audit
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;
@@ -376,7 +403,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the window (the validity is checked as it will be after a PATCH); an invitation can be
   accepted before `valid_from` (password set, account active), the acceptance answering 403
   `access_window_closed` with the dates instead of a session. `user_location` (primary +
-  additional, FR-A-02) and `GET …/locations` (read-only: no Locations screen yet). The Users
+  additional, FR-A-02; a deactivated location is refused for a new assignment, `location_inactive`,
+  and kept where already held — KAN-204). The Users
   screen is `/administration/users` (one shared invite/edit dialog, the deactivation dialog;
   server-side sort; no delete). `LoginResponse.user` and `GET /auth/me` keep their pre-KAN-200
   shape and schema name (`UserRead`); the administration fields are `UserAdminRead`'s alone.

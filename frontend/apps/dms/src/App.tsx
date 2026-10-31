@@ -28,6 +28,8 @@ const AccountRecoveryPage = lazyPage(() => import('./pages/AccountRecoveryPage')
 const TranslationsPage = lazyPage(() => import('./pages/TranslationsPage'), 'TranslationsPage')
 const UsersListPage = lazyPage(() => import('./pages/UsersListPage'), 'UsersListPage')
 const BusinessPage = lazyPage(() => import('./pages/BusinessPage'), 'BusinessPage')
+const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'LocationsListPage')
+const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
 const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
@@ -91,6 +93,8 @@ export default function App() {
               <Route path="/administration/users" element={<UsersListPage />} />
               {/* KAN-203 — Dealer Administration › Business: the Betrieb's master data. */}
               <Route path="/administration/business" element={<BusinessPage />} />
+              <Route path="/administration/locations" element={<LocationsListPage />} />
+              <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
               {/* KAN-209 — Platform Administration › Translations (D-A-23). */}
               <Route path="/platform/translations" element={<TranslationsPage />} />

@@ -20,14 +20,6 @@ from app.platform.models.user_location import UserLocation
 UNSET: object = object()
 
 
-def list_locations(db: Session, *, dealership_id: uuid.UUID) -> list[Location]:
-    return list(
-        db.scalars(
-            select(Location).where(Location.tenant_id == dealership_id).order_by(Location.name, Location.id)
-        ).all()
-    )
-
-
 def locations_of(
     db: Session, *, user_ids: Iterable[uuid.UUID]
 ) -> dict[uuid.UUID, tuple[uuid.UUID | None, list[uuid.UUID]]]:
@@ -61,15 +53,27 @@ def set_locations(
     if primary_location_id is not None:
         wanted[primary_location_id] = True
     if wanted:
-        known = set(
-            db.scalars(
-                select(Location.id).where(Location.tenant_id == user.tenant_id, Location.id.in_(list(wanted)))
-            ).all()
-        )
+        rows = db.execute(
+            select(Location.id, Location.is_active).where(
+                Location.tenant_id == user.tenant_id, Location.id.in_(list(wanted))
+            )
+        ).all()
+        known = {row.id: row.is_active for row in rows}
         unknown = sorted(str(lid) for lid in wanted if lid not in known)
         if unknown:
             raise UnprocessableEntityError(
                 "Every location must be a location of this dealership.", details={"locationIds": unknown}
+            )
+        # KAN-204: a deactivated site keeps the users it had (A-RULE-1 — the
+        # link is history too), but nobody is newly assigned to it.
+        already_assigned = set(
+            db.scalars(select(UserLocation.location_id).where(UserLocation.user_id == user.id)).all()
+        )
+        inactive = sorted(str(lid) for lid in wanted if not known[lid] and lid not in already_assigned)
+        if inactive:
+            raise UnprocessableEntityError(
+                "A deactivated location cannot be assigned.",
+                details={"reason": "location_inactive", "locationIds": inactive},
             )
 
     current = {

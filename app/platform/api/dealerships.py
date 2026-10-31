@@ -66,8 +66,6 @@ from app.platform.schemas.membership import (
     TextDelegationsUpdate,
 )
 from app.platform.schemas.user import (
-    LocationList,
-    LocationRead,
     OwnedGroupRead,
     OwnershipRead,
     OwnershipTransfersRead,
@@ -85,7 +83,6 @@ from app.platform.services import (
     identity,
     photo,
     signature,
-    user_location,
 )
 from app.platform.services import bank_account as bank_account_service
 from app.platform.services import dealership as dealership_service
@@ -485,26 +482,7 @@ def list_users(
     return UserPage(items=user_service.user_reads(db, rows, viewer_id=principal.user_id, viewer_roles=principal.roles), next_cursor=next_cursor)
 
 
-# --- Locations, the deactivation step, the signature image (KAN-200) ----------
-
-
-@router.get("/dealerships/{dealership_id}/locations", response_model=LocationList)
-def list_locations(
-    dealership_id: uuid.UUID,
-    principal: Principal = Depends(require_read("locations")),
-    db: Session = Depends(get_db),
-):
-    """The Betrieb's sites, for the Users screen's location picker (FR-A-02).
-    Read-only here: the Locations screen (Phase 2) is where they are made."""
-
-    require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
-    return LocationList(
-        items=[
-            LocationRead(id=row.id, name=row.name, address_locality=row.address_locality)
-            for row in user_location.list_locations(db, dealership_id=dealership_id)
-        ]
-    )
+# --- The deactivation step, the signature image (KAN-200; locations moved to api/locations.py, KAN-204)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}/ownership", response_model=OwnershipRead)

@@ -189,7 +189,13 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
 
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setForm((f) => ({ ...f, [key]: value }))
 
-  const locationOptions = useMemo(() => locations.map((l) => ({ value: l.id, label: l.name })), [locations])
+  // KAN-204: a deactivated site is offered only to a user who already holds it
+  // (the API refuses a new assignment, `location_inactive`).
+  const held = useMemo(() => new Set([user?.primaryLocationId, ...(user?.additionalLocationIds ?? [])].filter(Boolean)), [user])
+  const locationOptions = useMemo(
+    () => locations.filter((l) => l.isActive || held.has(l.id)).map((l) => ({ value: l.id, label: l.name })),
+    [locations, held],
+  )
   const colleagueOptions = useMemo(
     () => colleagues.filter((c) => c.id !== user?.id && c.status !== 'deactivated').map((c) => ({ value: c.id, label: userDisplayName(c) })),
     [colleagues, user?.id],

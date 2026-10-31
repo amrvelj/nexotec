@@ -251,6 +251,11 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
     from app.platform.services.dealership_settings import new_settings
 
     db.add(new_settings(dealership.id, actor_id))
+    # KAN-204 (FR-A-03): a Betrieb always has an active location — the first
+    # one is its registered seat, made with it.
+    from app.platform.services.location import new_first_location
+
+    new_first_location(db, dealership=dealership, actor_id=actor_id)
 
     record_audit_event(
         db,

@@ -215,6 +215,15 @@ def update_account(
 
 
 def delete_account(db: Session, *, account: DealershipBankAccount, actor_id: uuid.UUID) -> None:
+    # KAN-204: a location's bank-account override names this row; deleting it
+    # would silently send that site's invoices to the default account.
+    from app.platform.services.location import location_ids_using_bank_account
+
+    if location_ids_using_bank_account(db, account_id=account.id):
+        raise ConflictError(
+            "A location uses this account as its override — remove the override on the location first.",
+            details={"reason": "bank_account_used_by_location"},
+        )
     before = _snapshot(account)
     record_audit_event(
         db,
