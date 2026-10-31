@@ -293,7 +293,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the outer chain, location → dealership → seed inside it; a dealership row masks its seed even
   switched off; a slot resolves to its default (narrowest scope, then `sort_order`, `code`) or to
   nothing. Other contexts call `platform.public.render_standard_text` (platform fills
-  `dealership.name` and `location.phone` — the Betrieb's phone: `location` has no phone column).
+  `dealership.name` and `location.phone` — the phone of the location the render is scoped to when
+  it has one (KAN-204's `location.phone`), else the Betrieb's, also for a render without a location).
   Seeds: `services/standard_text_seed.py`, 12 codes × 4 languages, installed by the migration
   (`ec4559d84ad3`) and the `standard_text_seeds` test fixture; `update_platform_seed` is the
   platform_admin edit, behind the Translations panel's seed tab (KAN-209,
@@ -310,9 +311,14 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   (sample data, the same renderer), `POST …/standard-texts/{category}` and `PATCH/DELETE
   …/standard-texts/{category}/{text_id}` (If-Match) behind the delegation-aware gate, every lookup
   bound to the path's category; a seed is never written there. Screen `/administration/texts`
-  (`pages/StandardTextsPage.tsx`; the Betrieb's scope only — location variants are API-only until a
-  Locations screen exists). `document_template.footer_text_*` moved into
-  `invoice.footer.carried_over` dealer texts and was dropped.
+  (`pages/StandardTextsPage.tsx`) edits the Betrieb's scope only: a location variant of a text is
+  written through the API (`locationId` on the POST), and neither the texts screen nor the Locations
+  screen (`/administration/locations`, KAN-204) offers it yet. `document_template.footer_text_*`
+  was dropped; each non-empty footer became three dealer texts of its Betrieb, one row per
+  language: `invoice.footer.carried_over` (not the default) and `offer.footer.carried_over` /
+  `contract.footer.carried_over` as its **default** offer and contract footer, so the offers and
+  contracts it prints keep the footer they printed before (a language or Betrieb without one gets
+  the seed default). Sales prints the offer's intro and footer and the contract's footer.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. Frozen at activation (A-RULE-3).
 - **Activation gate (D-A-21):** a Betrieb is `pending_onboarding` until every applicable

@@ -52,8 +52,8 @@ class Placeholder(str, enum.Enum):
 
 # The two tokens platform resolves itself from its own records: the Betrieb's
 # name (trade name, else legal name — the letterhead's rule) and the phone
-# (the location's own once a location carries one; `location` has no phone
-# column today, so the Betrieb's — the PRD's location → dealership fallback).
+# (the phone of the location the render is scoped to, when it has one; else
+# the Betrieb's — the PRD's location → dealership fallback).
 # Every other token is the calling module's fact and arrives in `values`.
 PLATFORM_RESOLVED = frozenset({Placeholder.DEALERSHIP_NAME, Placeholder.LOCATION_PHONE})
 

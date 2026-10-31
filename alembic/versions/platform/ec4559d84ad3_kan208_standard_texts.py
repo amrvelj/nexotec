@@ -12,9 +12,16 @@ D-A-23, D-A-26):
   the same rows the tests install): twelve codes × DE/FR/IT/EN. Inserted
   with `bulk_insert`, so it renders offline too.
 - `document_template.footer_text_*` moves into the library: every non-empty
-  footer becomes a dealer text `invoice.footer.carried_over` of its Betrieb,
-  one row per language, not the default (the seeded payment terms stay the
-  invoice footer; the Betrieb picks), then the four columns are dropped.
+  footer becomes three dealer texts of its Betrieb, one row per language
+  each — `invoice.footer.carried_over` (not the default: the seeded payment
+  terms stay the invoice footer; the Betrieb picks), and
+  `offer.footer.carried_over` / `contract.footer.carried_over` as the
+  Betrieb's **default** offer and contract footer, so the offers and
+  contracts it prints keep the footer they printed before (the dealer
+  default outranks the seed's). A language without a footer had none
+  printed; there the seed default now prints — the ticket's stated change,
+  like a Betrieb that had no footer at all. Then the four columns are
+  dropped.
   Pure SQL (INSERT … SELECT, v4 ids from gen_random_uuid() as KAN-198's and
   KAN-203's backfills), so the data step reads no rows in Python and renders
   offline. Its count is verified by tests/test_kan208_footer_migration.py.
@@ -79,9 +86,22 @@ def _check(column: str, values: tuple[str, ...]) -> str:
     return f'"{column}" IN (' + ", ".join(f"'{v}'" for v in values) + ")"
 
 
-def _carry_over_footers_sql(language: str) -> str:
+# Where a carried-over footer goes (code, applies_to, is_default). The invoice
+# row keeps it for the invoice (not its default: the seeded payment terms stay
+# that). The offer and contract rows are the Betrieb's **default** footer of
+# those documents, so an offer or contract it prints after the upgrade carries
+# the very footer it carried before — the dealer default outranks the seed's.
+CARRIED_OVER_TARGETS = (
+    (CARRIED_OVER_CODE, "invoice", False),
+    ("offer.footer.carried_over", "offer", True),
+    ("contract.footer.carried_over", "contract", True),
+)
+
+
+def _carry_over_footers_sql(language: str, code: str, applies_to: str, is_default: bool) -> str:
     title = _CARRIED_OVER_TITLES[language].replace("'", "''")
     column = f"footer_text_{language}"
+    default = "true" if is_default else "false"
     return f"""
 INSERT INTO standard_text (
     id, dealership_id, location_id, scope, code, category, applies_to, slot, language,
@@ -89,9 +109,9 @@ INSERT INTO standard_text (
     is_default, active, sort_order, template_approved, provider_template_id,
     version, created_at, updated_at, created_by, updated_by
 )
-SELECT gen_random_uuid(), t.dealership_id, NULL, 'dealership', '{CARRIED_OVER_CODE}', 'document', 'invoice',
+SELECT gen_random_uuid(), t.dealership_id, NULL, 'dealership', '{code}', 'document', '{applies_to}',
        'footer', '{language}', '{title}', t.{column}, 'dealer', NULL, NULL,
-       false, true, 100, false, NULL,
+       {default}, true, 100, false, NULL,
        1, now(), now(), t.updated_by, t.updated_by
 FROM document_template t
 WHERE t.{column} IS NOT NULL AND btrim(t.{column}) <> ''
@@ -201,8 +221,9 @@ def upgrade() -> None:
         ],
     )
 
-    for language in _LANGUAGES:
-        op.execute(_carry_over_footers_sql(language))
+    for code, applies_to, is_default in CARRIED_OVER_TARGETS:
+        for language in _LANGUAGES:
+            op.execute(_carry_over_footers_sql(language, code, applies_to, is_default))
     for language in _LANGUAGES:
         op.drop_column("document_template", f"footer_text_{language}")
 
