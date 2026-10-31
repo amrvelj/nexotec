@@ -154,8 +154,9 @@ def _touch(user: User, actor_id: uuid.UUID) -> None:
 def grant_membership(
     db: Session, *, user: User, data: MembershipCreate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
 ) -> DealershipMembership:
-    # The target may sit in another dealer group (ADR-106: a person may work
-    # for two groups; Anto, 2026-10-23, KAN-423). What keeps a leaver's
+    # The target may sit in another dealer group (ADR-106, recorded by
+    # KAN-379 from Anto's KAN-423 pick: a person may work for two groups).
+    # What keeps a leaver's
     # records with someone who can work them is the hand-over's own guard,
     # not a refusal here.
     if data.dealership_id == user.tenant_id:

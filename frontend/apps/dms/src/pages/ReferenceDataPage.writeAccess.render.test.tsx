@@ -72,6 +72,23 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
     expect(backend.callsTo(/\/reference-data\//, 'POST')).toHaveLength(0)
   })
 
+  it('tells a reader a language is missing without speaking of saving', async () => {
+    installFakeBackend([
+      session(['sales'], true, ['customers']),
+      {
+        method: 'GET',
+        match: /\/reference-data\/fuel_type$/,
+        handler: () => ({ items: [{ ...DIESEL, labelIt: '' }], nextCursor: null }),
+      },
+    ])
+
+    renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
+
+    expect(await screen.findByLabelText(i18n.t('referenceData.missingTipReadOnly'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(i18n.t('referenceData.missingTip'))).not.toBeInTheDocument()
+    expect(screen.getByText(i18n.t('referenceData.required'))).toBeInTheDocument()
+  })
+
   it('keeps «Neuer Wert» and the inline edits for platform staff', async () => {
     const user = userEvent.setup()
     install(session(['platform_admin'], false, ['canonical_taxonomy', 'configurations', 'customers']))
@@ -81,7 +98,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
     expect(await screen.findByRole('button', { name: i18n.t('referenceData.create.trigger') })).toBeInTheDocument()
     expect(screen.queryByText(i18n.t('referenceData.readOnly'))).not.toBeInTheDocument()
 
-    await user.click(screen.getByText('Gazole'))
+    await user.click(await screen.findByText('Gazole'))
 
     expect(await screen.findByDisplayValue('Gazole')).toBeInTheDocument()
   })

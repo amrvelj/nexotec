@@ -18,7 +18,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleAlert, Check, Languages, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { FormDialog, InlineEditField, semantic, slate, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { useCanWrite } from '../auth/useCanWrite'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -51,6 +51,8 @@ export function ReferenceDataPage() {
   // (KAN-430: hide the action, never the data). The API's own gate on the
   // POST and the PATCH stays the authority.
   const canWrite = useCanWrite('canonical_taxonomy')
+  // A reader is told a language is missing, not that the row cannot be saved.
+  const missingTip = canWrite ? t('referenceData.missingTip') : t('referenceData.missingTipReadOnly')
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -240,7 +242,8 @@ export function ReferenceDataPage() {
                                 }}
                               />
                             ) : (
-                              <Text span size="sm" fs={empty ? 'italic' : undefined} c={empty ? 'dimmed' : undefined}>
+                              // The kit's InlineEditField display, without its edit affordance.
+                              <Text span size="sm" fs={empty ? 'italic' : undefined} c={empty ? slate[3] : undefined}>
                                 {empty ? t('referenceData.required') : row[field]}
                               </Text>
                             )}
@@ -249,12 +252,8 @@ export function ReferenceDataPage() {
                       })}
                       <Table.Td>
                         {missing.size > 0 ? (
-                          <Tooltip label={t('referenceData.missingTip')} position="left" withArrow>
-                            <CircleAlert
-                              size={16}
-                              color={semantic.destructive.text}
-                              aria-label={t('referenceData.missingTip')}
-                            />
+                          <Tooltip label={missingTip} position="left" withArrow>
+                            <CircleAlert size={16} color={semantic.destructive.text} aria-label={missingTip} />
                           </Tooltip>
                         ) : (
                           <Check size={16} color={semantic.success.text} aria-hidden="true" />

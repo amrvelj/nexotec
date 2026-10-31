@@ -1,10 +1,10 @@
 """KAN-379, ADR-106: a dealership membership may cross dealer groups.
 
-Anto ruled on 2026-10-23 (KAN-423) for option A, refusing a hand-over of
-customers to a colleague who works in no Betrieb of their group, and did not
-take option B, "memberships never cross groups" (nor both). So a person who
-genuinely works for two dealer groups holds a membership in a Betrieb of the
-other group; switching there mints that Betrieb's own group (ADR-014's
+Recorded 2026-10-31 from Anto's pick on KAN-423 (2026-10-23): option A,
+refusing a hand-over of customers to a colleague who works in no Betrieb of
+their group — not option B, "memberships never cross groups", nor both. So a
+person who genuinely works for two dealer groups holds a membership in a
+Betrieb of the other group; switching there mints that Betrieb's own group (ADR-014's
 group-scoped reads follow the active Betrieb, never the home), and the
 hand-over guard of KAN-423 is what keeps a leaver's records with someone who
 can work them. This pins the grant and the switch, so a later change that

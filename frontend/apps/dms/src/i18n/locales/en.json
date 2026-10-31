@@ -1696,6 +1696,7 @@
     "emptyFiltered": "No values match your filter.",
     "required": "Required",
     "missingTip": "This row cannot be saved while a language is missing.",
+    "missingTipReadOnly": "A language is missing in this row.",
     "readOnly": "Nexotec maintains these lists for every business. You can view them here, but not change them.",
     "columns": {
       "code": "Code",
