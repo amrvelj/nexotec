@@ -139,7 +139,7 @@ describe('TranslationsPage (KAN-209)', () => {
     ])
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }))
-    const editor = await screen.findByRole('region', { name: 'shell.nav.business' })
+    const editor = await screen.findByRole('region', { name: 'Schlüssel: shell.nav.business' })
     const fr = within(editor).getByRole('textbox', { name: 'Französisch' })
     await user.clear(fr)
     await user.type(fr, 'Société')
@@ -181,7 +181,7 @@ describe('TranslationsPage (KAN-209)', () => {
     // The refused language keeps what was typed; the published one shows its new live text.
     expect(screen.getByRole('textbox', { name: 'Deutsch' })).toHaveValue('Betrieb AG')
     expect(screen.getByRole('textbox', { name: 'Englisch' })).toHaveValue('Business unit')
-    const editor = screen.getByRole('region', { name: 'shell.nav.business' })
+    const editor = screen.getByRole('region', { name: 'Schlüssel: shell.nav.business' })
     expect(within(editor).getAllByText('Bearbeitet')).toHaveLength(1)
   })
 
@@ -211,7 +211,7 @@ describe('TranslationsPage (KAN-209)', () => {
     install([], ['configurations', 'stock_items'])
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Ansehen' }))
-    expect(await screen.findByText('Nur Plattformadministratoren von Nexotec können UI-Texte ändern.')).toBeInTheDocument()
+    expect(await screen.findByText('Nur Plattformadministratoren von Nexotec können diese Texte ändern.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Deutsch' })).toHaveAttribute('readonly')
   })

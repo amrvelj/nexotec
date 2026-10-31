@@ -2568,6 +2568,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/standard-text-seeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Standard Text Seeds */
+        get: operations["list_standard_text_seeds_v1_platform_standard_text_seeds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/standard-text-seeds/{seed_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Standard Text Seed */
+        put: operations["update_standard_text_seed_v1_platform_standard_text_seeds__seed_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/standard-text-seeds/{seed_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Standard Text Seed */
+        post: operations["revert_standard_text_seed_v1_platform_standard_text_seeds__seed_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/ui-translations": {
         parameters: {
             query?: never;
@@ -9003,6 +9054,75 @@ export interface components {
          * @enum {string}
          */
         StandardTextScope: "dealership" | "location";
+        /**
+         * StandardTextSeedGroup
+         * @description One code with its row per language — the panel's four columns.
+         */
+        StandardTextSeedGroup: {
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            category: components["schemas"]["StandardTextCategory"];
+            /** Code */
+            code: string;
+            de?: components["schemas"]["StandardTextSeedRead"] | null;
+            en?: components["schemas"]["StandardTextSeedRead"] | null;
+            fr?: components["schemas"]["StandardTextSeedRead"] | null;
+            it?: components["schemas"]["StandardTextSeedRead"] | null;
+            slot: components["schemas"]["StandardTextSlot"];
+        };
+        /**
+         * StandardTextSeedList
+         * @description Every matching code. The library is a bounded set (the starter library
+         *     is 12 codes × 4 languages), so the list is complete, never paged.
+         */
+        StandardTextSeedList: {
+            /** Items */
+            items: components["schemas"]["StandardTextSeedGroup"][];
+        };
+        /**
+         * StandardTextSeedRead
+         * @description One seed row (code × language) as the panel edits it, with the
+         *     wording Nexotec ships for it — what the diff compares and a revert
+         *     restores (null for a code the release does not ship).
+         */
+        StandardTextSeedRead: {
+            /** Active */
+            active: boolean;
+            /** Body */
+            body: string;
+            /** Edited */
+            edited: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Shippedbody */
+            shippedBody: string | null;
+            /** Shippedtitle */
+            shippedTitle: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StandardTextSeedUpdate
+         * @description A platform_admin's edit of one seed row: its title, its body or both.
+         */
+        StandardTextSeedUpdate: {
+            /** Body */
+            body?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * StandardTextSlot
          * @description Where on the document or message the text sits (PRD).
@@ -18042,6 +18162,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_standard_text_seeds_v1_platform_standard_text_seeds_get: {
+        parameters: {
+            query?: {
+                /** @description Matches a code, title or body, any language. */
+                q?: string | null;
+                category?: components["schemas"]["StandardTextCategory"] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextSeedList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_standard_text_seed_v1_platform_standard_text_seeds__seed_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                seed_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextSeedUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextSeedRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_standard_text_seed_v1_platform_standard_text_seeds__seed_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                seed_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextSeedRead"];
                 };
             };
             /** @description Validation Error */

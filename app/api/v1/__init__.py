@@ -27,6 +27,7 @@ from app.platform.api.locations import router as locations_router
 from app.platform.api.me import router as me_router
 from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.reference_data import router as reference_data_router
+from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.api.standard_texts import router as standard_texts_router
 from app.platform.api.ui_translations import router as ui_translations_router
 from app.platform.api.user_preferences import router as user_preferences_router
@@ -57,6 +58,7 @@ api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)
 api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(ui_translations_router)
+api_v1_router.include_router(standard_text_seeds_router)
 api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)
 api_v1_router.include_router(vehicle_catalogue_router)

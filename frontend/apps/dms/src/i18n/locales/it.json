@@ -284,7 +284,8 @@
       "standard_text_template_whatsapp_only": "L'approvazione del modello riguarda solo i testi WhatsApp.",
       "standard_text_template_id_required": "Un modello WhatsApp approvato richiede l'ID del modello presso il fornitore.",
       "standard_text_not_an_override": "Solo un testo standard adattato ha un modello da verificare.",
-      "standard_text_seed_language_missing": "Questo modello non esiste in questa lingua."
+      "standard_text_seed_language_missing": "Questo modello non esiste in questa lingua.",
+      "standard_text_seed_not_shipped": "Nexotec non fornisce alcun testo per questo modello; non c'è nulla da ripristinare."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -2890,11 +2891,12 @@
   },
   "translations": {
     "title": "Traduzioni",
-    "subtitle": "Testi dell'interfaccia in quattro lingue, forniti in fase di esecuzione. Una pubblicazione vale subito per tutte le aziende; le aziende non possono modificare i testi dell'interfaccia.",
+    "subtitle": "I testi che Nexotec fornisce in quattro lingue: l'interfaccia, fornita in fase di esecuzione, e i modelli di testi standard. Una pubblicazione vale subito per tutte le aziende; le aziende non possono modificare i testi dell'interfaccia.",
     "badge": "Piattaforma",
     "sourcesLabel": "Origine",
     "sources": {
-      "ui": "Testi dell'interfaccia"
+      "ui": "Testi dell'interfaccia",
+      "standardTexts": "Modelli di testi standard"
     },
     "search": {
       "label": "Cerca",
@@ -2942,7 +2944,7 @@
       "close": "Chiudi",
       "revert": "Ripristina il testo fornito",
       "published": "Pubblicato. La modifica compare a ogni utente al prossimo caricamento dei testi.",
-      "readOnly": "Solo gli amministratori della piattaforma Nexotec possono modificare i testi dell'interfaccia.",
+      "readOnly": "Solo gli amministratori della piattaforma Nexotec possono modificare questi testi.",
       "noRow": "Non fornito in questa lingua.",
       "nothingChanged": "Nessuna modifica da pubblicare."
     },
@@ -2956,6 +2958,27 @@
         "count": "Segnalazioni",
         "last": "Ultima segnalazione"
       }
+    },
+    "seeds": {
+      "subtitle": "I modelli che Nexotec fornisce a ogni azienda. Una modifica non sovrascrive mai l'adattamento di un'azienda; l'azienda vede che il modello è cambiato.",
+      "search": {
+        "label": "Cerca",
+        "placeholder": "Codice, titolo o testo"
+      },
+      "category": {
+        "label": "Categoria",
+        "all": "Tutte le categorie"
+      },
+      "count_one": "{{count, number}} modello",
+      "count_other": "{{count, number}} modelli",
+      "columns": {
+        "code": "Codice",
+        "target": "Utilizzo"
+      },
+      "fieldTitle": "Titolo",
+      "fieldBody": "Testo",
+      "empty": "Nessun modello trovato.",
+      "loadError": "Non è stato possibile caricare i modelli."
     }
   },
   "locations": {

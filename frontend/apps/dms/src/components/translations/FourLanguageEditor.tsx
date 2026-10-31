@@ -31,11 +31,16 @@ export interface PublishOutcome {
 export interface FourLanguageEditorProps {
   /** Shown as the editor's heading (a key path, a text's code). */
   title: string
+  /** What the heading names — «Schlüssel» by default; a seed's field («Titel», «Text»). */
+  headingLabel?: string
+  /** A placeholder of this source, shown in the "keep the placeholders" hint. */
+  placeholderExample?: string
   rows: Partial<Record<SupportedLanguage, EditorLanguageRow>>
   canWrite: boolean
   onPublish: (changes: { language: SupportedLanguage; value: string; version: number }[]) => Promise<PublishOutcome[]>
   onRevert: (language: SupportedLanguage, version: number) => Promise<string | null>
-  onClose: () => void
+  /** Without it the editor shows no close button (a second editor of the same entry). */
+  onClose?: () => void
 }
 
 function SeedDiffView({ seed, value }: { seed: string; value: string }) {
@@ -77,8 +82,18 @@ function SeedDiffView({ seed, value }: { seed: string; value: string }) {
   )
 }
 
-export function FourLanguageEditor({ title, rows, canWrite, onPublish, onRevert, onClose }: FourLanguageEditorProps) {
+export function FourLanguageEditor({
+  title,
+  headingLabel,
+  placeholderExample = '{{count, number}}',
+  rows,
+  canWrite,
+  onPublish,
+  onRevert,
+  onClose,
+}: FourLanguageEditorProps) {
   const { t } = useTranslation()
+  const heading = headingLabel ?? t('translations.editor.keyLabel')
   const initialDrafts = useMemo(
     () => Object.fromEntries(SUPPORTED_LANGUAGES.map((lang) => [lang, rows[lang]?.value ?? ''])) as Record<SupportedLanguage, string>,
     [rows],
@@ -141,20 +156,22 @@ export function FourLanguageEditor({ title, rows, canWrite, onPublish, onRevert,
   }
 
   return (
-    <Card component="section" withBorder padding="lg" radius="md" aria-label={title}>
+    <Card component="section" withBorder padding="lg" radius="md" aria-label={`${heading}: ${title}`}>
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Stack gap={0}>
             <Text size="xs" c={slate[5]}>
-              {t('translations.editor.keyLabel')}
+              {heading}
             </Text>
             <Text fw={600} ff="monospace" style={{ wordBreak: 'break-all' }}>
               {title}
             </Text>
           </Stack>
-          <Button variant="subtle" color="gray" leftSection={<X size={14} />} onClick={onClose}>
-            {t('translations.editor.close')}
-          </Button>
+          {onClose && (
+            <Button variant="subtle" color="gray" leftSection={<X size={14} />} onClick={onClose}>
+              {t('translations.editor.close')}
+            </Button>
+          )}
         </Group>
 
         {!canWrite && (
@@ -164,7 +181,7 @@ export function FourLanguageEditor({ title, rows, canWrite, onPublish, onRevert,
         )}
         {canWrite && (
           <Text size="xs" c={slate[5]}>
-            {t('translations.editor.placeholdersHint', { example: '{{count, number}}' })}
+            {t('translations.editor.placeholdersHint', { example: placeholderExample })}
           </Text>
         )}
 

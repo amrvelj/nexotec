@@ -284,7 +284,8 @@
       "standard_text_template_whatsapp_only": "Template approval applies to WhatsApp texts only.",
       "standard_text_template_id_required": "An approved WhatsApp template needs the provider's template ID.",
       "standard_text_not_an_override": "Only an adapted standard text has a template to review.",
-      "standard_text_seed_language_missing": "This template does not exist in this language."
+      "standard_text_seed_language_missing": "This template does not exist in this language.",
+      "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -2890,11 +2891,12 @@
   },
   "translations": {
     "title": "Translations",
-    "subtitle": "User-interface strings in four languages, served at runtime. A publish applies to every business at once; businesses cannot change UI strings.",
+    "subtitle": "The texts Nexotec ships in four languages: the user interface, served at runtime, and the standard-text seeds. A publish applies to every business at once; businesses cannot change UI strings.",
     "badge": "Platform",
     "sourcesLabel": "Source",
     "sources": {
-      "ui": "UI strings"
+      "ui": "UI strings",
+      "standardTexts": "Standard-text seeds"
     },
     "search": {
       "label": "Search",
@@ -2942,7 +2944,7 @@
       "close": "Close",
       "revert": "Restore the shipped text",
       "published": "Published. Every user sees the change the next time the strings load.",
-      "readOnly": "Only Nexotec platform administrators can change UI strings.",
+      "readOnly": "Only Nexotec platform administrators can change these texts.",
       "noRow": "Not shipped in this language.",
       "nothingChanged": "Nothing changed to publish."
     },
@@ -2956,6 +2958,27 @@
         "count": "Reports",
         "last": "Last reported"
       }
+    },
+    "seeds": {
+      "subtitle": "The templates Nexotec ships to every business. An edit never overwrites a business's own adaptation; the business sees that the template has changed.",
+      "search": {
+        "label": "Search",
+        "placeholder": "Code, title or text"
+      },
+      "category": {
+        "label": "Category",
+        "all": "All categories"
+      },
+      "count_one": "{{count, number}} seed",
+      "count_other": "{{count, number}} seeds",
+      "columns": {
+        "code": "Code",
+        "target": "Used on"
+      },
+      "fieldTitle": "Title",
+      "fieldBody": "Text",
+      "empty": "No seeds found.",
+      "loadError": "The seeds could not be loaded."
     }
   },
   "locations": {
