@@ -288,7 +288,8 @@
       "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore.",
       "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG.",
       "not_used": "This valuation is not marked as used.",
-      "signed_contract_carries_it": "A signed contract carries this valuation as its trade-in, so it stays used."
+      "signed_contract_carries_it": "A signed contract carries this valuation as its trade-in, so it stays used.",
+      "stamp_too_recent": "This valuation was marked as used less than an hour ago; its contract's confirmation may still be in progress. Please try again later."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1593,7 +1594,7 @@
     },
     "revertUseDialog": {
       "title": "Clear use",
-      "body": "Valuation {{number}} is marked as used, but no signed contract stands behind it. Once cleared, it is valid or expired again. The reason is recorded in the history.",
+      "body": "Valuation {{number}} is marked as used, but no signed contract stands behind it. Once cleared, it is valid or expired again. The reason is logged with the change.",
       "reasonLabel": "Reason",
       "reasonRequired": "Please state a reason.",
       "submit": "Clear use",

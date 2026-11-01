@@ -124,6 +124,23 @@ def test_another_dealerships_signed_contract_does_not_keep_it_used(db_session):
     assert revert_use_by_hand(db_session, valuation=valuation, actor_id=None, reason="Fremder Vertrag").used_at is None
 
 
+def test_a_stamp_younger_than_the_confirmation_grace_is_refused(db_session):
+    """A confirmation stamps first and signs its contract in a later commit
+    (KAN-101): a fresh stamp may be a confirmation in progress, so only one
+    past the grace the nightly check also waits for can be cleared."""
+
+    dealership = _dealership(db_session)
+    valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=0.25)
+    _contract(db_session, dealership.id, valuation.id, signed=False, status=ContractStatus.PENDING)
+
+    with pytest.raises(ConflictError) as exc:
+        revert_use_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4(), reason="Zu früh")
+
+    assert exc.value.details["reason"] == "stamp_too_recent"
+    db_session.expire_all()
+    assert db_session.get(Valuation, valuation.id).used_at is not None
+
+
 def test_a_valuation_that_is_not_used_is_refused(db_session):
     dealership = _dealership(db_session)
     valuation = _valuation(db_session, dealership.id, uuid.uuid4())
@@ -236,3 +253,20 @@ def test_another_dealerships_valuation_is_404(client, db_session):
     )
 
     assert response.status_code == 404, response.text
+
+
+def test_a_stale_version_is_refused(client, db_session):
+    tenant_id = uuid.uuid4()
+    token, _ = _token(tenant_id, manager=True)
+    created = _created(client, token)
+    version = _stamp_row(db_session, created["id"])
+
+    response = client.post(
+        f"/v1/valuations/{created['id']}/revert-use",
+        json={"reason": "Versuch"},
+        headers={**_bearer(token), "If-Match": str(version - 1)},
+    )
+
+    assert response.status_code == 409, response.text
+    db_session.expire_all()
+    assert db_session.get(Valuation, uuid.UUID(created["id"])).used_at is not None

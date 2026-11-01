@@ -70,7 +70,9 @@ file in the same PR as any change to what it states. -->
   still pending or was cancelled. The dealer manager only: matrix row «Valuation use correction»
   (`valuation_use_reversal`, write manager-only; the row menu offers it only when the session
   may write it). Refused while a signed contract carries the valuation, cancelled included (409
-  `signed_contract_carries_it`), or when it is not stamped (409 `not_used`). Audited
+  `signed_contract_carries_it`), when it is not stamped (409 `not_used`), and for a stamp younger
+  than the nightly check's one-hour grace (409 `stamp_too_recent`, `CONFIRMATION_GRACE`: a
+  confirmation stamps before it signs, and the lock holds only the valuation row). Audited
   (`valuation_use_reverted_by_hand`, before/after `usedAt`, the reason) and published as
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,

@@ -4,7 +4,6 @@ the VIN a valuation prints against the vehicle its vehicleId names.
 Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
-import datetime as dt
 
 from sqlalchemy import Exists, func, select
 from sqlalchemy.orm import Session
@@ -15,6 +14,7 @@ from app.customer.public import Customer
 from app.platform.public import Dealership, actor_reference_checks
 from app.sales.public import SalesContract
 from app.valuation.models.valuation import Valuation, ValuationDeduction
+from app.valuation.services.valuation import CONFIRMATION_GRACE
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "valuation"
@@ -27,7 +27,8 @@ ACTOR_TABLES = (Valuation, ValuationDeduction)
 # A confirmation stamps its trade-in valuation on its own commit, before the
 # contract is signed in the next (KAN-101, ADR-047); a stamp still without a
 # signed contract after this long is not a confirmation in progress.
-_CONFIRMATION_GRACE = dt.timedelta(hours=1)
+# «Verwendung aufheben» uses the same window (KAN-253).
+_CONFIRMATION_GRACE = CONFIRMATION_GRACE
 
 
 def _carried_by_a_signed_contract() -> Exists:

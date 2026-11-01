@@ -103,6 +103,7 @@ const REASON_KEYS: Record<string, string> = {
       'purchase_requires_vin',
       'purchase_vin_mismatch',
       'signed_contract_carries_it',
+      'stamp_too_recent',
       // KAN-208 — the standard-text library and the documents that print it.
       'standard_text_category_mismatch',
       'standard_text_code_target_mismatch',

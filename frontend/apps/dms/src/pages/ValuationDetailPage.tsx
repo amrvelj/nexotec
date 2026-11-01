@@ -133,7 +133,10 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
         opened={revertUseOpen}
         onClose={() => setRevertUseOpen(false)}
         valuation={valuation}
-        onSaved={(updated) => queryClient.setQueryData(['valuation', id], updated)}
+        onSaved={(updated) => {
+          queryClient.setQueryData(['valuation', id], updated)
+          void queryClient.invalidateQueries({ queryKey: ['valuations'] })
+        }}
       />
 
       {markUsedError && (

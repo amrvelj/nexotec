@@ -37,6 +37,13 @@ from app.vehicle.public import CONFIGURATION_MODE_RECORD, create_or_get_vehicle_
 
 _EVENT_PRODUCER = "valuation"
 
+# A confirmation stamps its trade-in valuation on its own commit, before the
+# contract is signed in the next (KAN-101, ADR-047): a stamp younger than this
+# may be a confirmation in progress. The nightly check reports a stamp without
+# a signed contract only past it, and «Verwendung aufheben» clears only such a
+# stamp (KAN-253).
+CONFIRMATION_GRACE = dt.timedelta(hours=1)
+
 
 def allocate_valuation_number(db: Session, tenant_id: uuid.UUID) -> str:
     row = db.get(ValuationNumberSequence, tenant_id, with_for_update=True)
@@ -382,7 +389,11 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
     (ADR-066, KAN-115) — with `details.reason == "signed_contract_carries_it"`;
     and refused for a valuation that is not stamped (`"not_used"`). A
     pending contract does not count: it never used the valuation, and its
-    confirmation stamps it again. The reason is mandatory and is kept on the
+    confirmation stamps it again. A stamp younger than `CONFIRMATION_GRACE`
+    is refused too (`"stamp_too_recent"`): its confirmation may still be
+    signing the contract, and the lock here holds only the valuation row, not
+    the contract (another context's) — so the action clears what the nightly
+    check reports, and nothing younger. The reason is mandatory and is kept on the
     audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
     the clear itself is `revert_use`'s, so `valuation.valuation.use_reverted`
     is published as for the compensation. One commit.
@@ -403,6 +414,13 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
         raise ConflictError(
             f"Valuation {valuation.valuation_number} is the trade-in of a signed contract, so it stays used.",
             details={"reason": "signed_contract_carries_it", "valuationId": str(valuation.id)},
+        )
+    if valuation.used_at > utcnow() - CONFIRMATION_GRACE:
+        db.rollback()
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} was marked used less than an hour ago; "
+            "its contract's confirmation may still be in progress.",
+            details={"reason": "stamp_too_recent", "valuationId": str(valuation.id)},
         )
     used_at = valuation.used_at
     record_audit_event(

@@ -288,7 +288,8 @@
       "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen.",
       "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch.",
       "not_used": "Diese Bewertung ist nicht als verwendet markiert.",
-      "signed_contract_carries_it": "Ein unterzeichneter Vertrag führt diese Bewertung als Eintausch, daher bleibt sie verwendet."
+      "signed_contract_carries_it": "Ein unterzeichneter Vertrag führt diese Bewertung als Eintausch, daher bleibt sie verwendet.",
+      "stamp_too_recent": "Diese Bewertung wurde vor weniger als einer Stunde als verwendet markiert; die Bestätigung ihres Vertrags läuft vielleicht noch. Bitte später erneut versuchen."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1593,7 +1594,7 @@
     },
     "revertUseDialog": {
       "title": "Verwendung aufheben",
-      "body": "Bewertung {{number}} ist als verwendet markiert, aber kein unterschriebener Vertrag steht dahinter. Nach dem Aufheben gilt sie wieder als gültig oder abgelaufen. Der Grund wird im Verlauf festgehalten.",
+      "body": "Bewertung {{number}} ist als verwendet markiert, aber kein unterschriebener Vertrag steht dahinter. Nach dem Aufheben gilt sie wieder als gültig oder abgelaufen. Der Grund wird mit der Änderung protokolliert.",
       "reasonLabel": "Grund",
       "reasonRequired": "Bitte einen Grund angeben.",
       "submit": "Verwendung aufheben",
