@@ -286,7 +286,16 @@
       "standard_text_not_an_override": "Seul un texte standard adapté a un modèle à vérifier.",
       "standard_text_seed_language_missing": "Ce modèle n'existe pas dans cette langue.",
       "standard_text_seed_not_shipped": "Nexotec ne livre aucun texte pour ce modèle ; il n'y a rien à rétablir.",
-      "logo_too_many_pixels": "Ce PNG mesure {{width, number}} × {{height, number}} px – plus de {{max, number}} mégapixels. Aucun logo n’en a besoin : une page A4 entière à 300 dpi en compte à peine 9, et chaque document portant le logo devrait tous les charger. Réduisez l’image ou téléversez un SVG."
+      "logo_too_many_pixels": "Ce PNG mesure {{width, number}} × {{height, number}} px – plus de {{max, number}} mégapixels. Aucun logo n’en a besoin : une page A4 entière à 300 dpi en compte à peine 9, et chaque document portant le logo devrait tous les charger. Réduisez l’image ou téléversez un SVG.",
+      "plate_already_ended": "Cette attribution est déjà terminée.",
+      "plate_already_on_vehicle": "Cette plaque est déjà enregistrée sur ce véhicule pour cette période.",
+      "plate_canton_invalid": "Veuillez choisir l'un des 26 cantons.",
+      "plate_current_on_other_vehicle": "Cette plaque est enregistrée sur un autre véhicule.",
+      "plate_invalid": "Une plaque se compose du canton et d'un à six chiffres, p. ex. ZH 123456.",
+      "plate_move_and_wechselschild": "Une plaque est soit déplacée, soit enregistrée comme plaque interchangeable, pas les deux.",
+      "plate_move_before_start": "L'attribution sur l'autre véhicule commence le même jour ou plus tard – veuillez choisir une date «Valable dès» ultérieure.",
+      "plate_validity_invalid": "Une attribution ne peut pas se terminer avant de commencer.",
+      "plate_wechselschild_not_possible": "Une plaque interchangeable relie exactement deux véhicules – cette plaque est déjà sur deux véhicules."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -914,7 +923,8 @@
       "recordOdometer": "Saisir le kilométrage",
       "recordAccessory": "Saisir un accessoire",
       "resync": "Actualiser depuis le catalogue",
-      "resyncDisabledReason": "Pas encore disponible"
+      "resyncDisabledReason": "Pas encore disponible",
+      "recordPlate": "Saisir une plaque"
     },
     "errors": {
       "somethingWentWrong": "Une erreur est survenue."
@@ -961,7 +971,19 @@
       "none": "Aucune plaque enregistrée",
       "wechselschild": "Plaque interchangeable",
       "limitReached": "Vous avez consulté les plaques de nombreux véhicules en peu de temps. Veuillez réessayer plus tard.",
-      "withheld": "Plaque masquée – limite atteinte"
+      "withheld": "Plaque masquée – limite atteinte",
+      "number": "Numéro",
+      "recordTitle": "Saisir une plaque",
+      "recordSubmit": "Enregistrer",
+      "moveConfirm": "Déplacer sur ce véhicule",
+      "onOtherVehicleTitle": "Plaque sur un autre véhicule",
+      "onOtherVehicle": "{{plate}} est enregistrée sur {{vehicle}} (VIN {{vin}}) depuis le {{since}}.",
+      "moveQuestion": "Le déplacement termine l'attribution sur l'autre véhicule la veille. Elle reste visible dans son historique.",
+      "formWechselschild": "Enregistrer plutôt comme plaque interchangeable",
+      "saveError": "La plaque n'a pas pu être enregistrée.",
+      "endTitle": "Terminer {{plate}}",
+      "end": "Terminer",
+      "endsOn": "Dernier jour sur ce véhicule"
     },
     "odometer": {
       "value": "Relève",

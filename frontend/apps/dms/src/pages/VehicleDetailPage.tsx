@@ -11,6 +11,7 @@ import { buildVehicleRowMenu, readVehicleOpenAction, type VehicleOpenAction } fr
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
 import { isPlateReadLimitError } from '../components/vehicle-detail/plateReadLimit'
+import { EndPlateDialog, RecordPlateDialog, type RecordPlateRequest } from '../components/vehicle-detail/PlateDialogs'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { OdometerTab } from '../components/vehicle-detail/OdometerTab'
 import { AccessoriesTab } from '../components/vehicle-detail/AccessoriesTab'
@@ -51,6 +52,9 @@ export function VehicleDetailPage() {
   // «Record odometer» / «Record accessory» open their tab with the form focused.
   const [formToFocus, setFormToFocus] = useState<'odometer' | 'accessories' | null>(null)
   const formFocusHandled = useCallback(() => setFormToFocus(null), [])
+  // KAN-467 — «Kontrollschild erfassen» and «beenden» (Plates tab, overflow).
+  const [recordingPlate, setRecordingPlate] = useState(false)
+  const [endingPlate, setEndingPlate] = useState<VehiclePlateRead | null>(null)
   const navigate = useNavigate()
   const { entitlements } = useAuth()
   // KAN-198 / D-A-04: valuations are a Sales-module surface.
@@ -131,6 +135,7 @@ export function VehicleDetailPage() {
   const allocateKey = useIdempotencyKey()
   const odometerKey = useIdempotencyKey()
   const accessoryKey = useIdempotencyKey()
+  const plateKey = useIdempotencyKey()
 
   const invalidatePartyRoles = () => {
     allocateKey.renew()
@@ -166,6 +171,20 @@ export function VehicleDetailPage() {
     await api.post(path, body, accessoryKey.headers([path, body]))
     accessoryKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'accessories'] })
+  }
+
+  const invalidatePlates = () => void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'plates'] })
+
+  const recordPlate = async (request: RecordPlateRequest) => {
+    const path = `/vehicle-mdm/${id}/plates`
+    await api.post(path, request, plateKey.headers([path, request]))
+    plateKey.renew()
+    invalidatePlates()
+  }
+
+  const endPlate = async (plate: VehiclePlateRead, validTo: string) => {
+    await api.post(`/vehicle-mdm/${id}/plates/${plate.id}/end`, { validTo }, { 'If-Match': String(plate.version) })
+    invalidatePlates()
   }
 
   const removeAccessory = async (accessoryId: string) => {
@@ -207,10 +226,28 @@ export function VehicleDetailPage() {
     setActiveTab('accessories')
     setFormToFocus('accessories')
   }
+  // The dialog opens once the Plates tab shows: opened in the same render as
+  // the tab change, the router's navigation to the tab was lost (the list's
+  // row menu → «Kontrollschild erfassen» landed on Identity with the dialog).
+  const [plateDialogRequested, setPlateDialogRequested] = useState(false)
+  const startRecordingPlate = () => {
+    plateKey.renew()
+    if (activeTab === 'plates') setRecordingPlate(true)
+    else {
+      setActiveTab('plates')
+      setPlateDialogRequested(true)
+    }
+  }
+  useEffect(() => {
+    if (!plateDialogRequested || activeTab !== 'plates') return
+    setPlateDialogRequested(false)
+    setRecordingPlate(true)
+  }, [plateDialogRequested, activeTab])
   const startAction: Record<VehicleOpenAction, () => void> = {
     allocate: startAllocating,
     recordOdometer: startRecordingOdometer,
     recordAccessory: startRecordingAccessory,
+    recordPlate: startRecordingPlate,
   }
 
   // KAN-503 — the Vehicles list's row menu opens the car at the action
@@ -232,6 +269,7 @@ export function VehicleDetailPage() {
     onAllocate: startAllocating,
     onRecordOdometer: startRecordingOdometer,
     onRecordAccessory: startRecordingAccessory,
+    onRecordPlate: startRecordingPlate,
     onCopyVin: () => void navigator.clipboard.writeText(vehicle?.vin ?? ''),
     onRequestValuation: salesEntitled && id ? () => navigate(`/valuations/new?vehicle=${id}`) : undefined,
   })
@@ -287,7 +325,11 @@ export function VehicleDetailPage() {
           plates={platesQuery.data ?? []}
           loading={platesQuery.isLoading}
           limitReached={isPlateReadLimitError(platesQuery.error)}
+          onRecord={startRecordingPlate}
+          onEnd={setEndingPlate}
         />}
+      <RecordPlateDialog opened={recordingPlate} onClose={() => setRecordingPlate(false)} onRecord={recordPlate} />
+      <EndPlateDialog plate={endingPlate} onClose={() => setEndingPlate(null)} onEnd={endPlate} />
       {activeTab === 'odometer' && (
         <OdometerTab
           readings={odometerQuery.data ?? []}

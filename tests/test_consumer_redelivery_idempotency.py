@@ -271,6 +271,38 @@ def _digest_released(db_session, engine, monkeypatch):
     return _message(db_session, notifications.DIGEST_RELEASED_EVENT, user.id), lambda db: len(sent)
 
 
+def _contract_delivered(db_session, engine, monkeypatch):
+    """KAN-467 — a sold car delivered with its plate: vehicle-mdm records it
+    in the group's register. Sales has no delivery step yet (its follow-up
+    ticket), so the row is the one the event contract in
+    `app/vehicle/consumers.py` names, written through the outbox's own
+    `publish`, as Sales will."""
+
+    from app.core.outbox import OutboxEvent
+    from app.core.outbox import publish as publish_event
+    from app.vehicle.models.plate import VehiclePlate
+    from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+
+    car = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
+    message = publish_event(
+        db_session,
+        OutboxEvent(
+            event_type="sales.contract.delivered", tenant_id=uuid.uuid4(), producer="sales",
+            aggregate_type="sales_contract", aggregate_id=uuid.uuid4(),
+            payload={
+                "contractNumber": "V-2026-0001", "vehicleId": str(car.id), "groupId": str(uuid.uuid4()),
+                "deliveredOn": dt.date.today().isoformat(), "deliveredBy": None, "plate": "ZH 123456",
+                "canton": "ZH", "moveFromPlateIds": [],
+            },
+        ),
+    )
+
+    def plates(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(VehiclePlate).where(VehiclePlate.vehicle_id == car.id))
+
+    return message, plates
+
+
 _FIXTURES: dict[str, Fixture] = {
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
@@ -280,6 +312,7 @@ _FIXTURES: dict[str, Fixture] = {
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,
     "platform.web_push_on_digest": _digest_released,
+    "vehicle.plate_on_contract_delivered": _contract_delivered,
 }
 
 

@@ -121,6 +121,8 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
       label('allocate'),
       label('recordOdometer'),
       label('recordAccessory'),
+      // KAN-467
+      label('recordPlate'),
       label('resync'),
       label('requestValuation'),
       label('copyVin'),
@@ -172,6 +174,21 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
 
     await waitFor(() => expect(screen.getByLabelText(i18n.t('vehicleDetail.accessories.type'))).toHaveFocus())
     expect(screen.getByRole('tab', { name: new RegExp(i18n.t('vehicleDetail.tabs.accessories')) })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+  })
+
+  it('«Kontrollschild erfassen» opens the car at the Plates tab with the recording dialog open (KAN-467)', async () => {
+    const user = userEvent.setup()
+    install()
+    render()
+
+    await openRowMenu(user)
+    await user.click(await item('recordPlate'))
+
+    expect(await screen.findByRole('dialog', { name: i18n.t('vehicleDetail.plates.recordTitle') })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: new RegExp(i18n.t('vehicleDetail.tabs.plates')) })).toHaveAttribute(
       'aria-selected',
       'true',
     )

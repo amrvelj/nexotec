@@ -286,7 +286,16 @@
       "standard_text_not_an_override": "Nur ein angepasster Standardtext hat eine Vorlage zu prüfen.",
       "standard_text_seed_language_missing": "Diese Vorlage gibt es in dieser Sprache nicht.",
       "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen.",
-      "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch."
+      "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch.",
+      "plate_already_ended": "Diese Zuordnung ist bereits beendet.",
+      "plate_already_on_vehicle": "Dieses Kontrollschild ist für diesen Zeitraum bereits auf diesem Fahrzeug erfasst.",
+      "plate_canton_invalid": "Bitte einen der 26 Kantone wählen.",
+      "plate_current_on_other_vehicle": "Dieses Kontrollschild ist auf einem anderen Fahrzeug erfasst.",
+      "plate_invalid": "Ein Kontrollschild besteht aus dem Kanton und einer bis sechs Ziffern, z. B. ZH 123456.",
+      "plate_move_and_wechselschild": "Ein Kontrollschild wird entweder verschoben oder als Wechselschild erfasst, nicht beides.",
+      "plate_move_before_start": "Die Zuordnung auf dem anderen Fahrzeug beginnt am selben Tag oder später – bitte ein späteres «Gültig ab» wählen.",
+      "plate_validity_invalid": "Eine Zuordnung kann nicht vor ihrem Beginn enden.",
+      "plate_wechselschild_not_possible": "Ein Wechselschild verbindet genau zwei Fahrzeuge – dieses Kontrollschild ist bereits auf zwei Fahrzeugen."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -914,7 +923,8 @@
       "recordOdometer": "Kilometerstand erfassen",
       "recordAccessory": "Zubehör erfassen",
       "resync": "Aus dem Katalog aktualisieren",
-      "resyncDisabledReason": "Noch nicht verfügbar"
+      "resyncDisabledReason": "Noch nicht verfügbar",
+      "recordPlate": "Kontrollschild erfassen"
     },
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen."
@@ -961,7 +971,19 @@
       "none": "Keine Kennzeichen erfasst",
       "wechselschild": "Wechselschild",
       "limitReached": "Sie haben in kurzer Zeit die Kennzeichen vieler Fahrzeuge angesehen. Bitte versuchen Sie es später erneut.",
-      "withheld": "Kennzeichen ausgeblendet – Limite erreicht"
+      "withheld": "Kennzeichen ausgeblendet – Limite erreicht",
+      "number": "Nummer",
+      "recordTitle": "Kontrollschild erfassen",
+      "recordSubmit": "Erfassen",
+      "moveConfirm": "Auf dieses Fahrzeug verschieben",
+      "onOtherVehicleTitle": "Kontrollschild auf einem anderen Fahrzeug",
+      "onOtherVehicle": "{{plate}} ist seit {{since}} auf {{vehicle}} (VIN {{vin}}) erfasst.",
+      "moveQuestion": "Verschieben beendet die Zuordnung auf dem anderen Fahrzeug am Vortag. Sie bleibt in dessen Verlauf sichtbar.",
+      "formWechselschild": "Stattdessen als Wechselschild erfassen",
+      "saveError": "Das Kontrollschild konnte nicht gespeichert werden.",
+      "endTitle": "{{plate}} beenden",
+      "end": "Beenden",
+      "endsOn": "Letzter Tag auf diesem Fahrzeug"
     },
     "odometer": {
       "value": "Kilometerstand",

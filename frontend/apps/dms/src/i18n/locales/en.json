@@ -286,7 +286,16 @@
       "standard_text_not_an_override": "Only an adapted standard text has a template to review.",
       "standard_text_seed_language_missing": "This template does not exist in this language.",
       "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore.",
-      "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG."
+      "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG.",
+      "plate_already_ended": "This assignment has already ended.",
+      "plate_already_on_vehicle": "This plate is already recorded on this vehicle for that period.",
+      "plate_canton_invalid": "Please choose one of the 26 cantons.",
+      "plate_current_on_other_vehicle": "This plate is recorded on another vehicle.",
+      "plate_invalid": "A plate is the canton and one to six digits, e.g. ZH 123456.",
+      "plate_move_and_wechselschild": "A plate either moves or becomes an interchangeable plate, not both.",
+      "plate_move_before_start": "The assignment on the other vehicle starts on the same day or later – please choose a later «Valid from».",
+      "plate_validity_invalid": "An assignment cannot end before it starts.",
+      "plate_wechselschild_not_possible": "An interchangeable plate joins exactly two vehicles – this plate is already on two."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -914,7 +923,8 @@
       "recordOdometer": "Record odometer reading",
       "recordAccessory": "Record accessory",
       "resync": "Re-sync from catalogue",
-      "resyncDisabledReason": "Not yet available"
+      "resyncDisabledReason": "Not yet available",
+      "recordPlate": "Record plate"
     },
     "errors": {
       "somethingWentWrong": "Something went wrong."
@@ -961,7 +971,19 @@
       "none": "No plates recorded",
       "wechselschild": "Wechselschild",
       "limitReached": "You have viewed many licence plates in a short time. Try again later.",
-      "withheld": "Plate hidden – limit reached"
+      "withheld": "Plate hidden – limit reached",
+      "number": "Number",
+      "recordTitle": "Record plate",
+      "recordSubmit": "Record",
+      "moveConfirm": "Move to this vehicle",
+      "onOtherVehicleTitle": "Plate on another vehicle",
+      "onOtherVehicle": "{{plate}} has been on {{vehicle}} (VIN {{vin}}) since {{since}}.",
+      "moveQuestion": "Moving ends the assignment on the other vehicle the day before. It stays in that vehicle's history.",
+      "formWechselschild": "Record as an interchangeable plate instead",
+      "saveError": "The plate could not be saved.",
+      "endTitle": "End {{plate}}",
+      "end": "End",
+      "endsOn": "Last day on this vehicle"
     },
     "odometer": {
       "value": "Reading",
