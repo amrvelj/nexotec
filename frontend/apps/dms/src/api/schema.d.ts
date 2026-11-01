@@ -3571,6 +3571,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/valuations/{valuation_id}/revert-use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Valuation Use
+         * @description «Verwendung aufheben» (KAN-253, Anto 2026-10-31 option C) — the dealer
+         *     manager clears a «Verwendet» stamp no signed contract stands behind,
+         *     with a stated reason (audited). 409 `signed_contract_carries_it` while a
+         *     signed contract of this dealership carries it, 409 `not_used` when it is
+         *     not stamped.
+         */
+        post: operations["revert_valuation_use_v1_valuations__valuation_id__revert_use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/vehicle-identification": {
         parameters: {
             query?: never;
@@ -10554,6 +10578,15 @@ export interface components {
             valuationId: string | null;
             /** Valuedat */
             valuedAt: string | null;
+        };
+        /**
+         * ValuationRevertUse
+         * @description «Verwendung aufheben» (KAN-253): the reason is mandatory and is kept
+         *     on the audit row.
+         */
+        ValuationRevertUse: {
+            /** Reason */
+            reason: string;
         };
         /**
          * ValuationSource
@@ -20915,6 +20948,48 @@ export interface operations {
             };
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValuationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_valuation_use_v1_valuations__valuation_id__revert_use_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                valuation_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValuationRevertUse"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

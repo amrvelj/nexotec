@@ -70,4 +70,37 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
     )
     expect(withBoth.overflow.navigate ?? []).toHaveLength(2)
   })
+  it('KAN-253: «Verwendung aufheben» is absent unless the session may write it (onRevertUse passed)', () => {
+    const menu = buildValuationRowMenu(
+      t,
+      { status: 'used', hasSignedContract: false, customerId: null, vehicleId: null },
+      { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
+    )
+    expect((menu.overflow.edit ?? []).map((a) => a.label)).toEqual(['valuationDetail.actions.markUsed'])
+  })
+
+  it.each([
+    // [status, hasSignedContract, expected disabledReason key or null when enabled]
+    ['used', false, null],
+    ['used', true, 'valuationDetail.actions.revertUseSignedContract'],
+    ['valid', false, 'valuationDetail.actions.revertUseNotUsed'],
+    ['expired', false, 'valuationDetail.actions.revertUseNotUsed'],
+    ['draft', true, 'valuationDetail.actions.revertUseNotUsed'],
+  ] as const)(
+    'KAN-253: revertUse for status=%s, hasSignedContract=%s is enabled only for a used valuation no signed deal carries (reason %s)',
+    (status, hasSignedContract, expectedReason) => {
+      const onRevertUse = vi.fn()
+      const menu = buildValuationRowMenu(
+        t,
+        { status, hasSignedContract, customerId: null, vehicleId: null },
+        { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onRevertUse }
+      )
+      const revertUse = (menu.overflow.edit ?? []).find((a) => a.label === 'valuationDetail.actions.revertUse')
+      expect(revertUse).toBeDefined()
+      expect(revertUse!.disabled).toBe(expectedReason !== null)
+      expect(revertUse!.disabledReason).toBe(expectedReason ?? undefined)
+      revertUse!.onClick?.()
+      expect(onRevertUse).toHaveBeenCalledTimes(1)
+    }
+  )
 })

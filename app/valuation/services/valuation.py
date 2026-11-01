@@ -22,6 +22,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
@@ -365,6 +366,57 @@ def revert_use(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None)
     db.commit()
     db.refresh(valuation)
     return valuation
+
+
+def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None, reason: str) -> Valuation:
+    """«Verwendung aufheben» (Anto, 2026-10-31, KAN-253 option C) — clears a
+    «Verwendet» stamp that no signed deal stands behind: a hand stamp from
+    before KAN-115, or a confirmation whose own commit and compensating
+    `revert_use` both failed and whose contract was then cancelled. Nightly
+    reconciliation reports both and never repairs them (rule 10), so this is
+    the dealer manager's audited correction; the API gates it on the
+    manager-only matrix row `valuation_use_reversal`.
+
+    Refused while a signed contract of this dealership (cancelled included)
+    carries the valuation — a signed deal used it, and it stays used
+    (ADR-066, KAN-115) — with `details.reason == "signed_contract_carries_it"`;
+    and refused for a valuation that is not stamped (`"not_used"`). A
+    pending contract does not count: it never used the valuation, and its
+    confirmation stamps it again. The reason is mandatory and is kept on the
+    audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
+    the clear itself is `revert_use`'s, so `valuation.valuation.use_reverted`
+    is published as for the compensation. One commit.
+    """
+
+    # Row lock, as in mark_used_by_hand: a confirmation stamping this
+    # valuation at the same moment serialises here.
+    db.refresh(valuation, with_for_update=True)
+    if valuation.used_at is None:
+        db.rollback()
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} is not marked used.",
+            details={"reason": "not_used", "valuationId": str(valuation.id)},
+        )
+    carried = valuations_carried_by_signed_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
+    if valuation.id in carried:
+        db.rollback()
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} is the trade-in of a signed contract, so it stays used.",
+            details={"reason": "signed_contract_carries_it", "valuationId": str(valuation.id)},
+        )
+    used_at = valuation.used_at
+    record_audit_event(
+        db,
+        entity_type="valuation",
+        entity_id=valuation.id,
+        tenant_id=valuation.tenant_id,
+        action="valuation_use_reverted_by_hand",
+        actor_id=actor_id,
+        before={"usedAt": used_at.isoformat()},
+        after={"usedAt": None},
+        reason=reason,
+    )
+    return revert_use(db, valuation=valuation, actor_id=actor_id)
 
 
 def list_valid_valuations_for_vehicle(db: Session, *, tenant_id: uuid.UUID, vehicle_id: uuid.UUID) -> list[Valuation]:

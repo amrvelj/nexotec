@@ -1,10 +1,14 @@
-import { Car, CheckCircle, RefreshCw, User } from 'lucide-react'
+import { Car, CheckCircle, RefreshCw, Undo2, User } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { ValuationRead } from '../api/types'
 
 export interface ValuationRowMenuActions {
   onRevalue: () => void
   onMarkUsed: () => void
+  /** KAN-253 — «Verwendung aufheben». Passed only when the session may
+   * write `valuation_use_reversal` (the dealer manager); otherwise the
+   * entry is hidden, never disabled (KAN-430). */
+  onRevertUse?: () => void
   onOpenCustomer?: () => void
   onOpenVehicle?: () => void
 }
@@ -28,6 +32,11 @@ export interface ValuationRowMenu {
  * only a signed deal uses a valuation (KAN-115), so it is offered only when a
  * signed contract carries the valuation — whatever its status, expired
  * included — and never once it is already used.
+ *
+ * «Verwendung aufheben» (KAN-253) is its counterpart for a stamp no signed
+ * deal stands behind — a hand stamp from before KAN-115, or a confirmation
+ * that failed and was cancelled: offered to the dealer manager only, enabled
+ * only for a used valuation no signed contract carries.
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -39,6 +48,12 @@ export function buildValuationRowMenu(
       ? t('valuationDetail.actions.markUsedAlreadyUsed')
       : !valuation.hasSignedContract
         ? t('valuationDetail.actions.markUsedNoSignedContract')
+        : undefined
+  const revertUseDisabledReason =
+    valuation.status !== 'used'
+      ? t('valuationDetail.actions.revertUseNotUsed')
+      : valuation.hasSignedContract
+        ? t('valuationDetail.actions.revertUseSignedContract')
         : undefined
 
   const overflow: RowMenuGroups = {
@@ -58,6 +73,17 @@ export function buildValuationRowMenu(
         disabled: markUsedDisabledReason !== undefined,
         disabledReason: markUsedDisabledReason,
       },
+      ...(actions.onRevertUse
+        ? [
+            {
+              label: t('valuationDetail.actions.revertUse'),
+              icon: <Undo2 size={16} />,
+              onClick: actions.onRevertUse,
+              disabled: revertUseDisabledReason !== undefined,
+              disabledReason: revertUseDisabledReason,
+            },
+          ]
+        : []),
     ],
   }
 

@@ -129,6 +129,9 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # Valuation: read stays "Any role" (Anto, 2026-10-17, keeping today's
     # behaviour; the matrix row is corrected to match).
     "valuations": Capability(read_roles=_ANY, write_roles=frozenset({_S, _I})),
+    # KAN-253 (Anto, 2026-10-31, option C) — «Verwendung aufheben» clears a
+    # stamp no signed deal stands behind: the dealer manager only.
+    "valuation_use_reversal": Capability(read_roles=_ANY, write_roles=_MANAGER_ONLY),
     # C-C / KAN-41 — the configurator's entity, reached from every
     # commercial process: both Sales and Inventory write.
     "configurations": Capability(read_roles=_ANY, write_roles=frozenset({_S, _I})),

@@ -20,6 +20,8 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
+import { ValuationRevertUseDialog } from '../components/ValuationRevertUseDialog'
+import { useCanWrite } from '../auth/useCanWrite'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
@@ -69,6 +71,9 @@ export function ValuationsListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const markUsedKey = useIdempotencyKey()
+  // KAN-253 — «Verwendung aufheben», the dealer manager's correction.
+  const canRevertUse = useCanWrite('valuation_use_reversal')
+  const [revertUseOf, setRevertUseOf] = useState<ValuationRead | null>(null)
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
@@ -341,11 +346,20 @@ export function ValuationsListPage() {
             const menu = buildValuationRowMenu(t, row, {
               onRevalue: () => navigate(`/valuations/new?supersedes=${row.id}`),
               onMarkUsed: () => void markUsed(row),
+              onRevertUse: canRevertUse ? () => setRevertUseOf(row) : undefined,
             })
             return { navigate: [{ label: t('valuationsList.rowActions.open'), icon: <ExternalLink size={16} />, onClick: () => navigate(rowHref(row)) }], ...menu.overflow }
           }}
         />
       </OverviewShellRegion>
+      {revertUseOf && (
+        <ValuationRevertUseDialog
+          opened
+          onClose={() => setRevertUseOf(null)}
+          valuation={revertUseOf}
+          onSaved={() => void queryClient.invalidateQueries({ queryKey: ['valuations'] })}
+        />
+      )}
     </Stack>
   )
 }

@@ -89,6 +89,8 @@ const REASON_KEYS: Record<string, string> = {
       'no_provider_connection',
       'no_signed_contract',
       'not_active',
+      // KAN-253 — «Verwendung aufheben».
+      'not_used',
       'nul_character',
       'offer_already_contracted',
       'passkey_key_not_accepted',
@@ -100,6 +102,7 @@ const REASON_KEYS: Record<string, string> = {
       'provider_code_already_mapped',
       'purchase_requires_vin',
       'purchase_vin_mismatch',
+      'signed_contract_carries_it',
       // KAN-208 — the standard-text library and the documents that print it.
       'standard_text_category_mismatch',
       'standard_text_code_target_mismatch',
