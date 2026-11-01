@@ -23,7 +23,8 @@ OUR_BETRIEB = uuid.uuid4()
 OUR_GROUP = uuid.uuid4()
 THEIR_BETRIEB = uuid.uuid4()
 THEIR_GROUP = uuid.uuid4()
-TODAY = dt.date.today()
+# The service's own "today" (utcnow) — what the search resolves against.
+TODAY = dt.datetime.now(dt.UTC).date()
 
 
 def _headers(*, tenant=OUR_BETRIEB, group=OUR_GROUP, user=None, **extra) -> dict[str, str]:

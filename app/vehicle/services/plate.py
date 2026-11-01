@@ -110,7 +110,7 @@ def _holder_details(db: Session, rows: Sequence[VehiclePlate]) -> list[dict[str,
     """The other cars of the group a plate is current on — the user's own
     group's register, so every one of them may be named (Anto, 2026-10-31)."""
 
-    details = []
+    details: list[dict[str, object]] = []
     for row in rows:
         vehicle = db.get(VehicleMdm, row.vehicle_id)
         details.append(

@@ -291,7 +291,7 @@ def _contract_delivered(db_session, engine, monkeypatch):
             aggregate_type="sales_contract", aggregate_id=uuid.uuid4(),
             payload={
                 "contractNumber": "V-2026-0001", "vehicleId": str(car.id), "groupId": str(uuid.uuid4()),
-                "deliveredOn": dt.date.today().isoformat(), "deliveredBy": None, "plate": "ZH 123456",
+                "deliveredOn": dt.datetime.now(dt.UTC).date().isoformat(), "deliveredBy": None, "plate": "ZH 123456",
                 "canton": "ZH", "moveFromPlateIds": [],
             },
         ),
