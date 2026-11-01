@@ -6,7 +6,7 @@ import { ApiError } from '../../api/client'
 import type { VehiclePlateRead } from '../../api/types'
 import { CANTON_OPTIONS } from '../../customerOptions'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
-import { apiRefusalText } from '../../utils/apiRefusal'
+import { apiRefusalText, isStaleVersion } from '../../utils/apiRefusal'
 import { formatDateOnly, todayLocalIsoDate } from '../../utils/format'
 
 /** What «Kontrollschild erfassen» sends (`POST /vehicle-mdm/{id}/plates`). */
@@ -90,6 +90,13 @@ export function RecordPlateDialog({
     } catch (err) {
       const found = holdersOf(err)
       if (found) setHolders(found)
+      else if (isStaleVersion(err)) {
+        // The other car's assignment changed since the refusal showed it: the
+        // shown cars are out of date. Drop them, so the next «Erfassen» asks
+        // the register again instead of resending the stale versions.
+        setHolders(null)
+        setError(apiRefusalText(t, err, 'vehicleDetail.plates.saveError'))
+      }
       else if (err instanceof ApiError && err.details?.holdersWithheld === true) {
         // Past the plate-read limit the refusal names no car (ADR-085).
         setError(`${apiRefusalText(t, err, 'vehicleDetail.plates.saveError')} ${t('vehicleDetail.plates.limitReached')}`)

@@ -12,9 +12,9 @@ never read, matched or moved. Inside the group a Kontrollschild is current on
 one car at a time, or on the two cars of a Wechselschild: `record_plate`
 refuses a plate that is current on another car of the group and names that
 car (409 `plate_current_on_other_vehicle`), and records it once the caller
-confirms the move (`move_from_plate_ids` — the other assignment ends the day
-before the new one starts; rows are never deleted) or forms the Wechselschild
-(`wechselschild_with_plate_id`).
+confirms the move (`move_from`, each other assignment at the version the
+refusal showed — it ends the day before the new one starts; rows are never
+deleted) or forms the Wechselschild (`wechselschild_with`, likewise).
 
 Audit rows of a write carry the validity and the plate group, never the plate
 value: the audit log is listable by a manager, and plate values in it would

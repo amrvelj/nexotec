@@ -314,3 +314,47 @@ def test_two_concurrent_recordings_of_one_plate_never_both_land(db_session, engi
     assert sorted(outcomes) == ["plate_current_on_other_vehicle", "recorded"]
     current = resolve_plate(db_session, group_id=GROUP, plate="ZH 777", canton="ZH", as_of=TODAY)
     assert len(current) == 1
+
+
+def test_a_wechselschild_answered_at_a_stale_version_is_refused(db_session):
+    car_a = _vehicle(db_session, "ZAR94000007123456")
+    car_b = _vehicle(db_session, "WVWZZZ1JZXW000001")
+    first = _record(db_session, car_a, "TG 41277", valid_from=dt.date(2024, 1, 1))
+
+    with pytest.raises(ConflictError) as excinfo:
+        _record(db_session, car_b, "TG 41277", wechselschild_with=PlateVersionRef(first.id, first.version + 1))
+    db_session.rollback()
+
+    assert excinfo.value.details["currentVersion"] == first.version
+    db_session.refresh(first)
+    assert (first.plate_group_id, first.is_interchangeable) == (None, False)
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="advisory locks are Postgres-only")
+def test_ending_an_assignment_a_concurrent_move_already_ended_is_refused_not_lost(db_session, engine):
+    """«beenden» read the row at version 1; a move of the same plate commits
+    before the end is written (version 2). Without the plate lock and the
+    re-read under it, the end's version check passes on its stale read and
+    overwrites the move's valid_to — the move's end is silently lost."""
+
+    old_car = _vehicle(db_session, "ZAR94000007123456")
+    new_car = _vehicle(db_session, "WVWZZZ1JZXW000001")
+    held = _record(db_session, old_car, valid_from=dt.date(2024, 3, 1))
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    with factory() as ender:
+        row = ender.get(VehiclePlate, held.id)  # «beenden» reads at version 1
+        assert row.version == 1
+        with factory() as mover:  # the move commits in between
+            record_plate(
+                mover, vehicle_id=new_car.id, group_id=GROUP, recording_tenant_id=TENANT_ID, actor_id=None,
+                plate="ZH 123456", canton="ZH", valid_from=TODAY + dt.timedelta(days=10),
+                move_from=[PlateVersionRef(held.id, 1)],
+            )
+            mover.commit()
+        with pytest.raises(ConflictError):
+            end_plate(ender, row=row, valid_to=TODAY, expected_version=1, actor_id=None, tenant_id=TENANT_ID)
+        ender.rollback()
+
+    db_session.refresh(held)
+    assert held.valid_to == TODAY + dt.timedelta(days=9)  # the move's end stands

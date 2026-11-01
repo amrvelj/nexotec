@@ -115,6 +115,27 @@ describe('Vehicle 360 › Plates — record and end a Kontrollschild (KAN-467)',
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
+  it('a move refused as stale drops the shown cars, so the next try asks the register again', async () => {
+    const user = userEvent.setup()
+    const backend = install((body) =>
+      body.moveFrom
+        ? status(409, { error: { code: 'conflict', message: 'stale', details: { currentVersion: 3, ifMatchVersion: 2 } } })
+        : status(409, { error: { code: 'conflict', message: 'x', details: { reason: 'plate_current_on_other_vehicle', holders: [holder] } } }),
+    )
+    render()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('vehicleDetail.header.recordPlate') }))
+    const dialog = await fillThePlate(user)
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('vehicleDetail.plates.recordSubmit') }))
+    await user.click(await within(dialog).findByRole('button', { name: i18n.t('vehicleDetail.plates.moveConfirm') }))
+
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    const again = await within(dialog).findByRole('button', { name: i18n.t('vehicleDetail.plates.recordSubmit') })
+    await user.click(again)
+    await waitFor(() => expect(backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'POST')).toHaveLength(3))
+    expect(backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'POST')[2].body).not.toHaveProperty('moveFrom')
+  })
+
   it('offers the Wechselschild for the one other car', async () => {
     const user = userEvent.setup()
     const backend = install((body) =>
