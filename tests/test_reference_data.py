@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
-from app.core.permissions import may_write
+from app.core.permissions import CAPABILITY_MATRIX, may_write
 from app.platform.models.reference_data import ReferenceList
 
 
@@ -98,8 +98,8 @@ def test_a_dealer_manager_cannot_create_a_reference_value(client, db_session):
 def test_the_screens_capability_and_the_apis_gate_agree(client, db_session, role, manager):
     """KAN-471: the Reference data screen offers «Neuer Wert» and the inline
     edits only to a session whose `writableCapabilities` holds the matrix row
-    "Canonical taxonomy, provider catalogue" (`canonical_taxonomy`; the PRD's
-    Platform Administration › Reference data). The POST and the PATCH keep
+    "Reference lists" (`reference_lists`, split from the canonical taxonomy's
+    row by KAN-514; the PRD's Platform Administration › Reference data). The POST and the PATCH keep
     their own gate, so this pins that the two say the same for every role,
     with and without the manager flag: whoever the row lets write, the API
     lets write, and nobody else."""
@@ -107,7 +107,7 @@ def test_the_screens_capability_and_the_apis_gate_agree(client, db_session, role
     _seed_list(db_session, "fuel_type")
     roles = frozenset({role}) if role is not None else frozenset()
     headers = _bearer(_token(role, is_dealer_manager=manager))
-    offered = may_write("canonical_taxonomy", roles=roles, is_dealer_manager=manager)
+    offered = may_write("reference_lists", roles=roles, is_dealer_manager=manager)
 
     created = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=headers)
     if offered:
@@ -130,6 +130,25 @@ def test_the_screens_capability_and_the_apis_gate_agree(client, db_session, role
 
     assert offered is (role is AccessRole.PLATFORM_ADMIN)
     assert patched.status_code == (200 if offered else 403), patched.text
+
+
+@pytest.mark.parametrize("role", [None, *AccessRole])
+@pytest.mark.parametrize("manager", [False, True])
+def test_the_reference_lists_row_reads_any_role_as_the_open_get_does(client, db_session, role, manager):
+    """KAN-514 (Anto, 2026-10-31, option A): every form's dropdowns read the
+    reference lists, so the GET answers every role. The matrix row the
+    Reference data screen depends on says the same — «Reference lists», read
+    any role — while «Canonical taxonomy, provider catalogue» keeps its
+    platform-only read. Before the split the screen's row said platform-only,
+    and aligning the GET with it would have emptied every dealer's dropdowns."""
+
+    _seed_list(db_session, "fuel_type")
+    headers = _bearer(_token(role, is_dealer_manager=manager))
+
+    assert client.get("/v1/reference-data/fuel_type", headers=headers).status_code == 200
+    assert CAPABILITY_MATRIX["reference_lists"].read_roles is None
+    assert CAPABILITY_MATRIX["canonical_taxonomy"].read_roles == frozenset()
+    assert CAPABILITY_MATRIX["canonical_taxonomy"].manager_can_read is False
 
 
 def test_create_reference_value_requires_authentication(client, db_session):

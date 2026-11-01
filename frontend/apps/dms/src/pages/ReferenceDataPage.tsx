@@ -44,13 +44,13 @@ import {
 export function ReferenceDataPage() {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
-  // KAN-471: the reference lists are the PRD's "canonical taxonomy" row
-  // (Platform Administration › Reference data — the canonical taxonomy, the
-  // reference lists), written by platform staff only. Everyone else reads
+  // KAN-471, KAN-514: the reference lists are the PRD's "Reference lists"
+  // row (Platform Administration › Reference data; split from the canonical
+  // taxonomy's row) — any role reads, platform staff alone write. Everyone else reads
   // them here and is offered neither «Neuer Wert» nor an inline edit
   // (KAN-430: hide the action, never the data). The API's own gate on the
   // POST and the PATCH stays the authority.
-  const canWrite = useCanWrite('canonical_taxonomy')
+  const canWrite = useCanWrite('reference_lists')
   // A reader is told a language is missing, not that the row cannot be saved.
   const missingTip = canWrite ? t('referenceData.missingTip') : t('referenceData.missingTipReadOnly')
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])

@@ -198,15 +198,18 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen», `canonical_taxonomy` — the PRD's Platform
-Administration › Reference data — for the Reference data screen's «Neuer Wert» and inline edits,
-platform staff only, KAN-471), each checked to be a matrix row; never a role table
+list's intake and «Konfiguration zuordnen», `reference_lists` — the PRD's Platform
+Administration › Reference data, the row «Reference lists» split from «Canonical taxonomy,
+provider catalogue» by KAN-514 (Anto, 2026-10-31, option A: any role reads, as the open
+`GET /v1/reference-data` does; platform staff alone write) — for the Reference data screen's
+«Neuer Wert» and inline edits (KAN-471), `valuation_use_reversal` for the valuation row menu's
+«Verwendung aufheben», the dealer manager only (KAN-253)), each checked to be a matrix row; never a role table
 in the frontend. An empty `write_roles` = platform staff
 or the manager — except every row with `manager_can_write=False`: the "Nobody" rows (`audit_logs`,
 `wagenbuch`, `stock_reservation`, `ui_translations`, `status_page`, `integration_usage`,
 `module_entitlements`, `setup_checklist`, `support_session_log`) and the platform-only and self-only
-rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonical_taxonomy`), which
-the manager cannot write.
+rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonical_taxonomy`,
+`reference_lists`), which the manager cannot write.
 
 **Session minting (KAN-141, KAN-196).** Every session token is minted through `_mint_session` in
 `app/platform/api/auth.py` — login, the MFA step, invitation acceptance and switch-dealership.

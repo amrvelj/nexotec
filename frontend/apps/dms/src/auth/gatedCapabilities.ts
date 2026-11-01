@@ -8,10 +8,10 @@
  */
 export const GATED_CAPABILITIES = [
   'branding',
-  'canonical_taxonomy',
   'configurations',
   'locations',
   'marketplace_publishing',
+  'reference_lists',
   'stock_acquisition',
   'stock_items',
   'ui_translations',

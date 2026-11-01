@@ -189,6 +189,11 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     "canonical_taxonomy": Capability(
         read_roles=_MANAGER_ONLY, write_roles=_MANAGER_ONLY, manager_can_read=False, manager_can_write=False
     ),
+    # KAN-514 (Anto, 2026-10-31, option A) — the 25 reference lists every
+    # form's dropdowns read: any role reads (GET /v1/reference-data stays
+    # open), platform staff alone write. Split from canonical_taxonomy, whose
+    # platform-only read stays for the taxonomy and the provider catalogue.
+    "reference_lists": Capability(read_roles=_ANY, write_roles=_MANAGER_ONLY, manager_can_write=False),
 }
 
 # Rule 4 (Roles & Permissions): "auditor is read-only at the framework

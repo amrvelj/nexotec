@@ -387,6 +387,13 @@
       "manager_can_write": false
     },
     {
+      "label": "Reference lists (KAN-514; row added 2026-11-01)",
+      "key": "reference_lists",
+      "read": null,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
       "label": "Configurations (Configurator PRD, KAN-41; row added to the Notion matrix 2026-10-17)",
       "key": "configurations",
       "read": null,
