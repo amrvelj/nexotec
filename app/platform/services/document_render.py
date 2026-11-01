@@ -19,14 +19,17 @@ generalizes). Keep the two in sync by hand if either changes; there is no
 shared build step between a Python string and a TypeScript module.
 """
 
+import base64
 import html
 import re
 import uuid
 
 from sqlalchemy.orm import Session
 from weasyprint import HTML
+from weasyprint.urls import URLFetcher
 
 from app.core.i18n import SwissLanguage, format_currency_chf
+from app.core.object_store import ObjectStore, StoredObject
 from app.platform.models.dealership import Dealership, Location
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.schemas.document_content import (
@@ -38,6 +41,7 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
+from app.platform.services.branding import document_header_logo
 from app.platform.services.dealership import get_dealership_or_404, get_location_or_404
 from app.platform.services.document_template import get_document_template
 
@@ -63,6 +67,7 @@ _STYLE = f"""
 }}
 body {{ font-family: {_FONT_FAMILY}; font-size: 13px; color: {_SLATE_9}; margin: 0; }}
 .doc-footer {{ position: running(doc-footer); font-size: 9px; color: {_SLATE_5}; }}
+.doc-footer-text {{ white-space: pre-line; }}
 .doc-head {{ display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }}
 .doc-dealer {{ display: flex; gap: 10px; font-size: 12px; line-height: 1.5; color: {_SLATE_6}; }}
 .doc-logo {{
@@ -82,7 +87,7 @@ body {{ font-family: {_FONT_FAMILY}; font-size: 13px; color: {_SLATE_9}; margin:
 .doc-kv-row {{ display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; }}
 .doc-kv-row span {{ color: {_SLATE_5}; }}
 .doc-kv-row b {{ font-family: {_FONT_FAMILY_MONO}; font-size: 12.5px; }}
-.doc-paragraph {{ margin: 14px 0; line-height: 1.6; }}
+.doc-paragraph {{ margin: 14px 0; line-height: 1.6; white-space: pre-line; }}
 .doc-lines {{ display: grid; margin: 14px 0; }}
 .doc-line {{
   display: flex; justify-content: space-between; gap: 16px; padding: 6px 0;
@@ -169,16 +174,24 @@ def _render_metadata(metadata: list[KeyValueRow]) -> str:
     return f'<div class="doc-meta">{rows}</div>'
 
 
-def _render_logo(dealership: Dealership) -> str:
-    """An uploaded logo (dealership.logo_url) if there is one; otherwise an
-    initials mark in the dealership's own brand colour — the same fallback
-    the frontend shell's own BrandMark component uses, so a dealership
-    that hasn't uploaded a logo still renders an on-brand, recognizable
-    letterhead rather than a generic placeholder.
+def _render_logo(dealership: Dealership, logo: StoredObject | None = None) -> str:
+    """The uploaded logo (KAN-205: the primary branding asset, read from the
+    object store and inlined, so the renderer fetches nothing over the
+    network) if there is one; otherwise an initials mark in the dealership's
+    own brand colour — the same fallback the frontend shell's own BrandMark
+    component uses, so a dealership that hasn't uploaded a logo still
+    renders an on-brand, recognizable letterhead rather than a generic
+    placeholder.
+
+    The WP-6b external `logo_url` is never printed: the renderer fetches
+    nothing outside the document (`local_url_fetcher`), so it would only
+    print an empty box. scripts/migrate_logo_urls_to_branding_assets.py
+    moves it into the store.
     """
 
-    if dealership.logo_url:
-        return f'<img src="{_esc(dealership.logo_url)}" alt="">'
+    if logo is not None:
+        inline = base64.b64encode(logo.data).decode("ascii")
+        return f'<img src="data:{_esc(logo.content_type)};base64,{inline}" alt="">'
     color = dealership.brand_primary_color
     if not color or not _HEX_COLOR.match(color):
         color = _DEFAULT_BRAND_COLOR
@@ -226,14 +239,17 @@ def _compose_html(
     location: Location | None,
     correspondence_language: SwissLanguage,
     content: ContentDefinition,
+    logo: StoredObject | None = None,
 ) -> str:
     header_note = _template_field(template, "header_note", correspondence_language)
-    footer_text = _template_field(template, "footer_text", correspondence_language)
+    # The footer wording is the document's own standard text (KAN-208),
+    # frozen in its content — no longer a template column.
+    footer_text = content.footer_text
 
     body_blocks = "".join(_render_block(block) for block in content.blocks)
 
     header_note_html = f'<div class="doc-paragraph">{_esc(header_note)}</div>' if header_note else ""
-    footer_boilerplate_html = f"<div>{_esc(footer_text)}</div>" if footer_text else ""
+    footer_boilerplate_html = f'<div class="doc-footer-text">{_esc(footer_text)}</div>' if footer_text else ""
 
     return f"""<!doctype html>
 <html lang="{correspondence_language.value}">
@@ -245,7 +261,7 @@ def _compose_html(
   </div>
   <div class="doc-head">
     <div class="doc-dealer">
-      <div class="doc-logo">{_render_logo(dealership)}</div>
+      <div class="doc-logo">{_render_logo(dealership, logo)}</div>
       <div>{_letterhead_lines(dealership)}</div>
     </div>
     {_render_metadata(content.metadata or [])}
@@ -265,10 +281,12 @@ def render_document(
     correspondence_language: SwissLanguage,
     content: ContentDefinition,
     location_id: uuid.UUID | None = None,
+    store: ObjectStore | None = None,
 ) -> bytes:
     """Renders `content` inside `dealership`'s shared frame (letterhead,
-    per-location footer address, the dealership's own template boilerplate
-    if any) as a PDF, in `correspondence_language` — never the caller's UI
+    per-location footer address, the dealership's own header note if any,
+    the content's own footer standard text) as a PDF, in
+    `correspondence_language` — never the caller's UI
     locale. Tolerates a dealership with no DocumentTemplate row at all
     (renders with empty boilerplate, never an error) so a brand-new
     dealership can generate documents on day one.
@@ -277,6 +295,9 @@ def render_document(
     dealership = get_dealership_or_404(db, dealership_id)
     template = get_document_template(db, dealership_id)
     location = get_location_or_404(db, location_id) if location_id is not None else None
+    # KAN-205: the header's logo comes from the object store — `store` is
+    # the caller's (a route's dependency), else the application's.
+    logo = document_header_logo(db, dealership, store=store)
 
     html_string = _compose_html(
         dealership=dealership,
@@ -284,5 +305,23 @@ def render_document(
         location=location,
         correspondence_language=correspondence_language,
         content=content,
+        logo=logo,
     )
-    return HTML(string=html_string).write_pdf()
+    return write_pdf(html_string)
+
+
+def local_url_fetcher() -> URLFetcher:
+    """What WeasyPrint may load while it renders: `data:` URIs and nothing
+    else (KAN-205 review). Every byte a document prints is in its own HTML —
+    the logo inlined from the object store, an SVG logo's inline rasters —
+    so a URL to anywhere else (http, https, file, ftp, a relative path) is
+    refused before any connection is made. It is the second wall behind the
+    SVG sanitiser: a stylesheet or image reference that slipped through it
+    still reaches nothing. A fresh fetcher per render — it keeps request
+    state between calls."""
+
+    return URLFetcher(allowed_protocols={"data"}, allow_redirects=False, timeout=1)
+
+
+def write_pdf(html_string: str) -> bytes:
+    return HTML(string=html_string, url_fetcher=local_url_fetcher()).write_pdf()

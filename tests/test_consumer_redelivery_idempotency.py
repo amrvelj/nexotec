@@ -193,6 +193,84 @@ def _stock_item_unpublished(db_session, engine, monkeypatch):
     return _message(db_session, "inventory.stock_item.unpublished", item.id), lambda db: len(adapter.transmitted)
 
 
+def _push_user(db_session, monkeypatch):
+    """KAN-216: a user with one live Web Push subscription and a recording
+    sender in place of the (unbuilt) VAPID adapter."""
+
+    from app.platform.models.auth_session import AuthSession
+    from app.platform.models.user import User, UserRole, UserStatus
+    from app.platform.services import push_subscriptions, web_push
+    from app.platform.services.web_push import PushOutcome
+
+    dealership = _dealership(db_session)
+    user = User(
+        tenant_id=dealership.id, first_name="Ada", last_name="Push", email=f"push-{uuid.uuid4().hex[:8]}@example.ch",
+        role=UserRole.SALES, access_roles=[], is_dealer_manager=False, status=UserStatus.ACTIVE,
+        auth_identity_id=str(uuid.uuid4()),
+    )
+    db_session.add(user)
+    db_session.flush()
+    now = dt.datetime.now(dt.UTC)
+    session = AuthSession(
+        user_id=user.id, dealership_id=dealership.id, amr=["pwd"], idle_expires_at=now + dt.timedelta(hours=1),
+        absolute_expires_at=now + dt.timedelta(hours=2),
+    )
+    db_session.add(session)
+    db_session.flush()
+    push_subscriptions.register(
+        db_session, user_id=user.id, session_id=session.id, endpoint="https://push.example.test/redelivery",
+        p256dh="BPeerKey", auth="authsecret",
+    )
+    db_session.commit()
+    sent: list = []
+
+    class _Recording:
+        def public_key(self):
+            return "BTestKey"
+
+        def send(self, target, message):
+            sent.append(message)
+            return PushOutcome.DELIVERED
+
+    monkeypatch.setattr(web_push, "_sender", _Recording())
+    return user, sent
+
+
+def _notification_delivered(db_session, engine, monkeypatch):
+    """A delivered security notification: its title and link are pushed."""
+
+    from app.platform.services import notifications
+    from app.platform.services.notification_catalogue import NotificationEventCode
+
+    user, sent = _push_user(db_session, monkeypatch)
+    row = notifications.notify(
+        db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user.id, dealership_id=user.tenant_id,
+        subject=notifications.NotificationSubject(type="user", id=user.id, link="/account/security"),
+    )
+    db_session.commit()
+    return _message(db_session, notifications.DELIVERED_EVENT, row.id), lambda db: len(sent)
+
+
+def _digest_released(db_session, engine, monkeypatch):
+    """The day's digest, released by the producer itself: one pointer to the
+    inbox is pushed."""
+
+    from app.platform.models.notification import Notification
+    from app.platform.services import notifications
+
+    user, sent = _push_user(db_session, monkeypatch)
+    db_session.add(
+        Notification(
+            user_id=user.id, dealership_id=user.tenant_id, event_code="security.account_locked", subject_type="user",
+            subject_id=user.id, link="/account/security", params={}, delivered_at=None,
+        )
+    )
+    db_session.flush()
+    notifications.release_digests(db_session)
+    db_session.commit()
+    return _message(db_session, notifications.DIGEST_RELEASED_EVENT, user.id), lambda db: len(sent)
+
+
 _FIXTURES: dict[str, Fixture] = {
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
@@ -200,6 +278,8 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.stock_item_purchased": _stock_item_purchased,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
+    "platform.web_push_on_notification": _notification_delivered,
+    "platform.web_push_on_digest": _digest_released,
 }
 
 

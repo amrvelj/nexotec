@@ -36,7 +36,7 @@ from app.core.permissions import AccessRole
 from app.db import SessionLocal
 from app.platform.models.user import User, UserStatus
 from app.platform.schemas.user import UserUpdate
-from app.platform.services import ownership
+from app.platform.services import notifications, ownership, push_subscriptions
 from app.platform.services import user as user_service
 
 logger = logging.getLogger(__name__)
@@ -165,3 +165,34 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
         )
         return
     logger.info("platform.user_expiry: %s", summary, extra={"due": len(due), "deactivated": deactivated})
+
+
+# --- staff notifications (KAN-216; Dealer Administration FR-A-48, FR-A-50) -------------------
+
+
+def run_daily_notification_digest(db: Session) -> None:
+    """`platform.notifications.digest`: every notification held back for a
+    family its user set to `digest` reaches the inbox, and each such user
+    gets one push pointing at the inbox (FR-A-48). One transaction: the
+    release and its outbox rows commit together (rule 4)."""
+
+    users = notifications.release_digests(db)
+    db.commit()
+    logger.info("platform.notifications.digest: %d user(s) got a digest", users, extra={"users": users})
+
+
+def run_daily_notification_purge(db: Session) -> None:
+    """`platform.notifications.purge`: the inbox keeps 90 days (FR-A-50);
+    and no push subscription outlives its session (FR-A-49) — revoked ones
+    went with the revocation (`auth_sessions.revoke*`); this takes the
+    sessions that ran out, and any revoked one that slipped past."""
+
+    purged = notifications.purge_expired(db)
+    orphaned = push_subscriptions.delete_for_dead_sessions(db)
+    db.commit()
+    logger.info(
+        "platform.notifications.purge: %d notification(s) past 90 days, %d subscription(s) of ended sessions",
+        purged,
+        orphaned,
+        extra={"purged": purged, "orphanedSubscriptions": orphaned},
+    )

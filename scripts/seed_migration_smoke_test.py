@@ -166,15 +166,15 @@ def _dealership_has_wp7_columns(db: Session) -> bool:
     return "vat_rate" in columns
 
 
-def _dealership_has_kan203_columns(db: Session) -> bool:
-    """KAN-203 added the legal-identity columns (legal_form, hr_number, …)
-    to dealership. Same trap again: the upgrade-from-previous CI job seeds
-    against main's schema before this PR's migration applies, and the ORM
-    class already carries the new columns, so the KAN-197 shape is written
-    by a raw insert until the migration has run."""
+def _dealership_has_kan205_columns(db: Session) -> bool:
+    """KAN-205 added the branding columns (brand_secondary_color, the
+    logo_on_* placements) to dealership. Same trap once more: the ORM class
+    names them before the upgrade-from-previous job has applied the
+    migration. Every column after KAN-197 is nullable or carries a server
+    default, so the KAN-197 raw insert below writes main's shape until then."""
 
     columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
-    return "legal_form" in columns
+    return "brand_secondary_color" in columns
 
 
 def _dealership_has_kan197_columns(db: Session) -> bool:
@@ -201,16 +201,18 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
     """This PR's own heads already applied — dealer_group/dealership exist,
     so the current ORM classes address the real schema directly. Except
     the dealership columns a later PR added — see _dealership_has_wp6b_columns
-    / _dealership_has_wp7_columns / _dealership_has_kan197_columns.
+    / _dealership_has_wp7_columns / _dealership_has_kan197_columns /
+    _dealership_has_kan205_columns.
     """
 
     group = DealerGroup(name="Migration Smoke Test Group")
     db.add(group)
     db.flush()
 
-    if _dealership_has_kan197_columns(db) and not _dealership_has_kan203_columns(db):
-        # main's current shape (KAN-197 applied, KAN-203 not yet): a raw
-        # insert naming every column through KAN-198, and no further.
+    if _dealership_has_kan197_columns(db) and not _dealership_has_kan205_columns(db):
+        # main's shape before KAN-205 (KAN-197 applied, with or without
+        # KAN-203): a raw insert naming every column through KAN-198, and no
+        # further — KAN-203's and KAN-205's columns are nullable or defaulted.
         kan197 = sa.table(
             "dealership",
             sa.column("id", GUID()),

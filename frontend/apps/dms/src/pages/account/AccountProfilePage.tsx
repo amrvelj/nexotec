@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Group, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
+import { Alert, Button, Card, Group, Select, SimpleGrid, Stack, TextInput } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { useFieldHint } from '../../hooks/useFieldHint'
@@ -51,8 +50,8 @@ function changesOf(me: MeRead, form: ProfileForm): MeUpdate {
  * My account › Profile (KAN-201): the user's own name (Anto, 2026-10-20),
  * mobile, direct dial, the language of the documents they author, and the
  * UI language. The e-mail address is shown, never edited here: it is the
- * sign-in and recovery channel (KAN-196). Notification preferences arrive
- * with the notification catalogue (KAN-216).
+ * sign-in and recovery channel (KAN-196). Notification preferences are
+ * their own tab (KAN-216).
  */
 export function AccountProfilePage() {
   const { t } = useTranslation()
@@ -218,17 +217,6 @@ export function AccountProfilePage() {
             </Group>
           </Stack>
         </form>
-      </Card>
-      <Card withBorder radius="md" padding="lg">
-        <Group gap="sm" align="flex-start">
-          <Bell size={20} />
-          <div>
-            <Text fw={600}>{t('account.profile.notificationsTitle')}</Text>
-            <Text c="dimmed" fz="sm">
-              {t('account.profile.notificationsSoon')}
-            </Text>
-          </div>
-        </Group>
       </Card>
     </Stack>
   )

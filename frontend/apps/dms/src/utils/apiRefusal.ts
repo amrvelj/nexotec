@@ -70,6 +70,15 @@ const REASON_KEYS: Record<string, string> = {
       'invalid_type_approval_number',
       'last_usable_contact_point',
       'legacy_sale',
+      'logo_dimensions_too_large',
+      'logo_file_too_large',
+      'logo_format_jpeg',
+      'logo_format_unsupported',
+      'logo_png_damaged',
+      'logo_svg_entities',
+      'logo_svg_invalid',
+      'logo_too_many_pixels',
+      'logo_too_small',
       'merged_party_row',
       'missing_config_fields',
       'missing_containers',
@@ -91,7 +100,24 @@ const REASON_KEYS: Record<string, string> = {
       'provider_code_already_mapped',
       'purchase_requires_vin',
       'purchase_vin_mismatch',
+      // KAN-208 — the standard-text library and the documents that print it.
+      'standard_text_category_mismatch',
+      'standard_text_code_target_mismatch',
+      'standard_text_code_unknown',
+      'standard_text_exists',
+      'standard_text_not_an_override',
+      'standard_text_placeholder_invalid',
+      'standard_text_placeholder_unresolved',
+      'standard_text_seed_language_missing',
+      'standard_text_seed_not_shipped',
+      'standard_text_slot_unknown',
+      'standard_text_target_required',
+      'standard_text_target_unknown',
+      'standard_text_template_id_required',
+      'standard_text_template_whatsapp_only',
       'too_many_images',
+      'ui_translation_blank',
+      'ui_translation_placeholders_changed',
       'unknown_fields',
       'unrecognised_identifier',
       'use_deactivate_endpoint',
@@ -100,6 +126,22 @@ const REASON_KEYS: Record<string, string> = {
       'vehicle_not_purchased',
       'vin_already_in_stock',
       'wagenbuch_closed',
+      // KAN-204 — Locations and the holiday calendars.
+      'bank_account_used_by_location',
+      'closure_period_inverted',
+      'last_active_location',
+      'location_address_incomplete',
+      'location_canton_not_swiss',
+      'location_canton_required',
+      'location_code_immutable',
+      'location_code_taken',
+      'location_geo_incomplete',
+      'location_inactive',
+      'location_postal_code_invalid',
+      'location_validity_inverted',
+      'unknown_bank_account',
+      'unknown_holiday_calendar',
+      'year_out_of_range',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -118,6 +160,18 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
       i18n.exists(`integrationEnums.configKey.${key}`) ? t(`integrationEnums.configKey.${key}`) : key,
     ),
   }),
+  // KAN-205: the upload's pixel size and the minimum it falls short of.
+  logo_dimensions_too_large: (d) => ({ max: typeof d.maxLongEdge === 'number' ? d.maxLongEdge : 10000 }),
+  logo_too_many_pixels: (d) => ({
+    width: typeof d.width === 'number' ? d.width : '—',
+    height: typeof d.height === 'number' ? d.height : '—',
+    max: typeof d.maxMegapixels === 'number' ? d.maxMegapixels : 16,
+  }),
+  logo_too_small: (d) => ({
+    width: typeof d.width === 'number' ? d.width : '—',
+    height: typeof d.height === 'number' ? d.height : '—',
+    min: typeof d.minLongEdge === 'number' ? d.minLongEdge : 600,
+  }),
   missing_containers: (d, t) => ({
     containers: Array.isArray(d.missingContainers)
       ? d.missingContainers.map((id) => t(`offerWorkspace.containers.${id === 'trade_in' ? 'tradeIn' : String(id)}`)).join(', ')
@@ -127,9 +181,17 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   provider_code_already_mapped: (d) => ({
     mapping: d.canonicalListCode != null && d.canonicalValueCode != null ? `${String(d.canonicalListCode)}/${String(d.canonicalValueCode)}` : '—',
   }),
+  // KAN-208 (A-RULE-4): the tokens at fault, as the text spells them.
+  standard_text_placeholder_invalid: (d) => ({ placeholders: placeholderTokens(d.placeholders) }),
+  standard_text_placeholder_unresolved: (d) => ({ placeholders: placeholderTokens(d.placeholders) }),
   too_many_images: (d) => ({ max: typeof d.maxImages === 'number' ? d.maxImages : 16 }),
   vin_already_in_stock: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
 }
+
+const placeholderTokens = (value: unknown): string =>
+  Array.isArray(value) && value.length > 0
+    ? value.map((item) => (item && typeof item === 'object' && 'token' in item && item.token ? `{{${String(item.token)}}}` : '{{ }}')).join(', ')
+    : '—'
 
 const listed = (value: unknown, label: (item: string) => string = (item) => item): string =>
   Array.isArray(value) && value.length > 0 ? value.map((item) => label(String(item))).join(', ') : '—'

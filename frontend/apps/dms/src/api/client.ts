@@ -115,7 +115,7 @@ async function putBinary<T>(path: string, body: Blob, contentType: string, extra
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, extraHeaders ? { headers: extraHeaders } : {}),
   getBlobUrl,
   putBinary,
   post: <T>(path: string, body?: unknown, extraHeaders?: HeadersInit) =>

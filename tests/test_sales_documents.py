@@ -152,10 +152,9 @@ def test_offer_renders_in_all_four_languages_and_the_body_changes_not_just_the_l
     assert "Prix de base" in rendered[SwissLanguage.FR]
     assert "Prezzo base" in rendered[SwissLanguage.IT]
     assert "Base price" in rendered[SwissLanguage.EN]
-    # The greeting paragraph too — proves the body changed, not only the
-    # price-build-up labels.
-    assert "Wir freuen uns" in rendered[SwissLanguage.DE]
-    assert "plaisir de vous proposer" in rendered[SwissLanguage.FR]
+    # The introduction paragraph is the Betrieb's standard text since
+    # KAN-208, resolved per language through platform's resolver —
+    # tests/test_sales_offer_standard_texts.py proves it changes with it.
 
 
 def test_a_french_offer_never_shows_a_german_label():

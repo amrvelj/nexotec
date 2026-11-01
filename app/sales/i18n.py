@@ -3,9 +3,10 @@
 ADR-044's tier decision, made explicit: these ~14 strings are UI chrome —
 fixed, identical for every dealership, never admin-editable — not
 canonical reference data (the `reference_list`/`reference_value` DB
-tables) and not per-dealership branding
-(`app.platform.models.document.DocumentTemplate.header_note_*`/
-`footer_text_*`, which a dealer DOES customize per language). UI chrome
+tables) and not per-dealership wording (the header note on
+`app.platform.models.document_template.DocumentTemplate`, and since KAN-208
+the standard-text library — the offer's introduction and footer — which a
+dealer DOES customize per language). UI chrome
 lives in the code repository as static data, same tier the frontend's own
 `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json` already occupies
 — this is that same convention's backend, sales-owned counterpart, not a
@@ -29,7 +30,6 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "offer.title": "Offerte {number}",
         "contract.title": "Kaufvertrag {number}",
         "date": "Datum",
-        "offer.greeting": "Wir freuen uns, Ihnen folgendes Fahrzeug anzubieten.",
         "vehicle.heading": "Fahrzeug",
         "priceBuildUp.basePrice": "Grundpreis",
         "priceBuildUp.optionsTotal": "Optionen total",
@@ -47,7 +47,6 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "offer.title": "Offre {number}",
         "contract.title": "Contrat de vente {number}",
         "date": "Date",
-        "offer.greeting": "Nous avons le plaisir de vous proposer le véhicule suivant.",
         "vehicle.heading": "Véhicule",
         "priceBuildUp.basePrice": "Prix de base",
         "priceBuildUp.optionsTotal": "Total des options",
@@ -63,7 +62,6 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "offer.title": "Offerta {number}",
         "contract.title": "Contratto di vendita {number}",
         "date": "Data",
-        "offer.greeting": "Siamo lieti di proporLe il seguente veicolo.",
         "vehicle.heading": "Veicolo",
         "priceBuildUp.basePrice": "Prezzo base",
         "priceBuildUp.optionsTotal": "Totale opzioni",
@@ -79,7 +77,6 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "offer.title": "Offer {number}",
         "contract.title": "Purchase contract {number}",
         "date": "Date",
-        "offer.greeting": "We are pleased to offer you the following vehicle.",
         "vehicle.heading": "Vehicle",
         "priceBuildUp.basePrice": "Base price",
         "priceBuildUp.optionsTotal": "Options total",

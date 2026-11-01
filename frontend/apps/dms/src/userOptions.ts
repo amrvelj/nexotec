@@ -19,7 +19,7 @@ export const EMPLOYMENT_STATUS_VALUES: EmploymentStatus[] = ['active', 'on_leave
 
 export const USER_STATUS_VALUES: UserStatus[] = ['invited', 'active', 'suspended', 'deactivated']
 
-export const TEXT_CATEGORY_VALUES: StandardTextCategory[] = ['document', 'email', 'sms', 'internal_note', 'workshop']
+export const TEXT_CATEGORY_VALUES: StandardTextCategory[] = ['document', 'email', 'sms', 'whatsapp', 'internal_note', 'workshop']
 
 export function userRoleLabel(t: T, role: UserRole): string {
   return t(`userRole.${role}`)

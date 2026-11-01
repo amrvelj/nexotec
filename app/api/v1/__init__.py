@@ -18,13 +18,19 @@ from app.inventory.api.reservations import router as inventory_reservations_rout
 from app.inventory.api.stock_items import router as stock_items_router
 from app.platform.api.auth import account_router as auth_account_router
 from app.platform.api.auth import router as auth_router
+from app.platform.api.branding import router as branding_router
 from app.platform.api.dealer_groups import router as dealer_groups_router
 from app.platform.api.dealerships import router as dealerships_router
 from app.platform.api.document_template import router as document_template_router
 from app.platform.api.health import router as health_router
+from app.platform.api.locations import router as locations_router
 from app.platform.api.me import router as me_router
+from app.platform.api.notifications import router as notifications_router
 from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.reference_data import router as reference_data_router
+from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
+from app.platform.api.standard_texts import router as standard_texts_router
+from app.platform.api.ui_translations import router as ui_translations_router
 from app.platform.api.user_preferences import router as user_preferences_router
 from app.sales.api.contracts import router as sales_contracts_router
 from app.sales.api.deals import router as sales_deals_router
@@ -45,10 +51,15 @@ from app.vehicle.api.vehicles import router as vehicles_router
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(dealerships_router)
+api_v1_router.include_router(locations_router)
+api_v1_router.include_router(branding_router)
 api_v1_router.include_router(document_template_router)
+api_v1_router.include_router(standard_texts_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)
 api_v1_router.include_router(reference_data_router)
+api_v1_router.include_router(ui_translations_router)
+api_v1_router.include_router(standard_text_seeds_router)
 api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)
 api_v1_router.include_router(vehicle_catalogue_router)
@@ -77,4 +88,5 @@ api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_preferences_router)
 api_v1_router.include_router(me_router)
+api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(auth_account_router)

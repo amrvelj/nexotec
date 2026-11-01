@@ -9,10 +9,14 @@ import {
   ChartColumn,
   Cog,
   Database,
+  Globe,
+  FileText,
   Handshake,
   Languages,
   LayoutDashboard,
   LifeBuoy,
+  MapPin,
+  Palette,
   Plug,
   Receipt,
   ShieldCheck,
@@ -30,6 +34,8 @@ import { api, ApiError } from '../api/client'
 import { customerName } from '../utils/customer'
 import type { CustomerPage, VehicleSearchResult } from '../api/types'
 import { filterNavGroupsByEntitlements } from './navEntitlements'
+import { useUnreadNotificationCount } from '../hooks/useNotifications'
+import { rebindPushToThisSession } from '../utils/webPush'
 
 // Translated at render time (not a module-level constant) — labels must
 // re-render when the user switches UI language via the top bar.
@@ -94,12 +100,25 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // the Betrieb's master data is configured). Any role reads it; the
         // writes are the manager's at the API, the entry is never role-hidden.
         { label: t('shell.nav.business'), href: '/administration/business', icon: Building2, status: 'active' },
+        // KAN-204 — Dealer Administration › Locations. Any role reads; the manager
+        // writes at the API (`locations`); the entry is never role-hidden.
+        { label: t('shell.nav.locations'), href: '/administration/locations', icon: MapPin, status: 'active' },
+        // KAN-205 — Dealer Administration › Logo and colours (PRD "Logo and
+        // brand assets"). Any role reads, the manager writes; never role-hidden.
+        { label: t('shell.nav.branding'), href: '/administration/branding', icon: Palette, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
+        // KAN-208 — Dealer Administration › Standard texts. Any role reads; a
+        // category is written by the manager or its delegate (FR-A-28) — the
+        // entry is never role-hidden (A-RULE-7).
+        { label: t('shell.nav.standardTexts'), href: '/administration/texts', icon: FileText, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
         // Administration, like every other admin entry — A-RULE-7).
         { label: t('shell.nav.accountRecovery'), href: '/administration/account-recovery', icon: LifeBuoy, status: 'active' },
         { label: t('shell.nav.referenceData'), href: '/settings/reference', icon: Languages, status: 'active' },
+        // KAN-209 — Platform Administration › Translations (D-A-23). Platform staff
+        // write at the API; anyone reads. Never role-hidden (A-RULE-7).
+        { label: t('shell.nav.translations'), href: '/platform/translations', icon: Globe, status: 'active' },
       ],
     },
   ]
@@ -252,7 +271,7 @@ export function DmsShell({ children }: { children: ReactNode }) {
 }
 
 function DmsShellInner({ children }: { children: ReactNode }) {
-  const { user, activeDealership, memberships, entitlements, logout, switchDealership } = useAuth()
+  const { user, activeDealership, memberships, entitlements, logout, switchDealership, mfaEnrolmentRequired } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
@@ -280,6 +299,17 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   useEffect(() => {
     void i18n.changeLanguage(uiLanguage)
   }, [uiLanguage, i18n])
+
+  // KAN-216 (D-A-40): the bell. A session that still owes a second factor
+  // reaches no inbox (the API confines it to enrolment), so it shows none.
+  const inboxReachable = !mfaEnrolmentRequired
+  const unread = useUnreadNotificationCount(inboxReachable)
+  const unreadCount = unread.data?.count ?? 0
+  // A browser that already pushes binds its subscription to this new
+  // session (FR-A-49: the previous session's went with it).
+  useEffect(() => {
+    if (inboxReachable) void rebindPushToThisSession()
+  }, [inboxReachable, user?.id])
 
   if (!user) return <>{children}</>
 
@@ -317,6 +347,14 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         },
         activeDealership: activeDealership ?? undefined,
         memberships,
+        notifications: inboxReachable
+          ? {
+              unreadCount,
+              onOpen: () => navigate('/notifications'),
+              ariaLabel: t('notifications.bellLabel', { count: unreadCount }),
+              active: location.pathname === '/notifications',
+            }
+          : undefined,
         onSwitchDealership: (dealershipId) => {
           setSwitchError(null)
           // KAN-237 — a refused switch is said, in the UI language, and

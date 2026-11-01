@@ -132,7 +132,11 @@ def test_locations_are_listed_per_dealership_and_set_as_primary_plus_additional(
     manager = create_user(client, dealership)
 
     listed = client.get(f"/v1/dealerships/{dealership}/locations", headers=_manager(dealership, manager)).json()
-    assert [(row["id"], row["name"]) for row in listed["items"]] == [(nord, "Nord"), (sued, "Süd")]
+    # KAN-204 (FR-A-03): a new Betrieb starts with its first location, from
+    # its registered seat — first here by name.
+    rows = [(row["id"], row["name"]) for row in listed["items"]]
+    assert rows[0][1] == "Garage Musterbetrieb AG"
+    assert rows[1:] == [(nord, "Nord"), (sued, "Süd")]
     assert client.get(f"/v1/dealerships/{other}/locations", headers=_manager(dealership, manager)).status_code == 404
 
     user = create_user(client, dealership, isDealerManager=False, primaryLocationId=nord, additionalLocationIds=[sued])

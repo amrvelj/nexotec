@@ -44,6 +44,19 @@ export interface SidebarLabels {
   accountSecurity?: string;
 }
 
+/** The notifications row of the account cluster (KAN-216; D-A-40): the
+ * bell, the unread count and what opening the inbox does. Without it the
+ * row is the disabled Phase C placeholder. */
+export interface SidebarNotifications {
+  unreadCount: number;
+  onOpen: () => void;
+  /** The row's accessible name with the count in words, translated by the
+   * caller ("Benachrichtigungen, 3 ungelesen"). */
+  ariaLabel: string;
+  /** Whether the inbox is the screen on show. */
+  active?: boolean;
+}
+
 export interface SidebarProps {
   brand: ReactNode;
   productName: string;
@@ -71,6 +84,8 @@ export interface SidebarProps {
    * so the user can switch back without signing out. */
   memberships?: DealershipSummary[];
   onSwitchDealership?: (dealershipId: string) => void;
+  /** The live notifications row (KAN-216); absent = the disabled placeholder. */
+  notifications?: SidebarNotifications;
   /** Defaults to a plain `<a>`. Pass your router's Link (e.g. react-router's
    * `Link`, which already matches this `to`-prop shape) for SPA navigation. */
   linkComponent?: LinkLike;
@@ -84,7 +99,8 @@ export interface SidebarProps {
  * § Account cluster (revised 2026-08-16): sits directly above the collapse
  * toggle and is the ONLY place account chrome appears in the product — the
  * topbar carries the breadcrumb and nothing else. Three rows when expanded:
- * UI language, notifications (Phase C, disabled), and the user card opening
+ * UI language, notifications (disabled until the app passes `notifications`,
+ * KAN-216), and the user card opening
  * a menu (profile/preferences/dealership switcher/sign out). Collapsed:
  * avatar only, centred — clicking it opens the same menu with language and
  * notifications promoted into it as submenus/items, so nothing is
@@ -108,6 +124,7 @@ export function Sidebar({
   activeDealership,
   memberships,
   onSwitchDealership,
+  notifications,
   linkComponent,
 }: SidebarProps) {
   const Link = linkComponent ?? DefaultLink;
@@ -244,39 +261,79 @@ export function Sidebar({
                 { label: "EN", value: "en" },
               ]}
             />
-            {/* Notifications: Phase C — visible now so its place in the
-                cluster is settled, disabled until it has something to show,
-                same SOON convention as an unbuilt nav module. */}
-            <div
-              aria-disabled="true"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: spacing.sm,
-                width: "100%",
-                padding: `7px ${spacing.sm}`,
-                borderRadius: radius.sm,
-                color: slate[4],
-                fontSize: 13,
-                cursor: "default",
-              }}
-            >
-              <Bell size={16} strokeWidth={2} />
-              <span>{labels.notifications}</span>
-              <span
+            {notifications ? (
+              <UnstyledButton
+                onClick={notifications.onOpen}
+                aria-label={notifications.ariaLabel}
+                aria-current={notifications.active ? "page" : undefined}
                 style={{
-                  marginLeft: "auto",
-                  fontSize: 9,
-                  fontWeight: 700,
-                  letterSpacing: "0.5px",
-                  border: `1px solid ${slate[2]}`,
-                  borderRadius: radius.full,
-                  padding: "1px 6px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  width: "100%",
+                  padding: `7px ${spacing.sm}`,
+                  borderRadius: radius.sm,
+                  color: notifications.active ? purple[7] : slate[7],
+                  backgroundColor: notifications.active ? purple[0] : undefined,
+                  fontSize: 13,
                 }}
               >
-                {labels.soon}
-              </span>
-            </div>
+                <Bell size={16} strokeWidth={2} />
+                <span>{labels.notifications}</span>
+                {notifications.unreadCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      marginLeft: "auto",
+                      minWidth: 18,
+                      textAlign: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: white,
+                      backgroundColor: purple[6],
+                      borderRadius: radius.full,
+                      padding: "1px 6px",
+                    }}
+                  >
+                    {notifications.unreadCount > 99 ? "99+" : notifications.unreadCount}
+                  </span>
+                )}
+              </UnstyledButton>
+            ) : (
+              /* Notifications: Phase C — visible so its place in the
+                 cluster is settled, disabled until the app passes the live
+                 row, same SOON convention as an unbuilt nav module. */
+              <div
+                aria-disabled="true"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  width: "100%",
+                  padding: `7px ${spacing.sm}`,
+                  borderRadius: radius.sm,
+                  color: slate[4],
+                  fontSize: 13,
+                  cursor: "default",
+                }}
+              >
+                <Bell size={16} strokeWidth={2} />
+                <span>{labels.notifications}</span>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.5px",
+                    border: `1px solid ${slate[2]}`,
+                    borderRadius: radius.full,
+                    padding: "1px 6px",
+                  }}
+                >
+                  {labels.soon}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -349,9 +406,20 @@ export function Sidebar({
                       ]}
                     />
                   </div>
-                  <Menu.Item leftSection={<Bell size={16} />} disabled>
-                    {labels.notificationsSoon}
-                  </Menu.Item>
+                  {notifications ? (
+                    <Menu.Item
+                      leftSection={<Bell size={16} />}
+                      onClick={notifications.onOpen}
+                      aria-label={notifications.ariaLabel}
+                      rightSection={notifications.unreadCount > 0 ? notifications.unreadCount : null}
+                    >
+                      {labels.notifications}
+                    </Menu.Item>
+                  ) : (
+                    <Menu.Item leftSection={<Bell size={16} />} disabled>
+                      {labels.notificationsSoon}
+                    </Menu.Item>
+                  )}
                 </>
               )}
 

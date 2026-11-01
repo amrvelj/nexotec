@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
+import { location } from '../test/fixtures'
 import { UsersListPage } from './UsersListPage'
 
 // KAN-200 — Dealer Administration › Users: the list shows each person's
@@ -81,7 +82,7 @@ const USERS = [
 function routes() {
   return [
     { method: 'GET', match: /\/dealerships\/dealership-1\/users$/, handler: () => ({ items: USERS, nextCursor: null }) },
-    { method: 'GET', match: /\/dealerships\/dealership-1\/locations$/, handler: () => ({ items: [{ id: 'loc-1', name: 'Zürich Nord', addressLocality: 'Zürich' }] }) },
+    { method: 'GET', match: /\/dealerships\/dealership-1\/locations$/, handler: () => ({ items: [location()] }) },
   ]
 }
 

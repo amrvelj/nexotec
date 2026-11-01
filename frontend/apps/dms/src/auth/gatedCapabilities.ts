@@ -7,10 +7,13 @@
  * A module of its own, importing nothing, so test fixtures can read it.
  */
 export const GATED_CAPABILITIES = [
+  'branding',
   'canonical_taxonomy',
   'configurations',
+  'locations',
   'marketplace_publishing',
   'stock_acquisition',
   'stock_items',
+  'ui_translations',
 ] as const
 export type GatedCapability = (typeof GATED_CAPABILITIES)[number]

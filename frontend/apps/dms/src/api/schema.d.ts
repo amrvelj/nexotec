@@ -1097,6 +1097,79 @@ export interface paths {
         patch: operations["update_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Branding */
+        get: operations["get_branding_v1_dealerships__dealership_id__branding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Branding
+         * @description Colours and placements. The contrast verdict comes back with the
+         *     saved state; a failing pair is a warning, not a refusal.
+         */
+        patch: operations["update_branding_v1_dealerships__dealership_id__branding_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/branding/assets/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Branding Asset
+         * @description The file a reader of this variant gets — its own, else the primary's
+         *     (the read's `assets[].source` says which). 404 when there is no logo.
+         */
+        get: operations["get_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__get"];
+        /**
+         * Put Branding Asset
+         * @description One logo variant, replaced as a whole. The body is the file itself —
+         *     never base64, never multipart; the row keeps the object-store key only.
+         *     A plain `def`, like the photo PUT: the store write and the row lock run
+         *     in the threadpool.
+         */
+        put: operations["put_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__put"];
+        post?: never;
+        /** Delete Branding Asset */
+        delete: operations["delete_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/branding/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Branding Preview
+         * @description The document header as it prints today: a PDF from the one renderer
+         *     (ADR-051 — never a second, client-side one), in the Betrieb's default
+         *     correspondence language, with the saved logo, colours and placements.
+         */
+        get: operations["get_branding_preview_v1_dealerships__dealership_id__branding_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/document-template": {
         parameters: {
             query?: never;
@@ -1142,11 +1215,92 @@ export interface paths {
         };
         /**
          * List Locations
-         * @description The Betrieb's sites, for the Users screen's location picker (FR-A-02).
-         *     Read-only here: the Locations screen (Phase 2) is where they are made.
+         * @description The Betrieb's sites, active and deactivated (the Users screen's picker
+         *     offers only the active ones to a new assignment).
          */
         get: operations["list_locations_v1_dealerships__dealership_id__locations_get"];
         put?: never;
+        /** Create Location */
+        post: operations["create_location_v1_dealerships__dealership_id__locations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Location */
+        get: operations["get_location_v1_dealerships__dealership_id__locations__location_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Location
+         * @description PATCH; `isActive: false` deactivates (never a delete), refused for the
+         *     last active location (409 `last_active_location`, FR-A-03).
+         */
+        patch: operations["update_location_v1_dealerships__dealership_id__locations__location_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/closures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Closures */
+        get: operations["list_closures_v1_dealerships__dealership_id__locations__location_id__closures_get"];
+        put?: never;
+        /** Create Closure */
+        post: operations["create_closure_v1_dealerships__dealership_id__locations__location_id__closures_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/closures/{closure_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Closure */
+        delete: operations["delete_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Closure */
+        patch: operations["update_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/opening-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Opening Hours */
+        get: operations["get_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_get"];
+        /**
+         * Set Opening Hours
+         * @description Replaces the week. If-Match is the location's version, which the PUT
+         *     bumps — the hours are part of the location.
+         */
+        put: operations["set_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1174,6 +1328,80 @@ export interface paths {
         head?: never;
         /** Update Dealership Settings */
         patch: operations["update_dealership_settings_v1_dealerships__dealership_id__settings_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-text-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Standard Text
+         * @description The editor's preview with sample data, through the renderer a
+         *     document uses — an unknown or invalid token is the same 422 a real
+         *     render gives (`standard_text_placeholder_unresolved`). Writes nothing.
+         */
+        post: operations["preview_standard_text_v1_dealerships__dealership_id__standard_text_previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-texts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Standard Texts */
+        get: operations["list_standard_texts_v1_dealerships__dealership_id__standard_texts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-texts/{category}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Standard Text */
+        post: operations["create_standard_text_v1_dealerships__dealership_id__standard_texts__category__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/standard-texts/{category}/{text_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Standard Text */
+        delete: operations["delete_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Standard Text */
+        patch: operations["update_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__patch"];
         trace?: never;
     };
     "/v1/dealerships/{dealership_id}/users": {
@@ -1527,6 +1755,82 @@ export interface paths {
          *     endpoint must never cause.
          */
         get: operations["healthz_v1_healthz_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/holiday-calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Holiday Calendars
+         * @description Every canton's calendar (a canton whose holidays differ by region has
+         *     one per region), each with its holidays as rules. Reference data: the
+         *     same for every Betrieb.
+         */
+        get: operations["list_holiday_calendars_v1_holiday_calendars_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/holiday-calendars/{calendar_id}/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Holiday Dates
+         * @description The calendar's holidays in one year, in date order.
+         */
+        get: operations["list_holiday_dates_v1_holiday_calendars__calendar_id__dates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/i18n/missing-translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report Missing Translations */
+        post: operations["report_missing_translations_v1_i18n_missing_translations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/i18n/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ui Translation Map */
+        get: operations["get_ui_translation_map_v1_i18n__language__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2160,6 +2464,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Notification Preferences
+         * @description Every family with the caller's choice or the platform default (FR-A-48).
+         */
+        get: operations["list_my_notification_preferences_v1_me_notification_preferences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notification-preferences/{family}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put My Notification Preference
+         * @description The caller's own choice for one family — the user decides everything,
+         *     never the manager (D-A-40). If-Match on the version the list returned
+         *     (0 for the first save). `security` is a 422 (`family_locked`).
+         */
+        put: operations["put_my_notification_preference_v1_me_notification_preferences__family__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Notifications
+         * @description The inbox (FR-A-50), newest first, cursor-paginated. A notification
+         *     held for the daily digest is not listed until the digest releases it.
+         */
+        get: operations["list_my_notifications_v1_me_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark All My Notifications Read */
+        post: operations["mark_all_my_notifications_read_v1_me_notifications_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Unread Count
+         * @description The bell's badge.
+         */
+        get: operations["my_unread_count_v1_me_notifications_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/notifications/{notification_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark My Notification
+         * @description Read or unread again. Unversioned (the reader's own stamp, idempotent):
+         *     no If-Match.
+         */
+        patch: operations["mark_my_notification_v1_me_notifications__notification_id__patch"];
+        trace?: never;
+    };
     "/v1/me/photo": {
         parameters: {
             query?: never;
@@ -2219,6 +2644,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/push-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register My Push Subscription
+         * @description This browser's subscription, bound to the calling session (FR-A-49):
+         *     when the session is revoked, the subscription goes. Registering the same
+         *     browser again moves it to this session.
+         */
+        post: operations["register_my_push_subscription_v1_me_push_subscriptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push-subscriptions/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete My Push Subscription
+         * @description Push off on this device. Unversioned: no If-Match.
+         */
+        delete: operations["delete_my_push_subscription_v1_me_push_subscriptions__subscription_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Push Config
+         * @description Whether this deployment sends Web Push, and the key to subscribe with.
+         */
+        get: operations["my_push_config_v1_me_push_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/signature": {
         parameters: {
             query?: never;
@@ -2258,6 +2745,142 @@ export interface paths {
          *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/standard-text-seeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Standard Text Seeds */
+        get: operations["list_standard_text_seeds_v1_platform_standard_text_seeds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/standard-text-seeds/{seed_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Standard Text Seed */
+        put: operations["update_standard_text_seed_v1_platform_standard_text_seeds__seed_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/standard-text-seeds/{seed_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Standard Text Seed */
+        post: operations["revert_standard_text_seed_v1_platform_standard_text_seeds__seed_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ui Translations */
+        get: operations["list_ui_translations_v1_platform_ui_translations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Missing Translations */
+        get: operations["list_missing_translations_v1_platform_ui_translations_missing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/namespaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ui Translation Namespaces */
+        get: operations["list_ui_translation_namespaces_v1_platform_ui_translations_namespaces_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/{namespace}/{key}/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Publish Ui Translation */
+        put: operations["publish_ui_translation_v1_platform_ui_translations__namespace___key___language__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ui-translations/{namespace}/{key}/{language}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Ui Translation */
+        post: operations["revert_ui_translation_v1_platform_ui_translations__namespace___key___language__revert_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2753,6 +3376,28 @@ export interface paths {
         put?: never;
         /** Attach Trade In Valuation */
         post: operations["attach_trade_in_valuation_v1_sales_offers__offer_id__trade_in_valuation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/standard-text-registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Standard Text Registry
+         * @description The closed placeholder set and, per (category, appliesTo), its slots
+         *     and the placeholders valid there (FR-A-07). Static; the same for every
+         *     Betrieb.
+         */
+        get: operations["get_standard_text_registry_v1_standard_text_registry_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3753,6 +4398,101 @@ export interface components {
             displayName?: string | null;
         };
         /**
+         * BrandingAssetKind
+         * @enum {string}
+         */
+        BrandingAssetKind: "primary" | "mono_dark" | "favicon";
+        /**
+         * BrandingAssetRead
+         * @description One logo variant. `source` says which file a reader is served:
+         *     `own` (this variant's file), `primary` (no file of its own, so the
+         *     primary's — PRD: "the others fall back to it"), or `none` (no logo at
+         *     all). The file fields describe this variant's own file and are null
+         *     without one.
+         */
+        BrandingAssetRead: {
+            /** Bytesize */
+            byteSize?: number | null;
+            /** Height */
+            height?: number | null;
+            kind: components["schemas"]["BrandingAssetKind"];
+            /** Mimetype */
+            mimeType?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "own" | "primary" | "none";
+            /** Uploadedat */
+            uploadedAt?: string | null;
+            /** Uploadedby */
+            uploadedBy?: string | null;
+            /** Width */
+            width?: number | null;
+        };
+        /**
+         * BrandingPlacements
+         * @description Where the logo appears — each a switch of its own (PRD: "a dealer often
+         *     wants the logo on a price tag but not in the app chrome").
+         */
+        BrandingPlacements: {
+            /** Appheader */
+            appHeader: boolean;
+            /** Documentheader */
+            documentHeader: boolean;
+            /** Emailsignature */
+            emailSignature: boolean;
+            /** Listing */
+            listing: boolean;
+            /** Pricetag */
+            priceTag: boolean;
+        };
+        /** BrandingPlacementsUpdate */
+        BrandingPlacementsUpdate: {
+            /** Appheader */
+            appHeader?: boolean | null;
+            /** Documentheader */
+            documentHeader?: boolean | null;
+            /** Emailsignature */
+            emailSignature?: boolean | null;
+            /** Listing */
+            listing?: boolean | null;
+            /** Pricetag */
+            priceTag?: boolean | null;
+        };
+        /** BrandingRead */
+        BrandingRead: {
+            /** Assets */
+            assets: components["schemas"]["BrandingAssetRead"][];
+            contrast: components["schemas"]["ContrastCheckRead"];
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            placements: components["schemas"]["BrandingPlacements"];
+            /** Primarycolor */
+            primaryColor: string;
+            /** Secondarycolor */
+            secondaryColor: string | null;
+            /** Version */
+            version: number;
+        };
+        /** BrandingUpdate */
+        BrandingUpdate: {
+            placements?: components["schemas"]["BrandingPlacementsUpdate"] | null;
+            /**
+             * Primarycolor
+             * @description #RRGGBB
+             */
+            primaryColor?: string | null;
+            /**
+             * Secondarycolor
+             * @description #RRGGBB, or null to clear it
+             */
+            secondaryColor?: string | null;
+        };
+        /**
          * CalendarPeriod
          * @description `GET /v1/customers?updated_since_start_of=` — the current calendar day,
          *     week (from Monday), month or year in the session time zone, resolved by
@@ -4086,6 +4826,80 @@ export interface components {
          * @enum {string}
          */
         ChartOfAccountsVariant: "kmu" | "kaefer";
+        /**
+         * ClosureCreate
+         * @description A closure of the whole site (Betriebsferien, a one-off closed day),
+         *     both days inclusive.
+         */
+        ClosureCreate: {
+            /**
+             * Endson
+             * Format: date
+             */
+            endsOn: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Startson
+             * Format: date
+             */
+            startsOn: string;
+        };
+        /** ClosureList */
+        ClosureList: {
+            /** Items */
+            items: components["schemas"]["ClosureRead"][];
+        };
+        /** ClosureRead */
+        ClosureRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Endson
+             * Format: date
+             */
+            endsOn: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Startson
+             * Format: date
+             */
+            startsOn: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
+        };
+        /** ClosureUpdate */
+        ClosureUpdate: {
+            /** Endson */
+            endsOn?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Startson */
+            startsOn?: string | null;
+        };
         /** ConfigurationCreate */
         ConfigurationCreate: {
             /**
@@ -4789,6 +5603,37 @@ export interface components {
             vehicleLabel?: string | null;
             /** Vehiclesource */
             vehicleSource?: ("stock" | "manual") | null;
+        };
+        /**
+         * ContrastCheckRead
+         * @description WCAG AA for normal text (4.5:1), each pair judged on its own.
+         */
+        ContrastCheckRead: {
+            /**
+             * Minimumratio
+             * @default 4.5
+             */
+            minimumRatio?: number;
+            /** Pairs */
+            pairs: components["schemas"]["ContrastPairRead"][];
+            /** Passes */
+            passes: boolean;
+        };
+        /** ContrastPairRead */
+        ContrastPairRead: {
+            /** Background */
+            background: string;
+            /** Foreground */
+            foreground: string;
+            /**
+             * Pair
+             * @enum {string}
+             */
+            pair: "primary_on_white" | "secondary_on_white" | "secondary_on_primary";
+            /** Passes */
+            passes: boolean;
+            /** Ratio */
+            ratio: number;
         };
         /**
          * CustodyEventCreate
@@ -6129,14 +6974,6 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
-            /** Footertextde */
-            footerTextDe: string | null;
-            /** Footertexten */
-            footerTextEn: string | null;
-            /** Footertextfr */
-            footerTextFr: string | null;
-            /** Footertextit */
-            footerTextIt: string | null;
             /** Headernotede */
             headerNoteDe: string | null;
             /** Headernoteen */
@@ -6154,19 +6991,14 @@ export interface components {
         };
         /**
          * DocumentTemplateUpdate
-         * @description All fields optional — PATCH semantics, partial update. A field left
-         *     unset is left unchanged; a field explicitly set to null clears it back
-         *     to "not customized yet".
+         * @description The header note in four languages — KAN-208 moved the footer text
+         *     into the standard-text library (`invoice.footer.carried_over`). All
+         *     fields optional — PATCH semantics, partial update. A field left unset
+         *     is left unchanged; a field explicitly set to null clears it back to
+         *     "not customized yet". A field this schema does not know — a stale
+         *     client's `footerText*` among them — is a 422, never silently dropped.
          */
         DocumentTemplateUpdate: {
-            /** Footertextde */
-            footerTextDe?: string | null;
-            /** Footertexten */
-            footerTextEn?: string | null;
-            /** Footertextfr */
-            footerTextFr?: string | null;
-            /** Footertextit */
-            footerTextIt?: string | null;
             /** Headernotede */
             headerNoteDe?: string | null;
             /** Headernoteen */
@@ -6295,6 +7127,105 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HolidayCalendarList */
+        HolidayCalendarList: {
+            /** Items */
+            items: components["schemas"]["HolidayCalendarRead"][];
+        };
+        /** HolidayCalendarRead */
+        HolidayCalendarRead: {
+            /** Canton */
+            canton: string;
+            /** Code */
+            code: string;
+            /** Holidays */
+            holidays: components["schemas"]["HolidayRead"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+            /** Source */
+            source: string;
+        };
+        /**
+         * HolidayCondition
+         * @enum {string}
+         */
+        HolidayCondition: "always" | "only_on_monday" | "not_on_tuesday_or_saturday";
+        /** HolidayDateList */
+        HolidayDateList: {
+            /**
+             * Calendarid
+             * Format: uuid
+             */
+            calendarId: string;
+            /** Items */
+            items: components["schemas"]["HolidayDateRead"][];
+            /** Year */
+            year: number;
+        };
+        /** HolidayDateRead */
+        HolidayDateRead: {
+            /** Afternoononly */
+            afternoonOnly: boolean;
+            /** Code */
+            code: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+        };
+        /**
+         * HolidayRead
+         * @description A holiday as its rule: `fixed_date` (month, day), `easter_offset`
+         *     (days from Easter Sunday) or a named rule. `condition` drops it in a year
+         *     the canton does not observe it; `afternoonOnly` is Solothurn's Labour Day.
+         */
+        HolidayRead: {
+            /** Afternoononly */
+            afternoonOnly: boolean;
+            /** Code */
+            code: string;
+            condition: components["schemas"]["HolidayCondition"];
+            /** Day */
+            day: number | null;
+            /** Easteroffsetdays */
+            easterOffsetDays: number | null;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+            /** Month */
+            month: number | null;
+            rule: components["schemas"]["HolidayRule"];
+        };
+        /**
+         * HolidayRule
+         * @enum {string}
+         */
+        HolidayRule: "fixed_date" | "easter_offset" | "naefelser_fahrt" | "jeune_genevois" | "federal_fast_monday";
         /**
          * IdentificationNote
          * @description Why the waterfall did what it did — rendered as a hint, never as an
@@ -6554,6 +7485,60 @@ export interface components {
             /** Zustandsbeschreibung */
             zustandsbeschreibung?: string | null;
         };
+        /**
+         * LocationCreate
+         * @description A new site. `code` is the dealer's short key, fixed once saved;
+         *     without `holidayCalendarId` the canton's own calendar is taken where the
+         *     canton has one (a canton whose holidays differ by region has none — the
+         *     dealer picks the region).
+         */
+        LocationCreate: {
+            /** Addresscanton */
+            addressCanton?: string | null;
+            /** Addresscountry */
+            addressCountry?: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber?: string | null;
+            /** Addresslocality */
+            addressLocality?: string | null;
+            /** Addresspostalcode */
+            addressPostalCode?: string | null;
+            /** Addressstreet */
+            addressStreet?: string | null;
+            /** Bankaccountoverrideid */
+            bankAccountOverrideId?: string | null;
+            /** Code */
+            code: string;
+            /** Contactperson */
+            contactPerson?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Geolat */
+            geoLat?: number | null;
+            /** Geolng */
+            geoLng?: number | null;
+            /** Holidaycalendarid */
+            holidayCalendarId?: string | null;
+            /** Leademail */
+            leadEmail?: string | null;
+            /** Letterheadaddressoverride */
+            letterheadAddressOverride?: string | null;
+            /** Locationtypes */
+            locationTypes?: components["schemas"]["LocationType"][];
+            /** Name */
+            name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /**
+         * LocationDepartment
+         * @enum {string}
+         */
+        LocationDepartment: "sales" | "service" | "parts";
         /** LocationList */
         LocationList: {
             /** Items */
@@ -6561,19 +7546,144 @@ export interface components {
         };
         /**
          * LocationRead
-         * @description A site of the Betrieb, for the Users screen's location picker
-         *     (KAN-200). The Locations screen itself is Phase 2.
+         * @description A site of the Betrieb. `bankAccountOverrideId` is filled only for the
+         *     roles that read banking (manager, finance, auditor, platform staff —
+         *     ADR-100); for anyone else it is null, as if no override existed.
+         *     `calendarRef` and `warehouseRef` are Aftersales' and Parts' to fill;
+         *     read-only here.
          */
         LocationRead: {
+            /** Addresscanton */
+            addressCanton: string | null;
+            /** Addresscountry */
+            addressCountry: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber: string | null;
             /** Addresslocality */
             addressLocality: string | null;
+            /** Addresspostalcode */
+            addressPostalCode: string | null;
+            /** Addressstreet */
+            addressStreet: string | null;
+            /** Bankaccountoverrideid */
+            bankAccountOverrideId: string | null;
+            /** Calendarref */
+            calendarRef: string | null;
+            /** Code */
+            code: string | null;
+            /** Contactperson */
+            contactPerson: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Email */
+            email: string | null;
+            /** Geolat */
+            geoLat: number | null;
+            /** Geolng */
+            geoLng: number | null;
+            /** Holidaycalendarid */
+            holidayCalendarId: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Isactive */
+            isActive: boolean;
+            /** Leademail */
+            leadEmail: string | null;
+            /** Letterheadaddressoverride */
+            letterheadAddressOverride: string | null;
+            /** Locationtypes */
+            locationTypes: components["schemas"]["LocationType"][];
             /** Name */
             name: string;
+            /** Phone */
+            phone: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Validfrom */
+            validFrom: string | null;
+            /** Validto */
+            validTo: string | null;
+            /** Version */
+            version: number;
+            /** Warehouseref */
+            warehouseRef: string | null;
+        };
+        /**
+         * LocationType
+         * @description What a site is (PRD Locations, `location_type`): drives which modules
+         *     offer it as a choice. A location holds a list of these.
+         * @enum {string}
+         */
+        LocationType: "showroom" | "workshop" | "body_shop" | "parts_warehouse" | "storage" | "admin";
+        /**
+         * LocationUpdate
+         * @description PATCH semantics: a field not sent keeps its value, null clears a
+         *     nullable one. `code` may be set once, on a location saved without one;
+         *     after that it is refused (422 `location_code_immutable`). `isActive:
+         *     false` deactivates — never a delete (A-RULE-1) — and is refused for the
+         *     Betrieb's last active location (409 `last_active_location`, FR-A-03).
+         */
+        LocationUpdate: {
+            /** Addresscanton */
+            addressCanton?: string | null;
+            /** Addresscountry */
+            addressCountry?: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber?: string | null;
+            /** Addresslocality */
+            addressLocality?: string | null;
+            /** Addresspostalcode */
+            addressPostalCode?: string | null;
+            /** Addressstreet */
+            addressStreet?: string | null;
+            /** Bankaccountoverrideid */
+            bankAccountOverrideId?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Contactperson */
+            contactPerson?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Geolat */
+            geoLat?: number | null;
+            /** Geolng */
+            geoLng?: number | null;
+            /** Holidaycalendarid */
+            holidayCalendarId?: string | null;
+            /** Isactive */
+            isActive?: boolean | null;
+            /** Leademail */
+            leadEmail?: string | null;
+            /** Letterheadaddressoverride */
+            letterheadAddressOverride?: string | null;
+            /** Locationtypes */
+            locationTypes?: components["schemas"]["LocationType"][] | null;
+            /** Name */
+            name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -6702,6 +7812,11 @@ export interface components {
             canonicalListCode: string;
             /** Canonicalvaluecode */
             canonicalValueCode: string;
+        };
+        /** MarkAllReadResult */
+        MarkAllReadResult: {
+            /** Marked */
+            marked: number;
         };
         /**
          * MarketplaceChannel
@@ -6857,6 +7972,43 @@ export interface components {
             /** Code */
             code: string;
         };
+        /** MissingTranslationPage */
+        MissingTranslationPage: {
+            /** Items */
+            items: components["schemas"]["MissingTranslationRead"][];
+        };
+        /** MissingTranslationRead */
+        MissingTranslationRead: {
+            /**
+             * Firstreportedat
+             * Format: date-time
+             */
+            firstReportedAt: string;
+            /** Key */
+            key: string;
+            language: components["schemas"]["SwissLanguage"];
+            /**
+             * Lastreportedat
+             * Format: date-time
+             */
+            lastReportedAt: string;
+            /** Reportcount */
+            reportCount: number;
+        };
+        /**
+         * MissingTranslationReport
+         * @description Keys the browser rendered as the loud marker in `language`.
+         */
+        MissingTranslationReport: {
+            /** Keys */
+            keys: string[];
+            language: components["schemas"]["SwissLanguage"];
+        };
+        /** MissingTranslationReportResult */
+        MissingTranslationReportResult: {
+            /** Recorded */
+            recorded: number;
+        };
         /**
          * ModuleCode
          * @description The module entitlements a Betrieb can hold (D-A-04, D-A-10): what
@@ -6876,6 +8028,100 @@ export interface components {
          * @enum {string}
          */
         NewPriceSource: "catalogue" | "document" | "customer";
+        /**
+         * NotificationFamily
+         * @enum {string}
+         */
+        NotificationFamily: "security" | "administration" | "assignment";
+        /** NotificationPage */
+        NotificationPage: {
+            /** Items */
+            items: components["schemas"]["NotificationRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /** NotificationPreferenceList */
+        NotificationPreferenceList: {
+            /** Items */
+            items: components["schemas"]["NotificationPreferenceRead"][];
+        };
+        /** NotificationPreferenceRead */
+        NotificationPreferenceRead: {
+            family: components["schemas"]["NotificationFamily"];
+            /** Hasevents */
+            hasEvents: boolean;
+            /** Inapp */
+            inApp: boolean;
+            /** Push */
+            push: boolean;
+            /** Switchable */
+            switchable: boolean;
+            timing: components["schemas"]["NotificationTiming"];
+            /** Version */
+            version: number;
+        };
+        /** NotificationPreferenceUpdate */
+        NotificationPreferenceUpdate: {
+            /**
+             * Inapp
+             * @default true
+             */
+            inApp?: boolean;
+            /** Push */
+            push: boolean;
+            timing: components["schemas"]["NotificationTiming"];
+        };
+        /**
+         * NotificationRead
+         * @description One inbox entry. The SPA renders `titleKey` / `bodyKey` with `params`
+         *     in the user's UI language; `link` is the SPA path of the subject.
+         */
+        NotificationRead: {
+            /** Bodykey */
+            bodyKey: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Deliveredat
+             * Format: date-time
+             */
+            deliveredAt: string;
+            /** Eventcode */
+            eventCode: string;
+            family: components["schemas"]["NotificationFamily"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Link */
+            link: string;
+            /** Params */
+            params: {
+                [key: string]: string | number | boolean;
+            };
+            /** Readat */
+            readAt: string | null;
+            /** Subjectid */
+            subjectId: string | null;
+            /** Subjecttype */
+            subjectType: string;
+            /** Titlekey */
+            titleKey: string;
+        };
+        /** NotificationReadUpdate */
+        NotificationReadUpdate: {
+            /** Read */
+            read: boolean;
+        };
+        /**
+         * NotificationTiming
+         * @enum {string}
+         */
+        NotificationTiming: "immediate" | "digest" | "off";
         /**
          * NotionalInputTaxOverrideRequest
          * @description FR-I-xx / Art. 28a MWSTG. `reason` is required — an override is
@@ -7091,6 +8337,85 @@ export interface components {
             vehicleLabel?: string | null;
             /** Vehiclesource */
             vehicleSource?: string | null;
+        };
+        /**
+         * OpeningHoursDay
+         * @description One open weekday (ISO: 1 = Monday … 7 = Sunday) — one interval and an
+         *     optional second one, e.g. 08:00–12:00 and 13:30–18:00. `department` is
+         *     sent only when the hours differ per department.
+         */
+        OpeningHoursDay: {
+            /**
+             * Closesat
+             * Format: time
+             */
+            closesAt: string;
+            department?: components["schemas"]["LocationDepartment"] | null;
+            /**
+             * Opensat
+             * Format: time
+             */
+            opensAt: string;
+            /** Secondclosesat */
+            secondClosesAt?: string | null;
+            /** Secondopensat */
+            secondOpensAt?: string | null;
+            /** Weekday */
+            weekday: number;
+        };
+        /**
+         * OpeningHoursRead
+         * @description Every stored row. `perDepartment` is derived: false when the three
+         *     departments hold the same week (what the one-set mode writes) — the
+         *     screen opens in that mode.
+         */
+        OpeningHoursRead: {
+            /** Hours */
+            hours: components["schemas"]["OpeningHoursRow"][];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationversion */
+            locationVersion: number;
+            /** Perdepartment */
+            perDepartment: boolean;
+        };
+        /** OpeningHoursRow */
+        OpeningHoursRow: {
+            /**
+             * Closesat
+             * Format: time
+             */
+            closesAt: string;
+            department: components["schemas"]["LocationDepartment"];
+            /**
+             * Opensat
+             * Format: time
+             */
+            opensAt: string;
+            /** Secondclosesat */
+            secondClosesAt: string | null;
+            /** Secondopensat */
+            secondOpensAt: string | null;
+            /** Weekday */
+            weekday: number;
+        };
+        /**
+         * OpeningHoursUpdate
+         * @description The site's whole week, replacing what is stored (PUT, If-Match on the
+         *     location's version). `perDepartment: false` — the default mode, one set
+         *     for the whole site — sends days without a department and the service
+         *     writes each for Sales, Service and Parts alike (D-A-27: stored per
+         *     department always). `perDepartment: true` sends a department on every
+         *     day. A weekday that is not sent is closed.
+         */
+        OpeningHoursUpdate: {
+            /** Hours */
+            hours: components["schemas"]["OpeningHoursDay"][];
+            /** Perdepartment */
+            perDepartment: boolean;
         };
         /** OptionInput */
         OptionInput: {
@@ -7491,6 +8816,57 @@ export interface components {
          */
         PublishingState: "not_published" | "published";
         /**
+         * PushConfigRead
+         * @description Whether this deployment can send Web Push, and the VAPID application
+         *     server key the browser subscribes with (null when it cannot).
+         */
+        PushConfigRead: {
+            /** Available */
+            available: boolean;
+            /** Vapidpublickey */
+            vapidPublicKey: string | null;
+        };
+        /**
+         * PushSubscriptionCreate
+         * @description The browser's `PushSubscription.toJSON()`: endpoint and keys
+         *     (`expirationTime` is accepted and ignored).
+         */
+        PushSubscriptionCreate: {
+            /** Endpoint */
+            endpoint: string;
+            /** Expirationtime */
+            expirationTime?: number | null;
+            keys: components["schemas"]["PushSubscriptionKeys"];
+        };
+        /** PushSubscriptionKeys */
+        PushSubscriptionKeys: {
+            /** Auth */
+            auth: string;
+            /** P256Dh */
+            p256dh: string;
+        };
+        /**
+         * PushSubscriptionRead
+         * @description Never the endpoint or the keys once stored.
+         */
+        PushSubscriptionRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sessionid
+             * Format: uuid
+             */
+            sessionId: string;
+        };
+        /**
          * QrReferenceType
          * @enum {string}
          */
@@ -7877,13 +9253,253 @@ export interface components {
             vin: string;
         };
         /**
+         * StandardTextAppliesTo
+         * @description The document and message types a text may be used on (PRD
+         *     `applies_to`; FR-A-52's registered types the starter set needs).
+         * @enum {string}
+         */
+        StandardTextAppliesTo: "offer" | "contract" | "invoice" | "appointment_reminder" | "vehicle_ready" | "workshop_order" | "customer_note";
+        /**
          * StandardTextCategory
          * @description The PRD's standard-text categories (Dealer Administration, "Standard
          *     texts" data model): document texts · e-mail bodies · SMS · internal note
-         *     templates · workshop job texts.
+         *     templates · workshop job texts — and WhatsApp (FR-A-52/54, added by
+         *     KAN-208: the send dialog's third channel, its texts carry the provider's
+         *     template approval).
          * @enum {string}
          */
-        StandardTextCategory: "document" | "email" | "sms" | "internal_note" | "workshop";
+        StandardTextCategory: "document" | "email" | "sms" | "whatsapp" | "internal_note" | "workshop";
+        /**
+         * StandardTextCreate
+         * @description A new text of the Betrieb (`code` omitted: the server names it), a
+         *     further language or location variant of one of its texts, or the
+         *     adaptation of a seed (`code` = the seed's). The category is the path's.
+         */
+        StandardTextCreate: {
+            /**
+             * Active
+             * @default true
+             */
+            active?: boolean;
+            appliesTo?: components["schemas"]["StandardTextAppliesTo"] | null;
+            /** Body */
+            body: string;
+            /** Code */
+            code?: string | null;
+            /** Isdefault */
+            isDefault?: boolean | null;
+            language: components["schemas"]["SwissLanguage"];
+            /** Locationid */
+            locationId?: string | null;
+            /** Providertemplateid */
+            providerTemplateId?: string | null;
+            slot?: components["schemas"]["StandardTextSlot"] | null;
+            /** Sortorder */
+            sortOrder?: number | null;
+            /**
+             * Templateapproved
+             * @default false
+             */
+            templateApproved?: boolean;
+            /** Title */
+            title: string;
+        };
+        /** StandardTextList */
+        StandardTextList: {
+            /** Items */
+            items: components["schemas"]["StandardTextRead"][];
+            /** Writablecategories */
+            writableCategories: components["schemas"]["StandardTextCategory"][];
+        };
+        /** StandardTextPreviewRead */
+        StandardTextPreviewRead: {
+            /** Text */
+            text: string;
+        };
+        /** StandardTextPreviewRequest */
+        StandardTextPreviewRequest: {
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            /** Body */
+            body: string;
+            category: components["schemas"]["StandardTextCategory"];
+            language: components["schemas"]["SwissLanguage"];
+            /** Locationid */
+            locationId?: string | null;
+        };
+        /** StandardTextRead */
+        StandardTextRead: {
+            /** Active */
+            active: boolean;
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            /** Body */
+            body: string;
+            category: components["schemas"]["StandardTextCategory"];
+            /** Code */
+            code: string;
+            /** Dealershipid */
+            dealershipId: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isdefault */
+            isDefault: boolean;
+            language: components["schemas"]["SwissLanguage"];
+            /** Locationid */
+            locationId: string | null;
+            /** Overriddenfromid */
+            overriddenFromId: string | null;
+            /** Providertemplateid */
+            providerTemplateId: string | null;
+            scope: components["schemas"]["StandardTextScope"];
+            /** Seedchanged */
+            seedChanged: boolean;
+            slot: components["schemas"]["StandardTextSlot"];
+            /** Sortorder */
+            sortOrder: number;
+            source: components["schemas"]["StandardTextSource"];
+            /** Templateapproved */
+            templateApproved: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StandardTextRegistryRead
+         * @description The closed placeholder set and where each text may be used — what
+         *     the editor offers (FR-A-07).
+         */
+        StandardTextRegistryRead: {
+            /** Placeholders */
+            placeholders: string[];
+            /** Targets */
+            targets: components["schemas"]["StandardTextTargetRead"][];
+        };
+        /**
+         * StandardTextScope
+         * @enum {string}
+         */
+        StandardTextScope: "dealership" | "location";
+        /**
+         * StandardTextSeedGroup
+         * @description One code with its row per language — the panel's four columns.
+         */
+        StandardTextSeedGroup: {
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            category: components["schemas"]["StandardTextCategory"];
+            /** Code */
+            code: string;
+            de?: components["schemas"]["StandardTextSeedRead"] | null;
+            en?: components["schemas"]["StandardTextSeedRead"] | null;
+            fr?: components["schemas"]["StandardTextSeedRead"] | null;
+            it?: components["schemas"]["StandardTextSeedRead"] | null;
+            slot: components["schemas"]["StandardTextSlot"];
+        };
+        /**
+         * StandardTextSeedList
+         * @description Every matching code. The library is a bounded set (the starter library
+         *     is 12 codes × 4 languages), so the list is complete, never paged.
+         */
+        StandardTextSeedList: {
+            /** Items */
+            items: components["schemas"]["StandardTextSeedGroup"][];
+        };
+        /**
+         * StandardTextSeedRead
+         * @description One seed row (code × language) as the panel edits it, with the
+         *     wording Nexotec ships for it — what the diff compares and a revert
+         *     restores (null for a code the release does not ship).
+         */
+        StandardTextSeedRead: {
+            /** Active */
+            active: boolean;
+            /** Body */
+            body: string;
+            /** Edited */
+            edited: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Shippedbody */
+            shippedBody: string | null;
+            /** Shippedtitle */
+            shippedTitle: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StandardTextSeedUpdate
+         * @description A platform_admin's edit of one seed row: its title, its body or both.
+         */
+        StandardTextSeedUpdate: {
+            /** Body */
+            body?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * StandardTextSlot
+         * @description Where on the document or message the text sits (PRD).
+         * @enum {string}
+         */
+        StandardTextSlot: "header" | "intro" | "body" | "footer" | "terms" | "closing";
+        /**
+         * StandardTextSource
+         * @enum {string}
+         */
+        StandardTextSource: "platform_seed" | "dealer";
+        /** StandardTextTargetRead */
+        StandardTextTargetRead: {
+            appliesTo: components["schemas"]["StandardTextAppliesTo"];
+            category: components["schemas"]["StandardTextCategory"];
+            /** Placeholders */
+            placeholders: string[];
+            /** Slots */
+            slots: components["schemas"]["StandardTextSlot"][];
+        };
+        /**
+         * StandardTextUpdate
+         * @description PATCH semantics: a field not sent keeps its value. `seedReviewed:
+         *     true` records that the seed's current wording was reviewed (an
+         *     adaptation only).
+         */
+        StandardTextUpdate: {
+            /** Active */
+            active?: boolean | null;
+            /** Body */
+            body?: string | null;
+            /** Isdefault */
+            isDefault?: boolean | null;
+            /** Providertemplateid */
+            providerTemplateId?: string | null;
+            /** Seedreviewed */
+            seedReviewed?: boolean | null;
+            /** Sortorder */
+            sortOrder?: number | null;
+            /** Templateapproved */
+            templateApproved?: boolean | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * StockItemCondition
          * @enum {string}
@@ -8334,10 +9950,105 @@ export interface components {
          * @enum {string}
          */
         TransmissionStatus: "pending" | "transmitted" | "failed";
+        /** UiTranslationKeyPage */
+        UiTranslationKeyPage: {
+            /** Items */
+            items: components["schemas"]["UiTranslationKeyRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
+        };
+        /**
+         * UiTranslationKeyRead
+         * @description One key with its row per language — the panel's four columns. A
+         *     language the seed never had is null.
+         */
+        UiTranslationKeyRead: {
+            de?: components["schemas"]["UiTranslationRead"] | null;
+            en?: components["schemas"]["UiTranslationRead"] | null;
+            fr?: components["schemas"]["UiTranslationRead"] | null;
+            it?: components["schemas"]["UiTranslationRead"] | null;
+            /** Key */
+            key: string;
+            /** Namespace */
+            namespace: string;
+        };
+        /**
+         * UiTranslationMap
+         * @description `GET /v1/i18n/{language}`: what the platform has published for that
+         *     language, as `"<namespace>.<key>": value`. Every key absent here is the
+         *     shipped bundle's (FR-A-30).
+         */
+        UiTranslationMap: {
+            language: components["schemas"]["SwissLanguage"];
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+            /**
+             * Version
+             * @description The global UI-translation version this map was read at; the ETag carries it.
+             */
+            version: number;
+        };
+        /** UiTranslationNamespaces */
+        UiTranslationNamespaces: {
+            /** Items */
+            items: string[];
+        };
+        /**
+         * UiTranslationPublish
+         * @description The value a platform admin publishes for one key in one language.
+         */
+        UiTranslationPublish: {
+            /** Value */
+            value: string;
+        };
+        /** UiTranslationRead */
+        UiTranslationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Namespace */
+            namespace: string;
+            /** Seedvalue */
+            seedValue: string;
+            source: components["schemas"]["UiTranslationSource"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Value */
+            value: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * UiTranslationSource
+         * @description Where a row's live `value` comes from (FR-A-30).
+         * @enum {string}
+         */
+        UiTranslationSource: "bundle_seed" | "platform";
         /** UnpublishRequest */
         UnpublishRequest: {
             /** Confirm */
             confirm: boolean;
+        };
+        /** UnreadCountRead */
+        UnreadCountRead: {
+            /** Count */
+            count: number;
         };
         /**
          * UsageRead
@@ -12483,6 +14194,230 @@ export interface operations {
             };
         };
     };
+    get_branding_v1_dealerships__dealership_id__branding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_branding_v1_dealerships__dealership_id__branding_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                kind: components["schemas"]["BrandingAssetKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                kind: components["schemas"]["BrandingAssetKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/svg+xml": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_branding_asset_v1_dealerships__dealership_id__branding_assets__kind__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                kind: components["schemas"]["BrandingAssetKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_branding_preview_v1_dealerships__dealership_id__branding_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_document_template_v1_dealerships__dealership_id__document_template_get: {
         parameters: {
             query?: never;
@@ -12635,7 +14570,10 @@ export interface operations {
     };
     list_locations_v1_dealerships__dealership_id__locations_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description true: active sites only; false: deactivated only. */
+                active?: boolean | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -12655,6 +14593,357 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_location_v1_dealerships__dealership_id__locations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_location_v1_dealerships__dealership_id__locations__location_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_location_v1_dealerships__dealership_id__locations__location_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_closures_v1_dealerships__dealership_id__locations__location_id__closures_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_closure_v1_dealerships__dealership_id__locations__location_id__closures_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosureCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                closure_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_closure_v1_dealerships__dealership_id__locations__location_id__closures__closure_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                closure_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosureUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpeningHoursRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpeningHoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpeningHoursRead"];
                 };
             };
             /** @description Validation Error */
@@ -12730,6 +15019,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealershipSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_standard_text_v1_dealerships__dealership_id__standard_text_previews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextPreviewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_standard_texts_v1_dealerships__dealership_id__standard_texts_get: {
+        parameters: {
+            query?: {
+                category?: components["schemas"]["StandardTextCategory"] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_standard_text_v1_dealerships__dealership_id__standard_texts__category__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category: components["schemas"]["StandardTextCategory"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category: components["schemas"]["StandardTextCategory"];
+                text_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_standard_text_v1_dealerships__dealership_id__standard_texts__category___text_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category: components["schemas"]["StandardTextCategory"];
+                text_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextRead"];
                 };
             };
             /** @description Validation Error */
@@ -13728,6 +16215,156 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    list_holiday_calendars_v1_holiday_calendars_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayCalendarList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_holiday_dates_v1_holiday_calendars__calendar_id__dates_get: {
+        parameters: {
+            query?: {
+                /** @description Defaults to the current year in Switzerland. */
+                year?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                calendar_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayDateList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_missing_translations_v1_i18n_missing_translations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MissingTranslationReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingTranslationReportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ui_translation_map_v1_i18n__language__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string | null;
+            };
+            path: {
+                language: components["schemas"]["SwissLanguage"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationMap"];
+                };
+            };
+            /** @description The map the caller holds (its If-None-Match) is current. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -15484,6 +18121,224 @@ export interface operations {
             };
         };
     };
+    list_my_notification_preferences_v1_me_notification_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferenceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_my_notification_preference_v1_me_notification_preferences__family__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                family: components["schemas"]["NotificationFamily"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferenceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_notifications_v1_me_notifications_get: {
+        parameters: {
+            query?: {
+                /** @description Only the unread ones. */
+                unread?: boolean;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_my_notifications_read_v1_me_notifications_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkAllReadResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_unread_count_v1_me_notifications_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_my_notification_v1_me_notifications__notification_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                notification_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationReadUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_my_photo_v1_me_photo_get: {
         parameters: {
             query?: never;
@@ -15729,6 +18584,111 @@ export interface operations {
             };
         };
     };
+    register_my_push_subscription_v1_me_push_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSubscriptionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_push_subscription_v1_me_push_subscriptions__subscription_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                subscription_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_push_config_v1_me_push_config_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_my_signature_v1_me_signature_get: {
         parameters: {
             query?: never;
@@ -15863,6 +18823,311 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_standard_text_seeds_v1_platform_standard_text_seeds_get: {
+        parameters: {
+            query?: {
+                /** @description Matches a code, title or body, any language. */
+                q?: string | null;
+                category?: components["schemas"]["StandardTextCategory"] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextSeedList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_standard_text_seed_v1_platform_standard_text_seeds__seed_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                seed_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandardTextSeedUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextSeedRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_standard_text_seed_v1_platform_standard_text_seeds__seed_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                seed_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextSeedRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ui_translations_v1_platform_ui_translations_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                namespace?: string | null;
+                /** @description Only keys with a platform value in at least one language. */
+                edited?: boolean;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationKeyPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_missing_translations_v1_platform_ui_translations_missing_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingTranslationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ui_translation_namespaces_v1_platform_ui_translations_namespaces_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationNamespaces"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_ui_translation_v1_platform_ui_translations__namespace___key___language__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                language: components["schemas"]["SwissLanguage"];
+                namespace: string;
+                key: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiTranslationPublish"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_ui_translation_v1_platform_ui_translations__namespace___key___language__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                language: components["schemas"]["SwissLanguage"];
+                namespace: string;
+                key: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiTranslationRead"];
                 };
             };
             /** @description Validation Error */
@@ -17203,6 +20468,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_standard_text_registry_v1_standard_text_registry_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardTextRegistryRead"];
                 };
             };
             /** @description Validation Error */

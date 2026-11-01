@@ -11,6 +11,7 @@ import '@nexotec/ui-kit/src/tokens.css'
 import '@mantine/core/styles.css'
 import './index.css'
 import { i18nReady } from './i18n'
+import { startRuntimeTranslations } from './i18n/runtimeTranslations'
 import App from './App.tsx'
 
 // Server state (§ Stack Decisions: TanStack Query) — cursor pagination,
@@ -20,7 +21,11 @@ const queryClient = new QueryClient()
 // KAN-438: the first paint waits for the start language's bundle, so a user
 // whose last language was French or Italian never sees German first. German
 // and English are in the bundle, so for them this resolves at once.
-void i18nReady.then(() => {
+// KAN-209: and for the platform's published UI strings, fetched beside the
+// bundle — one request, revalidated by ETag, and never longer than the
+// loader's first-paint budget (the values land when they arrive otherwise).
+const runtimeTranslationsReady = startRuntimeTranslations()
+void i18nReady.then(() => runtimeTranslationsReady).then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
