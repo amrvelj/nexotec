@@ -72,7 +72,7 @@ from app.vehicle.models.catalogue import (
     VariantPrice,
     VariantTypeApproval,
 )
-from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.models.configuration import (
     VehicleConfiguration,
     VehicleConfigurationOption,
@@ -147,7 +147,6 @@ __all__ = [
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",
-    "ProviderSyncState",
     "PushSubscription",
     "ReconciliationOrphan",
     "ReconciliationRun",

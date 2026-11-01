@@ -150,6 +150,12 @@
       ]
     },
     {
+      "label": "Valuation use correction («Verwendung aufheben», KAN-253; row added 2026-11-01)",
+      "key": "valuation_use_reversal",
+      "read": null,
+      "write": []
+    },
+    {
       "label": "Audit logs",
       "key": "audit_logs",
       "read": [
@@ -377,6 +383,13 @@
       "key": "canonical_taxonomy",
       "read": [],
       "manager_can_read": false,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Reference lists (KAN-514; row added 2026-11-01)",
+      "key": "reference_lists",
+      "read": null,
       "write": [],
       "manager_can_write": false
     },

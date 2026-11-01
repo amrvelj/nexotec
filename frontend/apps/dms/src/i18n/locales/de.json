@@ -286,7 +286,10 @@
       "standard_text_not_an_override": "Nur ein angepasster Standardtext hat eine Vorlage zu prüfen.",
       "standard_text_seed_language_missing": "Diese Vorlage gibt es in dieser Sprache nicht.",
       "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen.",
-      "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch."
+      "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch.",
+      "signed_contract_carries_it": "Ein unterzeichneter Vertrag führt diese Bewertung als Eintausch, daher bleibt sie verwendet.",
+      "stamp_too_recent": "Diese Bewertung wurde vor weniger als einer Stunde als verwendet markiert; die Bestätigung ihres Vertrags läuft vielleicht noch. Bitte später erneut versuchen.",
+      "valuation_not_used": "Diese Bewertung ist nicht als verwendet markiert."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1558,7 +1561,11 @@
       "markUsedAlreadyUsed": "Bereits als verwendet markiert.",
       "markUsedNoSignedContract": "Nur möglich, wenn ein unterschriebener Vertrag diese Bewertung als Eintausch enthält.",
       "openCustomer": "Kunde öffnen",
-      "openVehicle": "Fahrzeug öffnen"
+      "openVehicle": "Fahrzeug öffnen",
+      "revertUse": "Verwendung aufheben",
+      "revertUseNotUsed": "Nur für eine als verwendet markierte Bewertung.",
+      "revertUseSignedContract": "Nicht möglich: Ein unterschriebener Vertrag enthält diese Bewertung als Eintausch.",
+      "revertUseTooRecent": "Erst eine Stunde nach der Markierung möglich: Die Bestätigung des Vertrags läuft vielleicht noch."
     },
     "expiredBanner": {
       "title": "Bewertung abgelaufen",
@@ -1585,6 +1592,15 @@
     "validityHelp": "Der Status wird beim Lesen berechnet, nicht über Nacht nachgeführt — gültig bis {{validUntil}}.",
     "configuration": {
       "title": "Konfiguration"
+    },
+    "revertUseDialog": {
+      "title": "Verwendung aufheben",
+      "body": "Bewertung {{number}} ist als verwendet markiert, aber kein unterschriebener Vertrag steht dahinter. Nach dem Aufheben gilt sie wieder als gültig oder abgelaufen. Der Grund wird mit der Änderung protokolliert.",
+      "reasonLabel": "Grund",
+      "reasonRequired": "Bitte einen Grund angeben.",
+      "submit": "Verwendung aufheben",
+      "cancel": "Abbrechen",
+      "failed": "Die Verwendung konnte nicht aufgehoben werden. Bitte erneut versuchen."
     }
   },
   "valuationCreate": {
@@ -1680,29 +1696,6 @@
     "emptyFilteredState": {
       "title": "Keine passenden Verbindungen",
       "description": "Versuchen Sie eine andere Suche."
-    },
-    "healthBoard": {
-      "title": "Flottenzustand",
-      "lastFullSeed": "Letzte Vollsynchronisation",
-      "providerWatermark": "Anbieter-Datenstand",
-      "status": "Status",
-      "stale": "Veraltet",
-      "healthy": "Aktuell",
-      "pending": "Ausstehende Varianten",
-      "pendingCount_one": "{{count, number}} ausstehend",
-      "pendingCount_other": "{{count, number}} ausstehend",
-      "pendingField": {
-        "master_data": "Stammdaten",
-        "options": "Optionen",
-        "colours": "Farben",
-        "tyre_specs": "Reifen",
-        "images": "Bilder",
-        "not_attempted": "nicht versucht"
-      },
-      "emptyState": {
-        "title": "Noch keine Katalogsynchronisation",
-        "description": "Noch kein Betrieb hat einen Katalog-Spiegel synchronisiert."
-      }
     }
   },
   "integrationEnums": {

@@ -4,7 +4,7 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field, field_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import NormalisedVinOrChassisNumber
@@ -106,3 +106,22 @@ class ValuationPage(CamelModel):
     next_cursor: str | None
     total: int
     total_is_estimate: bool
+
+
+REVERT_USE_REASON_MAX_LENGTH = 500
+
+
+class ValuationRevertUse(CamelModel):
+    """«Verwendung aufheben» (KAN-253): the reason is mandatory and is kept
+    on the audit row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=REVERT_USE_REASON_MAX_LENGTH)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_stated(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Clearing a valuation's use needs a stated reason.")
+        return value.strip()

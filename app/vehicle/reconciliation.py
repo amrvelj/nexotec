@@ -27,7 +27,7 @@ from app.vehicle.models.catalogue import (
     VariantPrice,
     VariantTypeApproval,
 )
-from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.models.configuration import (
     VehicleConfiguration,
     VehicleConfigurationOption,
@@ -77,7 +77,6 @@ ACTOR_TABLES = (
     ColourCache,
     TyreSpecCache,
     ImageRef,
-    ProviderSyncState,
     VehicleConfiguration,
     VehicleConfigurationOption,
     VehicleConfigurationOptionFeature,
@@ -214,14 +213,6 @@ CHECKS = [
         source_model=ImageRef,
         source_row_id_column=ImageRef.id,
         source_fk_column=ImageRef.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
-    ),
-    ReferenceCheck(
-        label="vehicle_provider_sync_state.tenant_id -> dealership.id",
-        source_model=ProviderSyncState,
-        source_row_id_column=ProviderSyncState.id,
-        source_fk_column=ProviderSyncState.tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),

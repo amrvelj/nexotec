@@ -1,11 +1,11 @@
 """WP-6 PR-4: the per-tenant catalogue mirror sync. Since KAN-485
 (2026-10-29) a variant reaches the catalogue only by a single lookup,
-`sync_catalogue_variant` — no full seed, no daily delta; the A-12 sync-age
-alarm stays only as the pure function the platform's sync-status board reads.
+`sync_catalogue_variant` — no full seed, no daily delta. The A-12 sync-age
+alarm and the platform's sync-status board that read it went with them
+(KAN-497).
 """
 
 import dataclasses
-import datetime as dt
 import uuid
 from decimal import Decimal
 
@@ -24,7 +24,7 @@ from app.integration.services import connections as connection_service
 from app.integration.services import gateway, resilience
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
-from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
@@ -85,9 +85,6 @@ def test_a_lookup_creates_a_global_variant_and_its_tenant_scoped_content(db_sess
     assert db_session.query(ColourCache).filter_by(**content).count() == 3
     assert db_session.query(TyreSpecCache).filter_by(**content).count() == 3  # front + rear + both
     assert db_session.query(ImageRef).filter_by(**content).count() == 2  # front + interior
-
-    # A lookup is no sync run: nothing records a seed, a cursor or a watermark.
-    assert catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock") is None
 
 
 def test_a_lookup_logs_each_provider_request_under_its_datenname(db_session):
@@ -371,35 +368,6 @@ def test_tyre_spec_cache_still_rejects_a_true_duplicate(db_session):
     db_session.add(_tyre(tenant_id, variant, "2", "121", "Z"))
     with pytest.raises(IntegrityError):
         db_session.flush()
-
-
-# --- sync-age alarm (A-12), as the sync-status board reads it ---------------
-
-
-def test_compute_sync_age_alarm_does_not_fire_at_exactly_seven_days():
-    today = dt.date(2026, 8, 31)
-    state = ProviderSyncState(
-        tenant_id=uuid.uuid4(), provider_code="auto_i_dat_mock", last_system_watermark_date=today - dt.timedelta(days=7)
-    )
-    assert catalogue_sync.compute_sync_age_alarm(state, today=today) is False
-
-
-def test_compute_sync_age_alarm_fires_at_eight_days_even_though_nothing_else_failed():
-    """A-12's own point: a delta job that "succeeds" while the provider's
-    own System date hasn't moved in over a week is still an alarm — this
-    function never looks at whether any job reported success, only at the
-    persisted watermark age.
-    """
-
-    today = dt.date(2026, 8, 31)
-    state = ProviderSyncState(
-        tenant_id=uuid.uuid4(), provider_code="auto_i_dat_mock", last_system_watermark_date=today - dt.timedelta(days=8)
-    )
-    assert catalogue_sync.compute_sync_age_alarm(state, today=today) is True
-
-
-def test_compute_sync_age_alarm_never_fires_for_a_tenant_that_has_not_synced_yet():
-    assert catalogue_sync.compute_sync_age_alarm(None, today=dt.date(2026, 8, 31)) is False
 
 
 def test_a_lookup_links_each_variant_to_its_typenscheine_once(db_session):

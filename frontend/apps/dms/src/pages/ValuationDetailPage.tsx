@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, OverviewCard, SpecGrid, ValuationStatusBadge, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
+import { ValuationRevertUseDialog } from '../components/ValuationRevertUseDialog'
+import { useCanWrite } from '../auth/useCanWrite'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -49,6 +51,9 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   // mounted screen (/valuations/:id changing under it) gets a new key.
   const markUsedKey = useIdempotencyKey()
   const [markUsedError, setMarkUsedError] = useState<string | null>(null)
+  // KAN-253 — «Verwendung aufheben», the dealer manager's correction.
+  const canRevertUse = useCanWrite('valuation_use_reversal')
+  const [revertUseOpen, setRevertUseOpen] = useState(false)
 
   const valuationQuery = useQuery({
     queryKey: ['valuation', id],
@@ -100,6 +105,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   const menu = buildValuationRowMenu(t, valuation, {
     onRevalue: () => navigate(`/valuations/new?supersedes=${id}`),
     onMarkUsed: () => void markUsed(),
+    onRevertUse: canRevertUse ? () => setRevertUseOpen(true) : undefined,
     onOpenCustomer: valuation.customerId ? () => openCustomerOverlay(valuation.customerId!) : undefined,
     onOpenVehicle: valuation.vehicleId ? () => navigate(`/vehicles/${valuation.vehicleId}`) : undefined,
   })
@@ -121,6 +127,16 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
         }
         primaryAction={menu.primary}
         overflowActions={menu.overflow}
+      />
+
+      <ValuationRevertUseDialog
+        opened={revertUseOpen}
+        onClose={() => setRevertUseOpen(false)}
+        valuation={valuation}
+        onSaved={(updated) => {
+          queryClient.setQueryData(['valuation', id], updated)
+          void queryClient.invalidateQueries({ queryKey: ['valuations'] })
+        }}
       />
 
       {markUsedError && (

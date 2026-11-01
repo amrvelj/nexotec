@@ -236,9 +236,9 @@ lists them: a field joined into a string or passed to a row helper, an `InlineEd
 `value=` is also its display, a JSX child sharing its element with text, a `?? null` or
 `?? CONST` fallback), and it cannot judge a name at all for `validFrom`/`validTo` (a date on a
 plate, an accessory, a user's access window and a valuation — the last rendered by no screen yet;
-a timestamp on a contact channel) or `lastDeltaCursor` (KAN-363) — the ones a screen renders,
+a timestamp on a contact channel; KAN-363) — the ones a screen renders,
 and every screen that renders a date-only field, are checked by that screen's render test under
-`TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `IntegrationPlatformView.pending`, `AuthScreens` for the
+`TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `AuthScreens` for the
 invitation's access window, KAN-472). Today's date as a pre-fill is
 `todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
 `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00

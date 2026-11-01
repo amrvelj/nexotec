@@ -8,7 +8,7 @@ import { ALL_ENTITLEMENTS, installFakeBackend, type FakeRoute } from '../test/fa
 import { ReferenceDataPage } from './ReferenceDataPage'
 
 // KAN-471 — the reference lists are platform staff's to write (the PRD's
-// "Canonical taxonomy, provider catalogue" row; POST and PATCH answer 403 to
+// "Reference lists" row since KAN-514; POST and PATCH answer 403 to
 // everyone else, a dealer manager included). A dealer user used to be offered
 // «Neuer Wert» and the inline edits anyway, fill the four-language form and
 // then be refused. KAN-430's rule: the session's `writableCapabilities` says
@@ -55,7 +55,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
   it('shows a dealer manager the list read-only: no «Neuer Wert», no inline edit, every label visible', async () => {
     const user = userEvent.setup()
     // A manager writes every row of their Betrieb but the platform-only ones,
-    // so the server's list never holds canonical_taxonomy for them.
+    // so the server's list never holds reference_lists for them.
     const backend = install(session(['sales'], true, ['configurations', 'customers', 'stock_items']))
 
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
@@ -91,7 +91,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
 
   it('keeps «Neuer Wert» and the inline edits for platform staff', async () => {
     const user = userEvent.setup()
-    install(session(['platform_admin'], false, ['canonical_taxonomy', 'configurations', 'customers']))
+    install(session(['platform_admin'], false, ['reference_lists', 'configurations', 'customers']))
 
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 

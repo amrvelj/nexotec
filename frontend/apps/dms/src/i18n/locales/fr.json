@@ -286,7 +286,10 @@
       "standard_text_not_an_override": "Seul un texte standard adapté a un modèle à vérifier.",
       "standard_text_seed_language_missing": "Ce modèle n'existe pas dans cette langue.",
       "standard_text_seed_not_shipped": "Nexotec ne livre aucun texte pour ce modèle ; il n'y a rien à rétablir.",
-      "logo_too_many_pixels": "Ce PNG mesure {{width, number}} × {{height, number}} px – plus de {{max, number}} mégapixels. Aucun logo n’en a besoin : une page A4 entière à 300 dpi en compte à peine 9, et chaque document portant le logo devrait tous les charger. Réduisez l’image ou téléversez un SVG."
+      "logo_too_many_pixels": "Ce PNG mesure {{width, number}} × {{height, number}} px – plus de {{max, number}} mégapixels. Aucun logo n’en a besoin : une page A4 entière à 300 dpi en compte à peine 9, et chaque document portant le logo devrait tous les charger. Réduisez l’image ou téléversez un SVG.",
+      "signed_contract_carries_it": "Un contrat signé porte cette évaluation comme reprise ; elle reste donc utilisée.",
+      "stamp_too_recent": "Cette évaluation a été marquée comme utilisée il y a moins d'une heure ; la confirmation de son contrat est peut-être encore en cours. Veuillez réessayer plus tard.",
+      "valuation_not_used": "Cette évaluation n'est pas marquée comme utilisée."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1558,7 +1561,11 @@
       "markUsedAlreadyUsed": "Déjà marquée comme utilisée.",
       "markUsedNoSignedContract": "Possible uniquement si un contrat signé contient cette évaluation comme reprise.",
       "openCustomer": "Ouvrir le client",
-      "openVehicle": "Ouvrir le véhicule"
+      "openVehicle": "Ouvrir le véhicule",
+      "revertUse": "Annuler l'utilisation",
+      "revertUseNotUsed": "Uniquement pour une évaluation marquée comme utilisée.",
+      "revertUseSignedContract": "Impossible : un contrat signé contient cette évaluation comme reprise.",
+      "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours."
     },
     "expiredBanner": {
       "title": "Évaluation expirée",
@@ -1585,6 +1592,15 @@
     "validityHelp": "Le statut est calculé à la lecture, jamais corrigé de nuit — valide jusqu’au {{validUntil}}.",
     "configuration": {
       "title": "Configuration"
+    },
+    "revertUseDialog": {
+      "title": "Annuler l'utilisation",
+      "body": "L'évaluation {{number}} est marquée comme utilisée, mais aucun contrat signé ne la justifie. Une fois l'utilisation annulée, elle est à nouveau valable ou expirée. Le motif est journalisé avec la modification.",
+      "reasonLabel": "Motif",
+      "reasonRequired": "Veuillez indiquer un motif.",
+      "submit": "Annuler l'utilisation",
+      "cancel": "Annuler",
+      "failed": "L'utilisation n'a pas pu être annulée. Veuillez réessayer."
     }
   },
   "valuationCreate": {
@@ -1680,29 +1696,6 @@
     "emptyFilteredState": {
       "title": "Aucune connexion correspondante",
       "description": "Essayez une autre recherche."
-    },
-    "healthBoard": {
-      "title": "État du parc",
-      "lastFullSeed": "Dernière synchronisation complète",
-      "providerWatermark": "Horodatage du fournisseur",
-      "status": "Statut",
-      "stale": "Obsolète",
-      "healthy": "À jour",
-      "pending": "Variantes en attente",
-      "pendingCount_one": "{{count, number}} en attente",
-      "pendingCount_other": "{{count, number}} en attente",
-      "pendingField": {
-        "master_data": "données de base",
-        "options": "options",
-        "colours": "couleurs",
-        "tyre_specs": "pneus",
-        "images": "images",
-        "not_attempted": "non tenté"
-      },
-      "emptyState": {
-        "title": "Aucune synchronisation du catalogue",
-        "description": "Aucune entreprise n'a encore synchronisé de miroir de catalogue."
-      }
     }
   },
   "integrationEnums": {

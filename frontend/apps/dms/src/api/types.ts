@@ -306,7 +306,6 @@ export type BrandingAssetRead = Schemas['BrandingAssetRead']
 export type BrandingAssetKind = Schemas['BrandingAssetKind']
 export type BrandingPlacements = Schemas['BrandingPlacements']
 export type ContrastPairRead = Schemas['ContrastPairRead']
-export type CatalogueSyncStatusRead = Schemas['CatalogueSyncStatusRead']
 
 // ============================================================================
 // RENAMED — same backend schema, different name on the frontend. Python

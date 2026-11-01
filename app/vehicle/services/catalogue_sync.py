@@ -19,8 +19,9 @@ the catalogue only through a single lookup: identification's best match
 cache, not the catalogue) or `sync_catalogue_variant` below (master data plus
 this tenant's options, colours, tyres and images; nothing calls it yet —
 KAN-211).
-`ProviderSyncState` rows written before the ruling are kept and still read by
-the platform's sync-status board; nothing writes them now.
+The bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and
+the platform's sync-status board that read it were retired by KAN-497 (Anto,
+2026-10-31, option A).
 
 Provider data a lookup stored is kept indefinitely (Anto, 2026-10-29, KAN-487:
 paid for once): there is no retention window on any of these tables.
@@ -35,7 +36,6 @@ makes as its own call-log row (KAN-486), so one lookup shows up to five rows
 (`Fahrzeuge`, `Optionen`, `OptionenFarben`, `PneuDimTS`, `Bilder`).
 """
 
-import datetime as dt
 import logging
 import re
 import uuid
@@ -61,7 +61,7 @@ from app.vehicle.models.catalogue import (
     VariantOptionEquipmentFeature,
     VariantTypeApproval,
 )
-from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.models.provider import ProviderEntityRef, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services.provider import resolve_provider_code
 
@@ -73,10 +73,6 @@ logger = logging.getLogger("app.vehicle.catalogue_sync")
 # both here is this module's own resolution step, not a flag on one
 # connection.
 VEHICLE_DATA_PROVIDER_CODES = ("auto_i_dat", "auto_i_dat_mock")
-
-# A-12's threshold, still used by the platform's sync-status board over the
-# rows written before the 2026-10-29 ruling (module docstring).
-_SYNC_AGE_ALARM_THRESHOLD_DAYS = 7
 
 _ENTITY_TYPE_MODEL_VARIANT = "model_variant"
 
@@ -158,39 +154,6 @@ def find_enabled_vehicle_data_connection(
         if connection is not None:
             return connection, provider_code
     return None
-
-
-def get_sync_state(db: Session, *, tenant_id: uuid.UUID, provider_code: str) -> ProviderSyncState | None:
-    return db.scalar(
-        select(ProviderSyncState).where(
-            ProviderSyncState.tenant_id == tenant_id, ProviderSyncState.provider_code == provider_code
-        )
-    )
-
-
-def list_all_sync_states(db: Session) -> list[ProviderSyncState]:
-    """PR-7's fleet-wide health board — every tenant, every provider,
-    platform-wide. The endpoint calling this (app/vehicle/api/
-    catalogue_sync.py) is platform_admin-gated; this function itself does
-    no tenant filtering at all, so it must never be reachable from a
-    dealer-facing route.
-    """
-
-    return list(db.scalars(select(ProviderSyncState).order_by(ProviderSyncState.tenant_id)).all())
-
-
-def compute_sync_age_alarm(sync_state: ProviderSyncState | None, *, today: dt.date) -> bool:
-    """A-12: fires strictly after 7 days, never at exactly 7 — and never
-    at all for a tenant that has no sync state yet (no contract, or never
-    synced), since "never started" is a different, PR-5-shaped concern
-    from "started and then went stale". Read by the sync-status board only;
-    since the 2026-10-29 ruling no run refreshes the watermark (module
-    docstring).
-    """
-
-    if sync_state is None or sync_state.last_system_watermark_date is None:
-        return False
-    return (today - sync_state.last_system_watermark_date).days > _SYNC_AGE_ALARM_THRESHOLD_DAYS
 
 
 def _upsert_brand(db: Session, *, display_name: str) -> Brand:

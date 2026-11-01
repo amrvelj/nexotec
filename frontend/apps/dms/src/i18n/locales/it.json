@@ -286,7 +286,10 @@
       "standard_text_not_an_override": "Solo un testo standard adattato ha un modello da verificare.",
       "standard_text_seed_language_missing": "Questo modello non esiste in questa lingua.",
       "standard_text_seed_not_shipped": "Nexotec non fornisce alcun testo per questo modello; non c'è nulla da ripristinare.",
-      "logo_too_many_pixels": "Questo PNG misura {{width, number}} × {{height, number}} px – più di {{max, number}} megapixel. Nessun logo ne ha bisogno: un’intera pagina A4 a 300 dpi ne conta appena 9, e ogni documento con il logo dovrebbe caricarli tutti. Riducete l’immagine o caricate un SVG."
+      "logo_too_many_pixels": "Questo PNG misura {{width, number}} × {{height, number}} px – più di {{max, number}} megapixel. Nessun logo ne ha bisogno: un’intera pagina A4 a 300 dpi ne conta appena 9, e ogni documento con il logo dovrebbe caricarli tutti. Riducete l’immagine o caricate un SVG.",
+      "signed_contract_carries_it": "Un contratto firmato riporta questa valutazione come permuta, quindi resta utilizzata.",
+      "stamp_too_recent": "Questa valutazione è stata contrassegnata come utilizzata meno di un'ora fa; la conferma del suo contratto potrebbe essere ancora in corso. Riprovare più tardi.",
+      "valuation_not_used": "Questa valutazione non è contrassegnata come utilizzata."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1558,7 +1561,11 @@
       "markUsedAlreadyUsed": "Già segnata come utilizzata.",
       "markUsedNoSignedContract": "Possibile solo se un contratto firmato contiene questa valutazione come permuta.",
       "openCustomer": "Apri cliente",
-      "openVehicle": "Apri veicolo"
+      "openVehicle": "Apri veicolo",
+      "revertUse": "Annulla utilizzo",
+      "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
+      "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta.",
+      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso."
     },
     "expiredBanner": {
       "title": "Valutazione scaduta",
@@ -1585,6 +1592,15 @@
     "validityHelp": "Lo stato è calcolato in lettura, mai aggiornato di notte — valida fino al {{validUntil}}.",
     "configuration": {
       "title": "Configurazione"
+    },
+    "revertUseDialog": {
+      "title": "Annulla utilizzo",
+      "body": "La valutazione {{number}} è contrassegnata come utilizzata, ma nessun contratto firmato la giustifica. Annullato l'utilizzo, torna valida o scaduta. Il motivo viene registrato con la modifica.",
+      "reasonLabel": "Motivo",
+      "reasonRequired": "Indicare un motivo.",
+      "submit": "Annulla utilizzo",
+      "cancel": "Annulla",
+      "failed": "Non è stato possibile annullare l'utilizzo. Riprovare."
     }
   },
   "valuationCreate": {
@@ -1680,29 +1696,6 @@
     "emptyFilteredState": {
       "title": "Nessuna connessione corrispondente",
       "description": "Prova una ricerca diversa."
-    },
-    "healthBoard": {
-      "title": "Stato della flotta",
-      "lastFullSeed": "Ultima sincronizzazione completa",
-      "providerWatermark": "Data del fornitore",
-      "status": "Stato",
-      "stale": "Obsoleto",
-      "healthy": "Aggiornato",
-      "pending": "Varianti in sospeso",
-      "pendingCount_one": "{{count, number}} in sospeso",
-      "pendingCount_other": "{{count, number}} in sospeso",
-      "pendingField": {
-        "master_data": "dati di base",
-        "options": "opzioni",
-        "colours": "colori",
-        "tyre_specs": "pneumatici",
-        "images": "immagini",
-        "not_attempted": "non tentato"
-      },
-      "emptyState": {
-        "title": "Nessuna sincronizzazione del catalogo",
-        "description": "Nessuna azienda ha ancora sincronizzato un mirror del catalogo."
-      }
     }
   },
   "integrationEnums": {

@@ -15,7 +15,13 @@ from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation
-from app.valuation.schemas.valuation import DeductionRead, ValuationCreate, ValuationPage, ValuationRead
+from app.valuation.schemas.valuation import (
+    DeductionRead,
+    ValuationCreate,
+    ValuationPage,
+    ValuationRead,
+    ValuationRevertUse,
+)
 from app.valuation.services import valuation as valuation_service
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -135,4 +141,27 @@ def mark_valuation_used(
     valuation = valuation_service.get_valuation_or_404(db, principal.tenant_id, valuation_id)
     check_version(valuation.version, if_match, entity_name="Valuation")
     valuation = valuation_service.mark_used_by_hand(db, valuation=valuation, actor_id=principal.user_id)
+    return _valuation_reads(db, principal.tenant_id, [valuation])[0]
+
+
+@router.post("/valuations/{valuation_id}/revert-use", response_model=ValuationRead)
+def revert_valuation_use(
+    valuation_id: uuid.UUID,
+    body: ValuationRevertUse,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("valuation_use_reversal")),
+    db: Session = Depends(get_db),
+):
+    """«Verwendung aufheben» (KAN-253, Anto 2026-10-31 option C) — the dealer
+    manager clears a «Verwendet» stamp no signed contract stands behind,
+    with a stated reason (audited). 409 `signed_contract_carries_it` while a
+    signed contract of this dealership carries it, 409 `valuation_not_used` when it is
+    not stamped.
+    """
+
+    valuation = valuation_service.get_valuation_or_404(db, principal.tenant_id, valuation_id)
+    check_version(valuation.version, if_match, entity_name="Valuation")
+    valuation = valuation_service.revert_use_by_hand(
+        db, valuation=valuation, actor_id=principal.user_id, reason=body.reason
+    )
     return _valuation_reads(db, principal.tenant_id, [valuation])[0]
