@@ -809,13 +809,15 @@ def test_the_session_user_keeps_its_pre_kan_200_shape(client, login):
     """The ticket's do-not-touch: `LoginResponse.user` (and `GET /auth/me`)
     carries the fields and the schema name it did before — the administration
     fields, the sites and the derived `hasSignatureImage` are `UserAdminRead`'s
-    alone."""
+    alone. One field joined it by Anto's ruling (KAN-401, 2026-10-30, option 2):
+    `hasPhoto`, so the sidebar's account card can show the person's own photo."""
 
     dealership = create_dealership(client)
     user = create_user(client, dealership)
     login.accept_invitation(user)
     body = login.login(user).json()["session"]["user"]
     assert set(body) == {
+        "hasPhoto",  # KAN-401 option 2 — the one field the freeze lets in
         "id",
         "dealershipId",
         "firstName",

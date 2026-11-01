@@ -28,9 +28,9 @@ describe('Vehicle detail tabs — date-only values read dd.MM.yyyy west of Green
 
   it('Plates: valid from and valid to', () => {
     const plates = [
-      { id: 'p1', plate: 'ZH 123456', canton: 'ZH', validFrom: '2021-04-01', validTo: '2024-06-30', isInterchangeable: false },
+      { id: 'p1', plate: 'ZH 123456', canton: 'ZH', validFrom: '2021-04-01', validTo: '2024-06-30', isInterchangeable: false, plateGroupId: null, version: 1 },
     ] as VehiclePlateRead[]
-    wrap(<PlatesTab plates={plates} loading={false} />)
+    wrap(<PlatesTab plates={plates} loading={false} onRecord={() => {}} onEnd={() => {}} />)
     expect(screen.getByText('01.04.2021')).toBeInTheDocument()
     expect(screen.getByText('30.06.2024')).toBeInTheDocument()
     expect(screen.queryByText('2021-04-01')).not.toBeInTheDocument()

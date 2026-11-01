@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
@@ -20,7 +20,8 @@ const USER = {
   id: 'user-1', dealershipId: 'd-1', firstName: 'Test', lastName: 'Advisor', email: 'advisor@example.ch',
   phone: null, role: 'service_advisor', accessRoles: ['sales'], isDealerManager: false, employmentStatus: 'active',
   authIdentityId: 'auth-1', status: 'active', version: 1,
-  createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', createdBy: null, updatedBy: null,
+  hasPhoto: false,
 }
 const NORD = { id: 'd-1', legalName: 'Garage Nord AG' }
 const SUED = { id: 'd-2', legalName: 'Garage Süd AG' }
@@ -36,6 +37,7 @@ function install(
   routes: FakeRoute[],
   meResponses: Array<{ memberships: typeof NORD[]; entitlements: string[] }>,
   activeDealership: typeof NORD = NORD,
+  sessionUser: typeof USER = USER,
 ) {
   // AppShell auto-collapses the sidebar below its breakpoint.
   setViewportWidth(1920)
@@ -53,7 +55,7 @@ function install(
       handler: () => {
         const response = meResponses[Math.min(meCalls, meResponses.length - 1)]
         meCalls += 1
-        return { user: USER, activeDealership, memberships: response.memberships, entitlements: response.entitlements }
+        return { user: sessionUser, activeDealership, memberships: response.memberships, entitlements: response.entitlements }
       },
     },
   ])
@@ -238,5 +240,49 @@ describe('DmsShell — a 401 from any API call ends the client session (KAN-237)
     // Give any re-render-driven refetch a chance to show up.
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(backend.callsTo(/\/auth\/me$/)).toHaveLength(1)
+  })
+})
+
+// KAN-401 (Anto, 2026-10-30, option 2) — the sidebar's account card shows the
+// person's own photo: the session record says whether there is one, and only
+// then is `/me/photo` fetched; the initial otherwise.
+describe('DmsShell — the account card shows the own photo of the user (KAN-401)', () => {
+  it('fetches /me/photo for a session user who has one and shows it in the account card', async () => {
+    const original = URL.createObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:own-photo')
+    try {
+      const backend = install(
+        'de',
+        [
+          {
+            method: 'GET',
+            match: /\/me\/photo$/,
+            handler: () => new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { headers: { 'content-type': 'image/png' } }),
+          },
+        ],
+        [{ memberships: [NORD], entitlements: ALL_ENTITLEMENTS }],
+        NORD,
+        { ...USER, hasPhoto: true, version: 3 },
+      )
+      renderWithProviders(<DmsShell>content</DmsShell>)
+
+      const photo = await screen.findByTestId('sidebar-account-photo')
+      expect(photo).toHaveAttribute('src', 'blob:own-photo')
+      expect(backend.callsTo(/\/me\/photo$/, 'GET')).toHaveLength(1)
+    } finally {
+      URL.createObjectURL = original
+    }
+  })
+
+  it('asks for no photo when the session user has none, and shows the initial', async () => {
+    const tr = i18n.getFixedT('de')
+    const backend = install('de', [], [{ memberships: [NORD], entitlements: ALL_ENTITLEMENTS }])
+    renderWithProviders(<DmsShell>content</DmsShell>)
+
+    const nav = await screen.findByRole('navigation', { name: tr('shell.sidebar.mainNavigation') })
+    const card = within(nav).getByRole('button', { name: tr('shell.sidebar.accountMenu') })
+    expect(card).toHaveTextContent('T')
+    expect(screen.queryByTestId('sidebar-account-photo')).not.toBeInTheDocument()
+    expect(backend.callsTo(/\/me\/photo$/, 'GET')).toHaveLength(0)
   })
 })

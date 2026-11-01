@@ -120,6 +120,44 @@ class VehiclePlateRead(CamelModel):
     valid_to: dt.date | None
     is_interchangeable: bool
     plate_group_id: uuid.UUID | None
+    # KAN-467: «beenden» takes If-Match on the assignment.
+    version: int
+
+
+class PlateVersionRefIn(CamelModel):
+    """KAN-467 — one other car's assignment the user answered about, at the
+    `version` the refusal showed (`details.holders[].version`): the If-Match
+    of the row the answer changes."""
+
+    plate_id: uuid.UUID
+    version: int
+
+
+class VehiclePlateCreate(CamelModel):
+    """KAN-467 — «Kontrollschild erfassen». `plate` may carry its canton
+    prefix and spaces (stored as «ZH 123456»); `canton` is one of the 26
+    and decides, with the number, which plate it is (ZH 123456 ≠ BE 123456).
+
+    When the plate is current on another car of the group the first POST is
+    refused (409 `plate_current_on_other_vehicle`, the cars in
+    `details.holders` with each assignment's `version`; past the plate-read
+    limit `details.holdersWithheld` instead); the user's answer comes back on
+    the same POST: `moveFrom` — exactly the listed assignments at their
+    versions, which end the day before `validFrom` — or `wechselschildWith`,
+    the one other car's assignment, to form a Wechselschild."""
+
+    plate: str = Field(min_length=1, max_length=16)
+    canton: str = Field(min_length=2, max_length=2)
+    valid_from: dt.date
+    valid_to: dt.date | None = None
+    move_from: list[PlateVersionRefIn] = Field(default_factory=list, max_length=2)
+    wechselschild_with: PlateVersionRefIn | None = None
+
+
+class VehiclePlateEnd(CamelModel):
+    """KAN-467 — «beenden»: the last day the plate was on the car."""
+
+    valid_to: dt.date
 
 
 class VehicleOdometerReadingRead(CamelModel):

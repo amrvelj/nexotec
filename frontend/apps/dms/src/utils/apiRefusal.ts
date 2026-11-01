@@ -146,6 +146,16 @@ const REASON_KEYS: Record<string, string> = {
       'unknown_bank_account',
       'unknown_holiday_calendar',
       'year_out_of_range',
+      // KAN-467 — recording and ending a Kontrollschild.
+      'plate_already_ended',
+      'plate_already_on_vehicle',
+      'plate_canton_invalid',
+      'plate_current_on_other_vehicle',
+      'plate_invalid',
+      'plate_move_and_wechselschild',
+      'plate_move_before_start',
+      'plate_validity_invalid',
+      'plate_wechselschild_not_possible',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

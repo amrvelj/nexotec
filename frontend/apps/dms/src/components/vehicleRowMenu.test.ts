@@ -9,6 +9,7 @@ function handlers(over: Partial<VehicleRowMenuHandlers> = {}): VehicleRowMenuHan
     onAllocate: vi.fn(),
     onRecordOdometer: vi.fn(),
     onRecordAccessory: vi.fn(),
+    onRecordPlate: vi.fn(),
     onCopyVin: vi.fn(),
     onRequestValuation: vi.fn(),
     ...over,
@@ -35,13 +36,14 @@ describe('buildVehicleRowMenu (KAN-468; FR-V-16 amended, ADR-061)', () => {
     expect(labels(menu).some((l) => /edit/i.test(l ?? ''))).toBe(false)
   })
 
-  it('the overflow carries FR-V-16 in full: allocate, odometer, accessory, valuation, merge and re-sync', () => {
+  it('the overflow carries FR-V-16 in full: allocate, odometer, accessory, plate, valuation, merge and re-sync', () => {
     const menu = buildVehicleRowMenu(t, handlers())
 
     expect((menu.overflow.edit ?? []).map((a) => a.label)).toEqual([
       'vehicleDetail.header.allocate',
       'vehicleDetail.header.recordOdometer',
       'vehicleDetail.header.recordAccessory',
+      'vehicleDetail.header.recordPlate', // KAN-467
       'vehicleDetail.header.resync',
     ])
     expect((menu.overflow.createFrom ?? []).map((a) => a.label)).toEqual(['vehicleDetail.header.requestValuation'])

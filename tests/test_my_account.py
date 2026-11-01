@@ -519,3 +519,34 @@ def test_my_photo_upload_refuses_what_is_not_an_image(client, object_store):
 
     assert response.status_code == 422, response.text
     assert response.json()["error"]["details"]["reason"] == "photo_not_an_image"
+
+
+def test_the_session_record_says_whether_the_user_has_a_photo(client, object_store):
+    """KAN-401, Anto 2026-10-30 (option 2): the session's `UserRead` — what
+    `GET /v1/auth/me` (and every login and switch) answers — carries
+    `hasPhoto`, so the sidebar's account card can show the person's own photo
+    without asking `/v1/me` first."""
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+
+    def session_user() -> dict:
+        response = client.get("/v1/auth/me", headers=_as(anna))
+        assert response.status_code == 200, response.text
+        return response.json()["user"]
+
+    assert session_user()["hasPhoto"] is False
+
+    put = client.put(
+        "/v1/me/photo",
+        content=_PNG,
+        headers={**_as(anna), "If-Match": str(anna["version"]), "Content-Type": "image/png"},
+    )
+    assert put.status_code == 200, put.text
+    with_photo = session_user()
+    assert with_photo["hasPhoto"] is True
+    assert with_photo["version"] == put.json()["version"]
+
+    removed = client.delete("/v1/me/photo", headers={**_as(anna), "If-Match": str(put.json()["version"])})
+    assert removed.status_code == 200, removed.text
+    assert session_user()["hasPhoto"] is False

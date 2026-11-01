@@ -45,17 +45,40 @@ REFUSAL_REASON = "plate_read_limit_reached"
 
 
 def read_plate_history(
-    db: Session, *, actor_id: uuid.UUID, tenant_id: uuid.UUID, vehicle_id: uuid.UUID, purpose: str
+    db: Session,
+    *,
+    actor_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    purpose: str,
 ) -> list[VehiclePlate] | None:
-    """This vehicle's plate history, or `None` when the actor is over the
-    limit. Either way the attempt is audited and committed before returning.
-    `purpose` names the caller (`plates_tab`, `search_hit`) in the audit
-    row's reason.
+    """This vehicle's plate history in the caller's group's register
+    (`group_id`, from the token — KAN-467), or `None` when the actor is over
+    the limit. Either way the attempt is audited and committed before
+    returning. `purpose` names the caller (`plates_tab`, `search_hit`) in the
+    audit row's reason.
     """
 
     if not _authorize(db, actor_id=actor_id, tenant_id=tenant_id, vehicle_id=vehicle_id, purpose=purpose):
         return None
-    return list_plates_for_vehicle(db, vehicle_id=vehicle_id)
+    return list_plates_for_vehicle(db, vehicle_id=vehicle_id, group_id=group_id)
+
+
+def may_name_plate_holders(
+    db: Session, *, actor_id: uuid.UUID, tenant_id: uuid.UUID, vehicle_ids: list[uuid.UUID], purpose: str
+) -> bool:
+    """KAN-467 — a refusal of «Kontrollschild erfassen» names the group's
+    car(s) the plate is on: a plate-to-car read like the Plates tab's. Each
+    such car is authorised, audited and counted against the actor's limit
+    exactly as a Plates-tab read of it; past the limit the refusal names
+    none. Commits its audit rows, so the caller must have rolled back its own
+    work first."""
+
+    allowed = True
+    for vehicle_id in vehicle_ids:
+        allowed = _authorize(db, actor_id=actor_id, tenant_id=tenant_id, vehicle_id=vehicle_id, purpose=purpose) and allowed
+    return allowed
 
 
 def _authorize(

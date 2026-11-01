@@ -1,4 +1,4 @@
-import { ClipboardCheck, Copy, GitMerge, Gauge, Package, RefreshCw, UserPlus } from 'lucide-react'
+import { ClipboardCheck, Copy, GitMerge, Gauge, Package, RectangleHorizontal, RefreshCw, UserPlus } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
 
 /**
@@ -19,6 +19,8 @@ export interface VehicleRowMenuHandlers {
   onAllocate: () => void
   onRecordOdometer: () => void
   onRecordAccessory: () => void
+  /** KAN-467 — «Kontrollschild erfassen» (FR-V-16's overflow). */
+  onRecordPlate: () => void
   onCopyVin: () => void
   /** Passed only when the active Betrieb holds `sales`. */
   onRequestValuation?: () => void
@@ -31,9 +33,9 @@ export interface VehicleRowMenuHandlers {
  * (`vehicleOpenState`); the detail screen runs the same handler as its
  * header, then drops the state, so a reload or Back never repeats it.
  */
-export type VehicleOpenAction = 'allocate' | 'recordOdometer' | 'recordAccessory'
+export type VehicleOpenAction = 'allocate' | 'recordOdometer' | 'recordAccessory' | 'recordPlate'
 
-const OPEN_ACTIONS: readonly VehicleOpenAction[] = ['allocate', 'recordOdometer', 'recordAccessory']
+const OPEN_ACTIONS: readonly VehicleOpenAction[] = ['allocate', 'recordOdometer', 'recordAccessory', 'recordPlate']
 
 export function vehicleOpenState(action: VehicleOpenAction): { vehicleOpenAction: VehicleOpenAction } {
   return { vehicleOpenAction: action }
@@ -69,6 +71,7 @@ export function buildVehicleRowMenu(t: T, handlers: VehicleRowMenuHandlers): Veh
     allocate,
     { label: t('vehicleDetail.header.recordOdometer'), icon: <Gauge size={16} />, onClick: handlers.onRecordOdometer },
     { label: t('vehicleDetail.header.recordAccessory'), icon: <Package size={16} />, onClick: handlers.onRecordAccessory },
+    { label: t('vehicleDetail.header.recordPlate'), icon: <RectangleHorizontal size={16} />, onClick: handlers.onRecordPlate },
     {
       // FR-V-02's re-sync of a vehicle from the catalogue is not built:
       // shown and explained, never hidden (ADR-061).

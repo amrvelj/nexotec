@@ -12,7 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
-from app.core.errors import ForbiddenError, NotFoundError
+from app.core.concurrency import require_if_match
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.customer.public import list_vehicle_party_holders
@@ -30,12 +31,15 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleOdometerReadingCreate,
     VehicleOdometerReadingRead,
     VehiclePartyAllocationRead,
+    VehiclePlateCreate,
+    VehiclePlateEnd,
     VehiclePlateRead,
 )
 from app.vehicle.services import catalogue_entitlements
+from app.vehicle.services import plate as plate_service
 from app.vehicle.services import vehicle_history as history_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
-from app.vehicle.services.plate_read_guard import REFUSAL_REASON, read_plate_history
+from app.vehicle.services.plate_read_guard import REFUSAL_REASON, may_name_plate_holders, read_plate_history
 
 router = APIRouter(tags=["vehicle-mdm-detail"], route_class=IdempotentRoute)
 
@@ -53,7 +57,12 @@ def list_plates(
 
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     rows = read_plate_history(
-        db, actor_id=principal.user_id, tenant_id=principal.tenant_id, vehicle_id=vehicle_id, purpose="plates_tab"
+        db,
+        actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+        group_id=principal.group_id,
+        vehicle_id=vehicle_id,
+        purpose="plates_tab",
     )
     if rows is None:
         raise ForbiddenError(
@@ -61,6 +70,97 @@ def list_plates(
             details={"reason": REFUSAL_REASON},
         )
     return [VehiclePlateRead.model_validate(r, from_attributes=True) for r in rows]
+
+
+@router.post("/vehicle-mdm/{vehicle_id}/plates", response_model=VehiclePlateRead, status_code=201)
+def record_plate(
+    vehicle_id: uuid.UUID,
+    body: VehiclePlateCreate,
+    principal: Principal = Depends(require_write("vehicle_mdm")),
+    db: Session = Depends(get_db),
+):
+    """KAN-467 — «Kontrollschild erfassen», in the caller's group's register
+    (ADR-039 as amended). 409 `plate_current_on_other_vehicle` names the
+    group's car(s) the plate is on — a plate read, audited and limited
+    (ADR-085); the same POST with `moveFrom` or `wechselschildWith` (each
+    other assignment at the version the refusal showed) is the user's
+    confirmation. Audited without
+    the plate value; an `Idempotency-Key` makes a retry answer the first
+    recording."""
+
+    vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
+    try:
+        row = plate_service.record_plate(
+            db,
+            vehicle_id=vehicle_id,
+            group_id=principal.group_id,
+            recording_tenant_id=principal.tenant_id,
+            actor_id=principal.user_id,
+            plate=body.plate,
+            canton=body.canton,
+            valid_from=body.valid_from,
+            valid_to=body.valid_to,
+            move_from=[plate_service.PlateVersionRef(r.plate_id, r.version) for r in body.move_from],
+            wechselschild_with=(
+                plate_service.PlateVersionRef(body.wechselschild_with.plate_id, body.wechselschild_with.version)
+                if body.wechselschild_with is not None
+                else None
+            ),
+        )
+    except ConflictError as exc:
+        _guard_named_holders(db, exc, principal)
+        raise
+    db.commit()
+    db.refresh(row)
+    return VehiclePlateRead.model_validate(row, from_attributes=True)
+
+
+def _guard_named_holders(db: Session, exc: ConflictError, principal: Principal) -> None:
+    """A refusal that names the group's other car(s) is a plate-to-car read:
+    authorised, audited and limited through the plate-read guard (ADR-085,
+    KAN-231) like the Plates tab. Past the limit the refusal names no car
+    (`holdersWithheld`). Whatever the refused recording had changed is
+    rolled back first — the guard commits its audit rows."""
+
+    details = exc.details or {}
+    holders = details.get("holders")
+    if not holders:
+        return
+    db.rollback()
+    allowed = may_name_plate_holders(
+        db,
+        actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+        vehicle_ids=[uuid.UUID(holder["vehicleId"]) for holder in holders],
+        purpose="plate_recording_refused",
+    )
+    if not allowed:
+        exc.details = {key: value for key, value in details.items() if key != "holders"} | {"holdersWithheld": True}
+
+
+@router.post("/vehicle-mdm/{vehicle_id}/plates/{plate_id}/end", response_model=VehiclePlateRead)
+def end_plate(
+    vehicle_id: uuid.UUID,
+    plate_id: uuid.UUID,
+    body: VehiclePlateEnd,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("vehicle_mdm")),
+    db: Session = Depends(get_db),
+):
+    """KAN-467 — «beenden»: sets `validTo`; the row is never deleted. 404 for
+    an assignment of another group's register."""
+
+    vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
+    row = plate_service.get_vehicle_plate_or_404(
+        db, vehicle_id=vehicle_id, plate_id=plate_id, group_id=principal.group_id
+    )
+    plate_service.end_plate(
+        db, row=row, valid_to=body.valid_to, expected_version=if_match, actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return VehiclePlateRead.model_validate(row, from_attributes=True)
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/catalogue-specification", response_model=CatalogueSpecificationRead)

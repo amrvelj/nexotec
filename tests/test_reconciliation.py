@@ -47,6 +47,7 @@ from app.valuation.services.valuation import create_valuation
 from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.catalogue import Brand
 from app.vehicle.models.configuration import ConfigurationMatchMethod, ConfigurationMode, ConfigurationSource
+from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services.configuration import create_configuration
@@ -332,6 +333,51 @@ def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, d
 
     assert exc_info.value.run.orphans_found == 1
     assert exc_info.value.orphans[0].check_label == "vehicle_custody_event.partner_id -> dealership.id"
+
+
+def _plate_in_the_register(db_session, dealer_id: str):
+    """KAN-467: a plate recorded through the register's own service, in the
+    group of the Betrieb that recorded it."""
+
+    from app.vehicle.services.plate import record_plate
+    from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+
+    dealership = db_session.get(Dealership, uuid.UUID(dealer_id))
+    car = create_vehicle_mdm(db_session, vin=_random_vin(), catalogue_variant_id=None)
+    row = record_plate(
+        db_session, vehicle_id=car.id, group_id=dealership.dealer_group_id, recording_tenant_id=dealership.id,
+        actor_id=None, plate="ZH 123456", canton="ZH", valid_from=dt.date(2024, 1, 1),
+    )
+    db_session.commit()
+    return row
+
+
+def test_vehicle_reconciliation_accepts_a_plate_in_its_recording_betriebs_group(client, db_session):
+    _plate_in_the_register(db_session, _create_dealer(client))
+    db_session.expire_all()
+
+    run = vehicle_reconciliation.run(db_session)
+
+    assert run.orphans_found == 0
+
+
+def test_vehicle_reconciliation_reports_a_plate_in_a_group_that_does_not_exist(client, db_session):
+    """KAN-467 (rule 10): the register a plate is kept in is a dealer group;
+    a group_id naming none is an orphan, and a group other than the recording
+    Betrieb's names the wrong register."""
+
+    row = _plate_in_the_register(db_session, _create_dealer(client))
+    db_session.execute(update(VehiclePlate).where(VehiclePlate.id == row.id).values(group_id=uuid.uuid4()))
+    db_session.commit()
+    db_session.expire_all()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        vehicle_reconciliation.run(db_session)
+
+    assert sorted(orphan.check_label for orphan in exc_info.value.orphans) == [
+        "vehicle_plate kept in a group that is not its recording Betrieb's",
+        "vehicle_plate.group_id -> dealer_group.id",
+    ]
 
 
 def test_sales_reconciliation_detects_orphaned_customer_id(client, db_session):

@@ -65,7 +65,9 @@ export interface SidebarProps {
   activeHref: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  user?: { name: string; email: string; role?: string };
+  /** `photoUrl` (KAN-401): the person's own photo, already loaded by the
+   *  app (an object URL — the kit fetches nothing); the initial otherwise. */
+  user?: { name: string; email: string; role?: string; photoUrl?: string | null };
   uiLanguage: UiLanguage;
   onLanguageChange: (language: UiLanguage) => void;
   onSignOut: () => void;
@@ -367,9 +369,19 @@ export function Sidebar({
                     fontSize: 12,
                     fontWeight: 600,
                     flexShrink: 0,
+                    overflow: "hidden",
                   }}
                 >
-                  {user.name.slice(0, 1).toUpperCase()}
+                  {user.photoUrl ? (
+                    <img
+                      src={user.photoUrl}
+                      alt=""
+                      data-testid="sidebar-account-photo"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    user.name.slice(0, 1).toUpperCase()
+                  )}
                 </div>
                 {!collapsed && (
                   <div style={{ overflow: "hidden" }}>

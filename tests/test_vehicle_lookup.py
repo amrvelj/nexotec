@@ -5,12 +5,12 @@ import uuid
 
 from app.core.auth import create_access_token
 from app.vehicle.services.lookup import resolve_shared_identity
-from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.plate_support import seed_plate
 
 TENANT_ID = uuid.uuid4()
 # KAN-279: the plate in the answer is a plate read, attributed to the caller.
-CALLER = {"actor_id": uuid.uuid4(), "tenant_id": uuid.uuid4()}
+CALLER = {"actor_id": uuid.uuid4(), "tenant_id": uuid.uuid4(), "group_id": uuid.uuid4()}
 
 
 def test_resolve_by_vin(db_session):
@@ -21,9 +21,9 @@ def test_resolve_by_vin(db_session):
 
 def test_resolve_by_plate_includes_current_plate(db_session):
     vehicle = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
-    record_plate_assignment(
-        db_session, vehicle_id=vehicle.id, plate="ZH 284611", canton="ZH", valid_from=dt.date(2026, 1, 1),
-        valid_to=None, is_interchangeable=False, plate_group_id=None, recording_tenant_id=TENANT_ID,
+    seed_plate(
+        db_session, vehicle_id=vehicle.id, group_id=CALLER["group_id"], plate="ZH 284611",
+        valid_from=dt.date(2026, 1, 1), recording_tenant_id=TENANT_ID,
     )
     result = resolve_shared_identity(db_session, **CALLER, plate="ZH 284611", canton="ZH")
     assert result is not None

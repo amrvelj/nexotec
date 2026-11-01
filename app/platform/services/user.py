@@ -960,7 +960,7 @@ def user_reads(
             UserAdminRead.model_validate(user, from_attributes=True).model_copy(
                 update={
                     "has_signature_image": user.signature_image_ref is not None,
-                    "has_photo": user.photo_ref is not None,
+                    "has_photo": user.has_photo,
                     "invitation_expires_at": expiries.get(user.id),
                     "primary_location_id": primary,
                     "additional_location_ids": additional,

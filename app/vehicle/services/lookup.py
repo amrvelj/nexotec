@@ -19,11 +19,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
 from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.lookup import SharedVehicleIdentity
+from app.vehicle.services import plate as plate_service
 from app.vehicle.services.plate import resolve_plate
 from app.vehicle.services.plate_read_guard import read_plate_history
 
@@ -35,6 +35,7 @@ def resolve_shared_identity(
     *,
     actor_id: uuid.UUID,
     tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
     vin: str | None = None,
     stammnummer: str | None = None,
     vehicle_number: str | None = None,
@@ -42,7 +43,9 @@ def resolve_shared_identity(
     canton: str | None = None,
 ) -> SharedVehicleIdentity | None:
     """`actor_id`/`tenant_id` are the caller's, from the token: the plate
-    read is attributed and limited per user (KAN-279)."""
+    read is attributed and limited per user (KAN-279). A plate resolves,
+    and the answer's current plate is read, in the caller's group's register
+    only (`group_id`, KAN-467)."""
 
     vehicle: VehicleMdm | None = None
 
@@ -58,7 +61,7 @@ def resolve_shared_identity(
     elif vehicle_number:
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vehicle_number == vehicle_number))
     elif plate and canton:
-        rows = resolve_plate(db, plate=plate, canton=canton)
+        rows = resolve_plate(db, group_id=group_id, plate=plate, canton=canton)
         candidate_ids = {row.vehicle_id for row in rows}
         if len(candidate_ids) == 1:
             vehicle = db.get(VehicleMdm, next(iter(candidate_ids)))
@@ -66,7 +69,7 @@ def resolve_shared_identity(
     if vehicle is None:
         return None
 
-    return _to_shared_identity(db, vehicle, actor_id=actor_id, tenant_id=tenant_id)
+    return _to_shared_identity(db, vehicle, actor_id=actor_id, tenant_id=tenant_id, group_id=group_id)
 
 
 def _plate_valid_on(plates: list[VehiclePlate], day: dt.date) -> str | None:
@@ -80,7 +83,7 @@ def _plate_valid_on(plates: list[VehiclePlate], day: dt.date) -> str | None:
 
 
 def _to_shared_identity(
-    db: Session, vehicle: VehicleMdm, *, actor_id: uuid.UUID, tenant_id: uuid.UUID
+    db: Session, vehicle: VehicleMdm, *, actor_id: uuid.UUID, tenant_id: uuid.UUID, group_id: uuid.UUID
 ) -> SharedVehicleIdentity:
     # Every other field is read before the guard runs: it commits (its audit
     # row must survive whatever follows), which expires `vehicle`.
@@ -97,8 +100,13 @@ def _to_shared_identity(
         vehicle_status=vehicle.vehicle_status.value,
     )
     plates = read_plate_history(
-        db, actor_id=actor_id, tenant_id=tenant_id, vehicle_id=vehicle.id, purpose=PLATE_READ_PURPOSE
+        db,
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        group_id=group_id,
+        vehicle_id=vehicle.id,
+        purpose=PLATE_READ_PURPOSE,
     )
     if plates is not None:
-        identity.current_plate = _plate_valid_on(plates, utcnow().date())
+        identity.current_plate = _plate_valid_on(plates, plate_service.swiss_today())
     return identity

@@ -3976,7 +3976,39 @@ export interface paths {
          */
         get: operations["list_plates_v1_vehicle_mdm__vehicle_id__plates_get"];
         put?: never;
-        post?: never;
+        /**
+         * Record Plate
+         * @description KAN-467 — «Kontrollschild erfassen», in the caller's group's register
+         *     (ADR-039 as amended). 409 `plate_current_on_other_vehicle` names the
+         *     group's car(s) the plate is on — a plate read, audited and limited
+         *     (ADR-085); the same POST with `moveFrom` or `wechselschildWith` (each
+         *     other assignment at the version the refusal showed) is the user's
+         *     confirmation. Audited without
+         *     the plate value; an `Idempotency-Key` makes a retry answer the first
+         *     recording.
+         */
+        post: operations["record_plate_v1_vehicle_mdm__vehicle_id__plates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vehicle-mdm/{vehicle_id}/plates/{plate_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Plate
+         * @description KAN-467 — «beenden»: sets `validTo`; the row is never deleted. 404 for
+         *     an assignment of another group's register.
+         */
+        post: operations["end_plate_v1_vehicle_mdm__vehicle_id__plates__plate_id__end_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8647,6 +8679,21 @@ export interface components {
             vehicleKindCode: string;
         };
         /**
+         * PlateVersionRefIn
+         * @description KAN-467 — one other car's assignment the user answered about, at the
+         *     `version` the refusal showed (`details.holders[].version`): the If-Match
+         *     of the row the answer changes.
+         */
+        PlateVersionRefIn: {
+            /**
+             * Plateid
+             * Format: uuid
+             */
+            plateId: string;
+            /** Version */
+            version: number;
+        };
+        /**
          * PreferredChannel
          * @description How the customer wants to be reached. Sole contact-preference field
          *     since Phase B — the old `preferred_contact_method` (email/phone/sms)
@@ -10255,6 +10302,11 @@ export interface components {
          *     (`hasSignatureImage`, the sites, the invitation expiry) are
          *     `UserAdminRead`'s, read through `user_read`; a plain `model_validate` of
          *     the row cannot fill them, so the session never pretends to.
+         *
+         *     One field joined it since: `has_photo` (KAN-401, Anto 2026-10-30, option 2
+         *     — the sidebar's account card shows the person's own photo without an
+         *     extra request). It is the row's own `User.has_photo`, so `model_validate`
+         *     fills it; the photo itself stays `GET /v1/me/photo`.
          */
         UserRead: {
             /** Accessroles */
@@ -10278,6 +10330,8 @@ export interface components {
             employmentStatus: components["schemas"]["EmploymentStatus"];
             /** Firstname */
             firstName: string;
+            /** Hasphoto */
+            hasPhoto: boolean;
             /**
              * Id
              * Format: uuid
@@ -10888,6 +10942,47 @@ export interface components {
             /** Vin */
             vin: string;
         };
+        /**
+         * VehiclePlateCreate
+         * @description KAN-467 — «Kontrollschild erfassen». `plate` may carry its canton
+         *     prefix and spaces (stored as «ZH 123456»); `canton` is one of the 26
+         *     and decides, with the number, which plate it is (ZH 123456 ≠ BE 123456).
+         *
+         *     When the plate is current on another car of the group the first POST is
+         *     refused (409 `plate_current_on_other_vehicle`, the cars in
+         *     `details.holders` with each assignment's `version`; past the plate-read
+         *     limit `details.holdersWithheld` instead); the user's answer comes back on
+         *     the same POST: `moveFrom` — exactly the listed assignments at their
+         *     versions, which end the day before `validFrom` — or `wechselschildWith`,
+         *     the one other car's assignment, to form a Wechselschild.
+         */
+        VehiclePlateCreate: {
+            /** Canton */
+            canton: string;
+            /** Movefrom */
+            moveFrom?: components["schemas"]["PlateVersionRefIn"][];
+            /** Plate */
+            plate: string;
+            /**
+             * Validfrom
+             * Format: date
+             */
+            validFrom: string;
+            /** Validto */
+            validTo?: string | null;
+            wechselschildWith?: components["schemas"]["PlateVersionRefIn"] | null;
+        };
+        /**
+         * VehiclePlateEnd
+         * @description KAN-467 — «beenden»: the last day the plate was on the car.
+         */
+        VehiclePlateEnd: {
+            /**
+             * Validto
+             * Format: date
+             */
+            validTo: string;
+        };
         /** VehiclePlateRead */
         VehiclePlateRead: {
             /** Canton */
@@ -10910,6 +11005,8 @@ export interface components {
             validFrom: string;
             /** Validto */
             validTo: string | null;
+            /** Version */
+            version: number;
         };
         /**
          * VehicleRead
@@ -21765,6 +21862,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehiclePlateRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_plate_v1_vehicle_mdm__vehicle_id__plates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehiclePlateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehiclePlateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_plate_v1_vehicle_mdm__vehicle_id__plates__plate_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+                plate_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehiclePlateEnd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehiclePlateRead"];
                 };
             };
             /** @description Validation Error */

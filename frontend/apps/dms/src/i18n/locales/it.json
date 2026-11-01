@@ -289,7 +289,16 @@
       "logo_too_many_pixels": "Questo PNG misura {{width, number}} × {{height, number}} px – più di {{max, number}} megapixel. Nessun logo ne ha bisogno: un’intera pagina A4 a 300 dpi ne conta appena 9, e ogni documento con il logo dovrebbe caricarli tutti. Riducete l’immagine o caricate un SVG.",
       "signed_contract_carries_it": "Un contratto firmato riporta questa valutazione come permuta, quindi resta utilizzata.",
       "stamp_too_recent": "Questa valutazione è stata contrassegnata come utilizzata meno di un'ora fa; la conferma del suo contratto potrebbe essere ancora in corso. Riprovare più tardi.",
-      "valuation_not_used": "Questa valutazione non è contrassegnata come utilizzata."
+      "valuation_not_used": "Questa valutazione non è contrassegnata come utilizzata.",
+      "plate_already_ended": "Questa assegnazione è già terminata.",
+      "plate_already_on_vehicle": "Questa targa è già registrata su questo veicolo per questo periodo.",
+      "plate_canton_invalid": "Scegliere uno dei 26 cantoni.",
+      "plate_current_on_other_vehicle": "Questa targa è registrata su un altro veicolo.",
+      "plate_invalid": "Una targa è composta dal cantone e da una a sei cifre, ad es. ZH 123456.",
+      "plate_move_and_wechselschild": "Una targa viene spostata oppure registrata come targa trasferibile, non entrambe le cose.",
+      "plate_move_before_start": "L'assegnazione sull'altro veicolo inizia lo stesso giorno o più tardi – scegliere una data «Valida dal» successiva.",
+      "plate_validity_invalid": "Un'assegnazione non può terminare prima di iniziare.",
+      "plate_wechselschild_not_possible": "Una targa trasferibile collega esattamente due veicoli – questa targa è già su due veicoli."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -917,7 +926,8 @@
       "recordOdometer": "Registra il chilometraggio",
       "recordAccessory": "Registra un accessorio",
       "resync": "Aggiorna dal catalogo",
-      "resyncDisabledReason": "Non ancora disponibile"
+      "resyncDisabledReason": "Non ancora disponibile",
+      "recordPlate": "Registrare una targa"
     },
     "errors": {
       "somethingWentWrong": "Qualcosa è andato storto."
@@ -964,7 +974,19 @@
       "none": "Nessuna targa registrata",
       "wechselschild": "Targa interscambiabile",
       "limitReached": "Ha consultato le targhe di molti veicoli in poco tempo. Riprovi più tardi.",
-      "withheld": "Targa nascosta – limite raggiunto"
+      "withheld": "Targa nascosta – limite raggiunto",
+      "number": "Numero",
+      "recordTitle": "Registrare una targa",
+      "recordSubmit": "Registrare",
+      "moveConfirm": "Spostare su questo veicolo",
+      "onOtherVehicleTitle": "Targa su un altro veicolo",
+      "onOtherVehicle": "{{plate}} è registrata su {{vehicle}} (VIN {{vin}}) dal {{since}}.",
+      "moveQuestion": "Lo spostamento termina l'assegnazione sull'altro veicolo il giorno prima. Resta visibile nel suo storico.",
+      "formWechselschild": "Registrare invece come targa trasferibile",
+      "saveError": "Non è stato possibile salvare la targa.",
+      "endTitle": "Terminare {{plate}}",
+      "end": "Terminare",
+      "endsOn": "Ultimo giorno su questo veicolo"
     },
     "odometer": {
       "value": "Lettura",

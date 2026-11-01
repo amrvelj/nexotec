@@ -6,8 +6,8 @@ import datetime as dt
 import uuid
 
 from app.vehicle.services.matching import match_vehicle
-from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.plate_support import seed_plate
 
 TENANT_ID = uuid.uuid4()
 
@@ -31,11 +31,9 @@ def test_stammnummer_exact_is_decisive(db_session):
 
 def test_plate_match_is_probable_and_requires_confirmation(db_session):
     vehicle = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
-    record_plate_assignment(
-        db_session, vehicle_id=vehicle.id, plate="ZH 284611", canton="ZH", valid_from=dt.date(2026, 1, 1),
-        valid_to=None, is_interchangeable=False, plate_group_id=None, recording_tenant_id=TENANT_ID,
-    )
-    result = match_vehicle(db_session, plate="ZH 284611", canton="ZH")
+    group = uuid.uuid4()
+    seed_plate(db_session, vehicle_id=vehicle.id, group_id=group, plate="ZH 284611", valid_from=dt.date(2026, 1, 1))
+    result = match_vehicle(db_session, plate="ZH 284611", canton="ZH", group_id=group)
     assert result.rung == "plate"
     assert result.decisive is False
     assert result.requires_confirmation is True

@@ -3,6 +3,7 @@ import { Alert, Button, Card, FileInput, Group, Stack, Text } from '@mantine/cor
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
 import type { MeRead } from '../../api/types'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import { ME_KEY } from '../../pages/account/accountKeys'
@@ -20,6 +21,7 @@ export function AccountPhotoCard({ me, onWritten }: { me: MeRead; onWritten: (da
   const { t } = useTranslation()
   const hint = useFieldHint()
   const queryClient = useQueryClient()
+  const { refresh } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const done = (data: MeRead) => {
@@ -27,6 +29,9 @@ export function AccountPhotoCard({ me, onWritten }: { me: MeRead; onWritten: (da
     onWritten(data)
     setError(null)
     setFile(null)
+    // The session record carries `hasPhoto` and the version (KAN-401): re-read
+    // it, so the sidebar's account card shows the new photo at once.
+    void refresh().catch(() => undefined)
   }
   const fail = (err: unknown) => setError(apiRefusalText(t, err, 'account.photo.failed'))
   const upload = useMutation({

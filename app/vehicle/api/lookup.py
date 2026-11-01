@@ -33,6 +33,7 @@ def lookup_shared_identity(
         db,
         actor_id=principal.user_id,
         tenant_id=principal.tenant_id,
+        group_id=principal.group_id,
         vin=vin, stammnummer=stammnummer, vehicle_number=vehicle_number, plate=plate, canton=canton
     )
     if result is None:

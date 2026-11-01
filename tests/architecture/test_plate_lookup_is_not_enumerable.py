@@ -30,6 +30,14 @@ _NOT_PLATE_LOOKUP_FUNCTIONS = {
     "current_dealer_plate_assignment",
     "assign_dealer_plate",
     "list_plates_for_vehicle",
+    # KAN-467: one assignment by its own id, of a known vehicle, in the
+    # caller's group — the Plates tab's «beenden» target, never a search.
+    "get_vehicle_plate_or_404",
+    # KAN-467: operates on the already-loaded row («beenden»).
+    "end_plate",
+    # KAN-467: the Swiss calendar day a plate is "current" on — a clock,
+    # it reads no row at all.
+    "swiss_today",
 }
 
 
@@ -40,7 +48,9 @@ def test_every_plate_query_function_requires_an_exact_identifier():
         if name.startswith("_") or name in _NOT_PLATE_LOOKUP_FUNCTIONS:
             continue
         params = inspect.signature(func).parameters
-        if name == "record_plate_assignment":
+        if name in {"record_plate", "normalise_kontrollschild"}:
+            # The writer (KAN-467) and the one-spelling rule: each takes the
+            # exact plate + canton it writes or spells; neither reads a list.
             assert "plate" in params and "canton" in params
             continue
         # Every remaining public function (today: resolve_plate) must take

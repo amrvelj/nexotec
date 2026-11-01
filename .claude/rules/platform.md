@@ -465,7 +465,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   and kept where already held — KAN-204). The Users
   screen is `/administration/users` (one shared invite/edit dialog, the deactivation dialog;
   server-side sort; no delete). `LoginResponse.user` and `GET /auth/me` keep their pre-KAN-200
-  shape and schema name (`UserRead`); the administration fields are `UserAdminRead`'s alone.
+  shape and schema name (`UserRead`) plus `hasPhoto` (KAN-401); the administration fields are
+  `UserAdminRead`'s alone.
 - **Mail (D-A-28):** platform mail (invites, resets, alerts) is always Nexotec's own sender;
   customer-facing mail resolves per document type through `sending_policy` to
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
@@ -539,9 +540,12 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   …/users/{id}/photo` (the manager) and `/v1/me/photo` (the user, My account › Profile), the
   image as the raw body (PNG or JPEG ≤ 5 MiB, judged by its bytes; refusals carry
   `photo_not_an_image` / `photo_too_large`), stored under `dealerships/<id>/users/<id>/photo`;
-  the row holds the key (`user.photo_ref`), `hasPhoto` is on `UserAdminRead` and `MeRead` (never
-  on the session's `UserRead`). The Users grid shows it beside the name (`UserAvatar`, fetched
-  only for a row that has one, initials otherwise).
+  the row holds the key (`user.photo_ref`), `hasPhoto` (the row's `User.has_photo`) is on
+  `UserAdminRead`, `MeRead` and — Anto, 2026-10-30, option 2 — the session's `UserRead`, the one
+  field added to KAN-200's frozen shape. The Users grid shows it beside the name (`UserAvatar`,
+  fetched only for a row that has one, initials otherwise), and the sidebar's account card shows
+  the user's own (`DmsShell` fetches `/me/photo` only while the session says there is one; My
+  account re-reads the session after a photo write).
 - **Branding (KAN-205; PRD Logo and brand assets):** `/administration/branding` («Logo und
   Farben»; capability `branding`: any role reads, the manager writes). `branding_asset` holds one
   row per variant (`primary` · `mono_dark` · `favicon`; a variant without its own file falls back to

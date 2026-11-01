@@ -248,6 +248,7 @@ export function VehiclesListPage() {
             onAllocate: () => openAt('allocate'),
             onRecordOdometer: () => openAt('recordOdometer'),
             onRecordAccessory: () => openAt('recordAccessory'),
+            onRecordPlate: () => openAt('recordPlate'),
             onCopyVin: () => void navigator.clipboard.writeText(row.vin),
             onRequestValuation: salesEntitled ? () => navigate(`/valuations/new?vehicle=${row.id}`) : undefined,
           })
