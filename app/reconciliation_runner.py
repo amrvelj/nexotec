@@ -105,7 +105,8 @@ def run_all_daily(db: Session) -> None:
 
     A run that alarms on nothing but also ran zero checks is treated as
     not-clean and logged at ERROR: a green signal with nothing behind it
-    is the exact failure mode the WP-6 sync-age alarm exists to make loud.
+    is the exact failure mode the WP-6 sync-age alarm (retired with the full
+    catalogue download, KAN-497) was built to make loud.
     """
 
     try:

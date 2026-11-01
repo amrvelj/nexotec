@@ -2,6 +2,11 @@ import { Car, CheckCircle, RefreshCw, Undo2, User } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { ValuationRead } from '../api/types'
 
+/** KAN-253 — the server's `CONFIRMATION_GRACE`: a stamp younger than this may
+ * be a confirmation still signing its contract, so it is not cleared (409
+ * `stamp_too_recent`); the menu says so before the click. */
+const CONFIRMATION_GRACE_MS = 60 * 60 * 1000
+
 export interface ValuationRowMenuActions {
   onRevalue: () => void
   onMarkUsed: () => void
@@ -40,8 +45,10 @@ export interface ValuationRowMenu {
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
-  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract'>,
-  actions: ValuationRowMenuActions
+  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract'> &
+    Partial<Pick<ValuationRead, 'usedAt'>>,
+  actions: ValuationRowMenuActions,
+  now: number = Date.now()
 ): ValuationRowMenu {
   const markUsedDisabledReason =
     valuation.status === 'used'
@@ -54,7 +61,9 @@ export function buildValuationRowMenu(
       ? t('valuationDetail.actions.revertUseNotUsed')
       : valuation.hasSignedContract
         ? t('valuationDetail.actions.revertUseSignedContract')
-        : undefined
+        : valuation.usedAt && now - Date.parse(valuation.usedAt) < CONFIRMATION_GRACE_MS
+          ? t('valuationDetail.actions.revertUseTooRecent')
+          : undefined
 
   const overflow: RowMenuGroups = {
     navigate: [

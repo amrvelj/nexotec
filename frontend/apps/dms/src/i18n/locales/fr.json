@@ -287,9 +287,9 @@
       "standard_text_seed_language_missing": "Ce modèle n'existe pas dans cette langue.",
       "standard_text_seed_not_shipped": "Nexotec ne livre aucun texte pour ce modèle ; il n'y a rien à rétablir.",
       "logo_too_many_pixels": "Ce PNG mesure {{width, number}} × {{height, number}} px – plus de {{max, number}} mégapixels. Aucun logo n’en a besoin : une page A4 entière à 300 dpi en compte à peine 9, et chaque document portant le logo devrait tous les charger. Réduisez l’image ou téléversez un SVG.",
-      "not_used": "Cette évaluation n'est pas marquée comme utilisée.",
       "signed_contract_carries_it": "Un contrat signé porte cette évaluation comme reprise ; elle reste donc utilisée.",
-      "stamp_too_recent": "Cette évaluation a été marquée comme utilisée il y a moins d'une heure ; la confirmation de son contrat est peut-être encore en cours. Veuillez réessayer plus tard."
+      "stamp_too_recent": "Cette évaluation a été marquée comme utilisée il y a moins d'une heure ; la confirmation de son contrat est peut-être encore en cours. Veuillez réessayer plus tard.",
+      "valuation_not_used": "Cette évaluation n'est pas marquée comme utilisée."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1564,7 +1564,8 @@
       "openVehicle": "Ouvrir le véhicule",
       "revertUse": "Annuler l'utilisation",
       "revertUseNotUsed": "Uniquement pour une évaluation marquée comme utilisée.",
-      "revertUseSignedContract": "Impossible : un contrat signé contient cette évaluation comme reprise."
+      "revertUseSignedContract": "Impossible : un contrat signé contient cette évaluation comme reprise.",
+      "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours."
     },
     "expiredBanner": {
       "title": "Évaluation expirée",

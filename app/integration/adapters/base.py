@@ -263,7 +263,8 @@ class SystemWatermark:
     """`System` — the current model year plus the provider's own last
     update date. PR-4's sync-age alarm (A-12) compared `update_date`
     against wall-clock time; it was retired with the full catalogue
-    download (KAN-485, KAN-497), and nothing reads this today.
+    download (KAN-485, KAN-497). The gateway's Test-connection probe still
+    calls `get_system_watermark()` to prove the account answers.
     """
 
     current_model_year: int

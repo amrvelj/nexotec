@@ -347,10 +347,11 @@ def mark_used_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID 
 
 
 def revert_use(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> Valuation:
-    """The compensating action for `consume_for_contract` (ADR-047) — only
-    for a confirmation whose own transaction failed, so no contract ever
-    consumed the valuation. Never a way to re-open a used valuation once a
-    contract has been signed on it (ADR-066); the caller decides that.
+    """Clears the stamp. Two callers: the compensating action for
+    `consume_for_contract` (ADR-047), for a confirmation whose own
+    transaction failed, and «Verwendung aufheben» (`revert_use_by_hand`,
+    KAN-253). Never a way to re-open a used valuation once a contract has
+    been signed on it (ADR-066); the caller decides that.
     """
 
     if valuation.used_at is None:
@@ -387,13 +388,23 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
     Refused while a signed contract of this dealership (cancelled included)
     carries the valuation — a signed deal used it, and it stays used
     (ADR-066, KAN-115) — with `details.reason == "signed_contract_carries_it"`;
-    and refused for a valuation that is not stamped (`"not_used"`). A
+    and refused for a valuation that is not stamped (`"valuation_not_used"`). A
     pending contract does not count: it never used the valuation, and its
     confirmation stamps it again. A stamp younger than `CONFIRMATION_GRACE`
     is refused too (`"stamp_too_recent"`): its confirmation may still be
     signing the contract, and the lock here holds only the valuation row, not
     the contract (another context's) — so the action clears what the nightly
-    check reports, and nothing younger. The reason is mandatory and is kept on the
+    check reports, and nothing younger.
+
+    **A window left open (KAN-520):** a stamp already older than the grace
+    whose PENDING contract is being confirmed again at the same moment. That
+    confirmation finds the stamp set, writes nothing and releases the
+    valuation's lock before it signs, so a clear landing in between passes
+    every check and the contract signs on an unstamped valuation. The nightly
+    `sales/reconciliation.py` check («signed contract whose trade-in valuation
+    is not used») reports it and «Als verwendet markieren» repairs it.
+    Closing it needs a read of Sales' pending contracts under their lock — a
+    boundary decision for Anto. The reason is mandatory and is kept on the
     audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
     the clear itself is `revert_use`'s, so `valuation.valuation.use_reverted`
     is published as for the compensation. One commit.
@@ -406,7 +417,7 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
         db.rollback()
         raise ConflictError(
             f"Valuation {valuation.valuation_number} is not marked used.",
-            details={"reason": "not_used", "valuationId": str(valuation.id)},
+            details={"reason": "valuation_not_used", "valuationId": str(valuation.id)},
         )
     carried = valuations_carried_by_signed_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     if valuation.id in carried:

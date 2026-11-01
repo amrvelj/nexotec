@@ -17,7 +17,7 @@ import { ValuationDetailPage } from './ValuationDetailPage'
 const USED = {
   id: 'val-1', valuationNumber: 'B-000007', status: 'used', source: 'manual', hasSignedContract: false,
   customerId: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null, vehicleVin: null,
-  finalOffer: '12000.00', deductions: [], version: 4, validFrom: '2026-10-01', validUntil: '2026-12-31',
+  usedAt: '2026-09-01T08:00:00Z', finalOffer: '12000.00', deductions: [], version: 4, validFrom: '2026-10-01', validUntil: '2026-12-31',
   vehicleFirstRegistration: null, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
 } as unknown as ValuationRead
 

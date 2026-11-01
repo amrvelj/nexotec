@@ -287,9 +287,9 @@
       "standard_text_seed_language_missing": "Questo modello non esiste in questa lingua.",
       "standard_text_seed_not_shipped": "Nexotec non fornisce alcun testo per questo modello; non c'è nulla da ripristinare.",
       "logo_too_many_pixels": "Questo PNG misura {{width, number}} × {{height, number}} px – più di {{max, number}} megapixel. Nessun logo ne ha bisogno: un’intera pagina A4 a 300 dpi ne conta appena 9, e ogni documento con il logo dovrebbe caricarli tutti. Riducete l’immagine o caricate un SVG.",
-      "not_used": "Questa valutazione non è contrassegnata come utilizzata.",
       "signed_contract_carries_it": "Un contratto firmato riporta questa valutazione come permuta, quindi resta utilizzata.",
-      "stamp_too_recent": "Questa valutazione è stata contrassegnata come utilizzata meno di un'ora fa; la conferma del suo contratto potrebbe essere ancora in corso. Riprovare più tardi."
+      "stamp_too_recent": "Questa valutazione è stata contrassegnata come utilizzata meno di un'ora fa; la conferma del suo contratto potrebbe essere ancora in corso. Riprovare più tardi.",
+      "valuation_not_used": "Questa valutazione non è contrassegnata come utilizzata."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1564,7 +1564,8 @@
       "openVehicle": "Apri veicolo",
       "revertUse": "Annulla utilizzo",
       "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
-      "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta."
+      "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta.",
+      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso."
     },
     "expiredBanner": {
       "title": "Valutazione scaduta",

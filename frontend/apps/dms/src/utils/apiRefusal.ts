@@ -89,8 +89,6 @@ const REASON_KEYS: Record<string, string> = {
       'no_provider_connection',
       'no_signed_contract',
       'not_active',
-      // KAN-253 — «Verwendung aufheben».
-      'not_used',
       'nul_character',
       'offer_already_contracted',
       'passkey_key_not_accepted',
@@ -126,6 +124,8 @@ const REASON_KEYS: Record<string, string> = {
       'unrecognised_identifier',
       'use_deactivate_endpoint',
       'valuation_expired',
+      // KAN-253 — «Verwendung aufheben».
+      'valuation_not_used',
       'vehicle_left_stock',
       'vehicle_not_purchased',
       'vin_already_in_stock',

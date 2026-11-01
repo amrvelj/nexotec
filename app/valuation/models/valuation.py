@@ -116,9 +116,11 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # is confirmed (app.valuation.public.consume_valuation_for_contract,
     # KAN-101), or by hand («Als verwendet markieren») only when a signed
     # contract carries it — only a signed deal uses a valuation (KAN-115).
-    # Further contracts may carry it too (Anto, 2026-09-29). Cleared only by the compensating
-    # revert_valuation_use when that confirmation's own transaction failed;
-    # once a contract is signed on it, "used" is terminal (ADR-066).
+    # Further contracts may carry it too (Anto, 2026-09-29). Cleared by the compensating
+    # revert_valuation_use when that confirmation's own transaction failed, or
+    # by the dealer manager's «Verwendung aufheben» while no signed contract
+    # carries it (KAN-253); once a contract is signed on it, "used" is
+    # terminal (ADR-066).
     used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     supersedes_valuation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)

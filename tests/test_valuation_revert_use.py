@@ -148,7 +148,7 @@ def test_a_valuation_that_is_not_used_is_refused(db_session):
     with pytest.raises(ConflictError) as exc:
         revert_use_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4(), reason="Nichts zu tun")
 
-    assert exc.value.details["reason"] == "not_used"
+    assert exc.value.details["reason"] == "valuation_not_used"
 
 
 # --- HTTP -----------------------------------------------------------------------
