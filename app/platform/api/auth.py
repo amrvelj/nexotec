@@ -248,7 +248,9 @@ def _finish_login(
         user_id=user.id,
         dealership_id=user.tenant_id,
         ip_address=client_ip(request),
-        details={"amr": list(amr)},
+        # KAN-216: a device none of the user's earlier sessions came from —
+        # the `security` family's new-device notification.
+        details={"amr": list(amr), "newDevice": auth_sessions.is_new_device(db, minted.session)},
     )
     db.commit()
     _set_session_cookie(response, minted.token, max_age=minted.max_age)

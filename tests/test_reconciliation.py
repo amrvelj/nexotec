@@ -1041,12 +1041,30 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # KAN-203: a bank account is the dealership's own child row (D-A-27),
         # never an FK target; the delete is audited with the row's values.
         "/v1/dealerships/{dealership_id}/bank-accounts/{account_id}",
+        # KAN-204: a closure is a location's own child row (the dealer's
+        # Betriebsferien plan), never an FK target; the delete is audited. A
+        # location itself has no DELETE — it is deactivated (A-RULE-1).
+        "/v1/dealerships/{dealership_id}/locations/{location_id}/closures/{closure_id}",
+        # KAN-205: a logo variant — a branding_asset row (the dealership's own
+        # child, never an FK target) and its object-store file; audited with
+        # the file's values, the dealership row is never deleted.
+        "/v1/dealerships/{dealership_id}/branding/assets/{kind}",
+        # KAN-208: a Betrieb's own standard text (an adaptation of a seed or
+        # its own wording) — removing an adaptation returns the slot to the
+        # seed; audited with the row's values. A seed, the one row another
+        # row points at (`overridden_from_id`), is never reachable here.
+        "/v1/dealerships/{dealership_id}/standard-texts/{category}/{text_id}",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",
         "/v1/customers/{customer_id}/external-ids/{external_id_row_id}",
         "/v1/customers/{customer_id}/vehicles/{party_id}",
         "/v1/me/preferences/{scope}",
+        # KAN-216: a browser's Web Push subscription (push off on one's own
+        # device) — a real delete of the user's own child row, bound to a
+        # session and never the target of any dropped FK; a revoked session
+        # deletes it the same way (FR-A-49).
+        "/v1/me/push-subscriptions/{subscription_id}",
         # WP-7 PR-8: stock_item_media is inventory's own new child row
         # (ADR-062) — a real hard delete this time (removing a photo from
         # a listing genuinely removes the row, unlike the closed-not-

@@ -47,6 +47,13 @@ dependencies = [
     # document_render may import this (tests/architecture/
     # test_no_layout_code_outside_document_render.py enforces it).
     "weasyprint>=69,<70",
+    # KAN-205: the logo upload reads a PNG's size and checks its chunks with
+    # Pillow — the decoder WeasyPrint itself prints raster images with, so a
+    # PNG it accepts is one the renderer can print. It arrived only through
+    # weasyprint; declared because app/platform/services/logo_validation.py
+    # now imports it (as requests/urllib3 below). No new package: the SVG
+    # sanitiser there is the standard library's expat and ElementTree.
+    "pillow>=11.0,<14",
     # WP-6 PR-3: the real auto-i-dat adapter speaks SOAP. No SOAP/XML client
     # existed in this codebase before this. app/integration/adapters/
     # auto_i_dat_soap.py imports it lazily (inside build_zeep_client), so no
@@ -210,6 +217,7 @@ source_modules = [
 ]
 forbidden_modules = [
     "app.platform.api",
+    "app.platform.consumers",
     "app.platform.daily_jobs",
     "app.platform.models",
     "app.platform.reconciliation",

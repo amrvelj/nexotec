@@ -23,7 +23,11 @@
       "catalogue": "Catalogue",
       "users": "Users",
       "accountRecovery": "Account recovery",
-      "business": "Business"
+      "business": "Business",
+      "translations": "Translations",
+      "locations": "Locations",
+      "branding": "Logo and colours",
+      "standardTexts": "Standard texts"
     },
     "signOut": "Sign out",
     "environmentNotice": {
@@ -242,7 +246,47 @@
       "photo_too_large": "The photo is too large — at most 5 MB.",
       "configuration_already_linked": "A configuration is already assigned to this vehicle. Please reload the page.",
       "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle.",
-      "configuration_held_by_stock_item": "This configuration already belongs to vehicle {{stockNumber}} in stock. Every vehicle has its own configuration."
+      "configuration_held_by_stock_item": "This configuration already belongs to vehicle {{stockNumber}} in stock. Every vehicle has its own configuration.",
+      "ui_translation_blank": "A UI string is never blank.",
+      "ui_translation_placeholders_changed": "The text must keep the placeholders of the shipped text.",
+      "bank_account_used_by_location": "A location uses this account as its own bank account. Remove the override on the location first.",
+      "closure_period_inverted": "The closure ends before it starts.",
+      "last_active_location": "A business always keeps at least one active location. Activate or create another one first.",
+      "location_address_incomplete": "An address needs street, number, postal code and locality.",
+      "location_canton_not_swiss": "The canton applies to a Swiss address only.",
+      "location_canton_required": "A Swiss address needs its canton.",
+      "location_code_immutable": "A location's code is fixed once saved – documents and marketplaces carry it.",
+      "location_code_taken": "Another location of this business already has this code.",
+      "location_geo_incomplete": "Latitude and longitude go together – enter or clear both.",
+      "location_inactive": "Nobody can be newly assigned to a deactivated location.",
+      "location_postal_code_invalid": "This postal code does not fit the address's country.",
+      "location_validity_inverted": "'Valid to' lies before 'Valid from'.",
+      "unknown_bank_account": "This bank account does not belong to this business.",
+      "unknown_holiday_calendar": "This holiday calendar does not exist.",
+      "year_out_of_range": "This year lies outside the calendar.",
+      "logo_format_jpeg": "JPEG is not accepted for a logo: it has no transparency, so it prints with a grey box behind it on every document. Upload an SVG (preferred) or a PNG.",
+      "logo_format_unsupported": "A logo must be an SVG (preferred) or a PNG file.",
+      "logo_too_small": "This PNG is {{width, number}} × {{height, number}} px. A logo printed 50 mm wide needs roughly {{min, number}} px on its long edge to stay sharp at 300 dpi — upload a larger PNG, or an SVG, which is sharp at any size.",
+      "logo_dimensions_too_large": "The image is larger than {{max, number}} px on its long edge — more than any document needs.",
+      "logo_file_too_large": "The logo file is too large — at most 5 MB.",
+      "logo_png_damaged": "The PNG file is damaged and cannot be read.",
+      "logo_svg_invalid": "The SVG file is not a well-formed SVG document.",
+      "logo_svg_entities": "The SVG declares XML entities, which can be used to attack the systems that read it. Export the logo again without a DTD.",
+      "standard_text_placeholder_unresolved": "A standard text contains a placeholder that has no value here ({{placeholders}}). Add the information or adapt the text under Administration › Standard texts.",
+      "standard_text_placeholder_invalid": "The text uses placeholders that are not allowed here ({{placeholders}}).",
+      "standard_text_exists": "This text already exists in this language. Edit the existing one.",
+      "standard_text_category_mismatch": "This text belongs to another category.",
+      "standard_text_code_unknown": "This standard text does not exist.",
+      "standard_text_code_target_mismatch": "This text is used in another place.",
+      "standard_text_target_unknown": "This category has no texts for this use.",
+      "standard_text_slot_unknown": "This position does not exist here.",
+      "standard_text_target_required": "Choose where and in which position the text is used.",
+      "standard_text_template_whatsapp_only": "Template approval applies to WhatsApp texts only.",
+      "standard_text_template_id_required": "An approved WhatsApp template needs the provider's template ID.",
+      "standard_text_not_an_override": "Only an adapted standard text has a template to review.",
+      "standard_text_seed_language_missing": "This template does not exist in this language.",
+      "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore.",
+      "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -2243,7 +2287,8 @@
       "email": "E-mail",
       "sms": "SMS",
       "internal_note": "Internal notes",
-      "workshop": "Workshop"
+      "workshop": "Workshop",
+      "whatsapp": "WhatsApp"
     },
     "ownedGroup": {
       "customer": {
@@ -2434,7 +2479,8 @@
       "profile": "Profile",
       "security": "Security",
       "connectedAccounts": "Connected accounts",
-      "signature": "Signature"
+      "signature": "Signature",
+      "notifications": "Notifications"
     },
     "languages": {
       "de": "German",
@@ -2456,9 +2502,7 @@
       "betriebDefault": "Same as the business ({{language}})",
       "saved": "Saved.",
       "conflict": "Your account was changed elsewhere in the meantime. Cancel shows the new version; your entries are lost.",
-      "invalid": "Please check your entries: phone numbers with the country code, e.g. +41 79 123 45 67.",
-      "notificationsTitle": "Notifications",
-      "notificationsSoon": "Soon you will choose here which notifications you receive in the app and as push."
+      "invalid": "Please check your entries: phone numbers with the country code, e.g. +41 79 123 45 67."
     },
     "connected": {
       "emptyTitle": "No connected accounts yet",
@@ -2843,6 +2887,527 @@
       "title": "No brand found",
       "description": "No brand matches the search.",
       "action": "Clear search"
+    }
+  },
+  "translations": {
+    "title": "Translations",
+    "subtitle": "The texts Nexotec ships in four languages: the user interface, served at runtime, and the standard-text seeds. A publish applies to every business at once; businesses cannot change UI strings.",
+    "badge": "Platform",
+    "sourcesLabel": "Source",
+    "sources": {
+      "ui": "UI strings",
+      "standardTexts": "Standard-text seeds"
+    },
+    "search": {
+      "label": "Search",
+      "placeholder": "Key or text"
+    },
+    "namespace": {
+      "label": "Area",
+      "all": "All areas"
+    },
+    "editedOnly": "Edited only",
+    "count_one": "{{count, number}} key",
+    "count_other": "{{count, number}} keys",
+    "countEstimate": "More than {{count, number}} keys",
+    "columns": {
+      "key": "Key",
+      "actions": "Actions"
+    },
+    "languages": {
+      "de": "German",
+      "fr": "French",
+      "it": "Italian",
+      "en": "English"
+    },
+    "status": {
+      "seed": "Shipped",
+      "platform": "Edited",
+      "absent": "Not shipped"
+    },
+    "open": "Edit",
+    "view": "View",
+    "empty": "No keys found.",
+    "noSeed": "No UI strings have been imported yet. The import runs with scripts/import_ui_translation_bundles.py --commit.",
+    "loadError": "The translations could not be loaded.",
+    "loadMore": "Load more",
+    "editor": {
+      "keyLabel": "Key",
+      "seedLabel": "Shipped",
+      "sameAsSeed": "Same as the shipped text.",
+      "diffLabel": "Difference from the shipped text",
+      "removed": "removed",
+      "added": "new",
+      "placeholdersHint": "Placeholders such as {{example}} must be kept.",
+      "publish": "Publish",
+      "discard": "Discard changes",
+      "close": "Close",
+      "revert": "Restore the shipped text",
+      "published": "Published. Every user sees the change the next time the strings load.",
+      "readOnly": "Only Nexotec platform administrators can change these texts.",
+      "noRow": "Not shipped in this language.",
+      "nothingChanged": "Nothing changed to publish."
+    },
+    "missing": {
+      "title": "Reported missing keys",
+      "subtitle": "Keys a browser found neither here nor in the shipped strings and showed as the warning marker.",
+      "empty": "No missing keys reported.",
+      "columns": {
+        "key": "Key",
+        "language": "Language",
+        "count": "Reports",
+        "last": "Last reported"
+      }
+    },
+    "seeds": {
+      "subtitle": "The templates Nexotec ships to every business. An edit never overwrites a business's own adaptation; the business sees that the template has changed.",
+      "search": {
+        "label": "Search",
+        "placeholder": "Code, title or text"
+      },
+      "category": {
+        "label": "Category",
+        "all": "All categories"
+      },
+      "count_one": "{{count, number}} seed",
+      "count_other": "{{count, number}} seeds",
+      "columns": {
+        "code": "Code",
+        "target": "Used on"
+      },
+      "fieldTitle": "Title",
+      "fieldBody": "Text",
+      "empty": "No seeds found.",
+      "loadError": "The seeds could not be loaded."
+    }
+  },
+  "locations": {
+    "title": "Locations",
+    "subtitle": "The business's locations with address, contacts, opening hours, holidays and closures. A location is deactivated, never deleted.",
+    "loadError": "The locations could not be loaded.",
+    "notFound": "This location does not exist in this business.",
+    "readOnly": "Only a manager of this business changes its locations.",
+    "new": "New location",
+    "count": "{{count, number}} locations",
+    "saveError": "The location could not be saved.",
+    "columns": {
+      "name": "Name",
+      "code": "Code",
+      "types": "Type",
+      "address": "Address",
+      "canton": "Canton",
+      "phone": "Phone",
+      "leadEmail": "Enquiry e-mail",
+      "holidayCalendar": "Holiday calendar",
+      "status": "Status",
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "country": "Country",
+      "contactPerson": "Contact person",
+      "email": "E-mail",
+      "geo": "Coordinates",
+      "letterhead": "Letterhead address block",
+      "updatedAt": "Updated"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Deactivated"
+    },
+    "empty": {
+      "title": "No location yet",
+      "description": "Create the business's first location."
+    },
+    "actions": {
+      "open": "Open",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "lastActive": "The last active location stays active – a business always has at least one.",
+      "deactivateConfirm": "The location {{name}} will be deactivated. Documents that name it stay unchanged; it can no longer be assigned to new users."
+    },
+    "types": {
+      "showroom": "Showroom",
+      "workshop": "Workshop",
+      "body_shop": "Body shop",
+      "parts_warehouse": "Parts warehouse",
+      "storage": "Vehicle storage",
+      "admin": "Administration"
+    },
+    "create": {
+      "title": "New location",
+      "submit": "Create"
+    },
+    "master": {
+      "title": "Master data",
+      "name": "Name",
+      "code": "Code",
+      "codeHint": "A short, fixed code such as ZH-NORD – it appears in document numbers and marketplace mappings and cannot be changed once saved.",
+      "codeFixed": "The code is fixed.",
+      "types": "Location type",
+      "typesHint": "Several may apply – most locations are two of these, e.g. showroom and workshop.",
+      "validFrom": "Valid from",
+      "validTo": "Valid to"
+    },
+    "address": {
+      "title": "Address and map",
+      "geoLat": "Latitude",
+      "geoLng": "Longitude",
+      "geoHint": "WGS 84 in decimal degrees, e.g. 47.414100 and 8.546900 – for marketplaces and the website map.",
+      "pin": "Map pin",
+      "noGeo": "No coordinates recorded.",
+      "openMap": "Open in OpenStreetMap"
+    },
+    "contacts": {
+      "title": "Contacts",
+      "contactPerson": "Contact person",
+      "phone": "Phone",
+      "email": "E-mail",
+      "leadEmail": "Enquiry e-mail",
+      "leadEmailHint": "Marketplace enquiries for this location are sent here."
+    },
+    "hours": {
+      "title": "Opening hours",
+      "perDepartment": "Hours differ per department",
+      "perDepartmentHint": "Off: one set of hours for the whole location, stored alike for sales, service and parts.",
+      "departments": {
+        "sales": "Sales",
+        "service": "Service",
+        "parts": "Parts"
+      },
+      "weekdays": {
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday",
+        "7": "Sunday"
+      },
+      "open": "Open",
+      "closed": "Closed",
+      "opensAt": "From",
+      "closesAt": "To",
+      "secondOpensAt": "Afternoon from",
+      "secondClosesAt": "Afternoon to",
+      "invalid": "Check the hours on {{day}}: each end after its start, the second interval after the first.",
+      "none": "No opening hours recorded yet."
+    },
+    "holidays": {
+      "title": "Holidays and closures",
+      "calendar": "Holiday calendar",
+      "calendarHint": "The cantonal holidays equal to Sundays and 1 August – per region where they differ within the canton. Maintained by Nexotec (source: SECO).",
+      "noCalendar": "No holiday calendar chosen.",
+      "year": "Holidays {{year}}",
+      "afternoonOnly": "from noon",
+      "closures": "Closures",
+      "closuresHint": "Company holidays and single closed days of this location – in addition to the public holidays.",
+      "noClosures": "No closures recorded.",
+      "addClosure": "Add closure",
+      "editClosure": "Edit closure",
+      "removeClosure": "Remove closure",
+      "startsOn": "From",
+      "endsOn": "To",
+      "reason": "Reason",
+      "period": "{{from}} – {{to}}"
+    },
+    "overrides": {
+      "title": "Overrides of the business",
+      "disclosure": "Letterhead and bank account of this location",
+      "letterhead": "Letterhead address block",
+      "letterheadHint": "Empty: the business's address block. Replaces only the address block of the shared template, never the template.",
+      "bankAccount": "Bank account",
+      "bankAccountInherit": "As the business (invoice account)"
+    }
+  },
+  "branding": {
+    "title": "Logo and colours",
+    "subtitle": "Your business’s logo and colours — on every document, on price tags and in listings. The preview shows the letterhead as it prints.",
+    "loadError": "The logo and colours could not be loaded.",
+    "logo": {
+      "title": "Logo",
+      "formatHint": "SVG preferred, PNG at least 600 px on the long edge. JPEG is not accepted: it has no transparency and prints with a grey box.",
+      "kinds": {
+        "primary": "Primary logo",
+        "mono_dark": "Single-colour dark",
+        "favicon": "Favicon"
+      },
+      "kindHints": {
+        "primary": "Required. The other variants use it until they have a file of their own.",
+        "mono_dark": "For a colour letterhead on white paper. Without a file of its own, the primary logo is used.",
+        "favicon": "The small icon in the website’s browser tab. Without a file of its own, the primary logo is used."
+      },
+      "choose": "Choose file",
+      "upload": "Upload",
+      "remove": "Remove",
+      "none": "No logo yet",
+      "usesPrimary": "Uses the primary logo",
+      "svgFile": "SVG · sharp at any size",
+      "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+      "failed": "The logo could not be saved."
+    },
+    "colours": {
+      "title": "Colours",
+      "primary": "Primary colour",
+      "primaryHint": "Your business’s colour on documents, e.g. behind the logo mark.",
+      "secondary": "Secondary colour (optional)",
+      "secondaryHint": "A second colour for accents. Leave it empty if your business has none.",
+      "explanation": "Text on documents needs enough contrast to be readable: at least 4.5 : 1 under WCAG AA. A light primary colour — yellow, say — makes white text on it unreadable on every document.",
+      "pairs": {
+        "primary_on_white": "Primary colour and white",
+        "secondary_on_white": "Secondary colour and white",
+        "secondary_on_primary": "Secondary and primary colour"
+      },
+      "ratio": "{{ratio}} : 1",
+      "passes": "Meets AA",
+      "fails": "Not enough contrast",
+      "savedWithWarning": "Saved. At least one colour pair falls short of 4.5 : 1 — text on it is hard to read on documents.",
+      "invalid": "A colour is written #RRGGBB, e.g. #7C3AED.",
+      "failed": "The colours could not be saved."
+    },
+    "placements": {
+      "title": "Where the logo appears",
+      "documentHeader": "Document letterhead",
+      "priceTag": "Price tag",
+      "listing": "Listings",
+      "emailSignature": "E-mail signature",
+      "appHeader": "Application header",
+      "failed": "The settings could not be saved."
+    },
+    "preview": {
+      "title": "Letterhead preview",
+      "loading": "Creating the preview …",
+      "error": "The preview could not be created.",
+      "note": "The saved state, in the business’s correspondence language."
+    }
+  },
+  "standardTexts": {
+    "title": "Standard texts",
+    "subtitle": "The wording of your documents and messages — in four languages, with placeholders.",
+    "disclaimer": "The texts provided are templates in standard Swiss wording, not legal advice. Please review them before you use them.",
+    "newText": "New text",
+    "loadError": "The standard texts could not be loaded.",
+    "readOnly": "You can read the texts of this category but not change them.",
+    "empty": "This category has no texts yet.",
+    "inactive": "Inactive",
+    "edit": "Edit",
+    "view": "View",
+    "category": {
+      "document": "Documents",
+      "email": "E-mail",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp",
+      "internal_note": "Internal notes",
+      "workshop": "Workshop"
+    },
+    "appliesTo": {
+      "offer": "Offer",
+      "contract": "Purchase contract",
+      "invoice": "Invoice",
+      "appointment_reminder": "Appointment reminder",
+      "vehicle_ready": "Vehicle ready",
+      "workshop_order": "Workshop order",
+      "customer_note": "Customer note"
+    },
+    "slot": {
+      "header": "Header",
+      "intro": "Introduction",
+      "body": "Body",
+      "footer": "Footer",
+      "terms": "Terms",
+      "closing": "Closing"
+    },
+    "language": {
+      "de": "German",
+      "fr": "French",
+      "it": "Italian",
+      "en": "English"
+    },
+    "columns": {
+      "title": "Name",
+      "appliesTo": "Used on",
+      "slot": "Position",
+      "source": "Origin",
+      "languages": "Languages",
+      "default": "Default"
+    },
+    "badge": {
+      "template": "Template — please review",
+      "adapted": "Adapted",
+      "own": "Own text",
+      "seedChanged": "Template changed — please review"
+    },
+    "fields": {
+      "appliesTo": "Used on",
+      "slot": "Position in the document",
+      "title": "Name",
+      "body": "Text",
+      "isDefault": "Default text for this position",
+      "active": "Active",
+      "templateApproved": "Template approved by the provider",
+      "providerTemplateId": "Provider's template ID"
+    },
+    "whatsapp": {
+      "approved": "Approved",
+      "notApproved": "Not approved — only within 24 hours of a customer message"
+    },
+    "editor": {
+      "title": "Edit standard text",
+      "newTitle": "New standard text",
+      "missingLanguage": "missing",
+      "templateHint": "This is the template provided. Save it to adopt it as your own text; the template itself stays unchanged.",
+      "templateHintReadOnly": "This is the template provided.",
+      "seedChangedTitle": "The template has changed — please review your text",
+      "seedChangedHint": "Your text stays as it is. The current template reads:",
+      "currentTemplate": "Current template",
+      "markReviewed": "Mark as reviewed",
+      "placeholders": "Insert placeholder",
+      "preview": "Preview",
+      "previewHint": "With sample data; your business's name and phone are real.",
+      "previewEmpty": "No text.",
+      "previewFailed": "This text cannot be printed as it is:",
+      "resetToTemplate": "Reset to template",
+      "deleteLanguage": "Delete this language",
+      "saved": "Saved.",
+      "adapt": "Adopt as own text",
+      "close": "Close"
+    },
+    "placeholder": {
+      "dealership_name": "Business name",
+      "location_phone": "Phone",
+      "customer_salutation": "Salutation",
+      "vehicle_make_model": "Make and model",
+      "document_number": "Document number",
+      "document_date": "Document date",
+      "user_full_name": "Adviser's name",
+      "payment_due_date": "Payment due date"
+    },
+    "problem": {
+      "unknown": "Unknown placeholder: {{token}}",
+      "not_valid_here": "Not available here: {{token}}",
+      "malformed": "A curly brace is not closed.",
+      "unresolved": "No value: {{token}}"
+    },
+    "errors": {
+      "saveFailed": "The text could not be saved.",
+      "previewFailed": "The preview could not be created."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bellLabel": "Notifications, {{count, number}} unread",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "open": "Open",
+    "unread": "Unread",
+    "emptyTitle": "No notifications",
+    "emptyBody": "Notices about your account appear here, a sign-in from a new device for example. They are kept for 90 days.",
+    "emptyUnread": "No unread notifications.",
+    "loadMore": "Load more",
+    "retention": "Notifications are kept for 90 days.",
+    "digest": {
+      "pushTitle": "New notifications"
+    },
+    "families": {
+      "security": {
+        "name": "Security",
+        "description": "Sign-ins, second factor, password, sessions and recoveries of your account."
+      },
+      "administration": {
+        "name": "Administration",
+        "description": "Notices about the business for managers, expiring credentials for example."
+      },
+      "assignment": {
+        "name": "Assignments",
+        "description": "What is handed to you, a lead or a job for example."
+      }
+    },
+    "timings": {
+      "immediate": "Immediately",
+      "digest": "Daily digest",
+      "off": "Off"
+    },
+    "preferences": {
+      "title": "Notifications",
+      "intro": "Notifications appear in your inbox and, if you want, as a push on your devices – never by e-mail. You alone decide.",
+      "family": "Kind",
+      "timing": "Delivery",
+      "push": "Push",
+      "locked": "Security notices always arrive immediately, in the inbox and as a push, and cannot be switched off.",
+      "noEventsYet": "No notices of this kind yet.",
+      "conflict": "The setting was changed elsewhere in the meantime. You now see where it stands.",
+      "failed": "The setting could not be saved."
+    },
+    "device": {
+      "title": "Push on this device",
+      "intro": "A push shows only the title and leads to the inbox; the content stays in Nexotec. It applies to this device while you are signed in here.",
+      "enable": "Turn on push on this device",
+      "disable": "Turn off push on this device",
+      "active": "Push is on for this device.",
+      "inactive": "Push is off for this device.",
+      "unavailable": "Push is not set up on this installation yet.",
+      "unsupported": "This browser does not support push notifications.",
+      "denied": "The browser blocks notifications from Nexotec. Allow them in the browser settings.",
+      "failed": "Push could not be set up on this device."
+    },
+    "events": {
+      "newDeviceLogin": {
+        "title": "Sign-in from a new device",
+        "body": "Your account was signed in from a device it has never been used on before. If this was not you, end that session in My account › Security and change your password."
+      },
+      "factorEnrolled": {
+        "title": "Second factor added",
+        "body": "A second factor was added to your account. If this was not you, contact Nexotec support at once."
+      },
+      "factorRemoved": {
+        "title": "Second factor removed",
+        "body": "A second factor was removed from your account. If this was not you, contact Nexotec support at once."
+      },
+      "recoveryCodeUsed": {
+        "title": "Recovery code used",
+        "body": "One of your recovery codes was used to sign in. Left: {{remaining, number}}."
+      },
+      "accountLocked": {
+        "title": "Account temporarily locked",
+        "body": "Your account is temporarily locked after several failed sign-in attempts. If this was not you, reset your password."
+      },
+      "passwordChanged": {
+        "title": "Password changed",
+        "body": "The password of your account was changed. If this was not you, reset it at once and contact Nexotec support."
+      },
+      "sessionRevokedByOther": {
+        "title": "Sessions ended by someone else",
+        "body": "One or more sessions of your account were ended by someone else. Sign in again to carry on."
+      },
+      "impersonationStarted": {
+        "title": "Nexotec support is working in your account",
+        "body": "A Nexotec support employee is working in your account. You can end the session at any time from the banner."
+      },
+      "impersonationEnded": {
+        "title": "Support session ended",
+        "body": "The Nexotec support session in your account has ended."
+      },
+      "connectedAccountLinked": {
+        "title": "Connected account linked",
+        "body": "An external account was linked to your account. If this was not you, disconnect it in My account › Connected accounts."
+      },
+      "connectedAccountRevoked": {
+        "title": "Connected account disconnected",
+        "body": "A connected external account was disconnected. Nexotec no longer acts on your behalf there."
+      },
+      "platformRecoveryAction": {
+        "title": "Recovery by Nexotec support",
+        "body": "Nexotec support carried out a recovery on your account: {{action}}."
+      }
+    },
+    "recoveryActions": {
+      "invitationReissued": "invitation re-issued",
+      "mfaReset": "second factor reset",
+      "lockoutCleared": "lock cleared",
+      "sessionsRevoked": "every session ended",
+      "managerGranted": "manager right granted",
+      "emailChanged": "sign-in address changed"
     }
   }
 }

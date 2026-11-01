@@ -3,23 +3,26 @@
 import datetime as dt
 import uuid
 
+from pydantic import ConfigDict
+
 from app.core.schemas import CamelModel
 
 
 class DocumentTemplateUpdate(CamelModel):
-    """All fields optional — PATCH semantics, partial update. A field left
-    unset is left unchanged; a field explicitly set to null clears it back
-    to "not customized yet".
+    """The header note in four languages — KAN-208 moved the footer text
+    into the standard-text library (`invoice.footer.carried_over`). All
+    fields optional — PATCH semantics, partial update. A field left unset
+    is left unchanged; a field explicitly set to null clears it back to
+    "not customized yet". A field this schema does not know — a stale
+    client's `footerText*` among them — is a 422, never silently dropped.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     header_note_de: str | None = None
     header_note_fr: str | None = None
     header_note_it: str | None = None
     header_note_en: str | None = None
-    footer_text_de: str | None = None
-    footer_text_fr: str | None = None
-    footer_text_it: str | None = None
-    footer_text_en: str | None = None
 
 
 class DocumentTemplateRead(CamelModel):
@@ -41,10 +44,6 @@ class DocumentTemplateRead(CamelModel):
     header_note_fr: str | None
     header_note_it: str | None
     header_note_en: str | None
-    footer_text_de: str | None
-    footer_text_fr: str | None
-    footer_text_it: str | None
-    footer_text_en: str | None
     version: int
     created_at: dt.datetime | None
     updated_at: dt.datetime | None

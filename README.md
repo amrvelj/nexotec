@@ -228,7 +228,9 @@ migrations guard their data steps with `context.is_offline_mode()`
 (`.claude/rules/migrations.md`); the ones on `main` are immutable. What
 does render is a range of DDL-only revisions, `alembic upgrade <from>:<to>
 --sql` — `base:e9dd878c7836` (everything before `b7c1e4a92f10`) and
-`b7c1e4a92f10:f3a8c1d5e9b2` both exit 0, for example. To see the whole
+`b7c1e4a92f10:f3a8c1d5e9b2` both exit 0, for example, and the platform chain
+from KAN-204 up — `7d763a542516:<platform head>` — is held to it by
+`tests/test_platform_chain_renders_offline.py`. To see the whole
 schema applied, run `alembic upgrade heads` against a throwaway database
 (`DMS_DATABASE_URL` pointed at one), as `scripts/dev/check`'s migration
 lane and `tests/test_migrated_enum_checks.py` do.

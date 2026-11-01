@@ -79,6 +79,24 @@ app.add_middleware(
 # Path moved from frontend/dist when frontend/ became an npm workspace
 # (apps/dms + packages/ui-kit) — see frontend/package.json.
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "apps" / "dms" / "dist"
+
+
+def spa_file_response(dist: Path, full_path: str) -> FileResponse:
+    """What the SPA catch-all answers. A file Vite copied from `public/` to
+    the dist root — the Web Push service worker `sw.js` (KAN-216), the
+    favicon — is served as itself: a service worker answered with
+    index.html cannot register. One path segment only, so nothing outside
+    the dist root is reachable; everything else is index.html."""
+
+    if full_path and "/" not in full_path and "\\" not in full_path and full_path not in {".", ".."}:
+        candidate = dist / full_path
+        if candidate.is_file() and candidate.name != "index.html":
+            # The browser re-checks the worker on every navigation.
+            headers = {"Cache-Control": "no-cache"} if candidate.name == "sw.js" else None
+            return FileResponse(candidate, headers=headers)
+    return FileResponse(dist / "index.html")
+
+
 if _FRONTEND_DIST.is_dir():
     app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="frontend-assets")
 
@@ -93,4 +111,4 @@ if _FRONTEND_DIST.is_dir():
         # error shape as every other 404 in this API.
         if full_path == "v1" or full_path.startswith("v1/"):
             raise NotFoundError(f"No route found for /{full_path}.")
-        return FileResponse(_FRONTEND_DIST / "index.html")
+        return spa_file_response(_FRONTEND_DIST, full_path)

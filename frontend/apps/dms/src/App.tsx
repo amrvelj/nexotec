@@ -18,6 +18,8 @@ const AccountConnectedAccountsPage = lazyPage(() => import('./pages/account/Acco
 const AccountLayout = lazyPage(() => import('./pages/account/AccountLayout'), 'AccountLayout')
 const AccountProfilePage = lazyPage(() => import('./pages/account/AccountProfilePage'), 'AccountProfilePage')
 const AccountSignaturePage = lazyPage(() => import('./pages/account/AccountSignaturePage'), 'AccountSignaturePage')
+const AccountNotificationsPage = lazyPage(() => import('./pages/account/AccountNotificationsPage'), 'AccountNotificationsPage')
+const NotificationsPage = lazyPage(() => import('./pages/NotificationsPage'), 'NotificationsPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 const CustomersListPage = lazyPage(() => import('./pages/CustomersListPage'), 'CustomersListPage')
 const CustomerCreatePage = lazyPage(() => import('./pages/CustomerCreatePage'), 'CustomerCreatePage')
@@ -25,8 +27,13 @@ const CustomerDetailPage = lazyPage(() => import('./pages/CustomerDetailPage'), 
 const CatalogueBrowsePage = lazyPage(() => import('./pages/CatalogueBrowsePage'), 'CatalogueBrowsePage')
 const ReferenceDataPage = lazyPage(() => import('./pages/ReferenceDataPage'), 'ReferenceDataPage')
 const AccountRecoveryPage = lazyPage(() => import('./pages/AccountRecoveryPage'), 'AccountRecoveryPage')
+const TranslationsPage = lazyPage(() => import('./pages/TranslationsPage'), 'TranslationsPage')
 const UsersListPage = lazyPage(() => import('./pages/UsersListPage'), 'UsersListPage')
 const BusinessPage = lazyPage(() => import('./pages/BusinessPage'), 'BusinessPage')
+const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'LocationsListPage')
+const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
+const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPage')
+const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
 const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
@@ -74,7 +81,11 @@ export default function App() {
                 <Route path="security" element={<AccountSecurityPage />} />
                 <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
                 <Route path="signature" element={<AccountSignaturePage />} />
+                {/* KAN-216: the user's own notification preferences and this device's push. */}
+                <Route path="notifications" element={<AccountNotificationsPage />} />
               </Route>
+              {/* KAN-216 (FR-A-50): the inbox — the bell in the sidebar opens it. */}
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/customers" element={<CustomersListPage />} />
               <Route path="/customers/new" element={<CustomerCreatePage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />
@@ -90,7 +101,14 @@ export default function App() {
               <Route path="/administration/users" element={<UsersListPage />} />
               {/* KAN-203 — Dealer Administration › Business: the Betrieb's master data. */}
               <Route path="/administration/business" element={<BusinessPage />} />
+              <Route path="/administration/locations" element={<LocationsListPage />} />
+              <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
+              <Route path="/administration/branding" element={<BrandingPage />} />
+              {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
+              <Route path="/administration/texts" element={<StandardTextsPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
+              {/* KAN-209 — Platform Administration › Translations (D-A-23). */}
+              <Route path="/platform/translations" element={<TranslationsPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/vehicles" element={<VehiclesListPage />} />
               <Route path="/vehicles/:id" element={<VehicleDetailPage />} />

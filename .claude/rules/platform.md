@@ -18,16 +18,33 @@ paths:
   - "frontend/apps/dms/src/pages/PasswordReset*"
   - "frontend/apps/dms/src/pages/UsersListPage*"
   - "frontend/apps/dms/src/pages/BusinessPage*"
+  - "frontend/apps/dms/src/pages/BrandingPage*"
+  - "frontend/apps/dms/src/components/branding/**"
   - "frontend/apps/dms/src/components/account/**"
   - "frontend/apps/dms/src/components/business/**"
+  - "frontend/apps/dms/src/components/locations/**"
+  - "frontend/apps/dms/src/pages/Location*"
+  - "frontend/apps/dms/src/pages/StandardTextsPage*"
+  - "frontend/apps/dms/src/components/standardTexts/**"
+  - "tests/test_standard_texts.py"
+  - "tests/test_kan208_footer_migration.py"
   - "frontend/apps/dms/src/components/recovery/**"
   - "frontend/apps/dms/src/components/users/**"
   - "frontend/apps/dms/src/**/RequireEntitlement*"
   - "frontend/apps/dms/src/layout/navEntitlements.ts"
   - "frontend/apps/dms/src/**/ProtectedRoute*"
   - "frontend/apps/dms/src/**/ReferenceDataPage*"
+  - "frontend/apps/dms/src/**/TranslationsPage*"
+  - "frontend/apps/dms/src/components/translations/**"
+  - "frontend/apps/dms/src/i18n/runtimeTranslations*"
+  - "scripts/import_ui_translation_bundles.py"
   - "frontend/apps/dms/src/**/*ogin*"
   - "frontend/apps/dms/src/layout/DmsShell.tsx"
+  - "frontend/apps/dms/src/pages/Notifications*"
+  - "frontend/apps/dms/src/hooks/useNotifications.ts"
+  - "frontend/apps/dms/src/utils/webPush.ts"
+  - "frontend/apps/dms/public/sw.js"
+  - "tests/test_*notification*.py"
   - "tests/architecture/test_no_ambient_group_read.py"
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
   - "tests/test_auth.py"
@@ -41,6 +58,7 @@ paths:
   - "tests/membership_support.py"
   - "tests/test_dealership.py"
   - "tests/dealership_support.py"
+  - "tests/test_kan204_locations.py"
   - "tests/test_entitlements.py"
   - "tests/test_text_delegations.py"
   - "tests/test_permission_matrix_mirrors_prd.py"
@@ -235,12 +253,72 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
 - **Standard texts are delegable per category** (`standard_text_delegation`, FR-A-28) — built
   (KAN-199): `PUT/GET/DELETE /v1/dealerships/{id}/users/{user_id}/text-delegations` (manager
   or platform staff; full replacement; audit `text_delegation_set`; ended by deactivation);
-  categories `document · email · sms · internal_note · workshop`. The gate is
+  categories `document · email · sms · whatsapp · internal_note · workshop` (`whatsapp` added
+  by KAN-208). The gate is
   `require_write_or_delegated("standard_texts")` in `app/core/permissions.py`, which asks the
   checker platform registers (`app/platform/services/text_delegation.py`) for the route's
-  `{category}` — proven on a probe route; no standard-text endpoint exists yet. The seed
-  library and the UI strings (`ui_translation`, served at runtime, not built) are edited by
-  `platform_admin` through the UI (D-A-23). Dealers never override UI strings.
+  `{category}`. The seed
+  library and the UI strings are edited by `platform_admin` through the UI (D-A-23). Dealers
+  never override UI strings — no endpoint exists for it.
+- **UI strings at runtime — built (KAN-209, FR-A-30…32):** `ui_translation` (namespace = a
+  bundle's top-level object, key = the dotted path below it, language, `value`, `seed_value`,
+  `source` `bundle_seed`/`platform`, version), `ui_translation_revision` (one global version)
+  and `missing_translation` (`app/platform/models/ui_translation.py`, the service
+  `services/ui_translation.py` is their one writer). `scripts/import_ui_translation_bundles.py`
+  (dry run by default, `--commit`, re-runnable) seeds `bundle_seed` rows from the bundles —
+  a script, not a migration: the bundles live in the frontend tree. **Only `platform` values
+  are served:** `GET /v1/i18n/{language}` (unauthenticated — the sign-in page needs it; the SPA
+  asks without credentials) returns them with `ETag` = the global revision and
+  `Cache-Control: public, no-cache` (a 304 while nothing was published); a seed row is never
+  served, so a later bundle change is never shadowed by its seeded copy. Panel API under
+  `/v1/platform/ui-translations` (read: any role; `PUT …/{namespace}/{key}/{language}` and
+  `POST …/revert`: `require_write("ui_translations")`, If-Match, audited
+  `ui_translation_published`/`_reverted`, tenant null; a value must keep the seed's
+  placeholders, 422 `ui_translation_placeholders_changed`). `POST /v1/i18n/missing-translations`
+  (a session, ≤ 50 keys, the log capped at 5000 rows). The screen is `/platform/translations`
+  (Administration › Translations); its sources are `components/translations/translationSources.ts`
+  — `ui` and `standardTexts` (the seed library below); `ai_prompt` seeds ([P3-7], not built) join
+  there, each a panel on the shared `FourLanguageEditor`.
+- **Standard texts — built (KAN-208).** `standard_text` (`app/platform/models/standard_text.py`):
+  one row per scope × code × language — platform seeds (`dealership_id` NULL, `source =
+  platform_seed`), a Betrieb's own texts and its overrides of seeds (`overridden_from_id` +
+  `overridden_seed_version`; "the standard text has changed, review yours" is **derived on read**
+  — the seed's `version` past the reviewed one, cleared by PATCH `seedReviewed: true`), and
+  location variants. `category` + `applies_to` + `slot` say where a text is used; the closed
+  registry (`services/standard_text_placeholders.py`: the PRD's eight tokens, `TARGETS` with the
+  slots and tokens valid per (category, applies_to)) refuses on save an unknown, invalid or
+  malformed token (422 `standard_text_placeholder_invalid`), and **a render fails** on any of those
+  or a token without a value (422 `standard_text_placeholder_unresolved`, A-RULE-4). Resolution
+  (`services/standard_text.py`): language requested → `default_correspondence_language` → DE as
+  the outer chain, location → dealership → seed inside it; a dealership row masks its seed even
+  switched off; a slot resolves to its default (narrowest scope, then `sort_order`, `code`) or to
+  nothing. Other contexts call `platform.public.render_standard_text` (platform fills
+  `dealership.name` and `location.phone` — the phone of the location the render is scoped to when
+  it has one (KAN-204's `location.phone`), else the Betrieb's, also for a render without a location).
+  Seeds: `services/standard_text_seed.py`, 12 codes × 4 languages, installed by the migration
+  (`ec4559d84ad3`) and the `standard_text_seeds` test fixture; `update_platform_seed` is the
+  platform_admin edit, behind the Translations panel's seed tab (KAN-209,
+  `app/platform/api/standard_text_seeds.py`): `GET /v1/platform/standard-text-seeds` (`q`,
+  `category`; by code, each language with the shipped title/body from `standard_text_seed.py` and
+  `edited`; any role reads), `PUT …/{seed_id}` (title and/or body) and `POST …/{seed_id}/revert`
+  (back to the shipped wording; 422 `standard_text_seed_not_shipped` for a code the release does
+  not ship) — `require_write("ui_translations")`, the matrix's one row for "UI translations and
+  seed library"; If-Match on the seed row; audited `seed_update` / `seed_revert`; the body checked
+  by `validate_body`. Every edit moves the seed's version, so every override of it reads
+  `seedChanged`.
+  API: `GET /v1/standard-text-registry`, `GET /v1/dealerships/{id}/standard-texts` (any role;
+  `writableCategories` says what the gate lets the caller write), `POST …/standard-text-previews`
+  (sample data, the same renderer), `POST …/standard-texts/{category}` and `PATCH/DELETE
+  …/standard-texts/{category}/{text_id}` (If-Match) behind the delegation-aware gate, every lookup
+  bound to the path's category; a seed is never written there. Screen `/administration/texts`
+  (`pages/StandardTextsPage.tsx`) edits the Betrieb's scope only: a location variant of a text is
+  written through the API (`locationId` on the POST), and neither the texts screen nor the Locations
+  screen (`/administration/locations`, KAN-204) offers it yet. `document_template.footer_text_*`
+  was dropped; each non-empty footer became three dealer texts of its Betrieb, one row per
+  language: `invoice.footer.carried_over` (not the default) and `offer.footer.carried_over` /
+  `contract.footer.carried_over` as its **default** offer and contract footer, so the offers and
+  contracts it prints keep the footer they printed before (a language or Betrieb without one gets
+  the seed default). Sales prints the offer's intro and footer and the contract's footer.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. Frozen at activation (A-RULE-3).
 - **Activation gate (D-A-21):** a Betrieb is `pending_onboarding` until every applicable
@@ -290,6 +368,32 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   platform staff; a write answers 404 to everyone but the manager and platform staff — finance and
   auditor included, so a write probe tells no more than a read (`require_banking_read` /
   `require_banking_write` in `app/core/permissions.py`); the SPA then shows no Banking section at all.
+- **Locations (PRD Locations; D-A-02, D-A-27, FR-A-03, A-RULE-1) — built (KAN-204):**
+  `/administration/locations` (list + one screen per site) on `app/platform/api/locations.py`:
+  `/v1/dealerships/{id}/locations` list/create/read/PATCH — **no delete**; `isActive: false`
+  deactivates, refused for the Betrieb's last active location (409 `last_active_location`, judged
+  under the dealership row lock). A new Betrieb gets its first location from its registered seat
+  (`create_dealership` → `location.new_first_location`; the migration backfilled one per Betrieb
+  without). `code` is unique per Betrieb and fixed once saved (422 `location_code_immutable`; a
+  row saved without one gets it once); a location is referenced by id only. `location_types` (JSON
+  list), contacts incl. `lead_email`, `geo_lat`/`geo_lng` (both or neither), validity, the
+  `letterhead_address_override` (the address block only — stored and edited, **not yet read by
+  `document_render`**, whose header is still the Betrieb's; a per-location logo override is **not
+  built**: no column, no API — the header logo is the Betrieb's primary branding asset, KAN-205)
+  and `bank_account_override_id` (an account of the same Betrieb; read only by the banking roles,
+  null for anyone else — ADR-100; such an account cannot be deleted, 409
+  `bank_account_used_by_location`); `calendar_ref` and `warehouse_ref` stay empty for Aftersales
+  and Parts. **No `vat_override`** — open with Anto (ADR-057's one VAT figure). Opening hours:
+  `location_opening_hours`, stored **per department always**; `PUT …/opening-hours` replaces the
+  week under the location's If-Match (`perDepartment: false` sends days without a department and
+  the service writes them for sales, service and parts). Closures: `location_closure` (from, to,
+  reason; versioned; POST/PATCH/DELETE). **Holiday calendars are platform reference data**
+  (`holiday_calendar` + `holiday`, read by anyone at `GET /v1/holiday-calendars` and
+  `…/{id}/dates?year=`): the cantonal holidays equal to Sundays (Art. 20a ArG) plus 1 August from
+  SECO's «Feiertage Schweiz» (Stand 12.12.2024), 34 calendars — one per canton, one per region
+  where SECO lists sub-cantonal differences (AG by district, FR by confession, NE/Le Landeron,
+  SO/Bucheggberg); a holiday is a rule (fixed day, Easter offset, or a named rule) computed per
+  year (`services/holidays.py`). Location is never a scoping boundary: nothing filters by it.
 - **Support access (D-A-05, D-A-24):** a Nexotec employee steps into the user's session with
   **full write from the start**; token carries `sub` = staff and `actingFor` = the user; audit
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;
@@ -354,7 +458,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the window (the validity is checked as it will be after a PATCH); an invitation can be
   accepted before `valid_from` (password set, account active), the acceptance answering 403
   `access_window_closed` with the dates instead of a session. `user_location` (primary +
-  additional, FR-A-02) and `GET …/locations` (read-only: no Locations screen yet). The Users
+  additional, FR-A-02; a deactivated location is refused for a new assignment, `location_inactive`,
+  and kept where already held — KAN-204). The Users
   screen is `/administration/users` (one shared invite/edit dialog, the deactivation dialog;
   server-side sort; no delete). `LoginResponse.user` and `GET /auth/me` keep their pre-KAN-200
   shape and schema name (`UserRead`); the administration fields are `UserAdminRead`'s alone.
@@ -363,6 +468,45 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
 - **Notifications (D-A-40):** staff notifications are in-app and push only, never e-mail; the
   user decides everything; `security` family is always immediate and cannot be switched off.
+  **Built (KAN-216):** `app/platform/models/notification.py` — `notification_event` (the
+  catalogue, seeded by the platform migration with literal rows; the code declaration is
+  `services/notification_catalogue.py`, `NotificationEventCode`; `tests/test_migrated_notification_catalogue.py`
+  keeps the two equal), `user_notification_preference` (per family; no row = immediate, in-app
+  and push; If-Match, version 0 for the first save), `notification` (the inbox, the record, 90 days)
+  and `push_subscription` (per session, keys `EncryptedString` — whether those keys may be stored
+  is open with Anto, CLAUDE.md names the TOTP seed as the only secret). `platform.public.notify(db, code,
+  user_id=…, subject=NotificationSubject(type, link, id))` runs in the caller's transaction and
+  publishes `platform.notification.delivered`; an unknown code raises (`UnknownNotificationEvent`),
+  every call site names a literal registered code (`tests/architecture/test_notify_call_sites_use_registered_codes.py`)
+  and no notification module reaches the mailer (`test_notifications_never_reach_the_mail_port.py`).
+  **`notify` is platform-internal today** (every caller is the security family): from another
+  context it would write platform's tables inside that context's transaction, which rule 12 /
+  ADR-047 forbid. The first module to raise a notification needs a decided design and an ADR
+  before it calls — its own outbox event that platform consumes, or a call on a session of its
+  own with a compensating action — classified in `test_adr_047_no_shared_transaction.py`, which
+  refuses an unclassified cross-context `notify` by name (pinned by
+  `test_notify_call_sites_use_registered_codes.py`). Its events: the declaration **and** a
+  platform migration inserting the rows, in the PR that raises them. `security` is locked (immediate, in-app and push); `in_app` cannot be switched
+  off while a family delivers (422 `in_app_is_the_record`); `digest` holds rows (`delivered_at`
+  NULL) until the daily `platform.notifications.digest`; `platform.notifications.purge` drops rows
+  past 90 days and subscriptions whose session ran out. The **security family hangs on
+  `auth_events.record`** (`services/security_alerts.py::on_auth_event`): new-device login
+  (`details.newDevice`: the user agent matches none of the user's earlier sessions, and there was
+  one), factor enrolled/removed, recovery code used, lockout, password reset or a replaced password
+  (`details.replaced`), a session ended by someone else (actor ≠ user), connected account revoked;
+  platform recovery through the KAN-202 seam (`security.platform_recovery_action`, the action as a
+  closed code, never the reason). Connected-account linking and impersonation start/end are in the
+  catalogue only. **Web Push** is a port (`services/web_push.py`): the only adapter is
+  `UnconfiguredWebPushSender` — no VAPID key is configured (its home is `app/core/config.py`, a
+  preserved file: a decision for Anto), so `GET /v1/me/push/config` says unavailable and nothing is
+  pushed; the consumers `platform.web_push_on_notification` / `_on_digest` push title + link
+  only through it, and only to a **live** session's subscriptions (not revoked, not idle, not past
+  its absolute end); a revoked session's subscription is deleted in `auth_sessions.revoke*`. API
+  (`api/notifications.py`): `GET /v1/me/notifications` (`unread`, cursor), `…/unread-count`,
+  `PATCH …/{id}` (`read`), `POST …/read-all`, `GET/PUT /v1/me/notification-preferences[/{family}]`,
+  `GET /v1/me/push/config`, `POST/DELETE /v1/me/push-subscriptions[/{id}]`. SPA: the sidebar's bell
+  (`SidebarProps.notifications`), `/notifications`, My account › Notifications, `public/sw.js`
+  (served from the dist root by `app/main.py::spa_file_response`).
 - **Customer messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the
   Betrieb brings its own SMS/WhatsApp provider; consent lives on the customer.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and
@@ -379,7 +523,7 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `profile_updated` audit row; any other field, the e-mail address included, is a 422) and
   `PUT/GET/DELETE /v1/me/signature` (the manager's rules and key). A session that owes a factor
   reaches none of them (the guard's enrolment paths), and the SPA shows it the Security tab alone.
-  Notification preferences are a placeholder until KAN-216.
+  Notification preferences are the Notifications tab (`/account/notifications`, KAN-216).
 - **Signature image (KAN-200; Anto, 2026-10-19: the manager sets it too):** `PUT/GET/DELETE
   …/users/{id}/signature`, the image as the raw body (PNG or JPEG ≤ 1 MiB, judged by its
   bytes), stored under `dealerships/<id>/users/<id>/signature` in the object store
@@ -395,13 +539,41 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   the row holds the key (`user.photo_ref`), `hasPhoto` is on `UserAdminRead` and `MeRead` (never
   on the session's `UserRead`). The Users grid shows it beside the name (`UserAvatar`, fetched
   only for a row that has one, initials otherwise).
+- **Branding (KAN-205; PRD Logo and brand assets):** `/administration/branding` («Logo und
+  Farben»; capability `branding`: any role reads, the manager writes). `branding_asset` holds one
+  row per variant (`primary` · `mono_dark` · `favicon`; a variant without its own file falls back to
+  `primary`) with the object-store key `dealerships/<id>/branding/<kind>/<asset id>` — never bytes;
+  a replaced file gets a new key, the old object goes after the commit. `PUT/GET/DELETE
+  …/branding/assets/{kind}` (the file as the raw body, judged by its bytes in
+  `services/logo_validation.py`: SVG sanitised with the standard library — Expat refuses every
+  entity declaration, then an element allowlist; any CSS holding a backslash (an escape can spell
+  `url(`/`@import`) and any `style` element with a child element are dropped — or PNG ≥ 600 px on
+  the long edge, ≤ 10'000 px, ≤ 16 MP, ≤ 5 MiB; JPEG refused; reasons `logo_*`), `GET/PATCH …/branding` (`brand_primary_color`,
+  `brand_secondary_color`, the five `logo_on_*` placements — app header off by default) and
+  `GET …/branding/preview` (a PDF from `render_document`). Every write takes If-Match on the
+  **dealership's** version and moves it, and is audited (`branding_updated` with the contrast
+  verdict, `branding_asset_set` / `_removed`). The contrast check (WCAG AA 4.5:1: primary/white,
+  secondary/white, secondary/primary; `services/brand_colors.py`, mirrored by
+  `components/branding/contrast.ts`) **warns, it does not block** — Anto's ruling on block vs.
+  warn is open (KAN-205 hand-over). No public URL and no signed URL: the SPA reads the file
+  through the authenticated GET (private, no-store, a CSP sandbox), the renderer from the store
+  in-process; a signed URL comes with the bucket (KAN-402) for a reader without a session. The
+  WP-6b `logo_url` is never printed (the renderer fetches no external URL, below);
+  `scripts/migrate_logo_urls_to_branding_assets.py` (dry run by default) moves it into the store.
 
 ## Document templates (ADR-051)
 
-One shared template layer (`app/platform/models/document_template.py`). WeasyPrint only in
+One shared template layer (`app/platform/models/document_template.py` — the header note only
+since KAN-208; a document's footer wording is its own standard text, frozen in
+`ContentDefinition.footer_text` and printed in the running footer). WeasyPrint only in
 `app/platform/services/document_render.py`; no HTML-tag string literal (`<table`, `<div`,
 `<style`, `<html`) elsewhere in `app/` (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
-`DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
+`DocumentPreview` only displays the PDF the renderer produced — never a second renderer. The
+header's logo is the primary branding asset, inlined from the object store while the
+`document_header` placement is on (KAN-205); the layout around it is [P2-4]'s. **WeasyPrint
+loads `data:` URIs and nothing else** (`document_render.local_url_fetcher`, KAN-205 review):
+every byte a document prints is in its own HTML, so an http(s), file or relative reference —
+from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a render).
 
 ## Authentication (D-A-07…D-A-12, D-A-16, D-A-36, D-A-37) — built by KAN-196, except where a bullet says so
 
@@ -437,7 +609,8 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   login; `enforce_live_session` is an **app-level dependency** in `app/main.py` that 401s a
   token whose row is revoked, idle (`session_idle_minutes`, 120) or past its absolute end
   (**next midnight Europe/Zurich** — Anto, 2026-10-17), and touches the row at most once a
-  minute. A token without `sid` (tests, bootstrap) is left to the route. Logout revokes the
+  minute — never for a request marked `X-DMS-Background` (the bell's unread-count poll, KAN-216),
+  which is checked but is not activity, so an unattended tab still idles out. A token without `sid` (tests, bootstrap) is left to the route. Logout revokes the
   row and is the one route the guard lets a dead session reach. A status change to suspended
   or deactivated, a change of roles, manager flag or membership (the claims live for the
   session's day), a password reset, an accepted invitation and platform staff's
@@ -535,9 +708,10 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   without; ≤500 characters), its own auth event kind (`recovery_*`, the staff member the actor,
   the reason in `details` — **the Betrieb's manager reads it** in `GET …/auth-events`, Anto
   2026-10-22), an audit row `recovery_<action>` (the reason in the audit row's `reason`), and
-  a `security` notice through `services/security_notifications.py` — a seam KAN-216 fills;
-  until then it logs that a notice is owed and **nothing reaches the user** (a re-issued
-  invitation still goes by e-mail, as the flow it is). Staff never recover their own account
+  a `security` notice through `services/security_notifications.py` — since KAN-216 the
+  catalogue's sink, an inbox entry `security.platform_recovery_action` (and a push, once one can
+  be sent) in the action's own transaction; a re-issued invitation still goes by e-mail, as the
+  flow it is. Staff never recover their own account
   (403) nor a deactivated one (409); clear-lockout on an account with no failures is a 409
   (`not_locked`); every refusal the recovery service makes carries a stable `details.rule` (the
   gate's 403s, a missing user's 404, the If-Match 400/409 and a validation 422 do not; the
@@ -569,8 +743,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   reactivation of a deactivated user who holds no credential, which lands on `invited` — also
   for an account that was active before KAN-196 and never set a password: the manager may then
   correct its e-mail and resend the invitation (Anto, 2026-10-20: kept as built, knowingly). **Open with Anto:** the new address is
-  not confirmed before it takes over the channel. **Not built:** FR-AU-26's `security`
-  notification family itself (KAN-216; the e-mail-change notice is the one notice sent). No step-up
+  not confirmed before it takes over the channel. FR-AU-26's `security` notification family is
+  built (KAN-216, above under Notifications); the e-mail-change mail to the old address stays the
+  e-mail-change flow's own step, not a notification. No step-up
   re-authentication (A-12: no).
 - argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4; the target is ~250 ms
   a verify on the instance that serves logins, measured with `scripts/benchmark_argon2.py` — the

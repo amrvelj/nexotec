@@ -419,7 +419,10 @@ def test_uid_audit_entries_are_in_plain_because_the_uid_is_public(client):
     token = _token(AccessRole.PLATFORM_ADMIN)
 
     log = client.get(f"/v1/dealerships/{body['id']}/audit-log", headers=_bearer(token))
-    create_event = next(item for item in log.json()["items"] if item["action"] == "create")
+    # KAN-204: the first location is created (and audited) with the Betrieb.
+    create_event = next(
+        item for item in log.json()["items"] if item["action"] == "create" and item["entityType"] == "dealership"
+    )
     assert create_event["after"]["uid"] == body["uid"]
     assert "tax_id" not in create_event["after"]
 

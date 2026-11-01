@@ -29,6 +29,7 @@ from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.mfa import MfaPasskey, MfaTotp
+from app.platform.models.notification import Notification, PushSubscription
 from app.platform.models.user_preference import UserPreference
 from app.vehicle.models.vehicle_history import VehicleAccessory
 from tests.route_walk import api_routes
@@ -56,6 +57,14 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/bank-accounts": "a new bank-account row (KAN-203); with isDefault the previous "
     "default is demoted under the dealership row lock — a row the caller did not name, audited as its own update, "
     "so no If-Match applies to it (D-A-27; Anto's ruling 2026-10-24: the default is chosen explicitly and moves)",
+    "/v1/dealerships/{dealership_id}/locations": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/locations/{location_id}/closures": "a new closure row (KAN-204), versioned "
+    "itself; the location's version does not move",
+    "/v1/dealerships/{dealership_id}/standard-texts/{category}": "a new standard-text row (KAN-208); with isDefault "
+    "the slot's previous default of the same Betrieb, scope and language is demoted in the same transaction — a row "
+    "the caller did not name, its version bumped and audited as its own update (the bank account's precedent)",
+    "/v1/dealerships/{dealership_id}/standard-text-previews": "the editor's preview (KAN-208): renders a body on "
+    "sample data and writes nothing",
     "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428,
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
     "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "
@@ -105,6 +114,9 @@ UNVERSIONED = {
     ("DELETE", "/v1/auth/sessions/{session_id}"): (AuthSession, "revoking one's own session; one row, idempotent"),
     ("DELETE", "/v1/auth/mfa/totp"): (MfaTotp, "removing one's own factor"),
     ("DELETE", "/v1/auth/mfa/passkeys/{passkey_id}"): (MfaPasskey, "removing one's own passkey"),
+    # KAN-216: the reader's own read/unread stamp on an inbox entry, idempotent.
+    ("PATCH", "/v1/me/notifications/{notification_id}"): (Notification, "one's own read/unread stamp"),
+    ("DELETE", "/v1/me/push-subscriptions/{subscription_id}"): (PushSubscription, "switching push off on one's device"),
 }
 
 

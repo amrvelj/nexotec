@@ -172,6 +172,15 @@ second local combobox.
   the active locale falls back to English (`fallbackLng: 'en'`), never German —
   `localeKeyParity.test.ts` keeps that from shipping. No hardcoded user-visible string,
   including labels in dialogs and wizards.
+- **The platform's published UI strings override the bundles at runtime** (KAN-209, FR-A-30…32):
+  `i18n/runtimeTranslations.ts`, started by `main.tsx`, fetches `GET /v1/i18n/{language}` for the
+  start language (and English) beside its bundle; the first paint waits for both, at most
+  `FIRST_PAINT_BUDGET_MS` for the map. A switch to de/fr/it waits for that language's map with
+  its bundle (`runtimeTranslationHooks.afterBundleRead` in `i18n/index.ts`); every switch asks
+  again (ETag, so a 304). Resources are rebuilt as bundle + published values, never patched, and
+  react-i18next re-renders on `added`. A key that renders the marker is reported (once per key and
+  language, batched) to `POST /v1/i18n/missing-translations`. Tests never start it (no network);
+  `runtimeTranslations.render.test.tsx` does, and resets it.
 - **An API refusal is shown in the UI language** (Anto, 2026-10-23, KAN-398): map
   `details.reason` (and a stale `If-Match` 409) to a key in all four bundles, anything else to
   a translated generic message — never `err.message`, which is the API's English text, for logs

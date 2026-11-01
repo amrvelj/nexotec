@@ -62,7 +62,7 @@ def test_reading_with_no_template_yet_returns_version_zero_not_404(client):
     body = response.json()
     assert body["id"] is None
     assert body["version"] == 0
-    assert body["footerTextDe"] is None
+    assert body["headerNoteDe"] is None
 
 
 def test_first_patch_creates_the_row_with_if_match_zero(client):
@@ -71,7 +71,7 @@ def test_first_patch_creates_the_row_with_if_match_zero(client):
 
     response = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "Vielen Dank für Ihr Vertrauen."},
+        json={"headerNoteDe": "Vielen Dank für Ihr Vertrauen."},
         headers={**_bearer(token), "If-Match": "0"},
     )
 
@@ -79,8 +79,8 @@ def test_first_patch_creates_the_row_with_if_match_zero(client):
     body = response.json()
     assert body["id"] is not None
     assert body["version"] == 1
-    assert body["footerTextDe"] == "Vielen Dank für Ihr Vertrauen."
-    assert body["footerTextFr"] is None
+    assert body["headerNoteDe"] == "Vielen Dank für Ihr Vertrauen."
+    assert body["headerNoteFr"] is None
 
 
 def test_creating_with_a_nonzero_if_match_is_a_conflict(client):
@@ -89,7 +89,7 @@ def test_creating_with_a_nonzero_if_match_is_a_conflict(client):
 
     response = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "x"},
+        json={"headerNoteDe": "x"},
         headers={**_bearer(token), "If-Match": "1"},
     )
 
@@ -102,25 +102,25 @@ def test_second_patch_requires_the_current_version(client):
 
     client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "Erste Version."},
+        json={"headerNoteDe": "Erste Version."},
         headers={**_bearer(token), "If-Match": "0"},
     )
 
     stale = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "Stale."},
+        json={"headerNoteDe": "Stale."},
         headers={**_bearer(token), "If-Match": "0"},
     )
     assert stale.status_code == 409
 
     fresh = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "Zweite Version."},
+        json={"headerNoteDe": "Zweite Version."},
         headers={**_bearer(token), "If-Match": "1"},
     )
     assert fresh.status_code == 200
     assert fresh.json()["version"] == 2
-    assert fresh.json()["footerTextDe"] == "Zweite Version."
+    assert fresh.json()["headerNoteDe"] == "Zweite Version."
 
 
 def test_a_bare_functional_role_cannot_write(client):
@@ -129,7 +129,7 @@ def test_a_bare_functional_role_cannot_write(client):
 
     response = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "x"},
+        json={"headerNoteDe": "x"},
         headers={**_bearer(token), "If-Match": "0"},
     )
 
@@ -143,7 +143,7 @@ def test_dealer_manager_cannot_write_another_dealerships_template(client):
 
     response = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "x"},
+        json={"headerNoteDe": "x"},
         headers={**_bearer(token), "If-Match": "0"},
     )
 
@@ -157,8 +157,27 @@ def test_platform_admin_can_write_any_dealerships_template(client):
 
     response = client.patch(
         f"/v1/dealerships/{dealership_id}/document-template",
-        json={"footerTextDe": "Von Platform gesetzt."},
+        json={"headerNoteDe": "Von Platform gesetzt."},
         headers={**_bearer(token), "If-Match": "0"},
     )
 
     assert response.status_code == 200, response.text
+
+
+def test_the_footer_text_is_no_longer_a_template_field(client):
+    """KAN-208: the footer moved into the standard-text library
+    (`invoice.footer.carried_over`). The read carries no footer field, and a
+    stale client sending one is refused, never silently dropped."""
+
+    dealership_id = _create_dealership(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
+
+    read = client.get(f"/v1/dealerships/{dealership_id}/document-template", headers=_bearer(token))
+    assert not [key for key in read.json() if key.startswith("footerText")]
+
+    response = client.patch(
+        f"/v1/dealerships/{dealership_id}/document-template",
+        json={"footerTextDe": "Vielen Dank."},
+        headers={**_bearer(token), "If-Match": "0"},
+    )
+    assert response.status_code == 422, response.text

@@ -4,6 +4,7 @@ import type {
   CustomerPhoneRead,
   CustomerRead,
   EmailType,
+  LocationRead,
   PhoneType,
 } from '../api/types'
 
@@ -147,4 +148,41 @@ export function customerPage(items: CustomerRead[]): {
   totalIsEstimate: boolean
 } {
   return { items, nextCursor: null, total: items.length, totalIsEstimate: false }
+}
+
+/** KAN-204 — a site of the Betrieb, active, in Zürich. */
+export function location(overrides: Partial<LocationRead> = {}): LocationRead {
+  return {
+    id: 'loc-1',
+    dealershipId: 'dealership-1',
+    code: 'ZH-NORD',
+    name: 'Zürich Nord',
+    locationTypes: ['showroom', 'workshop'],
+    addressStreet: 'Thurgauerstrasse',
+    addressHouseNumber: '40',
+    addressPostalCode: '8050',
+    addressLocality: 'Zürich',
+    addressCanton: 'ZH',
+    addressCountry: 'CH',
+    contactPerson: null,
+    phone: '+41441234567',
+    email: null,
+    leadEmail: null,
+    geoLat: null,
+    geoLng: null,
+    holidayCalendarId: null,
+    letterheadAddressOverride: null,
+    bankAccountOverrideId: null,
+    isActive: true,
+    validFrom: null,
+    validTo: null,
+    calendarRef: null,
+    warehouseRef: null,
+    version: 1,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    createdBy: null,
+    updatedBy: null,
+    ...overrides,
+  }
 }

@@ -239,20 +239,20 @@ def _seed_two_dealerships_in_one_group(db: Session) -> list[Dealership]:
     db.add(
         DocumentTemplate(
             dealership_id=zurich.id,
-            footer_text_de="Vielen Dank für Ihr Vertrauen.",
-            footer_text_fr="Merci de votre confiance.",
-            footer_text_it="Grazie per la fiducia.",
-            footer_text_en="Thank you for your trust.",
+            header_note_de="Vielen Dank für Ihr Vertrauen.",
+            header_note_fr="Merci de votre confiance.",
+            header_note_it="Grazie per la fiducia.",
+            header_note_en="Thank you for your trust.",
             version=1,
         )
     )
     db.add(
         DocumentTemplate(
             dealership_id=geneva.id,
-            footer_text_de="Vielen Dank für Ihr Vertrauen.",
-            footer_text_fr="Merci de votre confiance.",
-            footer_text_it="Grazie per la fiducia.",
-            footer_text_en="Thank you for your trust.",
+            header_note_de="Vielen Dank für Ihr Vertrauen.",
+            header_note_fr="Merci de votre confiance.",
+            header_note_it="Grazie per la fiducia.",
+            header_note_en="Thank you for your trust.",
             version=1,
         )
     )

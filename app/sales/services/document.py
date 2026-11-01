@@ -20,6 +20,16 @@ rule). The result is frozen into content_definition once; a later change
 to app.sales.i18n never alters an already-generated document (ADR-041's
 posture, applied to text).
 
+KAN-208: the offer's wording around the figures — its introduction
+(`offer` / `intro`) and footer (`offer` / `footer`), and the contract's
+footer (`contract` / `footer`) — is the Betrieb's
+standard text, resolved and rendered by platform's resolver
+(app.platform.public.render_standard_text: the customer's language → the
+Betrieb's default → DE, the Betrieb's own wording before the seed) with the
+facts Sales holds as placeholder values. A token it cannot fill fails the
+generation (422, A-RULE-4) before anything is written; the rendered text is
+frozen into content_definition like every label.
+
 ADR-057: exactly one VAT line, computed at the dealership's own
 dealer_settings.vat_rate — never a second source of truth, never a net
 price, never a rate breakdown across multiple lines.
@@ -33,7 +43,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.core.i18n import SwissLanguage
+from app.core.i18n import SwissLanguage, format_date_ch
 from app.platform.public import (
     Addressee,
     ContentDefinition,
@@ -43,8 +53,13 @@ from app.platform.public import (
     LineItemsBlock,
     LineStyle,
     ParagraphBlock,
+    Placeholder,
+    StandardTextAppliesTo,
+    StandardTextCategory,
+    StandardTextSlot,
     get_dealership_or_404,
     render_document,
+    render_standard_text,
 )
 from app.sales.i18n import t
 from app.sales.models.contract import SalesContract
@@ -168,6 +183,8 @@ def build_offer_content(
     language: SwissLanguage,
     vat_rate: Decimal | None,
     option_lines: Sequence[tuple[str, Decimal]] = (),
+    intro: str | None = None,
+    footer: str | None = None,
 ) -> ContentDefinition:
     """`language` is the CUSTOMER's correspondence language (offer.
     customer_language), passed explicitly by the caller — never read from
@@ -175,15 +192,19 @@ def build_offer_content(
     document" structurally impossible. `vat_rate` is the dealership's own
     dealer_settings.vat_rate at generation time, also passed explicitly
     (this function does no lookup of its own) so a later rate change
-    never alters an already-generated document.
+    never alters an already-generated document. `intro` and `footer` are
+    the offer's standard texts, already rendered (KAN-208,
+    `offer_standard_texts`); None prints none.
     """
 
+    intro_blocks = [ParagraphBlock(text=intro)] if intro else []
     return ContentDefinition(
         title=t(language, "offer.title", number=offer.offer_number),
         metadata=[KeyValueRow(label=t(language, "date"), value=utcnow().date().isoformat())],
         addressee=Addressee(lines=[offer.customer_label or "—"]),
+        footer_text=footer,
         blocks=[
-            ParagraphBlock(text=t(language, "offer.greeting")),
+            *intro_blocks,
             _vehicle_block(offer.vehicle_label, language=language),
             LineItemsBlock(
                 lines=_price_build_up_lines(
@@ -205,16 +226,18 @@ def build_offer_content(
 
 
 def build_contract_content(
-    contract: SalesContract, *, language: SwissLanguage, vat_rate: Decimal | None
+    contract: SalesContract, *, language: SwissLanguage, vat_rate: Decimal | None, footer: str | None = None
 ) -> ContentDefinition:
     """See build_offer_content's own docstring — same explicit-language,
-    explicit-rate posture.
+    explicit-rate posture. `footer` is the contract's footer standard text,
+    already rendered (KAN-208, `contract_footer`); None prints none.
     """
 
     return ContentDefinition(
         title=t(language, "contract.title", number=contract.contract_number),
         metadata=[KeyValueRow(label=t(language, "date"), value=utcnow().date().isoformat())],
         addressee=Addressee(lines=[contract.customer_label or "—"]),
+        footer_text=footer,
         blocks=[
             _vehicle_block(contract.vehicle_label, language=language),
             LineItemsBlock(
@@ -267,6 +290,63 @@ def _included_option_lines(db: Session, *, offer: SalesOffer) -> list[tuple[str,
     ]
 
 
+def offer_placeholder_values(offer: SalesOffer) -> dict[str, str | None]:
+    """The facts Sales supplies to the offer's standard texts. The seller is
+    the responsible seller (none on an unassigned offer); the vehicle its
+    label. Platform fills the Betrieb's name and phone itself. A token whose
+    value is None fails the render, by A-RULE-4."""
+
+    return {
+        Placeholder.DOCUMENT_NUMBER.value: offer.offer_number,
+        Placeholder.DOCUMENT_DATE.value: format_date_ch(utcnow().date()),
+        Placeholder.VEHICLE_MAKE_MODEL.value: offer.vehicle_label,
+        Placeholder.USER_FULL_NAME.value: offer.owner_label,
+    }
+
+
+def offer_standard_texts(db: Session, *, offer: SalesOffer, language: SwissLanguage) -> tuple[str | None, str | None]:
+    """The offer's introduction and footer, through platform's resolver."""
+
+    values = offer_placeholder_values(offer)
+    rendered = [
+        render_standard_text(
+            db,
+            dealership_id=offer.tenant_id,
+            category=StandardTextCategory.DOCUMENT,
+            applies_to=StandardTextAppliesTo.OFFER,
+            slot=slot,
+            language=language,
+            values=values,
+        )
+        for slot in (StandardTextSlot.INTRO, StandardTextSlot.FOOTER)
+    ]
+    intro, footer = (text.text if text is not None else None for text in rendered)
+    return intro, footer
+
+
+def contract_footer(db: Session, *, contract: SalesContract, language: SwissLanguage) -> str | None:
+    """The contract's footer (`contract` / `footer`), through platform's
+    resolver — the footer the contract printed from the document template
+    before KAN-208 is the Betrieb's default footer text since then. The same
+    facts the offer supplies, the contract's own."""
+
+    rendered = render_standard_text(
+        db,
+        dealership_id=contract.tenant_id,
+        category=StandardTextCategory.DOCUMENT,
+        applies_to=StandardTextAppliesTo.CONTRACT,
+        slot=StandardTextSlot.FOOTER,
+        language=language,
+        values={
+            Placeholder.DOCUMENT_NUMBER.value: contract.contract_number,
+            Placeholder.DOCUMENT_DATE.value: format_date_ch(utcnow().date()),
+            Placeholder.VEHICLE_MAKE_MODEL.value: contract.vehicle_label,
+            Placeholder.USER_FULL_NAME.value: contract.owner_label,
+        },
+    )
+    return rendered.text if rendered is not None else None
+
+
 def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesDocument:
     # KAN-495 (Anto, 2026-10-29, option a): an offer with a live contract
     # prints no new offer document — the contract is the live record (ADR-083)
@@ -274,8 +354,14 @@ def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UU
     require_no_live_contract(db, offer)
     language = SwissLanguage(offer.customer_language) if offer.customer_language else _DEFAULT_LANGUAGE
     dealership = get_dealership_or_404(db, offer.tenant_id)
+    intro, footer = offer_standard_texts(db, offer=offer, language=language)
     content = build_offer_content(
-        offer, language=language, vat_rate=dealership.vat_rate, option_lines=_included_option_lines(db, offer=offer)
+        offer,
+        language=language,
+        vat_rate=dealership.vat_rate,
+        option_lines=_included_option_lines(db, offer=offer),
+        intro=intro,
+        footer=footer,
     )
     document = SalesDocument(
         tenant_id=offer.tenant_id,
@@ -302,7 +388,8 @@ def generate_contract_document(db: Session, *, contract: SalesContract, actor_id
     require_complete(contract, action="printed")
     language = SwissLanguage(contract.customer_language) if contract.customer_language else _DEFAULT_LANGUAGE
     dealership = get_dealership_or_404(db, contract.tenant_id)
-    content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate)
+    footer = contract_footer(db, contract=contract, language=language)
+    content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate, footer=footer)
     document = SalesDocument(
         tenant_id=contract.tenant_id,
         owner_type=DocumentOwnerType.CONTRACT,

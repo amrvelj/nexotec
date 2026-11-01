@@ -201,19 +201,6 @@ class UserPage(CamelModel):
     next_cursor: str | None
 
 
-class LocationRead(CamelModel):
-    """A site of the Betrieb, for the Users screen's location picker
-    (KAN-200). The Locations screen itself is Phase 2."""
-
-    id: uuid.UUID
-    name: str
-    address_locality: str | None
-
-
-class LocationList(CamelModel):
-    items: list[LocationRead]
-
-
 # --- Deactivation with the reassignment step (FR-A-37, D-A-35) ------------
 
 

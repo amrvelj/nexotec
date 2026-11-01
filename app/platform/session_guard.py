@@ -4,7 +4,8 @@ before the route runs. A token without `sid` (a test token, bootstrap) is
 left to the route; a token whose row is revoked, idle beyond its timeout or
 past its absolute end is 401 — the cookie is cleared by the client on 401
 (KAN-237), so the user lands on the login screen. Activity extends the idle
-end (`auth_sessions.touch`). A malformed or expired token is not judged
+end (`auth_sessions.touch`); a background request (`X-DMS-Background`, the
+bell's poll — KAN-216) is checked but is not activity. A malformed or expired token is not judged
 here: the route's own `get_current_principal` answers it, so an
 unauthenticated route stays reachable with a stale cookie in the jar."""
 
@@ -63,6 +64,18 @@ def _enrolment_owed(db: Session, claims: dict, row: AuthSession) -> bool:
     return True if enforced is None else bool(enforced)
 
 
+# KAN-216: a request the client makes without the user doing anything — a
+# poll — says so with this header. The guard still checks the session is
+# live; it does not extend the idle end. The header can only shorten a
+# session, never lengthen one, so a client that sends it wrongly harms
+# nobody but itself.
+BACKGROUND_REQUEST_HEADER = "X-DMS-Background"
+
+
+def is_background_request(request: Request) -> bool:
+    return request.headers.get(BACKGROUND_REQUEST_HEADER, "").strip().lower() in {"1", "true", "poll"}
+
+
 def _token_from(request: Request) -> str | None:
     authorization = request.headers.get("authorization", "")
     if authorization.lower().startswith("bearer "):
@@ -92,7 +105,10 @@ def enforce_live_session(request: Request, db: Session = Depends(get_db)) -> Non
     row = auth_sessions.get(db, session_id)
     if row is None or not row.is_live(utcnow()):
         raise UnauthorizedError(_SESSION_ENDED)
-    if auth_sessions.touch(db, row):
+    # A request the SPA makes on its own (the bell's unread count, KAN-216)
+    # is judged like any other but is not activity: an unattended tab must
+    # still reach its idle end (FR-AU-19).
+    if not is_background_request(request) and auth_sessions.touch(db, row):
         db.commit()
     path = request.url.path
     if "mfa" not in (row.amr or []) and mfa.has_factor(db, row.user_id):

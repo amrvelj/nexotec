@@ -29,11 +29,14 @@ from app.db import Base
 class StandardTextCategory(str, enum.Enum):
     """The PRD's standard-text categories (Dealer Administration, "Standard
     texts" data model): document texts · e-mail bodies · SMS · internal note
-    templates · workshop job texts."""
+    templates · workshop job texts — and WhatsApp (FR-A-52/54, added by
+    KAN-208: the send dialog's third channel, its texts carry the provider's
+    template approval)."""
 
     DOCUMENT = "document"
     EMAIL = "email"
     SMS = "sms"
+    WHATSAPP = "whatsapp"
     INTERNAL_NOTE = "internal_note"
     WORKSHOP = "workshop"
 

@@ -279,6 +279,15 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   customer language renders in DE (`_DEFAULT_LANGUAGE`) — a German fallback awaiting a ruling
   (KAN-104).
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
+- **The offer's wording is the Betrieb's standard text** (KAN-208): `generate_offer_document`
+  resolves `offer` / `intro` (the first paragraph) and `offer` / `footer` (`footer_text`) through
+  `platform.public.render_standard_text` in the document's language, with Sales' facts as values
+  (`offer_placeholder_values`: number, date, vehicle label, the responsible seller's label). A
+  token Sales cannot fill — no car, no seller — fails the generation (422
+  `standard_text_placeholder_unresolved`) before anything is written. `generate_contract_document`
+  resolves `contract` / `footer` the same way (`contract_footer`, the contract's own facts) — the
+  footer a contract printed from the document template before KAN-208 is the Betrieb's default
+  contract footer text since then. Sales holds no text column of its own.
 - **ADR-041** — the offer freezes a `vehicle_snapshot` (`services/snapshot.py`); a pending
   contract freezes its own through the same function (KAN-67).
 - **FR-C-12 (KAN-10)** — Path B is the configurator, `build` only: `configurationId` on the

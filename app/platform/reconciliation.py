@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_token import AuthToken
+from app.platform.models.branding_asset import BrandingAsset
 from app.platform.models.connected_account import UserConnectedAccount
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
@@ -21,9 +22,13 @@ from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.models.location_schedule import LocationClosure
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
+from app.platform.models.ui_translation import UiTranslation
 from app.platform.models.user import User
 from app.platform.services.actor_reference import actor_reference_checks
 
@@ -45,6 +50,7 @@ ACTOR_TABLES = (
     ModuleEntitlement,  # granted_by (KAN-198): an actor column under another name
     DealershipMembership,  # granted_by (KAN-199)
     StandardTextDelegation,  # granted_by (KAN-199)
+    StandardText,  # created_by / updated_by (KAN-208)
     Credential,  # created_by / updated_by (KAN-196)
     DealershipAuthConfig,
     AuthToken,  # created_by: the issuer (KAN-196)
@@ -52,6 +58,11 @@ ACTOR_TABLES = (
     UserConnectedAccount,  # created_by / updated_by / revoked_by (KAN-201)
     DealershipBankAccount,  # created_by / updated_by (KAN-203)
     DealershipSettings,  # created_by / updated_by (KAN-203)
+    UiTranslation,  # created_by / updated_by: the platform admin who published (KAN-209)
+    HolidayCalendar,  # created_by / updated_by (KAN-204; seeded rows carry none)
+    Holiday,
+    LocationClosure,  # created_by / updated_by (KAN-204)
+    BrandingAsset,  # uploaded_by (KAN-205)
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]
