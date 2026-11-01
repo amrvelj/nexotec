@@ -26,7 +26,7 @@ const current = {
 }
 const holder = {
   plateId: 'p-old', vehicleId: 'veh-2', vehicleNumber: 'F-000002', vin: 'ZAR94000007123456', validFrom: '2024-03-01',
-  isInterchangeable: false,
+  isInterchangeable: false, version: 2,
 }
 
 function install(onPost: (body: Record<string, unknown>) => unknown) {
@@ -84,7 +84,7 @@ describe('Vehicle 360 › Plates — record and end a Kontrollschild (KAN-467)',
   it('names the other car the plate is on and moves it once the user confirms', async () => {
     const user = userEvent.setup()
     const backend = install((body) =>
-      body.moveFromPlateIds
+      body.moveFrom
         ? { ...current, id: 'p-new', plate: 'ZH 123456', canton: 'ZH', version: 1 }
         : status(409, {
             error: {
@@ -111,14 +111,14 @@ describe('Vehicle 360 › Plates — record and end a Kontrollschild (KAN-467)',
 
     await waitFor(() => expect(backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'POST')).toHaveLength(2))
     const [, confirmed] = backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'POST')
-    expect(confirmed.body).toMatchObject({ plate: '123456', canton: 'ZH', moveFromPlateIds: ['p-old'] })
+    expect(confirmed.body).toMatchObject({ plate: '123456', canton: 'ZH', moveFrom: [{ plateId: 'p-old', version: 2 }] })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('offers the Wechselschild for the one other car', async () => {
     const user = userEvent.setup()
     const backend = install((body) =>
-      body.wechselschildWithPlateId
+      body.wechselschildWith
         ? { ...current, id: 'p-new', isInterchangeable: true, version: 1 }
         : status(409, { error: { code: 'conflict', message: 'x', details: { reason: 'plate_current_on_other_vehicle', holders: [holder] } } }),
     )
@@ -131,7 +131,7 @@ describe('Vehicle 360 › Plates — record and end a Kontrollschild (KAN-467)',
 
     await waitFor(() => expect(backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'POST')).toHaveLength(2))
     expect(backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'POST')[1].body).toMatchObject({
-      wechselschildWithPlateId: 'p-old',
+      wechselschildWith: { plateId: 'p-old', version: 2 },
     })
   })
 
@@ -147,6 +147,25 @@ describe('Vehicle 360 › Plates — record and end a Kontrollschild (KAN-467)',
     await user.click(within(dialog).getByRole('button', { name: i18n.t('vehicleDetail.plates.recordSubmit') }))
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(i18n.t('apiRefusal.reasons.plate_invalid'))
+  })
+
+  it('past the plate-read limit the refusal names no car and offers no move', async () => {
+    const user = userEvent.setup()
+    install(() =>
+      status(409, {
+        error: { code: 'conflict', message: 'x', details: { reason: 'plate_current_on_other_vehicle', holdersWithheld: true } },
+      }),
+    )
+    render()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('vehicleDetail.header.recordPlate') }))
+    const dialog = await fillThePlate(user)
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('vehicleDetail.plates.recordSubmit') }))
+
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent(i18n.t('apiRefusal.reasons.plate_current_on_other_vehicle'))
+    expect(alert).toHaveTextContent(i18n.t('vehicleDetail.plates.limitReached'))
+    expect(within(dialog).queryByRole('button', { name: i18n.t('vehicleDetail.plates.moveConfirm') })).not.toBeInTheDocument()
   })
 
   it('«Kontrollschild erfassen» is in the overflow too', async () => {

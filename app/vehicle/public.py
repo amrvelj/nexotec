@@ -150,13 +150,16 @@ def match_vehicle(
     vehicle_kind: str | None = None,
     type_approval_number: str | None = None,
     first_registration_date=None,
-    group_id: uuid.UUID | None = None,
+    group_id: uuid.UUID,
 ):
     """WP-8 PR-5 — FR-S-08's trade-in plate/VIN search, the first consumer
     outside vehicle itself. `app.vehicle.services.matching` has no import
     of app.customer at all, so this one doesn't strictly need the deferred
     idiom the three above do — kept as a plain top-level import for that
     reason, re-exporting the exact same `MatchResult`.
+
+    `group_id` is required (KAN-467): a plate is matched in the caller's dealer
+    group's register only — the caller passes the token's group.
     """
 
     from app.vehicle.services.matching import match_vehicle as _match_vehicle

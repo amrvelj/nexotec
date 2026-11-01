@@ -9,7 +9,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.vehicle.models.plate import VehiclePlate
-from app.vehicle.services.plate import record_plate
+from app.vehicle.services.plate import PlateVersionRef, record_plate
 
 
 def seed_plate(
@@ -34,7 +34,9 @@ def seed_plate(
         canton=canton or plate.split()[0],
         valid_from=valid_from,
         valid_to=valid_to,
-        wechselschild_with_plate_id=wechselschild_with.id if wechselschild_with is not None else None,
+        wechselschild_with=(
+            PlateVersionRef(wechselschild_with.id, wechselschild_with.version) if wechselschild_with is not None else None
+        ),
     )
     db.commit()
     db.refresh(row)

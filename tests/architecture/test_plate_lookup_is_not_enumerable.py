@@ -35,6 +35,9 @@ _NOT_PLATE_LOOKUP_FUNCTIONS = {
     "get_vehicle_plate_or_404",
     # KAN-467: operates on the already-loaded row («beenden»).
     "end_plate",
+    # KAN-467: the Swiss calendar day a plate is "current" on — a clock,
+    # it reads no row at all.
+    "swiss_today",
 }
 
 

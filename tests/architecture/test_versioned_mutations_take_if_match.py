@@ -71,10 +71,9 @@ POST_WITHOUT_IF_MATCH = {
     "configurations' versions — only NULL fields, never a value a user set",
     "/v1/vehicle-mdm/{vehicle_id}/allocate": _CHILD_ROW,
     "/v1/vehicle-mdm/{vehicle_id}/odometer-readings": _CHILD_ROW,
-    "/v1/vehicle-mdm/{vehicle_id}/plates": "a new plate assignment (KAN-467), versioned itself; with "
-    "moveFromPlateIds / wechselschildWithPlateId the other car's assignments the 409 listed are ended or "
-    "grouped — the user's answer to that refusal, judged again under the plate's lock (must equal what is "
-    "current then), each change audited",
+    "/v1/vehicle-mdm/{vehicle_id}/plates": "a new plate assignment (KAN-467), versioned itself; the other "
+    "cars' assignments a move or a Wechselschild changes carry their version in the body (moveFrom / "
+    "wechselschildWith: plateId + version, the If-Match of each row), checked under the plate's lock",
     "/v1/vehicle-mdm/{vehicle_id}/accessories": _CHILD_ROW,
     "/v1/customers/{customer_id}/phones": _CHILD_ROW,
     "/v1/customers/{customer_id}/emails": _CHILD_ROW,

@@ -1,30 +1,29 @@
 """KAN-467 — recording a Kontrollschild: the API (record, confirm the move,
 Wechselschild, end), the group's register seen through the Plates tab and
-the search box, and the delivery consumer. The end-to-end test the ticket
+the search box. The end-to-end test the ticket
 names: record ZH 123456 on a car, search «ZH 123456», get that car.
 """
 
 import datetime as dt
 import uuid
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import create_access_token
-from app.core.outbox import OutboxEvent, publish
-from app.core.outbox_transport import DeliveryError, InProcessTransport
-from app.vehicle.consumers import handle_sales_contract_delivered_message
+from app.core.config import get_settings
 from app.vehicle.models.plate import VehiclePlate
+from app.vehicle.services.plate_read_guard import ACTION_PLATE_READ, PLATE_READ_ENTITY_TYPE
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
 OUR_BETRIEB = uuid.uuid4()
 OUR_GROUP = uuid.uuid4()
 THEIR_BETRIEB = uuid.uuid4()
 THEIR_GROUP = uuid.uuid4()
-# The service's own "today" (utcnow) — what the search resolves against.
-TODAY = dt.datetime.now(dt.UTC).date()
+# The register's own «today» — the Swiss day the search resolves against.
+TODAY = dt.datetime.now(ZoneInfo("Europe/Zurich")).date()
 
 
 def _headers(*, tenant=OUR_BETRIEB, group=OUR_GROUP, user=None, **extra) -> dict[str, str]:
@@ -93,7 +92,7 @@ def test_a_plate_on_another_car_of_the_group_moves_once_the_user_confirms(client
         held["id"], old_car.vehicle_number, old_car.vin,
     )
 
-    moved = _record(client, new_car, {"moveFromPlateIds": [held["id"]]})
+    moved = _record(client, new_car, {"moveFrom": [{"plateId": held["id"], "version": holder["version"]}]})
     assert moved.status_code == 201, moved.text
     [old_row] = client.get(f"/v1/vehicle-mdm/{old_car.id}/plates", headers=_headers()).json()
     assert old_row["validTo"] == (TODAY - dt.timedelta(days=1)).isoformat()
@@ -105,7 +104,10 @@ def test_a_wechselschild_is_formed_on_request(client, db_session):
     car_a, car_b = _cars(db_session)
     first = _record(client, car_a, {"plate": "TG 41277", "canton": "TG"}).json()
 
-    second = _record(client, car_b, {"plate": "TG 41277", "canton": "TG", "wechselschildWithPlateId": first["id"]})
+    second = _record(
+        client, car_b,
+        {"plate": "TG 41277", "canton": "TG", "wechselschildWith": {"plateId": first["id"], "version": first["version"]}},
+    )
     assert second.status_code == 201, second.text
     assert second.json()["isInterchangeable"] is True
 
@@ -169,79 +171,48 @@ def test_a_recording_is_audited_with_its_author_and_without_the_plate_value(clie
     assert "123456" not in repr((event.before, event.after, event.reason))
 
 
-# --- the delivery consumer (criterion 3: the vehicle-mdm side and the event contract) ---------
+# --- the refusal's car names are a plate read (KAN-467 review) ---------------------------------
 
 
-def _delivered(db_session, car, **payload):
-    message = publish(
-        db_session,
-        OutboxEvent(
-            event_type="sales.contract.delivered",
-            tenant_id=OUR_BETRIEB,
-            producer="sales",
-            aggregate_type="sales_contract",
-            aggregate_id=uuid.uuid4(),
-            payload={
-                "contractNumber": "V-2026-0001",
-                "vehicleId": str(car.id),
-                "groupId": str(OUR_GROUP),
-                "deliveredOn": TODAY.isoformat(),
-                "deliveredBy": None,
-                "plate": "ZH 123456",
-                "canton": "ZH",
-                "moveFromPlateIds": [],
-                **payload,
-            },
-        ),
-    )
-    db_session.commit()
-    return message
+def test_a_refusal_that_names_the_other_car_is_an_audited_plate_read(client, db_session):
+    old_car, new_car = _cars(db_session)
+    assert _record(client, old_car, {"validFrom": "2024-03-01"}).status_code == 201
+    user = uuid.uuid4()
+
+    refused = _record(client, new_car, user=user)
+
+    assert refused.json()["error"]["details"]["holders"][0]["vehicleId"] == str(old_car.id)
+    [read] = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.actor_id == user, AuditEvent.entity_type == PLATE_READ_ENTITY_TYPE)
+    ).all()
+    assert (read.action, read.entity_id, read.reason) == (ACTION_PLATE_READ, old_car.id, "plate_recording_refused")
 
 
-def _deliver(engine, message):
-    transport = InProcessTransport(sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
-    transport.register(
-        "sales.contract.delivered", consumer_name="vehicle.plate_on_contract_delivered",
-        handler=handle_sales_contract_delivered_message,
-    )
-    transport.deliver(message)
+def test_past_the_plate_read_limit_the_refusal_names_no_car(client, db_session, monkeypatch):
+    """The refusal counts against the per-user limit like a Plates-tab read
+    (ADR-085): past it, the plate is still refused, but the car is not named."""
 
-
-def test_a_car_delivered_with_its_plate_is_found_by_that_plate(client, db_session, engine):
-    [car] = _cars(db_session, 1)
-    _deliver(engine, _delivered(db_session, car))
-
-    search = client.get("/v1/vehicle-mdm/search", params={"q": "ZH 123456"}, headers=_headers()).json()
-    assert search["resolved"]["id"] == str(car.id)
-
-
-def test_a_delivery_without_a_plate_or_with_one_already_recorded_records_nothing(client, db_session, engine):
-    [car] = _cars(db_session, 1)
-    _deliver(engine, _delivered(db_session, car, plate=None, canton=None))
-    assert db_session.scalar(select(func.count()).select_from(VehiclePlate)) == 0
-
-    assert _record(client, car).status_code == 201
-    _deliver(engine, _delivered(db_session, car))
-    db_session.expire_all()
-    assert db_session.scalar(select(func.count()).select_from(VehiclePlate)) == 1
-
-
-def test_a_delivery_never_moves_a_plate_the_user_did_not_confirm(client, db_session, engine):
+    monkeypatch.setattr(get_settings(), "plate_read_limit", 0)
     old_car, new_car = _cars(db_session)
     assert _record(client, old_car, {"validFrom": "2024-03-01"}).status_code == 201
 
-    with pytest.raises(DeliveryError):
-        _deliver(engine, _delivered(db_session, new_car))
-    db_session.expire_all()
-    [old_row] = db_session.scalars(select(VehiclePlate)).all()
-    assert old_row.valid_to is None
+    refused = _record(client, new_car)
+
+    assert refused.status_code == 409
+    assert refused.json()["error"]["details"] == {"reason": "plate_current_on_other_vehicle", "holdersWithheld": True}
 
 
-def test_a_delivery_moves_the_plate_the_user_confirmed(client, db_session, engine):
-    old_car, new_car = _cars(db_session)
-    held = _record(client, old_car, {"validFrom": "2024-03-01"}).json()
+def test_a_plate_recorded_from_today_is_found_after_swiss_midnight(client, db_session, monkeypatch):
+    """00:30 in Zurich is still yesterday in UTC: the register's «today» is the
+    Swiss day, the one the dialog pre-fills (todayLocalIsoDate)."""
 
-    _deliver(engine, _delivered(db_session, new_car, moveFromPlateIds=[held["id"]]))
+    from app.vehicle.services import plate as plate_service
 
-    search = client.get("/v1/vehicle-mdm/search", params={"q": "ZH 123456"}, headers=_headers()).json()
-    assert search["resolved"]["id"] == str(new_car.id)
+    monkeypatch.setattr(plate_service, "_clock", lambda: dt.datetime(2026, 11, 1, 23, 30, tzinfo=dt.UTC))
+    [car] = _cars(db_session, 1)
+    assert _record(client, car, {"validFrom": "2026-11-02"}).status_code == 201
+
+    body = client.get("/v1/vehicle-mdm/search", params={"q": "ZH 123456"}, headers=_headers()).json()
+
+    assert body["resolved"]["id"] == str(car.id)
+    assert body["resolved"]["currentPlate"] == "ZH 123456"

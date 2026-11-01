@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
-from app.core.base import utcnow
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
@@ -32,6 +31,7 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleSearchHit,
     VehicleSearchResult,
 )
+from app.vehicle.services import plate as plate_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.plate_read_guard import read_plate_history
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
@@ -121,7 +121,7 @@ def _search_hit(db: Session, vehicle: VehicleMdm, principal: Principal) -> Vehic
     )
     if plates is None:
         return VehicleSearchHit(**read.model_dump(), current_plate=None, current_plate_withheld=True)
-    today = utcnow().date()
+    today = plate_service.swiss_today()  # KAN-467: the Swiss day, never the UTC one
     current_plate = next(
         (row.plate for row in plates if row.valid_from <= today and (row.valid_to is None or row.valid_to >= today)),
         None,

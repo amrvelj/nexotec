@@ -80,24 +80,32 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   not be enumerable (architecture test).
 - **The Kontrollschild register is the dealer group's** (ADR-039 as amended; Anto, 2026-10-31,
   KAN-467): `vehicle_plate.group_id`, and every read and write in `services/plate.py` names the
-  caller's group (token, or the delivery event's `groupId`) — search, the Plates tab, the shared
-  lookup's `currentPlate` and the trade-in's plate match never see another group's plate, which
-  may sit on another car (`plate.py` is on `test_no_ambient_group_read.py`'s allow-list for it).
-  The cross-group conflict queue (`vehicle_plate_conflict`) is gone. A plate is stored in one
-  spelling (`normalise_kontrollschild`: canton code + «ZH 123456»; 422 `plate_canton_invalid` /
-  `plate_invalid`). **Three ways in** (Anto, 2026-10-26): «Kontrollschild erfassen» on the Plates
-  tab and in the row menu — `POST /v1/vehicle-mdm/{id}/plates`; a plate current on another car of
-  the group is 409 `plate_current_on_other_vehicle` naming that car, and the same POST with
-  `moveFromPlateIds` (exactly the listed assignments; each ends the day before) or
-  `wechselschildWithPlateId` (the one other car; a group of at most two) is the user's answer,
-  serialised per plate by an advisory lock; «beenden» is `POST …/plates/{plate_id}/end` under
-  If-Match on the versioned row — rows are never deleted; the delivery of a sold car through
-  `sales.contract.delivered` (consumer `vehicle.plate_on_contract_delivered`, event contract in
-  `app/vehicle/consumers.py`; **Sales emits nothing yet** — its delivery step is the KAN-467
-  follow-up); and the incumbent-DMS import (FR-V-08, not built — a WP-10 requirement). Audit rows
-  of a plate write (`plate_recorded`, `plate_ended`, `plate_wechselschild_formed`) carry validity
-  and plate group, never the plate value. Every write service in `app/vehicle/services` has a
-  production caller (`tests/architecture/test_vehicle_write_services_have_a_caller.py`, KAN-467).
+  caller's group from the token — search, the Plates tab, the shared lookup's `currentPlate` and
+  the trade-in's plate match (`vehicle.public.match_vehicle` takes `group_id`, required) never see
+  another group's plate, which may sit on another car (`plate.py` is on
+  `test_no_ambient_group_read.py`'s allow-list for it). Nightly reconciliation checks
+  `vehicle_plate.group_id -> dealer_group.id` and that it is the recording Betrieb's group. The
+  cross-group conflict queue (`vehicle_plate_conflict`) is gone. A plate is stored in one spelling
+  (`normalise_kontrollschild`: canton code + «ZH 123456»; 422 `plate_canton_invalid` /
+  `plate_invalid`); «current» is the **Swiss** day (`plate.swiss_today`, `session_timezone`), never
+  the UTC one. **Recording** («Kontrollschild erfassen» on the Plates tab and in the row menu):
+  `POST /v1/vehicle-mdm/{id}/plates`; a plate current on another car of the group is 409
+  `plate_current_on_other_vehicle` with that car in `details.holders` (with each assignment's
+  `version`). **Naming that car is a plate read**: the route passes it through
+  `plate_read_guard.may_name_plate_holders` (audited, counted against the per-user limit, purpose
+  `plate_recording_refused`); past the limit the refusal carries `holdersWithheld` instead, and a
+  Wechselschild partner the refusal did not name gets a refusal that names nobody. The user's answer
+  is the same POST with `moveFrom` (exactly the listed assignments, each with its version — their
+  If-Match; each ends the day before) or `wechselschildWith` (the one other car; a group of at most
+  two), serialised per plate by an advisory lock; «beenden» is `POST …/plates/{plate_id}/end` under
+  If-Match on the versioned row, taking the same lock — rows are never deleted. The other two ways in
+  Anto named (2026-10-26) are **not built**: a sold car's delivery (waits on Anto's answer on KAN-467
+  — its own handover step, or the plate on `sales.contract.invoice_requested`; follow-up KAN-523)
+  and the incumbent-DMS import (FR-V-08 — a WP-10 requirement). Audit rows of a plate write
+  (`plate_recorded`, `plate_ended`, `plate_wechselschild_formed`) carry validity and plate group,
+  never the plate value. Every write service in `app/vehicle/services` is reached from production
+  code (`tests/architecture/test_vehicle_write_services_have_a_caller.py`, KAN-467; exceptions
+  KAN-524, KAN-211).
 - **Plate-history reads (Plates tab, resolved search hit, shared identity lookup) are audited and limited per user**
   (ADR-085, KAN-231): only through `services/plate_read_guard.py::read_plate_history`, never
   `plate.list_plates_for_vehicle` directly (architecture test); every read and every refusal

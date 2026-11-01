@@ -3973,8 +3973,10 @@ export interface paths {
          * Record Plate
          * @description KAN-467 — «Kontrollschild erfassen», in the caller's group's register
          *     (ADR-039 as amended). 409 `plate_current_on_other_vehicle` names the
-         *     group's car(s) the plate is on; the same POST with `moveFromPlateIds` or
-         *     `wechselschildWithPlateId` is the user's confirmation. Audited without
+         *     group's car(s) the plate is on — a plate read, audited and limited
+         *     (ADR-085); the same POST with `moveFrom` or `wechselschildWith` (each
+         *     other assignment at the version the refusal showed) is the user's
+         *     confirmation. Audited without
          *     the plate value; an `Idempotency-Key` makes a retry answer the first
          *     recording.
          */
@@ -8714,6 +8716,21 @@ export interface components {
             vehicleKindCode: string;
         };
         /**
+         * PlateVersionRefIn
+         * @description KAN-467 — one other car's assignment the user answered about, at the
+         *     `version` the refusal showed (`details.holders[].version`): the If-Match
+         *     of the row the answer changes.
+         */
+        PlateVersionRefIn: {
+            /**
+             * Plateid
+             * Format: uuid
+             */
+            plateId: string;
+            /** Version */
+            version: number;
+        };
+        /**
          * PreferredChannel
          * @description How the customer wants to be reached. Sole contact-preference field
          *     since Phase B — the old `preferred_contact_method` (email/phone/sms)
@@ -10961,16 +10978,17 @@ export interface components {
          *
          *     When the plate is current on another car of the group the first POST is
          *     refused (409 `plate_current_on_other_vehicle`, the cars in
-         *     `details.holders`); the user's answer comes back on the same POST:
-         *     `moveFromPlateIds` — exactly the listed assignments, which end the day
-         *     before `validFrom` — or `wechselschildWithPlateId`, the one other car's
-         *     assignment, to form a Wechselschild.
+         *     `details.holders` with each assignment's `version`; past the plate-read
+         *     limit `details.holdersWithheld` instead); the user's answer comes back on
+         *     the same POST: `moveFrom` — exactly the listed assignments at their
+         *     versions, which end the day before `validFrom` — or `wechselschildWith`,
+         *     the one other car's assignment, to form a Wechselschild.
          */
         VehiclePlateCreate: {
             /** Canton */
             canton: string;
-            /** Movefromplateids */
-            moveFromPlateIds?: string[];
+            /** Movefrom */
+            moveFrom?: components["schemas"]["PlateVersionRefIn"][];
             /** Plate */
             plate: string;
             /**
@@ -10980,8 +10998,7 @@ export interface components {
             validFrom: string;
             /** Validto */
             validTo?: string | null;
-            /** Wechselschildwithplateid */
-            wechselschildWithPlateId?: string | null;
+            wechselschildWith?: components["schemas"]["PlateVersionRefIn"] | null;
         };
         /**
          * VehiclePlateEnd

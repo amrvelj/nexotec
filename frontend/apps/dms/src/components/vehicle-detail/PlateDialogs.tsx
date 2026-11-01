@@ -15,8 +15,15 @@ export interface RecordPlateRequest {
   canton: string
   validFrom: string
   validTo: string | null
-  moveFromPlateIds?: string[]
-  wechselschildWithPlateId?: string
+  /** The other cars' assignments the user answered about, at the version
+   * the refusal showed — the If-Match of the rows the answer changes. */
+  moveFrom?: PlateVersionRef[]
+  wechselschildWith?: PlateVersionRef
+}
+
+interface PlateVersionRef {
+  plateId: string
+  version: number
 }
 
 /** One car of the group the plate is current on, from the 409's details. */
@@ -26,6 +33,7 @@ interface PlateHolder {
   vehicleNumber: string | null
   vin: string | null
   validFrom: string
+  version: number
 }
 
 const CANTON_CODES = CANTON_OPTIONS.map((option) => option.value)
@@ -72,7 +80,7 @@ export function RecordPlateDialog({
     setError(null)
   }, [opened])
 
-  const send = async (answer: Pick<RecordPlateRequest, 'moveFromPlateIds' | 'wechselschildWithPlateId'> = {}) => {
+  const send = async (answer: Pick<RecordPlateRequest, 'moveFrom' | 'wechselschildWith'> = {}) => {
     if (!canton || !plate.trim() || !validFrom) return
     setSubmitting(true)
     setError(null)
@@ -82,7 +90,10 @@ export function RecordPlateDialog({
     } catch (err) {
       const found = holdersOf(err)
       if (found) setHolders(found)
-      else setError(apiRefusalText(t, err, 'vehicleDetail.plates.saveError'))
+      else if (err instanceof ApiError && err.details?.holdersWithheld === true) {
+        // Past the plate-read limit the refusal names no car (ADR-085).
+        setError(`${apiRefusalText(t, err, 'vehicleDetail.plates.saveError')} ${t('vehicleDetail.plates.limitReached')}`)
+      } else setError(apiRefusalText(t, err, 'vehicleDetail.plates.saveError'))
     } finally {
       setSubmitting(false)
     }
@@ -100,7 +111,9 @@ export function RecordPlateDialog({
       cancelLabel={t('common.cancel')}
       submitting={submitting}
       submitDisabled={!canton || !plate.trim() || !validFrom}
-      onSubmit={() => (confirming ? send({ moveFromPlateIds: holders.map((h) => h.plateId) }) : send())}
+      onSubmit={() =>
+        confirming ? send({ moveFrom: holders.map((h) => ({ plateId: h.plateId, version: h.version })) }) : send()
+      }
     >
       <Stack gap="sm">
         {error && (
@@ -166,7 +179,7 @@ export function RecordPlateDialog({
                   size="xs"
                   style={{ alignSelf: 'flex-start' }}
                   disabled={submitting}
-                  onClick={() => void send({ wechselschildWithPlateId: holders[0]!.plateId })}
+                  onClick={() => void send({ wechselschildWith: { plateId: holders[0]!.plateId, version: holders[0]!.version } })}
                 >
                   {t('vehicleDetail.plates.formWechselschild')}
                 </Button>

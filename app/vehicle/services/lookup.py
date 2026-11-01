@@ -19,11 +19,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
 from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.lookup import SharedVehicleIdentity
+from app.vehicle.services import plate as plate_service
 from app.vehicle.services.plate import resolve_plate
 from app.vehicle.services.plate_read_guard import read_plate_history
 
@@ -108,5 +108,5 @@ def _to_shared_identity(
         purpose=PLATE_READ_PURPOSE,
     )
     if plates is not None:
-        identity.current_plate = _plate_valid_on(plates, utcnow().date())
+        identity.current_plate = _plate_valid_on(plates, plate_service.swiss_today())
     return identity

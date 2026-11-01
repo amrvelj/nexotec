@@ -12,9 +12,9 @@ this PR.
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
+from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import VehicleParty
-from app.platform.public import Dealership, actor_reference_checks
+from app.platform.public import DealerGroup, Dealership, actor_reference_checks
 from app.sales.public import Transaction
 from app.vehicle.models.catalogue import (
     Brand,
@@ -88,7 +88,7 @@ ACTOR_TABLES = (
     MappingGap,
 )
 
-CHECKS = [
+CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
         label="vehicle.current_custodian_partner_id -> dealership.id",
         source_model=Vehicle,
@@ -124,6 +124,31 @@ CHECKS = [
         source_fk_column=VehiclePlate.recording_tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
+    ),
+    # KAN-467 (ADR-039 as amended): the register a plate is kept in is its
+    # dealer group's. The group must exist, and it must be the group of the
+    # Betrieb that recorded the plate — a session minted for a Betrieb carries
+    # that Betrieb's group (ADR-106), so a difference means a write named the
+    # wrong register.
+    ReferenceCheck(
+        label="vehicle_plate.group_id -> dealer_group.id",
+        source_model=VehiclePlate,
+        source_row_id_column=VehiclePlate.id,
+        source_fk_column=VehiclePlate.group_id,
+        target_model=DealerGroup,
+        target_id_column=DealerGroup.id,
+    ),
+    StateCheck(
+        label="vehicle_plate kept in a group that is not its recording Betrieb's",
+        source_model=VehiclePlate,
+        source_row_id_column=VehiclePlate.id,
+        where=lambda: (
+            select(Dealership.id)
+            .where(Dealership.id == VehiclePlate.recording_tenant_id)
+            .where(Dealership.dealer_group_id.is_distinct_from(VehiclePlate.group_id))
+            .correlate(VehiclePlate)
+            .exists()
+        ),
     ),
     ReferenceCheck(
         label="vehicle_odometer_reading.recording_tenant_id -> dealership.id",

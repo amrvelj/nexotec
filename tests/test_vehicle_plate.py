@@ -20,6 +20,7 @@ from app.core.errors import ConflictError, UnprocessableEntityError
 from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.services.plate import (
     PLATE_ENTITY_TYPE,
+    PlateVersionRef,
     end_plate,
     normalise_kontrollschild,
     record_plate,
@@ -88,7 +89,7 @@ def test_confirming_the_move_ends_the_other_assignment_the_day_before(db_session
     new_car = _vehicle(db_session, "WVWZZZ1JZXW000001")
     held = _record(db_session, old_car, valid_from=dt.date(2024, 3, 1))
 
-    moved = _record(db_session, new_car, move_from_plate_ids=[held.id])
+    moved = _record(db_session, new_car, move_from=[PlateVersionRef(held.id, held.version)])
 
     db_session.refresh(held)
     assert held.valid_to == TODAY - dt.timedelta(days=1)
@@ -104,10 +105,41 @@ def test_a_move_names_exactly_the_assignments_the_refusal_listed(db_session):
     _record(db_session, old_car, valid_from=dt.date(2024, 3, 1))
 
     with pytest.raises(ConflictError) as excinfo:
-        _record(db_session, new_car, move_from_plate_ids=[uuid.uuid4()])
+        _record(db_session, new_car, move_from=[PlateVersionRef(uuid.uuid4(), 1)])
     db_session.rollback()
 
     assert _reason(excinfo) == "plate_current_on_other_vehicle"
+
+
+def test_a_move_answered_at_a_stale_version_is_refused(db_session):
+    """The other car's assignment changed since the refusal showed it (ended,
+    grouped): the move is that row's If-Match, and a stale one is a 409."""
+
+    old_car = _vehicle(db_session, "ZAR94000007123456")
+    new_car = _vehicle(db_session, "WVWZZZ1JZXW000001")
+    held = _record(db_session, old_car, valid_from=dt.date(2024, 3, 1))
+
+    with pytest.raises(ConflictError) as excinfo:
+        _record(db_session, new_car, move_from=[PlateVersionRef(held.id, held.version + 1)])
+    db_session.rollback()
+
+    assert excinfo.value.details["currentVersion"] == held.version
+    db_session.refresh(held)
+    assert held.valid_to is None
+
+
+def test_a_wechselschild_with_a_car_the_refusal_did_not_name_names_nobody(db_session):
+    """A guessed partner id must never become a plate lookup (KAN-467 review)."""
+
+    car_a = _vehicle(db_session, "ZAR94000007123456")
+    car_b = _vehicle(db_session, "WVWZZZ1JZXW000001")
+    _record(db_session, car_a, "TG 41277", valid_from=dt.date(2024, 1, 1))
+
+    with pytest.raises(ConflictError) as excinfo:
+        _record(db_session, car_b, "TG 41277", wechselschild_with=PlateVersionRef(uuid.uuid4(), 1))
+    db_session.rollback()
+
+    assert excinfo.value.details == {"reason": "plate_wechselschild_not_possible"}
 
 
 def test_a_plate_cannot_move_from_an_assignment_that_starts_later(db_session):
@@ -116,7 +148,7 @@ def test_a_plate_cannot_move_from_an_assignment_that_starts_later(db_session):
     held = _record(db_session, old_car, valid_from=TODAY)
 
     with pytest.raises(ConflictError) as excinfo:
-        _record(db_session, new_car, valid_from=TODAY, move_from_plate_ids=[held.id])
+        _record(db_session, new_car, valid_from=TODAY, move_from=[PlateVersionRef(held.id, held.version)])
     db_session.rollback()
 
     assert _reason(excinfo) == "plate_move_before_start"
@@ -128,7 +160,7 @@ def test_a_wechselschild_joins_two_cars_and_never_a_third(db_session):
     car_c = _vehicle(db_session, "1HGCM82633A004352")
     first = _record(db_session, car_a, "TG 41277", valid_from=dt.date(2024, 1, 1))
 
-    second = _record(db_session, car_b, "TG 41277", wechselschild_with_plate_id=first.id)
+    second = _record(db_session, car_b, "TG 41277", wechselschild_with=PlateVersionRef(first.id, first.version))
 
     db_session.refresh(first)
     assert first.plate_group_id is not None and first.plate_group_id == second.plate_group_id
@@ -137,7 +169,7 @@ def test_a_wechselschild_joins_two_cars_and_never_a_third(db_session):
     assert {r.vehicle_id for r in pair} == {car_a.id, car_b.id}
 
     with pytest.raises(ConflictError) as excinfo:
-        _record(db_session, car_c, "TG 41277", wechselschild_with_plate_id=first.id)
+        _record(db_session, car_c, "TG 41277", wechselschild_with=PlateVersionRef(first.id, first.version))
     db_session.rollback()
     assert _reason(excinfo) == "plate_wechselschild_not_possible"
     assert len(excinfo.value.details["holders"]) == 2
@@ -223,7 +255,7 @@ def test_no_audit_row_of_a_plate_write_carries_the_plate_value(db_session):
     old_car = _vehicle(db_session, "ZAR94000007123456")
     new_car = _vehicle(db_session, "WVWZZZ1JZXW000001")
     held = _record(db_session, old_car, "ZH 284611", valid_from=dt.date(2024, 3, 1))
-    _record(db_session, new_car, "ZH 284611", move_from_plate_ids=[held.id])
+    _record(db_session, new_car, "ZH 284611", move_from=[PlateVersionRef(held.id, held.version)])
 
     rows = db_session.scalars(select(AuditEvent).where(AuditEvent.entity_type == PLATE_ENTITY_TYPE)).all()
     assert {r.action for r in rows} == {"plate_recorded", "plate_ended"}

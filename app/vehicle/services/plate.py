@@ -6,8 +6,8 @@ function. That is not a convention to remember; it is the only shape this
 module offers (see tests/architecture/test_plate_lookup_is_not_enumerable.py).
 
 KAN-467 (ADR-039 as amended, Anto 2026-10-31): the register is the DEALER
-GROUP's. Every read and write names the caller's `group_id` (from the token,
-or from the event that carries it) — another group's plate-to-car link is
+GROUP's. Every read and write names the caller's `group_id` (from the
+token) — another group's plate-to-car link is
 never read, matched or moved. Inside the group a Kontrollschild is current on
 one car at a time, or on the two cars of a Wechselschild: `record_plate`
 refuses a plate that is current on another car of the group and names that
@@ -20,8 +20,7 @@ Audit rows of a write carry the validity and the plate group, never the plate
 value: the audit log is listable by a manager, and plate values in it would
 make the register enumerable through the back door (ADR-039, ADR-085).
 
-Nothing here commits: the route commits, and a consumer's session is
-committed by the harness together with its processed-event row.
+Nothing here commits: the route does, so a refusal leaves nothing behind.
 """
 
 import datetime as dt
@@ -29,6 +28,8 @@ import hashlib
 import re
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
@@ -36,6 +37,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.concurrency import check_version
+from app.core.config import get_settings
 from app.core.constants import CANTON_CODES
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.uuid7 import uuid7
@@ -46,6 +48,28 @@ PLATE_ENTITY_TYPE = "vehicle_plate"
 ACTION_PLATE_RECORDED = "plate_recorded"
 ACTION_PLATE_ENDED = "plate_ended"
 ACTION_PLATE_GROUPED = "plate_wechselschild_formed"
+
+def _clock() -> dt.datetime:
+    return dt.datetime.now(dt.UTC)
+
+
+def swiss_today() -> dt.date:
+    """The calendar day in Switzerland (`session_timezone`) — the day a plate
+    is "current" on. Never the UTC day, which is still yesterday between
+    midnight and 01:00/02:00 Swiss time: a plate recorded from today would
+    not be found until then."""
+
+    return _clock().astimezone(ZoneInfo(get_settings().session_timezone)).date()
+
+
+@dataclass(frozen=True)
+class PlateVersionRef:
+    """One other car's assignment the user answered about, at the version the
+    refusal showed — the move's and the Wechselschild's If-Match."""
+
+    plate_id: uuid.UUID
+    version: int
+
 
 # A Kontrollschild's number: one to six digits, no leading zero.
 _PLATE_NUMBER_RE = re.compile(r"^[1-9]\d{0,5}$")
@@ -121,6 +145,7 @@ def _holder_details(db: Session, rows: Sequence[VehiclePlate]) -> list[dict[str,
                 "vin": vehicle.vin if vehicle else None,
                 "validFrom": row.valid_from.isoformat(),
                 "isInterchangeable": row.is_interchangeable,
+                "version": row.version,
             }
         )
     return details
@@ -137,8 +162,8 @@ def record_plate(
     canton: str,
     valid_from: dt.date,
     valid_to: dt.date | None = None,
-    move_from_plate_ids: Sequence[uuid.UUID] = (),
-    wechselschild_with_plate_id: uuid.UUID | None = None,
+    move_from: Sequence[PlateVersionRef] = (),
+    wechselschild_with: PlateVersionRef | None = None,
 ) -> VehiclePlate:
     """Records a Kontrollschild on a vehicle in the group's register.
 
@@ -146,10 +171,16 @@ def record_plate(
     assignment's validity, unless the caller confirms one of the two ways
     out the refusal offers:
 
-    - `move_from_plate_ids` names exactly the assignments the 409 listed:
-      each ends the day before `valid_from` (ADR-039's "the plate moves");
-    - `wechselschild_with_plate_id` names the one other car's assignment:
-      the two form a Wechselschild (one plate group, at most two cars).
+    - `move_from` names exactly the assignments the 409 listed, each at the
+      version it showed: each ends the day before `valid_from` (ADR-039's
+      "the plate moves");
+    - `wechselschild_with` names the one other car's assignment at its
+      version: the two form a Wechselschild (one plate group, at most two).
+
+    The refusals name the group's other cars (`details.holders`): a plate
+    read. The route passes them through the plate-read guard (audited and
+    limited, ADR-085) before they reach the caller; a caller that is not a
+    person (an import) never shows them.
     """
 
     canton, plate = normalise_kontrollschild(canton=canton, plate=plate)
@@ -157,7 +188,7 @@ def record_plate(
         raise UnprocessableEntityError(
             "An assignment cannot end before it starts.", details={"reason": "plate_validity_invalid"}
         )
-    if move_from_plate_ids and wechselschild_with_plate_id is not None:
+    if move_from and wechselschild_with is not None:
         raise UnprocessableEntityError(
             "A plate either moves or forms a Wechselschild, not both.",
             details={"reason": "plate_move_and_wechselschild"},
@@ -189,15 +220,23 @@ def record_plate(
         recording_tenant_id=recording_tenant_id,
     )
 
-    if wechselschild_with_plate_id is not None:
-        partner = next((h for h in holders if h.id == wechselschild_with_plate_id), None)
-        if partner is None or len(holders) != 1:
-            # A Wechselschild is one plate on two cars: the partner must be
-            # the one other car the plate is current on.
+    if wechselschild_with is not None:
+        partner = next((h for h in holders if h.id == wechselschild_with.plate_id), None)
+        if partner is None:
+            # Not the car the refusal named: say nothing about who holds the
+            # plate (a guessed id must never become a plate lookup).
+            raise ConflictError(
+                "A Wechselschild joins this vehicle to the other vehicle the plate is current on.",
+                details={"reason": "plate_wechselschild_not_possible"},
+            )
+        if len(holders) != 1:
+            # A Wechselschild is one plate on two cars: the plate is already
+            # on two.
             raise ConflictError(
                 "A Wechselschild joins this vehicle to the one other vehicle the plate is current on.",
                 details={"reason": "plate_wechselschild_not_possible", "holders": _holder_details(db, holders)},
             )
+        check_version(partner.version, wechselschild_with.version, entity_name="Plate assignment")
         before = _audit_after(partner)
         partner.plate_group_id = partner.plate_group_id or uuid7()
         partner.is_interchangeable = True
@@ -209,13 +248,15 @@ def record_plate(
         row.plate_group_id = partner.plate_group_id
         row.is_interchangeable = True
     elif holders:
-        if {h.id for h in holders} != set(move_from_plate_ids):
+        answered = {ref.plate_id: ref.version for ref in move_from}
+        if {h.id for h in holders} != set(answered):
             raise ConflictError(
                 "This plate is current on another vehicle; confirm the move or form a Wechselschild.",
                 details={"reason": "plate_current_on_other_vehicle", "holders": _holder_details(db, holders)},
             )
         ends_on = valid_from - dt.timedelta(days=1)
         for holder in holders:
+            check_version(holder.version, answered[holder.id], entity_name="Plate assignment")
             if ends_on < holder.valid_from:
                 raise ConflictError(
                     "The other vehicle's assignment starts on or after this one; it cannot be moved from.",
@@ -261,8 +302,12 @@ def end_plate(
     tenant_id: uuid.UUID,
 ) -> VehiclePlate:
     """Ends an assignment on `valid_to` (FR-V-16 «beenden»); the row stays.
-    A Wechselschild partner keeps its own assignment."""
+    A Wechselschild partner keeps its own assignment. Under the plate's lock,
+    re-read: a move of the same plate committing meanwhile is seen here, and
+    the version check below refuses the stale «beenden»."""
 
+    _lock_plate(db, group_id=row.group_id, plate=row.plate, canton=row.canton)
+    db.refresh(row)
     check_version(row.version, expected_version, entity_name="Plate assignment")
     if valid_to < row.valid_from:
         raise UnprocessableEntityError(
@@ -301,7 +346,7 @@ def resolve_plate(
     if normalised is None:
         return []
     canton, plate = normalised
-    as_of = as_of or utcnow().date()
+    as_of = as_of or swiss_today()
     stmt = select(VehiclePlate).where(
         VehiclePlate.group_id == group_id, VehiclePlate.plate == plate, VehiclePlate.canton == canton
     )
