@@ -37,6 +37,15 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
     onError: (err) => setError(apiRefusalText(t, err, 'locations.saveError')),
   })
 
+  // The two actions the menu offers, named, so the detail screen's primary
+  // calls the very same functions as the entries below (ADR-061; KAN-512's
+  // guard follows a `use…RowMenu` hook's returned actions).
+  const requestDeactivation = useCallback((location: LocationRead) => {
+    setError(null)
+    setPending(location)
+  }, [])
+  const activate = useCallback((location: LocationRead) => toggle.mutate({ location, isActive: true }), [toggle])
+
   const groups = useCallback(
     (location: LocationRead): RowMenuGroups => {
       const out: RowMenuGroups = {
@@ -51,10 +60,7 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
           {
             label: t('locations.actions.deactivate'),
             icon: <PowerOff size={16} />,
-            onClick: () => {
-              setError(null)
-              setPending(location)
-            },
+            onClick: () => requestDeactivation(location),
             disabled: last,
             disabledReason: last ? t('locations.actions.lastActive') : undefined,
           },
@@ -64,17 +70,20 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
           {
             label: t('locations.actions.activate'),
             icon: <Power size={16} />,
-            onClick: () => toggle.mutate({ location, isActive: true }),
+            onClick: () => activate(location),
           },
         ]
       }
       return out
     },
-    [t, navigate, canWrite, activeCount, toggle],
+    [t, navigate, canWrite, activeCount, requestDeactivation, activate],
   )
 
   return {
     groups,
+    /** Asks for the deactivation's confirmation (the dialog below opens on `pending`). */
+    requestDeactivation,
+    activate,
     /** The location waiting for the deactivation's confirmation. */
     pending,
     cancel: () => {
