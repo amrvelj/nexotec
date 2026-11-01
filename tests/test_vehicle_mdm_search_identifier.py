@@ -9,8 +9,8 @@ import datetime as dt
 import uuid
 
 from app.core.auth import create_access_token
-from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.plate_support import seed_plate
 from tests.token_support import dealer_group_of
 
 TENANT_ID = uuid.uuid4()
@@ -24,19 +24,20 @@ UNRELATED_VINS = ["1HGCM82633A004352", "WBA3A5C51CF256985", "VF1RFB00X57123456"]
 
 
 def _bearer() -> dict[str, str]:
-    tid = uuid.uuid4()
+    # A fresh user each time (the plate-read limit counts per user), in the
+    # Betrieb whose group's register `_plate` writes (KAN-467).
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
+        user_id=uuid.uuid4(), tenant_id=TENANT_ID, group_id=dealer_group_of(str(TENANT_ID)),
         roles=frozenset(), is_dealer_manager=True,
     )
     return {"Authorization": f"Bearer {token}"}
 
 
-def _plate(db_session, vehicle_id, plate, *, valid_to=None, group_id=None, valid_from=SINCE):
-    record_plate_assignment(
-        db_session, vehicle_id=vehicle_id, plate=plate, canton=plate.split()[0], valid_from=valid_from,
-        valid_to=valid_to, is_interchangeable=group_id is not None, plate_group_id=group_id,
-        recording_tenant_id=TENANT_ID,
+def _plate(db_session, vehicle_id, plate, *, valid_to=None, wechselschild_with=None, valid_from=SINCE):
+    return seed_plate(
+        db_session, vehicle_id=vehicle_id, group_id=dealer_group_of(str(TENANT_ID)), plate=plate,
+        valid_from=valid_from, valid_to=valid_to, recording_tenant_id=TENANT_ID,
+        wechselschild_with=wechselschild_with,
     )
 
 
@@ -83,9 +84,8 @@ def test_a_resolved_vin_names_the_plate_valid_today_not_an_expired_one(client, d
 def test_a_wechselschild_plate_answers_with_the_picker_only(client, db_session):
     target = _seed(db_session)
     pair = create_vehicle_mdm(db_session, vin=PAIR_VIN, catalogue_variant_id=None)
-    group_id = uuid.uuid4()
-    _plate(db_session, target.id, "TG 41277", group_id=group_id)
-    _plate(db_session, pair.id, "TG 41277", group_id=group_id)
+    first = _plate(db_session, target.id, "TG 41277")
+    _plate(db_session, pair.id, "TG 41277", wechselschild_with=first)
     db_session.commit()
 
     body = client.get("/v1/vehicle-mdm/search?q=TG 41277", headers=_bearer()).json()

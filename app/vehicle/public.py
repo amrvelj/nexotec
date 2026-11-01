@@ -150,6 +150,7 @@ def match_vehicle(
     vehicle_kind: str | None = None,
     type_approval_number: str | None = None,
     first_registration_date=None,
+    group_id: uuid.UUID | None = None,
 ):
     """WP-8 PR-5 — FR-S-08's trade-in plate/VIN search, the first consumer
     outside vehicle itself. `app.vehicle.services.matching` has no import
@@ -169,6 +170,7 @@ def match_vehicle(
         vehicle_kind=vehicle_kind,
         type_approval_number=type_approval_number,
         first_registration_date=first_registration_date,
+        group_id=group_id,
     )
 
 

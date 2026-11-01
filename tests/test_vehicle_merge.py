@@ -6,9 +6,9 @@ import uuid
 import pytest
 
 from app.vehicle.services.merge import merge_vehicles, resolve_merged_id
-from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.vehicle_history import add_accessory, record_odometer_reading
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.plate_support import seed_plate
 
 TENANT_ID = uuid.uuid4()
 
@@ -17,9 +17,9 @@ def test_merge_repoints_plates_accessories_and_odometer_readings(db_session):
     survivor = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
     duplicate = create_vehicle_mdm(db_session, vin="WVWZZZ1JZXW000001", catalogue_variant_id=None)
 
-    plate = record_plate_assignment(
-        db_session, vehicle_id=duplicate.id, plate="ZH 284611", canton="ZH", valid_from=dt.date(2026, 1, 1),
-        valid_to=None, is_interchangeable=False, plate_group_id=None, recording_tenant_id=TENANT_ID,
+    plate = seed_plate(
+        db_session, vehicle_id=duplicate.id, group_id=uuid.uuid4(), plate="ZH 284611", valid_from=dt.date(2026, 1, 1),
+        recording_tenant_id=TENANT_ID,
     )
     accessory = add_accessory(
         db_session, vehicle_id=duplicate.id, accessory_type="towbar", description=None,

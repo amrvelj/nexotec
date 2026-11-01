@@ -79,7 +79,7 @@ from app.vehicle.models.configuration import (
     VehicleConfigurationOptionFeature,
 )
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
-from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
+from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
 from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
 from app.vehicle.models.provider import (
     MappingGap,
@@ -199,5 +199,4 @@ __all__ = [
     "VehicleOdometerReading",
     "VehicleParty",
     "VehiclePlate",
-    "VehiclePlateConflict",
 ]

@@ -18,13 +18,13 @@ from app.core.auth import create_access_token
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.vehicle.services import plate_read_guard
-from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.plate_read_guard import (
     ACTION_PLATE_READ,
     ACTION_PLATE_READ_REFUSED,
     PLATE_READ_ENTITY_TYPE,
 )
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+from tests.plate_support import seed_plate
 from tests.token_support import dealer_group_of
 
 LIMIT = 3
@@ -35,6 +35,11 @@ VINS = ["ZAR94000007123456", "WVWZZZ1JZXW000001", "1HGCM82633A004352", "WBA3A5C5
 def _small_limit(monkeypatch):
     monkeypatch.setattr(get_settings(), "plate_read_limit", LIMIT)
     monkeypatch.setattr(get_settings(), "plate_read_window_seconds", 3600)
+
+
+# Every read in this file is made from one Betrieb; the plates are in its
+# group's register (KAN-467).
+TENANT = uuid.uuid4()
 
 
 def _bearer(user_id: uuid.UUID, tenant_id: uuid.UUID) -> dict[str, str]:
@@ -49,10 +54,10 @@ def _seed(db_session) -> list:
     vehicles = []
     for index, vin in enumerate(VINS):
         vehicle = create_vehicle_mdm(db_session, vin=vin, catalogue_variant_id=None)
-        record_plate_assignment(
-            db_session, vehicle_id=vehicle.id, plate=f"ZH {10000 + index}", canton="ZH",
-            valid_from=dt.date(2020, 1, 1), valid_to=None, is_interchangeable=False, plate_group_id=None,
-            recording_tenant_id=uuid.uuid4(),
+        # KAN-467: in the register of the readers' group (TENANT's).
+        seed_plate(
+            db_session, vehicle_id=vehicle.id, group_id=dealer_group_of(str(TENANT)), plate=f"ZH {10000 + index}",
+            valid_from=dt.date(2020, 1, 1), recording_tenant_id=TENANT,
         )
         vehicles.append(vehicle)
     db_session.commit()
@@ -86,7 +91,7 @@ def _page_all_vehicle_ids(client, headers) -> list[str]:
 
 def test_paging_the_vehicle_list_and_reading_plates_is_refused_past_the_limit(client, db_session):
     _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
     headers = _bearer(user, tenant)
 
     vehicle_ids = _page_all_vehicle_ids(client, headers)
@@ -110,7 +115,7 @@ def test_paging_the_vehicle_list_and_reading_plates_is_refused_past_the_limit(cl
 
 def test_a_single_read_is_audited_without_the_plate_value(client, db_session):
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
 
     response = client.get(f"/v1/vehicle-mdm/{vehicles[0].id}/plates", headers=_bearer(user, tenant))
 
@@ -125,7 +130,7 @@ def test_a_single_read_is_audited_without_the_plate_value(client, db_session):
 
 def test_rereading_a_vehicle_inside_the_window_does_not_count_again(client, db_session):
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
     headers = _bearer(user, tenant)
 
     for _ in range(LIMIT + 2):
@@ -139,7 +144,7 @@ def test_rereading_a_vehicle_inside_the_window_does_not_count_again(client, db_s
 
 def test_reads_older_than_the_window_no_longer_count(client, db_session):
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
     long_ago = utcnow() - dt.timedelta(seconds=3601)
     for vehicle in vehicles[:LIMIT]:
         db_session.add(
@@ -157,7 +162,7 @@ def test_reads_older_than_the_window_no_longer_count(client, db_session):
 
 def test_the_limit_is_per_user(client, db_session):
     vehicles = _seed(db_session)
-    tenant = uuid.uuid4()
+    tenant = TENANT
     first, second = _bearer(uuid.uuid4(), tenant), _bearer(uuid.uuid4(), tenant)
     for vehicle in vehicles[:LIMIT]:
         client.get(f"/v1/vehicle-mdm/{vehicle.id}/plates", headers=first)
@@ -168,7 +173,7 @@ def test_the_limit_is_per_user(client, db_session):
 
 def test_a_resolved_search_hit_is_audited_and_withholds_its_plate_past_the_limit(client, db_session):
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
     headers = _bearer(user, tenant)
 
     hit = client.get(f"/v1/vehicle-mdm/search?q={VINS[0]}", headers=headers).json()["resolved"]
@@ -208,7 +213,7 @@ def test_paging_the_vehicle_list_and_looking_up_each_vin_withholds_the_plate_pas
     vehicle without a plate answers — and the refusal is audited."""
 
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
     headers = _bearer(user, tenant)
 
     vins = _page_all_vins(client, headers)
@@ -238,7 +243,7 @@ def test_a_lookup_shares_the_limit_with_the_plates_tab(client, db_session):
     budget a lookup draws on, and a vehicle already read stays readable."""
 
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
     headers = _bearer(user, tenant)
     for vehicle in vehicles[:LIMIT]:
         assert client.get(f"/v1/vehicle-mdm/{vehicle.id}/plates", headers=headers).status_code == 200
@@ -260,7 +265,7 @@ def test_concurrent_reads_by_one_user_cannot_both_slip_under_the_limit(engine, d
 
     monkeypatch.setattr(get_settings(), "plate_read_limit", 1)
     vehicles = _seed(db_session)
-    user, tenant = uuid.uuid4(), uuid.uuid4()
+    user, tenant = uuid.uuid4(), TENANT
 
     first_counted, release = threading.Event(), threading.Event()
     real_record = plate_read_guard.record_audit_event
@@ -280,7 +285,8 @@ def test_concurrent_reads_by_one_user_cannot_both_slip_under_the_limit(engine, d
         with factory() as session:
             try:
                 plates = plate_read_guard.read_plate_history(
-                    session, actor_id=user, tenant_id=tenant, vehicle_id=vehicle_id, purpose="plates_tab"
+                    session, actor_id=user, tenant_id=tenant, group_id=dealer_group_of(str(tenant)),
+                    vehicle_id=vehicle_id, purpose="plates_tab",
                 )
                 results[threading.current_thread().name] = plates is not None
             except Exception as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed

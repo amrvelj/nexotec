@@ -272,6 +272,7 @@ source_modules = [
 ]
 forbidden_modules = [
     "app.vehicle.api",
+    "app.vehicle.consumers",
     "app.vehicle.models",
     "app.vehicle.reconciliation",
     "app.vehicle.schemas",

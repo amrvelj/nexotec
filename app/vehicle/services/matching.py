@@ -15,6 +15,7 @@ one fixed order:
 
 import dataclasses
 import datetime as dt
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -45,6 +46,7 @@ def match_vehicle(
     vehicle_kind: str | None = None,
     type_approval_number: str | None = None,
     first_registration_date: dt.date | None = None,
+    group_id: uuid.UUID | None = None,
 ) -> MatchResult:
     if vin:
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == vin))
@@ -57,7 +59,10 @@ def match_vehicle(
             return MatchResult(rung="stammnummer", vehicle=vehicle, decisive=True, requires_confirmation=False)
 
     if plate and canton:
-        plate_rows = resolve_plate(db, plate=plate, canton=canton)
+        # KAN-467: a plate is looked up in one group's register — the caller's.
+        if group_id is None:
+            raise ValueError("A plate is matched in a dealer group's register; pass group_id.")
+        plate_rows = resolve_plate(db, group_id=group_id, plate=plate, canton=canton)
         candidate_ids = {row.vehicle_id for row in plate_rows}
         if len(candidate_ids) == 1:
             vehicle = db.get(VehicleMdm, next(iter(candidate_ids)))

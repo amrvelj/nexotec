@@ -86,7 +86,7 @@ def search_vehicles(
     sort_fields = parse_sort(sort, allowed=VEHICLE_MDM_SORT_FIELDS) or _DEFAULT_VEHICLE_MDM_SORT
     params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
 
-    resolution = resolve_identifier(db, q) if q else None
+    resolution = resolve_identifier(db, q, group_id=principal.group_id) if q else None
     if resolution is not None and (resolution.resolved or resolution.picker_candidates):
         return VehicleSearchResult(
             resolved=_search_hit(db, resolution.resolved, principal) if resolution.resolved else None,
@@ -112,7 +112,12 @@ def _search_hit(db: Session, vehicle: VehicleMdm, principal: Principal) -> Vehic
 
     read = VehicleMdmRead.model_validate(vehicle, from_attributes=True)
     plates = read_plate_history(
-        db, actor_id=principal.user_id, tenant_id=principal.tenant_id, vehicle_id=vehicle.id, purpose="search_hit"
+        db,
+        actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+        group_id=principal.group_id,
+        vehicle_id=vehicle.id,
+        purpose="search_hit",
     )
     if plates is None:
         return VehicleSearchHit(**read.model_dump(), current_plate=None, current_plate_withheld=True)

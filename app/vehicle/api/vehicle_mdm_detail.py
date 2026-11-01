@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
+from app.core.concurrency import require_if_match
 from app.core.errors import ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
@@ -30,9 +31,12 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleOdometerReadingCreate,
     VehicleOdometerReadingRead,
     VehiclePartyAllocationRead,
+    VehiclePlateCreate,
+    VehiclePlateEnd,
     VehiclePlateRead,
 )
 from app.vehicle.services import catalogue_entitlements
+from app.vehicle.services import plate as plate_service
 from app.vehicle.services import vehicle_history as history_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.plate_read_guard import REFUSAL_REASON, read_plate_history
@@ -53,7 +57,12 @@ def list_plates(
 
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     rows = read_plate_history(
-        db, actor_id=principal.user_id, tenant_id=principal.tenant_id, vehicle_id=vehicle_id, purpose="plates_tab"
+        db,
+        actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+        group_id=principal.group_id,
+        vehicle_id=vehicle_id,
+        purpose="plates_tab",
     )
     if rows is None:
         raise ForbiddenError(
@@ -61,6 +70,64 @@ def list_plates(
             details={"reason": REFUSAL_REASON},
         )
     return [VehiclePlateRead.model_validate(r, from_attributes=True) for r in rows]
+
+
+@router.post("/vehicle-mdm/{vehicle_id}/plates", response_model=VehiclePlateRead, status_code=201)
+def record_plate(
+    vehicle_id: uuid.UUID,
+    body: VehiclePlateCreate,
+    principal: Principal = Depends(require_write("vehicle_mdm")),
+    db: Session = Depends(get_db),
+):
+    """KAN-467 — «Kontrollschild erfassen», in the caller's group's register
+    (ADR-039 as amended). 409 `plate_current_on_other_vehicle` names the
+    group's car(s) the plate is on; the same POST with `moveFromPlateIds` or
+    `wechselschildWithPlateId` is the user's confirmation. Audited without
+    the plate value; an `Idempotency-Key` makes a retry answer the first
+    recording."""
+
+    vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
+    row = plate_service.record_plate(
+        db,
+        vehicle_id=vehicle_id,
+        group_id=principal.group_id,
+        recording_tenant_id=principal.tenant_id,
+        actor_id=principal.user_id,
+        plate=body.plate,
+        canton=body.canton,
+        valid_from=body.valid_from,
+        valid_to=body.valid_to,
+        move_from_plate_ids=body.move_from_plate_ids,
+        wechselschild_with_plate_id=body.wechselschild_with_plate_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return VehiclePlateRead.model_validate(row, from_attributes=True)
+
+
+@router.post("/vehicle-mdm/{vehicle_id}/plates/{plate_id}/end", response_model=VehiclePlateRead)
+def end_plate(
+    vehicle_id: uuid.UUID,
+    plate_id: uuid.UUID,
+    body: VehiclePlateEnd,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("vehicle_mdm")),
+    db: Session = Depends(get_db),
+):
+    """KAN-467 — «beenden»: sets `validTo`; the row is never deleted. 404 for
+    an assignment of another group's register."""
+
+    vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
+    row = plate_service.get_vehicle_plate_or_404(
+        db, vehicle_id=vehicle_id, plate_id=plate_id, group_id=principal.group_id
+    )
+    plate_service.end_plate(
+        db, row=row, valid_to=body.valid_to, expected_version=if_match, actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+    )
+    db.commit()
+    db.refresh(row)
+    return VehiclePlateRead.model_validate(row, from_attributes=True)
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/catalogue-specification", response_model=CatalogueSpecificationRead)

@@ -45,17 +45,24 @@ REFUSAL_REASON = "plate_read_limit_reached"
 
 
 def read_plate_history(
-    db: Session, *, actor_id: uuid.UUID, tenant_id: uuid.UUID, vehicle_id: uuid.UUID, purpose: str
+    db: Session,
+    *,
+    actor_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    purpose: str,
 ) -> list[VehiclePlate] | None:
-    """This vehicle's plate history, or `None` when the actor is over the
-    limit. Either way the attempt is audited and committed before returning.
-    `purpose` names the caller (`plates_tab`, `search_hit`) in the audit
-    row's reason.
+    """This vehicle's plate history in the caller's group's register
+    (`group_id`, from the token — KAN-467), or `None` when the actor is over
+    the limit. Either way the attempt is audited and committed before
+    returning. `purpose` names the caller (`plates_tab`, `search_hit`) in the
+    audit row's reason.
     """
 
     if not _authorize(db, actor_id=actor_id, tenant_id=tenant_id, vehicle_id=vehicle_id, purpose=purpose):
         return None
-    return list_plates_for_vehicle(db, vehicle_id=vehicle_id)
+    return list_plates_for_vehicle(db, vehicle_id=vehicle_id, group_id=group_id)
 
 
 def _authorize(

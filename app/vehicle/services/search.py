@@ -34,13 +34,16 @@ class SearchResolution:
     picker_candidates: list[VehiclePickerCandidate]
 
 
-def resolve_identifier(db: Session, query: str) -> SearchResolution | None:
+def resolve_identifier(db: Session, query: str, *, group_id: uuid.UUID) -> SearchResolution | None:
     """Returns None if `query` doesn't look like any identifier at all —
     the caller then falls through to an ordinary grid filter. Returns a
     SearchResolution (possibly with no hit at all, i.e. resolved=None and
     an empty picker) if it DOES look like one. A resolution with neither a
     hit nor a picker sends the caller down the filter path too (KAN-82):
     the shapes are loose, so "no identifier hit" is not "no vehicle".
+
+    A plate resolves in the caller's group's register only (`group_id`,
+    from the token; KAN-467, ADR-039 as amended).
     """
 
     q = query.strip()
@@ -64,15 +67,16 @@ def resolve_identifier(db: Session, query: str) -> SearchResolution | None:
     if plate_match:
         canton, number = plate_match.group(1).upper(), plate_match.group(2)
         plate_str = f"{canton} {number}"
-        rows = resolve_plate(db, plate=plate_str, canton=canton)
+        rows = resolve_plate(db, group_id=group_id, plate=plate_str, canton=canton)
         if len(rows) == 1:
             vehicle = db.get(VehicleMdm, rows[0].vehicle_id)
             return SearchResolution(resolved=vehicle, picker_candidates=[])
         if len(rows) > 1:
-            # Distinguish a Wechselschild pair (shared plate_group_id, never
-            # a conflict) from a genuine conflict (ADR-039) — same rule
-            # PR-4's record_plate_assignment uses to decide whether to
-            # raise a VehiclePlateConflict in the first place.
+            # Inside one group's register two current rows of a plate are a
+            # Wechselschild pair (shared plate_group_id) — `record_plate`
+            # refuses anything else (KAN-467). `is_conflict` stays on the
+            # picker's shape and is true only for a pair that shares no
+            # plate group, which the register can no longer hold.
             group_ids = {r.plate_group_id for r in rows if r.plate_group_id is not None}
             is_wechselschild = len(group_ids) == 1 and len(rows) == 2
             candidates = [

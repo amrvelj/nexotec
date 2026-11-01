@@ -71,11 +71,14 @@ def _resolve_vehicle(db: Session, *, vin: str, actor_id: uuid.UUID) -> _Resolved
         return _ResolvedVehicle(id=vehicle.id, vin=vehicle.vin)
 
 
-def _resolve_trade_in_vin(db: Session, *, vin: str | None, plate: str | None, canton: str | None) -> str:
+def _resolve_trade_in_vin(
+    db: Session, *, vin: str | None, plate: str | None, canton: str | None, group_id: uuid.UUID
+) -> str:
     if vin:
         return vin
     if plate:
-        result = match_vehicle(db, plate=plate, canton=canton)
+        # KAN-467: the plate is looked up in the caller's group's register.
+        result = match_vehicle(db, plate=plate, canton=canton, group_id=group_id)
         if result.vehicle is not None and not result.requires_confirmation:
             return result.vehicle.vin
         raise ConflictError(
@@ -108,7 +111,7 @@ def set_trade_in(
     if party_customer_id is not None:
         get_customer_or_404(db, group_id, party_customer_id)
 
-    resolved_vin = _resolve_trade_in_vin(db, vin=vin, plate=plate, canton=canton)
+    resolved_vin = _resolve_trade_in_vin(db, vin=vin, plate=plate, canton=canton, group_id=group_id)
     vehicle = _resolve_vehicle(db, vin=resolved_vin, actor_id=actor_id)
 
     # FR-S-08: the customer's own vehicles are offered first by party role
