@@ -1,7 +1,8 @@
 """WP-6 PR-4: the per-tenant catalogue mirror sync. Since KAN-485
 (2026-10-29) a variant reaches the catalogue only by a single lookup,
-`sync_catalogue_variant` — no full seed, no daily delta; the A-12 sync-age
-alarm stays only as the pure function the platform's sync-status board reads.
+`sync_catalogue_variant` — no full seed, no daily delta. The A-12 sync-age
+alarm and the platform's sync-status board that read it went with them
+(KAN-497).
 """
 
 import dataclasses

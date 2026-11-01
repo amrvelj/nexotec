@@ -96,7 +96,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 ## Licensed data and the gateway
 
 - **Licensed provider data is tenant-partitioned** (ADR-013, amended by ADR-075): options,
-  option features and relations, colours, tyres, images and sync state are fetched with each
+  option features and relations, colours, tyres and images are fetched with each
   dealer's own credentials and quota (`TenantScopedMixin`) and never travel through the
   cross-tenant shared identity response (FR-V-14; architecture test on its shape).
 - **ADR-075 — auto-i-dat variant master data is global**, by auto-i-dat's written permission:

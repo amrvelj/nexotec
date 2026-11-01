@@ -261,9 +261,9 @@ class CodeMapEntryData:
 @dataclass(frozen=True)
 class SystemWatermark:
     """`System` — the current model year plus the provider's own last
-    update date. PR-4's sync-age alarm (A-12) compares `update_date`
-    against wall-clock time; it never derives staleness from whether the
-    delta job itself reported success.
+    update date. PR-4's sync-age alarm (A-12) compared `update_date`
+    against wall-clock time; it was retired with the full catalogue
+    download (KAN-485, KAN-497), and nothing reads this today.
     """
 
     current_model_year: int

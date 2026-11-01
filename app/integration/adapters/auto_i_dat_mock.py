@@ -394,8 +394,9 @@ def _request(datenname: str) -> Callable[[_Method], _Method]:
 
 class MockAutoIDatAdapter:
     """Realistic auto-i-dat shapes, no live call. `system_watermark_date`
-    defaults to today (a healthy mirror); tests pass an older date to
-    exercise the sync-age alarm's exact >7-day boundary.
+    defaults to today; a test may pass another date. (The sync-age alarm
+    that compared it was retired with the full catalogue download, KAN-485 /
+    KAN-497.)
     """
 
     def __init__(self, *, system_watermark_date: dt.date | None = None) -> None:
