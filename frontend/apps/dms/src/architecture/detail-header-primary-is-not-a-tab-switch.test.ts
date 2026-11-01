@@ -31,9 +31,11 @@ import ts from 'typescript'
 // `set…Tab(…)` call or a `setSearchParams(…)` naming a tab — and a primary
 // the scan cannot follow (a prop, an import or a member used as the handler
 // itself, a call through a prop or a local it cannot read into, a loop), so a
-// new shape fails loudly instead of passing unjudged. A call to an imported
-// function or through an import or a global (`api.post`, `navigator.clipboard`)
-// counts as real work, as does a TanStack Query mutation's `mutate`.
+// new shape fails loudly instead of passing unjudged. Inside a body, a call
+// to an imported function or through an import or a global (`api.post`,
+// `navigator.clipboard`) counts as real work, as does a TanStack Query
+// mutation's `mutate`; inside a condition (`if (isAllocate(kind))`) such a
+// call is a predicate and counts as nothing.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -104,12 +106,16 @@ type Verdict = 'ok' | 'tab-switch' | 'unresolved'
 
 // KAN-512: what running a piece of code does, as far as the scan can tell —
 // nothing, real work (`ok`), only a tab switch, or something it cannot follow.
-// A body is judged path by path: an `if`, a `switch`, `?:`, `&&`/`||`/`??`,
-// a `try`/`catch` and an early `return` each split it, and the handler fails
-// when any one path only switches a tab or cannot be followed. Before, a
-// body that was not one expression passed unjudged (a one-`if` dispatcher),
-// and so did a call through a member (`startAction.allocate()`).
+// A body is judged path by path: an `if`, a `switch` (fall-through included),
+// `?:`, `&&`/`||`/`??`, a `try`/`catch`/`finally`, an early `return` and a
+// `throw` each split it, and the handler fails when any one path only switches
+// a tab or cannot be followed. Before, a body that was not one expression
+// passed unjudged (a one-`if` dispatcher), and so did a call through a member
+// (`startAction.allocate()`).
 type Effect = 'none' | Verdict
+
+/** Every effect a piece of code can have, one per way through it (at most four, so nothing explodes). */
+type Ways = Effect[]
 
 /** Running `effects` one after the other: any real work makes the whole real work. */
 function inSequence(effects: Effect[]): Effect {
@@ -117,27 +123,55 @@ function inSequence(effects: Effect[]): Effect {
   return 'none'
 }
 
-/** Exactly one of `effects` runs: one path that only switches a tab, or cannot be followed, decides. */
-function oneOf(effects: Effect[]): Effect {
-  for (const effect of ['tab-switch', 'unresolved', 'ok'] as const) if (effects.includes(effect)) return effect
+/** The verdict over every way: one that only switches a tab, or cannot be followed, decides. */
+function worst(ways: Ways): Effect {
+  for (const effect of ['tab-switch', 'unresolved', 'ok'] as const) if (ways.includes(effect)) return effect
   return 'none'
 }
 
-/** One way through a statement list: what it did, and whether it left the function (or the switch clause). */
+function distinct(ways: Ways): Ways {
+  return [...new Set(ways)]
+}
+
+/** `first`, then `second`: every pairing of their ways. */
+function then(first: Ways, second: Ways): Ways {
+  return distinct(first.flatMap((a) => second.map((b) => inSequence([a, b]))))
+}
+
+function thenAll(list: Ways[]): Ways {
+  return list.reduce(then, ['none'])
+}
+
+/** One of several alternatives runs. */
+function either(...list: Ways[]): Ways {
+  return distinct(list.flat())
+}
+
+/** One way through a statement list: what it did, and whether it left the function (or the switch). */
 interface Path {
   effect: Effect
   done: false | 'return' | 'break'
 }
 
-const MAX_PATHS = 64
-
 type Callable = ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration | ts.MethodDeclaration
 
-/** What the scan knows of one file: its declarations, the names bound as parameters, and each function's effect once judged. */
+// Where code runs. In a body, a call the scan cannot read into (an import, a
+// global, `navigate`) is real work. In a condition — an `if` or `switch` head,
+// `?:`'s test, the left of `&&`/`||`/`??`, a `throw`'s value — it is a
+// predicate and counts as nothing, so `if (isAllocate(kind))` never makes
+// every branch real work. Local functions are followed in both — inside a
+// condition their own calls count as predicates too, so a handler that only
+// acts through a condition fails loudly rather than passing.
+type Mode = 'body' | 'condition'
+
+/** What the scan knows of one file, and each function's ways once judged (per mode). */
 interface FileScope {
   decls: Map<string, ts.Node[]>
   params: Set<string>
-  memo: Map<ts.Node, Effect | 'pending'>
+  memo: Record<Mode, Map<ts.Node, Ways>>
+  pending: Record<Mode, Set<ts.Node>>
+  /** Functions met again while still being judged (recursion), innermost last. */
+  cycleHits: ts.Node[]
 }
 
 /** Every name a function parameter binds, destructured ones included (`({ onEdit }) => …`). */
@@ -154,86 +188,119 @@ function parameterNames(file: ts.SourceFile): Set<string> {
 }
 
 function fileScope(file: ts.SourceFile): FileScope {
-  return { decls: declarations(file), params: parameterNames(file), memo: new Map() }
+  return {
+    decls: declarations(file),
+    params: parameterNames(file),
+    memo: { body: new Map(), condition: new Map() },
+    pending: { body: new Set(), condition: new Set() },
+    cycleHits: [],
+  }
 }
 
 function isCallTo(expr: ts.Expression, names: string[]): expr is ts.CallExpression {
   return ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && names.includes(expr.expression.text)
 }
 
-function functionEffect(fn: Callable, scope: FileScope): Effect {
-  const known = scope.memo.get(fn)
-  if (known === 'pending') return 'none' // recursion adds nothing the first visit does not judge
-  if (known) return known
-  scope.memo.set(fn, 'pending')
-  let effect: Effect = 'none'
-  if (fn.body && ts.isBlock(fn.body)) effect = oneOf(runStatements(fn.body.statements, scope).map((p) => p.effect))
-  else if (fn.body) effect = expressionEffect(fn.body, scope)
-  scope.memo.set(fn, effect)
-  return effect
+/** A call the scan does not read into: real work in a body, nothing in a condition. */
+function trusted(mode: Mode): Ways {
+  return [mode === 'condition' ? 'none' : 'ok']
 }
 
-function runStatements(statements: readonly ts.Statement[], scope: FileScope, start: Path[] = [{ effect: 'none', done: false }]): Path[] {
-  let paths = start
+function functionWays(fn: Callable, scope: FileScope, mode: Mode): Ways {
+  const known = scope.memo[mode].get(fn)
+  if (known) return known
+  if (scope.pending[mode].has(fn)) {
+    // Recursion adds nothing the first visit does not judge. A result that
+    // leaned on an unfinished function is not memoised (below), so a second
+    // handler entering the cycle elsewhere is judged in full.
+    scope.cycleHits.push(fn)
+    return ['none']
+  }
+  scope.pending[mode].add(fn)
+  const mark = scope.cycleHits.length
+  let ways: Ways = ['none']
+  if (fn.body && ts.isBlock(fn.body)) ways = distinct(runStatements(fn.body.statements, scope, mode).map((p) => p.effect))
+  else if (fn.body) ways = expressionWays(fn.body, scope, mode)
+  scope.pending[mode].delete(fn)
+  const stillOpen = scope.cycleHits.splice(mark).filter((n) => n !== fn)
+  scope.cycleHits.push(...stillOpen)
+  if (stillOpen.length === 0) scope.memo[mode].set(fn, ways)
+  return ways
+}
+
+/** Paths that did the same and ended the same way are one path. */
+function distinctPaths(paths: Path[]): Path[] {
+  const seen = new Map<string, Path>()
+  for (const p of paths) seen.set(`${p.effect}/${p.done}`, p)
+  return [...seen.values()]
+}
+
+function runStatements(statements: readonly ts.Statement[], scope: FileScope, mode: Mode): Path[] {
+  let paths: Path[] = [{ effect: 'none', done: false }]
   for (const statement of statements) {
     const next: Path[] = []
     for (const path of paths) {
-      if (path.done) {
-        next.push(path)
-        continue
-      }
-      for (const step of statementPaths(statement, scope)) {
-        next.push({ effect: inSequence([path.effect, step.effect]), done: step.done })
-      }
+      if (path.done) next.push(path)
+      else next.push(...prefixed([path.effect], statementPaths(statement, scope, mode)))
     }
-    if (next.length > MAX_PATHS) return [{ effect: 'unresolved', done: 'return' }]
-    paths = next
+    paths = distinctPaths(next)
   }
   return paths
 }
 
-function prefixed(effect: Effect, paths: Path[]): Path[] {
-  return paths.map((p) => ({ effect: inSequence([effect, p.effect]), done: p.done }))
+/** `paths`, each after one of `ways`. */
+function prefixed(ways: Ways, paths: Path[]): Path[] {
+  return distinctPaths(ways.flatMap((w) => paths.map((p) => ({ effect: inSequence([w, p.effect]), done: p.done }))))
 }
 
-function statementPaths(statement: ts.Statement, scope: FileScope): Path[] {
-  const go = (effect: Effect): Path[] => [{ effect, done: false }]
-  if (ts.isBlock(statement)) return runStatements(statement.statements, scope)
-  if (ts.isExpressionStatement(statement)) return go(expressionEffect(statement.expression, scope))
+function statementPaths(statement: ts.Statement, scope: FileScope, mode: Mode): Path[] {
+  const go = (ways: Ways, done: Path['done'] = false): Path[] => ways.map((effect) => ({ effect, done }))
+  if (ts.isBlock(statement)) return runStatements(statement.statements, scope, mode)
+  if (ts.isExpressionStatement(statement)) return go(expressionWays(statement.expression, scope, mode))
   if (ts.isReturnStatement(statement)) {
-    return [{ effect: statement.expression ? expressionEffect(statement.expression, scope) : 'none', done: 'return' }]
+    return go(statement.expression ? expressionWays(statement.expression, scope, mode) : ['none'], 'return')
   }
-  if (ts.isThrowStatement(statement)) return [{ effect: expressionEffect(statement.expression, scope), done: 'return' }]
-  if (ts.isBreakStatement(statement) && !statement.label) return [{ effect: 'none', done: 'break' }]
+  if (ts.isThrowStatement(statement)) return go(expressionWays(statement.expression, scope, 'condition'), 'return')
+  if (ts.isBreakStatement(statement) && !statement.label) return go(['none'], 'break')
   if (ts.isIfStatement(statement)) {
     const branches = [
-      ...statementPaths(statement.thenStatement, scope),
-      ...(statement.elseStatement ? statementPaths(statement.elseStatement, scope) : go('none')),
+      ...statementPaths(statement.thenStatement, scope, mode),
+      ...(statement.elseStatement ? statementPaths(statement.elseStatement, scope, mode) : go(['none'])),
     ]
-    return prefixed(expressionEffect(statement.expression, scope), branches)
+    return prefixed(expressionWays(statement.expression, scope, 'condition'), branches)
   }
   if (ts.isSwitchStatement(statement)) {
     const clauses = statement.caseBlock.clauses
-    const branches = clauses.flatMap((clause) =>
-      runStatements(clause.statements, scope).map((p) => ({ effect: p.effect, done: p.done === 'break' ? false : p.done })),
+    // Entering at each clause runs on into the next until a `break` (fall-through).
+    const branches = clauses.flatMap((_, i) =>
+      runStatements(
+        clauses.slice(i).flatMap((c) => [...c.statements]),
+        scope,
+        mode,
+      ).map((p) => ({ effect: p.effect, done: p.done === 'break' ? false : p.done })),
     )
     if (!clauses.some(ts.isDefaultClause)) branches.push({ effect: 'none', done: false })
-    return prefixed(expressionEffect(statement.expression, scope), branches)
+    return prefixed(expressionWays(statement.expression, scope, 'condition'), branches)
   }
   if (ts.isTryStatement(statement)) {
-    const tried = runStatements(statement.tryBlock.statements, scope)
+    const tried = runStatements(statement.tryBlock.statements, scope, mode)
     // A catch runs after something in the try was attempted: it starts from what the try does.
     const caught = statement.catchClause
-      ? prefixed(oneOf(tried.map((p) => p.effect)), runStatements(statement.catchClause.block.statements, scope))
+      ? prefixed(
+          tried.map((p) => p.effect),
+          runStatements(statement.catchClause.block.statements, scope, mode),
+        )
       : []
     const ways = [...tried, ...caught]
-    if (!statement.finallyBlock) return ways
-    const cleanup = runStatements(statement.finallyBlock.statements, scope)
-    return ways.flatMap((way) => cleanup.map((c) => ({ effect: inSequence([way.effect, c.effect]), done: c.done || way.done })))
+    if (!statement.finallyBlock) return distinctPaths(ways)
+    const cleanup = runStatements(statement.finallyBlock.statements, scope, mode)
+    return distinctPaths(
+      ways.flatMap((way) => cleanup.map((c) => ({ effect: inSequence([way.effect, c.effect]), done: c.done || way.done }))),
+    )
   }
   if (ts.isVariableStatement(statement)) {
     const initializers = statement.declarationList.declarations.flatMap((d) => (d.initializer ? [d.initializer] : []))
-    return go(inSequence(initializers.map((i) => expressionEffect(i, scope))))
+    return go(thenAll(initializers.map((i) => expressionWays(i, scope, mode))))
   }
   if (
     ts.isFunctionDeclaration(statement) ||
@@ -241,102 +308,110 @@ function statementPaths(statement: ts.Statement, scope: FileScope): Path[] {
     ts.isTypeAliasDeclaration(statement) ||
     ts.isInterfaceDeclaration(statement)
   ) {
-    return go('none')
+    return go(['none'])
   }
-  return go('unresolved') // a loop, a label, …: not judged, so not passed
+  return go(['unresolved']) // a loop, a label, …: not judged, so not passed
 }
 
 function isAssignment(kind: ts.SyntaxKind): boolean {
   return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment
 }
 
-function expressionEffect(node: ts.Expression, scope: FileScope): Effect {
+function expressionWays(node: ts.Expression, scope: FileScope, mode: Mode): Ways {
   const expr = unwrap(node)
   if (ts.isVoidExpression(expr) || ts.isAwaitExpression(expr) || ts.isTypeOfExpression(expr)) {
-    return expressionEffect(expr.expression, scope)
+    return expressionWays(expr.expression, scope, mode)
   }
   if (ts.isConditionalExpression(expr)) {
-    return inSequence([
-      expressionEffect(expr.condition, scope),
-      oneOf([expressionEffect(expr.whenTrue, scope), expressionEffect(expr.whenFalse, scope)]),
-    ])
+    return then(
+      expressionWays(expr.condition, scope, 'condition'),
+      either(expressionWays(expr.whenTrue, scope, mode), expressionWays(expr.whenFalse, scope, mode)),
+    )
   }
   if (ts.isBinaryExpression(expr)) {
-    const left = expressionEffect(expr.left, scope)
-    const right = expressionEffect(expr.right, scope)
     const operator = expr.operatorToken.kind
     if (
       operator === ts.SyntaxKind.AmpersandAmpersandToken ||
       operator === ts.SyntaxKind.BarBarToken ||
       operator === ts.SyntaxKind.QuestionQuestionToken
     ) {
-      return inSequence([left, oneOf(['none', right])])
+      return then(expressionWays(expr.left, scope, 'condition'), either(['none'], expressionWays(expr.right, scope, mode)))
     }
-    if (isAssignment(operator)) return inSequence([right, 'ok'])
-    return inSequence([left, right])
+    const right = expressionWays(expr.right, scope, mode)
+    if (isAssignment(operator)) return then(right, ['ok'])
+    return then(expressionWays(expr.left, scope, mode), right)
   }
-  if (ts.isCallExpression(expr)) return callEffect(expr, scope)
-  if (ts.isNewExpression(expr) || ts.isTaggedTemplateExpression(expr)) return 'ok'
+  if (ts.isCallExpression(expr)) return callWays(expr, scope, mode)
+  if (ts.isNewExpression(expr) || ts.isTaggedTemplateExpression(expr)) return trusted(mode)
   if (ts.isPrefixUnaryExpression(expr) || ts.isPostfixUnaryExpression(expr)) {
     const operator = expr.operator
     return operator === ts.SyntaxKind.PlusPlusToken || operator === ts.SyntaxKind.MinusMinusToken
-      ? 'ok'
-      : expressionEffect(expr.operand, scope)
+      ? ['ok']
+      : expressionWays(expr.operand, scope, mode)
   }
-  if (ts.isTemplateExpression(expr)) return inSequence(expr.templateSpans.map((s) => expressionEffect(s.expression, scope)))
-  if (ts.isArrayLiteralExpression(expr)) return inSequence(expr.elements.map((e) => expressionEffect(e, scope)))
-  if (ts.isSpreadElement(expr)) return expressionEffect(expr.expression, scope)
+  if (ts.isTemplateExpression(expr)) return thenAll(expr.templateSpans.map((s) => expressionWays(s.expression, scope, mode)))
+  if (ts.isArrayLiteralExpression(expr)) return thenAll(expr.elements.map((e) => expressionWays(e, scope, mode)))
+  if (ts.isSpreadElement(expr)) return expressionWays(expr.expression, scope, mode)
   if (ts.isObjectLiteralExpression(expr)) {
-    return inSequence(
+    return thenAll(
       expr.properties.map((p) =>
-        ts.isPropertyAssignment(p) ? expressionEffect(p.initializer, scope) : ts.isSpreadAssignment(p) ? expressionEffect(p.expression, scope) : 'none',
+        ts.isPropertyAssignment(p)
+          ? expressionWays(p.initializer, scope, mode)
+          : ts.isSpreadAssignment(p)
+            ? expressionWays(p.expression, scope, mode)
+            : ['none'],
       ),
     )
   }
-  return 'none' // a name, a literal, a member read, a function not called
+  return ['none'] // a name, a literal, a member read, a function not called
 }
 
-function callEffect(call: ts.CallExpression, scope: FileScope): Effect {
-  if (isTabSwitchCall(call)) return 'tab-switch'
-  const args = inSequence(call.arguments.map((a) => expressionEffect(a, scope)))
+function callWays(call: ts.CallExpression, scope: FileScope, mode: Mode): Ways {
+  if (isTabSwitchCall(call)) return ['tab-switch']
+  const args = thenAll(call.arguments.map((a) => expressionWays(a, scope, mode)))
   const callee = unwrap(call.expression)
-  let effect: Effect
-  if (ts.isIdentifier(callee)) effect = nameCallEffect(callee.text, scope)
-  else if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) effect = memberCallEffect(callee, scope)
-  else if (ts.isArrowFunction(callee) || ts.isFunctionExpression(callee)) effect = functionEffect(callee, scope)
-  else effect = 'unresolved' // `make()()`: what is called is not in the file
-  return inSequence([args, effect])
+  let ways: Ways
+  if (ts.isIdentifier(callee)) ways = nameCallWays(callee.text, scope, mode)
+  else if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) ways = memberCallWays(callee, scope, mode)
+  else if (ts.isArrowFunction(callee) || ts.isFunctionExpression(callee)) ways = functionWays(callee, scope, mode)
+  else ways = ['unresolved'] // `make()()`: what is called is not in the file
+  return then(args, ways)
 }
 
-/** Calling a bare name: a local function is followed; a parameter (a prop) cannot be; anything else — an import, a state setter, `navigate` — is real work. */
-function nameCallEffect(name: string, scope: FileScope): Effect {
+/** Calling a bare name: a local function is followed; a parameter (a prop) cannot be; an import, a state setter or `navigate` is trusted. */
+function nameCallWays(name: string, scope: FileScope, mode: Mode): Ways {
   const targets = scope.decls.get(name)
   if (targets) {
-    return oneOf(targets.map((t) => (ts.isFunctionDeclaration(t) ? functionEffect(t, scope) : localValueCallEffect(t as ts.Expression, scope))))
+    return either(
+      ...targets.map((t) => (ts.isFunctionDeclaration(t) ? functionWays(t, scope, mode) : localValueCallWays(t as ts.Expression, scope, mode))),
+    )
   }
-  return scope.params.has(name) ? 'unresolved' : 'ok'
+  return scope.params.has(name) ? ['unresolved'] : trusted(mode)
 }
 
-/** Calling a local `const` by its initializer. A value that is no function (`useNavigate()`'s result) is real work, as before KAN-512. */
-function localValueCallEffect(value: ts.Expression, scope: FileScope): Effect {
-  const expr = unwrap(value)
-  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return functionEffect(expr, scope)
-  if (isCallTo(expr, ['useCallback'])) return expr.arguments[0] ? valueCallEffect(expr.arguments[0], scope) : 'unresolved'
-  if (ts.isIdentifier(expr)) return nameCallEffect(expr.text, scope)
-  if (ts.isConditionalExpression(expr)) return oneOf([valueCallEffect(expr.whenTrue, scope), valueCallEffect(expr.whenFalse, scope)])
-  if (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) return memberCallEffect(expr, scope)
-  return 'ok'
+/** The value `useMemo(() => value)` memoises, when its factory just returns one. */
+function memoisedValue(expr: ts.Expression): ts.Expression | null {
+  if (!isCallTo(expr, ['useMemo']) || !expr.arguments[0]) return null
+  const factory = unwrap(expr.arguments[0])
+  if (!ts.isArrowFunction(factory) && !ts.isFunctionExpression(factory)) return null
+  if (!ts.isBlock(factory.body)) return factory.body
+  const only = factory.body.statements.length === 1 ? factory.body.statements[0] : undefined
+  return only && ts.isReturnStatement(only) && only.expression ? only.expression : null
 }
 
-/** Calling a value written in place: a function, a name, a member — what a handler is. */
-function valueCallEffect(value: ts.Expression, scope: FileScope): Effect {
+/** Calling a local `const` by its initializer, inside a body. A value that is no function (`useNavigate()`'s result) is trusted, as before KAN-512. */
+function localValueCallWays(value: ts.Expression, scope: FileScope, mode: Mode): Ways {
   const expr = unwrap(value)
-  if (ts.isIdentifier(expr)) return expr.text === 'undefined' ? 'none' : nameCallEffect(expr.text, scope)
-  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return functionEffect(expr, scope)
-  if (ts.isConditionalExpression(expr)) return oneOf([valueCallEffect(expr.whenTrue, scope), valueCallEffect(expr.whenFalse, scope)])
-  if (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) return memberCallEffect(expr, scope)
-  if (isCallTo(expr, ['useCallback'])) return expr.arguments[0] ? valueCallEffect(expr.arguments[0], scope) : 'unresolved'
-  return 'unresolved'
+  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return functionWays(expr, scope, mode)
+  if (isCallTo(expr, ['useCallback'])) return expr.arguments[0] ? localValueCallWays(expr.arguments[0], scope, mode) : ['unresolved']
+  const memoised = memoisedValue(expr)
+  if (memoised && !objectLiteralOf(expr)) return localValueCallWays(memoised, scope, mode)
+  if (ts.isIdentifier(expr)) return expr.text === 'undefined' ? ['none'] : nameCallWays(expr.text, scope, mode)
+  if (ts.isConditionalExpression(expr)) {
+    return either(localValueCallWays(expr.whenTrue, scope, mode), localValueCallWays(expr.whenFalse, scope, mode))
+  }
+  if (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) return memberCallWays(expr, scope, mode)
+  return trusted(mode)
 }
 
 /** The object literal a local `const` holds, directly or as `useMemo(() => ({ … }))`'s value. */
@@ -344,20 +419,13 @@ function objectLiteralOf(value: ts.Node): ts.ObjectLiteralExpression | null {
   if (!ts.isExpression(value)) return null
   const expr = unwrap(value)
   if (ts.isObjectLiteralExpression(expr)) return expr
-  if (isCallTo(expr, ['useMemo']) && expr.arguments[0]) {
-    const factory = unwrap(expr.arguments[0])
-    if (ts.isArrowFunction(factory) || ts.isFunctionExpression(factory)) {
-      if (!ts.isBlock(factory.body)) return objectLiteralOf(factory.body)
-      const only = factory.body.statements.length === 1 ? factory.body.statements[0] : undefined
-      if (only && ts.isReturnStatement(only) && only.expression) return objectLiteralOf(only.expression)
-    }
-  }
-  return null
+  const memoised = memoisedValue(expr)
+  return memoised ? objectLiteralOf(memoised) : null
 }
 
-// A receiver whose members are server writes by definition (TanStack Query's
-// `mutate`/`mutateAsync`, the client's `invalidateQueries`): real work, though
-// the scan cannot read into the library.
+// Receivers whose members are server writes by definition (TanStack Query's
+// `mutate`/`mutateAsync`, the client's `invalidateQueries`): trusted inside a
+// body, though the scan cannot read into the library.
 const WRITING_HOOKS = ['useMutation', 'useQueryClient']
 
 function memberName(access: ts.PropertyAccessExpression | ts.ElementAccessExpression): string | null {
@@ -373,36 +441,41 @@ function rootName(expr: ts.Expression): string | null {
   return null
 }
 
+/** The members of a local object literal a member access can reach: one by name, every one for a computed key. */
+function reachableMembers(access: ts.PropertyAccessExpression | ts.ElementAccessExpression, object: ts.ObjectLiteralExpression) {
+  const name = memberName(access)
+  return object.properties.filter((p) => name === null || propertyName(p) === name)
+}
+
 /**
- * Calling through a member — `startAction.allocate()`, `handlers[kind]()`.
- * Followed into a local object literal (a dynamic key judges every member);
- * a local the scan cannot read into, or a parameter, cannot be followed; an
- * import or a global (`api.post`, `navigator.clipboard`) is real work, as a
- * call to an imported function is.
+ * Calling through a member inside a body — `startAction.allocate()`,
+ * `handlers[kind]()`. Followed into a local object literal (a computed key
+ * judges every member); a local the scan cannot read into, or a parameter,
+ * cannot be followed; an import or a global (`api.post`,
+ * `navigator.clipboard`) is trusted, as a call to an imported function is.
  */
-function memberCallEffect(access: ts.PropertyAccessExpression | ts.ElementAccessExpression, scope: FileScope): Effect {
+function memberCallWays(access: ts.PropertyAccessExpression | ts.ElementAccessExpression, scope: FileScope, mode: Mode): Ways {
   const receiver = unwrap(access.expression)
   if (!ts.isIdentifier(receiver)) {
     const root = rootName(receiver)
-    if (root === null) return 'unresolved'
-    return scope.decls.has(root) || scope.params.has(root) ? 'unresolved' : 'ok'
+    if (root === null) return ['unresolved']
+    return scope.decls.has(root) || scope.params.has(root) ? ['unresolved'] : trusted(mode)
   }
   const targets = scope.decls.get(receiver.text)
-  if (!targets) return scope.params.has(receiver.text) ? 'unresolved' : 'ok'
-  const name = memberName(access)
-  return oneOf(
-    targets.map((target) => {
-      if (ts.isExpression(target) && WRITING_HOOKS.some((hook) => isCallTo(unwrap(target), [hook]))) return 'ok'
+  if (!targets) return scope.params.has(receiver.text) ? ['unresolved'] : trusted(mode)
+  return either(
+    ...targets.map((target): Ways => {
+      if (ts.isExpression(target) && WRITING_HOOKS.some((hook) => isCallTo(unwrap(target), [hook]))) return trusted(mode)
       const object = objectLiteralOf(target)
-      if (!object) return 'unresolved'
-      const members = object.properties.filter((p) => name === null || propertyName(p) === name)
-      if (members.length === 0) return 'unresolved'
-      return oneOf(
-        members.map((member) => {
-          if (ts.isPropertyAssignment(member)) return valueCallEffect(member.initializer, scope)
-          if (ts.isShorthandPropertyAssignment(member)) return nameCallEffect(member.name.text, scope)
-          if (ts.isMethodDeclaration(member)) return functionEffect(member, scope)
-          return 'unresolved'
+      if (!object) return ['unresolved']
+      const members = reachableMembers(access, object)
+      if (members.length === 0) return ['unresolved']
+      return either(
+        ...members.map((member): Ways => {
+          if (ts.isPropertyAssignment(member)) return localValueCallWays(member.initializer, scope, mode)
+          if (ts.isShorthandPropertyAssignment(member)) return nameCallWays(member.name.text, scope, mode)
+          if (ts.isMethodDeclaration(member)) return functionWays(member, scope, mode)
+          return ['unresolved']
         }),
       )
     }),
@@ -410,19 +483,52 @@ function memberCallEffect(access: ts.PropertyAccessExpression | ts.ElementAccess
 }
 
 /**
- * Judges a handler value — the thing a click calls: `ok`, a pure tab switch,
- * or something the scan cannot follow. A bare name or member must resolve in
- * the file: `onClick: onEditProp` or `onClick: actions.allocate` on a prop or
- * an import cannot be followed.
+ * The ways of a handler value — what a click calls. KAN-468's rule holds for
+ * the value itself: it must resolve, in the file, to a function the scan can
+ * read. A name or member that is a prop, an import or a local holding
+ * anything else (`useStartAction()`'s result, `importedHandler`) cannot be
+ * followed. Only inside the function it resolves to are imports trusted.
  */
-function judge(value: ts.Expression, scope: FileScope): Verdict {
+function handlerWays(value: ts.Expression, scope: FileScope): Ways {
   const expr = unwrap(value)
-  if (ts.isIdentifier(expr) && expr.text !== 'undefined' && !scope.decls.has(expr.text)) return 'unresolved'
+  if (ts.isIdentifier(expr)) {
+    if (expr.text === 'undefined') return ['none']
+    const targets = scope.decls.get(expr.text)
+    if (!targets) return ['unresolved']
+    return either(...targets.map((t) => (ts.isFunctionDeclaration(t) ? functionWays(t, scope, 'body') : handlerWays(t as ts.Expression, scope))))
+  }
+  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return functionWays(expr, scope, 'body')
+  if (ts.isConditionalExpression(expr)) return either(handlerWays(expr.whenTrue, scope), handlerWays(expr.whenFalse, scope))
+  if (isCallTo(expr, ['useCallback'])) return expr.arguments[0] ? handlerWays(expr.arguments[0], scope) : ['unresolved']
+  const memoised = memoisedValue(expr)
+  if (memoised) return handlerWays(memoised, scope)
   if (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) {
     const receiver = unwrap(expr.expression)
-    if (!ts.isIdentifier(receiver) || !scope.decls.has(receiver.text)) return 'unresolved'
+    const targets = ts.isIdentifier(receiver) ? scope.decls.get(receiver.text) : undefined
+    if (!targets) return ['unresolved']
+    return either(
+      ...targets.map((target): Ways => {
+        const object = objectLiteralOf(target)
+        if (!object) return ['unresolved']
+        const members = reachableMembers(expr, object)
+        if (members.length === 0) return ['unresolved']
+        return either(
+          ...members.map((member): Ways => {
+            if (ts.isPropertyAssignment(member)) return handlerWays(member.initializer, scope)
+            if (ts.isShorthandPropertyAssignment(member)) return handlerWays(member.name, scope)
+            if (ts.isMethodDeclaration(member)) return functionWays(member, scope, 'body')
+            return ['unresolved']
+          }),
+        )
+      }),
+    )
   }
-  const effect = valueCallEffect(expr, scope)
+  return ['unresolved']
+}
+
+/** Judges a handler value: `ok`, a pure tab switch, or something the scan cannot follow. */
+function judge(value: ts.Expression, scope: FileScope): Verdict {
+  const effect = worst(handlerWays(value, scope))
   return effect === 'none' ? 'ok' : effect
 }
 
@@ -686,5 +792,100 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
       return <DetailHeader primaryAction={a.primary} />
     }`)
     expect(noOpPrimaries([working], builders)).toEqual([])
+  })
+
+  // KAN-512 review: each rule of the path judge pinned by a case that turns
+  // green if the rule is removed, and the KAN-468 handler-value rule kept.
+  it('pins every path rule and keeps a handler value that cannot be read refused', () => {
+    const builders = primaryHandlersOfBuilders([
+      {
+        path: 'components/oldRowMenu.tsx',
+        text: `export function buildOldRowMenu(t, handlers) {
+          return { primary: { label: t('allocate'), onClick: handlers.onAllocate }, overflow: {} }
+        }`,
+      },
+    ])
+    /** The verdict for one page whose primary is `handler`, given `setup` before it. */
+    const verdict = (setup: string, handler: string): string => {
+      const text = `export function A() {
+        ${setup}
+        const rowMenu = buildOldRowMenu(t, { onAllocate: ${handler} })
+        return <DetailHeader primaryAction={rowMenu.primary} />
+      }`
+      const found = noOpPrimaries([{ path: 'pages/P.tsx', text }], builders)
+      if (found.length === 0) return 'ok'
+      return found[0].endsWith('(cannot be followed)') ? 'cannot be followed' : 'tab switch'
+    }
+
+    // A handler value must resolve to a function the file shows (KAN-468); none of these may pass.
+    expect(verdict(`const startAction = useStartAction()`, 'startAction')).toBe('cannot be followed')
+    expect(verdict(`const h = importedHandler`, 'h')).toBe('cannot be followed')
+    expect(verdict(`const h = useCallback(importedHandler, [])`, 'h')).toBe('cannot be followed')
+    expect(verdict('', 'ready ? importedHandler : undefined')).toBe('cannot be followed')
+    expect(verdict(`const h = useMemo(() => () => setActiveTab('identity'), [])`, 'h')).toBe('tab switch')
+    expect(verdict(`const create = useMutation({ mutationFn })`, 'create.mutate')).toBe('cannot be followed')
+
+    // A call in a condition is a predicate: it never makes every branch real work.
+    expect(verdict('', "() => { if (!canAllocate(v)) return; setActiveTab('identity') }")).toBe('tab switch')
+    expect(verdict('', "() => isEditable(v) && setActiveTab('identity')")).toBe('tab switch')
+    expect(verdict('', "() => (isEditable(v) ? setActiveTab('identity') : setAllocating(true))")).toBe('tab switch')
+    expect(
+      verdict(
+        "function startAction(kind) { if (isAllocate(kind)) { setActiveTab('identity') } else { setFormToFocus(kind) } }",
+        "() => startAction('allocate')",
+      ),
+    ).toBe('tab switch')
+    expect(verdict('', "() => { switch (String(kind)) { case 'allocate': setActiveTab('identity') } }")).toBe('tab switch')
+    // … while a local predicate is still followed (a tab switch inside it counts), and a call in a body stays real work.
+    expect(verdict("const isLocked = () => { setActiveTab('identity'); return locked }", '() => { if (isLocked()) return }')).toBe('tab switch')
+    expect(verdict('', "() => { if (busy) return; void api.post('/x') }")).toBe('ok')
+
+    // `||` and `??` run their right side on one path only.
+    expect(verdict('', "() => ready || setActiveTab('identity')")).toBe('tab switch')
+    expect(verdict('', "() => value ?? setActiveTab('identity')")).toBe('tab switch')
+    // `throw` leaves the function: the work after it is not on that path.
+    expect(verdict('', "() => { if (editing) { setActiveTab('identity'); throw 'stop' } setAllocating(true) }")).toBe('tab switch')
+    // A catch after a try that did nothing; a finally that runs on every path.
+    expect(verdict('', "() => { try { if (!valid) throw 'invalid' } catch { setActiveTab('identity') } }")).toBe('tab switch')
+    expect(verdict('', "() => { try { if (busy) return } finally { setActiveTab('identity') } }")).toBe('tab switch')
+    // A `break` ends the switch, not the handler; fall-through runs on into the next clause.
+    expect(verdict('', "() => { switch (kind) { case 'a': setActiveTab('identity'); break } setAllocating(true) }")).toBe('ok')
+    expect(
+      verdict('', "() => { switch (kind) { case 'a': setActiveTab('identity') /* falls through */ case 'b': setAllocating(true); break } }"),
+    ).toBe('ok')
+    // A loop is not judged, so it is not passed.
+    expect(verdict('', '() => { for (const k of kinds) setFormToFocus(k) }')).toBe('cannot be followed')
+    // A computed key on a local object judges every member.
+    expect(
+      verdict(
+        "const startAllocating = () => setActiveTab('identity'); const actions = { allocate: startAllocating, odometer: () => setFormToFocus('odometer') }",
+        '() => actions[kind]()',
+      ),
+    ).toBe('tab switch')
+    // The same function twice in one body is a tab switch twice, not real work the second time.
+    expect(verdict("const go = () => setActiveTab('identity')", '() => { go(); go() }')).toBe('tab switch')
+    // A recursive call still being judged adds nothing: it does not turn the tab switch into work
+    // (an unending recursion, which only a test writes, is the one shape where that shows).
+    expect(verdict("function f() { setActiveTab('identity'); f() }", '() => f()')).toBe('tab switch')
+    // An expression's alternatives are paths too: on the `ready` path only the tab switch runs.
+    expect(verdict('', "() => { ready || setAllocating(true); setActiveTab('identity') }")).toBe('tab switch')
+    expect(verdict('', "() => { (ready ? setAllocating(true) : null); setActiveTab('identity') }")).toBe('tab switch')
+    // Many branches stay judgeable: paths that did the same are merged, never cut off.
+    const ifs = Array.from({ length: 12 }, (_, i) => `if (c${i}) setFormToFocus('a${i}'); else setFormToFocus('b${i}');`).join(' ')
+    expect(verdict('', `() => { ${ifs} }`)).toBe('ok')
+    expect(verdict('', `() => { if (busy) { setActiveTab('identity'); return } ${ifs} }`)).toBe('tab switch')
+
+    // Mutual recursion: whichever primary is judged first, both see the tab switch.
+    const cycle = `export function A() {
+      const g = () => f()
+      const f = () => { if (k) { g() } else { setActiveTab('identity') } }
+      const first = buildOldRowMenu(t, { onAllocate: () => f() })
+      const second = buildOldRowMenu(t, { onAllocate: () => g() })
+      return <DetailHeader primaryAction={first.primary} />
+    }`
+    expect(noOpPrimaries([{ path: 'pages/P.tsx', text: cycle }], builders)).toEqual([
+      'pages/P.tsx:4 onAllocate (primary of buildOldRowMenu)',
+      'pages/P.tsx:5 onAllocate (primary of buildOldRowMenu)',
+    ])
   })
 })
