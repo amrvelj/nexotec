@@ -37,14 +37,22 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
     onError: (err) => setError(apiRefusalText(t, err, 'locations.saveError')),
   })
 
-  // The two actions the menu offers, named, so the detail screen's primary
-  // calls the very same functions as the entries below (ADR-061; KAN-512's
-  // guard follows a `use…RowMenu` hook's returned actions).
-  const requestDeactivation = useCallback((location: LocationRead) => {
-    setError(null)
-    setPending(location)
-  }, [])
-  const activate = useCallback((location: LocationRead) => toggle.mutate({ location, isActive: true }), [toggle])
+  // The one toggle the menu offers: an active location asks for the
+  // deactivation's confirmation, an inactive one is activated. The entries
+  // below and the detail screen's primary both run it, so the choice lives
+  // here alone (ADR-061; KAN-512's guard follows a `use…RowMenu` hook's
+  // returned actions).
+  const toggleActive = useCallback(
+    (location: LocationRead) => {
+      if (location.isActive) {
+        setError(null)
+        setPending(location)
+      } else {
+        toggle.mutate({ location, isActive: true })
+      }
+    },
+    [toggle],
+  )
 
   const groups = useCallback(
     (location: LocationRead): RowMenuGroups => {
@@ -60,7 +68,7 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
           {
             label: t('locations.actions.deactivate'),
             icon: <PowerOff size={16} />,
-            onClick: () => requestDeactivation(location),
+            onClick: () => toggleActive(location),
             disabled: last,
             disabledReason: last ? t('locations.actions.lastActive') : undefined,
           },
@@ -70,20 +78,19 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
           {
             label: t('locations.actions.activate'),
             icon: <Power size={16} />,
-            onClick: () => activate(location),
+            onClick: () => toggleActive(location),
           },
         ]
       }
       return out
     },
-    [t, navigate, canWrite, activeCount, requestDeactivation, activate],
+    [t, navigate, canWrite, activeCount, toggleActive],
   )
 
   return {
     groups,
-    /** Asks for the deactivation's confirmation (the dialog below opens on `pending`). */
-    requestDeactivation,
-    activate,
+    /** The deactivate / activate entry's action: an active location asks for confirmation (`pending`), an inactive one is activated. */
+    toggleActive,
     /** The location waiting for the deactivation's confirmation. */
     pending,
     cancel: () => {

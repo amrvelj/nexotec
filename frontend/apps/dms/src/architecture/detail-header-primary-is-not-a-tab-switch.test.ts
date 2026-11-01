@@ -40,9 +40,11 @@ import ts from 'typescript'
 // imported function or through an import or a global (`api.post`,
 // `navigator.clipboard`) counts as real work, as does a TanStack Query
 // mutation's `mutate`; inside a condition (`if (isAllocate(kind))`) such a
-// call is a predicate and counts as nothing. Known misses (KAN-518): a call
-// to a destructured local, a function a hook returns, and a callback handed
-// to an import are trusted.
+// call is a predicate and counts as nothing. A row-menu hook is followed only
+// through the page's import, when one file declares it. Known misses
+// (KAN-518): a call to a destructured local, a function a hook returns and a
+// callback handed to an import are trusted; a `let` handler is read by its
+// first value.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -190,17 +192,34 @@ interface RowMenuHook {
   returned: ts.ObjectLiteralExpression
 }
 
-/** What the scan knows of one file, and each function's ways once judged (per mode). */
-interface FileScope {
-  decls: Map<string, ts.Node[]>
-  params: Set<string>
+/** Hook name → the hook, or `ambiguous` when two files declare that name (which one a page means is then not known). */
+type RowMenuHooks = Map<string, RowMenuHook | 'ambiguous'>
+
+/**
+ * Judging state shared by every file of one run, keyed by syntax node: a
+ * cycle through two files (two row-menu hooks calling each other) is then
+ * seen as one, never memoised half-judged in one file's scope.
+ */
+interface JudgeState {
   memo: Record<Mode, Map<ts.Node, Ways>>
   pending: Record<Mode, Set<ts.Node>>
   /** Functions met again while still being judged (recursion), innermost last. */
   cycleHits: ts.Node[]
   /** Values being resolved right now: `const p = q; const q = p` cannot be followed, never a stack overflow. */
   resolving: Set<ts.Node>
-  rowMenuHooks: Map<string, RowMenuHook>
+}
+
+function judgeState(): JudgeState {
+  return { memo: { body: new Map(), condition: new Map() }, pending: { body: new Set(), condition: new Set() }, cycleHits: [], resolving: new Set() }
+}
+
+/** What the scan knows of one file. */
+interface FileScope extends JudgeState {
+  decls: Map<string, ts.Node[]>
+  params: Set<string>
+  /** Names the file imports: a row-menu hook is followed only through its import. */
+  imports: Set<string>
+  rowMenuHooks: RowMenuHooks
 }
 
 /** Every name a function parameter binds, destructured ones included (`({ onEdit }) => …`). */
@@ -216,31 +235,53 @@ function parameterNames(file: ts.SourceFile): Set<string> {
   return names
 }
 
-function fileScope(file: ts.SourceFile, rowMenuHooks: Map<string, RowMenuHook> = new Map()): FileScope {
-  return {
-    decls: declarations(file),
-    params: parameterNames(file),
-    memo: { body: new Map(), condition: new Map() },
-    pending: { body: new Set(), condition: new Set() },
-    cycleHits: [],
-    resolving: new Set(),
-    rowMenuHooks,
+/** The names a file's `import` declarations bind. */
+function importedNames(file: ts.SourceFile): Set<string> {
+  const names = new Set<string>()
+  for (const statement of file.statements) {
+    const clause = ts.isImportDeclaration(statement) ? statement.importClause : undefined
+    if (!clause) continue
+    if (clause.name) names.add(clause.name.text)
+    const bindings = clause.namedBindings
+    if (bindings && ts.isNamedImports(bindings)) for (const element of bindings.elements) names.add(element.name.text)
   }
+  return names
 }
 
-/** Every `function use…RowMenu()` in `sources` whose body ends by returning an object literal. */
-function rowMenuHooksOf(sources: Source[]): Map<string, RowMenuHook> {
-  const hooks = new Map<string, RowMenuHook>()
+function fileScope(file: ts.SourceFile, rowMenuHooks: RowMenuHooks = new Map(), state: JudgeState = judgeState()): FileScope {
+  return { ...state, decls: declarations(file), params: parameterNames(file), imports: importedNames(file), rowMenuHooks }
+}
+
+/**
+ * Every `function use…RowMenu()` in `sources` whose body is a single
+ * definition ending in `return { … }` (an early `return` makes it no row-menu
+ * hook the scan reads). A name two files declare is ambiguous.
+ */
+function rowMenuHooksOf(sources: Source[], state: JudgeState): RowMenuHooks {
+  const hooks: RowMenuHooks = new Map()
   for (const source of sources) {
     if (!/function use\w*RowMenu\b/.test(source.text)) continue
     const file = parse(source)
-    const scope = fileScope(file, hooks)
+    const scope = fileScope(file, hooks, state)
     for (const statement of file.statements) {
       if (!ts.isFunctionDeclaration(statement) || !statement.name || !/^use\w*RowMenu$/.test(statement.name.text) || !statement.body) continue
-      const last = statement.body.statements[statement.body.statements.length - 1]
-      if (last && ts.isReturnStatement(last) && last.expression && ts.isObjectLiteralExpression(unwrap(last.expression))) {
-        hooks.set(statement.name.text, { scope, returned: unwrap(last.expression) as ts.ObjectLiteralExpression })
+      const name = statement.name.text
+      const body = statement.body.statements
+      const last = body[body.length - 1]
+      let earlyReturn = false
+      for (const top of body.slice(0, -1)) {
+        walk(top, (n) => {
+          if (!ts.isReturnStatement(n)) return
+          // A `return` of the hook itself, not of a function declared inside it.
+          let inner = false
+          for (let a: ts.Node = n.parent; a !== top.parent; a = a.parent) if (ts.isFunctionLike(a)) inner = true
+          if (!inner) earlyReturn = true
+        })
       }
+      const returned = last && ts.isReturnStatement(last) && last.expression ? unwrap(last.expression) : undefined
+      const hook: RowMenuHook | 'ambiguous' =
+        returned && ts.isObjectLiteralExpression(returned) && !earlyReturn ? { scope, returned } : 'ambiguous'
+      hooks.set(name, hooks.has(name) ? 'ambiguous' : hook)
     }
   }
   return hooks
@@ -385,11 +426,13 @@ function statementPaths(statement: ts.Statement, scope: FileScope, mode: Mode): 
   ) {
     return goOn(NONE)
   }
-  // A loop, a label, …: not judged, so not passed — whether it runs on or
-  // leaves the handler from inside (a `return` after a tab switch in a loop).
+  // A loop, a label, …: not judged, so not passed — whether it runs on, or
+  // leaves from inside by a `return` or a `throw` (out of a called function
+  // too, where a `return` would leave only that function).
   return [
     { effect: 'unresolved', done: false },
     { effect: 'unresolved', done: 'return' },
+    { effect: 'unresolved', done: 'throw' },
   ]
 }
 
@@ -541,11 +584,18 @@ function membersWays(
   return either(...results)
 }
 
-/** The row-menu hook a local holds (`const menu = useLocationRowMenu(…)`), if the sources declare it. */
-function rowMenuHookOf(target: ts.Node, scope: FileScope): RowMenuHook | undefined {
+/**
+ * The row-menu hook a local holds (`const menu = useLocationRowMenu(…)`):
+ * only through the file's own import of it, and only when one file declares
+ * it — else `ambiguous`, which cannot be followed.
+ */
+function rowMenuHookOf(target: ts.Node, scope: FileScope): RowMenuHook | 'ambiguous' | undefined {
   if (!ts.isExpression(target)) return undefined
   const call = unwrap(target)
-  return ts.isCallExpression(call) && ts.isIdentifier(call.expression) ? scope.rowMenuHooks.get(call.expression.text) : undefined
+  if (!ts.isCallExpression(call) || !ts.isIdentifier(call.expression)) return undefined
+  const name = call.expression.text
+  if (!scope.imports.has(name)) return undefined
+  return scope.rowMenuHooks.get(name)
 }
 
 /**
@@ -569,6 +619,7 @@ function memberCallWays(access: ts.PropertyAccessExpression | ts.ElementAccessEx
     ...targets.map((target): Ways => {
       if (ts.isExpression(target) && WRITING_HOOKS.some((hook) => isCallTo(unwrap(target), [hook]))) return trusted(mode)
       const hook = rowMenuHookOf(target, scope)
+      if (hook === 'ambiguous') return UNRESOLVED
       const object = hook?.returned ?? objectLiteralOf(target)
       if (!object) return UNRESOLVED
       const where = hook?.scope ?? scope
@@ -611,6 +662,7 @@ function handlerWays(value: ts.Expression, scope: FileScope): Ways {
       return either(
         ...targets.map((target): Ways => {
           const hook = rowMenuHookOf(target, scope)
+          if (hook === 'ambiguous') return UNRESOLVED
           const object = hook?.returned ?? objectLiteralOf(target)
           if (!object) return UNRESOLVED
           const where = hook?.scope ?? scope
@@ -676,11 +728,12 @@ export function primaryHandlersOfBuilders(sources: Source[]): Map<string, Set<st
 /** Every primary-action handler in a `<DetailHeader>` file that only selects a tab or cannot be followed. */
 export function noOpPrimaries(pages: Source[], builders: Map<string, Set<string>>): string[] {
   const offences: string[] = []
-  const rowMenuHooks = rowMenuHooksOf(pages)
+  const state = judgeState()
+  const rowMenuHooks = rowMenuHooksOf(pages, state)
   for (const source of pages) {
     if (!source.text.includes('<DetailHeader')) continue
     const file = parse(source)
-    const scope = fileScope(file, rowMenuHooks)
+    const scope = fileScope(file, rowMenuHooks, state)
     const where = (n: ts.Node) => `${source.path}:${file.getLineAndCharacterOfPosition(n.getStart()).line + 1}`
     const report = (n: ts.Node, what: string, verdict: Verdict) => {
       if (verdict !== 'ok') offences.push(`${where(n)} ${what}${verdict === 'unresolved' ? ' (cannot be followed)' : ''}`)
@@ -896,8 +949,9 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
     expect(noOpPrimaries([working], builders)).toEqual([])
   })
 
-  // KAN-512 review: each rule of the path judge pinned by a case that turns
-  // green if the rule is removed, and the KAN-468 handler-value rule kept.
+  // KAN-512 reviews: the rules of the path judge, each with a case meant to
+  // turn green if the rule is removed (a mutation run checks it), and the
+  // KAN-468 handler-value rule kept.
   it('pins every path rule and keeps a handler value that cannot be read refused', () => {
     const builders = primaryHandlersOfBuilders([
       {
@@ -1040,7 +1094,8 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
         return { goIdentity, deactivate, groups: (thing) => ({}) }
       }`,
     }
-    const usesHook = `export function A() {
+    const usesHook = `import { useThingRowMenu } from '../components/useThingRowMenu'
+    export function A() {
       const menu = useThingRowMenu()
       const a = buildOldRowMenu(t, { onAllocate: () => menu.deactivate(thing) })
       const b = buildOldRowMenu(t, { onAllocate: () => menu.goIdentity() })
@@ -1049,10 +1104,102 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
       return <DetailHeader primaryAction={a.primary} />
     }`
     expect(noOpPrimaries([hook, { path: 'pages/P.tsx', text: usesHook }], builders)).toEqual([
-      'pages/P.tsx:4 onAllocate (primary of buildOldRowMenu)',
       'pages/P.tsx:5 onAllocate (primary of buildOldRowMenu)',
-      'pages/P.tsx:6 onAllocate (primary of buildOldRowMenu) (cannot be followed)',
+      'pages/P.tsx:6 onAllocate (primary of buildOldRowMenu)',
+      'pages/P.tsx:7 onAllocate (primary of buildOldRowMenu) (cannot be followed)',
     ])
+
+    // KAN-512 review, round 3.
+    // A loop in a called function that leaves by `throw` after a tab switch: the work after the call never runs.
+    expect(
+      verdict(
+        "const validate = () => { for (const issue of issues) { if (issue.blocking) { setActiveTab(issue.tab); throw 'stop' } } }",
+        '() => { validate(); setAllocating(true) }',
+      ),
+    ).toBe('cannot be followed')
+    // … and one inside a `try` that leaves by `return`: a catch never sees that path.
+    expect(
+      verdict('', "() => { try { for (const i of issues) { if (i.blocking) { setActiveTab(i.tab); return } } } catch { setError(true) } setAllocating(true) }"),
+    ).toBe('cannot be followed')
+    // What runs after a throw does not run: in an argument list, and out of an `if` condition.
+    const fail = "const fail = () => { setActiveTab('identity'); throw 'stop' }"
+    expect(verdict(fail, '() => { noop(fail(), setAllocating(true)) }')).toBe('tab switch')
+    expect(verdict(fail, "() => { if (fail()) setAllocating(true); else setFormToFocus('x') }")).toBe('tab switch')
+    // Arguments and initialisers run.
+    expect(verdict('const pass = (x) => x', "() => pass(setActiveTab('identity'))")).toBe('tab switch')
+    expect(verdict('', "() => { const tab = setActiveTab('identity') }")).toBe('tab switch')
+    // What is called is followed: an immediately invoked arrow, a memoised function, a local `?:`, a member alias.
+    expect(verdict('', "() => (() => setActiveTab('identity'))()")).toBe('tab switch')
+    expect(verdict("const go = useMemo(() => () => setActiveTab('identity'), [])", '() => go()')).toBe('tab switch')
+    expect(verdict("const go = ready ? () => setAllocating(true) : () => setActiveTab('identity')", '() => go()')).toBe('tab switch')
+    expect(verdict("const actions = { allocate: () => setActiveTab('identity') }; const f = actions.allocate", '() => f()')).toBe('tab switch')
+    // … and a call whose callee is a call cannot be followed.
+    expect(verdict('', '() => make()()')).toBe('cannot be followed')
+    expect(verdict('', '() => make().allocate()')).toBe('cannot be followed')
+    // A `?:` handler value is judged on both sides.
+    const both = "const good = () => setAllocating(true); const bad = () => setActiveTab('identity')"
+    expect(verdict(both, 'ready ? good : bad')).toBe('tab switch')
+    expect(verdict(both, 'ready ? bad : good')).toBe('tab switch')
+    // A handler value that is a member of a prop or an import cannot be followed (KAN-468).
+    expect(verdict('', 'props.onAllocate')).toBe('cannot be followed')
+    expect(verdict('', 'api.allocate')).toBe('cannot be followed')
+
+    // A row-menu hook is followed only through the page's import of it, only when one file declares
+    // it, only when it is a single `return { … }` at its end, and only a `use…RowMenu`.
+    const thingPage = (call: string, imported = true) => ({
+      path: 'pages/P.tsx',
+      text: `${imported ? "import { useThingRowMenu, useThing } from '../components/useThingRowMenu'\n" : ''}export function A() {
+        const menu = ${call}
+        const a = buildOldRowMenu(t, { onAllocate: () => menu.go() })
+        return <DetailHeader primaryAction={a.primary} />
+      }`,
+    })
+    const working: Source = { path: 'components/useThingRowMenu.tsx', text: 'export function useThingRowMenu() { return { go: () => setAllocating(true) } }' }
+    const tabbing: Source = { path: 'components/other/useThingRowMenu.tsx', text: "export function useThingRowMenu() { return { go: () => setActiveTab('identity') } }" }
+    const followed = (sources: Source[]) => noOpPrimaries(sources, builders).map((o) => o.replace(/^.* \(primary of buildOldRowMenu\)/, '').trim() || 'tab switch')
+    expect(followed([working, thingPage('useThingRowMenu()')])).toEqual([])
+    expect(followed([working, thingPage('useThingRowMenu()', false)])).toEqual(['(cannot be followed)'])
+    expect(followed([working, tabbing, thingPage('useThingRowMenu()')])).toEqual(['(cannot be followed)'])
+    const early: Source = {
+      path: 'components/useThingRowMenu.tsx',
+      text: "export function useThingRowMenu() { if (legacy) { return { go: () => setActiveTab('identity') } } return { go: () => setAllocating(true) } }",
+    }
+    expect(followed([early, thingPage('useThingRowMenu()')])).toEqual(['(cannot be followed)'])
+    const plainHook: Source = { path: 'components/useThingRowMenu.tsx', text: 'export function useThing() { return { go: () => setAllocating(true) } }' }
+    expect(followed([plainHook, thingPage('useThing()')])).toEqual(['(cannot be followed)'])
+    // Two hooks calling each other: one cycle, whichever primary is judged first.
+    const hookA: Source = {
+      path: 'components/useARowMenu.tsx',
+      text: `import { useBRowMenu } from './useBRowMenu'
+      export function useARowMenu() {
+        const b = useBRowMenu()
+        const f = () => { if (k) { b.g() } else { setActiveTab('identity') } }
+        return { f }
+      }`,
+    }
+    const hookB: Source = {
+      path: 'components/useBRowMenu.tsx',
+      text: `import { useARowMenu } from './useARowMenu'
+      export function useBRowMenu() {
+        const a = useARowMenu()
+        const g = () => { if (j) { a.f() } else { void api.post('/x') } }
+        return { g }
+      }`,
+    }
+    const pair = (first: string, second: string): Source => ({
+      path: 'pages/P.tsx',
+      text: `import { useARowMenu } from '../components/useARowMenu'
+      import { useBRowMenu } from '../components/useBRowMenu'
+      export function A() {
+        const ma = useARowMenu()
+        const mb = useBRowMenu()
+        const x = buildOldRowMenu(t, { onAllocate: () => ${first} })
+        const y = buildOldRowMenu(t, { onAllocate: () => ${second} })
+        return <DetailHeader primaryAction={x.primary} />
+      }`,
+    })
+    expect(noOpPrimaries([hookA, hookB, pair('ma.f()', 'mb.g()')], builders)).toHaveLength(2)
+    expect(noOpPrimaries([hookA, hookB, pair('mb.g()', 'ma.f()')], builders)).toHaveLength(2)
 
     // Mutual recursion: whichever primary is judged first, both see the tab switch.
     const cycle = `export function A() {
