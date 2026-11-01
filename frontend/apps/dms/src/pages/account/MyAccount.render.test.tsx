@@ -229,6 +229,7 @@ describe('My account (KAN-201)', () => {
         handler: () => (me = { ...me, hasPhoto: true, version: me.version + 1 }),
       },
       { method: 'GET', match: /\/me\/photo$/, handler: () => ({ __status: 404 }) },
+      { method: 'GET', match: /\/auth\/me$/, handler: () => ({ __status: 401 }) },
       {
         method: 'PATCH',
         match: /\/me$/,
@@ -237,6 +238,7 @@ describe('My account (KAN-201)', () => {
     ])
 
     await screen.findByDisplayValue('Muster')
+    const sessionReadsBefore = backend.callsTo(/\/auth\/me$/, 'GET').length
     const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], 'anna.jpg', { type: 'image/jpeg' })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(input, jpeg)
@@ -247,6 +249,9 @@ describe('My account (KAN-201)', () => {
     expect(put.headers.get('Content-Type')).toBe('image/jpeg')
     expect(put.body).toBe(jpeg)
     expect(await screen.findByRole('button', { name: 'Entfernen' })).toBeInTheDocument()
+    // KAN-401 (option 2): the session record carries `hasPhoto`; it is re-read
+    // so the sidebar's account card shows the new photo at once.
+    await waitFor(() => expect(backend.callsTo(/\/auth\/me$/, 'GET').length).toBe(sessionReadsBefore + 1))
 
     const lastName = screen.getByDisplayValue('Muster')
     await user.clear(lastName)

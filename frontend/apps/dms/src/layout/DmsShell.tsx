@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Alert } from '@mantine/core'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import {
   Building2,
   Car,
@@ -311,6 +312,17 @@ function DmsShellInner({ children }: { children: ReactNode }) {
     if (inboxReachable) void rebindPushToThisSession()
   }, [inboxReachable, user?.id])
 
+  // KAN-401 (Anto, 2026-10-30, option 2): the session record says whether the
+  // user has a photo; the account card shows it. The same query key as
+  // `UserAvatar` on My account, so the two never fetch the one photo twice,
+  // and the record's version in it, so a new photo replaces the old one.
+  const ownPhoto = useQuery({
+    queryKey: ['user-photo', '/me/photo', user?.version],
+    queryFn: () => api.getBlobUrl('/me/photo'),
+    enabled: !!user?.hasPhoto && !mfaEnrolmentRequired,
+    staleTime: Infinity,
+  })
+
   if (!user) return <>{children}</>
 
   return (
@@ -325,7 +337,12 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         activeHref,
         // KAN-163 — `user.role` is the UserRole enum code (`gm`,
         // `service_advisor`); the sidebar shows its translated job title.
-        user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: t(`userRole.${user.role}`) },
+        user: {
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: t(`userRole.${user.role}`),
+          photoUrl: user.hasPhoto ? (ownPhoto.data ?? null) : null,
+        },
         uiLanguage,
         onLanguageChange: setUiLanguage,
         onSignOut: () => {

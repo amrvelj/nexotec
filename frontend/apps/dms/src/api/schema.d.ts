@@ -10292,6 +10292,11 @@ export interface components {
          *     (`hasSignatureImage`, the sites, the invitation expiry) are
          *     `UserAdminRead`'s, read through `user_read`; a plain `model_validate` of
          *     the row cannot fill them, so the session never pretends to.
+         *
+         *     One field joined it since: `has_photo` (KAN-401, Anto 2026-10-30, option 2
+         *     — the sidebar's account card shows the person's own photo without an
+         *     extra request). It is the row's own `User.has_photo`, so `model_validate`
+         *     fills it; the photo itself stays `GET /v1/me/photo`.
          */
         UserRead: {
             /** Accessroles */
@@ -10315,6 +10320,8 @@ export interface components {
             employmentStatus: components["schemas"]["EmploymentStatus"];
             /** Firstname */
             firstName: string;
+            /** Hasphoto */
+            hasPhoto: boolean;
             /**
              * Id
              * Format: uuid

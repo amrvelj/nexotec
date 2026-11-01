@@ -166,3 +166,10 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
         """API-facing alias for tenant_id — see module docstring."""
 
         return self.tenant_id
+
+    @property
+    def has_photo(self) -> bool:
+        """KAN-401: whether the person has a photo — the session's `UserRead`,
+        `UserAdminRead` and `MeRead` all say it from this one place."""
+
+        return self.photo_ref is not None

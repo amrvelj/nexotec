@@ -175,7 +175,12 @@ class UserRead(CamelModel):
     stay as they were). The administration fields and the derived ones
     (`hasSignatureImage`, the sites, the invitation expiry) are
     `UserAdminRead`'s, read through `user_read`; a plain `model_validate` of
-    the row cannot fill them, so the session never pretends to."""
+    the row cannot fill them, so the session never pretends to.
+
+    One field joined it since: `has_photo` (KAN-401, Anto 2026-10-30, option 2
+    — the sidebar's account card shows the person's own photo without an
+    extra request). It is the row's own `User.has_photo`, so `model_validate`
+    fills it; the photo itself stays `GET /v1/me/photo`."""
 
     id: uuid.UUID
     dealership_id: uuid.UUID
@@ -194,6 +199,7 @@ class UserRead(CamelModel):
     updated_at: dt.datetime
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
+    has_photo: bool
 
 
 class UserPage(CamelModel):
