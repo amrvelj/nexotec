@@ -72,28 +72,33 @@ that has to be remembered and re-checked elsewhere.
 
 ## Session scope: 15-minute idle timeout
 
-Documenting the real gap rather than assuming an answer: `create_access_token`
-today issues a pure fixed-TTL JWT with no concept of "idle" — a token is valid
-until `exp`, full stop, regardless of activity. Two ways to get a genuine
-15-minute *idle* timeout when this is built:
+**Decided (Anto, 2026-10-31, KAN-508 option A): the terminal session is a row
+in the same `session` table the staff sign-in writes, judged by the same
+guard, with an idle window of its own.** Since KAN-196 every staff session is a
+`session` row (`app/platform/services/auth_sessions.py`), and the app-level
+dependency `app/platform/session_guard.py::enforce_live_session` refuses a
+token whose row is revoked, idle (`session_idle_minutes`, 120 for the office)
+or past its absolute end, touching the row at most once a minute. The terminal
+reuses that, nothing new:
 
-- **(a) Short fixed TTL, refreshed by re-authenticating.** Issue the token with a
-  short TTL approximating the idle window, and have the terminal UI silently
-  re-run the PIN/badge check on the next interaction if the token has expired.
-  Reuses the existing stateless token model completely unchanged — no new
-  server-side state. **Recommended starting point** — simplest, and "the
-  technician re-taps their badge every so often" is an acceptable UX cost for a
-  shared terminal in a way it would not be for an office worker.
-- **(b) Real idle tracking.** A revocable session record (last-activity
-  timestamp), checked alongside the JWT's own `exp` on every request. Genuinely
-  correct idle-timeout semantics, but a materially bigger lift — a new table, a
-  write on every authenticated request (or a cheaper approximation of one), and
-  a second place session validity can fail. Only worth it if (a) proves
-  insufficient in practice.
+- **A terminal session's row carries a 15-minute idle window** instead of the
+  office's 120 minutes — a per-realm setting on the row or beside
+  `session_idle_minutes`, chosen when this is built; the guard reads it the
+  same way. The absolute end stays the office's (next midnight Europe/Zurich).
+- **Deactivating or suspending a technician ends their terminal session
+  exactly like an office session**: the status change revokes every `session`
+  row of the user (FR-A-10), so there is no window in which a deactivated
+  technician still works at a terminal, and session validity is judged in one
+  place.
+- The previous options — (a) a short fixed-TTL token refreshed by re-tapping
+  the badge, (b) a revocable session record as "a new table" — predate that
+  table; (a) is not taken, because its sessions could not be revoked when
+  someone is deactivated.
 
-Neither is implemented. This is a decision for whoever builds this package, not
-one this design makes on their behalf — recorded here so it doesn't get
-re-litigated from scratch.
+How the terminal path *mints* that session — through `_mint_session`, so it
+passes the same status check, or through a fixed-role variant of it — is
+KAN-254's open ADR; the "Bolt-on point" below still describes the original
+design until that ADR is approved.
 
 ## Data model (prose sketch — explicitly not a migration)
 

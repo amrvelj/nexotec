@@ -287,6 +287,9 @@
       "standard_text_seed_language_missing": "This template does not exist in this language.",
       "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore.",
       "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG.",
+      "signed_contract_carries_it": "A signed contract carries this valuation as its trade-in, so it stays used.",
+      "stamp_too_recent": "This valuation was marked as used less than an hour ago; its contract's confirmation may still be in progress. Please try again later.",
+      "valuation_not_used": "This valuation is not marked as used.",
       "plate_already_ended": "This assignment has already ended.",
       "plate_already_on_vehicle": "This plate is already recorded on this vehicle for that period.",
       "plate_canton_invalid": "Please choose one of the 26 cantons.",
@@ -1580,7 +1583,11 @@
       "markUsedAlreadyUsed": "Already marked as used.",
       "markUsedNoSignedContract": "Only possible when a signed contract carries this valuation as its trade-in.",
       "openCustomer": "Open customer",
-      "openVehicle": "Open vehicle"
+      "openVehicle": "Open vehicle",
+      "revertUse": "Clear use",
+      "revertUseNotUsed": "Only for a valuation marked as used.",
+      "revertUseSignedContract": "Not possible: a signed contract carries this valuation as its trade-in.",
+      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress."
     },
     "expiredBanner": {
       "title": "Valuation expired",
@@ -1607,6 +1614,15 @@
     "validityHelp": "Status is computed on read, never patched overnight — valid until {{validUntil}}.",
     "configuration": {
       "title": "Configuration"
+    },
+    "revertUseDialog": {
+      "title": "Clear use",
+      "body": "Valuation {{number}} is marked as used, but no signed contract stands behind it. Once cleared, it is valid or expired again. The reason is logged with the change.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "Please state a reason.",
+      "submit": "Clear use",
+      "cancel": "Cancel",
+      "failed": "The use could not be cleared. Please try again."
     }
   },
   "valuationCreate": {
@@ -1702,29 +1718,6 @@
     "emptyFilteredState": {
       "title": "No matching connections",
       "description": "Try a different search."
-    },
-    "healthBoard": {
-      "title": "Fleet health",
-      "lastFullSeed": "Last full seed",
-      "providerWatermark": "Provider watermark",
-      "status": "Status",
-      "stale": "Stale",
-      "healthy": "Healthy",
-      "pending": "Pending variants",
-      "pendingCount_one": "{{count, number}} pending",
-      "pendingCount_other": "{{count, number}} pending",
-      "pendingField": {
-        "master_data": "master data",
-        "options": "options",
-        "colours": "colours",
-        "tyre_specs": "tyres",
-        "images": "images",
-        "not_attempted": "not attempted"
-      },
-      "emptyState": {
-        "title": "No catalogue sync yet",
-        "description": "No business has synced a catalogue mirror yet."
-      }
     }
   },
   "integrationEnums": {

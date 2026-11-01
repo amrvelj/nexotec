@@ -60,13 +60,31 @@ file in the same PR as any change to what it states. -->
   included** — the contracts signed before KAN-101 stamped nothing; refused otherwise
   (`no_signed_contract`). Sales answers through
   `sales.public.valuations_carried_by_signed_contracts`; `ValuationRead.hasSignedContract`
-  carries the same answer to the row menu. `mark_used` is the one place that sets `used_at`
-  (only the compensating `revert_use` clears it).
+  carries the same answer to the row menu. `mark_used` is the one place that sets `used_at`;
+  `revert_use` the one that clears it — the confirmation's compensation, and «Verwendung
+  aufheben» below.
+- **«Verwendung aufheben»** (Anto, 2026-10-31, KAN-253 option C): `POST
+  /v1/valuations/{id}/revert-use` (`services/valuation.py::revert_use_by_hand`; If-Match; a
+  mandatory `reason`, ≤ 500 characters) clears a stamp no signed contract of the dealership
+  stands behind — a hand stamp from before KAN-115, or a failed confirmation whose contract is
+  still pending or was cancelled. The dealer manager only: matrix row «Valuation use correction»
+  (`valuation_use_reversal`, write manager-only; the row menu offers it only when the session
+  may write it). Refused while a signed contract carries the valuation, cancelled included (409
+  `signed_contract_carries_it`), when it is not stamped (409 `valuation_not_used`), and for a stamp
+  younger than the nightly check's one-hour grace (409 `stamp_too_recent`, `CONFIRMATION_GRACE`: a
+  confirmation stamps before it signs, and the lock holds only the valuation row; the row menu
+  disables the entry with that reason). **One window stays open (KAN-520):** an older stamp
+  whose pending contract is confirmed again at the same moment — that confirmation writes
+  nothing and releases the valuation's lock before it signs, so a clear in between leaves a
+  signed contract on an unstamped valuation; Sales' nightly check reports it and «Als
+  verwendet markieren» repairs it. Audited
+  (`valuation_use_reverted_by_hand`, before/after `usedAt`, the reason) and published as
+  `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
   rule 10): a valuation stamped for over an hour that no signed contract of its dealership
   carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both
-  failed, or a hand stamp from before KAN-115; nothing in the app clears either unless the
-  contract is confirmed again: KAN-253); a signed contract whose existing trade-in valuation of
+  failed, or a hand stamp from before KAN-115; the dealer manager clears either with
+  «Verwendung aufheben», above); a signed contract whose existing trade-in valuation of
   the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no
   valuation, or a `valuation_ref_amount` that differs from its `final_offer`

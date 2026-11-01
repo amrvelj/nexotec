@@ -41,7 +41,7 @@ class IntegrationNotification(PrimaryKeyMixin, TimestampMixin, Base):
     the caller's own query-then-insert check (services/notifications.py),
     the same "single worker, at-least-once, tolerate the theoretical
     race" posture this codebase already applies to `MappingGap`'s own
-    upsert and `ProviderSyncState`'s get-or-create.
+    upsert.
     """
 
     __tablename__ = "integration_notification"

@@ -19,7 +19,7 @@ had no caller until this revision's release (KAN-467's finding). The upgrade
 checks that and stops with a report rather than guess a group for a row.
 
 Revision ID: 645e0b870286
-Revises: b0a125a0a583
+Revises: e4b7c2a91d36
 Create Date: 2026-11-01 14:15:33.935049
 
 """
@@ -34,7 +34,7 @@ import app.core.types
 
 # revision identifiers, used by Alembic.
 revision: str = "645e0b870286"
-down_revision: Union[str, Sequence[str], None] = "b0a125a0a583"
+down_revision: Union[str, Sequence[str], None] = "e4b7c2a91d36"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

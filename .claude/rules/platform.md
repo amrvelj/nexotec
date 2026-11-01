@@ -198,15 +198,18 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen», `canonical_taxonomy` — the PRD's Platform
-Administration › Reference data — for the Reference data screen's «Neuer Wert» and inline edits,
-platform staff only, KAN-471), each checked to be a matrix row; never a role table
+list's intake and «Konfiguration zuordnen», `reference_lists` — the PRD's Platform
+Administration › Reference data, the row «Reference lists» split from «Canonical taxonomy,
+provider catalogue» by KAN-514 (Anto, 2026-10-31, option A: any role reads, as the open
+`GET /v1/reference-data` does; platform staff alone write) — for the Reference data screen's
+«Neuer Wert» and inline edits (KAN-471), `valuation_use_reversal` for the valuation row menu's
+«Verwendung aufheben», the dealer manager only (KAN-253)), each checked to be a matrix row; never a role table
 in the frontend. An empty `write_roles` = platform staff
 or the manager — except every row with `manager_can_write=False`: the "Nobody" rows (`audit_logs`,
 `wagenbuch`, `stock_reservation`, `ui_translations`, `status_page`, `integration_usage`,
 `module_entitlements`, `setup_checklist`, `support_session_log`) and the platform-only and self-only
-rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonical_taxonomy`), which
-the manager cannot write.
+rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonical_taxonomy`,
+`reference_lists`), which the manager cannot write.
 
 **Session minting (KAN-141, KAN-196).** Every session token is minted through `_mint_session` in
 `app/platform/api/auth.py` — login, the MFA step, invitation acceptance and switch-dealership.
@@ -678,9 +681,12 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   `EntraOidcProvider` is **not built** ([P3]). `User.auth_identity_id` stays unique and non-null:
   a local user carries `local:<user id>`.
 - **Identity realms (D-A-13, D-A-14):** staff (this), terminal (ADR-028,
-  `WORKSHOP_TERMINAL_AUTH_DESIGN.md`), customer (reserved, `aud=portal`, never a row in
-  `user`), machine (not in v1). Never share a credential store — `_CREDENTIAL_TABLES` in the
-  architecture test names the two allowed (`credential`, `terminal_device`).
+  `WORKSHOP_TERMINAL_AUTH_DESIGN.md`; its session is a `session` row judged by
+  `enforce_live_session` with a 15-minute idle window of its own — Anto, 2026-10-31, KAN-508
+  option A), customer (reserved, `aud=portal`, never a row in `user`), machine (not in v1).
+  Never share a credential store — `_CREDENTIAL_TABLES` in the architecture test names the two
+  allowed (`credential`, and the terminal PIN's `device_technician_pin`, the design's table; a
+  `pin` column counts as password-shaped, KAN-508).
 - **Connected accounts are grants, not identities (FR-AU-23):** `user_connected_account` is
   never used to sign in and never appears in the token. **Built (KAN-201):** the table
   (provider, external account id and label, scopes, `secret_ref` — a secrets-manager reference,

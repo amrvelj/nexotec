@@ -17,12 +17,11 @@ import { fileURLToPath } from 'node:url'
 // and two that do not end that way are listed. Not every date-only field can
 // be judged by its name (KAN-363): `validFrom` and `validTo` are a date on a
 // plate, an accessory, a user's access window and a valuation (which no screen
-// renders yet) but a timestamp on a contact channel, and `lastDeltaCursor`
-// (the catalogue sync's watermark) has no date-like name at all. No name rule
-// covers those three; the render tests of the screens that show them do,
-// under TZ=Pacific/Honolulu: dateOnlyTabs (a plate's and an accessory's
-// validity), UsersListPage.dateOnly (a user's access window) and
-// IntegrationPlatformView.pending (the watermark).
+// renders yet) but a timestamp on a contact channel. No name rule covers
+// those two; the render tests of the screens that show them do, under
+// TZ=Pacific/Honolulu: dateOnlyTabs (a plate's and an accessory's validity)
+// and UsersListPage.dateOnly (a user's access window). (The catalogue sync's
+// watermark, `lastDeltaCursor`, went with the sync-status board, KAN-497.)
 const DATE_ONLY_SUFFIX = /(?:Date|Since|FollowUp)$/
 const DATE_ONLY_NAMES = new Set(['expectedDelivery', 'vehicleFirstRegistration'])
 

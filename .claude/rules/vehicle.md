@@ -124,7 +124,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 ## Licensed data and the gateway
 
 - **Licensed provider data is tenant-partitioned** (ADR-013, amended by ADR-075): options,
-  option features and relations, colours, tyres, images and sync state are fetched with each
+  option features and relations, colours, tyres and images are fetched with each
   dealer's own credentials and quota (`TenantScopedMixin`) and never travel through the
   cross-tenant shared identity response (FR-V-14; architecture test on its shape).
 - **ADR-075 — auto-i-dat variant master data is global**, by auto-i-dat's written permission:
@@ -248,8 +248,9 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   browse and the configurator's variant picker are empty, the Typenschein and Werkscode rungs of
   identification find nothing, and a best-matched variant has no options, colours, tyres or
   images. `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule. The
-  platform's catalogue-sync status board still reads the `vehicle_provider_sync_state` rows
-  written before; nothing writes them now (KAN-497).
+  bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and the platform's
+  catalogue-sync status board that read it are gone (KAN-497; Anto, 2026-10-31, option A —
+  vehicle-chain migration `e4b7c2a91d36` drops the table).
 - **Every provider request is counted** (§6; KAN-486): one `integration_call_log` row per
   request — a retry is a second row — with the provider's own operation name as `capability`
   (the Datenname; `FtpUpload` for the AutoScout24 feed) and `cost_units = 1`. An adapter wraps

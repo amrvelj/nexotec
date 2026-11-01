@@ -100,6 +100,8 @@ const REASON_KEYS: Record<string, string> = {
       'provider_code_already_mapped',
       'purchase_requires_vin',
       'purchase_vin_mismatch',
+      'signed_contract_carries_it',
+      'stamp_too_recent',
       // KAN-208 — the standard-text library and the documents that print it.
       'standard_text_category_mismatch',
       'standard_text_code_target_mismatch',
@@ -122,6 +124,8 @@ const REASON_KEYS: Record<string, string> = {
       'unrecognised_identifier',
       'use_deactivate_endpoint',
       'valuation_expired',
+      // KAN-253 — «Verwendung aufheben».
+      'valuation_not_used',
       'vehicle_left_stock',
       'vehicle_not_purchased',
       'vin_already_in_stock',
