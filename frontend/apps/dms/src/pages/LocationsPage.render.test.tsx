@@ -126,12 +126,12 @@ const READ_ONLY_SESSION: FakeRoute = {
   }),
 }
 
-function renderDetail() {
+function renderDetail(locationId = 'loc-1') {
   return renderWithProviders(
     <Routes>
       <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
     </Routes>,
-    { route: '/administration/locations/loc-1' },
+    { route: `/administration/locations/${locationId}` },
   )
 }
 
@@ -324,6 +324,38 @@ describe('LocationDetailPage (KAN-204)', () => {
     // Zürich Nord is the only active site of the two.
     const primary = await screen.findByRole('button', { name: 'Deaktivieren' })
     await waitFor(() => expect(primary).toBeDisabled())
+  })
+
+  // KAN-512: the header's primary runs the row menu's own action — the
+  // detail screen calls the hook's named actions, the entries call the same.
+  it('deactivates from the header primary: the confirmation opens, as from the row menu', async () => {
+    const OST = location({ id: 'loc-3', name: 'St. Gallen', code: 'SG' })
+    installFakeBackend([{ method: 'GET', match: /\/dealerships\/dealership-1\/locations$/, handler: () => ({ items: [NORD, SUED, OST] }) }, ...routes()])
+    const user = userEvent.setup()
+    renderDetail()
+    const primary = await screen.findByRole('button', { name: 'Deaktivieren' })
+    await waitFor(() => expect(primary).toBeEnabled())
+    await user.click(primary)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(/Der Standort Zürich Nord wird deaktiviert\./)).toBeInTheDocument()
+  })
+
+  it('activates an inactive site from the header primary, with its If-Match', async () => {
+    const backend = installFakeBackend(
+      routes([
+        { method: 'GET', match: /\/dealerships\/dealership-1\/locations\/loc-2$/, handler: () => SUED },
+        { method: 'GET', match: /\/locations\/loc-2\/opening-hours$/, handler: () => ({ ...ONE_SET_HOURS, locationId: 'loc-2', hours: [] }) },
+        { method: 'GET', match: /\/locations\/loc-2\/closures$/, handler: () => ({ items: [] }) },
+        { method: 'PATCH', match: /\/dealerships\/dealership-1\/locations\/loc-2$/, handler: () => ({ ...SUED, isActive: true, version: 2 }) },
+      ]),
+    )
+    const user = userEvent.setup()
+    renderDetail('loc-2')
+    await user.click(await screen.findByRole('button', { name: 'Aktivieren' }))
+    await waitFor(() => expect(backend.callsTo(/\/locations\/loc-2$/, 'PATCH')).toHaveLength(1))
+    const call = backend.callsTo(/\/locations\/loc-2$/, 'PATCH')[0]
+    expect(call.headers.get('If-Match')).toBe('1')
+    expect(call.body).toEqual({ isActive: true })
   })
 
   it('reads only, for a role without the write', async () => {

@@ -58,9 +58,10 @@ export function LocationDetailPage() {
 
   const data = location.data
   const groups = menu.groups(data)
-  // ADR-061: the primary is the row menu's own deactivate / activate entry.
+  // ADR-061: the primary is the row menu's own deactivate / activate entry —
+  // its label and disabled state, and the very action the entry runs.
   const toggle = groups.edit?.[0]
-  const runToggle = () => toggle?.onClick()
+  const runToggle = () => menu.toggleActive(data)
   return (
     <Stack gap="md">
       <DetailHeader

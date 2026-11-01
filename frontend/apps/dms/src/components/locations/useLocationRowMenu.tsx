@@ -37,6 +37,23 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
     onError: (err) => setError(apiRefusalText(t, err, 'locations.saveError')),
   })
 
+  // The one toggle the menu offers: an active location asks for the
+  // deactivation's confirmation, an inactive one is activated. The entries
+  // below and the detail screen's primary both run it, so the choice lives
+  // here alone (ADR-061; KAN-512's guard follows a `use…RowMenu` hook's
+  // returned actions).
+  const toggleActive = useCallback(
+    (location: LocationRead) => {
+      if (location.isActive) {
+        setError(null)
+        setPending(location)
+      } else {
+        toggle.mutate({ location, isActive: true })
+      }
+    },
+    [toggle],
+  )
+
   const groups = useCallback(
     (location: LocationRead): RowMenuGroups => {
       const out: RowMenuGroups = {
@@ -51,10 +68,7 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
           {
             label: t('locations.actions.deactivate'),
             icon: <PowerOff size={16} />,
-            onClick: () => {
-              setError(null)
-              setPending(location)
-            },
+            onClick: () => toggleActive(location),
             disabled: last,
             disabledReason: last ? t('locations.actions.lastActive') : undefined,
           },
@@ -64,17 +78,19 @@ export function useLocationRowMenu(dealershipId: string, activeCount: number) {
           {
             label: t('locations.actions.activate'),
             icon: <Power size={16} />,
-            onClick: () => toggle.mutate({ location, isActive: true }),
+            onClick: () => toggleActive(location),
           },
         ]
       }
       return out
     },
-    [t, navigate, canWrite, activeCount, toggle],
+    [t, navigate, canWrite, activeCount, toggleActive],
   )
 
   return {
     groups,
+    /** The deactivate / activate entry's action: an active location asks for confirmation (`pending`), an inactive one is activated. */
+    toggleActive,
     /** The location waiting for the deactivation's confirmation. */
     pending,
     cancel: () => {
