@@ -1,6 +1,7 @@
 """Architecture test (WP-4, inverted by D-A-07 / KAN-196): password-shaped
 columns exist in `credential` and NOWHERE else, and no table other than
-`credential` (and, later, `terminal_device` — ADR-028) holds a credential.
+`credential` (and, later, the terminal realm's `device_technician_pin` —
+ADR-028) holds a credential.
 
 WP-4 wrote the first version of this guard the other way round — "no
 password hash remains anywhere in the database" — when Zitadel owned the
@@ -19,10 +20,25 @@ from sqlalchemy import UniqueConstraint
 import app.model_registry
 from app.db import Base
 
-_PASSWORD_LIKE_COLUMN_PATTERN = re.compile(r"password|pwd|bcrypt|argon", re.IGNORECASE)
+# A technician's terminal PIN (ADR-028) is a credential too: `pin` as a
+# whole word of a column name (`pin_hash`, `pin_code`), never a substring
+# (`shipping`, `mapping`).
+_PASSWORD_LIKE_COLUMN_PATTERN = re.compile(r"password|pwd|bcrypt|argon|(^|_)pin(_|$)", re.IGNORECASE)
 # The tables allowed to hold a credential: the staff realm's today; the
-# terminal realm's when ADR-028 ships. A third name here is a ruling.
-_CREDENTIAL_TABLES = {"credential", "terminal_device"}
+# terminal realm's PIN table when ADR-028 ships (KAN-508, Anto 2026-10-31:
+# `WORKSHOP_TERMINAL_AUTH_DESIGN.md` § Data model names it
+# `device_technician_pin`; the device table, `device_terminal`, holds only a
+# secrets-manager reference). A third name here is a ruling.
+_CREDENTIAL_TABLES = {"credential", "device_technician_pin"}
+
+
+def _password_shaped_columns_outside_the_credential_tables(tables) -> list[str]:
+    return [
+        f"{table.name}.{column.name}"
+        for table in tables
+        for column in table.columns
+        if _PASSWORD_LIKE_COLUMN_PATTERN.search(column.name) and table.name not in _CREDENTIAL_TABLES
+    ]
 
 
 def test_the_credential_table_exists_with_its_password_column():
@@ -43,13 +59,24 @@ def test_the_credential_table_exists_with_its_password_column():
 
 def test_password_shaped_columns_live_in_credential_and_nowhere_else():
     assert app.model_registry
-    elsewhere = [
-        f"{table.name}.{column.name}"
-        for table in Base.metadata.tables.values()
-        for column in table.columns
-        if _PASSWORD_LIKE_COLUMN_PATTERN.search(column.name) and table.name not in _CREDENTIAL_TABLES
-    ]
-    assert elsewhere == []
+    assert _password_shaped_columns_outside_the_credential_tables(Base.metadata.tables.values()) == []
+
+
+def test_the_terminal_pin_is_allowed_only_in_the_table_the_design_names():
+    """KAN-508: the terminal realm's PIN hash lives in `device_technician_pin`
+    (the design's data model), so that table is the allowed one, and a PIN
+    column anywhere else — the device table included — is refused like a
+    password column. Shown on a throwaway schema: neither table exists yet."""
+
+    from sqlalchemy import Column, MetaData, String, Table
+
+    sketch = MetaData()
+    pin_table = Table("device_technician_pin", sketch, Column("pin_hash", String))
+    device_table = Table("device_terminal", sketch, Column("pin_hash", String), Column("secret_ref", String))
+    unrelated = Table("stock_item_sketch", sketch, Column("shipping_note", String), Column("mapping_gap", String))
+
+    assert _password_shaped_columns_outside_the_credential_tables([pin_table, unrelated]) == []
+    assert _password_shaped_columns_outside_the_credential_tables([device_table]) == ["device_terminal.pin_hash"]
 
 
 def test_no_second_credential_table_appears_unannounced():
