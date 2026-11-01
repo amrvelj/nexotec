@@ -47,8 +47,7 @@ export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
   valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract'> &
     Partial<Pick<ValuationRead, 'usedAt'>>,
-  actions: ValuationRowMenuActions,
-  now: number = Date.now()
+  actions: ValuationRowMenuActions
 ): ValuationRowMenu {
   const markUsedDisabledReason =
     valuation.status === 'used'
@@ -61,7 +60,7 @@ export function buildValuationRowMenu(
       ? t('valuationDetail.actions.revertUseNotUsed')
       : valuation.hasSignedContract
         ? t('valuationDetail.actions.revertUseSignedContract')
-        : valuation.usedAt && now - Date.parse(valuation.usedAt) < CONFIRMATION_GRACE_MS
+        : valuation.usedAt && Date.now() - Date.parse(valuation.usedAt) < CONFIRMATION_GRACE_MS
           ? t('valuationDetail.actions.revertUseTooRecent')
           : undefined
 

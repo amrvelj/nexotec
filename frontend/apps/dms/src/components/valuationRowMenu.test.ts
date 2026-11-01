@@ -104,15 +104,19 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
     }
   )
   it('KAN-253: revertUse is disabled with a reason for a stamp younger than an hour (the server refuses it as stamp_too_recent)', () => {
-    const now = Date.parse('2026-11-01T12:00:00Z')
-    const entry = (usedAt: string) =>
-      (buildValuationRowMenu(
-        t,
-        { status: 'used', hasSignedContract: false, customerId: null, vehicleId: null, usedAt },
-        { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onRevertUse: vi.fn() },
-        now
-      ).overflow.edit ?? []).find((a) => a.label === 'valuationDetail.actions.revertUse')!
-    expect(entry('2026-11-01T11:30:00Z').disabledReason).toBe('valuationDetail.actions.revertUseTooRecent')
-    expect(entry('2026-11-01T10:59:00Z').disabled).toBe(false)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-01T12:00:00Z'))
+    try {
+      const entry = (usedAt: string) =>
+        (buildValuationRowMenu(
+          t,
+          { status: 'used', hasSignedContract: false, customerId: null, vehicleId: null, usedAt },
+          { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onRevertUse: vi.fn() }
+        ).overflow.edit ?? []).find((a) => a.label === 'valuationDetail.actions.revertUse')!
+      expect(entry('2026-11-01T11:30:00Z').disabledReason).toBe('valuationDetail.actions.revertUseTooRecent')
+      expect(entry('2026-11-01T10:59:00Z').disabled).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

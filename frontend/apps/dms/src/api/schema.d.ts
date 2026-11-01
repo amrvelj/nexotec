@@ -3585,7 +3585,7 @@ export interface paths {
          * @description «Verwendung aufheben» (KAN-253, Anto 2026-10-31 option C) — the dealer
          *     manager clears a «Verwendet» stamp no signed contract stands behind,
          *     with a stated reason (audited). 409 `signed_contract_carries_it` while a
-         *     signed contract of this dealership carries it, 409 `not_used` when it is
+         *     signed contract of this dealership carries it, 409 `valuation_not_used` when it is
          *     not stamped.
          */
         post: operations["revert_valuation_use_v1_valuations__valuation_id__revert_use_post"];
