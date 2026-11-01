@@ -16,7 +16,6 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.vehicle.models.catalogue import ModelVariant
-from app.vehicle.services import catalogue_sync
 
 
 def _make_mock_provider(db_session) -> IntegrationProvider:
@@ -50,9 +49,8 @@ def test_run_daily_integration_jobs_leaves_the_catalogue_alone(db_session):
     daily_jobs.run_daily_integration_jobs(db_session)
 
     # The warnings, purge and digest steps ran without raising; no catalogue
-    # sync ran, so nothing was fetched and no sync state was written.
+    # sync ran, so nothing was fetched.
     assert db_session.query(ModelVariant).count() == 0
-    assert catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock") is None
 
 
 def test_run_daily_retention_purge_reports_zero_on_a_clean_database(db_session):

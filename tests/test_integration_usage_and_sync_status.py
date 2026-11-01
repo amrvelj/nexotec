@@ -1,9 +1,9 @@
-"""WP-6 PR-7: the usage-aggregation endpoint (dealer-facing "View usage")
-and the fleet-wide catalogue sync-status endpoint (platform view's own
-health board).
+"""WP-6 PR-7: the usage-aggregation endpoint (dealer-facing "View usage").
+The fleet-wide catalogue sync-status endpoint it once tested beside it was
+retired by KAN-497 (Anto, 2026-10-31, option A) with the full catalogue
+download it reported on (KAN-485); the test at the end pins that it is gone.
 """
 
-import datetime as dt
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
@@ -12,7 +12,6 @@ from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.vehicle.models.catalogue_mirror import ProviderSyncState
 from tests.token_support import dealer_group_of
 
 
@@ -40,16 +39,6 @@ def _platform_admin_token() -> str:
         user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)),
         roles=frozenset({AccessRole.PLATFORM_ADMIN}), is_dealer_manager=False,
     )
-
-
-def _legacy_sync_state(db_session, *, tenant_id: uuid.UUID, watermark: dt.date) -> ProviderSyncState:
-    state = ProviderSyncState(
-        tenant_id=tenant_id, provider_code="auto_i_dat_mock", last_full_seed_at=dt.datetime.now(dt.UTC),
-        last_delta_cursor=watermark, last_system_watermark_date=watermark, pending_fz_keys=[],
-    )
-    db_session.add(state)
-    db_session.commit()
-    return state
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -112,61 +101,24 @@ def test_usage_endpoint_requires_manager_flag(client, db_session):
     assert response.status_code == 403
 
 
-# --- catalogue sync status ----------------------------------------------------
+# --- catalogue sync status (retired, KAN-497) ----------------------------------
 
 
-def test_catalogue_sync_status_requires_platform_admin(client, db_session):
-    provider = _make_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection_service.create_connection(
-        db_session, tenant_id=tenant_id,
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
-        actor_id=uuid.uuid4(),
-    )
-    response = client.get("/v1/vehicle-mdm/catalogue-sync-status", headers=_bearer(_token(tenant_id)))
-    assert response.status_code == 403
+def test_the_catalogue_sync_status_board_and_its_table_are_gone(client):
+    """KAN-497: no full catalogue download exists since KAN-485 (ADR-023 as
+    amended 2026-10-29), so the board that reported on it could only show a
+    false «stale» alarm. The endpoint is not served to anyone, platform staff
+    included, it is not in the published contract, and its model is gone (the migration drops the table;
+    `test_migrated_schema_matches_models.py` holds the two together)."""
 
-
-def test_catalogue_sync_status_lists_every_tenant_and_flags_staleness(client, db_session):
-    provider = _make_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection_service.create_connection(
-        db_session, tenant_id=tenant_id,
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
-        actor_id=uuid.uuid4(),
-    )
-    # A state row as the full seed wrote it before KAN-485 removed the
-    # seed: the board still shows such rows (nothing writes them now).
-    _legacy_sync_state(db_session, tenant_id=tenant_id, watermark=dt.datetime.now(dt.UTC).date())
+    from app.db import Base
+    from app.main import app
 
     response = client.get("/v1/vehicle-mdm/catalogue-sync-status", headers=_bearer(_platform_admin_token()))
-    assert response.status_code == 200, response.text
-    rows = response.json()
-    assert len(rows) == 1
-    assert rows[0]["tenantId"] == str(tenant_id)
-    assert rows[0]["stale"] is False  # today's watermark
 
-
-def test_catalogue_sync_status_shows_the_keys_the_last_run_left_pending(client, db_session):
-    """KAN-78: a skipped FzKey is visible to an operator on the board, not
-    only as an ERROR row in the call log.
-    """
-
-    provider = _make_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection_service.create_connection(
-        db_session, tenant_id=tenant_id,
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
-        actor_id=uuid.uuid4(),
-    )
-    state = _legacy_sync_state(db_session, tenant_id=tenant_id, watermark=dt.datetime.now(dt.UTC).date())
-    state.pending_fz_keys = [
-        {"fz_key": "FZ100002", "field": "images", "error": "ProviderGatewayError", "failed_at": "2026-10-07T08:00:00+00:00"}
-    ]
-    db_session.commit()
-
-    response = client.get("/v1/vehicle-mdm/catalogue-sync-status", headers=_bearer(_platform_admin_token()))
-    assert response.status_code == 200, response.text
-    assert response.json()[0]["pendingFzKeys"] == [
-        {"fzKey": "FZ100002", "field": "images", "error": "ProviderGatewayError", "failedAt": "2026-10-07T08:00:00Z"}
-    ]
+    # What answers now is vehicle-mdm's `/{vehicle_id}` route, refusing a
+    # path segment that is no UUID: the board's route is not mounted.
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["errors"][0]["loc"] == ["path", "vehicle_id"]
+    assert "/v1/vehicle-mdm/catalogue-sync-status" not in app.openapi()["paths"]
+    assert "vehicle_provider_sync_state" not in Base.metadata.tables

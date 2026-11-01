@@ -67,7 +67,6 @@ describe('IntegrationPlatformView — the status column is translated (KAN-181)'
     installFakeBackend([
       { match: /^\/dealerships/, handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }) },
       { match: /^\/integrations\/connections/, handler: () => page(items) },
-      { match: /^\/vehicle-mdm\/catalogue-sync-status$/, handler: () => [] },
     ])
   }
 

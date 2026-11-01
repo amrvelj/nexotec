@@ -23,13 +23,13 @@ from app.valuation import reconciliation as valuation_reconciliation
 from app.valuation.models.valuation import Valuation
 from app.valuation.services.valuation import derive_status, revert_use_by_hand
 from tests.test_sales_lifecycle_reservation import _dealership
+from tests.test_sales_trade_in_valuation_use import _valuation
 from tests.test_trade_in_valuation_reconciliation import (
     USED_WITHOUT_SIGNED_CONTRACT,
     _contract,
     _findings,
     _stamped,
 )
-from tests.test_sales_trade_in_valuation_use import _valuation
 from tests.token_support import dealer_group_of
 
 

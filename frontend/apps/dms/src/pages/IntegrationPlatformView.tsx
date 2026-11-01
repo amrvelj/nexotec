@@ -1,15 +1,14 @@
 import { useMemo, useState } from 'react'
-import { Stack, Text, Title, Tooltip } from '@mantine/core'
+import { Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Building2 } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ConnectionStatusBadge,
   DataGrid,
   OverviewShellRegion,
-  semantic,
   ViewsAndFilters,
   type GridColumnDef,
   type SortSpec,
@@ -22,9 +21,8 @@ import { useSavedViews } from '../hooks/useSavedViews'
 import { useViewsAndFiltersLabels } from '../hooks/useViewsAndFiltersLabels'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDate, formatDateOnly, formatDateTime } from '../utils/format'
+import { formatDate } from '../utils/format'
 import type {
-  CatalogueSyncStatusRead,
   DealershipPage,
   IntegrationConnectionPage,
   IntegrationConnectionRead,
@@ -36,13 +34,11 @@ const CONNECTIONS_GRID_KEY = 'integrations.platform.connections'
 
 /**
  * WP-6 PR-7 — platform view: every connection across every tenant
- * (filterable), plus the fleet-wide health board. Both are a `DataGrid`
- * — the health board explicitly never a bespoke table (the brief's own
- * instruction, confirmed against the prototype: no such component exists
- * to reach for by mistake). Composed from two independent reads
- * (app.integration's own connection list, app.vehicle's own sync-status
- * endpoint) joined client-side against a third (the dealership list, for
- * display names) — never a cross-context reach-in on either backend.
+ * (filterable), a `DataGrid`. Composed from app.integration's own connection
+ * list joined client-side against the dealership list (for display names) —
+ * never a cross-context reach-in on either backend. The fleet-wide catalogue
+ * sync board that stood below it was retired by KAN-497 with the full
+ * catalogue download it reported on (KAN-485).
  */
 export function IntegrationPlatformView() {
   const { t, i18n } = useTranslation()
@@ -222,112 +218,6 @@ export function IntegrationPlatformView() {
         </OverviewShellRegion>
       </Stack>
 
-      <FleetHealthBoard locale={locale} dealershipNameById={dealershipNameById} />
-    </Stack>
-  )
-}
-
-function FleetHealthBoard({
-  locale,
-  dealershipNameById,
-}: {
-  locale: string
-  dealershipNameById: Map<string, string>
-}) {
-  const { t } = useTranslation()
-  const dataGridLabels = useDataGridLabels()
-  const { density } = useUiPreferencesContext()
-
-  const statusQuery = useQuery({
-    queryKey: ['vehicle-mdm', 'catalogue-sync-status'],
-    queryFn: () => api.get<CatalogueSyncStatusRead[]>('/vehicle-mdm/catalogue-sync-status'),
-  })
-
-  const columns: GridColumnDef<CatalogueSyncStatusRead>[] = useMemo(
-    () => [
-      {
-        id: 'dealership',
-        header: t('integrationsList.columns.dealership'),
-        cell: ({ row }) => dealershipNameById.get(row.original.tenantId) ?? row.original.tenantId,
-      },
-      { id: 'providerCode', header: t('integrationsList.columns.provider'), cell: ({ row }) => row.original.providerCode },
-      {
-        id: 'lastFullSeedAt',
-        header: t('integrationsList.healthBoard.lastFullSeed'),
-        cell: ({ row }) => (row.original.lastFullSeedAt ? formatDateTime(row.original.lastFullSeedAt, locale) : '—'),
-      },
-      {
-        id: 'lastSystemWatermarkDate',
-        header: t('integrationsList.healthBoard.providerWatermark'),
-        cell: ({ row }) => (row.original.lastSystemWatermarkDate ? formatDateOnly(row.original.lastSystemWatermarkDate, locale) : '—'),
-      },
-      {
-        // KAN-78: variants the last sync run could not sync in full; the next delta retries them.
-        id: 'pendingFzKeys',
-        header: t('integrationsList.healthBoard.pending'),
-        cell: ({ row }) => {
-          const pending = row.original.pendingFzKeys
-          if (pending.length === 0) return '—'
-          return (
-            <Tooltip
-              multiline
-              label={pending
-                .map((entry) => `${entry.fzKey} · ${t(`integrationsList.healthBoard.pendingField.${entry.field}`)}`)
-                .join('\n')}
-              style={{ whiteSpace: 'pre-line' }}
-            >
-              <Text size="sm" c={semantic.warning.text} fw={600}>
-                {t('integrationsList.healthBoard.pendingCount', { count: pending.length })}
-              </Text>
-            </Tooltip>
-          )
-        },
-      },
-      {
-        id: 'stale',
-        header: t('integrationsList.healthBoard.status'),
-        cell: ({ row }) =>
-          row.original.stale ? (
-            <Text size="sm" c="red" fw={600}>{t('integrationsList.healthBoard.stale')}</Text>
-          ) : (
-            <Text size="sm" c="green">{t('integrationsList.healthBoard.healthy')}</Text>
-          ),
-      },
-    ],
-    [t, locale, dealershipNameById]
-  )
-
-  return (
-    <Stack gap="md">
-      <Title order={3}>{t('integrationsList.healthBoard.title')}</Title>
-      <DataGrid<CatalogueSyncStatusRead>
-        columns={columns}
-        rows={statusQuery.data ?? []}
-        getRowId={(row) => `${row.tenantId}:${row.providerCode}`}
-        sort={[]}
-        onSortChange={() => {}}
-        density={density}
-        loading={statusQuery.isLoading}
-        fetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={() => {}}
-        error={statusQuery.isError ? t('integrationsList.loadError') : null}
-        onRetry={() => statusQuery.refetch()}
-        total={null}
-        totalIsEstimate={false}
-        isFiltered={false}
-        labels={dataGridLabels}
-        emptyState={{
-          icon: <AlertTriangle size={24} />,
-          title: t('integrationsList.healthBoard.emptyState.title'),
-          description: t('integrationsList.healthBoard.emptyState.description'),
-        }}
-        emptyFilteredState={{
-          icon: <AlertTriangle size={24} />,
-          title: t('integrationsList.healthBoard.emptyState.title'),
-          description: t('integrationsList.healthBoard.emptyState.description'),
-        }}
-      />
     </Stack>
   )
 }

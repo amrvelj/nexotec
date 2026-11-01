@@ -1694,29 +1694,6 @@
     "emptyFilteredState": {
       "title": "Aucune connexion correspondante",
       "description": "Essayez une autre recherche."
-    },
-    "healthBoard": {
-      "title": "État du parc",
-      "lastFullSeed": "Dernière synchronisation complète",
-      "providerWatermark": "Horodatage du fournisseur",
-      "status": "Statut",
-      "stale": "Obsolète",
-      "healthy": "À jour",
-      "pending": "Variantes en attente",
-      "pendingCount_one": "{{count, number}} en attente",
-      "pendingCount_other": "{{count, number}} en attente",
-      "pendingField": {
-        "master_data": "données de base",
-        "options": "options",
-        "colours": "couleurs",
-        "tyre_specs": "pneus",
-        "images": "images",
-        "not_attempted": "non tenté"
-      },
-      "emptyState": {
-        "title": "Aucune synchronisation du catalogue",
-        "description": "Aucune entreprise n'a encore synchronisé de miroir de catalogue."
-      }
     }
   },
   "integrationEnums": {

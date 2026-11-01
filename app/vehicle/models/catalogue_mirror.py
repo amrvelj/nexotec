@@ -1,9 +1,9 @@
 """The per-tenant catalogue mirror content (WP-6 PR-4) — the actual
 colour/tyre-spec/image data a dealer's own auto-i-dat contract delivers
-for a variant, plus the bookkeeping `ProviderSyncState` the daily
-seed/delta job and the sync-age alarm both read and write.
+for a variant. The bookkeeping table the full seed and the daily delta wrote
+(`vehicle_provider_sync_state`) was dropped with them (KAN-485, KAN-497).
 
-All four tables are tenant-partitioned (ADR-013), same reasoning as
+All three tables are tenant-partitioned (ADR-013), same reasoning as
 `VariantOption`'s own retrofit in this PR: this is licensed provider
 content, cached once per dealer who holds it, never a shared mirror
 (there is no such thing — every dealer's auto-i-dat contract is their
@@ -12,15 +12,14 @@ these tables only hold the provider-delivered specifics one dealer's
 contract entitles them to see.
 """
 
-import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, JSON, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DECIMAL, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
-from app.core.types import GUID, UTCDateTime
+from app.core.types import GUID
 from app.db import Base
 
 
@@ -123,33 +122,3 @@ class ImageRef(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     image_key: Mapped[str] = mapped_column(String(160), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-
-class ProviderSyncState(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
-    """One row per (tenant, provider) — what `catalogue_sync.py` and the
-    sync-age alarm (A-12) both read and write. `last_system_watermark_date`
-    is the provider's own `System.StandDatum`, fetched fresh at alarm-check
-    time (not just carried over from the last successful delta) — A-12's
-    whole point is that a job reporting success proves nothing about
-    whether the *provider's own* data is still moving forward.
-    """
-
-    __tablename__ = "vehicle_provider_sync_state"
-    __table_args__ = (
-        UniqueConstraint("tenant_id", "provider_code", name="uq_vehicle_provider_sync_state_tenant_provider"),
-    )
-
-    provider_code: Mapped[str] = mapped_column(String(32), nullable=False)
-    last_full_seed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-    last_delta_cursor: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
-    last_system_watermark_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
-    last_system_checked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-    # KAN-78: every FzKey the last run did not sync in full — refused by the
-    # provider (`field` names the call it was on) or never attempted because
-    # the connection's circuit opened (`field` = "not_attempted"). Each entry
-    # is {fz_key, field, error, failed_at}; `error` is the exception's class
-    # name only, never its message. The next delta retries these alongside
-    # whatever `FzKeyChanged` reports, so advancing `last_delta_cursor` past
-    # a failed run never loses a variant; each run replaces the list with its
-    # own failures.
-    pending_fz_keys: Mapped[list[dict[str, str]]] = mapped_column(JSON, nullable=False, default=list)

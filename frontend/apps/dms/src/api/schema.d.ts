@@ -3686,23 +3686,6 @@ export interface paths {
         patch: operations["update_brand_v1_vehicle_mdm_brands__brand_id__patch"];
         trace?: never;
     };
-    "/v1/vehicle-mdm/catalogue-sync-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Catalogue Sync Status */
-        get: operations["list_catalogue_sync_status_v1_vehicle_mdm_catalogue_sync_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/vehicle-mdm/lookup": {
         parameters: {
             query?: never;
@@ -4723,28 +4706,6 @@ export interface components {
             packagesAvailable: boolean;
             /** Tyrespecs */
             tyreSpecs: components["schemas"]["CatalogueTyreSpecRead"][];
-        };
-        /** CatalogueSyncStatusRead */
-        CatalogueSyncStatusRead: {
-            /** Lastdeltacursor */
-            lastDeltaCursor: string | null;
-            /** Lastfullseedat */
-            lastFullSeedAt: string | null;
-            /** Lastsystemcheckedat */
-            lastSystemCheckedAt: string | null;
-            /** Lastsystemwatermarkdate */
-            lastSystemWatermarkDate: string | null;
-            /** Pendingfzkeys */
-            pendingFzKeys: components["schemas"]["PendingFzKeyRead"][];
-            /** Providercode */
-            providerCode: string;
-            /** Stale */
-            stale: boolean;
-            /**
-             * Tenantid
-             * Format: uuid
-             */
-            tenantId: string;
         };
         /** CatalogueTyreSpecRead */
         CatalogueTyreSpecRead: {
@@ -8653,28 +8614,6 @@ export interface components {
          * @enum {string}
          */
         PaymentTerms: "prepayment" | "net_10" | "net_30" | "net_60" | "on_delivery";
-        /**
-         * PendingFzKeyRead
-         * @description KAN-78: one FzKey the last sync run did not sync in full. `field` is
-         *     the provider call it failed on, or `not_attempted` when the circuit had
-         *     opened; `error` is an exception class name, never a provider message.
-         */
-        PendingFzKeyRead: {
-            /** Error */
-            error: string;
-            /**
-             * Failedat
-             * Format: date-time
-             */
-            failedAt: string;
-            /**
-             * Field
-             * @enum {string}
-             */
-            field: "master_data" | "options" | "colours" | "tyre_specs" | "images" | "not_attempted";
-            /** Fzkey */
-            fzKey: string;
-        };
         /**
          * PeriodLockPolicy
          * @enum {string}
@@ -21226,39 +21165,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_catalogue_sync_status_v1_vehicle_mdm_catalogue_sync_status_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogueSyncStatusRead"][];
                 };
             };
             /** @description Validation Error */
