@@ -78,10 +78,30 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
   not be enumerable (architecture test).
+- **The Kontrollschild register is the dealer group's** (ADR-039 as amended; Anto, 2026-10-31,
+  KAN-467): `vehicle_plate.group_id`, and every read and write in `services/plate.py` names the
+  caller's group (token, or the delivery event's `groupId`) — search, the Plates tab, the shared
+  lookup's `currentPlate` and the trade-in's plate match never see another group's plate, which
+  may sit on another car (`plate.py` is on `test_no_ambient_group_read.py`'s allow-list for it).
+  The cross-group conflict queue (`vehicle_plate_conflict`) is gone. A plate is stored in one
+  spelling (`normalise_kontrollschild`: canton code + «ZH 123456»; 422 `plate_canton_invalid` /
+  `plate_invalid`). **Three ways in** (Anto, 2026-10-26): «Kontrollschild erfassen» on the Plates
+  tab and in the row menu — `POST /v1/vehicle-mdm/{id}/plates`; a plate current on another car of
+  the group is 409 `plate_current_on_other_vehicle` naming that car, and the same POST with
+  `moveFromPlateIds` (exactly the listed assignments; each ends the day before) or
+  `wechselschildWithPlateId` (the one other car; a group of at most two) is the user's answer,
+  serialised per plate by an advisory lock; «beenden» is `POST …/plates/{plate_id}/end` under
+  If-Match on the versioned row — rows are never deleted; the delivery of a sold car through
+  `sales.contract.delivered` (consumer `vehicle.plate_on_contract_delivered`, event contract in
+  `app/vehicle/consumers.py`; **Sales emits nothing yet** — its delivery step is the KAN-467
+  follow-up); and the incumbent-DMS import (FR-V-08, not built — a WP-10 requirement). Audit rows
+  of a plate write (`plate_recorded`, `plate_ended`, `plate_wechselschild_formed`) carry validity
+  and plate group, never the plate value. Every write service in `app/vehicle/services` has a
+  production caller (`tests/architecture/test_vehicle_write_services_have_a_caller.py`, KAN-467).
 - **Plate-history reads (Plates tab, resolved search hit, shared identity lookup) are audited and limited per user**
   (ADR-085, KAN-231): only through `services/plate_read_guard.py::read_plate_history`, never
   `plate.list_plates_for_vehicle` directly (architecture test); every read and every refusal
-  writes an `audit_event`, never the plate values. Past `plate_read_limit` distinct vehicles per
+  writes an `audit_event`, never the plate values; it reads the caller's group's register only. Past `plate_read_limit` distinct vehicles per
   `plate_read_window_seconds` (`app/core/config.py`, platform-wide by design — never a
   dealership setting; default 60 per hour) the Plates tab gets 403 `plate_read_limit_reached`
   and a search hit `currentPlateWithheld`; the car page still opens. `GET /v1/vehicle-mdm/lookup`
