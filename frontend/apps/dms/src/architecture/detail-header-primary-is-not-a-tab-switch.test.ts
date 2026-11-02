@@ -69,7 +69,9 @@ import ts from 'typescript'
 // Known misses: a callback inside an object handed to an import
 // (`modals.openConfirmModal({ onConfirm: () => … })`) is not judged — opening
 // the dialog is the work; a destructuring assignment to an existing `let`
-// (`({ go } = useStartActions())`) is not read as a new value of `go`; a URL
+// (`({ go } = useStartActions())`) is not read as a new value of `go`; a
+// member handed to an import (`startTransition(actions.go)`) is data, not
+// judged as a call; a URL
 // setter given a variable that holds the tab (`setSearchParams(next)`) is
 // work, since only an argument naming `tab` is read as a tab switch.
 
@@ -337,7 +339,9 @@ function parameterNames(file: ts.SourceFile): Set<string> {
     ts.isMethodSignature(p) ||
     ts.isCallSignatureDeclaration(p) ||
     ts.isConstructSignatureDeclaration(p) ||
-    ts.isIndexSignatureDeclaration(p)
+    ts.isIndexSignatureDeclaration(p) ||
+    // an overload or `declare function f(go: string): void`: a signature without a body
+    ((ts.isFunctionDeclaration(p) || ts.isMethodDeclaration(p)) && !p.body)
   walk(file, (n) => {
     if (ts.isParameter(n) && !typeLevel(n.parent)) bind(n.name)
   })
@@ -660,10 +664,11 @@ function isOpaqueCallee(callee: ts.Expression, scope: FileScope): boolean {
 function handedFunction(arg: ts.Expression, scope: FileScope): Callable | ts.Identifier | null {
   const expr = unwrap(arg)
   if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return expr
-  if (!ts.isIdentifier(expr) || scope.destructured.has(expr.text)) return null
+  if (!ts.isIdentifier(expr)) return null
   // A name the file declares only as functions is handed as one, even when a
-  // parameter elsewhere shares its spelling: nameCallWays then adds that
-  // parameter's "cannot be followed". A parameter alone may be data.
+  // parameter or a destructured name elsewhere shares its spelling:
+  // nameCallWays then judges those meanings too. A parameter or a
+  // destructured name alone may be data.
   const targets = scope.decls.get(expr.text)
   if (!targets || targets.length === 0) return null
   const isFunction = (t: ts.Node) =>
@@ -1764,6 +1769,22 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
       verdict('const create = useMutation({ mutationFn })', "() => { setActiveTab('identity'); create.mutate() }", { head: "import { useMutation } from './queries'" }),
     ).toBe('cannot be followed')
     expect.soft(verdict("type P = { onPick: (go: string) => void }\nconst go = () => setAllocating(true)", '() => go()')).toBe('ok')
+
+    // KAN-518 review, round 3: a handed name with a destructured namesake; a signature without a body shadows nothing.
+    const destructuredElsewhere: Source = {
+      path: 'pages/P.tsx',
+      text: `export function B(props) { const { go } = props; return null }
+      export function A() {
+        const go = () => setActiveTab('identity')
+        const rowMenu = buildOldRowMenu(t, { onAllocate: () => startTransition(go) })
+        return <DetailHeader primaryAction={rowMenu.primary} />
+      }`,
+    }
+    expect.soft(verdictOf([destructuredElsewhere])).toBe('tab switch')
+    expect.soft(verdict('const go = () => setAllocating(true)', '() => go()', { head: 'declare function pick(go: string): void' })).toBe('ok')
+    expect.soft(verdict('const go = () => setAllocating(true)', '() => go()', { head: 'export function pick(go: string): void\nexport function pick(go: unknown) { return go }' })).toBe(
+      'cannot be followed',
+    )
 
     // A `finally` that leaves decides how the function ends (`c.done || w.done`): its return
     // overrides the try's throw, its throw overrides the try's return.
