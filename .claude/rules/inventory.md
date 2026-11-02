@@ -37,8 +37,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `RecordPurchaseDialog` prefills it, and on a pipeline car the Betrieb took in itself the refusal
   offers «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle.md, Host /
   mode matrix). Not on a pipeline car a contract created (`pipelineRef` «contract:…»): its
-  configuration is the signed one, so a wrong VIN there cannot be corrected in the app until Anto
-  rules (KAN-510). A pipeline item is never bought without its
+  configuration is the signed one, so a wrong VIN there cannot be corrected on screen until Anto
+  rules (KAN-510): the booking refuses the real VIN, so the car is either booked under the wrong one
+  or never reaches stock (and cannot be invoiced); `PATCH /v1/configurations/{id}` still accepts the
+  correction. A pipeline item is never bought without its
   VIN, so FR-I-02b's «purchase booked first, VIN later» order no longer exists. Offer and
   contract stay possible at every phase; invoicing stays gated on the purchase.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:

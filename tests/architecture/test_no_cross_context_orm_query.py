@@ -395,10 +395,10 @@ def test_submodule_alias_resolves_in_a_fresh_interpreter():
 
     code = (
         "import ast, sys; import app.platform as pkg; "
-        "assert 'app.platform.public' not in sys.modules, 'already loaded'; "
         "from tests.architecture.test_no_cross_context_orm_query import _foreign_models; "
+        "assert 'app.platform.public' not in sys.modules, 'already loaded: the fallback would not run'; "
         "found = _foreign_models(ast.parse('from app.platform import public as p'), 'inventory'); "
         "assert 'p.Dealership' in found, sorted(found)"
     )
-    result = subprocess.run([sys.executable, "-c", code], cwd=_REPO_ROOT, capture_output=True, text=True)
+    result = subprocess.run([sys.executable, "-c", code], cwd=_REPO_ROOT, capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr[-2000:]
