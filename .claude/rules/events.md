@@ -55,6 +55,11 @@ claim checked against the code). Fix this file in the same PR as any change to w
   exports the heartbeat's gauges over OTLP, each inert while its `DMS_*` variable is unset
   (KAN-248), as its own service `<DMS_OTEL_SERVICE_NAME>-worker` (`dms-platform-worker`;
   KAN-304) beside the web's `dms-platform`.
+- **Reconciliation may read other contexts' tables, never write them** (ADR-107, Anto 2026-11-01,
+  KAN-121 option B): `app/<context>/reconciliation.py` is the one place a context's SQL names
+  another context's model — checking integrity across contexts is its job (rule 10) — and it is
+  rewritten against `public` functions only when a context is extracted. Everywhere else the
+  owner answers through `public` with plain data (`tests/architecture/test_no_cross_context_orm_query.py`).
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84;

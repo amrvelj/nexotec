@@ -9,11 +9,11 @@ as it does to the pre-existing ones below, and they had no coverage before
 this PR.
 """
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import VehicleParty
+from app.customer.public import count_vehicle_parties_for_vehicles
 from app.platform.public import DealerGroup, Dealership, actor_reference_checks
 from app.sales.public import Transaction
 from app.vehicle.models.catalogue import (
@@ -264,11 +264,16 @@ def count_unrepointed_legacy_vehicle_party_references(db: Session) -> int:
     gate, not an alarm on its own.
     """
 
-    legacy_ids = list(db.scalars(select(VehicleMdm.migrated_from_legacy_vehicle_id).where(
-        VehicleMdm.migrated_from_legacy_vehicle_id.is_not(None)
-    )).all())
-    if not legacy_ids:
-        return 0
-    return db.scalar(
-        select(func.count()).select_from(VehicleParty).where(VehicleParty.vehicle_id.in_(legacy_ids))
-    ) or 0
+    legacy_ids = [
+        legacy_id
+        for legacy_id in db.scalars(
+            select(VehicleMdm.migrated_from_legacy_vehicle_id).where(
+                VehicleMdm.migrated_from_legacy_vehicle_id.is_not(None)
+            )
+        ).all()
+        if legacy_id is not None
+    ]
+    # KAN-121: customer counts its own rows (rule 2), even though this
+    # reconciliation module may read across contexts (ADR-107) — the count
+    # is also KAN-79's retirement clock, not only a nightly finding.
+    return count_vehicle_parties_for_vehicles(db, vehicle_ids=legacy_ids)

@@ -23,6 +23,7 @@ from app.customer.services.customer import (
     set_credit_block,
 )
 from app.customer.services.legal_basis import has_any_basis_for_group
+from app.customer.services.vehicle_party_counts import count_vehicle_parties_for_vehicles
 
 __all__ = [
     "Customer",
@@ -32,6 +33,7 @@ __all__ = [
     "VehiclePartyRole",
     "allocate_vehicle_party",
     "channel_authorises_marketing",
+    "count_vehicle_parties_for_vehicles",
     "customer_display_name",
     "customer_in_group",
     "get_customer_or_404",

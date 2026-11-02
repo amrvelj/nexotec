@@ -1189,7 +1189,8 @@
       "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
       "isInvoiceable": "Fatturabile",
       "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
-      "notRecorded": "Nessun acquisto ancora registrato."
+      "notRecorded": "Nessun acquisto ancora registrato.",
+      "configurationVinDiffers": "Il VIN è diverso da quello della configurazione."
     },
     "wagenbuch": {
       "result": "Risultato",
@@ -1285,7 +1286,8 @@
       "title": "Configurazione",
       "missing": "A questo veicolo non è assegnata alcuna configurazione. Senza di essa mancano i dati tecnici.",
       "attach": "Assegna configurazione",
-      "attachError": "Non è stato possibile assegnare la configurazione. Riprovare."
+      "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
+      "edit": "Modifica configurazione"
     }
   },
   "salesList": {
@@ -3497,6 +3499,46 @@
       "sessionsRevoked": "tutte le sessioni terminate",
       "managerGranted": "diritto di manager concesso",
       "emailChanged": "indirizzo di accesso modificato"
+    }
+  },
+  "legal": {
+    "linksLabel": "Note legali",
+    "termsLink": "Condizioni d'uso",
+    "privacyLink": "Informativa sulla privacy",
+    "toSignIn": "Vai all'accesso",
+    "language": "Lingua",
+    "draftNotice": "Bozza – da far verificare dalla consulenza legale. Questa pagina non è ancora vincolante; il suo contenuto sarà stabilito da Nexotec e dalla consulenza legale.",
+    "placeholder": "Segnaposto – bozza da far verificare dalla consulenza legale. Il testo di questa sezione seguirà.",
+    "reviewPending": "Bozza – in attesa di verifica da parte della consulenza legale",
+    "terms": {
+      "title": "Condizioni d'uso",
+      "sections": {
+        "scope": "Campo di applicazione",
+        "services": "Prestazioni",
+        "access": "Accesso e account utente",
+        "places": "Suggerimenti di indirizzi (Google Places)",
+        "liability": "Responsabilità",
+        "law": "Diritto applicabile e foro competente"
+      },
+      "places": {
+        "body": "La ricerca di indirizzi del DMS utilizza Google Maps Platform (Places API). Utilizzando i suggerimenti di indirizzi si accetta di essere vincolati dai <terms>Termini di servizio di Google</terms>; al trattamento da parte di Google si applicano le <privacy>Norme sulla privacy di Google</privacy>. Un'azienda può disattivare la funzione in qualsiasi momento in Amministrazione › Azienda › Inserimento indirizzi."
+      }
+    },
+    "privacy": {
+      "title": "Informativa sulla privacy",
+      "sections": {
+        "controller": "Titolare del trattamento e contatto",
+        "data": "Dati personali trattati",
+        "purposes": "Finalità del trattamento",
+        "places": "Suggerimenti di indirizzi (Google Places)",
+        "recipients": "Destinatari e comunicazione all'estero",
+        "retention": "Conservazione",
+        "rights": "I suoi diritti"
+      },
+      "places": {
+        "body": "Durante l'inserimento di un indirizzo nel DMS, il testo dell'indirizzo digitato – e soltanto questo, mai un nome o altri dati dei clienti – viene trasmesso a Google Ireland Limited per mostrare suggerimenti. Google tratta tali dati in qualità di titolare del trattamento autonomo ai sensi dei Termini di servizio di Google Maps Platform e dei Google Controller-Controller Data Protection Terms (incluse le clausole contrattuali tipo per i trasferimenti dalla Svizzera). Viene memorizzato soltanto l'indirizzo scelto dall'utente. Un'azienda può disattivare la funzione in qualsiasi momento in Amministrazione › Azienda › Inserimento indirizzi.",
+        "google": "Il modo in cui Google tratta questi dati è descritto nelle <privacy>Norme sulla privacy di Google</privacy>; ai suggerimenti di indirizzi si applicano inoltre i <terms>Termini di servizio di Google</terms>."
+      }
     }
   }
 }

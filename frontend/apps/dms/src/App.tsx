@@ -6,6 +6,7 @@ import { DmsShell } from './layout/DmsShell'
 import { LoginPage } from './pages/LoginPage'
 import { lazyPage } from './layout/lazyPage'
 import { RouteSuspense } from './layout/RouteSuspense'
+import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from './config/legalPages'
 
 // KAN-233: the sign-in screen, the session guard and the shell stay in the
 // entry chunk, so signing in never waits on a chunk fetch; every other screen
@@ -13,6 +14,8 @@ import { RouteSuspense } from './layout/RouteSuspense'
 const PasswordResetRequestPage = lazyPage(() => import('./pages/PasswordResetRequestPage'), 'PasswordResetRequestPage')
 const PasswordResetConfirmPage = lazyPage(() => import('./pages/PasswordResetConfirmPage'), 'PasswordResetConfirmPage')
 const InvitationAcceptPage = lazyPage(() => import('./pages/InvitationAcceptPage'), 'InvitationAcceptPage')
+const TermsOfUsePage = lazyPage(() => import('./pages/TermsOfUsePage'), 'TermsOfUsePage')
+const PrivacyPolicyPage = lazyPage(() => import('./pages/PrivacyPolicyPage'), 'PrivacyPolicyPage')
 const AccountSecurityPage = lazyPage(() => import('./pages/AccountSecurityPage'), 'AccountSecurityPage')
 const AccountConnectedAccountsPage = lazyPage(() => import('./pages/account/AccountConnectedAccountsPage'), 'AccountConnectedAccountsPage')
 const AccountLayout = lazyPage(() => import('./pages/account/AccountLayout'), 'AccountLayout')
@@ -73,6 +76,10 @@ export default function App() {
             <Route path="/password-reset" element={<PasswordResetRequestPage />} />
             <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
             <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
+            {/* KAN-452: the public Terms of Use and Privacy Policy Google's Places
+                API policies require — no session, outside the shell, for everyone. */}
+            <Route path={LEGAL_TERMS_PATH} element={<TermsOfUsePage />} />
+            <Route path={LEGAL_PRIVACY_PATH} element={<PrivacyPolicyPage />} />
             <Route element={<ProtectedLayout />}>
               <Route path="/" element={<DashboardPage />} />
               {/* KAN-201: My account — one route per tab. */}

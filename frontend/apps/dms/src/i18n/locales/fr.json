@@ -1189,7 +1189,8 @@
       "notionalInputTaxRateNotConfigured": "Taux de TVA pas encore configuré",
       "isInvoiceable": "Facturable",
       "error": "L’achat n’a pas pu être enregistré. Veuillez réessayer.",
-      "notRecorded": "Aucun achat saisi pour l'instant."
+      "notRecorded": "Aucun achat saisi pour l'instant.",
+      "configurationVinDiffers": "Le VIN diffère de celui de la configuration."
     },
     "wagenbuch": {
       "result": "Résultat",
@@ -1285,7 +1286,8 @@
       "title": "Configuration",
       "missing": "Aucune configuration n'est attribuée à ce véhicule. Sans elle, les données techniques manquent.",
       "attach": "Attribuer une configuration",
-      "attachError": "La configuration n'a pas pu être attribuée. Veuillez réessayer."
+      "attachError": "La configuration n'a pas pu être attribuée. Veuillez réessayer.",
+      "edit": "Modifier la configuration"
     }
   },
   "salesList": {
@@ -3497,6 +3499,46 @@
       "sessionsRevoked": "toutes les sessions terminées",
       "managerGranted": "droit de manager accordé",
       "emailChanged": "adresse de connexion modifiée"
+    }
+  },
+  "legal": {
+    "linksLabel": "Informations juridiques",
+    "termsLink": "Conditions d'utilisation",
+    "privacyLink": "Politique de confidentialité",
+    "toSignIn": "Aller à la connexion",
+    "language": "Langue",
+    "draftNotice": "Projet – à faire vérifier par le conseil juridique. Cette page n'est pas encore contraignante ; son contenu sera arrêté par Nexotec et le conseil juridique.",
+    "placeholder": "Espace réservé – projet à faire vérifier par le conseil juridique. Le texte de cette section suivra.",
+    "reviewPending": "Projet – en attente de vérification par le conseil juridique",
+    "terms": {
+      "title": "Conditions d'utilisation",
+      "sections": {
+        "scope": "Champ d'application",
+        "services": "Prestations",
+        "access": "Accès et comptes utilisateur",
+        "places": "Propositions d'adresses (Google Places)",
+        "liability": "Responsabilité",
+        "law": "Droit applicable et for"
+      },
+      "places": {
+        "body": "La recherche d'adresses du DMS utilise Google Maps Platform (Places API). En utilisant les propositions d'adresses, vous acceptez d'être lié par les <terms>Conditions d'utilisation de Google</terms> ; le traitement par Google est régi par les <privacy>Règles de confidentialité de Google</privacy>. Une entreprise peut désactiver la fonction à tout moment sous Administration › Entreprise › Saisie des adresses."
+      }
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "sections": {
+        "controller": "Responsable du traitement et contact",
+        "data": "Données personnelles traitées",
+        "purposes": "Finalités du traitement",
+        "places": "Propositions d'adresses (Google Places)",
+        "recipients": "Destinataires et communication à l'étranger",
+        "retention": "Conservation",
+        "rights": "Vos droits"
+      },
+      "places": {
+        "body": "Lors de la saisie d'une adresse dans le DMS, le texte d'adresse tapé – et uniquement celui-ci, jamais un nom ni d'autres données client – est transmis à Google Ireland Limited afin d'afficher des propositions. Google traite ces données en tant que responsable du traitement distinct, conformément aux Conditions d'utilisation de Google Maps Platform et aux Google Controller-Controller Data Protection Terms (y compris les clauses contractuelles types pour les transferts depuis la Suisse). Seule l'adresse choisie par l'utilisateur est enregistrée. Une entreprise peut désactiver la fonction à tout moment sous Administration › Entreprise › Saisie des adresses.",
+        "google": "La manière dont Google traite ces données est décrite dans les <privacy>Règles de confidentialité de Google</privacy> ; les <terms>Conditions d'utilisation de Google</terms> s'appliquent en outre aux propositions d'adresses."
+      }
     }
   }
 }

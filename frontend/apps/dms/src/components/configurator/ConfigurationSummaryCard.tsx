@@ -20,6 +20,10 @@ export interface ConfigurationSummaryCardProps {
   /** The host decides what "open the configurator" does (re-open the
    * overlay, navigate, …). Omit to hide the affordance. */
   onOpenConfigurator?: () => void
+  /** KAN-510 — the affordance's name where the host says what it does (the
+   * stock detail's «Konfiguration bearbeiten»); «Konfigurator öffnen»
+   * otherwise. */
+  openConfiguratorLabel?: string
   /** KAN-459 — show the read-only technical data block (PRD-Stock FR-I-07
    * block 2) in a spec grid of this many columns (the spec caps it at four).
    * Omit for the compact summary (configurator overlay, valuation dialog). */
@@ -59,7 +63,7 @@ function formatSpecValue(field: SpecFieldDef, value: unknown): string {
  * (KAN-459) it reads the spec block's reference lists the same way; it
  * fetches nothing else.
  */
-export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, technicalDataColumns }: ConfigurationSummaryCardProps) {
+export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, openConfiguratorLabel, technicalDataColumns }: ConfigurationSummaryCardProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const labels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
@@ -150,7 +154,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, te
               size="sm"
               style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              {t('configurator.summary.open')}
+              {openConfiguratorLabel ?? t('configurator.summary.open')}
             </Text>
           )}
         </Group>

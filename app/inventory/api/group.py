@@ -23,7 +23,7 @@ from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
 from app.inventory.models.stock_item import StockItem
 from app.inventory.schemas.group_listing import StockItemGroupPage, StockItemGroupRead
 from app.inventory.services.group_listing import list_group_stock_items
-from app.platform.public import Dealership
+from app.platform.public import DealershipRef
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
@@ -55,14 +55,14 @@ def _is_authorized(principal: Principal) -> bool:
 
 
 def _to_page(
-    rows: list[tuple[StockItem, Dealership]], next_cursor: str | None, total: int, total_is_estimate: bool
+    rows: list[tuple[StockItem, DealershipRef]], next_cursor: str | None, total: int, total_is_estimate: bool
 ) -> StockItemGroupPage:
     return StockItemGroupPage(
         items=[
             StockItemGroupRead(
                 id=item.id,
                 dealership_id=dealership.id,
-                dealership_label=dealership.legal_name,
+                dealership_label=dealership.label,
                 stock_number=item.stock_number,
                 vin=item.vin,
                 vehicle_label=item.vehicle_label,
