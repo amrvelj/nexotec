@@ -71,9 +71,9 @@ import ts from 'typescript'
 // the dialog is the work; a destructuring assignment to an existing `let`
 // (`({ go } = useStartActions())`) is not read as a new value of `go`; a
 // member handed to an import (`startTransition(actions.go)`) is data, not
-// judged as a call; a URL
-// setter given a variable that holds the tab (`setSearchParams(next)`) is
-// work, since only an argument naming `tab` is read as a tab switch.
+// judged as a call; a URL setter given a variable that holds the tab
+// (`setSearchParams(next)`) is work, since only an argument naming `tab` is
+// read as a tab switch.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -341,7 +341,7 @@ function parameterNames(file: ts.SourceFile): Set<string> {
     ts.isConstructSignatureDeclaration(p) ||
     ts.isIndexSignatureDeclaration(p) ||
     // an overload or `declare function f(go: string): void`: a signature without a body
-    ((ts.isFunctionDeclaration(p) || ts.isMethodDeclaration(p)) && !p.body)
+    ((ts.isFunctionDeclaration(p) || ts.isMethodDeclaration(p) || ts.isConstructorDeclaration(p)) && !p.body)
   walk(file, (n) => {
     if (ts.isParameter(n) && !typeLevel(n.parent)) bind(n.name)
   })
@@ -1782,6 +1782,7 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
     }
     expect.soft(verdictOf([destructuredElsewhere])).toBe('tab switch')
     expect.soft(verdict('const go = () => setAllocating(true)', '() => go()', { head: 'declare function pick(go: string): void' })).toBe('ok')
+    expect.soft(verdict('const go = () => setAllocating(true)', '() => go()', { head: 'declare class Picker { constructor(go: string) }' })).toBe('ok')
     expect.soft(verdict('const go = () => setAllocating(true)', '() => go()', { head: 'export function pick(go: string): void\nexport function pick(go: unknown) { return go }' })).toBe(
       'cannot be followed',
     )
