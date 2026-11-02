@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BreadcrumbProvider, theme } from '@nexotec/ui-kit'
+import { BreadcrumbProvider } from '@nexotec/ui-kit'
+import { testTheme } from '../test/testTheme'
 import i18n from '../i18n'
 import { ChunkLoadError, lazyPage } from './lazyPage'
 import { RouteSuspense } from './RouteSuspense'
@@ -43,7 +44,7 @@ class OuterBoundary extends Component<{ children: ReactNode }, { caught: string 
 function renderRoutes(page: ReturnType<typeof lazyPage>, setBreadcrumb: (segments: string[]) => void = () => {}) {
   const Page = page
   return render(
-    <MantineProvider theme={theme} env="test" withCssVariables={false} withGlobalClasses={false}>
+    <MantineProvider theme={testTheme} env="test" withCssVariables={false} withGlobalClasses={false}>
       <BreadcrumbProvider value={setBreadcrumb}>
         <MemoryRouter initialEntries={['/lazy']}>
           {/* The shell's navigation, outside the boundary as in DmsShell. */}

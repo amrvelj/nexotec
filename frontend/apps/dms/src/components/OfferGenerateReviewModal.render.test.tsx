@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, status } from '../test/fakeBackend'
+import { installFakeBackend, status, unansweredFakeRequests } from '../test/fakeBackend'
 import type { SalesOfferRead } from '../api/types'
 import { OfferGenerateReviewModal } from './OfferGenerateReviewModal'
 
@@ -58,7 +58,26 @@ const buildKeys = (backend: ReturnType<typeof install>) =>
 
 const buildButton = () => screen.findByRole('button', { name: i18n.t('offerWorkspace.generate.build') })
 
-afterEach(() => cleanup())
+// KAN-526 — three tests end as soon as their second build has been SENT
+// (the key is on the request), with its answer and the PDF read it starts
+// still on the way. An answer landing after the file's jsdom was torn down
+// made build()'s state update read `window`, and its catch threw again: an
+// unhandled rejection, exit 1 with every test green. So each test lets its
+// requests settle before it unmounts, and again after (a request sent on
+// unmount): it waits until the fake backend holds none unanswered, then one
+// task more, in which the client and build()/confirm() finish on the answer's
+// promise chain (this file's handlers answer at once, so that task does most
+// of the waiting). The shared cleanup then drains React's queued work
+// (src/test/setup.ts).
+const answered = async () => {
+  await waitFor(() => expect(unansweredFakeRequests()).toEqual([]))
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+}
+afterEach(async () => {
+  await answered()
+  cleanup()
+  await answered()
+})
 
 describe('OfferGenerateReviewModal — one Idempotency-Key per submission (KAN-266)', () => {
   it('a build retried after a failure keeps its key', async () => {

@@ -85,4 +85,9 @@ as any change to what it states. -->
   `git grep -l <Component> -- '*.render.test.tsx'`. In `frontend/apps/dms` a jsdom test never
   reaches the network: its default `fetch` is a stand-in that never settles, and the test fails
   naming the request unless it calls `installFakeBackend` (`src/test/fakeBackend.ts`; KAN-172).
+  Mantine is mounted with `testTheme` (`src/test/testTheme.ts`: reduced motion respected, so a
+  transition starts no animation frame or timer that could land after the file's jsdom is gone),
+  through `renderWithProviders` or a test's own `<MantineProvider theme={testTheme}>`
+  (`render-tests-mount-mantine-with-test-theme.test.ts`); the shared teardown drains React's queued
+  Scheduler work before jsdom goes (`src/test/setup.ts`; KAN-526).
   i18n keys are checked by `localeKeyParity.test.ts`.

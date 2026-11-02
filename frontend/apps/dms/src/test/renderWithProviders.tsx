@@ -3,11 +3,11 @@ import { render, type RenderResult } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { theme } from '@nexotec/ui-kit'
 import { AuthProvider } from '../auth/AuthContext'
 import { UiPreferencesProvider } from '../hooks/UiPreferencesContext'
 import '../i18n'
 import { TranslatedOverlayProvider } from './TranslatedOverlayProvider'
+import { testTheme } from './testTheme'
 
 export interface RenderOptions {
   /** Initial entry for the MemoryRouter — this IS the "pasted URL". */
@@ -48,7 +48,7 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
     })
 
   const tree = (
-    <MantineProvider theme={theme} env="test" withCssVariables={false} withGlobalClasses={false}>
+    <MantineProvider theme={testTheme} env="test" withCssVariables={false} withGlobalClasses={false}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[options.route ?? '/']}>
           <AuthProvider>
