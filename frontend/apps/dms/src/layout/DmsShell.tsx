@@ -30,6 +30,7 @@ import {
 import { AppShell, EnvironmentNotice, OverlayProvider, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
 import { outboxWorkerAbsent } from '../config/deployment'
+import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from '../config/legalPages'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api, ApiError } from '../api/client'
 import { customerName } from '../utils/customer'
@@ -387,6 +388,14 @@ function DmsShellInner({ children }: { children: ReactNode }) {
             )
           })
         },
+        // KAN-452 — the public Terms of Use and Privacy Policy, at the foot
+        // of the account menu (the shell has no footer of its own; account
+        // chrome lives in the sidebar's foot). They open in a new tab, so
+        // the screen underneath — a half-built offer — is never lost.
+        footerLinks: [
+          { label: t('legal.termsLink'), href: LEGAL_TERMS_PATH },
+          { label: t('legal.privacyLink'), href: LEGAL_PRIVACY_PATH },
+        ],
         linkComponent: Link,
       }}
       topbar={{ search: buildGlobalSearch(t, navigate) }}

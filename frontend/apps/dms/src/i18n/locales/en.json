@@ -3426,5 +3426,45 @@
       "managerGranted": "manager right granted",
       "emailChanged": "sign-in address changed"
     }
+  },
+  "legal": {
+    "linksLabel": "Legal",
+    "termsLink": "Terms of Use",
+    "privacyLink": "Privacy Policy",
+    "toSignIn": "Go to sign-in",
+    "language": "Language",
+    "draftNotice": "Draft – to be reviewed by legal counsel. This page is not yet binding; its content will be set by Nexotec and legal counsel.",
+    "placeholder": "Placeholder – draft, to be reviewed by legal counsel. The text of this section will follow.",
+    "reviewPending": "Draft – awaiting review by legal counsel",
+    "terms": {
+      "title": "Terms of Use",
+      "sections": {
+        "scope": "Scope",
+        "services": "Services",
+        "access": "Access and user accounts",
+        "places": "Address suggestions (Google Places)",
+        "liability": "Liability",
+        "law": "Governing law and jurisdiction"
+      },
+      "places": {
+        "body": "The address search in the DMS uses Google Maps Platform (Places API). By using the address suggestions you agree to be bound by <terms>Google's Terms of Service</terms>; <privacy>Google's Privacy Policy</privacy> applies to Google's processing. A business can switch the feature off at any time under Administration › Business › Address entry."
+      }
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "sections": {
+        "controller": "Controller and contact",
+        "data": "Personal data processed",
+        "purposes": "Purposes of processing",
+        "places": "Address suggestions (Google Places)",
+        "recipients": "Recipients and disclosure abroad",
+        "retention": "Retention",
+        "rights": "Your rights"
+      },
+      "places": {
+        "body": "When an address is entered in the DMS, the typed address text — and only that, never a name or any other customer data — is sent to Google Ireland Limited to show suggestions. Google processes it as a separate controller under the Google Maps Platform Terms of Service and the Google Controller-Controller Data Protection Terms (including the standard contractual clauses for transfers from Switzerland). Only the address the user picks is stored. A business can switch the feature off at any time under Administration › Business › Address entry.",
+        "google": "How Google processes this data is described in <privacy>Google's Privacy Policy</privacy>; <terms>Google's Terms of Service</terms> also apply to the address suggestions."
+      }
+    }
   }
 }
