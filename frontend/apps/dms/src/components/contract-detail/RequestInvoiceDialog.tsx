@@ -6,7 +6,7 @@ import { ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { apiRefusalText, isStaleVersion } from '../../utils/apiRefusal'
 import { formatDateOnly } from '../../utils/format'
-import { CANTON_CODES, holdersOf, type PlateHolder } from '../vehicle-detail/PlateDialogs'
+import { CANTON_CODES, holdersOf, type PlateHolder } from '../vehicle-detail/plateRefusal'
 
 /** What «Rechnung anfordern» sends (`POST /sales/contracts/{id}/request-invoice`):
  * nothing for «ohne Kontrollschild», else the plate with its canton and the
