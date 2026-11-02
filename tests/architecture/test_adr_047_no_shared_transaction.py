@@ -243,6 +243,8 @@ _SHARED_TRANSACTION_EXCEPTIONS = {
 # Reviewed: read only, no commit reachable.
 _READS = {
     "app.customer.public.customer_display_name",
+    # KAN-121: vehicle's legacy-reference check counts party rows through customer; a SELECT only.
+    "app.customer.public.count_vehicle_parties_for_vehicles",
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
     "app.customer.public.customer_in_group",
     "app.customer.public.get_customer_or_404",
@@ -272,6 +274,8 @@ _READS = {
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.
     "app.platform.public.list_active_users_acting_in",
     "app.platform.public.list_dealer_manager_emails",
+    # KAN-121: a group's Betriebe while its read is on, for Stock's group listing; a SELECT only.
+    "app.platform.public.list_group_read_dealerships",
     # KAN-423: the dealer groups a colleague works in, for Customers' hand-over refusal; a SELECT only.
     "app.platform.public.list_user_dealer_group_ids",
     "app.platform.public.list_user_dealership_ids",

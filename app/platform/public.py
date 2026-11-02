@@ -26,6 +26,7 @@ from app.platform.services.dealership import (
 )
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
+from app.platform.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.services.reference_data import get_active_reference_value_codes
@@ -75,6 +76,7 @@ __all__ = [
     "ContentDefinition",
     "DealerGroup",
     "Dealership",
+    "DealershipRef",
     "DocumentLine",
     "KeyValueBlock",
     "KeyValueRow",
@@ -104,6 +106,7 @@ __all__ = [
     "get_user_or_404",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",
+    "list_group_read_dealerships",
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "notify",

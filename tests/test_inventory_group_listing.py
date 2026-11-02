@@ -171,7 +171,7 @@ def test_group_listing_walks_every_row_once_by_cursor(db_session):
         assert len(rows) <= 2
         assert (total, is_estimate) == (5, False)
         seen.extend(item.vehicle_label for item, _ in rows)
-        dealership_labels.update(dealership.legal_name for _, dealership in rows)
+        dealership_labels.update(dealership.label for _, dealership in rows)
         if cursor is None:
             break
 

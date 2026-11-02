@@ -44,7 +44,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
   invoicing and valuation fields are absent from it; `listPrice` is deliberately present. In the
   UI, group stock is a scope switch (`ScopeSwitchMenu`); the dealership is a column, not
-  sortable (it lives on platform's table). A dealership filter is not built (KAN-104).
+  sortable (it lives on platform's table). A dealership filter is not built (KAN-104). Which
+  Betriebe are in the group, and their labels, is platform's answer
+  (`platform.public.list_group_read_dealerships`, KAN-121, ADR-107): Stock never joins platform's
+  tables.
 - **ADR-049** — full commercial visibility inside the dealership (margin, discounts,
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - **Stock is licensed with the `sales` module** (D-A-04, KAN-198): every inventory router

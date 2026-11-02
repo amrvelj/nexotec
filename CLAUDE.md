@@ -123,7 +123,10 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
 1. **One writer per fact.** Every piece of data has exactly one owning context.
 2. **No cross-context foreign keys, joins or shared tables.** Another context's ID is a plain
    `GUID` column with a comment naming the owner, plus a denormalised display label and a
-   `labelRefreshedAt` timestamp — the three-column pattern.
+   `labelRefreshedAt` timestamp — the three-column pattern. No context puts another's ORM class
+   into its own query; it asks a `public` function for plain data — except a context's nightly
+   `reconciliation.py`, which may *read* across, never write (ADR-107,
+   `test_no_cross_context_orm_query.py`).
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
    import-linter gates CI with **no suppression mechanism** and forbids every top-level module of a
    context but `public`; `test_import_contracts_cover_every_module.py` fails when a new module is
