@@ -436,7 +436,7 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
 
   return (
     <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={<RequirementBadge requirement="optional" />}>
-      {deal.tradeInVehicleId || deal.tradeInConfigurationId || deal.tradeInVin ? (
+      {deal.tradeInVehicleId || deal.tradeInConfigurationId ? (
         <Stack gap={4}>
           <Text fw={600}>{deal.tradeInLabel}</Text>
           {deal.tradeInConfigurationId && <HostConfigurationCard configurationId={deal.tradeInConfigurationId} />}

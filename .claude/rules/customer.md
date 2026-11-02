@@ -126,13 +126,13 @@ weekly. -->
   `finance.invoice.issued` (WP-9, KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
   legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
-  it first (the allocate routes 404 an unknown one; since KAN-189 the trade-in on an offer or a
-  pending contract allocates no party at all — the car is linked to the customer once it is
-  bought) — and resolves the customer in the caller's group (404, never a cross-group link).
+  it first (the allocate routes 404 an unknown one; the trade-in on an offer or a pending
+  contract, `set_trade_in`, creates or gets it) — and resolves the customer in the caller's
+  group (404, never a cross-group link).
 - **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
   (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
   `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this
-  covered the trade-in path too before KAN-189), then closes **every** open holder of that (vehicle, role) in
+  covers the trade-in path too), then closes **every** open holder of that (vehicle, role) in
   the caller's group, found through `Customer.group_id`, in the **same transaction** as the
   insert — never another group's row. Concurrent allocations are serialised by a Postgres
   advisory lock on (vehicle, role, group): a row lock cannot do it, because a concurrent
