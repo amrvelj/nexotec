@@ -2,7 +2,9 @@
 
 KAN-121 (rule 2): which Betriebe belong to the group, and their labels, is
 platform's answer (`platform.public.list_group_read_dealerships`, plain
-data, empty while the group's read is off); this module selects only its
+data, None while the group's read is off or the group is unknown); this
+module — the one ruled caller, `test_group_read_dealerships_callers.py` —
+selects only its
 own StockItem rows by those ids and never joins or filters on a platform
 table. The two checks below — the caller's own group, the group's read
 enabled, 404 never 403 — are unchanged.

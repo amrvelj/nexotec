@@ -37,14 +37,19 @@ refused there too. The exemption is structural (the module's path), not a
 list of convenient files, and it covers nothing else in the package.
 
 A model reached through an imported module (`from app.platform import
-public as p; select(p.Dealership)`) and a builder imported under another
-name (`from sqlalchemy import select as s`) are seen too.
+public as p; select(p.Dealership)`, `import app.platform.public as p`), a
+builder imported under another name (`from sqlalchemy import select as s`)
+and SQLAlchemy under another name (`import sqlalchemy as sqla`) are seen
+too; `test_import_resolution_from_source_text` resolves them from source
+in this process, without relying on what else was imported.
 
 Not seen by this gate (stated, not hidden): a foreign model handed to a
 helper by keyword (`ReferenceCheck(target_model=Dealership)` in a
 reconciliation module — exempt anyway), a query built from a string
 (`text("SELECT … FROM dealership")`), and a foreign model reached through
-a variable that is not its imported name.
+a variable that is not its imported name, a model spelled out through an
+unaliased module import (`app.platform.public.Dealership`), and names
+brought in by `from … import *`.
 """
 
 import ast
@@ -143,6 +148,13 @@ def _foreign_models(tree: ast.Module, context: str) -> dict[str, type]:
         module = importlib.import_module(node.module)
         for alias in node.names:
             obj = getattr(module, alias.name, None)
+            if obj is None:
+                # `from app.platform import public as p` names a submodule the
+                # package has not loaded yet in a fresh interpreter.
+                try:
+                    obj = importlib.import_module(f"{node.module}.{alias.name}")
+                except ImportError:
+                    obj = None
             local = alias.asname or alias.name
             if isinstance(obj, type) and issubclass(obj, Base) and obj.__module__.split(".")[1] != context:
                 found[local] = obj
@@ -164,6 +176,18 @@ def _builder_aliases(tree: ast.Module) -> dict[str, str]:
     return aliases
 
 
+def _sqlalchemy_module_names(tree: ast.Module) -> set[str]:
+    """Names this module gives SQLAlchemy itself (`import sqlalchemy as sqla`)."""
+
+    names = set(_SQLALCHEMY_MODULE_NAMES)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] == "sqlalchemy":
+                    names.add(alias.asname or alias.name.split(".")[0])
+    return names
+
+
 def _dotted(node: ast.AST) -> str | None:
     if isinstance(node, ast.Name):
         return node.id
@@ -181,10 +205,13 @@ def _names_in(node: ast.AST, foreign: dict[str, type]) -> set[str]:
     return found
 
 
-def _call_kind(call: ast.Call, builders: dict[str, str] | None = None) -> tuple[str, str] | None:
+def _call_kind(
+    call: ast.Call, builders: dict[str, str] | None = None, sa_names: set[str] | None = None
+) -> tuple[str, str] | None:
     """('builder'|'method', name) for a call this gate inspects, else None."""
 
     builders = builders if builders is not None else {name: name for name in _STATEMENT_BUILDERS}
+    sa_names = sa_names if sa_names is not None else set(_SQLALCHEMY_MODULE_NAMES)
     if isinstance(call.func, ast.Name) and call.func.id in builders:
         return "builder", builders[call.func.id]
     if isinstance(call.func, ast.Attribute):
@@ -195,7 +222,7 @@ def _call_kind(call: ast.Call, builders: dict[str, str] | None = None) -> tuple[
         if (
             call.func.attr in _STATEMENT_BUILDERS
             and isinstance(call.func.value, ast.Name)
-            and call.func.value.id in _SQLALCHEMY_MODULE_NAMES
+            and call.func.value.id in sa_names
         ):
             return "builder", call.func.attr
     return None
@@ -204,6 +231,7 @@ def _call_kind(call: ast.Call, builders: dict[str, str] | None = None) -> tuple[
 def _violations_in_source(source: str, *, context: str, foreign: dict[str, type], reconciliation: bool) -> list[str]:
     tree = ast.parse(source)
     builders = _builder_aliases(tree)
+    sa_names = _sqlalchemy_module_names(tree)
     problems: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -212,7 +240,7 @@ def _violations_in_source(source: str, *, context: str, foreign: dict[str, type]
         if constructed in foreign:
             problems.append(f"line {node.lineno}: builds another context's row: {constructed}(...)")
             continue
-        kind = _call_kind(node, builders)
+        kind = _call_kind(node, builders, sa_names)
         if kind is None:
             continue
         _, name = kind
@@ -298,6 +326,7 @@ _CROSSINGS = [
     "q = sa.select(Dealership.id)",
     "q = select(p.Dealership).where(p.Dealership.id == did)",
     "from sqlalchemy import select as s\nq = s(Dealership.id)",
+    "import sqlalchemy as sqla\nq = sqla.select(Dealership.id)",
     "q = select(StockItem.id).add_columns(Dealership.legal_name)",
     "q = select(StockItem.id).with_only_columns(Dealership.id)",
     "q = select(StockItem.id).correlate(Dealership)",
@@ -329,3 +358,22 @@ def test_reconciliation_may_read_but_never_write_another_contexts_table():
     )
     assert _fixture_problems("db.execute(delete(VehicleParty))", reconciliation=True)
     assert _fixture_problems("db.add(Dealership(legal_name='x'))", reconciliation=True)
+
+
+def test_import_resolution_from_source_text():
+    """`_foreign_models` itself, on source text: the module-alias forms resolve
+    to platform's mapped class, and the gate then reports the query."""
+
+    from app.platform.models.dealership import Dealership
+
+    for source in (
+        "from app.platform import public as p\nq = select(p.Dealership.id)\n",
+        "import app.platform.public as p\nq = select(p.Dealership.id)\n",
+        "from app.platform.public import Dealership as D\nq = select(D.id)\n",
+    ):
+        tree = ast.parse(source)
+        foreign = _foreign_models(tree, "inventory")
+        assert Dealership in foreign.values(), source
+        assert _violations_in_source(source, context="inventory", foreign=foreign, reconciliation=False), source
+    # Platform's own module importing its own model is not foreign.
+    assert _foreign_models(ast.parse("from app.platform.public import Dealership\n"), "platform") == {}

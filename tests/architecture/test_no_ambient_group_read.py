@@ -55,7 +55,9 @@ _ALLOWED_FILES = {
     # (one row by id; app/core/tenancy.py is preserved) for KAN-28's
     # reason: this is a roster, not one entity. Authorise before the
     # lookup, 404 never 403: Stock still checks the role and the caller's
-    # own group first, then turns platform's empty answer into its 404.
+    # own group first, then turns platform's None (read off, or no such
+    # group) into its 404. Who may call it is confined by
+    # test_group_read_dealerships_callers.py (Stock's group listing only).
     _APP_ROOT / "platform" / "services" / "group_read_dealerships.py",
     # Platform's OWN cross-group dealership listing — platform_admin
     # managing the entire multi-tenant system (require_access_role(),

@@ -209,6 +209,23 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
   })
 
+  it('is not offered on a pipeline car a contract created: it carries the signed configuration', async () => {
+    configurationBackend(configurationRead(RECORDED))
+    renderWithProviders(
+      <DetailsTab
+        item={{ ...PIPELINE_ITEM, pipelineRef: 'contract:k-1:trade_in' }}
+        locale="de-CH"
+        onSaveField={vi.fn()}
+        onReload={vi.fn()}
+        canEditConfiguration
+        onRecordPurchase={vi.fn()}
+      />,
+    )
+
+    const card = await screen.findByTestId('configuration-summary-card')
+    expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
+  })
+
   it('opens the configuration in its own mode, and its PATCH is the only write', async () => {
     const user = userEvent.setup()
     const { backend, patches } = configurationBackend(configurationRead(RECORDED))

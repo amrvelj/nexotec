@@ -108,7 +108,8 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   (`get_group_read_or_404`), `customer/services/customer.py`, `customer/services/legal_basis.py`,
   `platform/services/group_read_dealerships.py` (ADR-055's group stock roster: the group's Betriebe
   while its read is on, `platform.public.list_group_read_dealerships`, plain data — moved there from
-  `inventory/services/group_listing.py` by KAN-121, ADR-107), `platform/services/dealership.py` (staff-only listing),
+  `inventory/services/group_listing.py` by KAN-121, ADR-107; its one ruled caller is that Stock
+  module, confined by `tests/architecture/test_group_read_dealerships_callers.py`), `platform/services/dealership.py` (staff-only listing),
   `platform/services/group_labels.py` (KAN-371, ADR-093: the History tab's names), `vehicle/services/plate.py`
   (KAN-467: the group's Kontrollschild register). The test catches
   `group_id` / `dealer_group_id` in `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)`

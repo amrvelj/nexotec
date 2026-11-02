@@ -62,6 +62,14 @@ export function DetailsTab({
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const editConfiguration = useStockConfigurationEditor()
+  // KAN-510: only a pipeline car the Betrieb took in itself. A car in stock
+  // has its VIN from the purchase; a pipeline car a contract's confirmation
+  // created (`pipelineRef` «contract:…», a configured car or a trade-in)
+  // carries the configuration that contract was signed on. Editing either
+  // would make Stock's technical data differ from what was bought or signed —
+  // open with Anto on KAN-510.
+  const mayEditConfiguration =
+    canEditConfiguration && item.lifecycleStatus === 'pipeline' && !item.pipelineRef?.startsWith('contract:')
 
   // KAN-510 — from the purchase dialog's VIN refusal: the dialog steps aside
   // (a modal would hold the focus the configurator needs) and comes back,
@@ -108,19 +116,11 @@ export function DetailsTab({
         <OverviewCard title={t('stockDetail.configuration.title')}>
           {/* KAN-510: «Konfiguration bearbeiten» — the configurator on this
               configuration, in its own mode; the only write is its PATCH.
-              A pipeline car only: it corrects the configuration before the
-              purchase books the car with its VIN. A car in stock already has
-              its VIN from the purchase, and a VIN edited here would make the
-              two describe different cars again — whether, and how, a stock
-              car's configuration is edited is open with Anto (KAN-510). */}
+              Only where `mayEditConfiguration` allows it (above). */}
           <HostConfigurationCard
             configurationId={item.configurationId}
             technicalDataColumns={4}
-            onOpenConfigurator={
-              canEditConfiguration && item.lifecycleStatus === 'pipeline'
-                ? (configuration) => editConfiguration(configuration)
-                : undefined
-            }
+            onOpenConfigurator={mayEditConfiguration ? (configuration) => editConfiguration(configuration) : undefined}
             openConfiguratorLabel={t('stockDetail.configuration.edit')}
           />
         </OverviewCard>
@@ -237,7 +237,7 @@ export function DetailsTab({
         onClose={() => setPurchaseDialogOpen(false)}
         requiresVin={item.lifecycleStatus === 'pipeline'}
         configurationId={item.configurationId ?? null}
-        onEditConfiguration={canEditConfiguration ? editConfigurationFromPurchase : undefined}
+        onEditConfiguration={mayEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}
       />
     </div>
