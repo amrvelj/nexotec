@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { ChannelPublishCard } from './ChannelPublishCard'
 import type { PublishingRead } from '../../api/types'
@@ -37,7 +37,7 @@ function publishing(over: Partial<PublishingRead> = {}): PublishingRead {
 
 function renderCard(publishingRow: PublishingRead | undefined, overrides: Partial<Parameters<typeof ChannelPublishCard>[0]> = {}) {
   render(
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={testTheme}>
       <ChannelPublishCard
         channel="autoscout24"
         publishing={publishingRow}

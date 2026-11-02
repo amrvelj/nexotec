@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../test/testTheme'
 import i18n from '../i18n'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
 
@@ -16,7 +16,7 @@ import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
 
 function renderPhone() {
   render(
-    <MantineProvider theme={theme} env="test">
+    <MantineProvider theme={testTheme} env="test">
       <PhoneInput label={i18n.t('customerDetail.phoneInput.country')} value="+447911123456" onChange={() => {}} />
     </MantineProvider>,
   )
@@ -51,7 +51,7 @@ describe('PhoneInput width (KAN-267)', () => {
 function StatefulPhone({ initial, onCommit }: { initial: string; onCommit: () => void }) {
   const [value, setValue] = useState(initial)
   return (
-    <MantineProvider theme={theme} env="test">
+    <MantineProvider theme={testTheme} env="test">
       <Profiler id="phone" onRender={onCommit}>
         <PhoneInput label={i18n.t('customerDetail.phoneInput.country')} value={value} onChange={setValue} />
       </Profiler>

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { OptionsTab, type OptionsTabProps } from './OptionsTab'
 import type {
@@ -198,14 +198,14 @@ function defaultProps(props: Partial<OptionsTabProps> = {}): OptionsTabProps {
 function renderTab(props: Partial<OptionsTabProps> = {}) {
   const resolved = defaultProps(props)
   const utils = render(
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={testTheme}>
       <OptionsTab {...resolved} />
     </MantineProvider>,
   )
   const rerenderWith = (over: Partial<OptionsTabProps>) => {
     const next = { ...resolved, ...over }
     utils.rerender(
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={testTheme}>
         <OptionsTab {...next} />
       </MantineProvider>,
     )

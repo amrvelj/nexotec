@@ -24,6 +24,24 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
 ): { value: T; update: (patch: Partial<T>) => void } {
   const [value, setValue] = useState<T>(() => readLocalMirror(storageKey, defaults))
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // KAN-531 — the write the timer will send, so an unmount (or a scope
+  // change) can send it at once instead of leaving it on the timer.
+  const pendingWrite = useRef<T | null>(null)
+
+  useEffect(
+    () => () => {
+      // Runs on unmount and before a scope change, with this scope: a write
+      // still waiting on its debounce goes out now, under the scope it was
+      // made for — never 500 ms after its screen has gone.
+      if (!writeTimer.current) return
+      clearTimeout(writeTimer.current)
+      writeTimer.current = null
+      const pending = pendingWrite.current
+      pendingWrite.current = null
+      if (pending) sendPreference(scope, pending)
+    },
+    [scope]
+  )
 
   useEffect(() => {
     api
@@ -44,10 +62,11 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
     (next: T) => {
       writeLocalMirror(storageKey, next)
       if (writeTimer.current) clearTimeout(writeTimer.current)
+      pendingWrite.current = next
       writeTimer.current = setTimeout(() => {
-        api.put(`/me/preferences/${scope}`, next).catch((err) => {
-          console.error(`Failed to persist "${scope}" preferences:`, err instanceof ApiError ? err.message : err)
-        })
+        writeTimer.current = null
+        pendingWrite.current = null
+        sendPreference(scope, next)
       }, WRITE_DEBOUNCE_MS)
     },
     [scope, storageKey]
@@ -65,4 +84,11 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
   )
 
   return { value, update }
+}
+
+/** "Never block: a failed preference write is logged, never surfaces an error toast." */
+function sendPreference(scope: string, payload: unknown): void {
+  api.put(`/me/preferences/${scope}`, payload).catch((err) => {
+    console.error(`Failed to persist "${scope}" preferences:`, err instanceof ApiError ? err.message : err)
+  })
 }

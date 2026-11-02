@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { ApiError } from '../../api/client'
 import { OdometerTab } from './OdometerTab'
@@ -28,7 +28,7 @@ describe('OdometerTab', () => {
   it("renders a kilometre reading as 12'500 under the French UI", async () => {
     await i18n.changeLanguage('fr')
     render(
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
         <OdometerTab readings={[READING]} loading={false} onAdd={vi.fn()} />
       </MantineProvider>,
     )
@@ -44,7 +44,7 @@ describe('OdometerTab', () => {
       location: 'body',
     })
     render(
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
         <OdometerTab readings={[]} loading={false} onAdd={() => Promise.reject(refused)} />
       </MantineProvider>,
     )

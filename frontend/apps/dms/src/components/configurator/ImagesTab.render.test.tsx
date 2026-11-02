@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { ImagesTab, type ImagesTabProps } from './ImagesTab'
 import type { CatalogueSpecificationRead } from '../../api/types'
@@ -32,7 +32,7 @@ function buildSpec(over: Partial<CatalogueSpecificationRead> = {}): CatalogueSpe
 
 function renderTab(props: Partial<ImagesTabProps> = {}) {
   render(
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={testTheme}>
       <ImagesTab spec={buildSpec()} isLoading={false} isManual={false} {...props} />
     </MantineProvider>,
   )
