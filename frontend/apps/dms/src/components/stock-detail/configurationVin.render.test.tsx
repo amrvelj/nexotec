@@ -192,6 +192,23 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(within(card).queryByRole('button', { name: i18n.t('configurator.summary.open') })).toBeNull()
   })
 
+  it('is not offered on a car already in stock: its VIN came with the purchase', async () => {
+    configurationBackend(configurationRead(RECORDED))
+    renderWithProviders(
+      <DetailsTab
+        item={{ ...PIPELINE_ITEM, lifecycleStatus: 'in_stock', vin: CONFIGURED_VIN, inStockAt: NOW }}
+        locale="de-CH"
+        onSaveField={vi.fn()}
+        onReload={vi.fn()}
+        canEditConfiguration
+        onRecordPurchase={vi.fn()}
+      />,
+    )
+
+    const card = await screen.findByTestId('configuration-summary-card')
+    expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
+  })
+
   it('opens the configuration in its own mode, and its PATCH is the only write', async () => {
     const user = userEvent.setup()
     const { backend, patches } = configurationBackend(configurationRead(RECORDED))

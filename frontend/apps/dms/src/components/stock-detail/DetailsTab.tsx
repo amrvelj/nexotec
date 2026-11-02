@@ -107,11 +107,20 @@ export function DetailsTab({
         // straight after the hero band, in a spec grid of at most four columns.
         <OverviewCard title={t('stockDetail.configuration.title')}>
           {/* KAN-510: «Konfiguration bearbeiten» — the configurator on this
-              configuration, in its own mode; the only write is its PATCH. */}
+              configuration, in its own mode; the only write is its PATCH.
+              A pipeline car only: it corrects the configuration before the
+              purchase books the car with its VIN. A car in stock already has
+              its VIN from the purchase, and a VIN edited here would make the
+              two describe different cars again — whether, and how, a stock
+              car's configuration is edited is open with Anto (KAN-510). */}
           <HostConfigurationCard
             configurationId={item.configurationId}
             technicalDataColumns={4}
-            onOpenConfigurator={canEditConfiguration ? (configuration) => editConfiguration(configuration) : undefined}
+            onOpenConfigurator={
+              canEditConfiguration && item.lifecycleStatus === 'pipeline'
+                ? (configuration) => editConfiguration(configuration)
+                : undefined
+            }
             openConfiguratorLabel={t('stockDetail.configuration.edit')}
           />
         </OverviewCard>
