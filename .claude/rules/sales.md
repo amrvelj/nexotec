@@ -45,7 +45,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   legacy `vehicle` row directly and reads the customer, dealership and `vehicle_mdm` rows it resolves
   against through their models, all four named in its docstring and pinned by
   `tests/architecture/test_adr_047_no_shared_transaction.py`; it expires when the script is deleted
-  after its production run, and nothing else may cite it.
+  after its production run, and nothing else may cite it. Number allocation is the second ruled
+  exception, permanent and Platform's (ADR-109, KAN-207): the offer's number is handed out inside the
+  offer's own transaction (below, "Visibility and numbers").
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
   Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
   kept **per stock item** (`sales_stock_item_purchase`, written by
