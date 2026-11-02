@@ -40,16 +40,23 @@ A model reached through an imported module (`from app.platform import
 public as p; select(p.Dealership)`, `import app.platform.public as p`), a
 builder imported under another name (`from sqlalchemy import select as s`)
 and SQLAlchemy under another name (`import sqlalchemy as sqla`) are seen
-too; `test_import_resolution_from_source_text` resolves them from source
-in this process, without relying on what else was imported.
+too. `test_import_resolution_from_source_text` resolves them from source
+text; under pytest `app.main` is already loaded, so the submodule fallback
+for `from app.platform import public as p` (needed in a fresh interpreter)
+is exercised there only by
+`test_submodule_alias_resolves_in_a_fresh_interpreter`, which runs a
+separate Python process.
 
 Not seen by this gate (stated, not hidden): a foreign model handed to a
 helper by keyword (`ReferenceCheck(target_model=Dealership)` in a
 reconciliation module — exempt anyway), a query built from a string
 (`text("SELECT … FROM dealership")`), and a foreign model reached through
 a variable that is not its imported name, a model spelled out through an
-unaliased module import (`app.platform.public.Dealership`), and names
-brought in by `from … import *`.
+unaliased module import (`app.platform.public.Dealership`), a model
+reached through the package (`from app import platform as plat;
+plat.public.Dealership`), a builder reached through a SQLAlchemy submodule
+(`from sqlalchemy import sql as s; s.select(...)`), and names brought in
+by `from … import *`.
 """
 
 import ast
@@ -377,3 +384,21 @@ def test_import_resolution_from_source_text():
         assert _violations_in_source(source, context="inventory", foreign=foreign, reconciliation=False), source
     # Platform's own module importing its own model is not foreign.
     assert _foreign_models(ast.parse("from app.platform.public import Dealership\n"), "platform") == {}
+
+
+def test_submodule_alias_resolves_in_a_fresh_interpreter():
+    """The fallback in `_foreign_models` for a submodule the package has not
+    loaded yet, proven where nothing else has imported it."""
+
+    import subprocess
+    import sys
+
+    code = (
+        "import ast, sys; import app.platform as pkg; "
+        "assert 'app.platform.public' not in sys.modules, 'already loaded'; "
+        "from tests.architecture.test_no_cross_context_orm_query import _foreign_models; "
+        "found = _foreign_models(ast.parse('from app.platform import public as p'), 'inventory'); "
+        "assert 'p.Dealership' in found, sorted(found)"
+    )
+    result = subprocess.run([sys.executable, "-c", code], cwd=_REPO_ROOT, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr[-2000:]

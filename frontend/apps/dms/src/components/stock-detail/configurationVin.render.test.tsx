@@ -255,6 +255,35 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(backend.calls.some((c) => c.pathname.startsWith('/inventory/'))).toBe(false)
   })
 
+  it('on a pipeline car a contract created, the purchase refusal offers no edit either', async () => {
+    const user = userEvent.setup()
+    const purchaseRefused = new ApiError(422, 'unprocessable_entity', 'refused', { field: 'vin', reason: 'configuration_vin_differs' })
+    configurationBackend(configurationRead(RECORDED))
+    renderWithProviders(
+      <DetailsTab
+        item={{ ...PIPELINE_ITEM, pipelineRef: 'contract:k-1:manual' }}
+        locale="de-CH"
+        onSaveField={vi.fn()}
+        onReload={vi.fn()}
+        canEditConfiguration
+        onRecordPurchase={vi.fn().mockRejectedValueOnce(purchaseRefused)}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.title') }))
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.recordButton') }))
+    await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
+    await user.clear(vinField())
+    await user.type(vinField(), CORRECTED_VIN)
+    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(i18n.t('stockDetail.purchase.configurationVinDiffers'))
+    expect(within(alert).queryByRole('button', { name: editLabel() })).toBeNull()
+  })
+
   it('from the purchase refusal: corrects the configuration, then returns to the booking with the corrected VIN', async () => {
     const user = userEvent.setup()
     const purchaseRefused = new ApiError(422, 'unprocessable_entity', 'refused', { field: 'vin', reason: 'configuration_vin_differs' })
