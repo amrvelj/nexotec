@@ -62,13 +62,15 @@ const buildButton = () => screen.findByRole('button', { name: i18n.t('offerWorks
 // (the key is on the request), with its answer and the PDF read it starts
 // still on the way. An answer landing after the file's jsdom was torn down
 // made build()'s state update read `window`, and its catch threw again: an
-// unhandled rejection, exit 1 with every test green. So each test waits for
-// every request it started, unmounts, and waits for any sent on unmount,
-// before the shared cleanup drains React's queued work (src/test/setup.ts).
+// unhandled rejection, exit 1 with every test green. So each test lets its
+// requests settle before it unmounts, and again after (a request sent on
+// unmount): it waits until the fake backend holds none unanswered, then one
+// task more, in which the client and build()/confirm() finish on the answer's
+// promise chain (this file's handlers answer at once, so that task does most
+// of the waiting). The shared cleanup then drains React's queued work
+// (src/test/setup.ts).
 const answered = async () => {
   await waitFor(() => expect(unansweredFakeRequests()).toEqual([]))
-  // The client and build()/confirm() finish on the answer's own promise
-  // chain; one task later they are done.
   await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
 }
 afterEach(async () => {

@@ -149,11 +149,16 @@ if (typeof window !== 'undefined') {
 // runs (all of them now find an unmounted root); a task that queues another
 // is picked up by the next round. The scheduler package exposes no queue to
 // wait on (0.27 has no `unstable_getFirstCallbackNode`), hence the rounds.
+// The drain keeps its own reference to the real `setImmediate`, taken when
+// this file loads, as React's Scheduler does: a test that leaves fake timers on
+// past its own `afterEach` (`vi.useFakeTimers()` fakes `setImmediate` too)
+// would otherwise hang the shared teardown.
 const SCHEDULER_DRAIN_ROUNDS = 5
+const realSetImmediate = globalThis.setImmediate
 
 async function drainReactScheduler(): Promise<void> {
   for (let round = 0; round < SCHEDULER_DRAIN_ROUNDS; round++) {
-    await new Promise<void>((resolve) => setImmediate(resolve))
+    await new Promise<void>((resolve) => realSetImmediate(resolve))
   }
 }
 
