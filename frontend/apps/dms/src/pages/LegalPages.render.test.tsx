@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Route, Routes } from 'react-router-dom'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../test/testTheme'
 import i18n from '../i18n'
 import App from '../App'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -56,7 +56,7 @@ describe('the public legal pages (KAN-452)', () => {
     window.history.replaceState(null, '', path)
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MantineProvider theme={theme} env="test" withCssVariables={false} withGlobalClasses={false}>
+        <MantineProvider theme={testTheme} env="test" withCssVariables={false} withGlobalClasses={false}>
           <App />
         </MantineProvider>
       </QueryClientProvider>,

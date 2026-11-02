@@ -36,6 +36,10 @@ only when a context is extracted. It is an exception for reads alone: an
 refused there too. The exemption is structural (the module's path), not a
 list of convenient files, and it covers nothing else in the package.
 
+A model reached through an imported module (`from app.platform import
+public as p; select(p.Dealership)`) and a builder imported under another
+name (`from sqlalchemy import select as s`) are seen too.
+
 Not seen by this gate (stated, not hidden): a foreign model handed to a
 helper by keyword (`ReferenceCheck(target_model=Dealership)` in a
 reconciliation module — exempt anyway), a query built from a string
@@ -77,6 +81,10 @@ _QUERY_METHODS = frozenset(
         "execute",
         "scalar",
         "scalars",
+        "add_columns",
+        "with_only_columns",
+        "correlate",
+        "correlate_except",
     }
 )
 
@@ -100,34 +108,85 @@ def _is_reconciliation_module(context: str, path: Path) -> bool:
     return path == _APP_ROOT / context / "reconciliation.py"
 
 
+def _mapped_classes_of(module, context: str) -> dict[str, type]:
+    return {
+        name: obj
+        for name, obj in vars(module).items()
+        if isinstance(obj, type) and issubclass(obj, Base) and obj.__module__.split(".")[1] != context
+    }
+
+
 def _foreign_models(tree: ast.Module, context: str) -> dict[str, type]:
     """Local name -> mapped class, for every name this module imports from
-    another context's package that resolves to a mapped model."""
+    another context's package that resolves to a mapped model. A module
+    imported under a name (`from app.platform import public as p`,
+    `import app.platform.public as p`) contributes `p.Dealership`-style
+    dotted keys, so `select(p.Dealership)` is seen too."""
 
     found: dict[str, type] = {}
+
+    def other_context(dotted: str) -> bool:
+        parts = dotted.split(".")
+        return parts[0] == "app" and len(parts) >= 2 and parts[1] not in _NOT_A_CONTEXT and parts[1] != context
+
     for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if other_context(alias.name) and alias.asname:
+                    for name, cls in _mapped_classes_of(importlib.import_module(alias.name), context).items():
+                        found[f"{alias.asname}.{name}"] = cls
+            continue
         if not isinstance(node, ast.ImportFrom) or node.module is None or node.level:
             continue
-        parts = node.module.split(".")
-        if parts[0] != "app" or len(parts) < 2 or parts[1] in _NOT_A_CONTEXT or parts[1] == context:
+        if not other_context(node.module):
             continue
         module = importlib.import_module(node.module)
         for alias in node.names:
             obj = getattr(module, alias.name, None)
+            local = alias.asname or alias.name
             if isinstance(obj, type) and issubclass(obj, Base) and obj.__module__.split(".")[1] != context:
-                found[alias.asname or alias.name] = obj
+                found[local] = obj
+            elif isinstance(obj, type(module)):
+                for name, cls in _mapped_classes_of(obj, context).items():
+                    found[f"{local}.{name}"] = cls
     return found
 
 
+def _builder_aliases(tree: ast.Module) -> dict[str, str]:
+    """Local name -> SQLAlchemy statement builder, `select as s` included."""
+
+    aliases = {name: name for name in _STATEMENT_BUILDERS}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.split(".")[0] == "sqlalchemy":
+            for alias in node.names:
+                if alias.name in _STATEMENT_BUILDERS:
+                    aliases[alias.asname or alias.name] = alias.name
+    return aliases
+
+
+def _dotted(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        return f"{node.value.id}.{node.attr}"
+    return None
+
+
 def _names_in(node: ast.AST, foreign: dict[str, type]) -> set[str]:
-    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and n.id in foreign}
+    found = set()
+    for n in ast.walk(node):
+        dotted = _dotted(n)
+        if dotted in foreign:
+            found.add(dotted)
+    return found
 
 
-def _call_kind(call: ast.Call) -> tuple[str, str] | None:
+def _call_kind(call: ast.Call, builders: dict[str, str] | None = None) -> tuple[str, str] | None:
     """('builder'|'method', name) for a call this gate inspects, else None."""
 
-    if isinstance(call.func, ast.Name) and call.func.id in _STATEMENT_BUILDERS:
-        return "builder", call.func.id
+    builders = builders if builders is not None else {name: name for name in _STATEMENT_BUILDERS}
+    if isinstance(call.func, ast.Name) and call.func.id in builders:
+        return "builder", builders[call.func.id]
     if isinstance(call.func, ast.Attribute):
         if call.func.attr in _QUERY_METHODS:
             return "method", call.func.attr
@@ -144,14 +203,16 @@ def _call_kind(call: ast.Call) -> tuple[str, str] | None:
 
 def _violations_in_source(source: str, *, context: str, foreign: dict[str, type], reconciliation: bool) -> list[str]:
     tree = ast.parse(source)
+    builders = _builder_aliases(tree)
     problems: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        if isinstance(node.func, ast.Name) and node.func.id in foreign:
-            problems.append(f"line {node.lineno}: builds another context's row: {node.func.id}(...)")
+        constructed = _dotted(node.func)
+        if constructed in foreign:
+            problems.append(f"line {node.lineno}: builds another context's row: {constructed}(...)")
             continue
-        kind = _call_kind(node)
+        kind = _call_kind(node, builders)
         if kind is None:
             continue
         _, name = kind
@@ -215,7 +276,7 @@ class _Fake:
     """Stands in for a foreign mapped class in the fixtures below."""
 
 
-_FOREIGN = {"Dealership": _Fake, "VehicleParty": _Fake}
+_FOREIGN = {"Dealership": _Fake, "VehicleParty": _Fake, "p.Dealership": _Fake}
 _FOREIGN_OWNER = type("Owner", (), {"__module__": "app.platform.models.dealership"})
 
 
@@ -235,6 +296,11 @@ _CROSSINGS = [
     "db.execute(update(Dealership).values(legal_name='x'))",
     "db.add(Dealership(legal_name='x'))",
     "q = sa.select(Dealership.id)",
+    "q = select(p.Dealership).where(p.Dealership.id == did)",
+    "from sqlalchemy import select as s\nq = s(Dealership.id)",
+    "q = select(StockItem.id).add_columns(Dealership.legal_name)",
+    "q = select(StockItem.id).with_only_columns(Dealership.id)",
+    "q = select(StockItem.id).correlate(Dealership)",
 ]
 
 _NOT_CROSSINGS = [
