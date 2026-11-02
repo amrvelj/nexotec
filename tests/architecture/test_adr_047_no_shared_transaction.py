@@ -15,6 +15,8 @@ What it proves:
    - `_SHARED_TRANSACTION_EXCEPTIONS` — a write that joins the caller's
      transaction (ADR-047's forbidden shape). One entry, the tracked debt,
      see below;
+   - `_RULED_SHARED_TRANSACTIONS` — the same shape, ruled a permanent
+     exception by ADR (ADR-109: number allocation, KAN-207);
    - `_READS` — reviewed as reading only.
    A new cross-context call nobody has classified fails by name, and so
    does an entry no context calls any more. Classes, enums, exceptions and
@@ -216,6 +218,14 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.configuration.copy_configuration",
         "sales: copy_offer, on its own session",
     ),
+    # KAN-523 — «Rechnung anfordern» asks whether the sold car's plate can be
+    # recorded; a refusal naming the group's other car is an audited plate
+    # read (ADR-085), whose audit rows the guard commits. Sales hands it a
+    # session of its own, before it writes anything.
+    "app.vehicle.public.check_plate_handover": (
+        "app.vehicle.services.plate_read_guard._authorize",
+        "sales: request_invoice (services/invoice_handover.py), on its own session",
+    ),
     "app.vehicle.public.discard_configuration_copy": (
         "app.vehicle.services.configuration.discard_configuration_copy",
         "sales: copy_offer's compensation, on its own session",
@@ -240,6 +250,18 @@ _SHARED_TRANSACTION_EXCEPTIONS = {
     ),
 }
 
+# ADR-047's forbidden shape, RULED a permanent exception by ADR — not debt.
+# ADR-109 (Anto, 2026-10-31, KAN-207 option 2: "numbering central … it should
+# live in Platform"): a document number is handed out by Platform inside the
+# calling module's own transaction, so a document write that fails consumes no
+# number (ADR-032, gapless). Checked like the debt above: no commit reachable.
+# Number allocation alone; a new entry is a new ADR.
+_RULED_SHARED_TRANSACTIONS = {
+    "app.platform.public.allocate_number": (
+        "ADR-109 — sales: allocate_offer_number (services/numbering.py), inside the offer's own transaction"
+    ),
+}
+
 # Reviewed: read only, no commit reachable.
 _READS = {
     "app.customer.public.customer_display_name",
@@ -257,6 +279,7 @@ _READS = {
     # KAN-42: the identification waterfall asks whether VIN decode is entitled.
     "app.integration.public.vin_decode_granted",
     "app.inventory.public.get_stock_item_pricing",
+    "app.inventory.public.get_stock_item_vehicle",
     "app.inventory.public.get_stock_items_for_vehicles",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.
@@ -661,7 +684,9 @@ def _classification_problems(
 
 
 def test_every_cross_context_call_is_classified_and_own_commit_writes_commit() -> None:
-    problems = _classification_problems(_APP_ROOT, _OWN_COMMIT_WRITES, _SHARED_TRANSACTION_EXCEPTIONS, _READS)
+    problems = _classification_problems(
+        _APP_ROOT, _OWN_COMMIT_WRITES, {**_SHARED_TRANSACTION_EXCEPTIONS, **_RULED_SHARED_TRANSACTIONS}, _READS
+    )
     assert not problems, "ADR-047:\n" + "\n".join(problems)
 
 
@@ -682,6 +707,14 @@ def test_the_known_shared_transaction_is_still_the_only_one() -> None:
     """Exit criterion 3: the debt is named, not silently exempt."""
 
     assert set(_SHARED_TRANSACTION_EXCEPTIONS) == {"app.sales.public.repoint_customer_transactions"}
+
+
+def test_the_ruled_shared_transaction_is_number_allocation_alone() -> None:
+    """ADR-109 rules number allocation, and nothing else, a shared transaction:
+    a second entry is a second ADR, never a quiet addition here."""
+
+    assert set(_RULED_SHARED_TRANSACTIONS) == {"app.platform.public.allocate_number"}
+    assert all(reason.startswith("ADR-109") for reason in _RULED_SHARED_TRANSACTIONS.values())
 
 
 # --- self-tests: the guard catches what it claims to catch --------------

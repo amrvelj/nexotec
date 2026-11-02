@@ -98,10 +98,16 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   is the same POST with `moveFrom` (exactly the listed assignments, each with its version — their
   If-Match; each ends the day before) or `wechselschildWith` (the one other car; a group of at most
   two), serialised per plate by an advisory lock; «beenden» is `POST …/plates/{plate_id}/end` under
-  If-Match on the versioned row, taking the same lock — rows are never deleted. The other two ways in
-  Anto named (2026-10-26) are **not built**: a sold car's delivery (waits on Anto's answer on KAN-467
-  — its own handover step, or the plate on `sales.contract.invoice_requested`; follow-up KAN-523)
-  and the incumbent-DMS import (FR-V-08 — a WP-10 requirement). Audit rows of a plate write
+  If-Match on the versioned row, taking the same lock — rows are never deleted. **A sold car's plate**
+  (Anto's second way in, 2026-10-26) is **built (KAN-523)**: entered at Sales' «Rechnung anfordern»,
+  checked before the request by `vehicle.public.check_plate_handover` (the register's own refusals,
+  `plate.check_plate_recording`, read-only; holders named through the plate-read guard, purpose
+  `invoice_plate_refused`), and recorded by the consumer `vehicle.plate_on_invoice_requested`
+  (`app/vehicle/consumers.py`, `services/plate_handover.py`) through `record_plate`, valid from the
+  contract's delivery date or the day invoicing was requested, with the user's confirmed `moveFrom`; a
+  plate the car already carries is a no-op, any other refusal (a plate moved meanwhile) is raised —
+  retried, then dead-lettered. The third, the incumbent-DMS import (FR-V-08 — a WP-10 requirement), is
+  **not built**. Audit rows of a plate write
   (`plate_recorded`, `plate_ended`, `plate_wechselschild_formed`) carry validity and plate group,
   never the plate value. Every write service in `app/vehicle/services` is reached from production
   code (`tests/architecture/test_vehicle_write_services_have_a_caller.py`, KAN-467; exceptions

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
@@ -29,6 +30,7 @@ from app.sales.services import ownership
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
+from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import apply_customer_change, resolve_customer_label
 from app.sales.services.priced_deal import require_editable, require_pending
@@ -757,7 +759,15 @@ def _run_compensating_actions(
             compensating.close()
 
 
-def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID | None) -> SalesContract:
+def request_invoice(
+    db: Session,
+    *,
+    contract: SalesContract,
+    actor_id: uuid.UUID | None,
+    group_id: uuid.UUID,
+    plate: HandoverPlate | None = None,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> SalesContract:
     """ADR-046 — a genuinely distinct event from `sales.contract.confirmed`,
     never the same name for both moments. Emitted at hand-off, not at
     signature; does not change the contract's status (INVOICED is
@@ -775,6 +785,13 @@ def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID
     whatever its purchase (Anto, 2026-10-10; KAN-147, ADR-050): the old
     system invoiced it, and a second invoice would break the gapless
     numbering's meaning (ADR-032). It stays CONFIRMED as migrated.
+
+    KAN-523 — the step carries the plate the car leaves with (or none): the
+    event names the car (`vehicleId`, `vin`), the group, the plate and the
+    moves the user confirmed, and vehicle-mdm's consumer records it. A plate
+    the register would refuse is refused here, before anything is written
+    (`services/invoice_handover.py`). The request is audited — whether a
+    plate went with it, never its value (ADR-039, ADR-085).
     """
 
     if contract.status != ContractStatus.CONFIRMED:
@@ -796,6 +813,30 @@ def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID
             details={"reason": "vehicle_not_purchased"},
         )
 
+    requested_on = swiss_today()
+    handover = handover_payload(
+        db,
+        contract=contract,
+        group_id=group_id,
+        actor_id=actor_id,
+        plate=plate,
+        requested_on=requested_on,
+        session_factory=session_factory,
+    )
+    record_audit_event(
+        db,
+        entity_type="sales_contract",
+        entity_id=contract.id,
+        tenant_id=contract.tenant_id,
+        action="invoice_requested",
+        actor_id=actor_id,
+        after={
+            "deliveryDate": contract.delivery_date.isoformat() if contract.delivery_date else None,
+            "requestedOn": requested_on.isoformat(),
+            "withPlate": handover["plate"] is not None,
+            "plateMovedFromOtherVehicle": bool(handover["moveFrom"]),
+        },
+    )
     publish(
         db,
         OutboxEvent(
@@ -809,6 +850,7 @@ def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID
                 "stockItemId": str(contract.stock_item_id) if contract.stock_item_id else None,
                 "grossPrice": str(contract.gross_price) if contract.gross_price is not None else None,
                 "deliveryDate": contract.delivery_date.isoformat() if contract.delivery_date else None,
+                **handover,
             },
         ),
     )

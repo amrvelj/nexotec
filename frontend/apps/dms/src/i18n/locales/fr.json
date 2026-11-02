@@ -27,7 +27,8 @@
       "translations": "Traductions",
       "locations": "Sites",
       "branding": "Logo et couleurs",
-      "standardTexts": "Textes standard"
+      "standardTexts": "Textes standard",
+      "numberRanges": "Plages de numéros"
     },
     "signOut": "Se déconnecter",
     "environmentNotice": {
@@ -298,7 +299,19 @@
       "plate_move_and_wechselschild": "Une plaque est soit déplacée, soit enregistrée comme plaque interchangeable, pas les deux.",
       "plate_move_before_start": "L'attribution sur l'autre véhicule commence le même jour ou plus tard – veuillez choisir une date «Valable dès» ultérieure.",
       "plate_validity_invalid": "Une attribution ne peut pas se terminer avant de commencer.",
-      "plate_wechselschild_not_possible": "Une plaque interchangeable relie exactement deux véhicules – cette plaque est déjà sur deux véhicules."
+      "plate_wechselschild_not_possible": "Une plaque interchangeable relie exactement deux véhicules – cette plaque est déjà sur deux véhicules.",
+      "invoice_plate_vehicle_unknown": "Le véhicule de ce contrat n'a pas de fiche véhicule sur laquelle enregistrer une plaque. Demandez la facture sans plaque, puis enregistrez la plaque sur le véhicule.",
+      "number_pattern_invalid": "Le modèle n'est pas valide : exactement un {counter:N} (N de 1 à 9), {year} et {location_code} au plus une fois, sinon seulement lettres, chiffres et - / . _",
+      "number_pattern_too_long": "Un numéro selon ce modèle dépasserait 16 caractères.",
+      "number_pattern_location_unavailable": "Ce type de document ne connaît pas encore son site ; son modèle ne peut pas utiliser {location_code}.",
+      "number_pattern_location_code_missing": "Aucun site de votre entreprise n'a de code pour {location_code}. Saisissez d'abord un code de site.",
+      "number_pattern_reset_needs_year": "Une plage qui recommence chaque année a besoin de {year} dans son modèle — sinon un numéro serait attribué deux fois.",
+      "number_range_start_out_of_range": "La valeur de départ ne tient pas dans les chiffres du compteur.",
+      "number_range_frozen": "Cette plage a déjà attribué des numéros et est gelée. Seul le support Nexotec peut encore la modifier.",
+      "number_range_reason_required": "Une modification d'une plage gelée nécessite un motif.",
+      "number_range_exhausted": "La plage n'a plus de numéro libre pour les chiffres de son compteur. Veuillez contacter le support.",
+      "number_location_code_missing": "Cette plage imprime le code du site, et le document ne nomme aucun site avec un code.",
+      "number_range_counter_too_short": "Le compteur de ce modèle a trop peu de chiffres pour le prochain numéro de la plage. Choisissez plus de chiffres pour {counter:N}."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1387,7 +1400,23 @@
       "cancelDisabledReasonLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas, elle ne peut pas être annulée.",
       "confirmDisabledReasonEmpty": "Véhicule et prix manquants.",
       "confirmDisabledReasonNoBuyer": "Choisissez d’abord l’acheteur : un contrat n’est jamais confirmé sans client.",
-      "confirmDisabledReasonSaving": "Les modifications sont encore en cours d'enregistrement."
+      "confirmDisabledReasonSaving": "Les modifications sont encore en cours d'enregistrement.",
+      "requestInvoice": "Demander la facture",
+      "requestInvoiceDisabledNotConfirmed": "Possible seulement une fois le contrat confirmé.",
+      "requestInvoiceDisabledNotPurchased": "Le véhicule n'est pas encore acheté — la facture peut être demandée dès que son achat est saisi dans le stock.",
+      "requestInvoiceDisabledLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas."
+    },
+    "requestInvoice": {
+      "title": "Demander la facture",
+      "hint": "Avec quelle plaque le véhicule est-il remis ? Elle est enregistrée sur le véhicule et retrouvée par la recherche.",
+      "withPlate": "Avec plaque",
+      "withoutPlate": "Sans plaque",
+      "submit": "Demander la facture",
+      "moveSubmit": "Déplacer et demander la facture",
+      "requested": "La facture est demandée.",
+      "requestedWithPlate": "La facture est demandée. {{plate}} est enregistrée sur le véhicule.",
+      "error": "La facture n'a pas pu être demandée.",
+      "moveBeforeStart": "La plaque n'est enregistrée sur l'autre véhicule qu'à partir d'un jour postérieur à la date de livraison de ce contrat ; elle ne peut donc pas être déplacée. Demandez la facture sans plaque et réglez la plaque dans la vue Véhicule 360."
     },
     "stats": {
       "grossPrice": "Prix de vente",
@@ -3306,6 +3335,51 @@
     "errors": {
       "saveFailed": "Le texte n'a pas pu être enregistré.",
       "previewFailed": "L'aperçu n'a pas pu être créé."
+    }
+  },
+  "numberRanges": {
+    "title": "Plages de numéros",
+    "subtitle": "Comment votre entreprise numérote ses documents : une suite continue par type de document sur tous les sites.",
+    "freezeNotice": "Une plage de numéros est gelée dès qu'elle attribue son premier numéro. Ensuite, le modèle, la valeur de départ et le redémarrage annuel ne peuvent plus être modifiés — seulement par le support Nexotec, avec un motif. Vérifiez les modèles avant de créer le premier document.",
+    "loadError": "Les plages de numéros n'ont pas pu être chargées.",
+    "readOnly": "Seule la direction peut modifier les plages de numéros.",
+    "columns": {
+      "documentType": "Type de document",
+      "pattern": "Modèle",
+      "nextNumber": "Prochain numéro",
+      "currentValue": "Valeur actuelle",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "status": {
+      "open": "Ouverte",
+      "frozen": "Gelée"
+    },
+    "frozenSince": "Gelée depuis le {{date}}",
+    "yearlyResetShort": "Recommence chaque année",
+    "edit": "Modifier",
+    "editTitle": "Plage de numéros {{type}}",
+    "pattern": "Modèle",
+    "patternHint": "Espaces réservés : {year} pour l'année, {location_code} pour le code du site, exactement un {counter:N} pour le compteur à N chiffres. Sinon, lettres, chiffres et - / . _ — au plus 16 caractères par numéro.",
+    "startValue": "Valeur de départ",
+    "yearlyReset": "Recommencer chaque année à la valeur de départ",
+    "reason": "Motif (consigné au journal)",
+    "frozenStaffNotice": "Cette plage a déjà attribué des numéros et est gelée. Une modification est une intervention du support et est consignée avec votre motif.",
+    "example": "Prochain numéro",
+    "previewError": "Aucun numéro ne peut être affiché pour ce modèle.",
+    "saveError": "La plage de numéros n'a pas pu être enregistrée.",
+    "documentType": {
+      "offer": "Offre",
+      "order_confirmation": "Confirmation de commande",
+      "sales_contract": "Contrat de vente",
+      "purchase_contract": "Contrat d'achat",
+      "invoice": "Facture",
+      "credit_note": "Note de crédit",
+      "dunning": "Rappel",
+      "service_order": "Ordre de service",
+      "parts_order": "Commande de pièces",
+      "workshop_job": "Ordre d'atelier",
+      "stock_number": "Numéro de stock"
     }
   },
   "notifications": {

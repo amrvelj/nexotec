@@ -27,7 +27,8 @@
       "translations": "Translations",
       "locations": "Locations",
       "branding": "Logo and colours",
-      "standardTexts": "Standard texts"
+      "standardTexts": "Standard texts",
+      "numberRanges": "Number ranges"
     },
     "signOut": "Sign out",
     "environmentNotice": {
@@ -298,7 +299,19 @@
       "plate_move_and_wechselschild": "A plate either moves or becomes an interchangeable plate, not both.",
       "plate_move_before_start": "The assignment on the other vehicle starts on the same day or later – please choose a later «Valid from».",
       "plate_validity_invalid": "An assignment cannot end before it starts.",
-      "plate_wechselschild_not_possible": "An interchangeable plate joins exactly two vehicles – this plate is already on two."
+      "plate_wechselschild_not_possible": "An interchangeable plate joins exactly two vehicles – this plate is already on two.",
+      "invoice_plate_vehicle_unknown": "The vehicle of this contract has no vehicle record a licence plate could be recorded on. Request the invoice without a plate and record the plate on the vehicle afterwards.",
+      "number_pattern_invalid": "The pattern is not valid: exactly one {counter:N} (N from 1 to 9), {year} and {location_code} at most once, otherwise only letters, digits and - / . _",
+      "number_pattern_too_long": "A number following this pattern would be longer than 16 characters.",
+      "number_pattern_location_unavailable": "This document type does not know its location yet; its pattern cannot use {location_code}.",
+      "number_pattern_location_code_missing": "No location of your business has a code for {location_code}. Record a location code first.",
+      "number_pattern_reset_needs_year": "A range that starts again every year needs {year} in its pattern — otherwise a number would be handed out twice.",
+      "number_range_start_out_of_range": "The start value does not fit the counter's digits.",
+      "number_range_frozen": "This number range has handed out numbers already and is frozen. Only Nexotec support can still change it.",
+      "number_range_reason_required": "A change to a frozen number range needs a reason.",
+      "number_range_exhausted": "The number range has no number left for its counter's digits. Please contact support.",
+      "number_location_code_missing": "This number range prints the location code, and the document names no location with a code.",
+      "number_range_counter_too_short": "This pattern's counter has too few digits for the range's next number. Choose more digits for {counter:N}."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1387,7 +1400,23 @@
       "cancelDisabledReasonLegacy": "Sale migrated from the legacy system — already invoiced there, so it cannot be cancelled.",
       "confirmDisabledReasonEmpty": "Still missing a vehicle and a price.",
       "confirmDisabledReasonNoBuyer": "Choose the buyer first: a contract is never confirmed without a customer.",
-      "confirmDisabledReasonSaving": "Changes are still being saved."
+      "confirmDisabledReasonSaving": "Changes are still being saved.",
+      "requestInvoice": "Request invoice",
+      "requestInvoiceDisabledNotConfirmed": "Only possible once the contract is confirmed.",
+      "requestInvoiceDisabledNotPurchased": "The vehicle has not been purchased yet — the invoice can be requested once its purchase is booked in stock.",
+      "requestInvoiceDisabledLegacy": "Sale migrated from the legacy system — already invoiced there."
+    },
+    "requestInvoice": {
+      "title": "Request invoice",
+      "hint": "Which licence plate is the vehicle handed over with? It is recorded on the vehicle and can be found by search.",
+      "withPlate": "With licence plate",
+      "withoutPlate": "Without licence plate",
+      "submit": "Request invoice",
+      "moveSubmit": "Move and request invoice",
+      "requested": "The invoice has been requested.",
+      "requestedWithPlate": "The invoice has been requested. {{plate}} is being recorded on the vehicle.",
+      "error": "The invoice could not be requested.",
+      "moveBeforeStart": "The plate is recorded on the other vehicle only from a day after this contract's delivery date, so it cannot be moved. Request the invoice without a plate and sort out the plate on Vehicle 360."
     },
     "stats": {
       "grossPrice": "Sale price",
@@ -3306,6 +3335,51 @@
     "errors": {
       "saveFailed": "The text could not be saved.",
       "previewFailed": "The preview could not be created."
+    }
+  },
+  "numberRanges": {
+    "title": "Number ranges",
+    "subtitle": "How your business numbers its documents: one continuous sequence per document type across all locations.",
+    "freezeNotice": "A number range is frozen with the first number it hands out. After that its pattern, start value and yearly restart cannot be changed — only by Nexotec support, with a reason. Check the patterns before you create the first document.",
+    "loadError": "The number ranges could not be loaded.",
+    "readOnly": "Only the management can change number ranges.",
+    "columns": {
+      "documentType": "Document type",
+      "pattern": "Pattern",
+      "nextNumber": "Next number",
+      "currentValue": "Current value",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "open": "Open",
+      "frozen": "Frozen"
+    },
+    "frozenSince": "Frozen since {{date}}",
+    "yearlyResetShort": "Starts again every year",
+    "edit": "Edit",
+    "editTitle": "Number range {{type}}",
+    "pattern": "Pattern",
+    "patternHint": "Placeholders: {year} for the year, {location_code} for the location code, exactly one {counter:N} for the counter with N digits. Otherwise letters, digits and - / . _ are allowed — at most 16 characters per number.",
+    "startValue": "Start value",
+    "yearlyReset": "Start again at the start value every year",
+    "reason": "Reason (recorded in the audit log)",
+    "frozenStaffNotice": "This number range has handed out numbers already and is frozen. A change is a support intervention and is recorded with your reason.",
+    "example": "Next number",
+    "previewError": "No number can be shown for this pattern.",
+    "saveError": "The number range could not be saved.",
+    "documentType": {
+      "offer": "Offer",
+      "order_confirmation": "Order confirmation",
+      "sales_contract": "Sales contract",
+      "purchase_contract": "Purchase contract",
+      "invoice": "Invoice",
+      "credit_note": "Credit note",
+      "dunning": "Dunning letter",
+      "service_order": "Service order",
+      "parts_order": "Parts order",
+      "workshop_job": "Workshop job",
+      "stock_number": "Stock number"
     }
   },
   "notifications": {

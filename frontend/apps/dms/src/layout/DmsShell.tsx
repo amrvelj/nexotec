@@ -13,6 +13,7 @@ import {
   Globe,
   FileText,
   Handshake,
+  Hash,
   Languages,
   LayoutDashboard,
   LifeBuoy,
@@ -113,6 +114,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // category is written by the manager or its delegate (FR-A-28) — the
         // entry is never role-hidden (A-RULE-7).
         { label: t('shell.nav.standardTexts'), href: '/administration/texts', icon: FileText, status: 'active' },
+        // KAN-207 — Dealer Administration › Number ranges. Any role reads; the
+        // manager edits an open range, platform staff a frozen one (A-RULE-3).
+        // Never role-hidden (A-RULE-7).
+        { label: t('shell.nav.numberRanges'), href: '/administration/number-ranges', icon: Hash, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
         // Administration, like every other admin entry — A-RULE-7).

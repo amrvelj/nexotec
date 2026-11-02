@@ -151,6 +151,80 @@ def _holder_details(db: Session, rows: Sequence[VehiclePlate]) -> list[dict[str,
     return details
 
 
+def _refuse_unanswered_move(
+    db: Session, *, holders: Sequence[VehiclePlate], move_from: Sequence[PlateVersionRef], valid_from: dt.date
+) -> dt.date:
+    """The move's rules, before anything is written: the caller answered
+    exactly about the cars the plate is current on (409
+    `plate_current_on_other_vehicle`, naming them), each at the version it
+    was shown (a stale one is the If-Match 409), and none of their
+    assignments starts on or after the new one (409
+    `plate_move_before_start`). Returns the day the moved assignments end."""
+
+    answered = {ref.plate_id: ref.version for ref in move_from}
+    if {h.id for h in holders} != set(answered):
+        raise ConflictError(
+            "This plate is current on another vehicle; confirm the move or form a Wechselschild.",
+            details={"reason": "plate_current_on_other_vehicle", "holders": _holder_details(db, holders)},
+        )
+    ends_on = valid_from - dt.timedelta(days=1)
+    for holder in holders:
+        check_version(holder.version, answered[holder.id], entity_name="Plate assignment")
+        if ends_on < holder.valid_from:
+            raise ConflictError(
+                "The other vehicle's assignment starts on or after this one; it cannot be moved from.",
+                details={"reason": "plate_move_before_start", "holders": _holder_details(db, [holder])},
+            )
+    return ends_on
+
+
+@dataclass(frozen=True)
+class PlateRecordingCheck:
+    """What `check_plate_recording` found: the plate in the register's one
+    spelling, and whether this car already carries it over that validity
+    (then a recording would add nothing)."""
+
+    canton: str
+    plate: str
+    already_on_vehicle: bool
+
+
+def check_plate_recording(
+    db: Session,
+    *,
+    vehicle_id: uuid.UUID,
+    group_id: uuid.UUID,
+    plate: str,
+    canton: str,
+    valid_from: dt.date,
+    move_from: Sequence[PlateVersionRef] = (),
+) -> PlateRecordingCheck:
+    """KAN-523 — `record_plate`'s refusals, asked before a caller commits to
+    a recording it will only make later (Sales' «Rechnung anfordern»: the
+    plate is recorded by the vehicle consumer of
+    `sales.contract.invoice_requested`). Reads only: the same spelling (422),
+    and for a plate current on another car of the group the same 409
+    `plate_current_on_other_vehicle` naming it until `move_from` answers
+    for exactly those cars at their versions. A plate this car already
+    carries over the validity is no refusal here — the recording would be a
+    no-op, as a second invoice request for the same car is. No Wechselschild:
+    a car handed over leaves with its own plate."""
+
+    canton, plate = normalise_kontrollschild(canton=canton, plate=plate)
+    rows = db.scalars(
+        select(VehiclePlate).where(
+            VehiclePlate.group_id == group_id, VehiclePlate.plate == plate, VehiclePlate.canton == canton
+        )
+    ).all()
+    overlapping = [r for r in rows if _overlaps(r, valid_from=valid_from, valid_to=None)]
+    if any(r.vehicle_id == vehicle_id for r in overlapping):
+        return PlateRecordingCheck(canton=canton, plate=plate, already_on_vehicle=True)
+    holders = sorted((r for r in overlapping if r.vehicle_id != vehicle_id), key=lambda r: r.valid_from)
+    if holders:
+        _refuse_unanswered_move(db, holders=holders, move_from=move_from, valid_from=valid_from)
+    return PlateRecordingCheck(canton=canton, plate=plate, already_on_vehicle=False)
+
+
 def record_plate(
     db: Session,
     *,
@@ -248,20 +322,8 @@ def record_plate(
         row.plate_group_id = partner.plate_group_id
         row.is_interchangeable = True
     elif holders:
-        answered = {ref.plate_id: ref.version for ref in move_from}
-        if {h.id for h in holders} != set(answered):
-            raise ConflictError(
-                "This plate is current on another vehicle; confirm the move or form a Wechselschild.",
-                details={"reason": "plate_current_on_other_vehicle", "holders": _holder_details(db, holders)},
-            )
-        ends_on = valid_from - dt.timedelta(days=1)
+        ends_on = _refuse_unanswered_move(db, holders=holders, move_from=move_from, valid_from=valid_from)
         for holder in holders:
-            check_version(holder.version, answered[holder.id], entity_name="Plate assignment")
-            if ends_on < holder.valid_from:
-                raise ConflictError(
-                    "The other vehicle's assignment starts on or after this one; it cannot be moved from.",
-                    details={"reason": "plate_move_before_start", "holders": _holder_details(db, [holder])},
-                )
             before = _audit_after(holder)
             holder.valid_to = ends_on
             holder.version += 1

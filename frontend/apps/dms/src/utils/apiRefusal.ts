@@ -156,6 +156,20 @@ const REASON_KEYS: Record<string, string> = {
       'plate_move_before_start',
       'plate_validity_invalid',
       'plate_wechselschild_not_possible',
+      // KAN-207 — number ranges.
+      'number_location_code_missing',
+      'number_pattern_invalid',
+      'number_pattern_location_code_missing',
+      'number_pattern_location_unavailable',
+      'number_pattern_reset_needs_year',
+      'number_pattern_too_long',
+      'number_range_counter_too_short',
+      'number_range_exhausted',
+      'number_range_frozen',
+      'number_range_reason_required',
+      'number_range_start_out_of_range',
+      // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
+      'invoice_plate_vehicle_unknown',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

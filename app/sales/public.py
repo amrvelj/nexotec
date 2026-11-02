@@ -19,6 +19,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.sales.services.contract_status import get_contract_statuses
 from app.sales.services.customer_merge import repoint_customer_sales_records
+from app.sales.services.numbering import legacy_offer_counters
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
 from app.sales.services.signed_trade_ins import valuations_carried_by_signed_contracts
@@ -31,6 +32,7 @@ __all__ = [
     "SalesOwnershipProvider",
     "Transaction",
     "get_contract_statuses",
+    "legacy_offer_counters",
     "oldest_owner_label_age_seconds",
     "refresh_owner_labels",
     "repoint_customer_sales_records",

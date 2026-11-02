@@ -202,7 +202,9 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     installFakeBackend(baseRoutes(() => ({ ...PRICED, status: 'confirmed', signedAt: '2026-10-10T09:00:00Z' })))
     renderPage()
 
-    expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+    // KAN-523: a confirmed contract's primary action is «Rechnung anfordern».
+    expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.requestInvoice') })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).not.toBeInTheDocument()
     expect(screen.queryByTestId('contract-edit')).not.toBeInTheDocument()
   })
 

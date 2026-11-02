@@ -246,7 +246,7 @@ from app.platform.models.dealership import Dealership
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
-from app.sales.services.numbering import allocate_contract_number, allocate_offer_number
+from app.sales.services.numbering import allocate_contract_number, allocate_legacy_offer_number
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
 from app.sales.services.stock_item_purchase import record_stock_item_purchased
@@ -562,7 +562,7 @@ def _migrate_sale(db: Session, txn: Transaction, *, held: _HeldVins) -> RowOutco
 
     offer = SalesOffer(
         tenant_id=txn.tenant_id,
-        offer_number=allocate_offer_number(db, txn.tenant_id),
+        offer_number=allocate_legacy_offer_number(db, txn.tenant_id),
         status=OfferStatus.OPEN,
         customer_id=customer.id,
         customer_label=_customer_label(customer),

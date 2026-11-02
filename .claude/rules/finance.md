@@ -23,11 +23,18 @@ nothing in its Revision 1.2 index touches finance; KAN-373). /drift-audit re-che
   corrections are credit notes. Closed accounting periods lock against everyone. The archive
   is GeBüV-compliant.
 - **ADR-037 — finance is not a ledger:** invoicing and payment matching only.
-- **`app/sales/services/numbering.py` is not the WP-9 kernel.** It is offer and contract
-  numbering: one counter per (dealership, series — `offer` / `contract`), no invoice series,
-  no cancellation record, allocated inside the caller's transaction (a rollback re-issues the
-  same number). Offer and contract numbers are working business keys; the gapless legal number
-  is the invoice's. Do not grow `numbering.py` into the kernel.
+- **Document numbers come from Platform's number ranges** (KAN-207, ADR-109): an invoice, credit
+  note or dunning number is drawn with `platform.public.allocate_number(db, dealership_id=,
+  document_type=…, location_id=)` **inside the transaction that writes the document** — a row
+  lock on the Betrieb's range, never a commit — so a failed write consumes no number (ADR-032,
+  gapless); the range freezes at its first number (A-RULE-3). The `invoice`, `credit_note` and
+  `dunning` ranges exist and are seeded (`R-`/`G-`/`M-{year}-{counter:N}`, yearly reset); nothing
+  draws from them until WP-9. ADR-109 rules this shared transaction for number allocation alone.
+- **`app/sales/services/numbering.py` is not the WP-9 kernel.** It holds Sales' contract counter
+  (one per dealership, inside the caller's transaction) and, during KAN-207's switch, the old offer
+  counter kept in step with the offer range (retired by KAN-540). Offer and contract numbers are
+  working business keys; the gapless legal number is the invoice's. Do not grow `numbering.py`
+  into the kernel.
 - **ADR-052:** `is_invoiceable` is Stock's fact, replicated to Sales through
   `inventory.stock_item.purchased` (kept per stock item in `sales_stock_item_purchase`); Sales
   never asks Stock for it synchronously — `SalesContract.is_invoiceable` is derived on read from

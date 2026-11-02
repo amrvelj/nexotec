@@ -151,6 +151,39 @@ class ContractCancelRequest(CamelModel):
     reason: str
 
 
+class PlateMoveAnswer(CamelModel):
+    """One other car's plate assignment the user confirmed moving the plate
+    from, at the version the refusal showed (its If-Match)."""
+
+    plate_id: uuid.UUID
+    version: int
+
+
+class ContractInvoiceRequest(CamelModel):
+    """KAN-523 — «Rechnung anfordern» with the plate the car leaves with
+    (Anto, 2026-11-01: entered in this step). `plate` and `canton` together,
+    or neither («ohne Kontrollschild»). The body is optional: a request
+    without one hands the car over without a plate, as before.
+
+    When the plate is current on another car of the dealer group the request
+    is refused (409 `plate_current_on_other_vehicle`, the cars in
+    `details.holders` with each assignment's `version`; past the plate-read
+    limit `details.holdersWithheld`); the user's answer is the same request
+    with `moveFrom` — exactly the listed assignments at their versions."""
+
+    plate: str | None = Field(default=None, min_length=1, max_length=16)
+    canton: str | None = Field(default=None, min_length=2, max_length=2)
+    move_from: list[PlateMoveAnswer] = Field(default_factory=list, max_length=2)
+
+    @model_validator(mode="after")
+    def _plate_and_canton_together(self) -> "ContractInvoiceRequest":
+        if (self.plate is None) != (self.canton is None):
+            raise ValueError("plate and canton are given together, or neither")
+        if self.plate is None and self.move_from:
+            raise ValueError("moveFrom answers about a plate; none is given")
+        return self
+
+
 class ContractPage(CamelModel):
     items: list[ContractRead]
     next_cursor: str | None

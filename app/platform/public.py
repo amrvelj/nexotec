@@ -4,6 +4,7 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 """
 
 from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.number_range import NumberRangeDocumentType
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
 from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.user import User
@@ -29,6 +30,7 @@ from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.services.number_range import allocate_number, continue_sequence
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
@@ -85,6 +87,7 @@ __all__ = [
     "Location",
     "NotificationEventCode",
     "NotificationSubject",
+    "NumberRangeDocumentType",
     "ParagraphBlock",
     "Placeholder",
     "RenderedStandardText",
@@ -96,6 +99,8 @@ __all__ = [
     "User",
     "UserDisplayLabel",
     "actor_reference_checks",
+    "allocate_number",
+    "continue_sequence",
     "get_active_reference_value_codes",
     "get_active_user_acting_in",
     "get_dealership_default_correspondence_language",

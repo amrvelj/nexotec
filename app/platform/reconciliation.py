@@ -25,6 +25,7 @@ from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure
 from app.platform.models.module_entitlement import ModuleEntitlement
+from app.platform.models.number_range import NumberRange
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
@@ -63,6 +64,7 @@ ACTOR_TABLES = (
     Holiday,
     LocationClosure,  # created_by / updated_by (KAN-204)
     BrandingAsset,  # uploaded_by (KAN-205)
+    NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]

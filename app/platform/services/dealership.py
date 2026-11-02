@@ -256,6 +256,10 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
     from app.platform.services.location import new_first_location
 
     new_first_location(db, dealership=dealership, actor_id=actor_id)
+    # KAN-207 (D-A-17): its number ranges, with the neutral seeds, unfrozen.
+    from app.platform.services.number_range import seed_number_ranges
+
+    seed_number_ranges(db, dealership_id=dealership.id, actor_id=actor_id)
 
     record_audit_event(
         db,
