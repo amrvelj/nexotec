@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { ColourWheelsTab, type ColourWheelsTabProps } from './ColourWheelsTab'
 import type { CatalogueSpecificationRead } from '../../api/types'
@@ -54,7 +54,7 @@ function defaultProps(props: Partial<ColourWheelsTabProps> = {}): ColourWheelsTa
 function renderTab(props: Partial<ColourWheelsTabProps> = {}) {
   const onChange = vi.fn()
   render(
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={testTheme}>
       <ColourWheelsTab {...defaultProps({ onChange, ...props })} />
     </MantineProvider>,
   )

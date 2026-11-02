@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { TranslatedOverlayProvider } from '../../test/TranslatedOverlayProvider'
 import { DetailsTab } from './DetailsTab'
@@ -38,7 +38,7 @@ describe('DetailsTab commercial card', () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()
     render(
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
         <QueryClientProvider client={new QueryClient()}>
           <TranslatedOverlayProvider>
             <DetailsTab item={ITEM} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
@@ -73,7 +73,7 @@ describe('DetailsTab — date-only fields keep their day west of Greenwich (KAN-
   it('renders the first registration and purchase dates as the recorded day', async () => {
     const user = userEvent.setup()
     render(
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
         <QueryClientProvider client={new QueryClient()}>
           <TranslatedOverlayProvider>
             <DetailsTab
@@ -103,7 +103,7 @@ describe('DetailsTab — date-only fields keep their day west of Greenwich (KAN-
 describe('DetailsTab — the headline before a selling price is built (KAN-359)', () => {
   function renderItem(item: StockItemRead) {
     return render(
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
         <QueryClientProvider client={new QueryClient()}>
           <TranslatedOverlayProvider>
             <DetailsTab item={item} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />

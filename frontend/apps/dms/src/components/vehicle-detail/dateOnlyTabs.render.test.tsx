@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import i18n from '../../i18n'
 import { MantineProvider } from '@mantine/core'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import { AccessoriesTab } from './AccessoriesTab'
 import { OdometerTab } from './OdometerTab'
 import { PlatesTab } from './PlatesTab'
@@ -24,7 +24,7 @@ describe('Vehicle detail tabs — date-only values read dd.MM.yyyy west of Green
     else process.env.TZ = tz
   })
 
-  const wrap = (ui: React.ReactNode) => render(<MantineProvider theme={theme} env="test">{ui}</MantineProvider>)
+  const wrap = (ui: React.ReactNode) => render(<MantineProvider theme={testTheme} env="test">{ui}</MantineProvider>)
 
   it('Plates: valid from and valid to', () => {
     const plates = [
@@ -76,7 +76,7 @@ describe('Accessories — a new accessory is valid from the local day (KAN-358)'
     vi.setSystemTime(new Date('2026-10-14T22:30:00Z'))
     const onAdd = vi.fn(async () => {})
     render(
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
         <AccessoriesTab accessories={[]} loading={false} onAdd={onAdd} onRemove={vi.fn()} />
       </MantineProvider>,
     )

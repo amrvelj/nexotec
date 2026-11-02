@@ -50,10 +50,12 @@ if (typeof window !== 'undefined') {
   // and TanStack Virtual reach for them on mount. No behaviour under test
   // depends on their real semantics — a windowed grid still renders its
   // header, a Select still opens — so inert stand-ins are enough.
+  // KAN-526: the one query answered `true` is reduced motion, so Mantine runs
+  // no transition timers in a render test (renderWithProviders respects it).
   if (!window.matchMedia) {
     window.matchMedia = (query: string) =>
       ({
-        matches: false,
+        matches: query === '(prefers-reduced-motion: reduce)',
         media: query,
         onchange: null,
         addListener: () => {},

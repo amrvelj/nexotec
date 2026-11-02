@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import { theme } from '@nexotec/ui-kit'
+import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { CODED_FIELDS } from '../../configurationOptions'
 import { installFakeBackend, status, type FakeRoute } from '../../test/fakeBackend'
@@ -103,7 +103,7 @@ function listRoutes(over: FakeRoute[] = []): FakeRoute[] {
 function renderCard(ui: ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MantineProvider theme={theme} env="test">
+    <MantineProvider theme={testTheme} env="test">
       <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
     </MantineProvider>,
   )
