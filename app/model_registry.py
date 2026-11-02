@@ -47,6 +47,7 @@ from app.platform.models.notification import (
     PushSubscription,
     UserNotificationPreference,
 )
+from app.platform.models.number_range import NumberRange
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
@@ -142,6 +143,7 @@ __all__ = [
     "ModuleEntitlement",
     "Notification",
     "NotificationEvent",
+    "NumberRange",
     "OutboxMessage",
     "PlateLookupCacheEntry",
     "ProcessedEvent",

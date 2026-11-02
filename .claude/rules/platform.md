@@ -323,7 +323,28 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   contracts it prints keep the footer they printed before (a language or Betrieb without one gets
   the seed default). Sales prints the offer's intro and footer and the contract's footer.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
-  `{location_code}` is a label. Frozen at activation (A-RULE-3).
+  `{location_code}` is a label. **Built (KAN-207):** `number_range` (`app/platform/models/number_range.py`,
+  migration `2b478e186431`), one row per Betrieb per document type (eleven, the PRD's table; customer
+  numbers stay per group, not here), seeded with neutral patterns at `create_dealership` and by the
+  migration for every existing Betrieb, unfrozen (`services/number_range.py::SEEDS`; the offer, contract
+  and stock seeds print today's `O-`/`C-`/`S-{counter:6}`). Pattern: literals `A–Z a–z 0–9 - / . _`,
+  `{year}` (Swiss year), `{location_code}`, exactly one `{counter:N}` (N 1–9), a rendered number at most
+  16 characters (422 `number_pattern_*`); a yearly reset needs `{year}`; an offer may not print
+  `{location_code}` (it knows no site yet). **Platform hands the number out inside the caller's
+  transaction** — `platform.public.allocate_number(db, dealership_id=, document_type=, location_id=,
+  continue_after=)`, a `SELECT … FOR UPDATE` on the range row, never a commit — so a document write that
+  fails consumes no number: **ADR-109**, the ruled exception to ADR-047 (Anto, 2026-10-31, KAN-207 option
+  2), classified in `test_adr_047_no_shared_transaction.py`'s `_RULED_SHARED_TRANSACTIONS` (number
+  allocation alone). The first number freezes the range (A-RULE-3; audit `number_range_frozen`) — at
+  activation too once FR-A-34 exists; after that a change is 409 `number_range_frozen` for everyone but a
+  `platform_admin`, who must give a reason (422 `number_range_reason_required`; audit
+  `number_range_frozen_changed`). Screen `/administration/number-ranges` (`pages/NumberRangesPage.tsx`):
+  the ranges of the modules the Betrieb holds (sales: offer, order confirmation, sales and purchase
+  contract, stock number; finance: invoice, credit note, dunning; aftersales: service order, workshop job;
+  parts: parts order), the next number as an example and the current value read-only, the freeze stated
+  before the first number; `GET/PATCH /v1/dealerships/{id}/number-ranges[/{documentType}]` (If-Match) and
+  `POST …/number-range-previews` (the dialog's live example; writes nothing). **Only the offer draws from
+  it today** (Sales, below); contracts, stock numbers and the rest switch in their own tickets.
 - **Activation gate (D-A-21):** a Betrieb is `pending_onboarding` until every applicable
   checklist item is complete and the manager accepts the current ToS and DPA (D-A-34); until
   then only Dealer Administration and My account are reachable. Today only the status value

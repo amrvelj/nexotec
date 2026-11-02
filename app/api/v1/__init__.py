@@ -26,6 +26,7 @@ from app.platform.api.health import router as health_router
 from app.platform.api.locations import router as locations_router
 from app.platform.api.me import router as me_router
 from app.platform.api.notifications import router as notifications_router
+from app.platform.api.number_ranges import router as number_ranges_router
 from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.reference_data import router as reference_data_router
 from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
@@ -54,6 +55,7 @@ api_v1_router.include_router(locations_router)
 api_v1_router.include_router(branding_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(standard_texts_router)
+api_v1_router.include_router(number_ranges_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)
 api_v1_router.include_router(reference_data_router)

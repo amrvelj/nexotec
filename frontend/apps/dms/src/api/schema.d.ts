@@ -1308,6 +1308,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/number-range-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Number Range
+         * @description The edit dialog's live example: the next number as if the edit were
+         *     saved, or the 422 the save would answer. Writes nothing.
+         */
+        post: operations["preview_number_range_v1_dealerships__dealership_id__number_range_previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/number-ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Number Ranges */
+        get: operations["list_number_ranges_v1_dealerships__dealership_id__number_ranges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/number-ranges/{document_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Number Range
+         * @description Before the range froze: the manager (or platform staff). After: a
+         *     platform admin only, with `reason` (409 `number_range_frozen` for anyone
+         *     else, 422 `number_range_reason_required` without one). Audited with
+         *     before and after.
+         */
+        patch: operations["update_number_range_v1_dealerships__dealership_id__number_ranges__document_type__patch"];
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/settings": {
         parameters: {
             query?: never;
@@ -8179,6 +8240,69 @@ export interface components {
             rate?: number | string | null;
             /** Reason */
             reason: string;
+        };
+        /**
+         * NumberRangeDocumentType
+         * @description The eleven document types the PRD's table names. Customer numbers stay
+         *     per group (`customer_number_sequence`) and are not here.
+         * @enum {string}
+         */
+        NumberRangeDocumentType: "offer" | "order_confirmation" | "sales_contract" | "purchase_contract" | "invoice" | "credit_note" | "dunning" | "service_order" | "parts_order" | "workshop_job" | "stock_number";
+        /** NumberRangeList */
+        NumberRangeList: {
+            /** Items */
+            items: components["schemas"]["NumberRangeRead"][];
+            /** Maychangefrozen */
+            mayChangeFrozen: boolean;
+        };
+        /** NumberRangePreviewRead */
+        NumberRangePreviewRead: {
+            /** Nextnumber */
+            nextNumber: string;
+        };
+        /** NumberRangePreviewRequest */
+        NumberRangePreviewRequest: {
+            documentType: components["schemas"]["NumberRangeDocumentType"];
+            /** Pattern */
+            pattern: string;
+            /** Startvalue */
+            startValue: number;
+            /** Yearlyreset */
+            yearlyReset: boolean;
+        };
+        /** NumberRangeRead */
+        NumberRangeRead: {
+            documentType: components["schemas"]["NumberRangeDocumentType"];
+            /** Frozenat */
+            frozenAt: string | null;
+            /** Lastvalue */
+            lastValue: number | null;
+            module: components["schemas"]["ModuleCode"];
+            /** Nextnumber */
+            nextNumber: string;
+            /** Pattern */
+            pattern: string;
+            /** Startvalue */
+            startValue: number;
+            /** Version */
+            version: number;
+            /** Yearlyreset */
+            yearlyReset: boolean;
+        };
+        /**
+         * NumberRangeUpdate
+         * @description A field left out stays as it is. `reason` is required to change a
+         *     frozen range (platform admin only) and recorded in the audit row.
+         */
+        NumberRangeUpdate: {
+            /** Pattern */
+            pattern?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Startvalue */
+            startValue?: number | null;
+            /** Yearlyreset */
+            yearlyReset?: boolean | null;
         };
         /** ObservedIdentityRead */
         ObservedIdentityRead: {
@@ -15053,6 +15177,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpeningHoursRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_number_range_v1_dealerships__dealership_id__number_range_previews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NumberRangePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberRangePreviewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_number_ranges_v1_dealerships__dealership_id__number_ranges_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberRangeList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_number_range_v1_dealerships__dealership_id__number_ranges__document_type__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                document_type: components["schemas"]["NumberRangeDocumentType"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NumberRangeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberRangeRead"];
                 };
             };
             /** @description Validation Error */

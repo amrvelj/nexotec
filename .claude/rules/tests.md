@@ -41,7 +41,8 @@ as any change to what it states. -->
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
   write committing its own transaction except the one allow-listed entry, the KAN-185 debt
-  (tracked, not ruled); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
+  (tracked, not ruled), and number allocation (`platform.public.allocate_number`, ruled by ADR-109,
+  KAN-207); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
   is the one exception ruled by ADR (ADR-091, KAN-106) and the three other scripts that reach two
   contexts' internals are recorded by name (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven

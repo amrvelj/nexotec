@@ -28,7 +28,16 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
 
 - **ADR-046 — two contract events:** `sales.contract.confirmed` at signature (it carries the
   pricing snapshot) and `sales.contract.invoice_requested` at hand-off. Never one name for both
-  moments.
+  moments. **The hand-off carries the plate the car leaves with** (KAN-523; Anto, 2026-11-01: entered in
+  «Rechnung anfordern», which later becomes «Rechnung generieren»): the request's optional body
+  (`ContractInvoiceRequest`: `plate` + `canton`, or neither for «ohne Kontrollschild»; `moveFrom`)
+  is checked first against the group's plate register through `vehicle.public.check_plate_handover`
+  on a session of its own (`services/invoice_handover.py`; 409 `plate_current_on_other_vehicle` names
+  the other car through the audited plate-read guard until the user confirms the move — Anto: ask, as
+  Vehicle 360 does), the request is audited (`invoice_requested`, whether a plate went with it, never its
+  value), and the payload gains `vehicleId`, `vin`, `groupId`, `plate`, `canton`, `moveFrom`,
+  `requestedOn` and `requestedBy` (the car's fields null without a plate). The contract page's primary
+  action on a confirmed contract is «Rechnung anfordern» (`components/contract-detail/RequestInvoiceDialog.tsx`).
 - **ADR-047** — a write spanning two contexts is a call with a compensating action, never a
   shared transaction (CLAUDE.md rule 12). The one bounded exception is
   `scripts/migrate_transaction_rows.py` (ADR-091, Anto 2026-10-12, KAN-106): it writes Sales and
@@ -309,5 +318,10 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - Offer and contract numbers are **working business keys, not legal document numbers** — the
   gapless legal number is the invoice's (ADR-032, see `.claude/rules/finance.md`).
-  `app/sales/services/numbering.py` allocates one counter per (dealership, series — `offer`,
-  `contract`) inside the caller's transaction, so a rollback re-issues the same number.
+  `app/sales/services/numbering.py` allocates the contract's number from Sales' own counter per
+  dealership inside the caller's transaction, so a rollback re-issues the same number. **The offer's
+  number comes from the Betrieb's `offer` number range in Platform** (KAN-207, ADR-109:
+  `platform.public.allocate_number`, inside the offer's transaction): it continues the sequence Sales'
+  own `offer` counter reached (Anto, 2026-11-01, option 1) — that counter no longer moves and is passed
+  as `continue_after`; `scripts/continue_offer_number_ranges.py` (dry run unless `--commit`) shows each
+  Betrieb's current value on the Number ranges screen before its next offer.

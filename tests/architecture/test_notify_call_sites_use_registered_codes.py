@@ -145,7 +145,8 @@ _PROBE = (
 def test_a_cross_context_notify_is_refused_by_the_adr_047_test(tmp_path):
     from tests.architecture import test_adr_047_no_shared_transaction as adr047
 
-    own, shared, reads = adr047._OWN_COMMIT_WRITES, adr047._SHARED_TRANSACTION_EXCEPTIONS, adr047._READS
+    own, reads = adr047._OWN_COMMIT_WRITES, adr047._READS
+    shared = {**adr047._SHARED_TRANSACTION_EXCEPTIONS, **adr047._RULED_SHARED_TRANSACTIONS}
     symbol = "app.platform.public.notify"
     assert symbol not in own and symbol not in shared and symbol not in reads
     assert adr047._classification_problems(_APP, own, shared, reads) == []
@@ -162,5 +163,6 @@ def test_a_cross_context_notify_is_refused_by_the_adr_047_test(tmp_path):
     as_own_commit = {**own, symbol: ("app.platform.services.notifications.notify", "probe")}
     committed = adr047._classification_problems(app, as_own_commit, shared, reads)
     assert any(symbol in p and "no longer commits" in p for p in committed), committed
-    # The one shared-transaction exception is pinned by name, so it cannot quietly grow.
-    assert set(shared) == {"app.sales.public.repoint_customer_transactions"}
+    # The shared-transaction exceptions are pinned by name, so they cannot quietly grow:
+    # the tracked debt, and number allocation ruled by ADR-109 (KAN-207).
+    assert set(shared) == {"app.sales.public.repoint_customer_transactions", "app.platform.public.allocate_number"}

@@ -34,6 +34,7 @@ const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'L
 const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
 const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
+const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
@@ -106,6 +107,7 @@ export default function App() {
               <Route path="/administration/branding" element={<BrandingPage />} />
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
+              <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
               {/* KAN-209 — Platform Administration › Translations (D-A-23). */}
               <Route path="/platform/translations" element={<TranslationsPage />} />

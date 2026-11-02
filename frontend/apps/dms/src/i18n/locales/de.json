@@ -27,7 +27,8 @@
       "translations": "Übersetzungen",
       "locations": "Standorte",
       "branding": "Logo und Farben",
-      "standardTexts": "Standardtexte"
+      "standardTexts": "Standardtexte",
+      "numberRanges": "Nummernkreise"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -299,7 +300,17 @@
       "plate_move_before_start": "Die Zuordnung auf dem anderen Fahrzeug beginnt am selben Tag oder später – bitte ein späteres «Gültig ab» wählen.",
       "plate_validity_invalid": "Eine Zuordnung kann nicht vor ihrem Beginn enden.",
       "plate_wechselschild_not_possible": "Ein Wechselschild verbindet genau zwei Fahrzeuge – dieses Kontrollschild ist bereits auf zwei Fahrzeugen.",
-      "invoice_plate_vehicle_unknown": "Für das Fahrzeug dieses Vertrags gibt es keinen Fahrzeugdatensatz, auf dem ein Kontrollschild erfasst werden kann. Fordern Sie die Rechnung ohne Kontrollschild an und erfassen Sie es danach beim Fahrzeug."
+      "invoice_plate_vehicle_unknown": "Für das Fahrzeug dieses Vertrags gibt es keinen Fahrzeugdatensatz, auf dem ein Kontrollschild erfasst werden kann. Fordern Sie die Rechnung ohne Kontrollschild an und erfassen Sie es danach beim Fahrzeug.",
+      "number_pattern_invalid": "Das Muster ist ungültig: genau ein {counter:N} (N von 1 bis 9), höchstens einmal {year} und {location_code}, sonst nur Buchstaben, Ziffern und - / . _",
+      "number_pattern_too_long": "Eine Nummer nach diesem Muster wäre länger als 16 Zeichen.",
+      "number_pattern_location_unavailable": "Diese Dokumentart kennt ihren Standort noch nicht; ihr Muster kann {location_code} nicht verwenden.",
+      "number_pattern_location_code_missing": "Kein Standort Ihres Betriebs hat einen Code für {location_code}. Erfassen Sie zuerst einen Standortcode.",
+      "number_pattern_reset_needs_year": "Ein Nummernkreis, der jedes Jahr neu beginnt, braucht {year} im Muster – sonst würde eine Nummer zweimal vergeben.",
+      "number_range_start_out_of_range": "Der Startwert passt nicht in die Stellen des Zählers.",
+      "number_range_frozen": "Dieser Nummernkreis hat bereits Nummern vergeben und ist eingefroren. Nur der Nexotec-Support kann ihn noch ändern.",
+      "number_range_reason_required": "Eine Änderung an einem eingefrorenen Nummernkreis braucht eine Begründung.",
+      "number_range_exhausted": "Der Nummernkreis hat keine Nummer mehr frei für die Stellen seines Zählers. Bitte wenden Sie sich an den Support.",
+      "number_location_code_missing": "Dieser Nummernkreis druckt den Standortcode, und das Dokument nennt keinen Standort mit Code."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -3320,6 +3331,51 @@
     "errors": {
       "saveFailed": "Der Text konnte nicht gespeichert werden.",
       "previewFailed": "Die Vorschau konnte nicht erstellt werden."
+    }
+  },
+  "numberRanges": {
+    "title": "Nummernkreise",
+    "subtitle": "Wie Ihr Betrieb seine Dokumente nummeriert: eine fortlaufende Folge je Dokumentart über alle Standorte.",
+    "freezeNotice": "Ein Nummernkreis wird mit seiner ersten vergebenen Nummer eingefroren. Danach lassen sich Muster, Startwert und jährlicher Neubeginn nicht mehr ändern – nur noch durch den Nexotec-Support, mit Begründung. Prüfen Sie die Muster, bevor Sie das erste Dokument erstellen.",
+    "loadError": "Die Nummernkreise konnten nicht geladen werden.",
+    "readOnly": "Nur die Geschäftsführung kann Nummernkreise ändern.",
+    "columns": {
+      "documentType": "Dokumentart",
+      "pattern": "Muster",
+      "nextNumber": "Nächste Nummer",
+      "currentValue": "Aktueller Stand",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "open": "Offen",
+      "frozen": "Eingefroren"
+    },
+    "frozenSince": "Eingefroren seit {{date}}",
+    "yearlyResetShort": "Beginnt jedes Jahr neu",
+    "edit": "Bearbeiten",
+    "editTitle": "Nummernkreis {{type}}",
+    "pattern": "Muster",
+    "patternHint": "Platzhalter: {year} für das Jahr, {location_code} für den Standortcode, genau ein {counter:N} für den Zähler mit N Stellen. Erlaubt sind sonst Buchstaben, Ziffern und - / . _ – höchstens 16 Zeichen pro Nummer.",
+    "startValue": "Startwert",
+    "yearlyReset": "Jedes Jahr wieder beim Startwert beginnen",
+    "reason": "Begründung (wird protokolliert)",
+    "frozenStaffNotice": "Dieser Nummernkreis hat bereits Nummern vergeben und ist eingefroren. Eine Änderung ist ein Eingriff durch den Support und wird mit Ihrer Begründung protokolliert.",
+    "example": "Nächste Nummer",
+    "previewError": "Für dieses Muster lässt sich keine Nummer anzeigen.",
+    "saveError": "Der Nummernkreis konnte nicht gespeichert werden.",
+    "documentType": {
+      "offer": "Offerte",
+      "order_confirmation": "Auftragsbestätigung",
+      "sales_contract": "Kaufvertrag",
+      "purchase_contract": "Ankaufsvertrag",
+      "invoice": "Rechnung",
+      "credit_note": "Gutschrift",
+      "dunning": "Mahnung",
+      "service_order": "Serviceauftrag",
+      "parts_order": "Teilebestellung",
+      "workshop_job": "Werkstattauftrag",
+      "stock_number": "Lagernummer"
     }
   },
   "notifications": {
