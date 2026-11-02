@@ -47,6 +47,7 @@ from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_settings import DealershipSettings
+from app.platform.models.number_range import NumberRange
 from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate
@@ -65,7 +66,10 @@ _ACTOR_COLUMNS = ("created_by", "updated_by")
 
 
 def _stamp_actor(
-    db: Session, *, actor: User, rows: tuple[DealerGroup | Dealership | User | DealershipSettings | Location, ...]
+    db: Session,
+    *,
+    actor: User,
+    rows: tuple[DealerGroup | Dealership | User | DealershipSettings | Location | NumberRange, ...],
 ) -> list[str]:
     """KAN-318: the demo manager is the actor of its own group, dealership
     and user row. The services stamp whatever actor_id they are given, and
@@ -248,7 +252,9 @@ def main() -> None:
         settings_row = db.scalar(select(DealershipSettings).where(DealershipSettings.dealership_id == dealership.id))
         # KAN-204: so does the first location (FR-A-03), made from the seat.
         locations = tuple(db.scalars(select(Location).where(Location.tenant_id == dealership.id)).all())
-        rows = (group, dealership, user) + ((settings_row,) if settings_row is not None else ()) + locations
+        # KAN-207: and its number ranges, seeded with it.
+        ranges = tuple(db.scalars(select(NumberRange).where(NumberRange.tenant_id == dealership.id)).all())
+        rows = (group, dealership, user) + ((settings_row,) if settings_row is not None else ()) + locations + ranges
         stamped = _stamp_actor(db, actor=user, rows=rows)
         if stamped:
             print(f"Stamped {DEMO_EMAIL} (id={user.id}) as the actor on {', '.join(stamped)}.")
