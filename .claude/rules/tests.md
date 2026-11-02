@@ -37,7 +37,9 @@ as any change to what it states. -->
   table outside the allow-list (inverted by KAN-196 as D-A-07 ruled; a third realm is an ADR),
   no `vatTreatment`, a non-enumerable plate lookup, the
   shared identity response shape, spec-block carriers that do not drift, enum columns only
-  as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84),
+  as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84), no context putting another's
+  ORM class into its own query outside its reconciliation module's reads (KAN-121, ADR-107), and
+  `platform.public.list_group_read_dealerships` called only by Stock's group listing (KAN-121),
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
   write committing its own transaction except the one allow-listed entry, the KAN-185 debt

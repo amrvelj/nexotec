@@ -153,6 +153,13 @@ second local combobox.
   transition keeps the previous screen up until the next chunk arrives — never blank, but no
   loader either (React Router 7's default `startTransition` navigation; no render test pins it).
 
+- **Public legal pages** (KAN-452, ADR-108): `/legal/terms` and `/legal/privacy` are the only
+  routes besides the sign-in screens reachable without a session — lazy routes outside the
+  signed-in layout, text from `legal.*` in all four bundles, `?lang=` picks the language. The
+  sign-in screens link them below the card; signed in, they sit at the foot of the sidebar's
+  account menu (the kit's `Sidebar.footerLinks`, labels from the app, new tab). Every section is a
+  marked draft until counsel reviews it (A-5) — never remove the draft banner by hand.
+
 ## i18n
 
 - Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json`. A new key goes into all

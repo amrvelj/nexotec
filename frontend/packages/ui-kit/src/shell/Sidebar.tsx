@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { Bell, Building2, Check, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from "lucide-react";
+import { Bell, Building2, Check, FileText, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from "lucide-react";
 import { Menu, SegmentedControl, Tooltip, UnstyledButton } from "@mantine/core";
 import { purple, radius, slate, spacing, white } from "../tokens";
 import type { NavGroupConfig, NavItemConfig } from "./types";
@@ -57,6 +57,14 @@ export interface SidebarNotifications {
   active?: boolean;
 }
 
+/** A page linked at the foot of the account menu (KAN-452: the public Terms
+ * of Use and Privacy Policy). It opens in a new tab, so the screen the user
+ * is working on is never lost. The label comes translated from the app. */
+export interface SidebarFooterLink {
+  label: string;
+  href: string;
+}
+
 export interface SidebarProps {
   brand: ReactNode;
   productName: string;
@@ -88,6 +96,9 @@ export interface SidebarProps {
   onSwitchDealership?: (dealershipId: string) => void;
   /** The live notifications row (KAN-216); absent = the disabled placeholder. */
   notifications?: SidebarNotifications;
+  /** Pages listed below a divider at the foot of the account menu, after
+   * sign-out — the shell's footer (KAN-452). Omitted = no such entries. */
+  footerLinks?: SidebarFooterLink[];
   /** Defaults to a plain `<a>`. Pass your router's Link (e.g. react-router's
    * `Link`, which already matches this `to`-prop shape) for SPA navigation. */
   linkComponent?: LinkLike;
@@ -127,6 +138,7 @@ export function Sidebar({
   memberships,
   onSwitchDealership,
   notifications,
+  footerLinks,
   linkComponent,
 }: SidebarProps) {
   const Link = linkComponent ?? DefaultLink;
@@ -462,6 +474,25 @@ export function Sidebar({
               <Menu.Item leftSection={<LogOut size={16} />} onClick={onSignOut}>
                 {labels.signOut}
               </Menu.Item>
+              {footerLinks && footerLinks.length > 0 && (
+                <>
+                  <Menu.Divider />
+                  {footerLinks.map((link) => (
+                    <Menu.Item
+                      key={link.href}
+                      component="a"
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      leftSection={<FileText size={16} />}
+                      fz="xs"
+                      c="dimmed"
+                    >
+                      {link.label}
+                    </Menu.Item>
+                  ))}
+                </>
+              )}
             </Menu.Dropdown>
           </Menu>
         )}

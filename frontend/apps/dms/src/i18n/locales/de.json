@@ -1176,7 +1176,8 @@
       "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
       "isInvoiceable": "Fakturierbar",
       "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
-      "notRecorded": "Noch kein Einkauf erfasst."
+      "notRecorded": "Noch kein Einkauf erfasst.",
+      "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab."
     },
     "wagenbuch": {
       "result": "Ergebnis",
@@ -1272,7 +1273,8 @@
       "title": "Konfiguration",
       "missing": "Diesem Fahrzeug ist keine Konfiguration zugeordnet. Ohne sie fehlen die technischen Daten.",
       "attach": "Konfiguration zuordnen",
-      "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen."
+      "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen.",
+      "edit": "Konfiguration bearbeiten"
     }
   },
   "salesList": {
@@ -3423,6 +3425,46 @@
       "sessionsRevoked": "alle Sitzungen beendet",
       "managerGranted": "Manager-Recht erteilt",
       "emailChanged": "Anmeldeadresse geändert"
+    }
+  },
+  "legal": {
+    "linksLabel": "Rechtliches",
+    "termsLink": "Nutzungsbedingungen",
+    "privacyLink": "Datenschutzerklärung",
+    "toSignIn": "Zur Anmeldung",
+    "language": "Sprache",
+    "draftNotice": "Entwurf – von der Rechtsberatung zu prüfen. Diese Seite ist noch nicht verbindlich; ihren Inhalt legen Nexotec und die Rechtsberatung fest.",
+    "placeholder": "Platzhalter – Entwurf, von der Rechtsberatung zu prüfen. Der Text dieses Abschnitts folgt.",
+    "reviewPending": "Entwurf – Prüfung durch die Rechtsberatung ausstehend",
+    "terms": {
+      "title": "Nutzungsbedingungen",
+      "sections": {
+        "scope": "Geltungsbereich",
+        "services": "Leistungen",
+        "access": "Zugang und Benutzerkonten",
+        "places": "Adressvorschläge (Google Places)",
+        "liability": "Haftung",
+        "law": "Anwendbares Recht und Gerichtsstand"
+      },
+      "places": {
+        "body": "Die Adresssuche im DMS nutzt die Google Maps Platform (Places API). Wer die Adressvorschläge nutzt, ist an die <terms>Nutzungsbedingungen von Google</terms> gebunden; für die Bearbeitung durch Google gilt die <privacy>Datenschutzerklärung von Google</privacy>. Ein Betrieb kann die Funktion unter Verwaltung › Betrieb › Adresseingabe jederzeit abschalten."
+      }
+    },
+    "privacy": {
+      "title": "Datenschutzerklärung",
+      "sections": {
+        "controller": "Verantwortlicher und Kontakt",
+        "data": "Bearbeitete Personendaten",
+        "purposes": "Zwecke der Bearbeitung",
+        "places": "Adressvorschläge (Google Places)",
+        "recipients": "Empfänger und Bekanntgabe ins Ausland",
+        "retention": "Aufbewahrung",
+        "rights": "Ihre Rechte"
+      },
+      "places": {
+        "body": "Beim Erfassen einer Adresse im DMS wird der eingetippte Adresstext – und nur dieser, nie ein Name oder andere Kundendaten – an Google Ireland Limited übermittelt, um Vorschläge anzuzeigen. Google verarbeitet diese Angaben als eigenständige Verantwortliche nach den Google Maps Platform Nutzungsbedingungen und den Google Controller-Controller Data Protection Terms (einschliesslich der Standardvertragsklauseln für Übermittlungen aus der Schweiz). Gespeichert wird nur die vom Mitarbeiter ausgewählte Adresse. Der Betrieb kann die Funktion unter Verwaltung › Betrieb › Adresseingabe jederzeit abschalten.",
+        "google": "Wie Google diese Angaben bearbeitet, beschreibt die <privacy>Datenschutzerklärung von Google</privacy>; für die Adressvorschläge gelten zudem die <terms>Nutzungsbedingungen von Google</terms>."
+      }
     }
   }
 }

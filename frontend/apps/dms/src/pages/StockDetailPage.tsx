@@ -271,6 +271,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
           onReload={reload}
           canRecordPurchase={canBookPurchase}
           canAttachConfiguration={canWriteStockItems && canWriteConfigurations}
+          canEditConfiguration={canWriteConfigurations}
           onRecordPurchase={recordPurchase}
         />
       )}

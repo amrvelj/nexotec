@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.validators import normalise_vin
 from app.inventory.models.stock_item import (
     AgeingBucket,
     LifecycleStatus,
@@ -133,13 +134,27 @@ def _vin_already_in_stock(held_by: StockItem) -> ConflictError:
     )
 
 
-def _configuration_vin_differs() -> UnprocessableEntityError:
+def configuration_vin_differs(configuration_vin: str | None, vin: str | None) -> bool:
+    """KAN-463, KAN-510: the configuration names one car and the stock item
+    (or the VIN typed for it) another. Only when both carry one: a
+    configuration without a VIN (a factory order, `build`) takes the car's.
+    Compared in the one spelling (`normalise_vin`, KAN-244), so a VIN typed
+    in lower case or in groups is the same VIN."""
+
+    if configuration_vin is None or vin is None:
+        return False
+    return normalise_vin(configuration_vin) != normalise_vin(vin)
+
+
+def configuration_vin_differs_error(*, field: str = "configurationId") -> UnprocessableEntityError:
     """KAN-463: a configuration whose VIN is not the stock item's describes
-    another car; linking it would show that car's technical data."""
+    another car; linking it would show that car's technical data. `field`
+    names what the request got wrong: the configuration it links, or (purchase
+    booking, KAN-510) the VIN it typed."""
 
     return UnprocessableEntityError(
         "The configuration's VIN is not this stock item's VIN.",
-        details={"field": "configurationId", "reason": "configuration_vin_differs"},
+        details={"field": field, "reason": "configuration_vin_differs"},
     )
 
 
@@ -310,8 +325,8 @@ def create_stock_item(
         )
         # KAN-463: the configuration is the car's technical data, so one
         # that names another car is refused, as on «Konfiguration zuordnen».
-        if data.vin is not None and configuration.vin is not None and configuration.vin != data.vin:
-            raise _configuration_vin_differs()
+        if configuration_vin_differs(configuration.vin, data.vin):
+            raise configuration_vin_differs_error()
         configuration_label = configuration.label
     if data.vin is not None:
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
@@ -388,8 +403,8 @@ def attach_configuration(
         )
     configuration = get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=configuration_id)
     configuration.require_mode(host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD))
-    if item.vin is not None and configuration.vin is not None and configuration.vin != item.vin:
-        raise _configuration_vin_differs()
+    if configuration_vin_differs(configuration.vin, item.vin):
+        raise configuration_vin_differs_error()
     _lock_configuration(db, tenant_id=item.tenant_id, configuration_id=configuration.id)
     _check_configuration_not_held(db, tenant_id=item.tenant_id, configuration_id=configuration.id)
     item.configuration_id = configuration.id

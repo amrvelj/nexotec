@@ -1,5 +1,14 @@
 """ADR-055 group-readable stock listing (WP-7 PR-7).
 
+KAN-121 (rule 2): which Betriebe belong to the group, and their labels, is
+platform's answer (`platform.public.list_group_read_dealerships`, plain
+data, None while the group's read is off or the group is unknown); this
+module — the one ruled caller, `test_group_read_dealerships_callers.py` —
+selects only its
+own StockItem rows by those ids and never joins or filters on a platform
+table. The two checks below — the caller's own group, the group's read
+enabled, 404 never 403 — are unchanged.
+
 Stock's tenant scope is the DEALERSHIP, not the group (unlike Customer,
 which is natively group-scoped per ADR-014) — so this is a genuine
 cross-tenant read, gated the same way app.core.tenancy.
@@ -24,7 +33,7 @@ from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.inventory.models.stock_item import StockItem
-from app.platform.public import DealerGroup, Dealership
+from app.platform.public import DealershipRef, list_group_read_dealerships
 
 
 def list_group_stock_items(
@@ -35,7 +44,7 @@ def list_group_stock_items(
     is_authorized: Callable[[], bool],
     q: str | None,
     params: SortPageParams,
-) -> tuple[list[tuple[StockItem, Dealership]], str | None, int, bool]:
+) -> tuple[list[tuple[StockItem, DealershipRef]], str | None, int, bool]:
     """Returns one page of (item, dealership) pairs so the caller can build
     dealershipLabel without a second round trip, plus the next cursor and
     the capped total — sorted, searched and paged server-side exactly like
@@ -50,12 +59,14 @@ def list_group_stock_items(
     if not is_authorized() or principal_group_id != requested_group_id:
         raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
 
-    group = db.get(DealerGroup, requested_group_id)
-    if group is None or not group.group_read_enabled:
+    # None for a group that does not exist or whose read is off — the same
+    # 404 as before.
+    refs = list_group_read_dealerships(db, group_id=requested_group_id)
+    if refs is None:
         raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
+    dealerships = {ref.id: ref for ref in refs}
 
-    dealership_ids = select(Dealership.id).where(Dealership.dealer_group_id == requested_group_id)
-    stmt = select(StockItem).where(StockItem.tenant_id.in_(dealership_ids), StockItem.left_stock_at.is_(None))
+    stmt = select(StockItem).where(StockItem.tenant_id.in_(list(dealerships)), StockItem.left_stock_at.is_(None))
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
@@ -68,13 +79,9 @@ def list_group_stock_items(
     rows = list(db.scalars(paginate_query_sorted(stmt, model=StockItem, params=params)).all())
     items, next_cursor = build_sorted_page(rows, params)
 
-    # The page's dealerships in one query, rather than joining them into
-    # the paged statement: build_sorted_page reads the cursor's sort values
-    # off a StockItem, not a row tuple.
-    tenant_ids = {item.tenant_id for item in items}
-    dealerships = (
-        {d.id: d for d in db.scalars(select(Dealership).where(Dealership.id.in_(tenant_ids)))} if tenant_ids else {}
-    )
+    # The label is attached in Python from platform's answer above, never
+    # joined into the paged statement (rule 2; build_sorted_page also reads
+    # the cursor's sort values off a StockItem, not a row tuple).
     return [(item, dealerships[item.tenant_id]) for item in items], next_cursor, total, total_is_estimate
 
 
@@ -86,9 +93,9 @@ def get_stock_items_for_vehicles(
     (the customer 360's Vehicles tab, one lookup for the whole page).
     Same cross-tenant shape as list_group_stock_items above (Stock is
     dealership-scoped, not group-scoped — this module exists specifically
-    for that JOIN on Dealership.dealer_group_id, see the module docstring
-    and test_no_ambient_group_read.py's own file allowlist), so it lives
-    here rather than in stock_item.py.
+    for that group-wide read, see the module docstring; since KAN-121 the
+    group's Betriebe come from platform.public.list_group_read_dealerships),
+    so it lives here rather than in stock_item.py.
 
     A plain dict per match, never an ORM row — matching
     get_stock_item_pricing's own "plain dict, not an ORM row" posture so
@@ -112,11 +119,11 @@ def get_stock_items_for_vehicles(
     if not vehicle_ids:
         return {}
 
-    group = db.get(DealerGroup, group_id)
-    if group is None or not group.group_read_enabled:
+    refs = list_group_read_dealerships(db, group_id=group_id)
+    if not refs:
         return {}
+    dealership_ids = [ref.id for ref in refs]
 
-    dealership_ids = select(Dealership.id).where(Dealership.dealer_group_id == group_id)
     rows = list(
         db.scalars(
             select(StockItem)

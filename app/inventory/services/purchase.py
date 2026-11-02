@@ -15,8 +15,13 @@ from app.core.errors import UnprocessableEntityError
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
 from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
 from app.inventory.services.pipeline import promote_and_flush
-from app.inventory.services.stock_item import mark_purchased_if_ready
+from app.inventory.services.stock_item import (
+    configuration_vin_differs,
+    configuration_vin_differs_error,
+    mark_purchased_if_ready,
+)
 from app.platform.public import get_dealership_or_404
+from app.vehicle.public import get_configuration_for_host
 
 
 def _compute_notional_input_tax(*, purchase_price: Decimal, rate: Decimal | None) -> Decimal | None:
@@ -44,7 +49,8 @@ def record_purchase(
     promoted (FR-V-04) in this same transaction before the purchase facts
     are written, so `mark_purchased_if_ready` below publishes
     `inventory.stock_item.purchased` at once. A refused promotion (a VIN
-    already in stock) writes neither.
+    already in stock) writes neither, nor does a VIN that is not the item's
+    configuration's (422 `configuration_vin_differs`, KAN-510).
     """
 
     if item.lifecycle_status == LifecycleStatus.PIPELINE:
@@ -53,6 +59,19 @@ def record_purchase(
                 f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
                 details={"reason": "purchase_requires_vin", "stockItemId": str(item.id)},
             )
+        # KAN-510 (Anto, 2026-11-01): the configuration is the car's
+        # technical data (KAN-463), so a VIN that is not its own would put
+        # another car on stock under it — refused as the create and
+        # «Konfiguration zuordnen» refuse it, before vehicle-mdm or the item
+        # is touched. A configuration without a VIN (a factory order) takes
+        # the typed one. The VIN is corrected in the configuration itself
+        # («Konfiguration bearbeiten»), never by this booking.
+        if item.configuration_id is not None:
+            configuration = get_configuration_for_host(
+                db, tenant_id=item.tenant_id, configuration_id=item.configuration_id
+            )
+            if configuration_vin_differs(configuration.vin, data.vin):
+                raise configuration_vin_differs_error(field="vin")
         item = promote_and_flush(db, item=item, vin=data.vin)
     elif data.vin is not None and data.vin != item.vin:
         raise UnprocessableEntityError(

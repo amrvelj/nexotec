@@ -121,9 +121,9 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
 ## Non-negotiable rules
 
 1. **One writer per fact.** Every piece of data has exactly one owning context.
-2. **No cross-context foreign keys, joins or shared tables.** Another context's ID is a plain
-   `GUID` column with a comment naming the owner, plus a denormalised display label and a
-   `labelRefreshedAt` timestamp — the three-column pattern.
+2. **No cross-context foreign keys, joins, queries or shared tables.** Another context's ID is a
+   plain `GUID` with an owner comment, a denormalised label and `labelRefreshedAt` (the three-column
+   pattern); its data comes from a `public` function — in `app/` only `reconciliation.py` reads across (ADR-107).
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
    import-linter gates CI with **no suppression mechanism** and forbids every top-level module of a
    context but `public`; `test_import_contracts_cover_every_module.py` fails when a new module is

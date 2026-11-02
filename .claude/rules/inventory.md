@@ -28,7 +28,19 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   on a pipeline item needs the VIN (`RecordPurchaseRequest.vin`; 422 `purchase_requires_vin`
   without it) and promotes the item before the purchase facts are written, in one transaction,
   so `inventory.stock_item.purchased` is published at once; on an item in stock a `vin` that is
-  not the item's is 422 `purchase_vin_mismatch`. A pipeline item is never bought without its
+  not the item's is 422 `purchase_vin_mismatch`. **A pipeline item is bought with its
+  configuration's VIN** (KAN-510; Anto, 2026-11-01, option B then A): when the configuration
+  carries one, another `vin` is 422 `configuration_vin_differs` (`field: vin`), compared in the one
+  spelling (`services/stock_item.py::configuration_vin_differs`, the create's and
+  «Konfiguration zuordnen»'s rule), before vehicle-mdm or the item is touched; a configuration
+  without one (a factory order) takes the typed VIN, an item without a configuration is unchanged.
+  `RecordPurchaseDialog` prefills it, and on a pipeline car the Betrieb took in itself the refusal
+  offers «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle.md, Host /
+  mode matrix). Not on a pipeline car a contract created (`pipelineRef` «contract:…»): its
+  configuration is the signed one, so a wrong VIN there cannot be corrected on screen until Anto
+  rules (KAN-510): the booking refuses the real VIN, so the car is either booked under the wrong one
+  or never reaches stock (and cannot be invoiced); `PATCH /v1/configurations/{id}` still accepts the
+  correction. A pipeline item is never bought without its
   VIN, so FR-I-02b's «purchase booked first, VIN later» order no longer exists. Offer and
   contract stay possible at every phase; invoicing stays gated on the purchase.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
@@ -44,7 +56,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
   invoicing and valuation fields are absent from it; `listPrice` is deliberately present. In the
   UI, group stock is a scope switch (`ScopeSwitchMenu`); the dealership is a column, not
-  sortable (it lives on platform's table). A dealership filter is not built (KAN-104).
+  sortable (it lives on platform's table). A dealership filter is not built (KAN-104). Which
+  Betriebe are in the group, and their labels, is platform's answer
+  (`platform.public.list_group_read_dealerships`, KAN-121, ADR-107): Stock never joins platform's
+  tables.
 - **ADR-049** — full commercial visibility inside the dealership (margin, discounts,
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - **Stock is licensed with the `sales` module** (D-A-04, KAN-198): every inventory router

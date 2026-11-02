@@ -106,8 +106,12 @@ present-tense claim checked against the code, every "not built" claim grepped fo
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
   `tests/architecture/test_no_ambient_group_read.py` allow-lists — `core/tenancy.py`
   (`get_group_read_or_404`), `customer/services/customer.py`, `customer/services/legal_basis.py`,
-  `inventory/services/group_listing.py`, `platform/services/dealership.py` (staff-only listing),
-  `platform/services/group_labels.py` (KAN-371, ADR-093: the History tab's names). The test catches
+  `platform/services/group_read_dealerships.py` (ADR-055's group stock roster: the group's Betriebe
+  while its read is on, `platform.public.list_group_read_dealerships`, plain data — moved there from
+  `inventory/services/group_listing.py` by KAN-121, ADR-107; its one ruled caller is that Stock
+  module, confined by `tests/architecture/test_group_read_dealerships_callers.py`), `platform/services/dealership.py` (staff-only listing),
+  `platform/services/group_labels.py` (KAN-371, ADR-093: the History tab's names), `vehicle/services/plate.py`
+  (KAN-467: the group's Kontrollschild register). The test catches
   `group_id` / `dealer_group_id` in `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)`
   (a multi-line `text()` escapes it). A new group read is an ADR plus an allowlist entry.
   Cross-tenant reads return 404, never 403.
