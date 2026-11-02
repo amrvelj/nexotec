@@ -3,7 +3,7 @@
 // for why this one reference is the right opt-in.
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { dirname, join, posix, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
@@ -19,7 +19,7 @@ import ts from 'typescript'
 //   from (`primary: newOffer ?? linkVehicle`, each an object whose `onClick`
 //   is `<handlers parameter>.onX`);
 // - every `use…RowMenu` hook: the object it returns (KAN-512), so a call
-//   through it (`menu.requestDeactivation(location)`) is followed into it;
+//   through it (`menu.toggleActive(location)`) is followed into it;
 // - every file that renders `<DetailHeader`: the value passed for each of
 //   those handlers to the builder, and the `onClick` of an inline
 //   `primaryAction={{ … }}`.
@@ -41,10 +41,24 @@ import ts from 'typescript'
 // `navigator.clipboard`) counts as real work, as does a TanStack Query
 // mutation's `mutate`; inside a condition (`if (isAllocate(kind))`) such a
 // call is a predicate and counts as nothing. A row-menu hook is followed only
-// through the page's import, when one file declares it. Known misses
-// (KAN-518): a call to a destructured local, a function a hook returns and a
-// callback handed to an import are trusted; a `let` handler is read by its
-// first value.
+// through the page's import of the file that declares it, when one file
+// declares that name and no local shadows it.
+// KAN-518: a name bound by destructuring is followed where the scan can read
+// it — a member of a local object or of a row-menu hook — and a call to it
+// cannot be followed otherwise (`const { allocate } = useStartActions()`,
+// `const [, start] = useDispatcher()`, `const { onAllocateProp } = props`),
+// except the values `TRUSTED_DESTRUCTURED` names with a reason (a `useState`
+// or `useReducer` setter, `setSearchParams`, `t`). A call to a local holding a
+// hook's result (`const startAction = useStartAction()`) cannot be followed
+// either, except a hook `TRUSTED_HOOK_RESULTS` names (`useNavigate`). A
+// function literal handed to an import or a global (`startTransition(() => …)`,
+// `setTimeout(() => …)`) is judged as if it ran, the call itself counting as
+// nothing. A `let` handler is judged by every value assigned to it.
+// Known misses: a callback inside an object handed to an import
+// (`modals.openConfirmModal({ onConfirm: () => … })`) is not judged — opening
+// the dialog is the work; a binding is judged by name across the whole file,
+// so a local in one function and a destructured name in another of the same
+// spelling are judged together (never more leniently than either alone).
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -92,13 +106,71 @@ function unwrap(node: ts.Expression): ts.Expression {
   return current
 }
 
-/** Every `const name = …` and `function name() {}` in the file, by name. */
+const REASSIGNING = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+])
+
+/**
+ * Every `const name = …` and `function name() {}` in the file, by name — and
+ * every value later assigned to a `let`/`var` name (KAN-518), so a handler
+ * reassigned after its declaration is judged by each value it can hold.
+ */
 function declarations(file: ts.SourceFile): Map<string, ts.Node[]> {
   const found = new Map<string, ts.Node[]>()
   const add = (name: string, node: ts.Node) => found.set(name, [...(found.get(name) ?? []), node])
+  const mutable = new Set<string>()
   walk(file, (n) => {
     if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) add(n.name.text, n.initializer)
     if (ts.isFunctionDeclaration(n) && n.name) add(n.name.text, n)
+    if (ts.isVariableDeclarationList(n) && !(n.flags & ts.NodeFlags.Const)) {
+      for (const d of n.declarations) if (ts.isIdentifier(d.name)) mutable.add(d.name.text)
+    }
+  })
+  walk(file, (n) => {
+    if (ts.isBinaryExpression(n) && REASSIGNING.has(n.operatorToken.kind) && ts.isIdentifier(n.left) && mutable.has(n.left.text)) {
+      add(n.left.text, n.right)
+    }
+  })
+  return found
+}
+
+/** One step from a destructured value to the name it binds: an array element, or a property (`null`: a computed key). */
+type BindingStep = { index: number } | { property: string | null }
+
+/** A name bound by destructuring (`const { a } = x`, `const [, b] = useY()`): where its value comes from. */
+interface DestructuredBinding {
+  source: ts.Expression
+  path: BindingStep[]
+  /** The `= fallback` the binding names, if any. */
+  fallback?: ts.Expression
+}
+
+/** Every name a `const`/`let` destructuring binds, by name — parameters are not here (they are `parameterNames`). */
+function destructuredBindings(file: ts.SourceFile): Map<string, DestructuredBinding[]> {
+  const found = new Map<string, DestructuredBinding[]>()
+  const bind = (name: ts.BindingName, source: ts.Expression, path: BindingStep[], fallback?: ts.Expression) => {
+    if (ts.isIdentifier(name)) {
+      found.set(name.text, [...(found.get(name.text) ?? []), { source, path, fallback }])
+      return
+    }
+    name.elements.forEach((element, index) => {
+      if (!ts.isBindingElement(element)) return // an array hole
+      let step: BindingStep
+      if (ts.isArrayBindingPattern(name)) step = { index }
+      else {
+        const key = element.propertyName ?? (ts.isIdentifier(element.name) ? element.name : undefined)
+        step = { property: key && (ts.isIdentifier(key) || ts.isStringLiteral(key)) ? key.text : null }
+      }
+      // A rest element (`...rest`) holds what is left: no one member, so a computed step.
+      if (element.dotDotDotToken) step = { property: null }
+      bind(element.name, source, [...path, step], element.initializer)
+    })
+  }
+  walk(file, (n) => {
+    if (ts.isVariableDeclaration(n) && !ts.isIdentifier(n.name) && n.initializer) bind(n.name, n.initializer, [])
   })
   return found
 }
@@ -191,6 +263,7 @@ interface RowMenuHook {
   scope: FileScope
   returned: ts.ObjectLiteralExpression
 }
+// (`scope.path` is the file that declares it: a page's import must name that file.)
 
 /** Hook name → the hook, or `ambiguous` when two files declare that name (which one a page means is then not known). */
 type RowMenuHooks = Map<string, RowMenuHook | 'ambiguous'>
@@ -215,11 +288,19 @@ function judgeState(): JudgeState {
 
 /** What the scan knows of one file. */
 interface FileScope extends JudgeState {
+  /** The file's path under `src/`, against which its relative imports resolve. */
+  path: string
   decls: Map<string, ts.Node[]>
+  destructured: Map<string, DestructuredBinding[]>
   params: Set<string>
-  /** Names the file imports: a row-menu hook is followed only through its import. */
-  imports: Set<string>
+  /** Names the file imports, with the name exported and the module: a row-menu hook is followed only through its import. */
+  imports: Map<string, ImportedName>
   rowMenuHooks: RowMenuHooks
+}
+
+interface ImportedName {
+  exported: string
+  from: string
 }
 
 /** Every name a function parameter binds, destructured ones included (`({ onEdit }) => …`). */
@@ -235,21 +316,41 @@ function parameterNames(file: ts.SourceFile): Set<string> {
   return names
 }
 
-/** The names a file's `import` declarations bind. */
-function importedNames(file: ts.SourceFile): Set<string> {
-  const names = new Set<string>()
+/** The names a file's `import` declarations bind: local name → the name exported and the module. */
+function importedNames(file: ts.SourceFile): Map<string, ImportedName> {
+  const names = new Map<string, ImportedName>()
   for (const statement of file.statements) {
-    const clause = ts.isImportDeclaration(statement) ? statement.importClause : undefined
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    const clause = statement.importClause
     if (!clause) continue
-    if (clause.name) names.add(clause.name.text)
+    const from = statement.moduleSpecifier.text
+    if (clause.name) names.set(clause.name.text, { exported: 'default', from })
     const bindings = clause.namedBindings
-    if (bindings && ts.isNamedImports(bindings)) for (const element of bindings.elements) names.add(element.name.text)
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) names.set(element.name.text, { exported: (element.propertyName ?? element.name).text, from })
+    }
   }
   return names
 }
 
-function fileScope(file: ts.SourceFile, rowMenuHooks: RowMenuHooks = new Map(), state: JudgeState = judgeState()): FileScope {
-  return { ...state, decls: declarations(file), params: parameterNames(file), imports: importedNames(file), rowMenuHooks }
+/** Whether `specifier`, imported by the file at `importer`, is the module at `target` (paths under `src/`). */
+function importResolvesTo(importer: string, specifier: string, target: string): boolean {
+  if (!specifier.startsWith('.')) return false // a package's export of the same name is not the app's hook
+  const resolved = posix.normalize(posix.join(posix.dirname(importer.split('\\').join('/')), specifier))
+  const module = target.split('\\').join('/').replace(/\.tsx?$/, '')
+  return resolved === module || `${resolved}/index` === module
+}
+
+function fileScope(file: ts.SourceFile, path: string, rowMenuHooks: RowMenuHooks = new Map(), state: JudgeState = judgeState()): FileScope {
+  return {
+    ...state,
+    path,
+    decls: declarations(file),
+    destructured: destructuredBindings(file),
+    params: parameterNames(file),
+    imports: importedNames(file),
+    rowMenuHooks,
+  }
 }
 
 /**
@@ -262,7 +363,7 @@ function rowMenuHooksOf(sources: Source[], state: JudgeState): RowMenuHooks {
   for (const source of sources) {
     if (!/function use\w*RowMenu\b/.test(source.text)) continue
     const file = parse(source)
-    const scope = fileScope(file, hooks, state)
+    const scope = fileScope(file, source.path, hooks, state)
     for (const statement of file.statements) {
       if (!ts.isFunctionDeclaration(statement) || !statement.name || !/^use\w*RowMenu$/.test(statement.name.text) || !statement.body) continue
       const name = statement.name.text
@@ -489,10 +590,35 @@ function expressionWays(node: ts.Expression, scope: FileScope, mode: Mode): Ways
   return NONE // a name, a literal, a member read, a function not called
 }
 
+/** A name the file neither declares, destructures nor takes as a parameter: an import or a global. */
+function isOpaqueName(name: string, scope: FileScope): boolean {
+  return !scope.decls.has(name) && !scope.destructured.has(name) && !scope.params.has(name)
+}
+
+/** A callee the scan does not read into because it is an import or a global, or a member reached through one (`api.post`). */
+function isOpaqueCallee(callee: ts.Expression, scope: FileScope): boolean {
+  if (ts.isIdentifier(callee)) return isOpaqueName(callee.text, scope)
+  if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) {
+    const root = rootName(callee.expression)
+    return root !== null && isOpaqueName(root, scope)
+  }
+  return false
+}
+
 function callWays(call: ts.CallExpression, scope: FileScope, mode: Mode): Ways {
   if (isTabSwitchCall(call)) return [way('tab-switch')]
-  const args = thenAll(call.arguments.map((a) => expressionWays(a, scope, mode)))
   const callee = unwrap(call.expression)
+  // KAN-518: a function literal handed to an import or a global
+  // (`startTransition(() => …)`, `setTimeout(() => …)`) is judged as if it
+  // ran, and the call itself counts as nothing: what it does is the callback.
+  const callbacks = call.arguments.map(unwrap).filter((a) => ts.isArrowFunction(a) || ts.isFunctionExpression(a))
+  if (callbacks.length > 0 && isOpaqueCallee(callee, scope)) {
+    return thenAll(call.arguments.map((a) => {
+      const arg = unwrap(a)
+      return ts.isArrowFunction(arg) || ts.isFunctionExpression(arg) ? functionWays(arg, scope, mode) : expressionWays(a, scope, mode)
+    }))
+  }
+  const args = thenAll(call.arguments.map((a) => expressionWays(a, scope, mode)))
   let ways: Ways
   if (ts.isIdentifier(callee)) ways = nameCallWays(callee.text, scope, mode)
   else if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) ways = memberCallWays(callee, scope, mode)
@@ -501,15 +627,93 @@ function callWays(call: ts.CallExpression, scope: FileScope, mode: Mode): Ways {
   return then(args, ways)
 }
 
-/** Calling a bare name: a local function is followed; a parameter (a prop) cannot be; an import, a state setter or `navigate` is trusted. */
+/**
+ * Calling a bare name: a local function is followed, and so is a name
+ * destructured from what the scan can read; a parameter (a prop) cannot be;
+ * an import or a global is trusted.
+ */
 function nameCallWays(name: string, scope: FileScope, mode: Mode): Ways {
-  const targets = scope.decls.get(name)
-  if (targets) {
+  const targets = scope.decls.get(name) ?? []
+  const bound = scope.destructured.get(name) ?? []
+  if (targets.length > 0 || bound.length > 0) {
     return either(
       ...targets.map((t) => (ts.isFunctionDeclaration(t) ? functionWays(t, scope, mode) : localValueCallWays(t as ts.Expression, scope, mode))),
+      ...bound.map((b) => destructuredCallWays(b, scope, mode)),
     )
   }
   return scope.params.has(name) ? UNRESOLVED : trusted(mode)
+}
+
+/**
+ * KAN-518 — the destructured values a handler body may call although the
+ * scan cannot read into the hook that returns them, each with why. Anything
+ * else destructured from a call's result cannot be followed.
+ */
+const TRUSTED_DESTRUCTURED: Record<string, { calls: (path: BindingStep[]) => boolean; effect: 'work' | 'none'; why: string }> = {
+  useState: { calls: (path) => isElement(path, 1), effect: 'work', why: 'the setter (second element) writes React state' },
+  useReducer: { calls: (path) => isElement(path, 1), effect: 'work', why: 'dispatch (second element) runs the reducer' },
+  useSearchParams: {
+    calls: (path) => isElement(path, 1),
+    effect: 'work',
+    why: 'setSearchParams (second element) writes the URL; one naming a tab is judged a tab switch before this applies',
+  },
+  useTranslation: { calls: (path) => isProperty(path, 't'), effect: 'none', why: 't looks a message up: no work, never a tab switch' },
+}
+
+/**
+ * KAN-518 — the hooks whose result a handler body may call, each with why.
+ * A call to a local holding any other hook's result cannot be followed.
+ */
+const TRUSTED_HOOK_RESULTS: Record<string, string> = {
+  useNavigate: 'navigate(…) changes the route: real work',
+}
+
+function isElement(path: BindingStep[], index: number): boolean {
+  return path.length === 1 && 'index' in path[0] && path[0].index === index
+}
+
+function isProperty(path: BindingStep[], name: string): boolean {
+  return path.length === 1 && 'property' in path[0] && path[0].property === name
+}
+
+/** The one property name a binding takes straight from its source (`const { allocate } = x`), else null. */
+function soleProperty(path: BindingStep[]): string | null {
+  return path.length === 1 && 'property' in path[0] ? path[0].property : null
+}
+
+/**
+ * Calling a name bound by destructuring. From a local object (or a row-menu
+ * hook): judged as the member it names, `const { allocate } = actions` as
+ * `actions.allocate()`. From an import or a global: trusted, as a call through
+ * one is. From a parameter (`const { onAllocate } = props`), from any other
+ * call's result (`const { allocate } = useStartActions()`, `const [, start] =
+ * useDispatcher()`) and through a nested or computed step: cannot be followed
+ * — unless `TRUSTED_DESTRUCTURED` names it.
+ */
+function destructuredCallWays(binding: DestructuredBinding, scope: FileScope, mode: Mode): Ways {
+  const source = unwrap(binding.source)
+  const property = soleProperty(binding.path)
+  let ways: Ways = UNRESOLVED
+  if (ts.isCallExpression(source) && ts.isIdentifier(source.expression)) {
+    const hookName = source.expression.text
+    const rule = isOpaqueName(hookName, scope) ? TRUSTED_DESTRUCTURED[hookName] : undefined
+    const hook = rowMenuHookOf(source, scope)
+    if (rule?.calls(binding.path)) ways = rule.effect === 'none' ? NONE : trusted(mode)
+    else if (hook && hook !== 'ambiguous' && property !== null) {
+      ways = membersWays(memberAccess(source.expression.text, property), hook.returned, memberJudge(hook.scope, mode))
+    }
+  } else if (ts.isIdentifier(source) && property !== null) {
+    ways = memberCallWays(memberAccess(source.text, property), scope, mode)
+  } else if (ts.isIdentifier(source) || ts.isPropertyAccessExpression(source) || ts.isElementAccessExpression(source)) {
+    const root = rootName(source)
+    ways = root !== null && isOpaqueName(root, scope) ? trusted(mode) : UNRESOLVED
+  }
+  return binding.fallback ? either(ways, localValueCallWays(binding.fallback, scope, mode)) : ways
+}
+
+/** `receiver.property`, built so a destructured name is judged as the member access it stands for. */
+function memberAccess(receiver: string, property: string): ts.PropertyAccessExpression {
+  return ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier(receiver), property)
 }
 
 /** The value `useMemo(() => value)` memoises, when its factory just returns one. */
@@ -522,7 +726,7 @@ function memoisedValue(expr: ts.Expression): ts.Expression | null {
   return only && ts.isReturnStatement(only) && only.expression ? only.expression : null
 }
 
-/** Calling a local `const` by its initializer, inside a body. A value that is no function (`useNavigate()`'s result) is trusted, as before KAN-512. */
+/** Calling a local `const` by its initializer, inside a body. A value the scan cannot read is trusted, as before KAN-512 — but not a hook's result (KAN-518). */
 function localValueCallWays(value: ts.Expression, scope: FileScope, mode: Mode): Ways {
   const expr = unwrap(value)
   // A function literal is followed directly: functionWays handles recursion itself.
@@ -536,6 +740,13 @@ function localValueCallWays(value: ts.Expression, scope: FileScope, mode: Mode):
       return either(localValueCallWays(expr.whenTrue, scope, mode), localValueCallWays(expr.whenFalse, scope, mode))
     }
     if (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) return memberCallWays(expr, scope, mode)
+    // KAN-518: a hook's result is not in the file (`const startAction =
+    // useStartAction(); startAction('allocate')` is KAN-503's dispatcher moved
+    // into a hook), unless the hook is named with a reason.
+    if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && /^use[A-Z0-9]/.test(expr.expression.text)) {
+      const hook = expr.expression.text
+      return hook in TRUSTED_HOOK_RESULTS && !scope.decls.has(hook) ? trusted(mode) : UNRESOLVED
+    }
     return trusted(mode)
   })
 }
@@ -586,21 +797,28 @@ function membersWays(
 
 /**
  * The row-menu hook a local holds (`const menu = useLocationRowMenu(…)`):
- * only through the file's own import of it, and only when one file declares
- * it — else `ambiguous`, which cannot be followed.
+ * only through the file's own import of the module that declares it (KAN-518:
+ * a package's export of the same name is not it), and only when one file
+ * declares it and no local of the file shadows the import — else `ambiguous`,
+ * which cannot be followed.
  */
 function rowMenuHookOf(target: ts.Node, scope: FileScope): RowMenuHook | 'ambiguous' | undefined {
   if (!ts.isExpression(target)) return undefined
   const call = unwrap(target)
   if (!ts.isCallExpression(call) || !ts.isIdentifier(call.expression)) return undefined
   const name = call.expression.text
-  if (!scope.imports.has(name)) return undefined
-  return scope.rowMenuHooks.get(name)
+  const imported = scope.imports.get(name)
+  if (!imported) return undefined
+  const hook = scope.rowMenuHooks.get(imported.exported)
+  if (!hook) return undefined
+  if (scope.decls.has(name) || scope.destructured.has(name)) return 'ambiguous'
+  if (hook === 'ambiguous') return hook
+  return importResolvesTo(scope.path, imported.from, hook.scope.path) ? hook : undefined
 }
 
 /**
  * Calling through a member inside a body — `startAction.allocate()`,
- * `handlers[kind]()`, `menu.requestDeactivation(location)`. Followed into a
+ * `handlers[kind]()`, `menu.toggleActive(location)`. Followed into a
  * local object literal or a `use…RowMenu` hook's returned object; a local the
  * scan cannot read into, or a parameter, cannot be followed; an import or a
  * global (`api.post`, `navigator.clipboard`) is trusted, as a call to an
@@ -611,26 +829,33 @@ function memberCallWays(access: ts.PropertyAccessExpression | ts.ElementAccessEx
   if (!ts.isIdentifier(receiver)) {
     const root = rootName(receiver)
     if (root === null) return UNRESOLVED
-    return scope.decls.has(root) || scope.params.has(root) ? UNRESOLVED : trusted(mode)
+    return isOpaqueName(root, scope) ? trusted(mode) : UNRESOLVED
   }
-  const targets = scope.decls.get(receiver.text)
-  if (!targets) return scope.params.has(receiver.text) ? UNRESOLVED : trusted(mode)
+  const targets = scope.decls.get(receiver.text) ?? []
+  // KAN-518: a destructured receiver (`const { menu } = props`) holds a value the scan does not read into.
+  const destructured = scope.destructured.has(receiver.text) ? [UNRESOLVED] : []
+  if (targets.length === 0 && destructured.length === 0) return scope.params.has(receiver.text) ? UNRESOLVED : trusted(mode)
   return either(
+    ...destructured,
     ...targets.map((target): Ways => {
       if (ts.isExpression(target) && WRITING_HOOKS.some((hook) => isCallTo(unwrap(target), [hook]))) return trusted(mode)
       const hook = rowMenuHookOf(target, scope)
       if (hook === 'ambiguous') return UNRESOLVED
       const object = hook?.returned ?? objectLiteralOf(target)
       if (!object) return UNRESOLVED
-      const where = hook?.scope ?? scope
-      return membersWays(access, object, (member) => {
-        if (ts.isPropertyAssignment(member)) return localValueCallWays(member.initializer, where, mode)
-        if (ts.isShorthandPropertyAssignment(member)) return nameCallWays(member.name.text, where, mode)
-        if (ts.isMethodDeclaration(member)) return functionWays(member, where, mode)
-        return UNRESOLVED
-      })
+      return membersWays(access, object, memberJudge(hook?.scope ?? scope, mode))
     }),
   )
+}
+
+/** Judges a member of an object literal (a local's, or a row-menu hook's) as the function it is called as. */
+function memberJudge(where: FileScope, mode: Mode): (member: ts.ObjectLiteralElementLike) => Ways {
+  return (member) => {
+    if (ts.isPropertyAssignment(member)) return localValueCallWays(member.initializer, where, mode)
+    if (ts.isShorthandPropertyAssignment(member)) return nameCallWays(member.name.text, where, mode)
+    if (ts.isMethodDeclaration(member)) return functionWays(member, where, mode)
+    return UNRESOLVED
+  }
 }
 
 /**
@@ -733,7 +958,7 @@ export function noOpPrimaries(pages: Source[], builders: Map<string, Set<string>
   for (const source of pages) {
     if (!source.text.includes('<DetailHeader')) continue
     const file = parse(source)
-    const scope = fileScope(file, rowMenuHooks, state)
+    const scope = fileScope(file, source.path, rowMenuHooks, state)
     const where = (n: ts.Node) => `${source.path}:${file.getLineAndCharacterOfPosition(n.getStart()).line + 1}`
     const report = (n: ts.Node, what: string, verdict: Verdict) => {
       if (verdict !== 'ok') offences.push(`${where(n)} ${what}${verdict === 'unresolved' ? ' (cannot be followed)' : ''}`)
@@ -1165,7 +1390,11 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
       text: "export function useThingRowMenu() { if (legacy) { return { go: () => setActiveTab('identity') } } return { go: () => setAllocating(true) } }",
     }
     expect(followed([early, thingPage('useThingRowMenu()')])).toEqual(['(cannot be followed)'])
-    const plainHook: Source = { path: 'components/useThingRowMenu.tsx', text: 'export function useThing() { return { go: () => setAllocating(true) } }' }
+    // KAN-518: the plain hook sits beside a row-menu hook, so the file is read and the name check decides.
+    const plainHook: Source = {
+      path: 'components/useThingRowMenu.tsx',
+      text: "export function useThingRowMenu() { return { go: () => setActiveTab('identity') } }\nexport function useThing() { return { go: () => setAllocating(true) } }",
+    }
     expect(followed([plainHook, thingPage('useThing()')])).toEqual(['(cannot be followed)'])
     // Two hooks calling each other: one cycle, whichever primary is judged first.
     const hookA: Source = {
@@ -1213,5 +1442,114 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
       'pages/P.tsx:4 onAllocate (primary of buildOldRowMenu)',
       'pages/P.tsx:5 onAllocate (primary of buildOldRowMenu)',
     ])
+  })
+
+  // KAN-518: the shapes KAN-512's reviews found passing unjudged — each cut to
+  // a tab switch goes red, and what does real work (a state setter, navigate)
+  // still passes.
+  it('follows destructured names, hook results, callbacks handed to an import and reassigned lets', () => {
+    const builders = primaryHandlersOfBuilders([
+      {
+        path: 'components/oldRowMenu.tsx',
+        text: `export function buildOldRowMenu(t, handlers) {
+          return { primary: { label: t('allocate'), onClick: handlers.onAllocate }, overflow: {} }
+        }`,
+      },
+    ])
+    const verdictOf = (sources: Source[]): string => {
+      const found = noOpPrimaries(sources, builders)
+      if (found.length === 0) return 'ok'
+      return found[0].endsWith('(cannot be followed)') ? 'cannot be followed' : 'tab switch'
+    }
+    /** The verdict for one page whose primary is `handler`, given `setup` before it (and `head` above the component). */
+    const verdict = (setup: string, handler: string, { head = '', signature = 'A()', more = [] as Source[] } = {}): string =>
+      verdictOf([
+        ...more,
+        {
+          path: 'pages/P.tsx',
+          text: `${head}
+          export function ${signature} {
+            ${setup}
+            const rowMenu = buildOldRowMenu(t, { onAllocate: ${handler} })
+            return <DetailHeader primaryAction={rowMenu.primary} />
+          }`,
+        },
+      ])
+
+    // A name destructured from a call's result cannot be followed …
+    expect(verdict('const { allocate } = useStartActions()', '() => allocate()')).toBe('cannot be followed')
+    expect(verdict('const [, start] = useDispatcher()', "() => start('allocate')")).toBe('cannot be followed')
+    expect(verdict('const { actions: { allocate } } = useStartActions()', '() => allocate()')).toBe('cannot be followed')
+    // … nor one destructured from a prop, nor a call through a destructured receiver.
+    expect(verdict('const { onAllocateProp } = props', '() => onAllocateProp()', { signature: 'A(props)' })).toBe('cannot be followed')
+    expect(verdict('const { menu } = props', '() => menu.go()', { signature: 'A(props)' })).toBe('cannot be followed')
+    // A local holding a hook's result: KAN-503's dispatcher moved into a hook.
+    expect(verdict('const startAction = useStartAction()', "() => startAction('allocate')")).toBe('cannot be followed')
+    // A callback handed to an import or a global runs: judged as if it did.
+    expect(verdict('', "() => startTransition(() => setActiveTab('identity'))")).toBe('tab switch')
+    expect(verdict('', "() => { setTimeout(() => setActiveTab('identity'), 0) }")).toBe('tab switch')
+    expect(verdict('', "() => React.startTransition(function () { setActiveTab('identity') })")).toBe('tab switch')
+    expect(verdict('', "() => startTransition(() => { setActiveTab('identity'); setAllocating(true) })")).toBe('ok')
+    // A `let` handler is judged by every value it can hold.
+    expect(verdict("let go = () => setAllocating(true)\nif (legacy) go = () => setActiveTab('identity')", 'go')).toBe('tab switch')
+    expect(verdict("let go = () => setAllocating(true)\ngo ??= () => setActiveTab('identity')", '() => go()')).toBe('tab switch')
+    expect(verdict("let go = () => setAllocating(true)\nif (legacy) go = () => setFormToFocus('x')", 'go')).toBe('ok')
+
+    // What the scan can read is followed: a member of a local object, its default, a row-menu hook's member.
+    const actions = "const actions = { allocate: () => setActiveTab('identity'), work: () => setAllocating(true) }"
+    expect(verdict(`${actions}; const { allocate } = actions`, '() => allocate()')).toBe('tab switch')
+    expect(verdict(`${actions}; const { work: go } = actions`, '() => go()')).toBe('ok')
+    expect(verdict(`${actions}; const { work = () => setActiveTab('identity') } = actions`, '() => work()')).toBe('tab switch')
+    expect(verdict(`${actions}; const { ...rest } = actions`, '() => rest()')).toBe('cannot be followed')
+    const hookFile = (go: string): Source => ({ path: 'components/useThingRowMenu.tsx', text: `export function useThingRowMenu() { return { go: ${go} } }` })
+    const importsHook = "import { useThingRowMenu } from '../components/useThingRowMenu'"
+    expect(verdict('const { go } = useThingRowMenu()', '() => go()', { head: importsHook, more: [hookFile('() => setAllocating(true)')] })).toBe('ok')
+    expect(verdict('const { go } = useThingRowMenu()', '() => go()', { head: importsHook, more: [hookFile("() => setActiveTab('identity')")] })).toBe(
+      'tab switch',
+    )
+
+    // The values named with a reason pass where they do work, and a tab switch beside them still counts.
+    expect(verdict('const [allocating, setAllocating] = useState(false)', "() => { setActiveTab('identity'); setAllocating(true) }")).toBe('ok')
+    expect(verdict('const [open, setOpen] = useState(false)', "() => { setActiveTab('identity'); setOpen((o) => !o) }")).toBe('ok')
+    expect(verdict('const [state, dispatch] = useReducer(reduce, initial)', "() => { setActiveTab('identity'); dispatch({ type: 'allocate' }) }")).toBe('ok')
+    expect(verdict('const navigate = useNavigate()', "() => { setActiveTab('identity'); navigate('/x') }")).toBe('ok')
+    expect(verdict('const [params, setSearchParams] = useSearchParams()', "() => setSearchParams({ q: 'allocate' })")).toBe('ok')
+    expect(verdict('const [params, setSearchParams] = useSearchParams()', "() => setSearchParams({ tab: 'identity' })")).toBe('tab switch')
+    expect(verdict('const { t } = useTranslation()', "() => { t('allocate'); setActiveTab('identity') }")).toBe('tab switch')
+    expect(verdict('const { t } = useTranslation()', "() => notifications.show({ message: t('allocate') })")).toBe('ok')
+    // … but only that value of that hook.
+    expect(verdict('const [allocating, setAllocating] = useState(false)', '() => allocating()')).toBe('cannot be followed')
+    expect(verdict('const { i18n } = useTranslation()', "() => i18n.changeLanguage('fr')")).toBe('cannot be followed')
+
+    // KAN-518 hygiene: a row-menu hook is the module the page imports, never a namesake.
+    const working = hookFile('() => setAllocating(true)')
+    const tabbing = hookFile("() => setActiveTab('identity')")
+    expect(verdict('const menu = useThingRowMenu()', '() => menu.go()', { head: importsHook, more: [working] })).toBe('ok')
+    expect(verdict('const menu = useThingRowMenu()', '() => menu.go()', { head: "import { useThingRowMenu } from '@vendor/menus'", more: [working] })).toBe(
+      'cannot be followed',
+    )
+    expect(verdict('const menu = useThingRowMenu()', '() => menu.go()', { head: "import { useThingRowMenu } from './useThingRowMenu'", more: [working] })).toBe(
+      'cannot be followed',
+    )
+    expect(
+      verdict('const useThingRowMenu = () => ({ go: () => setAllocating(true) }); const menu = useThingRowMenu()', '() => menu.go()', {
+        head: importsHook,
+        more: [tabbing],
+      }),
+    ).toBe('cannot be followed')
+    expect(
+      verdict('const menu = useMenu()', '() => menu.go()', { head: "import { useThingRowMenu as useMenu } from '../components/useThingRowMenu'", more: [tabbing] }),
+    ).toBe('tab switch')
+    // An ambiguous hook reached as a handler value (not called) cannot be followed either.
+    const otherTabbing: Source = { ...tabbing, path: 'components/other/useThingRowMenu.tsx' }
+    expect(verdict('const menu = useThingRowMenu()', 'menu.go', { head: importsHook, more: [working, otherTabbing] })).toBe('cannot be followed')
+    expect(verdict('const menu = useThingRowMenu()', 'menu.go', { head: importsHook, more: [working] })).toBe('ok')
+
+    // A `finally` that leaves decides how the function ends (`c.done || w.done`): its return
+    // overrides the try's throw, its throw overrides the try's return.
+    expect(verdict("const f = () => { try { setActiveTab('identity'); throw 'x' } finally { return } }", '() => { f(); setAllocating(true) }')).toBe('ok')
+    expect(verdict("const f = () => { try { setActiveTab('identity'); return } finally { throw 'x' } }", '() => { f(); setAllocating(true) }')).toBe(
+      'tab switch',
+    )
   })
 })
