@@ -324,6 +324,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   dealership inside the caller's transaction, so a rollback re-issues the same number. **The offer's
   number comes from the Betrieb's `offer` number range in Platform** (KAN-207, ADR-109:
   `platform.public.allocate_number`, inside the offer's transaction): it continues the sequence Sales'
-  own `offer` counter reached (Anto, 2026-11-01, option 1) — that counter no longer moves and is passed
-  as `continue_after`; `scripts/continue_offer_number_ranges.py` (dry run unless `--commit`) shows each
-  Betrieb's current value on the Number ranges screen before its next offer.
+  own `offer` counter reached (Anto, 2026-11-01, option 1). During the switch that counter is locked
+  first, passed as `continue_after` (the range never numbers at or below it) and kept in step, so an
+  instance still on the old code during a rolling deploy never repeats a number; lock order Sales'
+  counter → Platform's range; retired by KAN-540. The legacy transaction import keeps Sales' counter
+  (`allocate_legacy_offer_number`) and never consumes or freezes the range.
+  `scripts/continue_offer_number_ranges.py` (dry run unless `--commit`; **run once per environment
+  after the deploy**) shows each Betrieb's current value on the Number ranges screen before its next
+  offer.

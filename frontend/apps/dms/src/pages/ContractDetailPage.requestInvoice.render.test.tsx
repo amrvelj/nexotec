@@ -158,6 +158,20 @@ describe('ContractDetailPage › «Rechnung anfordern» with the plate (KAN-523)
     expect(await within(dialog).findByText(i18n.t('apiRefusal.reasons.plate_invalid'))).toBeInTheDocument()
   })
 
+  it('a plate the other car holds only from after the delivery date says what to do here', async () => {
+    const user = userEvent.setup()
+    install(CONFIRMED, () =>
+      status(409, { error: { code: 'conflict', message: "The other vehicle's assignment starts on or after this one.", details: { reason: 'plate_move_before_start', holders: [HOLDER] } } }),
+    )
+    renderPage()
+
+    const dialog = await openTheDialog(user)
+    await typeThePlate(user, dialog)
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('contractDetail.requestInvoice.submit') }))
+
+    expect(await within(dialog).findByText(i18n.t('contractDetail.requestInvoice.moveBeforeStart'))).toBeInTheDocument()
+  })
+
   it('a car not yet purchased cannot be invoiced, and the action says why', async () => {
     install({ ...CONFIRMED, isInvoiceable: false })
     renderPage()

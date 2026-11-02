@@ -10,9 +10,12 @@ KAN-207 (ADR-109): the offer's number comes from the Betrieb's `offer` number
 range in Platform, handed out inside this transaction
 (`platform.public.allocate_number`) — a rolled back offer gives its number
 back. The range continues the sequence this module's own `offer` counter
-reached (Anto, 2026-11-01, option 1): that counter is read, never moved
-again, and passed as `continue_after`. Contracts keep this module's counter
-until they switch in their own ticket.
+reached (Anto, 2026-11-01, option 1): during the switch that counter is
+locked, passed as `continue_after` and kept in step (`allocate_offer_number`),
+so an instance still running the old code during a rolling deploy never
+repeats a number. The legacy transaction import keeps this module's own
+counter (`allocate_legacy_offer_number`). Contracts keep this module's
+counter until they switch in their own ticket.
 """
 
 import uuid
@@ -28,7 +31,7 @@ _OFFER_SERIES = "offer"
 _CONTRACT_SERIES = "contract"
 
 
-def _allocate(db: Session, *, tenant_id: uuid.UUID, series: str, prefix: str) -> str:
+def _locked_counter(db: Session, *, tenant_id: uuid.UUID, series: str) -> SalesNumberSequence:
     key = (tenant_id, series)
     row = db.get(SalesNumberSequence, key, with_for_update=True)
     if row is None:
@@ -46,20 +49,15 @@ def _allocate(db: Session, *, tenant_id: uuid.UUID, series: str, prefix: str) ->
             pass  # the concurrent caller's row now exists; re-read it below
         row = db.get(SalesNumberSequence, key, with_for_update=True)
         assert row is not None, "SalesNumberSequence row missing after its first-use INSERT or the concurrent winner's"
+    return row
 
+
+def _allocate(db: Session, *, tenant_id: uuid.UUID, series: str, prefix: str) -> str:
+    row = _locked_counter(db, tenant_id=tenant_id, series=series)
     value = row.next_value
     row.next_value += 1
     db.flush()
     return f"{prefix}-{value:06d}"
-
-
-def last_legacy_offer_counter(db: Session, tenant_id: uuid.UUID) -> int | None:
-    """The last offer number this module's own counter handed out before
-    KAN-207 (`O-000123` → 123), or None for a Betrieb that never numbered an
-    offer that way. The counter no longer moves."""
-
-    row = db.get(SalesNumberSequence, (tenant_id, _OFFER_SERIES))
-    return row.next_value - 1 if row is not None and row.next_value > 1 else None
 
 
 def legacy_offer_counters(db: Session) -> dict[uuid.UUID, int]:
@@ -75,12 +73,37 @@ def legacy_offer_counters(db: Session) -> dict[uuid.UUID, int]:
 
 
 def allocate_offer_number(db: Session, tenant_id: uuid.UUID) -> str:
-    return allocate_number(
+    """From the Betrieb's `offer` range in Platform (KAN-207, ADR-109).
+
+    During the switch this module's own `offer` counter is locked first and
+    kept in step with what the range hands out, and passed as
+    `continue_after`: an instance still running the old numbering (a rolling
+    deploy) takes the same row lock and numbers after the range, and the
+    range never numbers at or below what that instance handed out — so no
+    offer number repeats either way. Lock order: Sales' counter row, then
+    Platform's range row, everywhere. Retiring the old counter once every
+    instance runs this code is KAN-540."""
+
+    legacy = _locked_counter(db, tenant_id=tenant_id, series=_OFFER_SERIES)
+    allocated = allocate_number(
         db,
         dealership_id=tenant_id,
         document_type=NumberRangeDocumentType.OFFER,
-        continue_after=last_legacy_offer_counter(db, tenant_id),
+        continue_after=legacy.next_value - 1 if legacy.next_value > 1 else None,
     )
+    if allocated.counter + 1 > legacy.next_value:
+        legacy.next_value = allocated.counter + 1
+        db.flush()
+    return allocated.number
+
+
+def allocate_legacy_offer_number(db: Session, tenant_id: uuid.UUID) -> str:
+    """The legacy transaction import's offer number (`scripts/migrate_transaction_rows.py`):
+    this module's own counter, as before KAN-207 — history neither consumes
+    nor freezes the Betrieb's offer range (KAN-207, settled (b)); the range
+    continues after it, since it never goes below this counter."""
+
+    return _allocate(db, tenant_id=tenant_id, series=_OFFER_SERIES, prefix="O")
 
 
 def allocate_contract_number(db: Session, tenant_id: uuid.UUID) -> str:

@@ -86,6 +86,10 @@ export function RequestInvoiceDialog({
       } else if (err instanceof ApiError && err.details?.holdersWithheld === true) {
         // Past the plate-read limit the refusal names no car (ADR-085).
         setError(`${apiRefusalText(t, err, 'contractDetail.requestInvoice.error')} ${t('vehicleDetail.plates.limitReached')}`)
+      } else if (err instanceof ApiError && err.details?.reason === 'plate_move_before_start') {
+        // The plate's validity is the contract's delivery date, which this
+        // dialog does not offer to change — say what the user can do here.
+        setError(t('contractDetail.requestInvoice.moveBeforeStart'))
       } else setError(apiRefusalText(t, err, 'contractDetail.requestInvoice.error'))
     } finally {
       setSubmitting(false)

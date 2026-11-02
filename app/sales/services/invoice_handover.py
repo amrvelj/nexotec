@@ -72,7 +72,9 @@ def handover_payload(
     vehicle: dict = {"vehicleId": None, "vin": None}
     if contract.stock_item_id is not None:
         vehicle = get_stock_item_vehicle(db, tenant_id=contract.tenant_id, stock_item_id=contract.stock_item_id)
-    if vehicle["vehicleId"] is None or actor_id is None:
+    if actor_id is None:
+        raise ValueError("A plate hand-over is requested by a person: the plate-read guard needs the actor.")
+    if vehicle["vehicleId"] is None:
         raise ConflictError(
             f"The vehicle of contract {contract.contract_number} has no vehicle record to carry a plate.",
             details={"reason": "invoice_plate_vehicle_unknown"},

@@ -163,6 +163,7 @@ const REASON_KEYS: Record<string, string> = {
       'number_pattern_location_unavailable',
       'number_pattern_reset_needs_year',
       'number_pattern_too_long',
+      'number_range_counter_too_short',
       'number_range_exhausted',
       'number_range_frozen',
       'number_range_reason_required',

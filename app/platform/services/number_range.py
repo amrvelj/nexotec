@@ -98,6 +98,14 @@ _NO_LOCATION_YET = frozenset({DocumentType.OFFER})
 
 
 @dataclass(frozen=True)
+class AllocatedNumber:
+    """A handed-out number and the counter value it carries."""
+
+    number: str
+    counter: int
+
+
+@dataclass(frozen=True)
 class ParsedPattern:
     pattern: str
     counter_digits: int
@@ -222,9 +230,12 @@ def _next_counter(row: NumberRange, *, year: int, continue_after: int | None) ->
         counter = row.start_value
     else:
         counter = row.last_value + 1
-    if continue_after is not None and row.frozen_at is None:
-        # A range that has handed out nothing yet continues the sequence the
-        # module numbered with before (KAN-207, Anto 2026-11-01, option 1).
+    if continue_after is not None:
+        # The range continues the sequence the module numbered with before
+        # (KAN-207, Anto 2026-11-01, option 1) and never goes below it: while
+        # an instance running the module's old numbering may still serve (a
+        # rolling deploy), the module keeps its own counter in step and passes
+        # it every time, so neither side can hand out the other's number.
         counter = max(counter, continue_after + 1)
     return counter
 
@@ -250,11 +261,12 @@ def preview(
 ) -> str:
     """The live example of an edit: the range's next number as if saved."""
 
-    validate(
+    parsed = validate(
         db, dealership_id=dealership_id, document_type=document_type, pattern=pattern,
         start_value=start_value, yearly_reset=yearly_reset,
     )
     row = get_or_seed(db, dealership_id=dealership_id, document_type=document_type, lock=False)
+    _require_next_counter_fits(row, parsed, start_value=start_value, yearly_reset=yearly_reset)
     probe = NumberRange(
         tenant_id=dealership_id, document_type=document_type, pattern=pattern, start_value=start_value,
         yearly_reset=yearly_reset, last_value=row.last_value, last_year=row.last_year, frozen_at=row.frozen_at,
@@ -341,6 +353,22 @@ def _audit_state(row: NumberRange) -> dict[str, object]:
     }
 
 
+def _require_next_counter_fits(row: NumberRange, parsed: ParsedPattern, *, start_value: int, yearly_reset: bool) -> None:
+    """The counter the range would hand out next must fit the new pattern's
+    digits — a range already at 123 cannot take `{counter:2}`."""
+
+    probe = NumberRange(
+        pattern=parsed.pattern, start_value=start_value, yearly_reset=yearly_reset,
+        last_value=row.last_value, last_year=row.last_year, frozen_at=row.frozen_at,
+    )
+    counter = _next_counter(probe, year=swiss_year(), continue_after=None)
+    if counter >= 10**parsed.counter_digits:
+        raise UnprocessableEntityError(
+            f"The range's next counter {counter} does not fit {parsed.counter_digits} digits.",
+            details={"reason": "number_range_counter_too_short", "nextCounter": counter},
+        )
+
+
 def update_range(
     db: Session,
     *,
@@ -370,10 +398,11 @@ def update_range(
     new_pattern = row.pattern if pattern is None else pattern
     new_start = row.start_value if start_value is None else start_value
     new_reset = row.yearly_reset if yearly_reset is None else yearly_reset
-    validate(
+    parsed = validate(
         db, dealership_id=row.tenant_id, document_type=row.document_type, pattern=new_pattern,
         start_value=new_start, yearly_reset=new_reset,
     )
+    _require_next_counter_fits(row, parsed, start_value=new_start, yearly_reset=new_reset)
     before = _audit_state(row)
     row.pattern = new_pattern
     row.start_value = new_start
@@ -402,15 +431,15 @@ def allocate_number(
     document_type: NumberRangeDocumentType,
     location_id: uuid.UUID | None = None,
     continue_after: int | None = None,
-) -> str:
+) -> AllocatedNumber:
     """The next number of the Betrieb's range, inside the caller's transaction
     (ADR-109): the range row is locked until the caller commits or rolls
     back, so concurrent callers are served one after the other and a rolled
     back document gives its number back. Never commits.
 
-    `continue_after` is the last number a module handed out on its own before
-    it drew from the range (Sales' offer counter): the range's first number
-    continues after it. The first number freezes the range (A-RULE-3)."""
+    `continue_after` is the last number a module handed out on its own (Sales'
+    offer counter, kept in step during the switch): the range never hands out
+    a counter at or below it. The first number freezes the range (A-RULE-3)."""
 
     row = get_or_seed(db, dealership_id=dealership_id, document_type=document_type, lock=True)
     parsed = parse_pattern(row.pattern)
@@ -453,7 +482,7 @@ def allocate_number(
             reason="first number handed out",
         )
     db.flush()
-    return number
+    return AllocatedNumber(number=number, counter=counter)
 
 
 def continue_sequence(

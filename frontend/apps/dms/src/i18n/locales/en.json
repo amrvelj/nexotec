@@ -310,7 +310,8 @@
       "number_range_frozen": "This number range has handed out numbers already and is frozen. Only Nexotec support can still change it.",
       "number_range_reason_required": "A change to a frozen number range needs a reason.",
       "number_range_exhausted": "The number range has no number left for its counter's digits. Please contact support.",
-      "number_location_code_missing": "This number range prints the location code, and the document names no location with a code."
+      "number_location_code_missing": "This number range prints the location code, and the document names no location with a code.",
+      "number_range_counter_too_short": "This pattern's counter has too few digits for the range's next number. Choose more digits for {counter:N}."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1412,7 +1413,8 @@
       "moveSubmit": "Move and request invoice",
       "requested": "The invoice has been requested.",
       "requestedWithPlate": "The invoice has been requested. {{plate}} is being recorded on the vehicle.",
-      "error": "The invoice could not be requested."
+      "error": "The invoice could not be requested.",
+      "moveBeforeStart": "The plate is recorded on the other vehicle only from a day after this contract's delivery date, so it cannot be moved. Request the invoice without a plate and sort out the plate on Vehicle 360."
     },
     "stats": {
       "grossPrice": "Sale price",

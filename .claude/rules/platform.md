@@ -198,7 +198,7 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen», `reference_lists` — the PRD's Platform
+list's intake and «Konfiguration zuordnen», `number_ranges` for the Number ranges screen's edit (KAN-207), `reference_lists` — the PRD's Platform
 Administration › Reference data, the row «Reference lists» split from «Canonical taxonomy,
 provider catalogue» by KAN-514 (Anto, 2026-10-31, option A: any role reads, as the open
 `GET /v1/reference-data` does; platform staff alone write) — for the Reference data screen's
@@ -330,7 +330,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   and stock seeds print today's `O-`/`C-`/`S-{counter:6}`). Pattern: literals `A–Z a–z 0–9 - / . _`,
   `{year}` (Swiss year), `{location_code}`, exactly one `{counter:N}` (N 1–9), a rendered number at most
   16 characters (422 `number_pattern_*`); a yearly reset needs `{year}`; an offer may not print
-  `{location_code}` (it knows no site yet). **Platform hands the number out inside the caller's
+  `{location_code}` (it knows no site yet); a pattern whose counter is too short for the range's next
+  value is refused (422 `number_range_counter_too_short`). **Platform hands the number out inside the caller's
   transaction** — `platform.public.allocate_number(db, dealership_id=, document_type=, location_id=,
   continue_after=)`, a `SELECT … FOR UPDATE` on the range row, never a commit — so a document write that
   fails consumes no number: **ADR-109**, the ruled exception to ADR-047 (Anto, 2026-10-31, KAN-207 option

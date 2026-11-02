@@ -5,7 +5,6 @@ handed out by Platform inside the calling module's transaction (ADR-109); the
 offer range continues each Betrieb's existing O- sequence (Anto, 2026-11-01).
 """
 
-import datetime as dt
 import importlib.util
 import threading
 import uuid
@@ -145,8 +144,8 @@ def test_location_code_needs_a_coded_location_and_is_a_label_not_a_counter(db_se
         reason=None, actor_id=uuid.uuid4(), actor_is_platform_admin=False,
     )
     numbers = [
-        service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE, location_id=zh.id),
-        service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE, location_id=be.id),
+        service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE, location_id=zh.id).number,
+        service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE, location_id=be.id).number,
     ]
     assert numbers == ["ZH1-00001", "BE2-00002"]  # one continuous sequence across the sites (D-A-17)
     with pytest.raises(ConflictError) as refused:
@@ -159,31 +158,34 @@ def test_location_code_needs_a_coded_location_and_is_a_label_not_a_counter(db_se
 
 def test_the_first_number_freezes_the_range_and_is_audited(db_session):
     dealership = _dealership(db_session)
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER) == "O-000001"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER).number == "O-000001"
     db_session.commit()
 
     row = _range(db_session, dealership.id)
     assert (row.last_value, row.frozen_at is not None) == (1, True)
     [frozen] = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "number_range_frozen")).all()
     assert frozen.entity_id == row.id
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER) == "O-000002"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER).number == "O-000002"
 
 
 def test_a_rolled_back_document_gives_its_number_back(db_session):
     dealership = _dealership(db_session)
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER) == "O-000001"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER).number == "O-000001"
     db_session.rollback()  # the document write failed
 
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER) == "O-000001"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER).number == "O-000001"
 
 
-def test_concurrent_allocations_are_gapless_and_never_duplicate(db_session, engine):
+@pytest.mark.parametrize("seeded", [True, False], ids=["seeded", "first-use"])
+def test_concurrent_allocations_are_gapless_and_never_duplicate(db_session, engine, seeded):
     """N writers on N connections, each allocating and committing at once:
-    the row lock serves them one after the other."""
+    the row lock serves them one after the other — also when the range does
+    not exist yet and every writer races to create it from its seed."""
 
     dealership = _dealership(db_session)
-    service.seed_number_ranges(db_session, dealership_id=dealership.id, actor_id=None)
-    db_session.commit()
+    if seeded:
+        service.seed_number_ranges(db_session, dealership_id=dealership.id, actor_id=None)
+        db_session.commit()
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     writers = 12
     start = threading.Barrier(writers)
@@ -195,7 +197,7 @@ def test_concurrent_allocations_are_gapless_and_never_duplicate(db_session, engi
         session = factory()
         try:
             start.wait()
-            number = service.allocate_number(session, dealership_id=dealership.id, document_type=INVOICE)
+            number = service.allocate_number(session, dealership_id=dealership.id, document_type=INVOICE).number
             session.commit()
             with lock:
                 numbers.append(number)
@@ -218,10 +220,10 @@ def test_concurrent_allocations_are_gapless_and_never_duplicate(db_session, engi
 def test_a_yearly_range_starts_again_in_a_new_year(db_session, monkeypatch):
     dealership = _dealership(db_session)
     monkeypatch.setattr(service, "swiss_year", lambda: 2026)
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE) == "R-2026-000001"
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE) == "R-2026-000002"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE).number == "R-2026-000001"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE).number == "R-2026-000002"
     monkeypatch.setattr(service, "swiss_year", lambda: 2027)
-    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE) == "R-2027-000001"
+    assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE).number == "R-2027-000001"
 
 
 def test_a_range_out_of_digits_is_refused(db_session):
@@ -260,7 +262,60 @@ def test_offers_draw_from_the_range_and_continue_the_existing_sequence(db_sessio
 
     assert (first.offer_number, second.offer_number) == ("O-000124", "O-000125")
     assert _range(db_session, dealership.id).last_value == 125
-    assert db_session.get(SalesNumberSequence, (dealership.id, "offer")).next_value == 124  # never moved again
+    assert db_session.get(SalesNumberSequence, (dealership.id, "offer")).next_value == 126  # kept in step
+
+
+def test_an_old_instance_numbering_from_sales_counter_never_repeats_a_range_number(db_session):
+    """A rolling deploy: an instance still running the old code numbers from
+    Sales' counter alone. The new code keeps that counter in step and never
+    goes below it, so neither side repeats the other's number."""
+
+    from app.sales.services.numbering import allocate_legacy_offer_number as old_code_allocates
+
+    dealership = _dealership(db_session)
+    db_session.add(SalesNumberSequence(tenant_id=dealership.id, series="offer", next_value=124))
+    db_session.commit()
+
+    numbers = [
+        create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number,
+        old_code_allocates(db_session, dealership.id),
+        create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number,
+        old_code_allocates(db_session, dealership.id),
+        old_code_allocates(db_session, dealership.id),
+        create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number,
+    ]
+    assert numbers == ["O-000124", "O-000125", "O-000126", "O-000127", "O-000128", "O-000129"]
+
+
+def test_the_legacy_import_keeps_sales_counter_and_never_touches_the_range(db_session):
+    """KAN-207 settled (b): history neither consumes nor freezes the range;
+    the next live offer continues after it."""
+
+    from app.sales.services.numbering import allocate_legacy_offer_number
+
+    dealership = _dealership(db_session)
+    assert allocate_legacy_offer_number(db_session, dealership.id) == "O-000001"
+    db_session.commit()
+    assert db_session.scalars(select(NumberRange).where(NumberRange.tenant_id == dealership.id)).all() == []
+    assert create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number == "O-000002"
+
+
+def test_a_pattern_too_short_for_the_next_counter_is_refused(db_session):
+    dealership = _dealership(db_session)
+    row = service.get_or_seed(db_session, dealership_id=dealership.id, document_type=OFFER, lock=True)
+    service.continue_sequence(db_session, dealership_id=dealership.id, document_type=OFFER, after=123)
+
+    with pytest.raises(UnprocessableEntityError) as refused:
+        service.update_range(
+            db_session, row=row, pattern="O-{counter:2}", start_value=None, yearly_reset=None, reason=None,
+            actor_id=uuid.uuid4(), actor_is_platform_admin=False,
+        )
+    assert refused.value.details == {"reason": "number_range_counter_too_short", "nextCounter": 124}
+    with pytest.raises(UnprocessableEntityError):
+        service.preview(
+            db_session, dealership_id=dealership.id, document_type=OFFER, pattern="O-{counter:2}", start_value=1,
+            yearly_reset=False,
+        )
 
 
 def test_a_betrieb_without_offers_starts_its_offer_range_at_one(db_session):

@@ -310,7 +310,8 @@
       "number_range_frozen": "Dieser Nummernkreis hat bereits Nummern vergeben und ist eingefroren. Nur der Nexotec-Support kann ihn noch ändern.",
       "number_range_reason_required": "Eine Änderung an einem eingefrorenen Nummernkreis braucht eine Begründung.",
       "number_range_exhausted": "Der Nummernkreis hat keine Nummer mehr frei für die Stellen seines Zählers. Bitte wenden Sie sich an den Support.",
-      "number_location_code_missing": "Dieser Nummernkreis druckt den Standortcode, und das Dokument nennt keinen Standort mit Code."
+      "number_location_code_missing": "Dieser Nummernkreis druckt den Standortcode, und das Dokument nennt keinen Standort mit Code.",
+      "number_range_counter_too_short": "Der Zähler dieses Musters hat zu wenige Stellen für die nächste Nummer des Nummernkreises. Wählen Sie mehr Stellen für {counter:N}."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1412,7 +1413,8 @@
       "moveSubmit": "Verschieben und Rechnung anfordern",
       "requested": "Die Rechnung ist angefordert.",
       "requestedWithPlate": "Die Rechnung ist angefordert. {{plate}} wird beim Fahrzeug erfasst.",
-      "error": "Die Rechnung konnte nicht angefordert werden."
+      "error": "Die Rechnung konnte nicht angefordert werden.",
+      "moveBeforeStart": "Das Kontrollschild ist auf dem anderen Fahrzeug erst ab einem Tag nach dem Liefertermin dieses Vertrags erfasst und kann deshalb nicht verschoben werden. Fordern Sie die Rechnung ohne Kontrollschild an und klären Sie das Kontrollschild im Fahrzeug-360."
     },
     "stats": {
       "grossPrice": "Verkaufspreis",

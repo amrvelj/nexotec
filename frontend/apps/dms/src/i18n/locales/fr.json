@@ -310,7 +310,8 @@
       "number_range_frozen": "Cette plage a déjà attribué des numéros et est gelée. Seul le support Nexotec peut encore la modifier.",
       "number_range_reason_required": "Une modification d'une plage gelée nécessite un motif.",
       "number_range_exhausted": "La plage n'a plus de numéro libre pour les chiffres de son compteur. Veuillez contacter le support.",
-      "number_location_code_missing": "Cette plage imprime le code du site, et le document ne nomme aucun site avec un code."
+      "number_location_code_missing": "Cette plage imprime le code du site, et le document ne nomme aucun site avec un code.",
+      "number_range_counter_too_short": "Le compteur de ce modèle a trop peu de chiffres pour le prochain numéro de la plage. Choisissez plus de chiffres pour {counter:N}."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1412,7 +1413,8 @@
       "moveSubmit": "Déplacer et demander la facture",
       "requested": "La facture est demandée.",
       "requestedWithPlate": "La facture est demandée. {{plate}} est enregistrée sur le véhicule.",
-      "error": "La facture n'a pas pu être demandée."
+      "error": "La facture n'a pas pu être demandée.",
+      "moveBeforeStart": "La plaque n'est enregistrée sur l'autre véhicule qu'à partir d'un jour postérieur à la date de livraison de ce contrat ; elle ne peut donc pas être déplacée. Demandez la facture sans plaque et réglez la plaque dans la vue Véhicule 360."
     },
     "stats": {
       "grossPrice": "Prix de vente",
