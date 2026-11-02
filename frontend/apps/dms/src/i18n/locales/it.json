@@ -1176,7 +1176,8 @@
       "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
       "isInvoiceable": "Fatturabile",
       "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
-      "notRecorded": "Nessun acquisto ancora registrato."
+      "notRecorded": "Nessun acquisto ancora registrato.",
+      "configurationVinDiffers": "Il VIN è diverso da quello della configurazione."
     },
     "wagenbuch": {
       "result": "Risultato",
@@ -1272,7 +1273,8 @@
       "title": "Configurazione",
       "missing": "A questo veicolo non è assegnata alcuna configurazione. Senza di essa mancano i dati tecnici.",
       "attach": "Assegna configurazione",
-      "attachError": "Non è stato possibile assegnare la configurazione. Riprovare."
+      "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
+      "edit": "Modifica configurazione"
     }
   },
   "salesList": {

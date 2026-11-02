@@ -8,7 +8,8 @@ import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { AttachConfigurationButton } from './AttachConfigurationButton'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
-import type { StockItemRead } from '../../api/types'
+import { useStockConfigurationEditor } from './useStockConfigurationEditor'
+import type { ConfigurationRead, StockItemRead } from '../../api/types'
 
 interface DetailsTabProps {
   item: StockItemRead
@@ -23,6 +24,10 @@ interface DetailsTabProps {
    * (`stock_items` and `configurations`); without, the card only says one is
    * missing. */
   canAttachConfiguration?: boolean
+  /** KAN-510: whether the user's role may write configurations
+   * (`configurations`) — «Konfiguration bearbeiten» on the card and beside
+   * the purchase dialog's VIN refusal. Hidden when not. */
+  canEditConfiguration?: boolean
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -50,11 +55,21 @@ export function DetailsTab({
   onReload,
   canRecordPurchase = true,
   canAttachConfiguration = true,
+  canEditConfiguration = true,
   onRecordPurchase,
 }: DetailsTabProps) {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
+  const editConfiguration = useStockConfigurationEditor()
+
+  // KAN-510 — from the purchase dialog's VIN refusal: the dialog steps aside
+  // (a modal would hold the focus the configurator needs) and comes back,
+  // with what was entered and the corrected VIN, when the configurator closes.
+  const editConfigurationFromPurchase = (configuration: ConfigurationRead) => {
+    setPurchaseDialogOpen(false)
+    editConfiguration(configuration, () => setPurchaseDialogOpen(true))
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -91,7 +106,14 @@ export function DetailsTab({
         // KAN-459: it carries block 2 of FR-I-07's order, the technical data,
         // straight after the hero band, in a spec grid of at most four columns.
         <OverviewCard title={t('stockDetail.configuration.title')}>
-          <HostConfigurationCard configurationId={item.configurationId} technicalDataColumns={4} />
+          {/* KAN-510: «Konfiguration bearbeiten» — the configurator on this
+              configuration, in its own mode; the only write is its PATCH. */}
+          <HostConfigurationCard
+            configurationId={item.configurationId}
+            technicalDataColumns={4}
+            onOpenConfigurator={canEditConfiguration ? (configuration) => editConfiguration(configuration) : undefined}
+            openConfiguratorLabel={t('stockDetail.configuration.edit')}
+          />
         </OverviewCard>
       ) : (
         // KAN-463 — an item the retired hand-typed intake created has no
@@ -205,6 +227,8 @@ export function DetailsTab({
         opened={purchaseDialogOpen}
         onClose={() => setPurchaseDialogOpen(false)}
         requiresVin={item.lifecycleStatus === 'pipeline'}
+        configurationId={item.configurationId ?? null}
+        onEditConfiguration={canEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}
       />
     </div>

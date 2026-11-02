@@ -1176,7 +1176,8 @@
       "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
       "isInvoiceable": "Invoiceable",
       "error": "The purchase could not be recorded. Please try again.",
-      "notRecorded": "No purchase recorded yet."
+      "notRecorded": "No purchase recorded yet.",
+      "configurationVinDiffers": "The VIN differs from the configuration's."
     },
     "wagenbuch": {
       "result": "Result",
@@ -1272,7 +1273,8 @@
       "title": "Configuration",
       "missing": "No configuration is assigned to this vehicle. Without one, the technical data are missing.",
       "attach": "Assign configuration",
-      "attachError": "The configuration could not be assigned. Please try again."
+      "attachError": "The configuration could not be assigned. Please try again.",
+      "edit": "Edit configuration"
     }
   },
   "salesList": {

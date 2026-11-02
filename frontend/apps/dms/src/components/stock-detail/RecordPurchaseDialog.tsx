@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Alert, Checkbox, Stack, TextInput } from '@mantine/core'
+import { Alert, Button, Checkbox, Stack, TextInput } from '@mantine/core'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog } from '@nexotec/ui-kit'
+import { api, ApiError } from '../../api/client'
+import type { ConfigurationRead } from '../../api/types'
 import { todayLocalIsoDate } from '../../utils/format'
 import { apiRefusalText } from '../../utils/apiRefusal'
 import { vinRefusalKey } from '../../utils/vin'
@@ -12,6 +15,13 @@ interface RecordPurchaseDialogProps {
   onClose: () => void
   /** KAN-446: a pipeline item is bought with its VIN, which puts it on stock. */
   requiresVin?: boolean
+  /** KAN-510: the item's configuration. Its VIN prefills the field, and the
+   * booking refuses another (422 `configuration_vin_differs`). */
+  configurationId?: string | null
+  /** KAN-510: offered beside that refusal — opens the configuration for
+   * editing, where a wrong VIN is corrected. Omitted when the user's role
+   * may not write configurations. */
+  onEditConfiguration?: (configuration: ConfigurationRead) => void
   onSubmit: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -35,8 +45,23 @@ interface RecordPurchaseDialogProps {
  * booking promotes the item into stock with it. The API normalises it; a
  * malformed one (a schema 422 on `vin`) and one already in stock are said in
  * the UI language.
+ *
+ * KAN-510 (Anto, 2026-11-01): the VIN is prefilled from the item's
+ * configuration when it carries one (a car recorded with its VIN), read as
+ * every host reads it (`['configuration', id]`, the card's query), and
+ * follows it when the configuration is corrected. A different VIN is
+ * refused by the server; the refusal says so and offers «Konfiguration
+ * bearbeiten». A configuration without a VIN (a factory order) leaves the
+ * field to the user, as before.
  */
-export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onSubmit }: RecordPurchaseDialogProps) {
+export function RecordPurchaseDialog({
+  opened,
+  onClose,
+  requiresVin = false,
+  configurationId = null,
+  onEditConfiguration,
+  onSubmit,
+}: RecordPurchaseDialogProps) {
   const { t } = useTranslation()
   const hint = useFieldHint()
   const [supplierName, setSupplierName] = useState('')
@@ -47,9 +72,25 @@ export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onS
   const [vin, setVin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [vinDiffers, setVinDiffers] = useState(false)
+
+  const configurationQuery = useQuery({
+    queryKey: ['configuration', configurationId],
+    queryFn: () => api.get<ConfigurationRead>(`/configurations/${configurationId}`),
+    enabled: requiresVin && configurationId != null,
+  })
+  const configuration = configurationQuery.data ?? null
+  const configurationVin = configuration?.vin ?? null
 
   useEffect(() => {
-    if (opened) setError(null)
+    if (configurationVin) setVin(configurationVin)
+  }, [configurationVin])
+
+  useEffect(() => {
+    if (opened) {
+      setError(null)
+      setVinDiffers(false)
+    }
   }, [opened])
 
   const incomplete = !supplierName || purchasePrice === '' || (requiresVin && !vin.trim())
@@ -58,6 +99,7 @@ export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onS
     if (incomplete) return
     setSubmitting(true)
     setError(null)
+    setVinDiffers(false)
     try {
       await onSubmit({
         supplierName,
@@ -69,6 +111,11 @@ export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onS
       })
       onClose()
     } catch (err) {
+      if (err instanceof ApiError && err.status === 422 && err.details?.reason === 'configuration_vin_differs') {
+        setVinDiffers(true)
+        setError(t('stockDetail.purchase.configurationVinDiffers'))
+        return
+      }
       // A VIN the API refuses (KAN-351) is named by its rule, never as a
       // generic «some entries are invalid».
       const vinRefusal = vinRefusalKey(err)
@@ -130,7 +177,14 @@ export function RecordPurchaseDialog({ opened, onClose, requiresVin = false, onS
         />
         {error && (
           <Alert color="red" role="alert">
-            {error}
+            <Stack gap="xs" align="flex-start">
+              <span>{error}</span>
+              {vinDiffers && configuration && onEditConfiguration && (
+                <Button variant="default" size="xs" onClick={() => onEditConfiguration(configuration)}>
+                  {t('stockDetail.configuration.edit')}
+                </Button>
+              )}
+            </Stack>
           </Alert>
         )}
       </Stack>

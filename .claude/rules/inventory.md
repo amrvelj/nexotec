@@ -28,7 +28,14 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   on a pipeline item needs the VIN (`RecordPurchaseRequest.vin`; 422 `purchase_requires_vin`
   without it) and promotes the item before the purchase facts are written, in one transaction,
   so `inventory.stock_item.purchased` is published at once; on an item in stock a `vin` that is
-  not the item's is 422 `purchase_vin_mismatch`. A pipeline item is never bought without its
+  not the item's is 422 `purchase_vin_mismatch`. **A pipeline item is bought with its
+  configuration's VIN** (KAN-510; Anto, 2026-11-01, option B then A): when the configuration
+  carries one, another `vin` is 422 `configuration_vin_differs` (`field: vin`), compared in the one
+  spelling (`services/stock_item.py::configuration_vin_differs`, the create's and
+  «Konfiguration zuordnen»'s rule), before vehicle-mdm or the item is touched; a configuration
+  without one (a factory order) takes the typed VIN, an item without a configuration is unchanged.
+  `RecordPurchaseDialog` prefills it, and the refusal offers «Konfiguration bearbeiten», which
+  corrects the VIN in the configurator (vehicle.md, Host / mode matrix). A pipeline item is never bought without its
   VIN, so FR-I-02b's «purchase booked first, VIN later» order no longer exists. Offer and
   contract stay possible at every phase; invoicing stays gated on the purchase.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:

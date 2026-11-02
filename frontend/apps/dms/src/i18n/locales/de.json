@@ -1176,7 +1176,8 @@
       "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
       "isInvoiceable": "Fakturierbar",
       "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
-      "notRecorded": "Noch kein Einkauf erfasst."
+      "notRecorded": "Noch kein Einkauf erfasst.",
+      "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab."
     },
     "wagenbuch": {
       "result": "Ergebnis",
@@ -1272,7 +1273,8 @@
       "title": "Konfiguration",
       "missing": "Diesem Fahrzeug ist keine Konfiguration zugeordnet. Ohne sie fehlen die technischen Daten.",
       "attach": "Konfiguration zuordnen",
-      "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen."
+      "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen.",
+      "edit": "Konfiguration bearbeiten"
     }
   },
   "salesList": {
