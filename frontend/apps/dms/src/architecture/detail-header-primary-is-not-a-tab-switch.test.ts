@@ -58,14 +58,20 @@ import ts from 'typescript'
 // the file binds only to functions (`setTimeout(goOverview)`) — is judged as
 // if it ran, the call itself counting as nothing. A `let` handler, destructured
 // or not, is judged by every value assigned to it.
-// Names are judged file-wide, not by lexical scope: every declaration,
-// destructuring and parameter of one spelling in the file is a possible
-// meaning, and the strictest decides (a prop `go` in one component and
-// `const [x, go] = useState()` in another make `go()` "cannot be followed").
+// Names are judged file-wide, not by lexical scope: a name called, a receiver
+// called through, a name handed to an import and a handler value or its
+// receiver each take every declaration, destructuring and run-time parameter
+// of that spelling in the file as a possible meaning, and the strictest
+// decides (a prop `go` in one component and `const [x, go] = useState()` in
+// another make `go()` "cannot be followed"). So a callback's parameter
+// (`items.map((go) => go.id)`) makes an unrelated `go()` fail loudly; a type's
+// parameter (`onPick: (go: string) => void`) does not count.
 // Known misses: a callback inside an object handed to an import
 // (`modals.openConfirmModal({ onConfirm: () => … })`) is not judged — opening
 // the dialog is the work; a destructuring assignment to an existing `let`
-// (`({ go } = useStartActions())`) is not read as a new value of `go`.
+// (`({ go } = useStartActions())`) is not read as a new value of `go`; a URL
+// setter given a variable that holds the tab (`setSearchParams(next)`) is
+// work, since only an argument naming `tab` is read as a tab switch.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -323,8 +329,17 @@ function parameterNames(file: ts.SourceFile): Set<string> {
     if (ts.isIdentifier(name)) names.add(name.text)
     else for (const element of name.elements) if (ts.isBindingElement(element)) bind(element.name)
   }
+  // A parameter of a type (`onPick: (go: string) => void`, a method or call
+  // signature) binds nothing at run time, so it shadows no local (KAN-518 review).
+  const typeLevel = (p: ts.Node) =>
+    ts.isFunctionTypeNode(p) ||
+    ts.isConstructorTypeNode(p) ||
+    ts.isMethodSignature(p) ||
+    ts.isCallSignatureDeclaration(p) ||
+    ts.isConstructSignatureDeclaration(p) ||
+    ts.isIndexSignatureDeclaration(p)
   walk(file, (n) => {
-    if (ts.isParameter(n)) bind(n.name)
+    if (ts.isParameter(n) && !typeLevel(n.parent)) bind(n.name)
   })
   return names
 }
@@ -645,7 +660,10 @@ function isOpaqueCallee(callee: ts.Expression, scope: FileScope): boolean {
 function handedFunction(arg: ts.Expression, scope: FileScope): Callable | ts.Identifier | null {
   const expr = unwrap(arg)
   if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return expr
-  if (!ts.isIdentifier(expr) || scope.destructured.has(expr.text) || scope.params.has(expr.text)) return null
+  if (!ts.isIdentifier(expr) || scope.destructured.has(expr.text)) return null
+  // A name the file declares only as functions is handed as one, even when a
+  // parameter elsewhere shares its spelling: nameCallWays then adds that
+  // parameter's "cannot be followed". A parameter alone may be data.
   const targets = scope.decls.get(expr.text)
   if (!targets || targets.length === 0) return null
   const isFunction = (t: ts.Node) =>
@@ -877,6 +895,13 @@ function objectLiteralOf(value: ts.Node): ts.ObjectLiteralExpression | null {
 // (`invalidateQueries`). Trusted inside a body only — never as a handler value.
 const WRITING_HOOKS = ['useMutation', 'useQueryClient']
 
+/** A TanStack Query writing hook's result — from its own package only (KAN-518 review: not `props.useMutation()`). */
+function isWritingHookCall(target: ts.Node, scope: FileScope): boolean {
+  if (!ts.isExpression(target)) return false
+  const call = unwrap(target)
+  return ts.isCallExpression(call) && WRITING_HOOKS.some((hook) => callsHookFrom(call, hook, ['@tanstack/react-query'], scope))
+}
+
 function memberName(access: ts.PropertyAccessExpression | ts.ElementAccessExpression): string | null {
   if (ts.isPropertyAccessExpression(access)) return access.name.text
   const key = unwrap(access.argumentExpression)
@@ -949,8 +974,10 @@ function memberCallWays(access: ts.PropertyAccessExpression | ts.ElementAccessEx
   if (targets.length === 0 && destructured.length === 0) return scope.params.has(receiver.text) ? UNRESOLVED : trusted(mode)
   return either(
     ...destructured,
+    // A parameter of the same spelling elsewhere in the file may be this receiver (names are judged file-wide).
+    ...(scope.params.has(receiver.text) ? [UNRESOLVED] : []),
     ...targets.map((target): Ways => {
-      if (ts.isExpression(target) && WRITING_HOOKS.some((hook) => isCallTo(unwrap(target), [hook]))) return trusted(mode)
+      if (isWritingHookCall(target, scope)) return trusted(mode)
       const hook = rowMenuHookOf(target, scope)
       if (hook === 'ambiguous') return UNRESOLVED
       const object = hook?.returned ?? objectLiteralOf(target)
@@ -1002,7 +1029,10 @@ function handlerWays(value: ts.Expression, scope: FileScope): Ways {
       const receiver = unwrap(expr.expression)
       const targets = ts.isIdentifier(receiver) ? scope.decls.get(receiver.text) : undefined
       if (!targets) return UNRESOLVED
+      const receiverShadowed =
+        ts.isIdentifier(receiver) && (scope.params.has(receiver.text) || scope.destructured.has(receiver.text)) ? [UNRESOLVED] : []
       return either(
+        ...receiverShadowed,
         ...targets.map((target): Ways => {
           const hook = rowMenuHookOf(target, scope)
           if (hook === 'ambiguous') return UNRESOLVED
@@ -1718,6 +1748,22 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
     expect.soft(verdict('const navigate = useNavigate()', "() => navigate('/x')", { head: "import { useNavigate } from '../hooks/useNavigate'" })).toBe(
       'cannot be followed',
     )
+
+    // KAN-518 review, round 2: a receiver, a handler value's receiver and a handed name are judged
+    // file-wide too; a writing hook only from its package; a type's parameter shadows nothing.
+    expect.soft(verdictOf([twoComponents('{ menu }', 'const menu = { go: () => setAllocating(true) }', '() => menu.go()')])).toBe('cannot be followed')
+    expect.soft(verdictOf([twoComponents('{ menu }', 'const menu = { go: () => setAllocating(true) }', 'menu.go')])).toBe('cannot be followed')
+    // (The local is a tab switch and the prop cannot be followed: either refuses; the tab switch is named first.)
+    expect.soft(verdictOf([twoComponents('{ go }', "const go = () => setActiveTab('identity')", '() => startTransition(go)')])).toBe('tab switch')
+    expect.soft(verdictOf([twoComponents('{ go }', 'const go = () => setAllocating(true)', '() => startTransition(go)')])).toBe('cannot be followed')
+    expect.soft(verdict('const m = props.useMutation()', "() => { setActiveTab('identity'); m.mutate() }", { signature: 'A(props)' })).toBe('cannot be followed')
+    expect.soft(
+      verdict('const create = useMutation({ mutationFn })', "() => { setActiveTab('identity'); create.mutate() }", { head: "import { useMutation } from '@tanstack/react-query'" }),
+    ).toBe('ok')
+    expect.soft(
+      verdict('const create = useMutation({ mutationFn })', "() => { setActiveTab('identity'); create.mutate() }", { head: "import { useMutation } from './queries'" }),
+    ).toBe('cannot be followed')
+    expect.soft(verdict("type P = { onPick: (go: string) => void }\nconst go = () => setAllocating(true)", '() => go()')).toBe('ok')
 
     // A `finally` that leaves decides how the function ends (`c.done || w.done`): its return
     // overrides the try's throw, its throw overrides the try's return.
