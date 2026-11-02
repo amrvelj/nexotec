@@ -38,7 +38,9 @@ from app.inventory.services.publishing import publish, unpublish
 from app.inventory.services.purchase import record_purchase
 from app.sales.models.contract import SalesContract
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
-from app.sales.services.contract import cancel_contract
+from app.sales.services.contract import cancel_contract, request_invoice
+from app.sales.services.invoice_handover import HandoverPlate
+from app.vehicle.models.plate import VehiclePlate
 from app.worker import register_handlers
 from tests.test_inventory_marketplace_transmission import (
     FakeMarketplaceAdapter,
@@ -50,8 +52,10 @@ from tests.test_inventory_marketplace_transmission import (
 from tests.test_sales_manual_configuration_link import (
     _confirmed_manual_contract,
     _dealership,
+    _deliver_added,
     _message,
     _session_factory,
+    _stock_buys_it,
     _stock_creates_the_pipeline_item,
 )
 
@@ -164,6 +168,29 @@ def _stock_item_purchased(db_session, engine, monkeypatch):
         )
 
     return message, replicas
+
+
+def _invoice_requested_with_plate(db_session, engine, monkeypatch):
+    """KAN-523 — «Rechnung anfordern» with the plate the car leaves with, from
+    the real producer: vehicle-mdm records it on the sold car, once."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_manual_contract(db_session, engine, dealership)
+    item = _stock_creates_the_pipeline_item(db_session, contract)
+    _deliver_added(db_session, item)
+    _stock_buys_it(db_session, item)
+    db_session.refresh(contract)
+    request_invoice(
+        db_session, contract=contract, actor_id=uuid.uuid4(), group_id=dealership.dealer_group_id,
+        plate=HandoverPlate(plate="ZH 123456", canton="ZH"), session_factory=_session_factory(engine),
+    )
+    message = _message(db_session, "sales.contract.invoice_requested", contract.id)
+    vehicle_id = item.vehicle_id
+
+    def plates(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(VehiclePlate).where(VehiclePlate.vehicle_id == vehicle_id))
+
+    return message, plates
 
 
 def _published_item(db_session, monkeypatch):
@@ -280,6 +307,7 @@ _FIXTURES: dict[str, Fixture] = {
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,
     "platform.web_push_on_digest": _digest_released,
+    "vehicle.plate_on_invoice_requested": _invoice_requested_with_plate,
 }
 
 

@@ -298,7 +298,8 @@
       "plate_move_and_wechselschild": "Ein Kontrollschild wird entweder verschoben oder als Wechselschild erfasst, nicht beides.",
       "plate_move_before_start": "Die Zuordnung auf dem anderen Fahrzeug beginnt am selben Tag oder später – bitte ein späteres «Gültig ab» wählen.",
       "plate_validity_invalid": "Eine Zuordnung kann nicht vor ihrem Beginn enden.",
-      "plate_wechselschild_not_possible": "Ein Wechselschild verbindet genau zwei Fahrzeuge – dieses Kontrollschild ist bereits auf zwei Fahrzeugen."
+      "plate_wechselschild_not_possible": "Ein Wechselschild verbindet genau zwei Fahrzeuge – dieses Kontrollschild ist bereits auf zwei Fahrzeugen.",
+      "invoice_plate_vehicle_unknown": "Für das Fahrzeug dieses Vertrags gibt es keinen Fahrzeugdatensatz, auf dem ein Kontrollschild erfasst werden kann. Fordern Sie die Rechnung ohne Kontrollschild an und erfassen Sie es danach beim Fahrzeug."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1385,7 +1386,22 @@
       "cancelDisabledReasonLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert, kann nicht storniert werden.",
       "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
       "confirmDisabledReasonNoBuyer": "Zuerst den Käufer wählen: Ein Vertrag wird nie ohne Kunden bestätigt.",
-      "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert."
+      "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert.",
+      "requestInvoice": "Rechnung anfordern",
+      "requestInvoiceDisabledNotConfirmed": "Erst nach der Bestätigung des Vertrags möglich.",
+      "requestInvoiceDisabledNotPurchased": "Das Fahrzeug ist noch nicht eingekauft – die Rechnung kann angefordert werden, sobald der Einkauf im Bestand erfasst ist.",
+      "requestInvoiceDisabledLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert."
+    },
+    "requestInvoice": {
+      "title": "Rechnung anfordern",
+      "hint": "Mit welchem Kontrollschild übergeben Sie das Fahrzeug? Es wird beim Fahrzeug erfasst und ist in der Suche auffindbar.",
+      "withPlate": "Mit Kontrollschild",
+      "withoutPlate": "Ohne Kontrollschild",
+      "submit": "Rechnung anfordern",
+      "moveSubmit": "Verschieben und Rechnung anfordern",
+      "requested": "Die Rechnung ist angefordert.",
+      "requestedWithPlate": "Die Rechnung ist angefordert. {{plate}} wird beim Fahrzeug erfasst.",
+      "error": "Die Rechnung konnte nicht angefordert werden."
     },
     "stats": {
       "grossPrice": "Verkaufspreis",

@@ -61,6 +61,7 @@ from app.platform.daily_jobs import (
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
+from app.vehicle.consumers import handle_invoice_requested_message
 from app.vehicle.public import run_daily_plate_lookup_purge
 
 logger = logging.getLogger("app.worker")
@@ -131,6 +132,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.unpublished",
         consumer_name="inventory.marketplace_transmission_on_unpublish",
         handler=handle_stock_item_unpublished_message,
+    )
+    # KAN-523 — the plate a sold car leaves with, entered at «Rechnung
+    # anfordern», is recorded on its vehicle-mdm record in the group register.
+    transport.register(
+        "sales.contract.invoice_requested",
+        consumer_name="vehicle.plate_on_invoice_requested",
+        handler=handle_invoice_requested_message,
     )
     # KAN-216 (D-A-40, FR-A-49/50) — Web Push is a pointer to the inbox: the
     # title and link of a delivered notification, and one pointer per digest.

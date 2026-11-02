@@ -17,7 +17,8 @@ because their IdempotentRoute holds the client's key (KAN-266).
 a plain dict, never an ORM row, matching app.vehicle.public's own
 "getter returns a dict" posture for exactly the same reason: the caller
 must not be able to hold or mutate an inventory object across a context
-boundary.
+boundary. `get_stock_item_vehicle` (KAN-523) is a third: which vehicle-mdm
+record (and VIN) a stock item is, so Sales can hand the sold car's plate on.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -27,6 +28,7 @@ from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.stock_item import get_stock_item_or_404
 from app.inventory.services.valuation import set_valuation_ref
+from app.inventory.services.vehicle_link import get_stock_item_vehicle
 
 __all__ = [
     "InventoryOwnershipProvider",
@@ -36,6 +38,7 @@ __all__ = [
     "StockItemCondition",
     "get_stock_item_or_404",
     "get_stock_item_pricing",
+    "get_stock_item_vehicle",
     "get_stock_items_for_vehicles",
     "release",
     "reserve",

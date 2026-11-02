@@ -3132,7 +3132,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Request Invoice */
+        /**
+         * Request Invoice
+         * @description «Rechnung anfordern» (ADR-046). KAN-523: the optional body carries the
+         *     plate the car leaves with — 409 `plate_current_on_other_vehicle` names
+         *     the group's other car until `moveFrom` confirms the move.
+         */
         post: operations["request_invoice_v1_sales_contracts__contract_id__request_invoice_post"];
         delete?: never;
         options?: never;
@@ -5456,6 +5461,27 @@ export interface components {
             stockItemId?: string | null;
             /** Vehiclelabel */
             vehicleLabel?: string | null;
+        };
+        /**
+         * ContractInvoiceRequest
+         * @description KAN-523 — «Rechnung anfordern» with the plate the car leaves with
+         *     (Anto, 2026-11-01: entered in this step). `plate` and `canton` together,
+         *     or neither («ohne Kontrollschild»). The body is optional: a request
+         *     without one hands the car over without a plate, as before.
+         *
+         *     When the plate is current on another car of the dealer group the request
+         *     is refused (409 `plate_current_on_other_vehicle`, the cars in
+         *     `details.holders` with each assignment's `version`; past the plate-read
+         *     limit `details.holdersWithheld`); the user's answer is the same request
+         *     with `moveFrom` — exactly the listed assignments at their versions.
+         */
+        ContractInvoiceRequest: {
+            /** Canton */
+            canton?: string | null;
+            /** Movefrom */
+            moveFrom?: components["schemas"]["PlateMoveAnswer"][];
+            /** Plate */
+            plate?: string | null;
         };
         /** ContractPage */
         ContractPage: {
@@ -8659,6 +8685,20 @@ export interface components {
          * @enum {string}
          */
         PhoneType: "mobile" | "landline" | "work" | "fax";
+        /**
+         * PlateMoveAnswer
+         * @description One other car's plate assignment the user confirmed moving the plate
+         *     from, at the version the refusal showed (its If-Match).
+         */
+        PlateMoveAnswer: {
+            /**
+             * Plateid
+             * Format: uuid
+             */
+            plateId: string;
+            /** Version */
+            version: number;
+        };
         /** PlateRecordRead */
         PlateRecordRead: {
             /** Brandname */
@@ -19870,7 +19910,11 @@ export interface operations {
                 dms_session?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContractInvoiceRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

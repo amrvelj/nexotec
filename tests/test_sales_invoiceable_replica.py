@@ -358,7 +358,7 @@ def test_request_invoice_refuses_a_stock_vehicle_that_is_not_purchased(db_sessio
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
 
     with pytest.raises(ConflictError) as excinfo:
-        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     assert excinfo.value.details == {"reason": "vehicle_not_purchased"}
     assert db_session.scalars(
@@ -378,7 +378,7 @@ def test_request_invoice_hands_off_once_the_vehicle_is_purchased(db_session, eng
     _deliver(db_session, _purchased_message(db_session, item))
     db_session.refresh(contract)
 
-    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     assert db_session.scalars(
         select(OutboxMessage).where(
@@ -406,7 +406,7 @@ def test_request_invoice_reads_the_purchase_as_of_now_not_as_of_loading(db_sessi
     finally:
         other.close()
 
-    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     assert contract.is_invoiceable is True
 
@@ -435,7 +435,7 @@ def test_request_invoice_refuses_a_manual_configuration_until_sales_knows_it_is_
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
 
     with pytest.raises(ConflictError) as excinfo:
-        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     assert excinfo.value.details == {"reason": "vehicle_not_purchased"}
 

@@ -216,6 +216,14 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.configuration.copy_configuration",
         "sales: copy_offer, on its own session",
     ),
+    # KAN-523 — «Rechnung anfordern» asks whether the sold car's plate can be
+    # recorded; a refusal naming the group's other car is an audited plate
+    # read (ADR-085), whose audit rows the guard commits. Sales hands it a
+    # session of its own, before it writes anything.
+    "app.vehicle.public.check_plate_handover": (
+        "app.vehicle.services.plate_read_guard._authorize",
+        "sales: request_invoice (services/invoice_handover.py), on its own session",
+    ),
     "app.vehicle.public.discard_configuration_copy": (
         "app.vehicle.services.configuration.discard_configuration_copy",
         "sales: copy_offer's compensation, on its own session",
@@ -255,6 +263,7 @@ _READS = {
     # KAN-42: the identification waterfall asks whether VIN decode is entitled.
     "app.integration.public.vin_decode_granted",
     "app.inventory.public.get_stock_item_pricing",
+    "app.inventory.public.get_stock_item_vehicle",
     "app.inventory.public.get_stock_items_for_vehicles",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.

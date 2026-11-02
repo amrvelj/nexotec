@@ -269,7 +269,7 @@ def test_two_events_are_never_the_same_name(db_session, engine):
     # KAN-100: invoicing needs the purchase (Anto, 2026-10-04).
     record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4(), stock_item_label=item.stock_number)
     db_session.refresh(contract)
-    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     event_types = {
         m.event_type for m in db_session.query(OutboxMessage).filter_by(aggregate_id=contract.id).all()
@@ -283,7 +283,7 @@ def test_request_invoice_refuses_before_confirmation(db_session):
 
     contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
     with pytest.raises(ConflictError):
-        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
 
 def test_confirmation_transaction_scope_is_separate_from_reserve(db_session, engine):

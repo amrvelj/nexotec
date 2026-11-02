@@ -298,7 +298,8 @@
       "plate_move_and_wechselschild": "Una targa viene spostata oppure registrata come targa trasferibile, non entrambe le cose.",
       "plate_move_before_start": "L'assegnazione sull'altro veicolo inizia lo stesso giorno o più tardi – scegliere una data «Valida dal» successiva.",
       "plate_validity_invalid": "Un'assegnazione non può terminare prima di iniziare.",
-      "plate_wechselschild_not_possible": "Una targa trasferibile collega esattamente due veicoli – questa targa è già su due veicoli."
+      "plate_wechselschild_not_possible": "Una targa trasferibile collega esattamente due veicoli – questa targa è già su due veicoli.",
+      "invoice_plate_vehicle_unknown": "Il veicolo di questo contratto non ha una scheda veicolo su cui registrare una targa. Richieda la fattura senza targa e registri poi la targa sul veicolo."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1385,7 +1386,22 @@
       "cancelDisabledReasonLegacy": "Vendita ripresa dal sistema precedente — già fatturata lì, non può essere annullata.",
       "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo.",
       "confirmDisabledReasonNoBuyer": "Scegliere prima l’acquirente: un contratto non viene mai confermato senza cliente.",
-      "confirmDisabledReasonSaving": "Le modifiche sono ancora in fase di salvataggio."
+      "confirmDisabledReasonSaving": "Le modifiche sono ancora in fase di salvataggio.",
+      "requestInvoice": "Richiedi fattura",
+      "requestInvoiceDisabledNotConfirmed": "Possibile solo dopo la conferma del contratto.",
+      "requestInvoiceDisabledNotPurchased": "Il veicolo non è ancora stato acquistato — la fattura può essere richiesta non appena l'acquisto è registrato in stock.",
+      "requestInvoiceDisabledLegacy": "Vendita ripresa dal vecchio sistema — già fatturata lì."
+    },
+    "requestInvoice": {
+      "title": "Richiedi fattura",
+      "hint": "Con quale targa viene consegnato il veicolo? Viene registrata sul veicolo e si trova con la ricerca.",
+      "withPlate": "Con targa",
+      "withoutPlate": "Senza targa",
+      "submit": "Richiedi fattura",
+      "moveSubmit": "Sposta e richiedi fattura",
+      "requested": "La fattura è stata richiesta.",
+      "requestedWithPlate": "La fattura è stata richiesta. {{plate}} viene registrata sul veicolo.",
+      "error": "Non è stato possibile richiedere la fattura."
     },
     "stats": {
       "grossPrice": "Prezzo di vendita",

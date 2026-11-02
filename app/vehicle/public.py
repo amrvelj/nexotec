@@ -4,9 +4,10 @@ contract allows `app.<other-context>` to import `app.vehicle.public`, never
 """
 
 import dataclasses
+import datetime as dt
 import logging
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +26,7 @@ from app.vehicle.services.host_configuration import (
     ConfigurationPriceLine,
     HostConfiguration,
 )
+from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
 
@@ -177,6 +179,41 @@ def match_vehicle(
     )
 
 
+def check_plate_handover(
+    db: Session,
+    *,
+    actor_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    plate: str,
+    canton: str,
+    valid_from: dt.date,
+    move_from: Sequence[PlateVersionRef] = (),
+) -> PlateRecordingCheck:
+    """KAN-523 — Sales' «Rechnung anfordern» asks whether the plate the sold
+    car leaves with can be recorded on it in the group's register, before it
+    publishes `sales.contract.invoice_requested` (whose vehicle consumer
+    records it). Raises the register's refusals — 409
+    `plate_current_on_other_vehicle` names the group's other car(s) through
+    the plate-read guard, which commits its audit rows: hand it a session of
+    your own (ADR-047)."""
+
+    from app.vehicle.services.plate_handover import check_plate_handover as _check_plate_handover
+
+    return _check_plate_handover(
+        db,
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        group_id=group_id,
+        vehicle_id=vehicle_id,
+        plate=plate,
+        canton=canton,
+        valid_from=valid_from,
+        move_from=move_from,
+    )
+
+
 def get_configuration_for_host(
     db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID
 ) -> HostConfiguration:
@@ -233,11 +270,14 @@ __all__ = [
     "ConfigurationPriceLine",
     "CustodyEventType",
     "HostConfiguration",
+    "PlateRecordingCheck",
+    "PlateVersionRef",
     "Vehicle",
     "VehicleConfiguration",
     "VehicleMdm",
     "VehicleStatus",
     "VehicleSummary",
+    "check_plate_handover",
     "copy_configuration_for_host",
     "create_custody_event",
     "create_or_get_vehicle_mdm",

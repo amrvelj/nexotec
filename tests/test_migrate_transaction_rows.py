@@ -584,7 +584,7 @@ def test_a_migrated_legacy_sale_cannot_be_handed_to_invoicing_again(db_session):
     assert contract.is_invoiceable is True  # the purchase gate alone would let it through
 
     with pytest.raises(ConflictError) as excinfo:
-        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     assert excinfo.value.details == {"reason": "legacy_sale"}
     assert db_session.scalars(
@@ -609,7 +609,7 @@ def test_a_migrated_legacy_sale_without_a_trade_in_is_refused_as_legacy_not_as_u
     assert contract.is_invoiceable is False
 
     with pytest.raises(ConflictError) as excinfo:
-        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     assert excinfo.value.details == {"reason": "legacy_sale"}
 

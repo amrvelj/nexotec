@@ -22,6 +22,7 @@ import {
   useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { RequestInvoiceDialog, type RequestInvoiceBody } from '../components/contract-detail/RequestInvoiceDialog'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
 import { buildDealTakeOverAction } from '../components/dealRowMenu'
 import { useAuth } from '../auth/AuthContext'
@@ -188,6 +189,27 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     }
   }
 
+  // KAN-523 — «Rechnung anfordern», with the plate the car leaves with.
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null)
+  const requestInvoiceKey = useIdempotencyKey()
+  const requestInvoice = async (body: RequestInvoiceBody | undefined) => {
+    const contract = contractQuery.data
+    if (!contract) return
+    const path = `/sales/contracts/${id}/request-invoice`
+    const updated = await api.post<SalesContractRead>(path, body, {
+      'If-Match': String(contract.version),
+      ...requestInvoiceKey.headers([path, body ?? null]),
+    })
+    requestInvoiceKey.renew()
+    queryClient.setQueryData(['sales-contract', id], updated)
+    setInvoiceNotice(
+      body?.plate
+        ? t('contractDetail.requestInvoice.requestedWithPlate', { plate: `${body.canton ?? ''} ${body.plate}`.trim() })
+        : t('contractDetail.requestInvoice.requested'),
+    )
+  }
+
   const confirm = async () => {
     const contract = contractQuery.data
     if (!contract || pricingUnsaved || saves.pending > 0) return
@@ -280,6 +302,26 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             ? t('contractDetail.actions.confirmDisabledReasonSaving')
             : undefined
 
+  // KAN-523 — a confirmed contract's primary action is «Rechnung anfordern»
+  // (ADR-061: one primary action); the server's gates are mirrored so the
+  // click is never invited only to be refused.
+  const isConfirmed = contract.status === 'confirmed'
+  const requestInvoiceDisabledReason = !isConfirmed
+    ? t('contractDetail.actions.requestInvoiceDisabledNotConfirmed')
+    : contract.isLegacy
+      ? t('contractDetail.actions.requestInvoiceDisabledLegacy')
+      : !contract.isInvoiceable
+        ? t('contractDetail.actions.requestInvoiceDisabledNotPurchased')
+        : undefined
+  const runPrimaryAction = () => {
+    if (isConfirmed) {
+      setInvoiceNotice(null)
+      setInvoiceDialogOpen(true)
+      return
+    }
+    void confirm()
+  }
+
   const containerProps = {
     ownerType: 'contract' as const,
     deal: contract,
@@ -345,6 +387,12 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         </Alert>
       )}
 
+      {invoiceNotice && (
+        <Alert color="green" role="status" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setInvoiceNotice(null)}>
+          {invoiceNotice}
+        </Alert>
+      )}
+
       <DetailHeader
         labels={{ moreActions: t('common.moreActions') }}
         entityMark={<FileSignature size={24} />}
@@ -357,10 +405,12 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           </>
         }
         primaryAction={{
-          label: t('contractDetail.actions.confirm'),
-          onClick: confirm,
-          disabled: !isPending || hasNoBuyer || buyerDoNotContact || isEmpty || isSaving,
-          disabledReason: confirmDisabledReason,
+          label: isConfirmed ? t('contractDetail.actions.requestInvoice') : t('contractDetail.actions.confirm'),
+          onClick: runPrimaryAction,
+          disabled: isConfirmed
+            ? requestInvoiceDisabledReason !== undefined
+            : !isPending || hasNoBuyer || buyerDoNotContact || isEmpty || isSaving,
+          disabledReason: isConfirmed ? requestInvoiceDisabledReason : confirmDisabledReason,
         }}
         overflowActions={overflowActions}
       />
@@ -430,6 +480,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       )}
 
       <SalesDocumentsSection ownerType="contract" ownerId={id} />
+
+      <RequestInvoiceDialog opened={invoiceDialogOpen} onClose={() => setInvoiceDialogOpen(false)} onRequest={requestInvoice} />
     </div>
   )
 }

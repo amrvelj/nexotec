@@ -138,13 +138,13 @@ def test_linked_then_purchased_can_be_invoiced(db_session, engine):
     db_session.refresh(contract)
 
     with pytest.raises(ConflictError) as excinfo:
-        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
     assert excinfo.value.details == {"reason": "vehicle_not_purchased"}
 
     _stock_buys_it(db_session, item)
     db_session.refresh(contract)
 
-    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
     assert _message(db_session, "sales.contract.invoice_requested", contract.id)
 
 
@@ -163,7 +163,7 @@ def test_purchased_then_linked_can_be_invoiced(db_session, engine):
     db_session.refresh(contract)
 
     assert contract.is_invoiceable is True
-    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
 
 def test_redelivery_links_once(db_session, engine):

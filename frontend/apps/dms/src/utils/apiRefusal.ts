@@ -156,6 +156,8 @@ const REASON_KEYS: Record<string, string> = {
       'plate_move_before_start',
       'plate_validity_invalid',
       'plate_wechselschild_not_possible',
+      // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
+      'invoice_plate_vehicle_unknown',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
