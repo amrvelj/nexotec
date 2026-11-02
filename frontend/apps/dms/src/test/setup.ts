@@ -134,12 +134,36 @@ if (typeof window !== 'undefined') {
   })
 }
 
+// KAN-526 — a test that ends on a `findBy*`/`waitFor` ends on a commit React
+// made outside `act` (testing-library lifts the act environment while it
+// waits). React 19 runs that commit's passive effects, and any render they
+// cause, as Scheduler tasks on `setImmediate`, and each such task begins by
+// reading `window.event` (react-dom `performWorkOnRootViaSchedulerTask`, the
+// passive-effects callback). `cleanup()` unmounts inside `act`, which flushes
+// act's own queue but not a task already on the Scheduler's. If the test was
+// its file's last, vitest could tear jsdom down before that immediate ran,
+// and the task threw «window is not defined»: exit 1 with every test green,
+// only under load (OfferGenerateReviewModal's confirm tests, then any file).
+// So every jsdom test lets the queued tasks run while `window` still exists:
+// each round yields one macrotask turn, so every immediate queued before it
+// runs (all of them now find an unmounted root); a task that queues another
+// is picked up by the next round. The scheduler package exposes no queue to
+// wait on (0.27 has no `unstable_getFirstCallbackNode`), hence the rounds.
+const SCHEDULER_DRAIN_ROUNDS = 5
+
+async function drainReactScheduler(): Promise<void> {
+  for (let round = 0; round < SCHEDULER_DRAIN_ROUNDS; round++) {
+    await new Promise<void>((resolve) => setImmediate(resolve))
+  }
+}
+
 afterEach(async () => {
   // Unmount first, while the test's own fetch (its fake backend) is still
   // installed: a request sent during unmount belongs to that test (KAN-172).
   if (typeof document !== 'undefined') {
     const { cleanup } = await import('@testing-library/react')
     cleanup()
+    await drainReactScheduler()
   }
   vi.unstubAllGlobals()
   if (typeof document !== 'undefined') {
