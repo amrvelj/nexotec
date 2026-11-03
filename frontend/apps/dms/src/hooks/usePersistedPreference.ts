@@ -103,18 +103,29 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
   return { value, update }
 }
 
+/** The latest write sent per scope — a resend is made only while its write
+ * is still the latest (KAN-532). */
+const latestSendPerScope = new Map<string, number>()
+let sendCounter = 0
+
 /** "Never block: a failed preference write is logged, never surfaces an error toast."
  *
- * KAN-532 — a keepalive send the browser refuses before it reaches the server
- * (a rejected fetch, not an API answer: the payload, or every keepalive body
- * in flight together, passed the browser's 64 KiB keepalive budget — the
- * server accepts up to 64 KiB per scope) is sent again as an ordinary
- * request, so hiding the page never loses a write the debounce would have
- * delivered. An `ApiError` is the server's answer and is not retried. */
+ * KAN-532 — a keepalive send that fails without an API answer (a rejected
+ * fetch, not an `ApiError`) is sent again as an ordinary request, so hiding
+ * the page never loses a write the debounce would have delivered. The case it
+ * is for: the browser refuses a keepalive body once its in-flight keepalive
+ * bytes would pass 64 KiB, while the server accepts up to 64 KiB per scope.
+ * A rejection cannot say whether the request reached the server, and the PUT
+ * is last-write-wins, so the resend is made only while no newer write for
+ * the scope has been sent since: a late failure never puts an older value
+ * back over a newer one. An `ApiError` is the server's answer and is not
+ * retried. */
 function sendPreference(scope: string, payload: unknown, keepalive = false): void {
+  const send = ++sendCounter
+  latestSendPerScope.set(scope, send)
   api.put(`/me/preferences/${scope}`, payload, undefined, { keepalive }).catch((err) => {
     if (keepalive && !(err instanceof ApiError)) {
-      sendPreference(scope, payload, false)
+      if (latestSendPerScope.get(scope) === send) sendPreference(scope, payload, false)
       return
     }
     console.error(`Failed to persist "${scope}" preferences:`, err instanceof ApiError ? err.message : err)

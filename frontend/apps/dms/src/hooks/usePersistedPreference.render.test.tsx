@@ -139,6 +139,49 @@ describe('usePersistedPreference — a pending write survives the tab closing (K
     const sent = puts(backend, 'grid:second')
     expect(sent).toHaveLength(1)
     expect(sent[0].keepalive).toBe(true)
+
+    // The same for the document turning hidden.
+    act(() => result.current.update({ density: 'normal' }))
+    try {
+      setVisibility('hidden')
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+    } finally {
+      setVisibility('visible')
+    }
+    expect(puts(backend, 'grid:first')).toHaveLength(0)
+    expect(puts(backend, 'grid:second')).toHaveLength(2)
+  })
+
+  it('does not resend a failed keepalive write once a newer write for the scope has been sent', async () => {
+    // A rejected fetch cannot say whether its request reached the server, and
+    // the PUT is last-write-wins: resending the older write after a newer
+    // one would put the older value back on the server.
+    const backend = installFakeBackend([])
+    const delivered = vi.mocked(fetch).getMockImplementation()!
+    let failKeepalive: (reason: unknown) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.keepalive) return new Promise<Response>((_, reject) => (failKeepalive = reject))
+        return delivered(input, init)
+      }),
+    )
+    const { result } = renderHook(() => usePersistedPreference<Prefs>('grid:test', 'test-grid', DEFAULTS))
+    act(() => result.current.update({ density: 'compact' }))
+    act(() => {
+      window.dispatchEvent(new Event('pagehide')) // A: keepalive, hangs
+    })
+    act(() => result.current.update({ density: 'comfortable' }))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 600))) // B: debounced, delivered
+    expect(puts(backend, 'grid:test').map((c) => c.body)).toEqual([{ schemaVersion: 1, density: 'comfortable' }])
+
+    await act(async () => {
+      failKeepalive(new TypeError('Failed to fetch'))
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+    expect(puts(backend, 'grid:test').map((c) => c.body)).toEqual([{ schemaVersion: 1, density: 'comfortable' }])
   })
 
   it('sends the write again without keepalive when the browser refuses the keepalive request', async () => {
@@ -183,16 +226,5 @@ describe('usePersistedPreference — a pending write survives the tab closing (K
     await vi.waitFor(() => expect(error).toHaveBeenCalled())
     expect(puts(backend, 'grid:test')).toHaveLength(1)
     error.mockRestore()
-  })
-
-  it('stops listening once the screen has gone', () => {
-    const backend = installFakeBackend([])
-    const { result, unmount } = renderHook(() => usePersistedPreference<Prefs>('grid:test', 'test-grid', DEFAULTS))
-    act(() => result.current.update({ density: 'compact' }))
-    unmount() // KAN-531: sent at once
-    act(() => {
-      window.dispatchEvent(new Event('pagehide'))
-    })
-    expect(puts(backend, 'grid:test')).toHaveLength(1)
   })
 })
