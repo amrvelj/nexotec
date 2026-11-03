@@ -58,8 +58,9 @@ def get_configuration_labels(
     """KAN-534 — the current label of each configuration named, read only in
     the Betrieb its host says it belongs to (`configuration id -> tenant id`):
     a configuration of another Betrieb is absent, as is an id naming nothing.
-    The scope is the caller's own row's tenant, never an id it is free to
-    pick for itself (the KAN-538 lesson). One SELECT, read only."""
+    The caller passes the tenant its own host row carries — the same trust
+    model as `get_configuration_for_host(tenant_id=…)`; the function never
+    answers across Betriebe on its own. One SELECT, read only."""
 
     if not tenant_by_configuration:
         return {}

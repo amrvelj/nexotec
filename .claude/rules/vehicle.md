@@ -211,7 +211,9 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   supports both modes; the host decides which is reachable. Never bake a mode switch into the
   offer overlay. Each host enforces it at its API (`configuration_mode_not_allowed`, 422) and
   the overlay takes `allowedModes`; hosts read a configuration only through
-  `vehicle.public.get_configuration_for_host` (KAN-10); a host that copies itself (Sales'
+  `vehicle.public.get_configuration_for_host` (KAN-10) — and Stock's nightly label refresh
+  through `vehicle.public.get_configuration_labels`, labels only, each read in the Betrieb the
+  stock item names (KAN-534); a host that copies itself (Sales'
   Save-and-copy) gets its own copy through `copy_configuration_for_host`, undone by
   `discard_configuration_copy` (FR-C-11, KAN-188).
 - **The configurator is a Sales-module surface** (KAN-198, D-A-04): every route of

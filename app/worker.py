@@ -265,7 +265,8 @@ def register_daily_jobs() -> None:
     5. ``inventory.configuration_labels`` — KAN-534: the same for Stock's
        copy of each stock item's configuration label, so a configuration
        edited after it was attached («Konfiguration bearbeiten», KAN-510)
-       names the car correctly on the stock list within a day.
+       shows its new label in the stock list's «Konfiguration» column within
+       a day. The item's own ``vehicle_label`` («Fahrzeug») is not touched.
     6. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling

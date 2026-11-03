@@ -35,8 +35,13 @@ def refresh_configuration_labels(db: Session) -> int:
     bumped — the label is a copy no client writes, and a bump would make an
     open stock detail refuse its next save as stale. A current label is only
     restamped, with updated_at held. A configuration id that names nothing, or
-    a configuration of another Betrieb (reconciliation reports both), is left
-    untouched; its stale stamp is what the sync-age alarm then shows.
+    a configuration of another Betrieb, is left untouched; its stale stamp is
+    what the sync-age alarm then shows (inventory's reconciliation reports a
+    configuration id naming nothing; it has no tenant-match check today).
+
+    Only `configuration_label` follows. The item's own `vehicle_label` — the
+    stock list's «Fahrzeug» column and the detail title — is Stock's field,
+    editable by users, and is not touched here.
 
     Each batch is read FOR NO KEY UPDATE SKIP LOCKED: an item another writer
     holds is left for the next night, never waited for.
