@@ -122,7 +122,15 @@ export const api = {
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, headers: extraHeaders }),
   patch: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body), headers: extraHeaders }),
-  put: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>
-    request<T>(path, { method: 'PUT', body: JSON.stringify(body), headers: extraHeaders }),
+  put: <T>(path: string, body: unknown, extraHeaders?: HeadersInit, options?: { keepalive?: boolean }) =>
+    request<T>(path, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      headers: extraHeaders,
+      // KAN-532 — a write sent as the page is hidden asks the browser to let
+      // it outlive the page (fetch's `keepalive`; the body stays well under
+      // its 64 KiB budget for a preference payload).
+      ...(options?.keepalive ? { keepalive: true } : {}),
+    }),
   delete: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, { method: 'DELETE', headers: extraHeaders }),
 }

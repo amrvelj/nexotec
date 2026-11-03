@@ -40,6 +40,8 @@ export interface RecordedCall {
   params: URLSearchParams
   body: unknown
   headers: Headers
+  /** KAN-532 — whether the request asked to outlive the page (`fetch`'s `keepalive`). */
+  keepalive: boolean
 }
 
 export interface FakeBackend {
@@ -205,7 +207,15 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
     // against the bare resource path (`/customers`, `/me/preferences/ui`).
     const pathname = url.pathname.replace(/^\/v1(?=\/|$)/, '')
     const headers = new Headers(init?.headers)
-    const call: RecordedCall = { method, path: pathname + url.search, pathname, params: url.searchParams, body, headers }
+    const call: RecordedCall = {
+      method,
+      path: pathname + url.search,
+      pathname,
+      params: url.searchParams,
+      body,
+      headers,
+      keepalive: init?.keepalive === true,
+    }
     calls.push(call)
 
     const route = all.find((r) => (r.method ?? 'GET').toUpperCase() === method && r.match.test(pathname))

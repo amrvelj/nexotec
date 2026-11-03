@@ -28,20 +28,37 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
   // change) can send it at once instead of leaving it on the timer.
   const pendingWrite = useRef<T | null>(null)
 
-  useEffect(
-    () => () => {
-      // Runs on unmount and before a scope change, with this scope: a write
-      // still waiting on its debounce goes out now, under the scope it was
-      // made for — never 500 ms after its screen has gone.
+  useEffect(() => {
+    // Sends a write still waiting on its debounce at once, under this scope.
+    const flushPending = (keepalive: boolean) => {
       if (!writeTimer.current) return
       clearTimeout(writeTimer.current)
       writeTimer.current = null
       const pending = pendingWrite.current
       pendingWrite.current = null
-      if (pending) sendPreference(scope, pending)
-    },
-    [scope]
-  )
+      if (pending) sendPreference(scope, pending, keepalive)
+    }
+    // KAN-532 — closing or reloading the tab runs no React cleanup, so the
+    // page being hidden sends the pending write now, with `keepalive` so it
+    // outlives the page. `visibilitychange` to hidden is the signal a mobile
+    // browser reliably gives before it discards a tab; `pagehide` covers the
+    // close and the back/forward cache. While the page stays visible the
+    // debounce is untouched.
+    const onPageHide = () => flushPending(true)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPending(true)
+    }
+    window.addEventListener('pagehide', onPageHide)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      // KAN-531 — runs on unmount and before a scope change, with this
+      // scope: a write still waiting on its debounce goes out now, under the
+      // scope it was made for — never 500 ms after its screen has gone.
+      flushPending(false)
+    }
+  }, [scope])
 
   useEffect(() => {
     api
@@ -87,8 +104,8 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
 }
 
 /** "Never block: a failed preference write is logged, never surfaces an error toast." */
-function sendPreference(scope: string, payload: unknown): void {
-  api.put(`/me/preferences/${scope}`, payload).catch((err) => {
+function sendPreference(scope: string, payload: unknown, keepalive = false): void {
+  api.put(`/me/preferences/${scope}`, payload, undefined, { keepalive }).catch((err) => {
     console.error(`Failed to persist "${scope}" preferences:`, err instanceof ApiError ? err.message : err)
   })
 }
