@@ -6,6 +6,7 @@ import { MantineProvider } from "@mantine/core";
 import { FilterBuilder } from "./FilterBuilder";
 import type { FilterFieldDef, FilterPredicate } from "./filterPredicate";
 import { FR_FILTER_BUILDER_LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // ADR-102 (Anto, 2026-10-26; KAN-458): a field holds one filter. Adding a
 // filter on a field that already has one replaces it — the grid would
@@ -21,7 +22,7 @@ const DOORS_5: FilterPredicate = { id: "p2", fieldId: "doors", type: "number", c
 function renderBuilder(predicates: FilterPredicate[]) {
   const onChange = vi.fn();
   render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <FilterBuilder fields={[PS, DOORS]} predicates={predicates} onChange={onChange} labels={FR_FILTER_BUILDER_LABELS} />
     </MantineProvider>,
   );
@@ -57,7 +58,7 @@ describe("FilterBuilder — one filter per field (ADR-102)", () => {
   it("the live preview counts what saving leaves — the draft in place of its field's filter", async () => {
     const onPreviewCount = vi.fn().mockResolvedValue(3);
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <FilterBuilder
           fields={[PS, DOORS]}
           predicates={[AT_LEAST_150, DOORS_5]}

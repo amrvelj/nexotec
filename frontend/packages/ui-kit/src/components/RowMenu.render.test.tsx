@@ -8,6 +8,7 @@ import { DataGrid } from "../datagrid/DataGrid";
 import type { GridColumnDef } from "../datagrid/types";
 import { RowMenu } from "./RowMenu";
 import { FR_DATA_GRID_LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // jsdom has no layout — render every row (same mock as the other grid tests).
 vi.mock("@tanstack/react-virtual", () => ({
@@ -26,7 +27,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 // an onClick and a ref. The default `⋯` trigger every grid row renders used
 // to drop both, so no row menu ever opened.
 
-const wrap = (ui: ReactNode) => render(<MantineProvider>{ui}</MantineProvider>);
+const wrap = (ui: ReactNode) => render(<MantineProvider theme={testTheme}>{ui}</MantineProvider>);
 
 interface Row {
   id: string;

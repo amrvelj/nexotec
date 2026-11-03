@@ -40,11 +40,15 @@ if (typeof window !== 'undefined') {
   // jsdom ships neither of these, and Mantine's Popover/Select/ScrollArea
   // and TanStack Virtual reach for them on mount. No behaviour under test
   // depends on their real semantics — a windowed grid still renders its
-  // header, a Select still opens — so inert stand-ins are enough.
+  // header, a Select still opens — so inert stand-ins are enough. The one
+  // query that matches is reduced motion (KAN-533, as apps/dms since
+  // KAN-526): with `testTheme`'s `respectReducedMotion`, Mantine's
+  // transitions then schedule no animation frame or timer that could land
+  // after this file's jsdom is gone.
   if (!window.matchMedia) {
     window.matchMedia = (query: string) =>
       ({
-        matches: false,
+        matches: query === '(prefers-reduced-motion: reduce)',
         media: query,
         onchange: null,
         addListener: () => {},

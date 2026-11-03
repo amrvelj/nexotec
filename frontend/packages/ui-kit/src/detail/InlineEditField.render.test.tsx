@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { InlineEditField } from "./InlineEditField";
+import { testTheme } from "../test/testTheme";
 
 // KAN-473 — the field showed the `message` of whatever its onSave threw (an
 // ApiError's is the API's English text) and its own English conflict, failure
@@ -26,7 +27,7 @@ function renderField(err: unknown, opts: { conflict?: boolean; onReload?: () => 
     e instanceof RefusalWithEnglishMessage && e.status === 409 ? "Ce numéro figure déjà chez ce client." : "La modification n'a pas pu être enregistrée.",
   );
   render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       {opts.onReload ? (
         <InlineEditField
           value="079 123 45 67"

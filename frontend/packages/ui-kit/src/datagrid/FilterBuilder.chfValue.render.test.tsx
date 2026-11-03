@@ -6,6 +6,7 @@ import { MantineProvider } from "@mantine/core";
 import { FilterBuilder } from "./FilterBuilder";
 import type { FilterFieldDef, FilterPredicate } from "./filterPredicate";
 import { FR_FILTER_BUILDER_LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // KAN-454 (ADR-076, KAN-168): a money filter's value was typed into a bare
 // <input type="number"> — no CHF, no separator — while the saved filter's
@@ -19,7 +20,7 @@ const PS: FilterFieldDef = { id: "ps", label: "PS", type: "number", conditions: 
 function renderBuilder(fields: FilterFieldDef[]) {
   const onChange = vi.fn();
   render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <FilterBuilder fields={fields} predicates={[]} onChange={onChange} labels={FR_FILTER_BUILDER_LABELS} />
     </MantineProvider>,
   );

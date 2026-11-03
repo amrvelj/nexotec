@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { ActionBar } from "./ActionBar";
 import { FR_ACTION_BAR_LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // KAN-420 — the density and refresh buttons sit in Mantine Tooltips, which
 // clone their child with a ref and mouse/focus handlers. The bar's
@@ -13,7 +14,7 @@ import { FR_ACTION_BAR_LABELS } from "../test/frenchLabels";
 
 function renderBar(density: "compact" | "default" | "comfortable" = "default") {
   return render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <ActionBar
         searchValue=""
         onSearchChange={() => {}}

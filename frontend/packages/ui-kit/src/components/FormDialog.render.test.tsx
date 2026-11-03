@@ -5,13 +5,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { FormDialog } from "./FormDialog";
+import { testTheme } from "../test/testTheme";
 
 // KAN-200 — the three presentation props: `formId` makes the footer button the
 // form's own submit control (one click, ONE submission — the dialog never
 // calls onSubmit beside the form's onSubmit), `destructive` colours it red,
 // `size` widens a sectioned form.
 
-const wrap = (ui: ReactNode) => render(<MantineProvider>{ui}</MantineProvider>);
+const wrap = (ui: ReactNode) => render(<MantineProvider theme={testTheme}>{ui}</MantineProvider>);
 
 describe("FormDialog", () => {
   it("submits a form exactly once per click when formId is set", async () => {

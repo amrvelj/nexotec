@@ -8,6 +8,7 @@ import { ViewsAndFilters } from "./ViewsAndFilters";
 import { offeredPredicates, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
 import type { SavedView } from "./savedView";
 import { FR_FILTER_BUILDER_LABELS, FR_VIEWS_AND_FILTERS_LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // KAN-475 — the builder accepted a fraction, a negative count or more than
 // 36500, which the list endpoints refuse with a 422 (they take 0 to 36500):
@@ -23,7 +24,7 @@ const INVALID = FR_FILTER_BUILDER_LABELS.invalidDayCount(0, 36500);
 function renderBuilder(predicates: FilterPredicate[] = [], fields: FilterFieldDef[] = [CHANGED]) {
   const onChange = vi.fn();
   render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <FilterBuilder fields={fields} predicates={predicates} onChange={onChange} labels={FR_FILTER_BUILDER_LABELS} />
     </MantineProvider>,
   );
@@ -91,7 +92,7 @@ describe("ViewsAndFilters — a view this grid narrows is not shown as applied (
 
   function renderViews(saved: SavedView, predicates: FilterPredicate[]) {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <ViewsAndFilters
           currentViewName={saved.name}
           views={[saved]}
