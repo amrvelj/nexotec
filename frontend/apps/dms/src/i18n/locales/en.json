@@ -465,6 +465,14 @@
       "counter": "Counter",
       "web": "Web",
       "phone": "Phone"
+    },
+    "legalForm": {
+      "ag": "AG (company limited by shares)",
+      "gmbh": "GmbH (limited liability company)",
+      "einzelfirma": "Sole proprietorship",
+      "verein": "Association",
+      "genossenschaft": "Cooperative",
+      "weitere": "Other"
     }
   },
   "customersList": {

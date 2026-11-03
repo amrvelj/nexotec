@@ -92,9 +92,9 @@ weekly. -->
   stays editable. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
-  `weitere`). Labels are meant to be localised; today they are hardcoded German in
-  `customerOptions.ts` (KAN-104). SA, Sàrl and Sagl are the French/Italian *names* of AG and
-  GmbH, not separate forms; the registered name keeps its own suffix.
+  `weitere`). Labels are localised (`customerEnums.legalForm.*`, `translatedLegalFormOptions` /
+  `translatedLegalFormLabel` in `customerOptions.ts`; KAN-104). SA, Sàrl and Sagl are the
+  French/Italian *names* of AG and GmbH, not separate forms; the registered name keeps its own suffix.
 - **Canton is derived server-side from the postal code (D-13)** and never accepted from the
   client. It is not a removable field: the list filter, a grid column and the audit trail
   depend on it.

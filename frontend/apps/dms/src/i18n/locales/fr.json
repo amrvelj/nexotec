@@ -465,6 +465,14 @@
       "counter": "Guichet",
       "web": "Web",
       "phone": "Téléphone"
+    },
+    "legalForm": {
+      "ag": "SA",
+      "gmbh": "Sàrl",
+      "einzelfirma": "Entreprise individuelle",
+      "verein": "Association",
+      "genossenschaft": "Société coopérative",
+      "weitere": "Autre"
     }
   },
   "customersList": {

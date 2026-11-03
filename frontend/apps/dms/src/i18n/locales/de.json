@@ -465,6 +465,14 @@
       "counter": "Schalter",
       "web": "Web",
       "phone": "Telefon"
+    },
+    "legalForm": {
+      "ag": "AG",
+      "gmbh": "GmbH",
+      "einzelfirma": "Einzelfirma",
+      "verein": "Verein",
+      "genossenschaft": "Genossenschaft",
+      "weitere": "Weitere"
     }
   },
   "customersList": {

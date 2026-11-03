@@ -465,6 +465,14 @@
       "counter": "Sportello",
       "web": "Web",
       "phone": "Telefono"
+    },
+    "legalForm": {
+      "ag": "SA",
+      "gmbh": "Sagl",
+      "einzelfirma": "Ditta individuale",
+      "verein": "Associazione",
+      "genossenschaft": "Società cooperativa",
+      "weitere": "Altra"
     }
   },
   "customersList": {

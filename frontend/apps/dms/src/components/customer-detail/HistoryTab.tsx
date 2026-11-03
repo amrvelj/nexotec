@@ -4,8 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { slate } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
 import { formatCurrencyChf, formatDateOnly, formatDateTime, formatNumber } from '../../utils/format'
-import { legalFormLabel } from '../../customerOptions'
-import type { AuditEventRead, LegalForm } from '../../api/types'
+import type { AuditEventRead } from '../../api/types'
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
@@ -146,11 +145,11 @@ const ENUM_KEY: Record<string, string> = {
   phoneType: 'customerEnums.contactType',
   emailType: 'customerEnums.contactType',
   addressType: 'customerEnums.addressType',
+  legalForm: 'customerEnums.legalForm',
 }
 
 function enumLabel(key: string, value: string, t: Translate, exists: (key: string) => boolean): string | null {
   const k = camelKey(key)
-  if (k === 'legalForm') return legalFormLabel(value as LegalForm)
   const base = ENUM_KEY[k]
   // A value with no key (one retired since it was recorded) is shown as stored.
   if (base === undefined || !exists(`${base}.${value}`)) return null

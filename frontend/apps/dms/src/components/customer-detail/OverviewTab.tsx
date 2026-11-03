@@ -6,7 +6,6 @@ import type { TFunction } from 'i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, chfInlineEditor, purple, radius, slate, white } from '@nexotec/ui-kit'
 import { BlockingFactsStrip } from './BlockingFactsStrip'
 import {
-  LEGAL_FORM_OPTIONS,
   translatedEmailTypeOptions,
   translatedGenderOptions,
   translatedLanguageOptions,
@@ -16,6 +15,7 @@ import {
   translatedPreferredChannelOptions,
   translatedSalutationOptions,
   translatedSourceOptions,
+  translatedLegalFormOptions,
 } from '../../customerOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly } from '../../utils/format'
 import type { CountryOption } from '../../hooks/useCountryOptions'
@@ -542,7 +542,7 @@ export function OverviewTab({
                 differs by Swiss language region — left as the standard Swiss
                 designation rather than a guessed FR/IT translation. Same call as
                 canton names. */}
-            <SelectField label={f.legalForm} value={customer.legalForm} options={LEGAL_FORM_OPTIONS} patchKey="legalForm" clearable {...fieldProps} />
+            <SelectField label={f.legalForm} value={customer.legalForm} options={translatedLegalFormOptions(t)} patchKey="legalForm" clearable {...fieldProps} />
           </>
         )}
         <SelectField label={f.correspondenceLanguage} value={customer.language} options={translatedLanguageOptions(t)} patchKey="language" {...fieldProps} />
