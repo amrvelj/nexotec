@@ -52,15 +52,25 @@ def configuration_label(config: VehicleConfiguration) -> str:
     return (label or config.catalogue_variant_label or "—")[:200]
 
 
-def get_configuration_labels(db: Session, configuration_ids: set[uuid.UUID]) -> dict[uuid.UUID, ConfigurationLabel]:
-    """KAN-534 — the current label of each configuration named, with its
-    Betrieb, for a host refreshing its rule-2 copy; an id naming nothing is
-    absent. One SELECT, read only."""
+def get_configuration_labels(
+    db: Session, tenant_by_configuration: dict[uuid.UUID, uuid.UUID]
+) -> dict[uuid.UUID, ConfigurationLabel]:
+    """KAN-534 — the current label of each configuration named, read only in
+    the Betrieb its host says it belongs to (`configuration id -> tenant id`):
+    a configuration of another Betrieb is absent, as is an id naming nothing.
+    The scope is the caller's own row's tenant, never an id it is free to
+    pick for itself (the KAN-538 lesson). One SELECT, read only."""
 
-    if not configuration_ids:
+    if not tenant_by_configuration:
         return {}
-    rows = db.scalars(select(VehicleConfiguration).where(VehicleConfiguration.id.in_(configuration_ids))).all()
-    return {row.id: ConfigurationLabel(tenant_id=row.tenant_id, label=configuration_label(row)) for row in rows}
+    rows = db.scalars(
+        select(VehicleConfiguration).where(VehicleConfiguration.id.in_(list(tenant_by_configuration)))
+    ).all()
+    return {
+        row.id: ConfigurationLabel(tenant_id=row.tenant_id, label=configuration_label(row))
+        for row in rows
+        if tenant_by_configuration.get(row.id) == row.tenant_id
+    }
 
 
 def _price_lines(config: VehicleConfiguration) -> list[ConfigurationPriceLine]:

@@ -10,8 +10,8 @@ import inspect
 import uuid
 
 from app.core.auth import AccessRole, Principal
-from app.inventory.public import get_stock_items_for_vehicles
 from app.inventory.models.stock_item import StockItemCondition
+from app.inventory.public import get_stock_items_for_vehicles
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup

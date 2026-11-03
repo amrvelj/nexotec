@@ -51,6 +51,7 @@ from app.inventory.consumers import (
     handle_stock_item_unpublished_message,
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
+from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import handle_digest_released_message, handle_notification_delivered_message
 from app.platform.daily_jobs import (
@@ -60,7 +61,6 @@ from app.platform.daily_jobs import (
 )
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
-from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.vehicle.consumers import handle_invoice_requested_message
 from app.vehicle.public import run_daily_plate_lookup_purge

@@ -59,7 +59,9 @@ def refresh_configuration_labels(db: Session) -> int:
             return changed
         last_id = batch[-1].id
 
-        labels = get_configuration_labels(db, {item.configuration_id for item in batch if item.configuration_id})
+        labels = get_configuration_labels(
+            db, {item.configuration_id: item.tenant_id for item in batch if item.configuration_id is not None}
+        )
         now = utcnow()
         stamp_only: list[uuid.UUID] = []
         for item in batch:

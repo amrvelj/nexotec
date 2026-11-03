@@ -20,6 +20,7 @@ from app import worker
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.inventory.models.stock_item import StockItem
 from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
+from app.vehicle.public import get_configuration_labels
 from app.vehicle.services import configuration as configuration_service
 from tests.test_customer_vehicle_party_close_rule import _postgres_only
 from tests.test_inventory_purchase_configuration_vin import _configuration, _pipeline_item, _tenant_of
@@ -126,7 +127,7 @@ def test_the_job_walks_more_than_one_batch(client, db_session, monkeypatch):
 def test_label_age_is_none_without_a_configuration_then_the_stalest(client, db_session):
     assert oldest_configuration_label_age_seconds(db_session) is None
 
-    _token_, _configuration_id, item = _stocked(client, db_session)
+    *_, item = _stocked(client, db_session)
     _backdate(db_session, item, hours=30)
 
     age = oldest_configuration_label_age_seconds(db_session)
@@ -194,3 +195,13 @@ def test_an_item_another_writer_holds_is_skipped_until_the_next_night(engine, cl
 
     refresh_configuration_labels(db_session)  # the next night
     assert _item(db_session, held).configuration_label == "Volkswagen Golf Variant"
+
+
+def test_the_vehicle_read_answers_only_in_the_betrieb_the_host_row_names(client, db_session):
+    token, configuration_id, _item_body = _stocked(client, db_session)
+    tenant = _tenant_of(token)
+    config = uuid.UUID(configuration_id)
+
+    assert set(get_configuration_labels(db_session, {config: tenant})) == {config}
+    assert get_configuration_labels(db_session, {config: uuid.uuid4()}) == {}  # another Betrieb's: absent
+    assert get_configuration_labels(db_session, {}) == {}
