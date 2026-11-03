@@ -312,6 +312,24 @@ def _user_handle(user: User) -> bytes:
     return user.id.bytes
 
 
+# The algorithms a passkey may use: offered in the registration options and
+# accepted at registration. Pinned to what `webauthn` 2.7.1 offered by default
+# (KAN-386): 3.x narrowed its default to EdDSA, ES256 and RS256, and the
+# library upgrade is not meant to change which authenticators can enrol.
+# Every one is a family `_key_can_sign_in` and the library's verify know.
+PASSKEY_ALGORITHMS = [
+    COSEAlgorithmIdentifier.ECDSA_SHA_256,
+    COSEAlgorithmIdentifier.EDDSA,
+    COSEAlgorithmIdentifier.ECDSA_SHA_512,
+    COSEAlgorithmIdentifier.RSASSA_PSS_SHA_256,
+    COSEAlgorithmIdentifier.RSASSA_PSS_SHA_384,
+    COSEAlgorithmIdentifier.RSASSA_PSS_SHA_512,
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_384,
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_512,
+]
+
+
 def passkey_registration_options(db: Session, *, user: User, challenge: bytes) -> str:
     """The options JSON for navigator.credentials.create. The challenge is
     derived by the caller from a single-use token (auth_tokens), so the
@@ -324,6 +342,7 @@ def passkey_registration_options(db: Session, *, user: User, challenge: bytes) -
         user_id=_user_handle(user),
         user_name=user.email,
         user_display_name=f"{user.first_name} {user.last_name}",
+        supported_pub_key_algs=PASSKEY_ALGORITHMS,
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.REQUIRED, user_verification=UserVerificationRequirement.PREFERRED
         ),
@@ -517,6 +536,7 @@ def register_passkey(
             expected_challenge=challenge,
             expected_rp_id=_settings.webauthn_rp_id,
             expected_origin=_settings.webauthn_origin,
+            supported_pub_key_algs=PASSKEY_ALGORITHMS,
         )
     except WebAuthnException as exc:
         # Every library refusal describes the client's attestation (no root

@@ -87,7 +87,10 @@ from app.platform.services.user import (
 # platform's row — from platform's own consumer after the revoke committed,
 # at least once: it must end the grant and drop the secret, succeed again
 # on a grant already ended, and raise on a refusal (the outbox retries,
-# then dead-letters). Registering writes nothing; nothing here lets another
+# then dead-letters; ADR-118). Its exception message is stored in the outbox
+# row and logged, so it must never carry token material. Register it in the
+# worker process (app/worker.py), where the consumer runs: the registry is
+# per process. Registering writes nothing; nothing here lets another
 # context read or write a connected account.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",

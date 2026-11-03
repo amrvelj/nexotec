@@ -687,8 +687,8 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
   event like one reached through wrong passwords. Platform staff's `reset-mfa` recovery (KAN-202) removes every factor and always
   writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 3.0.1 on
-  `cryptography` 49, KAN-386; the registration options offer, and the library accepts, EdDSA, ES256 and RS256
-  only — its defaults; the shape checks written for 2.7.1 stay in `mfa.py`, and a builtin exception the library
+  `cryptography` 49, KAN-386; the registration options offer, and the library accepts, the nine algorithms 2.7.1
+  offered (`mfa.PASSKEY_ALGORITHMS` — 3.x's own default is EdDSA, ES256 and RS256 only); the shape checks written for 2.7.1 stay in `mfa.py`, and a builtin exception the library
   lets out at **registration** is a malformed answer, 422 `passkey_not_verified` — 3.0.1 still raises them on a
   hand-crafted `packed`/`fido-u2f`/`tpm` statement or COSE key; and the **key policy** refuses at registration a key
   whose type does not match its algorithm family, an RSA key under 2048 bits (SP 800-131A), with an
@@ -735,7 +735,7 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   the row, records `connected_account_revoked` and an audit row, and publishes
   `platform.connected_account.revoked` (ids and closed codes — never the reference) in the same
   transaction, on every path: the user's DELETE, the manager's DELETE, deactivation's revoke-all.
-  **Ending the grant at the provider is a consumer (KAN-412):**
+  **Ending the grant at the provider is a consumer (KAN-412, ADR-118):**
   `platform.connected_account_provider_revocation` runs the provider's revoker, registered through
   `platform.public.register_grant_revoker(provider, revoker)`; the revoker receives a
   `RevokedGrant` — plain data (`connected_account_id`, `provider`, `external_account_id`,
@@ -743,13 +743,18 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   secret, succeed again on a grant already ended (delivery is at-least-once) and raise on a
   refusal. On success platform records the end by dropping the row's `secret_ref` (version
   moved, audit `connected_account_provider_ended`); a refusal makes the consumer raise, so the
-  outbox redelivers on its backoff and dead-letters after five attempts (an alert; the row keeps
-  its reference; a replay re-runs it). No revoker registered for the provider: the consumer
+  outbox redelivers on its backoff and dead-letters after five attempts — about 30 seconds in all,
+  so a longer provider outage dead-letters the revocation (an alert; the row keeps its reference;
+  a manual replay re-runs it; KAN-559 decides a longer path). No revoker registered for the provider: the consumer
   records nothing (WARNING) — the grant is ended in Nexotec only. Nightly reconciliation's
   StateCheck `user_connected_account.revoked_grant_secret_still_held` reports a revoked grant
   still holding a reference 24 hours after the revoke, **whatever its provider** — a missing
-  registration is a finding, not a silence. **None is registered yet**: linking ships with the
-  Outlook integration, so no row exists.
+  registration is a finding, not a silence. **The registration belongs in the worker's composition
+  root** (`app/worker.py`, beside `register_handlers`): the registry is per process and the consumer
+  runs only in the worker, so a revoker registered at web-app startup alone is never called. A
+  revoker's exception message lands in `outbox_message.last_error` and the dead-letter log: it must
+  never carry token material. **None is registered yet**: linking ships with the Outlook
+  integration, so no row exists and no integration module registers through the door yet.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
   clear lockout, revoke sessions, grant manager flag). **Built by KAN-202, one door (Anto,
   2026-10-22):** `POST /v1/platform/users/{id}/recovery/{reissue-invitation|reset-mfa|clear-lockout|

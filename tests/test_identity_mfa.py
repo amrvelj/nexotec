@@ -1402,15 +1402,15 @@ def test_a_hand_crafted_attestation_is_refused_not_a_server_error(client, login,
     )
 
     assert refused.status_code == 422, refused.text
-    assert refused.json()["error"]["details"]["factor"] == "passkey"
-    assert refused.json()["error"]["details"]["reason"] in {"passkey_not_verified", "passkey_key_not_accepted"}
+    assert refused.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
     assert db_session.scalars(select(MfaPasskey)).all() == []
 
 
-def test_a_passkey_algorithm_the_options_do_not_offer_is_not_verified(client, login, db_session):
-    """`webauthn` 3.x checks the key's algorithm against the ones the
-    registration options offered (its defaults: EdDSA, ES256, RS256), so a
-    2048-bit RSA-PSS key is the library's refusal, before the key policy."""
+def test_the_passkey_algorithms_stay_those_2_7_1_offered_and_no_other_is_accepted(client, login, db_session):
+    """`webauthn` 3.x narrowed its default algorithms to EdDSA, ES256 and RS256;
+    the options pin the nine 2.7.1 offered (KAN-386), so the upgrade changes no
+    authenticator's enrolment. An algorithm outside them (RS1) is the library's
+    refusal, before the key policy."""
 
     from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -1419,14 +1419,16 @@ def test_a_passkey_algorithm_the_options_do_not_offer_is_not_verified(client, lo
     cookie = login.session_cookie(anna)
     options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
     offered = {param["alg"] for param in json.loads(options.json()["options"])["pubKeyCredParams"]}
-    assert offered == {-8, -7, -257}
+    assert offered == {-7, -8, -36, -37, -38, -39, -257, -258, -259}
 
-    pss = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    refused = _register_through_the_library(client, cookie, b"pss-" + uuid.uuid4().bytes, _cose_rsa(pss, alg=-37))
-
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    refused = _register_through_the_library(client, cookie, b"rs1-" + uuid.uuid4().bytes, _cose_rsa(key, alg=-65535))
     assert refused.status_code == 422, refused.text
     assert refused.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
     assert db_session.scalars(select(MfaPasskey)).all() == []
+
+    pss = _register_through_the_library(client, cookie, b"pss-" + uuid.uuid4().bytes, _cose_rsa(key, alg=-37))
+    assert pss.status_code == 201, pss.text
 
 
 def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client, login, db_session):
@@ -1457,7 +1459,7 @@ def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client,
     not_a_point = encode_cbor({1: 1, 3: -8, -1: 6, -2: (2).to_bytes(32, "little")})
     past_the_ceiling = encode_cbor({1: 3, 3: -257, -1: ((1 << 16384) | 1).to_bytes(2049, "big"), -2: b"\x01\x00\x01"})
     for cose_key in (
-        _cose_rsa(small_rsa, alg=-257),
+        _cose_rsa(small_rsa, alg=-39),
         _cose_ec2(p256, alg=-257),
         _cose_rsa(big_rsa, alg=-7),
         even_modulus,

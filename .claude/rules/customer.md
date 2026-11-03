@@ -189,7 +189,8 @@ weekly. -->
   customer it cannot lock, KAN-403). The copies are only tried, never waited
   for — the nightly vehicle-party label refresh takes no explicit lock and no SKIP LOCKED: its
   UPDATEs lock a batch's party rows as they are written and wait for a held one, so it could hold
-  one while it waits for D's — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
+  one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
+  `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
