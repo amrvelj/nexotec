@@ -430,8 +430,4 @@ def ui_language_of(db: Session, user_id: uuid.UUID) -> str | None:
     """The user's UI language preference — the language the SPA shows them,
     and so the push title's (the mail texts' rule, `identity._language_of`)."""
 
-    preference = preference_service.get_preference(db, user_id=user_id, scope="ui")
-    if preference is None:
-        return None
-    language = (preference.payload or {}).get("uiLanguage")
-    return language if isinstance(language, str) else None
+    return preference_service.ui_language_of(db, user_id=user_id)

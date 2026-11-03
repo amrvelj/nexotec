@@ -127,6 +127,24 @@ describe('CustomerCreateFlow — every string is translated (KAN-48, FR-13)', ()
     expect(screen.queryByText('Company name')).toBeNull()
   })
 
+  // KAN-104 item 4: the legal-form options were hardcoded German in every
+  // language. In French they read SA / Sàrl (the French names of AG / GmbH).
+  it('offers the legal forms in the UI language', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    installCreateBackend()
+    renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
+
+    await user.click(screen.getByText(i18n.t('customerCreate.type.business.label')))
+    await advanceToDetails(user)
+    await user.click(screen.getByRole('textbox', { name: i18n.t('customerCreate.fields.legalForm') }))
+
+    for (const label of ['SA', 'Sàrl', 'Entreprise individuelle', 'Association', 'Société coopérative', 'Autre']) {
+      expect(await screen.findByRole('option', { name: label })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('option', { name: 'Einzelfirma' })).toBeNull()
+  })
+
   it('the numbered step header comes from the bundle, not a hardcoded const (exit criterion 2)', async () => {
     // The step labels used to be a module-level `const STEPS` of literal
     // English. In `de` the first step is "Typ", proving it now resolves

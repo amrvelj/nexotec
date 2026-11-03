@@ -30,6 +30,7 @@ from app.core.consumer import Handler
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.schemas.purchase import RecordPurchaseRequest
@@ -49,6 +50,7 @@ from tests.test_inventory_marketplace_transmission import (
     _make_ready_item,
     _register_fake,
 )
+from tests.test_kan189_trade_in_without_register import _bought_trade_in
 from tests.test_sales_manual_configuration_link import (
     _confirmed_manual_contract,
     _dealership,
@@ -168,6 +170,21 @@ def _stock_item_purchased(db_session, engine, monkeypatch):
         )
 
     return message, replicas
+
+
+def _trade_in_purchased(db_session, engine, monkeypatch):
+    """KAN-189 — Stock books a trade-in's purchase: the customer context
+    records the contract's customer as former owner and keeper, once."""
+
+    _contract, _item, message = _bought_trade_in(db_session, engine)
+    db_session.commit()
+
+    def parties(db: Session) -> int:  # the owner row; its keeper twin is written with it
+        return db.scalar(
+            select(func.count()).select_from(VehicleParty).where(VehicleParty.role == VehiclePartyRole.OWNER)
+        )
+
+    return message, parties
 
 
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
@@ -450,6 +467,7 @@ _FIXTURES: dict[str, Fixture] = {
     "inventory.sales_contract_cancelled": _contract_cancelled,
     "sales.stock_item_added": _stock_item_added,
     "sales.stock_item_purchased": _stock_item_purchased,
+    "customer.trade_in_purchased": _trade_in_purchased,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,

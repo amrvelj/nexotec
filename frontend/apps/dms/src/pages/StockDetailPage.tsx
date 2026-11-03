@@ -95,7 +95,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   // never the raw route param — that used to leak the UUIDv7 primary key
   // into the most prominent chrome on the page.
   useSetBreadcrumb(
-    embedded ? null : [t('shell.nav.inventory'), itemQuery.data?.vehicleLabel ?? t('stockDetail.header.stockFallback')]
+    embedded ? null : [{ label: t('shell.nav.inventory'), href: '/stock' }, itemQuery.data?.vehicleLabel ?? t('stockDetail.header.stockFallback')]
   )
   const ledgerQuery = useQuery({
     queryKey: ['stock-item', id, 'ledger-entries'],

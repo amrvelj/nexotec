@@ -189,7 +189,9 @@ def test_a_retried_trade_in_replays_its_success_instead_of_a_version_conflict(cl
     )
 
     assert updated["version"] == offer["version"] + 1
-    assert _count(db_session, VehicleMdm, VehicleMdm.vin == vin) == 1
+    # KAN-189: a trade-in creates no vehicle-mdm record; the deal keeps the VIN.
+    assert _count(db_session, VehicleMdm, VehicleMdm.vin == vin) == 0
+    assert updated["tradeInVin"] == vin
 
 
 def test_a_trade_in_with_a_reused_key_and_another_vin_is_a_409(client, db_session):

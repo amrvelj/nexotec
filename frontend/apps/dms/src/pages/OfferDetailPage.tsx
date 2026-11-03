@@ -153,7 +153,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   }
   const takeOver = useTakeOverDeal()
 
-  useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), offerQuery.data?.offerNumber ?? id])
+  useSetBreadcrumb(embedded ? null : [{ label: t('shell.nav.sales'), href: '/sales' }, offerQuery.data?.offerNumber ?? id])
 
   if (offerQuery.isLoading) return <Loader />
   if (offerQuery.isError || !offerQuery.data) {

@@ -45,7 +45,6 @@ import {
   CANTON_OPTIONS,
   UNASSIGNED_ADVISOR,
   applyCustomerFilters,
-  legalFormLabel,
   translatedCustomerTypeLabel,
   translatedCustomerTypeOptions,
   translatedGenderLabel,
@@ -56,6 +55,7 @@ import {
   translatedPreferredChannelLabel,
   translatedSalutationLabel,
   translatedSourceLabel,
+  translatedLegalFormLabel,
 } from '../customerOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, todayLocalIsoDate } from '../utils/format'
 import { customerName } from '../utils/customer'
@@ -350,7 +350,7 @@ export function CustomersListPage() {
       text('lastName', t('customersList.columns.lastName'), (row) => row.lastName),
       text('gender', t('customersList.columns.gender'), (row) => translatedGenderLabel(t, row.gender)),
       text('companyName', t('customersList.columns.companyName'), (row) => row.companyName),
-      text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? legalFormLabel(row.legalForm) : null)),
+      text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? translatedLegalFormLabel(t, row.legalForm) : null)),
       text('website', t('customersList.columns.website'), (row) => row.website),
       date('birthDate', t('customersList.columns.birthDate'), (row) => row.birthDate, formatDateOnly),
       text('nationality', t('customersList.columns.nationality'), (row) => countryLabel(row.nationality)),

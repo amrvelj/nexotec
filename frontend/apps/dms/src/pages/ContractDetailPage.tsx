@@ -100,7 +100,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     enabled: tradeInValuationId != null,
   })
 
-  useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), contractQuery.data?.contractNumber ?? id])
+  useSetBreadcrumb(embedded ? null : [{ label: t('shell.nav.sales'), href: '/sales' }, contractQuery.data?.contractNumber ?? id])
 
   // KAN-307 — the buyer's record, for its do-not-contact state (the server
   // refuses that confirmation; the button says so first).

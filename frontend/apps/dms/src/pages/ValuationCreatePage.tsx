@@ -36,7 +36,7 @@ export function ValuationCreatePage() {
   const supersedesId = searchParams.get('supersedes')
   const vehicleId = searchParams.get('vehicle')
 
-  useSetBreadcrumb([t('shell.nav.valuations'), t('valuationCreate.title')])
+  useSetBreadcrumb([{ label: t('shell.nav.valuations'), href: '/valuations' }, t('valuationCreate.title')])
 
   const supersedesQuery = useQuery({
     queryKey: ['valuation', supersedesId],

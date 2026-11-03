@@ -79,9 +79,11 @@ const onDemandBundles: BackendModule = {
 // default behaviour renders as the bare key path — legible enough to spot
 // in a code review, but not the deliberate, impossible-to-mistake-for-
 // content marker this app wants a tester or a screen-reader user to see.
-/** The language the user last chose in this browser — the `ui` preference
- * mirror the shell reads on its first frame — or German. The server's
- * preference still wins once it arrives (DmsShell switches to it). */
+/** The `ui` preference mirror's language — the user's last choice in this
+ * browser, or the server's answer it last mirrored (since KAN-104 item 2, a
+ * new user's starting language, the home Betrieb's) — the shell's first
+ * frame, else German. The server's preference still wins once it arrives
+ * (DmsShell switches to it). */
 export function storedUiLanguage(): SupportedLanguage {
   const { uiLanguage } = readLocalMirror<{ uiLanguage?: unknown }>(UI_PREFERENCES_STORAGE_KEY, {})
   return (SUPPORTED_LANGUAGES as readonly unknown[]).includes(uiLanguage) ? (uiLanguage as SupportedLanguage) : 'de'

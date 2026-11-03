@@ -10,10 +10,10 @@ dialog: "Ohne Kunde, ohne Offerte, ohne Fahrzeug im Bestand"). `vehicle_id`
 is therefore nullable, and — when null — the vehicle's own facts
 (make/model/trim/plate/VIN/mileage/first registration) are captured
 directly on this row, since there is no vehicle-mdm record to hold them.
-When a VIN IS given, `services/valuation.py::create_valuation` calls
-`app.vehicle.public.create_or_get_vehicle_mdm` in the same step (confirmed
-live: "Ist das Fahrzeug nicht erfasst, wird es mit der Bewertung angelegt
-— ein Schritt, nicht zwei") and vehicle_id is set.
+When a VIN IS given, `services/valuation.py::create_valuation` links the
+vehicle-mdm record the register already holds for it (`match_vehicle`, a
+read) and sets vehicle_id; it creates none (KAN-189, Anto 2026-10-31 B,
+ADR-070 as amended): a car enters the register when it is bought.
 
 Lifecycle draft -> valid -> expired -> used is evaluated ON READ from
 `is_draft`/`valid_until`/`used_at` — never stored, never repaired by a

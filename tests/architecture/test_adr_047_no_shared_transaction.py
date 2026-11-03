@@ -176,11 +176,11 @@ _OWN_COMMIT_WRITES = {
         "app.customer.services.customer.repoint_vehicle_party",
         "vehicle: merge flow",
     ),
-    # Trade-in and the vehicle 360 allocate a customer to a vehicle
-    # (FR-V-05, ADR-064).
+    # The vehicle 360 allocates a customer to a vehicle (FR-V-05, ADR-064);
+    # since KAN-189 the trade-in allocates no party.
     "app.customer.public.allocate_vehicle_party": (
         "app.customer.services.customer.allocate_vehicle_party",
-        "sales: trade-in; vehicle: allocate endpoint",
+        "vehicle: allocate endpoint",
     ),
     # The customer merge re-points offers and contracts (WP-8 PR-7),
     # after the merge itself has committed.
@@ -207,8 +207,7 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
         (
             "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session "
-            "(KAN-257); sales: trade-in, on its own session (KAN-328); valuation: create, on its own session "
-            "(KAN-328)"
+            "(KAN-257); since KAN-189 neither the trade-in nor a valuation creates a record"
         ),
     ),
     # Sales' Save-and-copy gives a copied offer a configuration of its own
@@ -290,6 +289,8 @@ _READS = {
     # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
     # advisor) — the user row and their memberships, a SELECT only.
     "app.platform.public.get_active_user_acting_in",
+    # KAN-104 item 5: a document without a customer language prints in the Betrieb's default; a SELECT only.
+    "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
@@ -310,6 +311,8 @@ _READS = {
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
     # session of its own (tests/test_inventory_reservation_sweep.py).
     "app.sales.public.get_contract_statuses",
+    # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
+    "app.sales.public.get_trade_in_seller",
     # KAN-270: vehicle's daily purge asks which configurations an offer or contract holds; a SELECT only.
     "app.sales.public.referenced_configuration_ids",
     # KAN-115: valuation asks which valuations a signed contract carries.
@@ -318,6 +321,8 @@ _READS = {
     "app.sales.public.valuations_carried_by_pending_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
+    # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
+    "app.valuation.public.list_valid_valuations_for_vin",
     # KAN-270: vehicle's daily purge asks which configurations a valuation holds; a SELECT only.
     "app.valuation.public.referenced_configuration_ids",
     # KAN-10: offer, stock item and valuation read the configuration they reference.

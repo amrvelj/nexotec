@@ -65,7 +65,15 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
       .get<{ payload: Partial<T> }>(`/me/preferences/${scope}`)
       .then((res) => {
         if (Object.keys(res.payload).length > 0) {
-          setValue((current) => ({ ...current, ...res.payload }))
+          // The server's answer is also the next load's optimistic mirror, so
+          // the first frame paints with it (KAN-104 item 2: a new user's
+          // starting language comes from the server, never from this browser's
+          // last user).
+          setValue((current) => {
+            const next = { ...current, ...res.payload }
+            writeLocalMirror(storageKey, next)
+            return next
+          })
         }
       })
       .catch(() => {

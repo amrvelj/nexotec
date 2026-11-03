@@ -17,13 +17,13 @@ import { useFieldHint } from '../hooks/useFieldHint'
 import { api } from '../api/client'
 import {
   LANGUAGE_OPTIONS,
-  LEGAL_FORM_OPTIONS,
   translatedEmailTypeOptions,
   translatedLifecycleOptions,
   translatedPhoneTypeOptions,
   translatedPreferredChannelOptions,
   translatedSalutationOptions,
   translatedSourceOptions,
+  translatedLegalFormOptions,
 } from '../customerOptions'
 import { SUPPORTED_LANGUAGES } from '../i18n'
 import { AddressSearchField } from './AddressSearchField'
@@ -333,11 +333,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             <>
               <TextInput label={t('customerCreate.fields.companyName')} required {...form.getInputProps('companyName')} />
               <Group grow>
-                {/* legalForm option labels are not localised — the same
-                    carve-out the detail screen and the grid use
-                    (customerOptions.ts). Revisiting it (a customerEnums.legalForm
-                    bundle) is a separate reference-data ticket. */}
-                <Select label={t('customerCreate.fields.legalForm')} data={LEGAL_FORM_OPTIONS} clearable {...form.getInputProps('legalForm')} />
+                <Select label={t('customerCreate.fields.legalForm')} data={translatedLegalFormOptions(t)} clearable {...form.getInputProps('legalForm')} />
                 <TextInput label={t('customerCreate.fields.uid')} placeholder={t('customerCreate.placeholders.uid')} {...form.getInputProps('taxId')} />
               </Group>
             </>

@@ -36,6 +36,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
@@ -117,6 +118,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.purchased",
         consumer_name="sales.stock_item_purchased",
         handler=handle_stock_item_purchased_message,
+    )
+    # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
+    # recorded as the car's former owner and keeper, in the customer
+    # context's own transaction.
+    transport.register(
+        "inventory.stock_item.purchased",
+        consumer_name="customer.trade_in_purchased",
+        handler=handle_trade_in_purchased_message,
     )
     # KAN-144 — a manual configuration's contract learns the pipeline stock
     # item its confirmation created, so the purchase gate can apply to it.

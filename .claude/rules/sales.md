@@ -228,12 +228,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   buyer it lacks — KAN-315 — and given a responsible seller — KAN-405). Every contract
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
-  version as read and would let an edit land after signing. A trade-in save commits part-way
-  (the vehicle-party allocations commit the request session, ADR-047; vehicle-mdm resolves the
-  VIN on a session of its own and, losing an insert race, takes the winner's record — KAN-328),
-  which releases that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
-  that it is editable and still at the version the caller sent (KAN-309; the offer's trade-in
-  and line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
+  version as read and would let an edit land after signing. A trade-in save is one transaction
+  since KAN-189 (it creates no vehicle-mdm record and allocates no party; it only reads the
+  register), so it holds that lock to its commit (`tests/test_sales_trade_in_lock.py`);
+  `set_trade_in` still re-locks and re-checks editability and the caller's version before writing
+  (KAN-309, from when it committed part-way; the line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
   that changes the row (PATCH, line items, trade-in, trade-in valuation, finalize, cancel) loads
   it `for_update` (`get_offer_or_404`), so two saves of one offer run one after the other and
   the second is a stale-version 409, never a lost update. A failed
@@ -292,8 +291,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   the **customer's correspondence language**, with the seller-only margin panel beside it,
   never on it (architecture test: margin never in a rendered document).
   `build_offer_content` / `build_contract_content` take a required `language`; a record with no
-  customer language renders in DE (`_DEFAULT_LANGUAGE`) — a German fallback awaiting a ruling
-  (KAN-104).
+  customer language renders in the Betrieb's own default for customers
+  (`platform.public.get_dealership_default_correspondence_language`, Customers FR-13), never a
+  silent German (Anto, 2026-11-03, KAN-104 decision 3 A; `document.py::_document_language`).
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
 - **The offer's wording is the Betrieb's standard text** (KAN-208): `generate_offer_document`
   resolves `offer` / `intro` (the first paragraph) and `offer` / `footer` (`footer_text`) through

@@ -1,6 +1,5 @@
 """WP-8 PR-5: one-step trade-in (S-D18/ADR-064)."""
 
-import os
 import uuid
 from decimal import Decimal
 
@@ -8,8 +7,6 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.errors import ConflictError, NotFoundError
-from app.customer.public import VehiclePartyRole, list_vehicle_parties
-from app.sales.models.offer import SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import cancel_offer, create_offer, update_offer
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
@@ -19,12 +16,6 @@ from app.valuation.services.valuation import create_valuation
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from tests.dealership_support import valid_uid
-from tests.test_inventory_vin_resolution import _lose_the_first_lookup
-
-_postgres_only = pytest.mark.skipif(
-    not os.environ.get("DMS_TEST_DATABASE_URL"),
-    reason="the insert race needs a second connection that sees the first one's commit — Postgres lane",
-)
 
 
 def _offer_with_customer(db_session, tenant_id, customer_id):
@@ -34,8 +25,15 @@ def _offer_with_customer(db_session, tenant_id, customer_id):
     return offer
 
 
-def test_set_trade_in_records_vehicle_and_allocates_owner_and_keeper(db_session):
+def test_a_vin_trade_in_creates_no_vehicle_record_and_allocates_no_party(db_session):
+    """KAN-189 (Anto, 2026-10-31 / 2026-11-01, options B then A; FR-S-08 and
+    ADR-070 amended): the deal keeps the trade-in's VIN; the car enters the
+    register when it is bought (ADR-103), and shows on the customer's
+    Vehicles tab only then — no owner or keeper is allocated before. The VIN
+    is kept in its one spelling (FR-V-15)."""
+
     from app.customer.models.customer import Customer, CustomerType, Language
+    from app.customer.models.vehicle_party import VehicleParty
 
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
@@ -45,28 +43,42 @@ def test_set_trade_in_records_vehicle_and_allocates_owner_and_keeper(db_session)
     )
     db_session.add(customer)
     db_session.flush()
-    customer_id = customer.id
-    offer = _offer_with_customer(db_session, tenant_id, customer_id)
+    offer = _offer_with_customer(db_session, tenant_id, customer.id)
 
     updated = set_trade_in(
         db_session,
         deal=offer,
         group_id=group_id,
-        vin="WVWZZZ1KZAW123456",
+        vin="wvwzzz1kzaw 123456",
         plate=None,
         canton=None,
         vehicle_label="Skoda Octavia Combi 1.5 TSI",
-        customer_id=None,
+        customer_id=customer.id,
         actor_id=uuid.uuid4(),
     )
 
-    assert updated.trade_in_vehicle_id is not None
+    assert updated.trade_in_vehicle_id is None
     assert updated.trade_in_vin == "WVWZZZ1KZAW123456"
     assert updated.trade_in_label == "Skoda Octavia Combi 1.5 TSI"
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 0
+    assert db_session.scalar(select(func.count()).select_from(VehicleParty)) == 0
 
-    parties = list_vehicle_parties(db_session, vehicle_id=updated.trade_in_vehicle_id, group_id=group_id)
-    roles = {p.role for p in parties if p.customer_id == customer_id}
-    assert roles == {VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER}
+
+def test_a_vin_trade_in_links_the_record_vehicle_mdm_already_holds(db_session):
+    """KAN-189: a car already in the register is linked by its VIN, never
+    duplicated."""
+
+    existing = vehicle_mdm_service.create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW123457", catalogue_variant_id=None)
+    offer = create_offer(db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4())
+
+    updated = set_trade_in(
+        db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW123457", plate=None, canton=None,
+        vehicle_label="Skoda Octavia", customer_id=None, actor_id=uuid.uuid4(),
+    )
+
+    assert updated.trade_in_vehicle_id == existing.id
+    assert updated.trade_in_vin == "WVWZZZ1KZAW123457"
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 1
 
 
 def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
@@ -241,74 +253,3 @@ def test_trade_in_for_another_groups_customer_is_a_404(db_session):
         )
     db_session.rollback()
     assert db_session.scalar(select(VehicleMdm).where(VehicleMdm.vin == "WVWZZZ1KZAW444444")) is None
-
-
-# --- KAN-328: the vehicle a trade-in creates is the user's write, on a session of its own ----
-
-
-def test_the_vehicle_a_trade_in_creates_names_the_user_who_recorded_it(db_session):
-    """KAN-243: a null created_by means a system write; a user's trade-in is not one."""
-
-    tenant_id, actor_id = uuid.uuid4(), uuid.uuid4()
-    offer = create_offer(db_session, tenant_id=tenant_id, actor_id=actor_id)
-
-    updated = set_trade_in(
-        db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW328001", plate=None, canton=None,
-        vehicle_label="Skoda Octavia", customer_id=None, actor_id=actor_id,
-    )
-
-    vehicle = db_session.get(VehicleMdm, updated.trade_in_vehicle_id)
-    assert vehicle is not None
-    assert (vehicle.created_by, vehicle.updated_by) == (actor_id, actor_id)
-
-
-@_postgres_only
-def test_a_trade_in_that_loses_the_insert_race_records_the_winners_vehicle(db_session, engine, monkeypatch):
-    """Two writers resolving a VIN vehicle-mdm has never seen both insert;
-    the loser resolves to the winner's record (FR-V-15: same VIN, same car)
-    instead of answering 409 — as Stock does since KAN-257."""
-
-    vin = "WVWZZZ1KZAW328002"
-    offer = create_offer(db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4())
-    winners: list[uuid.UUID] = []
-
-    def another_dealership_takes_the_car(other, raced_vin):
-        winners.append(vehicle_mdm_service.create_vehicle_mdm(other, vin=raced_vin, catalogue_variant_id=None).id)
-
-    misses = _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
-
-    updated = set_trade_in(
-        db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
-        vehicle_label="Skoda Octavia", customer_id=None, actor_id=uuid.uuid4(),
-    )
-
-    assert misses == [vin]  # the race really happened
-    assert updated.trade_in_vehicle_id == winners[0]
-    assert updated.trade_in_vin == vin
-    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 1
-
-
-@_postgres_only
-def test_losing_the_race_never_discards_the_trade_ins_own_pending_work(db_session, engine, monkeypatch):
-    """vehicle-mdm's guard rolls back the session it is handed. The trade-in
-    hands it a session of its own, so what the request had pending survives
-    the lost race and lands with the trade-in's own commit."""
-
-    vin = "WVWZZZ1KZAW328003"
-    offer = create_offer(db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4())
-    offer.vehicle_label = "The request's own pending change"
-    db_session.flush()
-
-    def another_dealership_takes_the_car(other, raced_vin):
-        vehicle_mdm_service.create_vehicle_mdm(other, vin=raced_vin, catalogue_variant_id=None)
-
-    _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
-
-    set_trade_in(
-        db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
-        vehicle_label="Skoda Octavia", customer_id=None, actor_id=uuid.uuid4(),
-    )
-
-    assert db_session.scalar(
-        select(SalesOffer.vehicle_label).where(SalesOffer.id == offer.id)
-    ) == "The request's own pending change"
