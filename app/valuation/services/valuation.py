@@ -251,7 +251,13 @@ def create_valuation(
             producer=_EVENT_PRODUCER,
             aggregate_type="valuation",
             aggregate_id=valuation.id,
-            payload={"valuationNumber": valuation.valuation_number},
+            # KAN-270: `configurationId`, only when the valuation has one (as
+            # Stock's `inventory.stock_item.added` carries it) — vehicle keeps
+            # a configuration a host took for good. Additive.
+            payload={
+                "valuationNumber": valuation.valuation_number,
+                **({"configurationId": str(valuation.configuration_id)} if valuation.configuration_id is not None else {}),
+            },
         ),
     )
     db.commit()

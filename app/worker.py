@@ -36,6 +36,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
@@ -53,7 +54,11 @@ from app.inventory.consumers import (
 from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
 from app.ownership_registry import register_ownership_providers
-from app.platform.consumers import handle_digest_released_message, handle_notification_delivered_message
+from app.platform.consumers import (
+    handle_connected_account_revoked_message,
+    handle_digest_released_message,
+    handle_notification_delivered_message,
+)
 from app.platform.daily_jobs import (
     run_daily_notification_digest,
     run_daily_notification_purge,
@@ -62,7 +67,8 @@ from app.platform.daily_jobs import (
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
-from app.vehicle.consumers import handle_invoice_requested_message
+from app.vehicle.consumers import handle_configuration_taken_message, handle_invoice_requested_message
+from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
 from app.vehicle.public import run_daily_plate_lookup_purge
 
 logger = logging.getLogger("app.worker")
@@ -141,6 +147,24 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="vehicle.plate_on_invoice_requested",
         handler=handle_invoice_requested_message,
     )
+    # KAN-186 — a vehicle's changed label (a VIN correction, a new first
+    # registration) reaches every party row naming it when the event is
+    # delivered; the nightly customer.vehicle_party_labels stays the backstop.
+    transport.register(
+        "vehicle.vehicle_mdm.summary_changed",
+        consumer_name="customer.vehicle_party_labels_on_summary_changed",
+        handler=handle_vehicle_summary_changed_message,
+    )
+    # KAN-270 — a host took a configuration: vehicle stamps it taken, so the
+    # daily purge of configurations no host ever took keeps it for good.
+    for event_type, consumer_name in (
+        ("sales.offer.configuration_attached", "vehicle.configuration_taken_by_offer"),
+        ("sales.contract.configuration_attached", "vehicle.configuration_taken_by_contract"),
+        ("inventory.stock_item.added", "vehicle.configuration_taken_by_added_stock_item"),
+        ("inventory.stock_item.configuration_attached", "vehicle.configuration_taken_by_stock_item"),
+        ("valuation.created", "vehicle.configuration_taken_by_valuation"),
+    ):
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_configuration_taken_message)
     # KAN-216 (D-A-40, FR-A-49/50) — Web Push is a pointer to the inbox: the
     # title and link of a delivered notification, and one pointer per digest.
     transport.register(
@@ -152,6 +176,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "platform.notification_digest.released",
         consumer_name="platform.web_push_on_digest",
         handler=handle_digest_released_message,
+    )
+    # KAN-412 (FR-AU-24) — a revoked connected account is ended at the
+    # provider by its registered revoker; a refusal is retried, then
+    # dead-letters.
+    transport.register(
+        "platform.connected_account.revoked",
+        consumer_name="platform.connected_account_provider_revocation",
+        handler=handle_connected_account_revoked_message,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":
@@ -242,7 +274,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Twelve daily jobs, run in registration order once per day on this
+    """Thirteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -295,6 +327,11 @@ def register_daily_jobs() -> None:
        held for a family set to ``digest`` reach the inbox; one push each.
     12. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
        inbox keeps 90 days; no push subscription outlives a revoked session.
+    13. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+       2026-11-03, option C): a configuration no host ever took is deleted
+       30 days after it was created, with an audit row and
+       ``vehicle.configuration.discarded``; one a host holds is stamped taken
+       and kept for good (app.vehicle.daily_jobs). Retention, not a repair.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
@@ -313,6 +350,8 @@ def register_daily_jobs() -> None:
     #    with one push each; the inbox keeps 90 days.
     register_daily_job("platform.notifications.digest", run_daily_notification_digest)
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
+    # 13. KAN-270: a configuration no host ever took goes after 30 days.
+    register_daily_job("vehicle.configurations.purge_unattached", run_daily_unattached_configuration_purge)
 
 
 def run(*, max_iterations: int | None = None) -> None:

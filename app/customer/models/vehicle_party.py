@@ -29,9 +29,11 @@ KAN-84 (CLAUDE.md rule 2): the vehicle's display fields are denormalised
 onto this row — the three-column pattern, with six label columns in place
 of one — instead of the viewonly relationship() to VehicleMdm this used to
 join through. Written whenever a party row is opened or repointed (through
-app.vehicle.public.get_vehicle_summaries) and re-read nightly by
-app.customer.services.customer.refresh_vehicle_party_labels, so a later
-catalogue match or VIN correction shows within a day.
+app.vehicle.public.get_vehicle_summaries), re-read when vehicle-mdm
+publishes `vehicle.vehicle_mdm.summary_changed` (KAN-186,
+app.customer.consumers) and re-read nightly by
+app.customer.services.customer.refresh_vehicle_party_labels, the backstop
+for a change that publishes nothing (a brand rename).
 tests/architecture/test_no_cross_context_mapping.py keeps it that way.
 """
 

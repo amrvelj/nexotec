@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.sales.services.configuration_reference import SLOT_VEHICLE, publish_configuration_attached
 from app.sales.services.priced_deal import PricedDeal
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
@@ -97,3 +98,6 @@ def _attach_configuration(
     # it) never overwrites a base price the seller set.
     if "manual_base_price" not in changes and (is_new_configuration or deal.manual_base_price is None):
         deal.manual_base_price = configuration.base_price
+    if is_new_configuration:
+        # KAN-270: vehicle keeps a configuration a host took for good.
+        publish_configuration_attached(db, deal=deal, configuration_id=configuration.id, slot=SLOT_VEHICLE)

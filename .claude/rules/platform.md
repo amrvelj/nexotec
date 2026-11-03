@@ -686,8 +686,11 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   factor strips the session that removed it and ends the user's other sessions; platform staff's
   MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
   event like one reached through wrong passwords. Platform staff's `reset-mfa` recovery (KAN-202) removes every factor and always
-  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 2.7.1, the
-  version the `cryptography<46` pin installs; the shape checks it lacks sit in `mfa.py`, and the **key policy** refuses at registration a key
+  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 3.0.1 on
+  `cryptography` 49, KAN-386; the registration options offer, and the library accepts, the nine algorithms 2.7.1
+  offered (`mfa.PASSKEY_ALGORITHMS` — 3.x's own default is EdDSA, ES256 and RS256 only); the shape checks written for 2.7.1 stay in `mfa.py`, and a builtin exception the library
+  lets out at **registration** is a malformed answer, 422 `passkey_not_verified` — 3.0.1 still raises them on a
+  hand-crafted `packed`/`fido-u2f`/`tpm` statement or COSE key; and the **key policy** refuses at registration a key
   whose type does not match its algorithm family, an RSA key under 2048 bits (SP 800-131A), with an
   even modulus, past 16384 bits or with an exponent past 64 bits, an Ed25519 encoding that is not a
   canonical point on the curve (RFC 8032 §5.1.3), and a credential id past 1023 bytes (the spec's
@@ -723,19 +726,35 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   (provider, external account id and label, scopes, `secret_ref` — a secrets-manager reference,
   never a token, never returned — status, linked/last-used/revoked stamps, a closed revoke reason),
   written and read only by `app/platform/services/connected_account.py` (nightly reconciliation
-  reads its actor ids); `tests/architecture/test_connected_account_is_never_an_identity.py`
+  reads its actor ids and whether a revoked grant still holds a reference); `tests/architecture/test_connected_account_is_never_an_identity.py`
   keeps the identity and session layer from naming it. The user lists and revokes their own
   (`GET /v1/me/connected-accounts`, `DELETE …/connected-accounts/{account_id}` with If-Match on the
   grant's version), the manager a user's (`GET /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
   `DELETE …/connected-accounts/{account_id}`, If-Match likewise, capability `connected_accounts`; the manager's read is provider, scopes and status only —
   never the address or the usage stamps), deactivation revokes every one (FR-AU-24). A revoke keeps
-  the row, records `connected_account_revoked` and an audit row; **after the commit** the caller
-  runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
-  undoes the revoke or the deactivation) — **none is registered**: linking ships with the Outlook
-  integration, so no row exists yet and a revoke ends the grant in Nexotec only, keeping the
-  reference so the secret can still be removed. **Open (KAN-412):** the seam is not in
-  `platform.public` (the revoker gets the ORM row) and a provider's refusal is not retried or
-  reconciled — both before the Outlook integration registers the first revoker.
+  the row, records `connected_account_revoked` and an audit row, and publishes
+  `platform.connected_account.revoked` (ids and closed codes — never the reference) in the same
+  transaction, on every path: the user's DELETE, the manager's DELETE, deactivation's revoke-all.
+  **Ending the grant at the provider is a consumer (KAN-412, ADR-118):**
+  `platform.connected_account_provider_revocation` runs the provider's revoker, registered through
+  `platform.public.register_grant_revoker(provider, revoker)`; the revoker receives a
+  `RevokedGrant` — plain data (`connected_account_id`, `provider`, `external_account_id`,
+  `secret_ref`, the last kept out of `repr`), never the row — must end the grant and drop the
+  secret, succeed again on a grant already ended (delivery is at-least-once) and raise on a
+  refusal. On success platform records the end by dropping the row's `secret_ref` (version
+  moved, audit `connected_account_provider_ended`); a refusal makes the consumer raise, so the
+  outbox redelivers on its backoff and dead-letters after five attempts — about 30 seconds in all,
+  so a longer provider outage dead-letters the revocation (an alert; the row keeps its reference;
+  a manual replay re-runs it; KAN-559 decides a longer path). No revoker registered for the provider: the consumer
+  records nothing (WARNING) — the grant is ended in Nexotec only. Nightly reconciliation's
+  StateCheck `user_connected_account.revoked_grant_secret_still_held` reports a revoked grant
+  still holding a reference 24 hours after the revoke, **whatever its provider** — a missing
+  registration is a finding, not a silence. **The registration belongs in the worker's composition
+  root** (`app/worker.py`, beside `register_handlers`): the registry is per process and the consumer
+  runs only in the worker, so a revoker registered at web-app startup alone is never called. A
+  revoker's exception message lands in `outbox_message.last_error` and the dead-letter log: it must
+  never carry token material. **None is registered yet**: linking ships with the Outlook
+  integration, so no row exists and no integration module registers through the door yet.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
   clear lockout, revoke sessions, grant manager flag). **Built by KAN-202, one door (Anto,
   2026-10-22):** `POST /v1/platform/users/{id}/recovery/{reissue-invitation|reset-mfa|clear-lockout|

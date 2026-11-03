@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_customer_or_404
+from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
 from app.valuation.public import list_valid_valuations_for_vehicle
 from app.vehicle.public import create_or_get_vehicle_mdm, match_vehicle
@@ -145,7 +146,7 @@ def set_trade_in(
     # attach_trade_in_valuation instead of relying on this default.
     existing = list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=vehicle.id)
     if existing:
-        _attach(deal, existing[0])
+        _attach(db, deal, existing[0])
 
     deal.updated_by = actor_id
     deal.version += 1
@@ -177,7 +178,7 @@ def attach_trade_in_valuation(
     require_editable(db, deal)
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
-    _attach(deal, valuation)
+    _attach(db, deal, valuation)
     deal.updated_by = actor_id
     deal.version += 1
     _recompute_payable(deal)
@@ -188,9 +189,14 @@ def attach_trade_in_valuation(
     return deal
 
 
-def _attach(deal: PricedDeal, valuation) -> None:
+def _attach(db: Session, deal: PricedDeal, valuation) -> None:
     deal.trade_in_valuation_id = valuation.id
     if valuation.configuration_id is not None:
+        if deal.trade_in_configuration_id != valuation.configuration_id:
+            # KAN-270: vehicle keeps a configuration a host took for good.
+            publish_configuration_attached(
+                db, deal=deal, configuration_id=valuation.configuration_id, slot=SLOT_TRADE_IN
+            )
         # C-F (KAN-10, FR-C-12 carve-out) — a trade-in captured through the
         # valuation path in `record` mode: the offer carries the
         # valuation's configuration forward, and where no vehicle-mdm record

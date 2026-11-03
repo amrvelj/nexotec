@@ -189,14 +189,19 @@ weekly. -->
   customer it cannot lock, KAN-403). The copies are only tried, never waited
   for — the nightly vehicle-party label refresh takes no explicit lock and no SKIP LOCKED: its
   UPDATEs lock a batch's party rows as they are written and wait for a held one, so it could hold
-  one while it waits for D's — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
+  one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
+  `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
   `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
-  and re-read nightly by `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`), so a
-  later catalogue match or VIN correction shows within a day (Anto's ruling, option A). A row
+  re-read when vehicle-mdm publishes `vehicle.vehicle_mdm.summary_changed` (consumer
+  `customer.vehicle_party_labels_on_summary_changed`, `app/customer/consumers.py`, KAN-186) —
+  every party row naming the vehicle, in every dealer group, locked in id order and relabelled
+  from `get_vehicle_summaries`, never from the payload — and re-read nightly by
+  `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`, the same helper), the backstop
+  for what publishes nothing (a brand rename) and the backfill (Anto's ruling, option A). A row
   without a label yet is filled for a read in memory only, and labelled by its next PATCH,
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).

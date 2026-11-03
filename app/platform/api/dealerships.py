@@ -935,7 +935,6 @@ def revoke_user_connected_account(
         db, account=account, user=user, actor_id=principal.user_id, reason=connected_account.REASON_MANAGER
     )
     db.commit()
-    connected_account.end_at_providers([account])
     db.refresh(account)
     return ConnectedAccountManagerRead.model_validate(account, from_attributes=True)
 

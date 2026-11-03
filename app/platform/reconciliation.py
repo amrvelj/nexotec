@@ -4,17 +4,23 @@ dealership.dealer_group_id -> dealer_group.id are its own. What it does
 have is the same created_by / updated_by columns as every other context,
 and KAN-243 checks those everywhere — so this job carries exactly the
 actor checks, built by app.platform.services.actor_reference as the other
-contexts build theirs through app.platform.public. Everything here is
-read-only — see app.core.reconciliation for the mechanism.
+contexts build theirs through app.platform.public — and, since KAN-412, one
+StateCheck of its own: a revoked connected account whose secret is still
+held a day after the revoke. Everything here is read-only — see
+app.core.reconciliation for the mechanism.
 """
 
+import datetime as dt
+
+from sqlalchemy import ColumnElement, and_
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.branding_asset import BrandingAsset
-from app.platform.models.connected_account import UserConnectedAccount
+from app.platform.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
@@ -67,7 +73,37 @@ ACTOR_TABLES = (
     NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
 )
 
-CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]
+# KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
+# dropping its secret_ref (app.platform.services.connected_account.
+# end_at_provider). One still holding a reference a day after the revoke
+# means the provider's end never happened: the revoker kept refusing (its
+# event dead-lettered), or no revoker is registered for the provider — the
+# grant may still be live at the provider and its tokens are still in the
+# secrets manager. Reported for every provider, registered revoker or not:
+# a missing registration is exactly the failure this check exists to see,
+# and it reads the same at night whether or not the worker registered one.
+# The day is far beyond the outbox's retry budget, so a finding is never a
+# delivery still under way.
+REVOKED_GRANT_GRACE = dt.timedelta(hours=24)
+
+
+def _revoked_grant_secret_still_held() -> ColumnElement[bool]:
+    return and_(
+        UserConnectedAccount.status == ConnectedAccountStatus.REVOKED,
+        UserConnectedAccount.secret_ref.is_not(None),
+        UserConnectedAccount.revoked_at < utcnow() - REVOKED_GRANT_GRACE,
+    )
+
+
+CHECKS: list[ReferenceCheck | StateCheck] = [
+    *actor_reference_checks(*ACTOR_TABLES),
+    StateCheck(
+        label="user_connected_account.revoked_grant_secret_still_held",
+        source_model=UserConnectedAccount,
+        source_row_id_column=UserConnectedAccount.id,
+        where=_revoked_grant_secret_still_held,
+    ),
+]
 
 
 def run(db: Session) -> ReconciliationRun:

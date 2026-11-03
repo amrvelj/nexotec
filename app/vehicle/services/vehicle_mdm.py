@@ -8,9 +8,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
+from app.core.outbox import OutboxEvent, publish
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleNumberSequence
 from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
+
+# KAN-186 — the fact another context's copy of a vehicle's label follows
+# (customer's VehicleParty, KAN-84). Published in the same transaction as
+# every write that changes a field `app.vehicle.public.VehicleSummary`
+# carries, and only then.
+SUMMARY_CHANGED_EVENT = "vehicle.vehicle_mdm.summary_changed"
+_EVENT_PRODUCER = "vehicle"
+_ENTITY_TYPE = "vehicle_mdm"
 
 
 def allocate_vehicle_number(db: Session) -> str:
@@ -138,8 +147,14 @@ def update_vehicle_mdm(
     corrected value is the caller's job (PR-6's match_vehicle), not this
     function's — keeping this a plain field update keeps the two concerns
     (persisting a correction, deciding what it implies) separable.
+
+    A write that changes a summary field (a VIN correction; a first
+    registration in another year, the summary's model year) publishes
+    `vehicle.vehicle_mdm.summary_changed` in this same transaction
+    (KAN-186); a refused write publishes nothing.
     """
 
+    summary_before = summary_fields(vehicle)
     changes = data.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(vehicle, field, value)
@@ -154,9 +169,63 @@ def update_vehicle_mdm(
             f"A vehicle with VIN '{changes.get('vin')}' already exists.", details={"vin": changes.get("vin")}
         ) from exc
 
+    publish_summary_changed_if_changed(db, vehicle=vehicle, before=summary_before)
     db.commit()
     db.refresh(vehicle)
     return vehicle
+
+
+def summary_fields(vehicle: VehicleMdm) -> dict[str, object]:
+    """The fields of `app.vehicle.public.VehicleSummary` (its id aside),
+    under their camelCase event names — the one list the comparison and the
+    payload both use, so a field added to the summary is added here."""
+
+    return {
+        "vin": vehicle.vin,
+        "vehicleNumber": vehicle.vehicle_number,
+        "make": vehicle.make,
+        "model": vehicle.model,
+        "modelYear": vehicle.model_year,
+        "trim": vehicle.trim,
+    }
+
+
+def publish_summary_changed_if_changed(db: Session, *, vehicle: VehicleMdm, before: dict[str, object]) -> bool:
+    """KAN-186 — adds `vehicle.vehicle_mdm.summary_changed` to the caller's
+    transaction (flushed, never committed here) when a summary field
+    differs from `before`; a write that changes none publishes nothing.
+    Returns whether it published. A writer that changes
+    `catalogue_variant_id` must expire `vehicle.catalogue_variant` first, or
+    make/model/trim are read from the variant the session already holds.
+
+    The payload has one shape: `vehicleId`, the record's `version` after
+    the write, `changedFields` (the camelCase names that differ) and the
+    whole `summary` as it now stands. `tenant_id` is None: vehicle-mdm is a
+    global fact no Betrieb owns (ADR-022); a consumer applies its own scope
+    (customer relabels every dealer group's party rows for the vehicle).
+    """
+
+    after = summary_fields(vehicle)
+    changed = [field for field, value in after.items() if before.get(field) != value]
+    if not changed:
+        return False
+    publish(
+        db,
+        OutboxEvent(
+            event_type=SUMMARY_CHANGED_EVENT,
+            tenant_id=None,
+            producer=_EVENT_PRODUCER,
+            aggregate_type=_ENTITY_TYPE,
+            aggregate_id=vehicle.id,
+            payload={
+                "vehicleId": str(vehicle.id),
+                "version": vehicle.version,
+                "changedFields": changed,
+                "summary": after,
+            },
+        ),
+    )
+    return True
 
 
 def get_vehicle_equipment(db: Session, vehicle_id: uuid.UUID) -> dict:

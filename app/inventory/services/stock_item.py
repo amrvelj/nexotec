@@ -268,8 +268,15 @@ def _build_and_flush_stock_item(
             # KAN-144 — `origin` (originContractId, originRole) is added only
             # when a contract's confirmation created the item, so Sales can
             # link a manual configuration to it. Additive: a consumer that
-            # ignores unknown keys is unaffected.
-            payload={"stockNumber": item.stock_number, "vehicleLabel": item.vehicle_label, **(origin or {})},
+            # ignores unknown keys is unaffected. KAN-270: `configurationId`,
+            # likewise only when the item has one — vehicle keeps a
+            # configuration a host took for good.
+            payload={
+                "stockNumber": item.stock_number,
+                "vehicleLabel": item.vehicle_label,
+                **({"configurationId": str(item.configuration_id)} if item.configuration_id is not None else {}),
+                **(origin or {}),
+            },
         ),
     )
     return item
@@ -424,6 +431,18 @@ def attach_configuration(
         actor_id=actor_id,
         before={"configurationId": None},
         after={"configurationId": str(configuration.id), "configurationLabel": configuration.label},
+    )
+    # KAN-270: the fact vehicle keeps a configuration a host took for good by.
+    publish(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.configuration_attached",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={"stockNumber": item.stock_number, "configurationId": str(configuration.id)},
+        ),
     )
     db.commit()
     db.refresh(item)
