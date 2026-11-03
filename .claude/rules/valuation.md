@@ -66,18 +66,21 @@ file in the same PR as any change to what it states. -->
 - **«Verwendung aufheben»** (Anto, 2026-10-31, KAN-253 option C): `POST
   /v1/valuations/{id}/revert-use` (`services/valuation.py::revert_use_by_hand`; If-Match; a
   mandatory `reason`, ≤ 500 characters) clears a stamp no signed contract of the dealership
-  stands behind — a hand stamp from before KAN-115, or a failed confirmation whose contract is
-  still pending or was cancelled. The dealer manager only: matrix row «Valuation use correction»
+  stands behind — a hand stamp from before KAN-115, or a failed confirmation whose contract was
+  cancelled since. The dealer manager only: matrix row «Valuation use correction»
   (`valuation_use_reversal`, write manager-only; the row menu offers it only when the session
   may write it). Refused while a signed contract carries the valuation, cancelled included (409
   `signed_contract_carries_it`), when it is not stamped (409 `valuation_not_used`), and for a stamp
   younger than the nightly check's one-hour grace (409 `stamp_too_recent`, `CONFIRMATION_GRACE`: a
   confirmation stamps before it signs, and the lock holds only the valuation row; the row menu
-  disables the entry with that reason). **One window stays open (KAN-520):** an older stamp
-  whose pending contract is confirmed again at the same moment — that confirmation writes
-  nothing and releases the valuation's lock before it signs, so a clear in between leaves a
-  signed contract on an unstamped valuation; Sales' nightly check reports it and «Als
-  verwendet markieren» repairs it. Audited
+  disables the entry with that reason), and **while a pending contract of the dealership carries
+  it** (409 `pending_contract_carries_it`; KAN-520, Anto 2026-11-03, option A, read through
+  `sales.public.valuations_carried_by_pending_contracts`): that contract's confirmation would find
+  the stamp set, write nothing and release the valuation's lock before signing, so a clear in
+  between would leave a signed contract on an unstamped valuation. The contract is cancelled
+  first; a confirmation only runs on a contract already committed as pending, which leaves pending
+  only in the commit that signs it, so the window is closed (`tests/test_valuation_revert_use.py`
+  interleaves a clear with a re-confirmation). Audited
   (`valuation_use_reverted_by_hand`, before/after `usedAt`, the reason) and published as
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,

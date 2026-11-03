@@ -310,6 +310,8 @@ _READS = {
     "app.sales.public.get_contract_statuses",
     # KAN-115: valuation asks which valuations a signed contract carries.
     "app.sales.public.valuations_carried_by_signed_contracts",
+    # KAN-520: «Verwendung aufheben» asks which valuations a pending contract carries.
+    "app.sales.public.valuations_carried_by_pending_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
