@@ -124,8 +124,9 @@ export function ReferenceDataPage() {
             {t('referenceData.subtitle')}
           </Text>
         </Stack>
+        {/* KAN-515: who maintains the lists, in the UI language — never a role code. */}
         <Badge color="grape" variant="light" leftSection={<ShieldCheck size={14} />}>
-          platform_admin
+          {t('referenceData.maintainedBy')}
         </Badge>
       </Group>
 

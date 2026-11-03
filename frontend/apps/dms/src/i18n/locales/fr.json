@@ -1788,13 +1788,14 @@
     "missingTip": "Cette ligne ne peut pas être enregistrée tant qu’une langue manque.",
     "missingTipReadOnly": "Une langue manque dans cette ligne.",
     "readOnly": "Nexotec gère ces listes pour toutes les entreprises. Vous pouvez les consulter ici, mais pas les modifier.",
+    "maintainedBy": "Géré par Nexotec",
     "columns": {
       "code": "Code",
       "status": "État"
     },
     "forbidden": {
-      "title": "Réservé à platform_admin",
-      "body": "Seul un platform_admin peut modifier ces données. Contactez votre administration."
+      "title": "Accès refusé",
+      "body": "Votre rôle ne permet pas d’ouvrir ces listes. Contactez votre administration."
     },
     "list": {
       "title": "Liste de référence {{code}}",

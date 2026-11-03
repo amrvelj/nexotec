@@ -1788,13 +1788,14 @@
     "missingTip": "Diese Zeile kann nicht gespeichert werden, solange eine Sprache fehlt.",
     "missingTipReadOnly": "In dieser Zeile fehlt eine Sprache.",
     "readOnly": "Nexotec pflegt diese Listen für alle Betriebe. Sie sehen sie hier, ändern können Sie sie nicht.",
+    "maintainedBy": "Gepflegt von Nexotec",
     "columns": {
       "code": "Code",
       "status": "Status"
     },
     "forbidden": {
-      "title": "Nur für platform_admin",
-      "body": "Diese Daten dürfen nur von einem platform_admin bearbeitet werden. Wenden Sie sich an Ihre Administration."
+      "title": "Kein Zugriff",
+      "body": "Ihre Rolle darf diese Listen nicht öffnen. Wenden Sie sich an Ihre Administration."
     },
     "list": {
       "title": "Referenzliste {{code}}",
