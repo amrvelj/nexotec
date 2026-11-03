@@ -193,6 +193,36 @@ def _invoice_requested_with_plate(db_session, engine, monkeypatch):
     return message, plates
 
 
+def _vehicle_summary_changed(db_session, engine, monkeypatch):
+    """KAN-186 — a VIN correction on vehicle-mdm, from the real producer: the
+    customer's party row naming the car takes the corrected VIN, once."""
+
+    from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+    from app.customer.services.customer import allocate_vehicle_party
+    from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
+    from app.vehicle.services.vehicle_mdm import SUMMARY_CHANGED_EVENT, create_vehicle_mdm, update_vehicle_mdm
+    from tests.test_sales_lifecycle_reservation import _customer
+
+    group_id = uuid.uuid4()
+    vehicle = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000186", catalogue_variant_id=None)
+    allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=_customer(db_session, group_id).id,
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+    )
+    corrected = "WVWZZZ1KZAW000187"
+    update_vehicle_mdm(db_session, vehicle=vehicle, data=VehicleMdmUpdate(vin=corrected), actor_id=None)
+    message = _message(db_session, SUMMARY_CHANGED_EVENT, vehicle.id)
+
+    def relabelled(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(VehicleParty)
+            .where(VehicleParty.vehicle_id == vehicle.id, VehicleParty.vehicle_vin == corrected)
+        )
+
+    return message, relabelled
+
+
 def _published_item(db_session, monkeypatch):
     tenant_id = uuid.uuid4()
     _make_connection(db_session, _make_provider(db_session), tenant_id=tenant_id)
@@ -353,6 +383,7 @@ _FIXTURES: dict[str, Fixture] = {
     "platform.web_push_on_notification": _notification_delivered,
     "platform.web_push_on_digest": _digest_released,
     "vehicle.plate_on_invoice_requested": _invoice_requested_with_plate,
+    "customer.vehicle_party_labels_on_summary_changed": _vehicle_summary_changed,
 }
 
 

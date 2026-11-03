@@ -125,6 +125,18 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   refuses any read of `VehiclePlate` or `VehiclePlateConflict` outside `plate.py` /
   `plate_read_guard.py`, except the uses it names that hand out no plate (the model registry,
   the FR-V-12 merge, reconciliation).
+- **A changed label is an event** (KAN-186, Anto option A): `services/vehicle_mdm.py::update_vehicle_mdm`
+  publishes `vehicle.vehicle_mdm.summary_changed` in its own transaction whenever a field
+  `vehicle.public.VehicleSummary` carries changes (VIN, vehicle number, make/model/trim from the
+  catalogue match, model year from the first registration) — and only then: a Stammnummer, a
+  status or a first registration in the same year publishes nothing, a refused write nothing.
+  `tenant_id` is null (vehicle-mdm is global); the payload is `vehicleId`, `version`,
+  `changedFields` and the whole `summary`. Any new writer of a summary field calls
+  `publish_summary_changed_if_changed` with the summary read before its write. **Not covered:** a
+  brand rename (`catalogue_admin.update_brand`) changes the make of every car of the brand and
+  publishes nothing — the nightly label refresh catches it (KAN-186 follow-up) — and no production
+  code writes a vehicle-mdm record's `catalogue_variant_id` after creation yet. The FR-V-12 merge changes no summary field
+  of either record; its party re-point relabels through `customer.public.repoint_vehicle_party`.
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway

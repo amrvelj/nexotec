@@ -36,6 +36,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
@@ -143,6 +144,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "sales.contract.invoice_requested",
         consumer_name="vehicle.plate_on_invoice_requested",
         handler=handle_invoice_requested_message,
+    )
+    # KAN-186 — a vehicle's changed label (a VIN correction, a new first
+    # registration) reaches every party row naming it when the event is
+    # delivered; the nightly customer.vehicle_party_labels stays the backstop.
+    transport.register(
+        "vehicle.vehicle_mdm.summary_changed",
+        consumer_name="customer.vehicle_party_labels_on_summary_changed",
+        handler=handle_vehicle_summary_changed_message,
     )
     # KAN-216 (D-A-40, FR-A-49/50) — Web Push is a pointer to the inbox: the
     # title and link of a delivered notification, and one pointer per digest.
