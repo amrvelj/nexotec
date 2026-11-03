@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Button } from '@mantine/core'
+import { useId, useState } from 'react'
+import { Button, Group, Text } from '@mantine/core'
 import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
@@ -62,14 +62,16 @@ export function DetailsTab({
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const editConfiguration = useStockConfigurationEditor()
-  // KAN-510: only a pipeline car the Betrieb took in itself. A car in stock
-  // has its VIN from the purchase; a pipeline car a contract's confirmation
-  // created (`pipelineRef` «contract:…», a configured car or a trade-in)
-  // carries the configuration that contract was signed on. Editing either
-  // would make Stock's technical data differ from what was bought or signed —
-  // open with Anto on KAN-510.
-  const mayEditConfiguration =
-    canEditConfiguration && item.lifecycleStatus === 'pipeline' && !item.pipelineRef?.startsWith('contract:')
+  // KAN-510 (Anto, 2026-11-02, option A): «Konfiguration bearbeiten» on
+  // every stock car, in the pipeline or in stock, unless a contract reserves
+  // it. Then the change belongs to that contract: the card offers «Vertrag
+  // bearbeiten» instead, disabled with the reason, because a contract reserves
+  // a car only when it is signed (`reserve_for_contract` at confirmation, and
+  // the item a signed manual configuration creates), and a signed contract is
+  // frozen (ADR-083) — it is cancelled first.
+  const reservedByContract = item.reservationState === 'reserved'
+  const mayEditConfiguration = canEditConfiguration && !reservedByContract
+  const reservedReasonId = useId()
 
   // KAN-510 — from the purchase dialog's VIN refusal: the dialog steps aside
   // (a modal would hold the focus the configurator needs) and comes back,
@@ -123,6 +125,17 @@ export function DetailsTab({
             onOpenConfigurator={mayEditConfiguration ? (configuration) => editConfiguration(configuration) : undefined}
             openConfiguratorLabel={t('stockDetail.configuration.edit')}
           />
+          {/* An action, not a field: its reason is said (ADR-061). */}
+          {canEditConfiguration && reservedByContract && (
+            <Group gap="sm" mt="sm" wrap="nowrap" align="flex-start">
+              <Button variant="default" size="xs" disabled aria-describedby={reservedReasonId}>
+                {t('stockDetail.configuration.editContract')}
+              </Button>
+              <Text id={reservedReasonId} size="sm" c="dimmed">
+                {t('stockDetail.configuration.reservedByContract')}
+              </Text>
+            </Group>
+          )}
         </OverviewCard>
       ) : (
         // KAN-463 — an item the retired hand-typed intake created has no

@@ -1288,7 +1288,9 @@
       "missing": "A questo veicolo non è assegnata alcuna configurazione. Senza di essa mancano i dati tecnici.",
       "attach": "Assegna configurazione",
       "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
-      "edit": "Modifica configurazione"
+      "edit": "Modifica configurazione",
+      "editContract": "Modifica contratto",
+      "reservedByContract": "Un contratto firmato riserva questo veicolo e ciò che ha firmato resta invariato: la configurazione può essere modificata solo dopo l'annullamento del contratto."
     }
   },
   "salesList": {

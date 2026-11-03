@@ -1288,7 +1288,9 @@
       "missing": "No configuration is assigned to this vehicle. Without one, the technical data are missing.",
       "attach": "Assign configuration",
       "attachError": "The configuration could not be assigned. Please try again.",
-      "edit": "Edit configuration"
+      "edit": "Edit configuration",
+      "editContract": "Edit contract",
+      "reservedByContract": "A signed contract reserves this car, and what it signed stays as it is: the configuration can be changed only once that contract is cancelled."
     }
   },
   "salesList": {

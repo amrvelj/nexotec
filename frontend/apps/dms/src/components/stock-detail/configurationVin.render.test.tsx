@@ -192,38 +192,65 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(within(card).queryByRole('button', { name: i18n.t('configurator.summary.open') })).toBeNull()
   })
 
-  it('is not offered on a car already in stock: its VIN came with the purchase', async () => {
-    configurationBackend(configurationRead(RECORDED))
+  // KAN-510 (Anto, 2026-11-02, option A): every stock car, in the pipeline
+  // or in stock, unless a contract reserves it — a contract reserves a car
+  // only when it is signed, so the card then offers «Vertrag bearbeiten»
+  // disabled, with the reason.
+  const renderItem = (item: StockItemRead, { canEditConfiguration = true, onRecordPurchase = vi.fn() } = {}) =>
     renderWithProviders(
       <DetailsTab
-        item={{ ...PIPELINE_ITEM, lifecycleStatus: 'in_stock', vin: CONFIGURED_VIN, inStockAt: NOW }}
+        item={item}
         locale="de-CH"
         onSaveField={vi.fn()}
         onReload={vi.fn()}
-        canEditConfiguration
-        onRecordPurchase={vi.fn()}
+        canEditConfiguration={canEditConfiguration}
+        onRecordPurchase={onRecordPurchase}
       />,
     )
+  const RESERVED: StockItemRead = { ...PIPELINE_ITEM, pipelineRef: 'contract:k-1:manual', reservationState: 'reserved' }
+  const editContractLabel = () => i18n.t('stockDetail.configuration.editContract')
+
+  it('is offered on a car already in stock', async () => {
+    configurationBackend(configurationRead(RECORDED))
+    renderItem({ ...PIPELINE_ITEM, lifecycleStatus: 'in_stock', vin: CONFIGURED_VIN, inStockAt: NOW })
 
     const card = await screen.findByTestId('configuration-summary-card')
-    expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
+    expect(within(card).getByRole('button', { name: editLabel() })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: editContractLabel() })).toBeNull()
   })
 
-  it('is not offered on a pipeline car a contract created: it carries the signed configuration', async () => {
+  it('is offered on an unreserved pipeline car a contract created (a trade-in)', async () => {
     configurationBackend(configurationRead(RECORDED))
-    renderWithProviders(
-      <DetailsTab
-        item={{ ...PIPELINE_ITEM, pipelineRef: 'contract:k-1:trade_in' }}
-        locale="de-CH"
-        onSaveField={vi.fn()}
-        onReload={vi.fn()}
-        canEditConfiguration
-        onRecordPurchase={vi.fn()}
-      />,
-    )
+    renderItem({ ...PIPELINE_ITEM, pipelineRef: 'contract:k-1:trade_in' })
+
+    const card = await screen.findByTestId('configuration-summary-card')
+    expect(within(card).getByRole('button', { name: editLabel() })).toBeEnabled()
+  })
+
+  it.each([
+    ['a pipeline car its signed contract reserves', RESERVED],
+    ['a car in stock a signed contract reserves', { ...PIPELINE_ITEM, lifecycleStatus: 'in_stock', vin: CONFIGURED_VIN, inStockAt: NOW, reservationState: 'reserved' } as StockItemRead],
+  ])('on %s: «Vertrag bearbeiten» instead, disabled, with the reason', async (_case, item) => {
+    configurationBackend(configurationRead(RECORDED))
+    renderItem(item)
 
     const card = await screen.findByTestId('configuration-summary-card')
     expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
+    const editContract = screen.getByRole('button', { name: editContractLabel() })
+    expect(editContract).toBeDisabled()
+    const reason = i18n.t('stockDetail.configuration.reservedByContract')
+    expect(screen.getByText(reason)).toBeInTheDocument()
+    expect(editContract).toHaveAccessibleDescription(reason)
+  })
+
+  it('offers neither to a role that may not write configurations, reserved or not', async () => {
+    configurationBackend(configurationRead(RECORDED))
+    renderItem(RESERVED, { canEditConfiguration: false })
+
+    const card = await screen.findByTestId('configuration-summary-card')
+    expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
+    expect(screen.queryByRole('button', { name: editContractLabel() })).toBeNull()
+    expect(screen.queryByText(i18n.t('stockDetail.configuration.reservedByContract'))).toBeNull()
   })
 
   it('opens the configuration in its own mode, and its PATCH is the only write', async () => {
@@ -255,20 +282,11 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(backend.calls.some((c) => c.pathname.startsWith('/inventory/'))).toBe(false)
   })
 
-  it('on a pipeline car a contract created, the purchase refusal offers no edit either', async () => {
+  it('on a pipeline car its signed contract reserves, the purchase refusal offers no edit either', async () => {
     const user = userEvent.setup()
     const purchaseRefused = new ApiError(422, 'unprocessable_entity', 'refused', { field: 'vin', reason: 'configuration_vin_differs' })
     configurationBackend(configurationRead(RECORDED))
-    renderWithProviders(
-      <DetailsTab
-        item={{ ...PIPELINE_ITEM, pipelineRef: 'contract:k-1:manual' }}
-        locale="de-CH"
-        onSaveField={vi.fn()}
-        onReload={vi.fn()}
-        canEditConfiguration
-        onRecordPurchase={vi.fn().mockRejectedValueOnce(purchaseRefused)}
-      />,
-    )
+    renderItem(RESERVED, { onRecordPurchase: vi.fn().mockRejectedValueOnce(purchaseRefused) })
 
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.title') }))
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.recordButton') }))
