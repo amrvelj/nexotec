@@ -28,20 +28,37 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
   // change) can send it at once instead of leaving it on the timer.
   const pendingWrite = useRef<T | null>(null)
 
-  useEffect(
-    () => () => {
-      // Runs on unmount and before a scope change, with this scope: a write
-      // still waiting on its debounce goes out now, under the scope it was
-      // made for — never 500 ms after its screen has gone.
+  useEffect(() => {
+    // Sends a write still waiting on its debounce at once, under this scope.
+    const flushPending = (keepalive: boolean) => {
       if (!writeTimer.current) return
       clearTimeout(writeTimer.current)
       writeTimer.current = null
       const pending = pendingWrite.current
       pendingWrite.current = null
-      if (pending) sendPreference(scope, pending)
-    },
-    [scope]
-  )
+      if (pending) sendPreference(scope, pending, keepalive)
+    }
+    // KAN-532 — closing or reloading the tab runs no React cleanup, so the
+    // page being hidden sends the pending write now, with `keepalive` so it
+    // outlives the page. `visibilitychange` to hidden is the signal a mobile
+    // browser reliably gives before it discards a tab; `pagehide` covers the
+    // close and the back/forward cache. While the page stays visible the
+    // debounce is untouched.
+    const onPageHide = () => flushPending(true)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushPending(true)
+    }
+    window.addEventListener('pagehide', onPageHide)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      // KAN-531 — runs on unmount and before a scope change, with this
+      // scope: a write still waiting on its debounce goes out now, under the
+      // scope it was made for — never 500 ms after its screen has gone.
+      flushPending(false)
+    }
+  }, [scope])
 
   useEffect(() => {
     api
@@ -86,9 +103,31 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
   return { value, update }
 }
 
-/** "Never block: a failed preference write is logged, never surfaces an error toast." */
-function sendPreference(scope: string, payload: unknown): void {
-  api.put(`/me/preferences/${scope}`, payload).catch((err) => {
+/** The latest write sent per scope — a resend is made only while its write
+ * is still the latest (KAN-532). */
+const latestSendPerScope = new Map<string, number>()
+let sendCounter = 0
+
+/** "Never block: a failed preference write is logged, never surfaces an error toast."
+ *
+ * KAN-532 — a keepalive send that fails without an API answer (a rejected
+ * fetch, not an `ApiError`) is sent again as an ordinary request, so hiding
+ * the page never loses a write the debounce would have delivered. The case it
+ * is for: the browser refuses a keepalive body once its in-flight keepalive
+ * bytes would pass 64 KiB, while the server accepts up to 64 KiB per scope.
+ * A rejection cannot say whether the request reached the server, and the PUT
+ * is last-write-wins, so the resend is made only while no newer write for
+ * the scope has been sent since: a late failure never puts an older value
+ * back over a newer one. An `ApiError` is the server's answer and is not
+ * retried. */
+function sendPreference(scope: string, payload: unknown, keepalive = false): void {
+  const send = ++sendCounter
+  latestSendPerScope.set(scope, send)
+  api.put(`/me/preferences/${scope}`, payload, undefined, { keepalive }).catch((err) => {
+    if (keepalive && !(err instanceof ApiError)) {
+      if (latestSendPerScope.get(scope) === send) sendPreference(scope, payload, false)
+      return
+    }
     console.error(`Failed to persist "${scope}" preferences:`, err instanceof ApiError ? err.message : err)
   })
 }

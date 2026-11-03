@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { Topbar } from "./Topbar";
+import { testTheme } from "../test/testTheme";
 
 // KAN-301 — at 1024-1280 px the record name wrapped onto two lines ("Marco" /
 // "Rossi") and slid under the centred search. jsdom has no layout, so this
@@ -12,7 +13,7 @@ import { Topbar } from "./Topbar";
 
 function renderTopbar(segments: string[]) {
   return render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <Topbar breadcrumb={segments} />
     </MantineProvider>,
   );

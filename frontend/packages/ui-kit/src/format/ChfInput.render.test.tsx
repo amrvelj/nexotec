@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { ChfInput, chfInlineEditor } from "./ChfInput";
 import { InlineEditField } from "../detail/InlineEditField";
+import { testTheme } from "../test/testTheme";
 
 // KAN-168 / ADR-076: a CHF input reads like every other CHF amount —
 // `CHF 12'500.00` — and still emits the plain number.
@@ -27,7 +28,7 @@ function Controlled({ initial, onChange }: { initial: number | string; onChange:
 function renderInput(initial: number | string = "") {
   const onChange = vi.fn();
   render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <Controlled initial={initial} onChange={onChange} />
       <button type="button">elsewhere</button>
     </MantineProvider>,
@@ -85,7 +86,7 @@ describe("chfInlineEditor (KAN-168)", () => {
   function renderField(editValue: string) {
     const onSave = vi.fn(async (_raw: string) => {});
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <InlineEditField value="shown" emptyLabel="Non renseigné" editValue={editValue} onSave={onSave} describeError={() => "refusé"} renderEditor={chfInlineEditor()} />
       </MantineProvider>,
     );
@@ -126,7 +127,7 @@ describe("chfInlineEditor under StrictMode (KAN-168)", () => {
     const onSave = vi.fn(async (_raw: string) => {});
     render(
       <StrictMode>
-        <MantineProvider>
+        <MantineProvider theme={testTheme}>
           <InlineEditField value="shown" emptyLabel="Non renseigné" editValue="42500.00" onSave={onSave} describeError={() => "refusé"} renderEditor={chfInlineEditor()} />
         </MantineProvider>
       </StrictMode>,
@@ -146,7 +147,7 @@ describe("chfInlineEditor under StrictMode (KAN-168)", () => {
     const onChange = vi.fn();
     render(
       <StrictMode>
-        <MantineProvider>
+        <MantineProvider theme={testTheme}>
           <Controlled initial="" onChange={onChange} />
           <button type="button">elsewhere</button>
         </MantineProvider>

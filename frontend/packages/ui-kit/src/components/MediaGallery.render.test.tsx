@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import type { ReactElement } from "react";
-import { theme } from "../theme";
 import { MediaGallery, type MediaGalleryLabels } from "./MediaGallery";
+import { testTheme } from "../test/testTheme";
 
 // KAN-430 — a user who may see a car's photos but not publish gets the
 // pictures in order with the main image marked, and no control that would
@@ -25,7 +25,7 @@ const ITEMS = [
 
 function renderGallery(ui: ReactElement) {
   return render(
-    <MantineProvider theme={theme} env="test">
+    <MantineProvider theme={testTheme} env="test">
       {ui}
     </MantineProvider>,
   );

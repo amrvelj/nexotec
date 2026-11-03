@@ -17,6 +17,7 @@ import {
   FR_GLOBAL_SEARCH_LABELS,
   FR_WIZARD_LABELS,
 } from "./test/frenchLabels";
+import { testTheme } from "./test/testTheme";
 
 // KAN-422 (KAN-364's remainder) — DataGrid, Wizard, GlobalSearch, Picker,
 // InlineEditField, DocumentPreview and PresentMode merged English defaults
@@ -62,7 +63,7 @@ const columns: GridColumnDef<Row>[] = [{ id: "name", header: "Nom", cell: ({ row
 describe("kit components show none of their former English defaults (KAN-422)", () => {
   it("DataGrid: the count, the selection and the row menu are named by the caller", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <DataGrid<Row>
           columns={columns}
           rows={[{ id: "a", name: "Müller Hans" }]}
@@ -99,7 +100,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
 
   it("DataGrid: the retry button is the caller's", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <DataGrid<Row>
           columns={columns}
           rows={[]}
@@ -127,7 +128,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
 
   it("Wizard: the four footer buttons are the caller's", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <Wizard
           steps={[
             { id: "a", label: "Identité" },
@@ -151,7 +152,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
 
   it("Wizard: the first step's «next» button is the caller's", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <Wizard
           steps={[
             { id: "a", label: "Identité" },
@@ -174,7 +175,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
   it("GlobalSearch: the trigger, the recents heading and the empty line are the caller's", async () => {
     const user = userEvent.setup();
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <GlobalSearch
           onSearch={async () => []}
           onSelect={() => {}}
@@ -192,7 +193,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
 
   it("Picker: the empty line and the create path are the caller's", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <Picker
           rows={[]}
           query="zzz"
@@ -211,7 +212,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
 
   it("InlineEditField: an empty value reads as the caller's label", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <InlineEditField
           value=""
           isEmpty

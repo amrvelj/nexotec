@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider, NumberInput } from "@mantine/core";
 import { StickyActionFooter } from "./StickyActionFooter";
 import { zIndex } from "../tokens";
+import { testTheme } from "../test/testTheme";
 
 // KAN-305 — the configurator's number fields scrolled over the sticky save
 // footer: Mantine's NumberInput spinners are positioned elements and the
@@ -16,7 +17,7 @@ import { zIndex } from "../tokens";
 describe("StickyActionFooter — stacks above the content scrolling under it (KAN-305)", () => {
   it("is sticky at the bottom with its own stacking level from the tokens", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <NumberInput label="Leergewicht" defaultValue={1500} />
         <StickyActionFooter missingLabel="Es fehlt noch: Kunde" primaryAction={<button type="button">Speichern</button>} />
       </MantineProvider>,
@@ -35,7 +36,7 @@ describe("StickyActionFooter — stacks above the content scrolling under it (KA
 describe("StickyActionFooter — a disabled primary action says why (KAN-368)", () => {
   it("shows the reason when the disabled action is hovered", async () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <StickyActionFooter
           primaryAction={<button type="button" disabled>Weiter</button>}
           primaryDisabledReason="Änderungen werden noch gespeichert."
@@ -50,7 +51,7 @@ describe("StickyActionFooter — a disabled primary action says why (KAN-368)", 
 
   it("keeps the same action element while the reason comes and goes", () => {
     const footer = (reason: string | null) => (
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <StickyActionFooter primaryAction={<button type="button" disabled={!!reason}>Weiter</button>} primaryDisabledReason={reason} />
       </MantineProvider>
     );
@@ -65,7 +66,7 @@ describe("StickyActionFooter — a disabled primary action says why (KAN-368)", 
 
   it("renders the action unwrapped when the caller passes no reason", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <StickyActionFooter primaryAction={<button type="button">Weiter</button>} />
       </MantineProvider>,
     );

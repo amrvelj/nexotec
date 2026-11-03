@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { RepeatableRowGroup } from "./RepeatableRowGroup";
 import { FR_REPEATABLE_ROW_LABELS as LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // KAN-167 — the add-row draft was the group's own state, so every keystroke
 // in the add row re-rendered every existing row's value editor (on the
@@ -22,7 +23,7 @@ function renderGroup(onCreate: (draft: { type: string; value: string }) => Promi
     <input aria-label={autoFocus ? "New value" : `Value ${value}`} value={value} onChange={(e) => onChange(e.target.value)} />
   ));
   render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <RepeatableRowGroup
         mode="detail"
         label="Phones"

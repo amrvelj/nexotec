@@ -18,6 +18,7 @@ import {
   FR_REPEATABLE_ROW_LABELS,
   FR_VIEWS_AND_FILTERS_LABELS,
 } from "./test/frenchLabels";
+import { testTheme } from "./test/testTheme";
 
 // KAN-364 — FilterBuilder, ViewsAndFilters, RepeatableRowGroup and the
 // Overlay merged English defaults under optional labels, and hardcoded some
@@ -51,7 +52,7 @@ describe("kit components show none of their former English defaults (KAN-364)", 
   it("ViewsAndFilters and its FilterBuilder: headings, actions and row actions are the caller's", async () => {
     const user = userEvent.setup();
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <ViewsAndFilters
           currentViewName="Tous les véhicules"
           views={[{ id: "v1", name: "Mes véhicules", snapshot: {} }]}
@@ -131,7 +132,7 @@ describe("kit components show none of their former English defaults (KAN-364)", 
   it("RepeatableRowGroup: the row, its menu and the add row are the caller's", async () => {
     const user = userEvent.setup();
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <RepeatableRowGroup
           mode="detail"
           label="Téléphones"
@@ -163,7 +164,7 @@ describe("kit components show none of their former English defaults (KAN-364)", 
 
   it("ActionBar: the density and refresh controls and the search hint are the caller's", () => {
     render(
-      <MantineProvider>
+      <MantineProvider theme={testTheme}>
         <ActionBar
           searchValue=""
           onSearchChange={() => {}}

@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Checkbox, MantineProvider, Switch, TextInput } from "@mantine/core";
-import { theme } from "../theme";
 import { fieldHint } from "./FieldHint";
+import { testTheme } from "../test/testTheme";
 
 // KAN-443 — a field's hint is an info icon beside the label: the tooltip
 // shows the hint on hover and on keyboard focus, the input is still
@@ -18,7 +18,7 @@ const LABELS = { icon: "Indication" };
 
 function Field({ hint }: { hint?: string }) {
   return (
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={testTheme}>
       <TextInput {...fieldHint("Rue", hint, LABELS)} />
     </MantineProvider>
   );
@@ -76,7 +76,7 @@ describe("fieldHint", () => {
   it("never activates the control whose label it sits in: a Switch stays as it was", async () => {
     const user = userEvent.setup();
     render(
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={testTheme}>
         <Switch {...fieldHint("Gérant", "Administre les utilisateurs.", LABELS)} defaultChecked={false} />
       </MantineProvider>,
     );
@@ -89,7 +89,7 @@ describe("fieldHint", () => {
   });
   it("links the hint to a Checkbox through descriptionId, which Mantine does not do itself", () => {
     render(
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={testTheme}>
         <Checkbox {...fieldHint("Compte par défaut", "Proposé sur chaque facture.", LABELS, { descriptionId: "default-hint" })} />
       </MantineProvider>,
     );

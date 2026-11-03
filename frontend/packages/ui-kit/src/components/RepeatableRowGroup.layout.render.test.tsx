@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { RepeatableRowGroup, type RepeatableRowGroupProps } from "./RepeatableRowGroup";
 import { FR_REPEATABLE_ROW_LABELS as LABELS } from "../test/frenchLabels";
+import { testTheme } from "../test/testTheme";
 
 // KAN-460 — the contact rows' «Label» box had only a placeholder, nobody
 // knew what it was for, and phone and e-mail rows did not line up. Every
@@ -25,7 +26,7 @@ const row = { id: "r1", type: "mobile", value: "+41791234567", isPrimary: true, 
 
 function renderGroup(overrides: Partial<RepeatableRowGroupProps> = {}) {
   return render(
-    <MantineProvider>
+    <MantineProvider theme={testTheme}>
       <RepeatableRowGroup
         mode="detail"
         label="Phones"
