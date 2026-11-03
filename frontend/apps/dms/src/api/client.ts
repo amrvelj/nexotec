@@ -128,8 +128,10 @@ export const api = {
       body: JSON.stringify(body),
       headers: extraHeaders,
       // KAN-532 — a write sent as the page is hidden asks the browser to let
-      // it outlive the page (fetch's `keepalive`; the body stays well under
-      // its 64 KiB budget for a preference payload).
+      // it outlive the page (fetch's `keepalive`). The browser refuses a
+      // keepalive body once its in-flight keepalive bytes would pass 64 KiB;
+      // the caller decides what to do then (usePersistedPreference retries
+      // without it).
       ...(options?.keepalive ? { keepalive: true } : {}),
     }),
   delete: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, { method: 'DELETE', headers: extraHeaders }),

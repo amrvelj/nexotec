@@ -103,9 +103,20 @@ export function usePersistedPreference<T extends { schemaVersion: number }>(
   return { value, update }
 }
 
-/** "Never block: a failed preference write is logged, never surfaces an error toast." */
+/** "Never block: a failed preference write is logged, never surfaces an error toast."
+ *
+ * KAN-532 — a keepalive send the browser refuses before it reaches the server
+ * (a rejected fetch, not an API answer: the payload, or every keepalive body
+ * in flight together, passed the browser's 64 KiB keepalive budget — the
+ * server accepts up to 64 KiB per scope) is sent again as an ordinary
+ * request, so hiding the page never loses a write the debounce would have
+ * delivered. An `ApiError` is the server's answer and is not retried. */
 function sendPreference(scope: string, payload: unknown, keepalive = false): void {
   api.put(`/me/preferences/${scope}`, payload, undefined, { keepalive }).catch((err) => {
+    if (keepalive && !(err instanceof ApiError)) {
+      sendPreference(scope, payload, false)
+      return
+    }
     console.error(`Failed to persist "${scope}" preferences:`, err instanceof ApiError ? err.message : err)
   })
 }

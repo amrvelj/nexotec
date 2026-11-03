@@ -8,22 +8,35 @@ import { describe, expect, it } from 'vitest'
 // therefore mounts Mantine with `testTheme` (./testTheme.ts,
 // `respectReducedMotion`). This refuses a `<MantineProvider` in a test, or in
 // src/test, whose `theme` is anything else — the next file that mounts its own
-// provider would reopen the leak. Vite reads the sources (`?raw`), so the
-// ui-kit needs no Node types for it.
+// provider would reopen the leak. Unlike the dms guard it also refuses a
+// provider mounted any other way — `wrapper: MantineProvider`,
+// `createElement(MantineProvider, …)`, a provider passed around by name —
+// and reads `*.spec.*` files too: every `MantineProvider` in a test is an
+// import or a `<MantineProvider theme={testTheme}>` tag. Vite reads the
+// sources (`?raw`), so the ui-kit needs no Node types for it.
 
-const SOURCES = import.meta.glob<string>(['../**/*.test.ts', '../**/*.test.tsx', './**/*.ts', './**/*.tsx'], {
+const SOURCES = import.meta.glob<string>(['../**/*.test.ts', '../**/*.test.tsx', '../**/*.spec.ts', '../**/*.spec.tsx', './**/*.ts', './**/*.tsx'], {
   query: '?raw',
   import: 'default',
   eager: true,
 })
 const THIS_FILE = './renderTestsMountMantineWithTestTheme.test.ts'
 
-/** Every `<MantineProvider …>` opening tag in `text` whose props do not pass `theme={testTheme}`. */
+/** Every Mantine provider `text` mounts without `theme={testTheme}`: an
+ * opening `<MantineProvider …>` tag without it, and any other use of the name
+ * outside an import, a closing tag or a comment (a `wrapper:`, a
+ * `createElement`, a provider handed to a helper — none can be judged). */
 export function providersWithoutTestTheme(text: string): string[] {
   const offences: string[] = []
   for (const match of text.matchAll(/<MantineProvider\b([^>]*)>/g)) {
     if (!/\btheme=\{testTheme\}/.test(match[1])) offences.push(match[0])
   }
+  const rest = text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '')
+    .replace(/^import[^;]*?from\s*['"][^'"]+['"];?/gms, '')
+    .replace(/<\/?MantineProvider\b[^>]*>/g, '')
+  for (const match of rest.matchAll(/[^\n]*\bMantineProvider\b[^\n]*/g)) offences.push(match[0].trim())
   return offences
 }
 
@@ -42,5 +55,12 @@ describe('ui-kit render tests mount Mantine with the test theme (KAN-533)', () =
     expect(providersWithoutTestTheme('<MantineProvider>')).toHaveLength(1)
     expect(providersWithoutTestTheme('<MantineProvider theme={theme} env="test">')).toHaveLength(1)
     expect(providersWithoutTestTheme('<MantineProvider env="test" theme={testTheme} withCssVariables={false}>')).toEqual([])
+    expect(providersWithoutTestTheme('renderHook(() => useX(), { wrapper: MantineProvider })')).toHaveLength(1)
+    expect(providersWithoutTestTheme('render(createElement(MantineProvider, { theme }, ui))')).toHaveLength(1)
+    expect(
+      providersWithoutTestTheme(
+        'import { Button, MantineProvider } from "@mantine/core";\n// a MantineProvider in a comment\nrender(<MantineProvider theme={testTheme}><Button /></MantineProvider>)',
+      ),
+    ).toEqual([])
   })
 })

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { installFakeBackend } from '../test/fakeBackend'
+import { installFakeBackend, status } from '../test/fakeBackend'
 import { usePersistedPreference } from './usePersistedPreference'
 
 // KAN-531 — a write still waiting on its 500 ms debounce when the screen
@@ -65,7 +65,7 @@ describe('usePersistedPreference — a pending write is never left behind (KAN-5
 })
 
 describe('usePersistedPreference — a pending write survives the tab closing (KAN-532)', () => {
-  it('sends the pending write with keepalive when the page is hidden (pagehide)', () => {
+  it('sends the pending write with keepalive when the page is hidden (pagehide)', async () => {
     const backend = installFakeBackend([])
     const { result, unmount } = renderHook(() => usePersistedPreference<Prefs>('grid:test', 'test-grid', DEFAULTS))
 
@@ -81,6 +81,8 @@ describe('usePersistedPreference — a pending write survives the tab closing (K
     expect(sent[0].keepalive).toBe(true)
 
     // Sent once: neither the debounce nor the unmount sends it again.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 600)))
+    expect(puts(backend, 'grid:test')).toHaveLength(1)
     unmount()
     expect(puts(backend, 'grid:test')).toHaveLength(1)
   })
@@ -119,6 +121,68 @@ describe('usePersistedPreference — a pending write survives the tab closing (K
       window.dispatchEvent(new Event('pagehide'))
     })
     expect(puts(backend, 'grid:test')).toHaveLength(1)
+  })
+
+  it('a write made after a scope change goes out under the new scope only when the page is hidden', () => {
+    // The listeners of the scope that was left are gone: one still attached
+    // would read the shared pending write and send it under the old scope.
+    const backend = installFakeBackend([])
+    const { result, rerender } = renderHook(({ scope }) => usePersistedPreference<Prefs>(scope, `mirror-${scope}`, DEFAULTS), {
+      initialProps: { scope: 'grid:first' },
+    })
+    rerender({ scope: 'grid:second' })
+    act(() => result.current.update({ density: 'compact' }))
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'))
+    })
+    expect(puts(backend, 'grid:first')).toHaveLength(0)
+    const sent = puts(backend, 'grid:second')
+    expect(sent).toHaveLength(1)
+    expect(sent[0].keepalive).toBe(true)
+  })
+
+  it('sends the write again without keepalive when the browser refuses the keepalive request', async () => {
+    // The browser rejects a keepalive fetch whose body would pass its 64 KiB
+    // keepalive budget (shared by every keepalive request in flight); the
+    // server accepts up to 64 KiB per scope, so such a write is legal.
+    const backend = installFakeBackend([])
+    const delivered = vi.mocked(fetch).getMockImplementation()!
+    const refused: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.keepalive) {
+          refused.push(String(input))
+          return Promise.reject(new TypeError('Failed to fetch: keepalive request body too large'))
+        }
+        return delivered(input, init)
+      }),
+    )
+    const { result } = renderHook(() => usePersistedPreference<Prefs>('grid:test', 'test-grid', DEFAULTS))
+    act(() => result.current.update({ density: 'compact' }))
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'))
+    })
+    await vi.waitFor(() => expect(puts(backend, 'grid:test')).toHaveLength(1))
+    expect(refused).toHaveLength(1)
+    const sent = puts(backend, 'grid:test')
+    expect(sent[0].keepalive).toBe(false)
+    expect(sent[0].body).toEqual({ schemaVersion: 1, density: 'compact' })
+  })
+
+  it('does not resend a write the server refused', async () => {
+    const backend = installFakeBackend([
+      { method: 'PUT', match: /\/me\/preferences\/grid:test$/, handler: () => status(422, { error: { code: 'validation_error', message: 'too big' } }) },
+    ])
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { result } = renderHook(() => usePersistedPreference<Prefs>('grid:test', 'test-grid', DEFAULTS))
+    act(() => result.current.update({ density: 'compact' }))
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'))
+    })
+    await vi.waitFor(() => expect(error).toHaveBeenCalled())
+    expect(puts(backend, 'grid:test')).toHaveLength(1)
+    error.mockRestore()
   })
 
   it('stops listening once the screen has gone', () => {
