@@ -205,7 +205,8 @@ weekly. -->
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
   `GET /v1/customers/{id}/vehicles` fills `stockItem` from
-  `app.inventory.public.get_stock_items_for_vehicles` only when
+  `app.inventory.public.get_stock_items_for_vehicles` (which takes the caller's `Principal` and reads
+  only its token's group, KAN-538) only when
   `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a
   token minted before it was taken away, gets `stockItem: null`. The customer router carries no
   entitlement gate, so any other inventory or sales data a customer route embeds needs the same check.

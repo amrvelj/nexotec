@@ -1063,6 +1063,28 @@ function judge(value: ts.Expression, scope: FileScope): Verdict {
   return effect === 'none' ? 'ok' : effect
 }
 
+/** The one parameter of a row-menu builder that carries its handlers: typed
+ * `…RowMenuHandlers` / `…RowMenuActions`, or (untyped) read as `<param>.on…`
+ * in the body. Undefined when no parameter or more than one qualifies. */
+function handlersParameterOf(builder: ts.FunctionDeclaration): string | undefined {
+  const readAsHandlers = new Set<string>()
+  if (builder.body) {
+    walk(builder.body, (n) => {
+      if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && /^on[A-Z]/.test(n.name.text)) {
+        readAsHandlers.add(n.expression.text)
+      }
+    })
+  }
+  const candidates = builder.parameters.flatMap((param) => {
+    if (!ts.isIdentifier(param.name)) return []
+    const ref = param.type && ts.isTypeReferenceNode(param.type) ? param.type.typeName : undefined
+    const typeName = ref === undefined ? undefined : ts.isIdentifier(ref) ? ref.text : ref.right.text
+    if (typeName !== undefined && /RowMenu(Handlers|Actions)$/.test(typeName)) return [param.name.text]
+    return readAsHandlers.has(param.name.text) ? [param.name.text] : []
+  })
+  return candidates.length === 1 ? candidates[0] : undefined
+}
+
 /** Builder name → the handler names its `primary` can come from. */
 export function primaryHandlersOfBuilders(sources: Source[]): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>()
@@ -1070,8 +1092,6 @@ export function primaryHandlersOfBuilders(sources: Source[]): Map<string, Set<st
     const file = parse(source)
     walk(file, (node) => {
       if (!ts.isFunctionDeclaration(node) || !node.name || !/^build\w*RowMenu$/.test(node.name.text) || !node.body) return
-      const last = node.parameters[node.parameters.length - 1]
-      const handlersParam = last && ts.isIdentifier(last.name) ? last.name.text : 'handlers'
       const locals = new Map<string, ts.Expression>()
       const handlers = new Set<string>()
       let primary: ts.Expression | undefined
@@ -1085,6 +1105,16 @@ export function primaryHandlersOfBuilders(sources: Source[]): Map<string, Set<st
           }
         }
       })
+      // KAN-522: the handlers parameter is found by what it is, not where it
+      // sits — a trailing clock or options bag used to blind the guard. A
+      // builder with a primary whose handlers cannot be named fails loudly.
+      const handlersParam = handlersParameterOf(node)
+      if (primary && handlersParam === undefined) {
+        throw new Error(
+          `${source.path}: ${node.name.text} returns a primary, but none of its parameters is its handlers ` +
+            '(a `…RowMenuHandlers`/`…RowMenuActions` type, or one read as `.on…`) — or more than one is.',
+        )
+      }
       const seen = new Set<ts.Node>()
       const collect = (expr: ts.Node) => {
         if (seen.has(expr)) return
@@ -1222,6 +1252,51 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
         .replace("() => { setActiveTab('identity') }", '() => navigate(`/x`)'),
     }
     expect(noOpPrimaries([fixed], builders)).toEqual([])
+  })
+
+  // KAN-522: the KAN-253 build briefly gave buildValuationRowMenu a trailing
+  // `now`, and the guard, reading the last parameter, saw no handlers at all.
+  it('finds the handlers by what they are, whatever follows them, and fails loudly when it cannot', () => {
+    const page: Source = {
+      path: 'pages/OldDetailPage.tsx',
+      text: `export function OldDetailPage() {
+        const rowMenu = buildOldRowMenu(t, customer, { onEdit: () => setActiveTab('overview') }, new Date())
+        return <DetailHeader primaryAction={rowMenu.primary} />
+      }`,
+    }
+    const expected = ['pages/OldDetailPage.tsx:2 onEdit (primary of buildOldRowMenu)']
+    const trailing = (params: string) =>
+      primaryHandlersOfBuilders([
+        {
+          path: 'components/oldRowMenu.tsx',
+          text: `export function buildOldRowMenu(${params}) {
+            return { primary: { label: t('edit'), onClick: handlers.onEdit, at: now }, overflow: {} }
+          }`,
+        },
+      ])
+
+    // A trailing clock, untyped (read as handlers.on…) and typed.
+    expect(noOpPrimaries([page], trailing('t, c, handlers, now'))).toEqual(expected)
+    expect(noOpPrimaries([page], trailing('t: T, c: C, handlers: OldRowMenuHandlers, now: Date'))).toEqual(expected)
+    expect(noOpPrimaries([page], trailing('t: T, c: C, handlers: OldRowMenuActions, options: { isSelf: boolean }'))).toEqual(
+      expected,
+    )
+
+    // No parameter that is its handlers, or two that could be: never a silent empty set.
+    const unnamed: Source = {
+      path: 'components/opaqueRowMenu.tsx',
+      text: `export function buildOpaqueRowMenu(t, cb) {
+        return { primary: { label: t('edit'), onClick: cb }, overflow: {} }
+      }`,
+    }
+    expect(() => primaryHandlersOfBuilders([unnamed])).toThrow(/buildOpaqueRowMenu returns a primary/)
+    const twice: Source = {
+      path: 'components/twiceRowMenu.tsx',
+      text: `export function buildTwiceRowMenu(t, a: TwiceRowMenuHandlers, b: OtherRowMenuActions) {
+        return { primary: { label: t('edit'), onClick: a.onEdit }, overflow: { x: b.onCopy } }
+      }`,
+    }
+    expect(() => primaryHandlersOfBuilders([twice])).toThrow(/buildTwiceRowMenu/)
   })
 
   // KAN-512: the two shapes the KAN-503 review found passing unjudged, and

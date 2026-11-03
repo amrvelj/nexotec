@@ -29,6 +29,7 @@ from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.auth import Principal
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
@@ -86,7 +87,7 @@ def list_group_stock_items(
 
 
 def get_stock_items_for_vehicles(
-    db: Session, *, group_id: uuid.UUID, vehicle_ids: list[uuid.UUID]
+    db: Session, *, principal: Principal, vehicle_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, dict]:
     """KAN-49 / FR-19 amendment — "is this vehicle sitting in the group's
     own stock, and what's its stock item" for a batch of vehicles at once
@@ -114,12 +115,17 @@ def get_stock_items_for_vehicles(
     so `left_stock_at IS NULL` (currently in stock) is required — a link
     to a car that has already left is not "currently in the group's own
     stock" — and the newest match wins if more than one somehow qualifies.
+
+    KAN-538 (rule 7): the group is the caller's token's, never an id it
+    passes — this function authorises its own group read, as
+    list_group_stock_items does, so no caller can ask about another
+    group's stock (tests/test_inventory_group_stock_for_vehicles.py).
     """
 
     if not vehicle_ids:
         return {}
 
-    refs = list_group_read_dealerships(db, group_id=group_id)
+    refs = list_group_read_dealerships(db, group_id=principal.group_id)
     if not refs:
         return {}
     dealership_ids = [ref.id for ref in refs]
