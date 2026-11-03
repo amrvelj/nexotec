@@ -347,11 +347,7 @@ def login_status(db: Session, user: User) -> dict:
 
 
 def _language_of(db: Session, user: User) -> str | None:
-    preference = preference_service.get_preference(db, user_id=user.id, scope="ui")
-    if preference is None:
-        return None
-    language = (preference.payload or {}).get("uiLanguage")
-    return language if isinstance(language, str) else None
+    return preference_service.ui_language_of(db, user_id=user.id)
 
 
 def _deliver(

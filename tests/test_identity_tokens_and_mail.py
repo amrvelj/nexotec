@@ -198,6 +198,26 @@ def test_the_mail_is_written_in_the_users_ui_language(client, mailbox, login):
     assert mail.subject != mail_texts.password_reset(language="de", first_name="", link="").subject
 
 
+def test_a_user_who_never_chose_gets_mail_in_the_betriebs_language(client, mailbox, db_session):
+    """KAN-104 item 2 (Anto, 2026-11-03, 1 B): a user with no stored UI
+    language starts in the home Betrieb's correspondence language — the
+    screen, and so the platform mail that follows it (one rule,
+    user_preference.ui_language_of)."""
+
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.dealership import Dealership
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    db_session.get(Dealership, uuid.UUID(dealership)).default_correspondence_language = SwissLanguage.IT
+    db_session.commit()
+
+    client.post("/v1/auth/password-reset/request", json={"email": anna["email"]})
+
+    mail = last_mail_to(mailbox, anna["email"])
+    assert mail.subject == mail_texts.password_reset(language="it", first_name="", link="").subject
+
+
 # --- the password policy -----------------------------------------------------------------
 
 

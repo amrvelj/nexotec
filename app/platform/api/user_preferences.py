@@ -45,7 +45,15 @@ def get_my_preference(
     if row is None:
         # Absent, not 404: an unset scope simply has no override yet — the
         # frontend falls back to the module default, same as after DELETE.
-        return UserPreferenceRead(scope=scope, payload={}, updated_at=None)
+        # KAN-104 item 2 (Anto, 2026-11-03, 1 B): an unset `ui` scope starts in
+        # the home Betrieb's correspondence language; `updatedAt` stays null,
+        # so it is a default, never a stored choice.
+        payload: dict = {}
+        if scope == user_preference_service.UI_SCOPE:
+            language = user_preference_service.default_ui_language(db, user_id=principal.user_id)
+            if language is not None:
+                payload = {"uiLanguage": language}
+        return UserPreferenceRead(scope=scope, payload=payload, updated_at=None)
     return UserPreferenceRead.model_validate(row, from_attributes=True)
 
 

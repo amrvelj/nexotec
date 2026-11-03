@@ -177,7 +177,8 @@ second local combobox.
   to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.
 - A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`; one missing only from
   the active locale falls back to English (`fallbackLng: 'en'`), never German —
-  `localeKeyParity.test.ts` keeps that from shipping. No hardcoded user-visible string,
+  `localeKeyParity.test.ts` keeps that from shipping. Ruled so by Anto (2026-11-03, KAN-104
+  decision 2 A): no marker when English has the text. No hardcoded user-visible string,
   including labels in dialogs and wizards.
 - **The platform's published UI strings override the bundles at runtime** (KAN-209, FR-A-30…32):
   `i18n/runtimeTranslations.ts`, started by `main.tsx`, fetches `GET /v1/i18n/{language}` for the
@@ -213,8 +214,14 @@ second local combobox.
   no slash, pair, parenthesis or point-médian form in the bundles.
 - Canonical reference data is translated by us; provider option text is stored and rendered
   **as delivered**, never translated (ADR-044).
-- New users should default to the dealership's language — not built: `useUiPreferences.ts`
-  hard-defaults `uiLanguage` to `'de'` (KAN-104).
+- **A new user starts in the home Betrieb's correspondence language** (Anto, 2026-11-03, KAN-104
+  decision 1 B): `GET /v1/me/preferences/ui` for a user who never saved the scope answers
+  `{"uiLanguage": <the Betrieb's default_correspondence_language>}` with `updatedAt: null` — a
+  starting value, never stored; the user's own choice (the `ui` preference) wins from the first
+  switch. The platform mail texts and the push title follow the same rule
+  (`user_preference.ui_language_of`). Only the starting value is shared: the user's UI language
+  and a customer's correspondence language stay separate fields and controls.
+  `useUiPreferences.ts` keeps `'de'` as the offline fallback.
 
 ## Tests and evidence
 

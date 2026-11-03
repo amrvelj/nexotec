@@ -85,10 +85,10 @@ def test_list_preferences_starts_empty(client):
 
 def test_get_unset_scope_returns_empty_not_404(client):
     headers = _setup(client)
-    response = client.get("/v1/me/preferences/ui", headers=headers)
+    response = client.get("/v1/me/preferences/grid:mdm.customers.list", headers=headers)
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["scope"] == "ui"
+    assert body["scope"] == "grid:mdm.customers.list"
     assert body["payload"] == {}
     assert body["updatedAt"] is None
 
@@ -142,18 +142,19 @@ def test_list_reflects_multiple_scopes(client):
 
 
 def test_delete_resets_to_default_and_is_idempotent(client):
+    # A grid scope: an unset `ui` scope answers a starting language (KAN-104 item 2).
     headers = _setup(client)
-    client.put("/v1/me/preferences/ui", json={"density": "compact"}, headers=headers)
+    client.put("/v1/me/preferences/grid:mdm.stock.list", json={"density": "compact"}, headers=headers)
 
-    delete_response = client.delete("/v1/me/preferences/ui", headers=headers)
+    delete_response = client.delete("/v1/me/preferences/grid:mdm.stock.list", headers=headers)
     assert delete_response.status_code == 204, delete_response.text
 
-    get_response = client.get("/v1/me/preferences/ui", headers=headers)
+    get_response = client.get("/v1/me/preferences/grid:mdm.stock.list", headers=headers)
     assert get_response.json()["payload"] == {}
     assert get_response.json()["updatedAt"] is None
 
     # Deleting an already-absent scope is not an error.
-    second_delete = client.delete("/v1/me/preferences/ui", headers=headers)
+    second_delete = client.delete("/v1/me/preferences/grid:mdm.stock.list", headers=headers)
     assert second_delete.status_code == 204, second_delete.text
 
 
@@ -168,9 +169,9 @@ def test_preferences_are_isolated_per_user(client):
         _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user_b["id"]))
     )
 
-    client.put("/v1/me/preferences/ui", json={"density": "compact"}, headers=headers_a)
+    client.put("/v1/me/preferences/grid:mdm.stock.list", json={"density": "compact"}, headers=headers_a)
 
-    response_b = client.get("/v1/me/preferences/ui", headers=headers_b)
+    response_b = client.get("/v1/me/preferences/grid:mdm.stock.list", headers=headers_b)
     assert response_b.json()["payload"] == {}
 
     list_b = client.get("/v1/me/preferences", headers=headers_b)
@@ -194,3 +195,39 @@ def test_invalid_scope_is_rejected(client):
 def test_unauthenticated_request_is_rejected(client):
     response = client.get("/v1/me/preferences")
     assert response.status_code == 401, response.text
+
+
+# --- KAN-104 item 2 (Anto, 2026-11-03, decision 1 B) ----------------------------------------------
+
+
+def _betrieb_speaks(db_session, dealer_id: str, language: str) -> None:
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.dealership import Dealership
+
+    db_session.get(Dealership, uuid.UUID(dealer_id)).default_correspondence_language = SwissLanguage(language)
+    db_session.commit()
+
+
+def test_a_new_users_screen_starts_in_the_betriebs_correspondence_language(client, db_session):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _betrieb_speaks(db_session, dealer_id, "it")
+    headers = _bearer(_token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+
+    body = client.get("/v1/me/preferences/ui", headers=headers).json()
+
+    assert body["payload"] == {"uiLanguage": "it"}
+    assert body["updatedAt"] is None  # a starting value, never a stored choice
+    # Only the `ui` scope starts that way; every other scope is still empty.
+    assert client.get("/v1/me/preferences/grid:mdm.customers.list", headers=headers).json()["payload"] == {}
+
+
+def test_the_users_own_choice_wins_over_the_betriebs_language(client, db_session):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _betrieb_speaks(db_session, dealer_id, "it")
+    headers = _bearer(_token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+
+    client.put("/v1/me/preferences/ui", json={"schemaVersion": 1, "uiLanguage": "fr"}, headers=headers)
+
+    assert client.get("/v1/me/preferences/ui", headers=headers).json()["payload"]["uiLanguage"] == "fr"

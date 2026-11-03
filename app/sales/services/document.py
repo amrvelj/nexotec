@@ -72,7 +72,6 @@ from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.priced_deal import require_no_live_contract
 
 
-
 def _document_language(db: Session, *, tenant_id: uuid.UUID, customer_language: str | None) -> SwissLanguage:
     """The language a document is printed in: the customer's correspondence
     language, else the Betrieb's own default for customers (KAN-104 item 5,
