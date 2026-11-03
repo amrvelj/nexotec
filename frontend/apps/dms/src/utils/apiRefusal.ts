@@ -93,6 +93,7 @@ const REASON_KEYS: Record<string, string> = {
       'offer_already_contracted',
       'passkey_key_not_accepted',
       'passkey_not_verified',
+      'pending_contract_carries_it',
       'phone_already_on_customer',
       'photo_not_an_image',
       'photo_too_large',

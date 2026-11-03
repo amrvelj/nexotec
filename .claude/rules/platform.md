@@ -220,10 +220,15 @@ rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonica
 It refuses a suspended or deactivated user (401), authorises the target dealership from the
 home dealership plus `dealership_membership` rows, never the token's `memberships` claim (403),
 and writes the `session` row the guard checks (a switch keeps the row and its `sid`). Auth &
-Identity risk 4 puts such checks where every minting path passes. **Open, not settled here
-(KAN-254):** the ADR-028 terminal path (`WORKSHOP_TERMINAL_AUTH_DESIGN.md`) is designed to call
-`create_access_token` directly with fixed `{TECHNICIAN}` roles, which `_mint_session` cannot
-mint — how it gets the status check needs an ADR. `get_current_principal` still does not check
+Identity risk 4 puts such checks where every minting path passes. **Not built — the workshop
+terminal is to mint through it too** (ADR-110, Anto 2026-11-02, KAN-254; KAN-230 builds it,
+`WORKSHOP_TERMINAL_AUTH_DESIGN.md`): a technician on their own phone signs in like office
+staff, with their own roles; a shared workshop device calls `_mint_session` with the realm
+`terminal` (the office's is `staff`), which runs the same status, access-window and membership
+checks, writes a `session` row with a 15-minute idle window (KAN-508) and mints
+`roles={TECHNICIAN}`, `is_dealer_manager=False` and the device's Betrieb as the only membership,
+never the person's office roles. No second minting path and no direct `create_access_token`
+call. `get_current_principal` still does not check
 `status`; what ends a deactivated user's session is the `session` row the status change revokes
 (FR-A-10) — a token without `sid` is not covered.
 

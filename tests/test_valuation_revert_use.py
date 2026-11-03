@@ -3,12 +3,15 @@ audited action, limited to the dealer manager, that clears a «Verwendet»
 stamp no signed contract of the dealership stands behind. It covers both
 cases the nightly check reports and cannot clear: a hand stamp from before
 KAN-115, and a confirmation whose commit and compensation both failed and
-whose contract was then cancelled (or is still pending). The stamp's KAN-115
-rule is unchanged: a valuation a signed contract carries stays used.
+whose contract was then cancelled. The stamp's KAN-115 rule is unchanged: a
+valuation a signed contract carries stays used. KAN-520 (Anto, 2026-11-03,
+option A): a pending contract carrying it refuses the clear too.
 """
 
 import datetime as dt
+import os
 import uuid
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
@@ -18,13 +21,17 @@ from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
-from app.sales.models.contract import ContractStatus
+from app.sales import reconciliation as sales_reconciliation
+from app.sales.models.contract import ContractStatus, SalesContract
+from app.sales.services.contract import confirm_contract
 from app.valuation import reconciliation as valuation_reconciliation
 from app.valuation.models.valuation import Valuation
+from app.valuation.services import valuation as valuation_module
 from app.valuation.services.valuation import derive_status, revert_use_by_hand
-from tests.test_sales_lifecycle_reservation import _dealership
-from tests.test_sales_trade_in_valuation_use import _valuation
+from tests.test_sales_lifecycle_reservation import _dealership, _session_factory
+from tests.test_sales_trade_in_valuation_use import _trade_in_contract, _valuation
 from tests.test_trade_in_valuation_reconciliation import (
+    SIGNED_WITHOUT_USED_VALUATION,
     USED_WITHOUT_SIGNED_CONTRACT,
     _contract,
     _findings,
@@ -82,19 +89,143 @@ def test_a_hand_stamp_no_signed_contract_carries_is_cleared_audited_and_publishe
     assert _findings(valuation_reconciliation, db_session, USED_WITHOUT_SIGNED_CONTRACT) == []
 
 
-@pytest.mark.parametrize("status", [ContractStatus.PENDING, ContractStatus.CANCELLED])
-def test_a_stamp_left_by_a_failed_confirmation_whose_contract_was_never_signed_is_cleared(db_session, status):
+def test_a_stamp_left_by_a_failed_confirmation_whose_contract_was_cancelled_is_cleared(db_session):
     """Case 2: the confirmation's commit and its compensation both failed, so
-    the stamp stands with only an unsigned contract behind it — still pending,
-    or cancelled since. No signed deal used the valuation."""
+    the stamp stands with only an unsigned contract behind it, cancelled
+    since. No signed deal used the valuation."""
 
     dealership = _dealership(db_session)
     valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=3)
-    _contract(db_session, dealership.id, valuation.id, signed=False, status=status)
+    _contract(db_session, dealership.id, valuation.id, signed=False, status=ContractStatus.CANCELLED)
 
     cleared = revert_use_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4(), reason="Bestätigung gescheitert")
 
     assert cleared.used_at is None
+
+
+def test_a_pending_contract_carrying_the_valuation_refuses_the_clear(db_session):
+    """KAN-520 (Anto, 2026-11-03, option A): while a pending contract of this
+    dealership carries the valuation, its confirmation may run at any moment
+    and would find the stamp set — so the stamp stays until that contract is
+    cancelled. Nothing is written."""
+
+    dealership = _dealership(db_session)
+    valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=3)
+    _contract(db_session, dealership.id, valuation.id, signed=False, status=ContractStatus.PENDING)
+
+    with pytest.raises(ConflictError) as exc:
+        revert_use_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4(), reason="Versuch")
+
+    assert exc.value.details["reason"] == "pending_contract_carries_it"
+    db_session.expire_all()
+    assert db_session.get(Valuation, valuation.id).used_at is not None
+    assert db_session.scalars(select(AuditEvent).where(AuditEvent.entity_id == valuation.id)).all() == []
+
+
+def test_another_dealerships_pending_contract_does_not_refuse_the_clear(db_session):
+    """Per dealership, as the signed-contract check is."""
+
+    dealership = _dealership(db_session)
+    valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=3)
+    _contract(db_session, uuid.uuid4(), valuation.id, signed=False, status=ContractStatus.PENDING)
+
+    assert revert_use_by_hand(db_session, valuation=valuation, actor_id=None, reason="Fremder Vertrag").used_at is None
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="interleaves two real transactions: Postgres only")
+@pytest.mark.parametrize(
+    "read_name", ["valuations_carried_by_pending_contracts", "valuations_carried_by_signed_contracts"]
+)
+def test_a_signing_committed_between_the_clears_two_reads_never_lets_it_through(db_session, engine, read_name):
+    """KAN-520, the narrower race (found by the review): the clear asks Sales
+    twice, once for pending and once for signed contracts, in two statements
+    under READ COMMITTED. A signing that commits right after either read
+    must still be seen. A pending contract only ever moves to signed (with
+    `signed_at`, which never clears) or to an unsigned cancel, so reading
+    pending first and signed second sees it in one of the two; the other
+    order lets it fall between them."""
+
+    dealership = _dealership(db_session)
+    valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=3)
+    contract = _contract(db_session, dealership.id, valuation.id, signed=False, status=ContractStatus.PENDING)
+    contract_id = contract.id
+    open_session = _session_factory(engine)
+
+    real_read = getattr(valuation_module, read_name)
+
+    def read_then_sign(*args, **kwargs):
+        answer = real_read(*args, **kwargs)
+        signer = open_session()
+        try:
+            signed = signer.get(SalesContract, contract_id)
+            signed.status = ContractStatus.CONFIRMED
+            signed.signed_at = utcnow()
+            signer.commit()
+        finally:
+            signer.close()
+        return answer
+
+    manager_session = open_session()
+    try:
+        held = manager_session.get(Valuation, valuation.id)
+        with patch.object(valuation_module, read_name, read_then_sign), pytest.raises(ConflictError) as exc:
+            revert_use_by_hand(manager_session, valuation=held, actor_id=uuid.uuid4(), reason="Zwischendurch")
+    finally:
+        manager_session.close()
+
+    assert exc.value.details["reason"] in {"pending_contract_carries_it", "signed_contract_carries_it"}
+    db_session.expire_all()
+    assert db_session.get(Valuation, valuation.id).used_at is not None
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="interleaves two real transactions: Postgres only")
+def test_a_clear_interleaved_with_a_re_confirmation_never_leaves_a_signed_contract_unstamped(db_session, engine):
+    """KAN-520, the race itself. A stamp older than the grace whose pending
+    contract is confirmed again: the confirmation finds the stamp set, writes
+    nothing and releases the valuation's lock before it reserves the car and
+    signs. A manager's clear lands exactly there, on a session of its own.
+    Before KAN-520 it passed every check and the contract signed on an
+    unstamped valuation; now it is refused, and the contract signs on a
+    stamped one."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id)
+    contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation)
+    _stamped(db_session, valuation, hours_ago=3)
+    valuation_id = valuation.id
+
+    open_session = _session_factory(engine)
+    calls = 0
+    clear_outcome: list[object] = []
+
+    def interleaving_factory():
+        # confirm_contract's first short-lived session consumes the valuation,
+        # its second reserves the car: the clear runs between the two.
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            manager_session = open_session()
+            try:
+                held = manager_session.get(Valuation, valuation_id)
+                revert_use_by_hand(manager_session, valuation=held, actor_id=uuid.uuid4(), reason="Zwischendurch")
+                clear_outcome.append("cleared")
+            except ConflictError as exc:
+                clear_outcome.append(exc.details["reason"])
+            finally:
+                manager_session.close()
+        return open_session()
+
+    signed = confirm_contract(
+        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=interleaving_factory
+    )
+
+    assert calls == 2, "the clear must run between the consume and the reservation"
+    assert clear_outcome == ["pending_contract_carries_it"]
+    assert signed.status == ContractStatus.CONFIRMED and signed.signed_at is not None
+    db_session.expire_all()
+    assert db_session.get(Valuation, valuation_id).used_at is not None
+    assert _findings(sales_reconciliation, db_session, SIGNED_WITHOUT_USED_VALUATION) == []
 
 
 @pytest.mark.parametrize("status", [ContractStatus.CONFIRMED, ContractStatus.CANCELLED])

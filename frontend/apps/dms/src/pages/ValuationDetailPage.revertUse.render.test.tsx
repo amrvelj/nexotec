@@ -35,7 +35,7 @@ function session(isDealerManager: boolean, writableCapabilities: string[]): Fake
   }
 }
 
-function install(sessionRoute: FakeRoute, { refuse = false } = {}) {
+function install(sessionRoute: FakeRoute, { refuse = false, reason = 'signed_contract_carries_it' } = {}) {
   return installFakeBackend([
     sessionRoute,
     { method: 'GET', match: /^\/valuations\/val-1$/, handler: () => USED },
@@ -45,7 +45,7 @@ function install(sessionRoute: FakeRoute, { refuse = false } = {}) {
       handler: () =>
         refuse
           ? status(409, {
-              error: { code: 'conflict', message: 'A signed contract carries it.', details: { reason: 'signed_contract_carries_it' } },
+              error: { code: 'conflict', message: 'Refused.', details: { reason } },
             })
           : { ...USED, status: 'valid', version: 5 },
     },
@@ -105,16 +105,23 @@ describe('ValuationDetailPage — «Verwendung aufheben» (KAN-253)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
-  it('a refusal is said by its reason in the UI language', async () => {
-    const user = userEvent.setup()
-    install(session(true, ['valuations', 'valuation_use_reversal']), { refuse: true })
-    renderPage()
+  // KAN-520: an open contract carrying the valuation refuses the clear too —
+  // its confirmation would use it — and the dialog says to cancel it first.
+  it.each(['signed_contract_carries_it', 'pending_contract_carries_it'])(
+    'a refusal (%s) is said by its reason in the UI language',
+    async (reason) => {
+      const user = userEvent.setup()
+      install(session(true, ['valuations', 'valuation_use_reversal']), { refuse: true, reason })
+      renderPage()
 
-    await openMenu(user)
-    await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('valuationDetail.actions.revertUse')) }))
-    await user.type(await screen.findByRole('textbox', { name: new RegExp(i18n.t('valuationDetail.revertUseDialog.reasonLabel')) }), 'Versuch')
-    await user.click(screen.getByRole('button', { name: i18n.t('valuationDetail.revertUseDialog.submit') }))
+      await openMenu(user)
+      await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('valuationDetail.actions.revertUse')) }))
+      await user.type(await screen.findByRole('textbox', { name: new RegExp(i18n.t('valuationDetail.revertUseDialog.reasonLabel')) }), 'Versuch')
+      await user.click(screen.getByRole('button', { name: i18n.t('valuationDetail.revertUseDialog.submit') }))
 
-    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('apiRefusal.reasons.signed_contract_carries_it'))
-  })
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toBe(i18n.t(`apiRefusal.reasons.${reason}`))
+      expect(alert.textContent).not.toContain('MISSING')
+    },
+  )
 })

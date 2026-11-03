@@ -22,7 +22,10 @@ from app.sales.services.customer_merge import repoint_customer_sales_records
 from app.sales.services.numbering import legacy_offer_counters
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
-from app.sales.services.signed_trade_ins import valuations_carried_by_signed_contracts
+from app.sales.services.signed_trade_ins import (
+    valuations_carried_by_pending_contracts,
+    valuations_carried_by_signed_contracts,
+)
 from app.sales.services.transaction import repoint_customer_transactions
 
 __all__ = [
@@ -37,5 +40,6 @@ __all__ = [
     "refresh_owner_labels",
     "repoint_customer_sales_records",
     "repoint_customer_transactions",
+    "valuations_carried_by_pending_contracts",
     "valuations_carried_by_signed_contracts",
 ]

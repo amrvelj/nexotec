@@ -203,9 +203,13 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 - **Host / mode matrix** (PRD v1.4; the pending contract added by KAN-67 and ADR-083 —
   PRD-Configurator's matrix not yet amended): Stock → add to pipeline: both (`build` factory order, `record` bought
   in) · Stock → «Konfiguration zuordnen» on an item without one: both, `record` first, its VIN
-  prefilled (KAN-463) · Stock → «Konfiguration bearbeiten» on a **pipeline** item with one that no contract created (the configuration
-  card, and the purchase booking's `configuration_vin_differs` refusal; not on a car in stock nor on a contract's pipeline car — open with Anto, KAN-510): the configuration's own
-  mode only, its PATCH the only write — Stock writes nothing of it (KAN-510) · Offer and pending contract → new configuration: `build` only · Offer and pending
+  prefilled (KAN-463) · Stock → «Konfiguration bearbeiten» on **every** stock item with one, in the pipeline or in stock, that
+  no contract reserves (Anto, 2026-11-02, KAN-510 option A; the configuration card, and the purchase
+  booking's `configuration_vin_differs` refusal): the configuration's own mode only, its PATCH the only
+  write — Stock writes nothing of it. A reserved item shows «Vertrag bearbeiten» instead, disabled with
+  the reason: a contract reserves a car only once signed, and a signed contract is frozen (ADR-083), so
+  it is cancelled first. The configuration PATCH does not check its host on the server; and a car in
+  stock whose configuration's VIN is edited then differs from the stock item's (KAN-544) · Offer and pending contract → new configuration: `build` only · Offer and pending
   contract → trade-in: `record`, via the valuation path · Valuation → new valuation: `record`
   only. The configuration entity
   supports both modes; the host decides which is reachable. Never bake a mode switch into the

@@ -3652,7 +3652,9 @@ export interface paths {
          *     manager clears a «Verwendet» stamp no signed contract stands behind,
          *     with a stated reason (audited). 409 `signed_contract_carries_it` while a
          *     signed contract of this dealership carries it, 409 `valuation_not_used` when it is
-         *     not stamped.
+         *     not stamped, 409 `stamp_too_recent` within the confirmation grace, and 409
+         *     `pending_contract_carries_it` while a pending contract of this dealership
+         *     carries it (KAN-520: cancel that contract first).
          */
         post: operations["revert_valuation_use_v1_valuations__valuation_id__revert_use_post"];
         delete?: never;
@@ -11061,7 +11063,8 @@ export interface components {
          *     row (catalogue_match_status=unverified) is the common case today, not
          *     an edge case — every fixture in the existing allocation test suite
          *     creates one. A full catalogue-aware summary (falling back through
-         *     provider data, say) is ADR-073's job; this is the minimal,
+         *     provider data, say) is not built (an unbuilt feature, not an ADR: the
+         *     ADR-073 label once used for it was retired, KAN-88); this is the minimal,
          *     always-correct version. The frontend falls back to the vehicle number
          *     when these are null.
          */

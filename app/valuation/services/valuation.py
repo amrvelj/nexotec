@@ -30,7 +30,7 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
 from app.customer.public import get_customer_or_404
-from app.sales.public import valuations_carried_by_signed_contracts
+from app.sales.public import valuations_carried_by_pending_contracts, valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.valuation.schemas.valuation import ValuationCreate
 from app.vehicle.public import CONFIGURATION_MODE_RECORD, create_or_get_vehicle_mdm, get_configuration_for_host
@@ -389,23 +389,25 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
     carries the valuation — a signed deal used it, and it stays used
     (ADR-066, KAN-115) — with `details.reason == "signed_contract_carries_it"`;
     and refused for a valuation that is not stamped (`"valuation_not_used"`). A
-    pending contract does not count: it never used the valuation, and its
-    confirmation stamps it again. A stamp younger than `CONFIRMATION_GRACE`
+    pending contract never used the valuation, but it blocks the clear (below).
+    A stamp younger than `CONFIRMATION_GRACE`
     is refused too (`"stamp_too_recent"`): its confirmation may still be
     signing the contract, and the lock here holds only the valuation row, not
     the contract (another context's) — so the action clears what the nightly
     check reports, and nothing younger.
 
-    **A window left open (KAN-520):** a stamp already older than the grace
-    whose PENDING contract is being confirmed again at the same moment. That
-    confirmation finds the stamp set, writes nothing and releases the
-    valuation's lock before it signs, so a clear landing in between passes
-    every check and the contract signs on an unstamped valuation. The nightly
-    `sales/reconciliation.py` check («signed contract whose trade-in valuation
-    is not used») reports it and «Als verwendet markieren» repairs it.
-    Closing it needs a read of Sales' pending contracts under their lock — a
-    boundary decision for Anto. The reason is mandatory and is kept on the
-    audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
+    **Refused while a PENDING contract of this dealership carries the
+    valuation** (KAN-520, Anto 2026-11-03, option A; `"pending_contract_carries_it"`,
+    read through `sales.public.valuations_carried_by_pending_contracts`).
+    Such a contract's confirmation may run at any moment: finding the stamp
+    already set, it writes nothing and releases the valuation's lock before it
+    signs, so a clear landing in between would leave a signed contract on an
+    unstamped valuation. A confirmation runs only on a contract already
+    committed as pending, and leaves pending only in the commit that signs it.
+    The pending read runs before the signed one, so a signing that commits
+    between them is still seen by one of the two. A stamp a failed confirmation left behind is
+    therefore cleared once its contract is cancelled. The reason is mandatory
+    and is kept on the audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
     the clear itself is `revert_use`'s, so `valuation.valuation.use_reverted`
     is published as for the compensation. One commit.
     """
@@ -419,6 +421,12 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
             f"Valuation {valuation.valuation_number} is not marked used.",
             details={"reason": "valuation_not_used", "valuationId": str(valuation.id)},
         )
+    # KAN-520: pending FIRST, then signed — two statements under READ
+    # COMMITTED. A pending contract only ever becomes signed (`signed_at`,
+    # which never clears) or an unsigned cancel, so a signing that commits
+    # between the two reads is pending in the first or signed in the second;
+    # the other order would let it fall between them.
+    pending = valuations_carried_by_pending_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     carried = valuations_carried_by_signed_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     if valuation.id in carried:
         db.rollback()
@@ -432,6 +440,13 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
             f"Valuation {valuation.valuation_number} was marked used less than an hour ago; "
             "its contract's confirmation may still be in progress.",
             details={"reason": "stamp_too_recent", "valuationId": str(valuation.id)},
+        )
+    if valuation.id in pending:
+        db.rollback()
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} is the trade-in of a pending contract, whose confirmation "
+            "would use it; cancel that contract first.",
+            details={"reason": "pending_contract_carries_it", "valuationId": str(valuation.id)},
         )
     used_at = valuation.used_at
     record_audit_event(
