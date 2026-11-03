@@ -52,7 +52,11 @@ from app.inventory.consumers import (
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.ownership_registry import register_ownership_providers
-from app.platform.consumers import handle_digest_released_message, handle_notification_delivered_message
+from app.platform.consumers import (
+    handle_connected_account_revoked_message,
+    handle_digest_released_message,
+    handle_notification_delivered_message,
+)
 from app.platform.daily_jobs import (
     run_daily_notification_digest,
     run_daily_notification_purge,
@@ -151,6 +155,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "platform.notification_digest.released",
         consumer_name="platform.web_push_on_digest",
         handler=handle_digest_released_message,
+    )
+    # KAN-412 (FR-AU-24) — a revoked connected account is ended at the
+    # provider by its registered revoker; a refusal is retried, then
+    # dead-letters.
+    transport.register(
+        "platform.connected_account.revoked",
+        consumer_name="platform.connected_account_provider_revocation",
+        handler=handle_connected_account_revoked_message,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":

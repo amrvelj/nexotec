@@ -298,7 +298,52 @@ def _digest_released(db_session, engine, monkeypatch):
     return _message(db_session, notifications.DIGEST_RELEASED_EVENT, user.id), lambda db: len(sent)
 
 
+def _connected_account_revoked(db_session, engine, monkeypatch):
+    """KAN-412 — a revoked connected account, from the real producer: the
+    provider's registered revoker ends the grant there once, and the end is
+    recorded once (the reference dropped, an audit row)."""
+
+    from app.core.audit_model import AuditEvent
+    from app.platform.models.connected_account import (
+        ConnectedAccountProvider,
+        ConnectedAccountStatus,
+        UserConnectedAccount,
+    )
+    from app.platform.models.user import User, UserRole, UserStatus
+    from app.platform.services import connected_account
+
+    dealership = _dealership(db_session)
+    user = User(
+        tenant_id=dealership.id, first_name="Ada", last_name="Grant", email=f"grant-{uuid.uuid4().hex[:8]}@example.ch",
+        role=UserRole.SALES, access_roles=[], is_dealer_manager=False, status=UserStatus.ACTIVE,
+        auth_identity_id=str(uuid.uuid4()),
+    )
+    db_session.add(user)
+    db_session.flush()
+    account = UserConnectedAccount(
+        user_id=user.id, provider=ConnectedAccountProvider.MICROSOFT_365, external_account_id=str(uuid.uuid4()),
+        scopes=["Mail.Send"], secret_ref=f"infisical://connected-accounts/{uuid.uuid4()}",
+        status=ConnectedAccountStatus.ACTIVE, linked_at=dt.datetime.now(dt.UTC),
+    )
+    db_session.add(account)
+    db_session.flush()
+    connected_account.revoke(db_session, account=account, user=user, actor_id=user.id, reason=connected_account.REASON_USER)
+    db_session.commit()
+    ended: list = []
+    monkeypatch.setitem(connected_account._REVOKERS, ConnectedAccountProvider.MICROSOFT_365, ended.append)
+
+    def ends_recorded(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(AuditEvent.entity_id == user.id, AuditEvent.action == "connected_account_provider_ended")
+        )
+
+    return _message(db_session, connected_account.REVOKED_EVENT, account.id), ends_recorded
+
+
 _FIXTURES: dict[str, Fixture] = {
+    "platform.connected_account_provider_revocation": _connected_account_revoked,
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
     "sales.stock_item_added": _stock_item_added,

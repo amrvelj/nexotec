@@ -20,6 +20,13 @@ from app.platform.schemas.document_content import (
     SignatureBlock,
 )
 from app.platform.services.actor_reference import actor_reference_checks
+from app.platform.services.connected_account import (
+    ConnectedAccountProvider,
+    GrantRevoker,
+    RevokedGrant,
+    register_grant_revoker,
+    unregister_grant_revoker,
+)
 from app.platform.services.dealership import (
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
@@ -72,14 +79,26 @@ from app.platform.services.user import (
 # module registers its codes in the catalogue (the declaration and a platform
 # migration) in the same PR. An unknown code raises UnknownNotificationEvent.
 # Never an e-mail.
+#
+# KAN-412 (FR-AU-24): register_grant_revoker is how the integration that
+# links a provider's accounts (the Outlook integration, Microsoft 365) ends
+# a revoked grant at the provider. The revoker receives a RevokedGrant —
+# plain data (id, provider, external account id, secret reference), never
+# platform's row — from platform's own consumer after the revoke committed,
+# at least once: it must end the grant and drop the secret, succeed again
+# on a grant already ended, and raise on a refusal (the outbox retries,
+# then dead-letters). Registering writes nothing; nothing here lets another
+# context read or write a connected account.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "Addressee",
+    "ConnectedAccountProvider",
     "ContentDefinition",
     "DealerGroup",
     "Dealership",
     "DealershipRef",
     "DocumentLine",
+    "GrantRevoker",
     "KeyValueBlock",
     "KeyValueRow",
     "LineItemsBlock",
@@ -91,6 +110,7 @@ __all__ = [
     "ParagraphBlock",
     "Placeholder",
     "RenderedStandardText",
+    "RevokedGrant",
     "SignatureBlock",
     "StandardTextAppliesTo",
     "StandardTextCategory",
@@ -115,6 +135,8 @@ __all__ = [
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "notify",
+    "register_grant_revoker",
     "render_document",
     "render_standard_text",
+    "unregister_grant_revoker",
 ]
