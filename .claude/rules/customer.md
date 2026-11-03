@@ -126,13 +126,13 @@ weekly. -->
   `finance.invoice.issued` (WP-9, KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
   legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
-  it first (the allocate routes 404 an unknown one; the trade-in on an offer or a pending
-  contract, `set_trade_in`, creates or gets it) — and resolves the customer in the caller's
-  group (404, never a cross-group link).
+  it first (the allocate routes 404 an unknown one; since KAN-189 the trade-in on an offer or a
+  pending contract allocates no party at all — the car is linked to the customer once it is
+  bought, below) — and resolves the customer in the caller's group (404, never a cross-group link).
 - **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
   (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
   `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this
-  covers the trade-in path too), then closes **every** open holder of that (vehicle, role) in
+  covered the trade-in path too before KAN-189), then closes **every** open holder of that (vehicle, role) in
   the caller's group, found through `Customer.group_id`, in the **same transaction** as the
   insert — never another group's row. Concurrent allocations are serialised by a Postgres
   advisory lock on (vehicle, role, group): a row lock cannot do it, because a concurrent
@@ -140,6 +140,16 @@ weekly. -->
   `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
   KAN-140) are filtered the same way, through one shared statement: a name can only come from
   a holder the group filter already admits.
+- **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A): the
+  customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
+  `app/customer/consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
+  the contract's customer and signature through `sales.public.get_trade_in_seller` and, in its own
+  consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
+  keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
+  when that date is not after the signature — held since the signature. A row of the customer
+  already holding the role then is closed there instead; no other holder is touched (history
+  closes nobody, KAN-370); a customer merged since is followed to its survivor. Same locks and
+  `customer_merged` refusal as an allocation.
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and

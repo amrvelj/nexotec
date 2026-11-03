@@ -1,24 +1,20 @@
 """Valuation service layer (WP-8 PR-5).
 
-**The vehicle a VIN valuation creates is resolved on a session of its own**
-(KAN-328, as Stock's `inventory/services/vehicle_resolution.py` does since
-KAN-257). `create_or_get_vehicle_mdm` commits its own transaction (ADR-047)
-and, on a lost insert race, its guard rolls back the session it is handed —
-handed the request session, the first would commit whatever the request had
-pending (the valuation counter, for one) and the second would silently
-discard it. So `_resolve_vehicle_id` gives vehicle-mdm a short-lived
-session bound to the same database and takes back the id. A lost race (two
-writers resolving a VIN vehicle-mdm has never seen) is vehicle-mdm's 409
-naming the VIN; the loser looks again and goes on with the winner's record
-— FR-V-15: same VIN, same car — instead of answering 409. The record names
-the user whose valuation created it (KAN-243: a null `created_by` means a
-system write).
+**A valuation never creates a vehicle-mdm record** (Anto, 2026-10-31 /
+2026-11-01, KAN-189 options B then A; ADR-070 as amended). A car enters the
+shared register when the Betrieb buys it (ADR-103's purchase booking), not
+when someone values it. A valuation keeps its VIN on its own row and only
+*links* the record vehicle-mdm already holds for that VIN, read through
+`vehicle.public.match_vehicle` (a read; before KAN-189 this path created the
+record on a session of its own, KAN-328). The offer's trade-in finds a
+valuation by that VIN (`list_valid_valuations_for_vin`, FR-S-08), so a car
+not yet in the register is still offered its valuation.
 """
 
 import datetime as dt
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -33,7 +29,7 @@ from app.customer.public import get_customer_or_404
 from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.valuation.schemas.valuation import ValuationCreate
-from app.vehicle.public import CONFIGURATION_MODE_RECORD, create_or_get_vehicle_mdm, get_configuration_for_host
+from app.vehicle.public import CONFIGURATION_MODE_RECORD, get_configuration_for_host, match_vehicle
 
 _EVENT_PRODUCER = "valuation"
 
@@ -69,28 +65,12 @@ def allocate_valuation_number(db: Session, tenant_id: uuid.UUID) -> str:
     return f"B-{value:06d}"
 
 
-def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
-    """vehicle-mdm's own refusal of a second row for this VIN — and nothing
-    else, so any other conflict still reaches the caller."""
+def _linked_vehicle_id(db: Session, *, vin: str, group_id: uuid.UUID) -> uuid.UUID | None:
+    """The vehicle-mdm record vehicle-mdm already holds for `vin`, or None —
+    a read only; nothing is created (KAN-189). `match_vehicle` takes the
+    group for its plate rung; a VIN alone never reaches that rung."""
 
-    details = exc.details or {}
-    return "reason" not in details and details.get("vin") == vin
-
-
-def _resolve_vehicle_id(db: Session, *, vin: str, actor_id: uuid.UUID | None) -> uuid.UUID:
-    """The id of the vehicle-mdm record for `vin`, created if vehicle-mdm
-    has never seen it — committed before this returns, on a session of its
-    own (module docstring)."""
-
-    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
-        try:
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
-        except ConflictError as exc:
-            if not _lost_the_insert_race(exc, vin):
-                raise
-            # The guard rolled `own` back; the winner's row is committed.
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
-        return vehicle.id
+    return getattr(match_vehicle(db, vin=vin, group_id=group_id).vehicle, "id", None)
 
 
 def derive_status(valuation: Valuation) -> str:
@@ -143,9 +123,10 @@ def create_valuation(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: ValuationCreate, actor_id: uuid.UUID | None
 ) -> Valuation:
     """Creatable with no customer, no offer, no vehicle in the register
-    (confirmed live). Without a configuration, a `vin` resolves or creates
-    the real vehicle-mdm record in the SAME step (FR-V's own "one step, not
-    two"). With one (C-F, FR-C-14), nothing is written to vehicle-mdm.
+    (confirmed live). Nothing is ever written to vehicle-mdm (KAN-189;
+    with a configuration, FR-C-14, ADR-070): without a configuration a `vin`
+    links the record vehicle-mdm already holds for it, if any; with one, the
+    record the configuration links.
     """
 
     configuration = None
@@ -187,7 +168,7 @@ def create_valuation(
         if configuration is not None:
             vehicle_id = configuration.vehicle_id
         elif data.vin:
-            vehicle_id = _resolve_vehicle_id(db, vin=data.vin, actor_id=actor_id)
+            vehicle_id = _linked_vehicle_id(db, vin=data.vin, group_id=group_id)
 
     def _from_configuration(value, attribute: str):
         if value is not None or configuration is None:
@@ -456,6 +437,27 @@ def list_valid_valuations_for_vehicle(db: Session, *, tenant_id: uuid.UUID, vehi
     rows = db.scalars(
         select(Valuation)
         .where(Valuation.tenant_id == tenant_id, Valuation.vehicle_id == vehicle_id)
+        .order_by(Valuation.created_at.desc())
+    ).all()
+    return [v for v in rows if derive_status(v) == "valid"]
+
+
+def list_valid_valuations_for_vin(db: Session, *, tenant_id: uuid.UUID, vin: str) -> list[Valuation]:
+    """FR-S-08 for a car that is not in the register (KAN-189): this
+    Betrieb's valid valuations whose VIN is `vin`, newest first. Compared
+    normalised on both sides (upper case, no spaces), so a row stored before
+    the create normalised its VIN (KAN-338) is found too. A chassis number
+    (KAN-353) is matched like a VIN: it is stored the same way."""
+
+    wanted = normalise_vin(vin)
+    if not wanted:
+        return []
+    rows = db.scalars(
+        select(Valuation)
+        .where(
+            Valuation.tenant_id == tenant_id,
+            func.upper(func.replace(Valuation.vehicle_vin, " ", "")) == wanted,
+        )
         .order_by(Valuation.created_at.desc())
     ).all()
     return [v for v in rows if derive_status(v) == "valid"]

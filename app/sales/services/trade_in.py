@@ -1,28 +1,21 @@
-"""One-step trade-in (WP-8 PR-5, S-D18/ADR-064): records the vehicle,
-allocates the customer as its party, and attaches an existing valid
-valuation or leaves the seller to create one — all from a single call,
-never three separate screens.
+"""One-step trade-in (WP-8 PR-5, S-D18/ADR-064): records the trade-in car
+on the deal and attaches an existing valid valuation or leaves the seller to
+create one — all from a single call, never three separate screens.
 
-Sales never owns the traded-in vehicle (S-D11/ADR-045) — it is a real
-`VehicleMdm` row, created through `app.vehicle.public`, exactly like any
-other vehicle. The pipeline STOCK ITEM this trade-in eventually becomes is
-a separate, later moment: contract confirmation (PR-6), not here.
+**A trade-in never creates a vehicle-mdm record** (Anto, 2026-10-31 /
+2026-11-01, KAN-189 options B then A; ADR-070 as amended, FR-S-08 amended).
+A car enters the shared register when the Betrieb buys it: the trade-in
+becomes a pipeline item at contract confirmation (S-D11/ADR-045), and its
+purchase booking creates the record (ADR-103). Until then the deal keeps the
+VIN (`trade_in_vin`) and only *links* the record vehicle-mdm already holds
+for it (`vehicle.public.match_vehicle`, a read). No owner or keeper party is
+allocated (Anto confirmed: the car shows on the customer's Vehicles tab once
+it is bought). FR-S-08's "an existing valid valuation is offered before a new
+one is made" finds the valuation by the linked record, else by the VIN
+(`valuation.public.list_valid_valuations_for_vin`).
 
 KAN-67 (ADR-083): a pending contract records its trade-in through the same
 two functions — `deal` is an offer or a contract.
-
-**The vehicle is resolved on a session of its own** (KAN-328, as Stock's
-`inventory/services/vehicle_resolution.py` does since KAN-257).
-`create_or_get_vehicle_mdm` commits its own transaction (ADR-047) and, on a
-lost insert race, its guard rolls back the session it is handed — handed
-the request session, the first would commit whatever the request had
-pending and the second would silently discard it. So `_resolve_vehicle`
-gives vehicle-mdm a short-lived session bound to the same database and
-takes back plain values. A lost race (two writers resolving a VIN
-vehicle-mdm has never seen) is vehicle-mdm's 409 naming the VIN; the loser
-looks again and goes on with the winner's record — FR-V-15: same VIN, same
-car — instead of answering 409. The record names the user whose trade-in
-created it (KAN-243: a null `created_by` means a system write).
 """
 
 import dataclasses
@@ -33,57 +26,39 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.errors import ConflictError
-from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_customer_or_404
+from app.core.validators import normalise_vin
+from app.customer.public import get_customer_or_404
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
-from app.valuation.public import list_valid_valuations_for_vehicle
-from app.vehicle.public import create_or_get_vehicle_mdm, match_vehicle
+from app.valuation.public import list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
+from app.vehicle.public import match_vehicle
 
 
 @dataclasses.dataclass(frozen=True)
-class _ResolvedVehicle:
-    """The vehicle-mdm record a VIN resolved to — plain data, never the row."""
+class _TradeInCar:
+    """The trade-in car as the deal keeps it — plain data, never a row: its
+    VIN, and the vehicle-mdm record that VIN already names, if any."""
 
-    id: uuid.UUID
     vin: str
+    vehicle_id: uuid.UUID | None
 
 
-def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
-    """vehicle-mdm's own refusal of a second row for this VIN — and nothing
-    else, so any other conflict still reaches the caller."""
-
-    details = exc.details or {}
-    return "reason" not in details and details.get("vin") == vin
-
-
-def _resolve_vehicle(db: Session, *, vin: str, actor_id: uuid.UUID) -> _ResolvedVehicle:
-    """The vehicle-mdm record for `vin`, created if vehicle-mdm has never
-    seen it — committed before this returns, on a session of its own
-    (module docstring)."""
-
-    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
-        try:
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
-        except ConflictError as exc:
-            if not _lost_the_insert_race(exc, vin):
-                raise
-            # The guard rolled `own` back; the winner's row is committed.
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
-        return _ResolvedVehicle(id=vehicle.id, vin=vehicle.vin)
-
-
-def _resolve_trade_in_vin(
+def _resolve_trade_in_car(
     db: Session, *, vin: str | None, plate: str | None, canton: str | None, group_id: uuid.UUID
-) -> str:
+) -> _TradeInCar:
     if vin:
-        return vin
+        normalised = normalise_vin(vin)
+        match = match_vehicle(db, vin=normalised, group_id=group_id)
+        return _TradeInCar(vin=normalised, vehicle_id=match.vehicle.id if match.vehicle is not None else None)
     if plate:
         # KAN-467: the plate is looked up in the caller's group's register.
+        # A plate names a car only through a record that already exists, so
+        # it still needs a decisive match — a plate alone is no VIN.
         result = match_vehicle(db, plate=plate, canton=canton, group_id=group_id)
         if result.vehicle is not None and not result.requires_confirmation:
-            return result.vehicle.vin
+            return _TradeInCar(vin=result.vehicle.vin, vehicle_id=result.vehicle.id)
         raise ConflictError(
             "No decisive match for this plate — a trade-in vehicle needs a VIN "
-            "(vehicle-mdm requires one; a plate alone cannot create a record).",
+            "(a plate alone names no car).",
             details={"plate": plate, "canton": canton},
         )
     raise ConflictError("A trade-in vehicle needs either a VIN or a plate+canton to resolve.")
@@ -104,46 +79,35 @@ def set_trade_in(
     require_editable(db, deal)
     version_seen = deal.version
 
-    # KAN-99: resolve the party customer in the caller's group BEFORE any
-    # write — a customerId from another group is a 404 that must not leave
-    # a committed vehicle_mdm row behind (_resolve_vehicle commits).
-    party_customer_id = customer_id or deal.customer_id
-    if party_customer_id is not None:
-        get_customer_or_404(db, group_id, party_customer_id)
+    # KAN-99: the body's customer, if any, is resolved in the caller's group
+    # (a customerId from another group is a 404). Since KAN-189 no party is
+    # allocated for the trade-in car, so nothing else reads it.
+    if customer_id is not None:
+        get_customer_or_404(db, group_id, customer_id)
 
-    resolved_vin = _resolve_trade_in_vin(db, vin=vin, plate=plate, canton=canton, group_id=group_id)
-    vehicle = _resolve_vehicle(db, vin=resolved_vin, actor_id=actor_id)
+    car = _resolve_trade_in_car(db, vin=vin, plate=plate, canton=canton, group_id=group_id)
 
-    # FR-S-08: the customer's own vehicles are offered first by party role
-    # — allocate as BOTH owner and keeper (one role per call, ADR-064).
-    if party_customer_id is not None:
-        allocate_vehicle_party(
-            db, vehicle_id=vehicle.id, customer_id=party_customer_id, role=VehiclePartyRole.OWNER,
-            group_id=group_id, actor_id=actor_id,
-        )
-        allocate_vehicle_party(
-            db, vehicle_id=vehicle.id, customer_id=party_customer_id, role=VehiclePartyRole.KEEPER,
-            group_id=group_id, actor_id=actor_id,
-        )
-
-    # KAN-309: the party allocations above commit the request session (each
-    # foreign write is its own transaction, ADR-047; the vehicle resolution
-    # commits a session of its own since KAN-328), which releases the row
-    # lock the route took. A confirmation (or any other edit) may have
-    # committed in between, so lock the deal again, re-read it, and check
-    # it is still editable and still the version the caller sent before
-    # writing it.
+    # Every read above runs in the request's transaction and nothing commits
+    # it any more (KAN-189 removed the vehicle resolution and the party
+    # allocations, KAN-309's reason for re-locking) — the row lock the route
+    # took still holds. Re-checked all the same: cheap, and it keeps the
+    # version rule in one place.
     lock_editable(db, deal, version_seen=version_seen)
 
-    deal.trade_in_vehicle_id = vehicle.id
-    deal.trade_in_vin = vehicle.vin
+    deal.trade_in_vehicle_id = car.vehicle_id
+    deal.trade_in_vin = car.vin
     deal.trade_in_label = vehicle_label
 
     # FR-S-08: "an existing valid valuation is offered before a new one is
-    # made" — auto-attach the newest valid one if there is exactly the
-    # unambiguous case; a caller with multiple candidates chooses via
-    # attach_trade_in_valuation instead of relying on this default.
-    existing = list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=vehicle.id)
+    # made" — auto-attach the newest valid one; a caller with multiple
+    # candidates chooses via attach_trade_in_valuation instead of relying on
+    # this default. By the linked record when there is one, else by the VIN
+    # (a car not yet in the register, KAN-189).
+    existing = (
+        list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=car.vehicle_id)
+        if car.vehicle_id is not None
+        else []
+    ) or list_valid_valuations_for_vin(db, tenant_id=deal.tenant_id, vin=car.vin)
     if existing:
         _attach(deal, existing[0])
 

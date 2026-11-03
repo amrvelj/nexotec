@@ -75,6 +75,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
   per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
+  The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
+  `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
+  `originRole` (read back from `pipeline_ref`, `stock_item.pipeline_origin`), which the customer
+  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
   Details in `.claude/rules/valuation.md`.

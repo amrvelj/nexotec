@@ -108,12 +108,17 @@ file in the same PR as any change to what it states. -->
   (`valuationCreate.vinDiffersFromConfiguration`), compared normalised on both sides, and the
   configuration's VIN is stored normalised; `ValuationCreateDialog` shows it read-only and sends
   none. A configuration with no VIN links no car (KAN-326), so a VIN typed beside it is stored
-  and links none (Anto, 2026-10-26, KAN-449 option A). Created **without** one,
-  `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
-  (`services/valuation.py`, on a session of its own, KAN-328). A pre-1981 chassis number in
-  `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds, creates or links a vehicle-mdm record,
-  not even the configuration's. And the VIN trade-in of an offer or a pending contract
-  (`sales/services/trade_in.py::set_trade_in`, KAN-67) still creates the vehicle. Ending those
-  two is Anto's call — read ADR-070 and ask; never change it in passing. The record-mode
+  and links none (Anto, 2026-10-26, KAN-449 option A). **No valuation and no trade-in creates a
+  vehicle-mdm record** (Anto, 2026-10-31 option B, 2026-11-01 option A, KAN-189; ADR-070 and FR-S-08
+  amended): created **without** a configuration, `create_valuation` stores the VIN and only *links*
+  the record vehicle-mdm already holds for it (`vehicle.public.match_vehicle`, a read); the offer's or
+  pending contract's VIN trade-in (`sales/services/trade_in.py::set_trade_in`) does the same, keeps
+  `trade_in_vin`, allocates no owner/keeper party (the car shows on the customer's Vehicles tab once
+  bought: Anto, 2026-11-02, option A — `.claude/rules/customer.md`) and finds an existing valid valuation by the linked record, else by VIN
+  (`valuation.public.list_valid_valuations_for_vin`, compared normalised). A VIN-only trade-in counts
+  as a trade-in (`priced_deal.has_trade_in`: the container, and `tradeIn` on
+  `sales.contract.confirmed`), so it becomes a pipeline item whose purchase booking creates the record
+  (ADR-103). A pre-1981 chassis number in `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds or
+  links a vehicle-mdm record, not even the configuration's. The record-mode
   trade-in path (configurator → valuation → the offer or pending contract references it,
   `.../trade-in/valuation`) is built (KAN-10, KAN-67).
