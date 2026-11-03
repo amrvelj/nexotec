@@ -123,9 +123,13 @@ second local combobox.
 - Grids (UI/UX Core Principles): every column sortable server-side; column order, visibility,
   width and pinning configurable and persisted per user; a three-dots row menu on every row;
   cursor-based lazy loading; maximum information density; Shift + wheel scrolls horizontally.
-- The dashboard is the landing page (FR-UI-07) and should be the breadcrumb root — not built:
-  breadcrumbs start at the nav group and are not links (KAN-104). Account chrome lives only in
-  the sidebar footer; the top bar carries the breadcrumb.
+- **The dashboard is the landing page and the breadcrumb's root** (FR-UI-07; KAN-104): the shell
+  passes `topbar.breadcrumbRoot` (`shell.nav.dashboard`, `/`) and its router `Link`, and the kit's
+  `Topbar` puts it first on every screen as a link (named once on the dashboard itself). A page's
+  segment that names a screen is a `{ label, href }` (`BreadcrumbSegment`) and renders as a link —
+  the list segment on the customer, vehicle, stock, valuation, offer and contract details; a nav
+  group (no screen of its own) and the current screen stay text. Account chrome lives only in the
+  sidebar footer; the top bar carries the breadcrumb.
 - **ADR-076 — every CHF amount reads `CHF 12'500.00`, inputs included** (KAN-168): a CHF input
   is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare
   `NumberInput` or `<input type="number">`; `no-bare-money-number-input.test.ts` names every

@@ -46,3 +46,47 @@ describe("Topbar breadcrumb — one line, ellipsis, record name last (KAN-301)",
     expect(Number(second.style.flexShrink)).toBeGreaterThan(Number(last.style.flexShrink));
   });
 });
+
+// KAN-104 item 1 (FR-UI-07): the dashboard is the breadcrumb's root, and a
+// segment that names a screen is a link. The labels are the app's.
+describe("Topbar breadcrumb — the dashboard is the root, screens are links (KAN-104)", () => {
+  const root = { label: "Übersicht", href: "/" };
+
+  function renderWithRoot(segments: Parameters<typeof Topbar>[0]["breadcrumb"]) {
+    return render(
+      <MantineProvider theme={testTheme}>
+        <Topbar breadcrumb={segments} breadcrumbRoot={root} />
+      </MantineProvider>,
+    );
+  }
+
+  it("puts the root first, as a link", () => {
+    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/customers" }, "Marco Rossi"]);
+    const segments = Array.from(document.querySelectorAll<HTMLElement>("[data-breadcrumb-segment]")).map((s) => s.textContent);
+    expect(segments).toEqual(["Übersicht", "/Stammdaten", "/Kunden", "/Marco Rossi"]);
+    expect(screen.getByRole("link", { name: "Übersicht" })).toHaveAttribute("href", "/");
+  });
+
+  it("links a segment that names a screen, never a plain group or the current screen", () => {
+    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/customers" }, { label: "Marco Rossi", href: "/customers/1" }]);
+    expect(screen.getByRole("link", { name: "Kunden" })).toHaveAttribute("href", "/customers");
+    expect(screen.queryByRole("link", { name: "Stammdaten" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Marco Rossi" })).toBeNull();
+    expect(screen.getByText("Marco Rossi")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("names the landing page once, not twice", () => {
+    renderWithRoot(["Übersicht"]);
+    expect(screen.getAllByText("Übersicht")).toHaveLength(1);
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("keeps a segment's ellipsis and full text when it is a link", () => {
+    renderWithRoot([{ label: "Kunden", href: "/customers" }, "Marco Rossi"]);
+    const label = screen.getByText("Kunden");
+    expect(label.getAttribute("title")).toBe("Kunden");
+    const link = screen.getByRole("link", { name: "Kunden" });
+    expect(link.style.textOverflow).toBe("ellipsis");
+    expect(link.style.whiteSpace).toBe("nowrap");
+  });
+});

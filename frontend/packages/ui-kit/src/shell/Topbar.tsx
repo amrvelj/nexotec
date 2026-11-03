@@ -1,11 +1,28 @@
+import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { slate, spacing, zIndex } from "../tokens";
+import type { BreadcrumbSegment } from "./BreadcrumbContext";
 import { GlobalSearch, type GlobalSearchProps } from "./GlobalSearch";
+
+type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSProperties; className?: string }>;
+
+const DefaultLink: LinkLike = ({ to, children, style, className }) => (
+  <a href={to} style={style} className={className}>
+    {children}
+  </a>
+);
 
 export interface TopbarProps {
   /** Current page's breadcrumb ("Group / Entity / Record") — AppShell
    * supplies this from whatever the active page last set via
    * useSetBreadcrumb. */
-  breadcrumb: string[];
+  breadcrumb: BreadcrumbSegment[];
+  /** FR-UI-07 (KAN-104 item 1): the landing page is the breadcrumb's root —
+   * prepended to every page's own segments as a link, and shown alone on the
+   * landing page itself. The label comes from the app (no kit string). */
+  breadcrumbRoot?: { label: string; href: string };
+  /** Defaults to a plain `<a>`; pass the router's Link (react-router's
+   * `Link` matches this `to`-prop shape), as for the Sidebar. */
+  linkComponent?: LinkLike;
   /** Omit only where no cross-entity search exists yet — every real module
    * wires this (§ FR-UI-08). */
   search?: GlobalSearchProps;
@@ -17,7 +34,7 @@ export interface TopbarProps {
  * account cluster, the only place it appears in the product (revised
  * 2026-08-16).
  */
-export function Topbar({ breadcrumb, search }: TopbarProps) {
+export function Topbar({ breadcrumb, breadcrumbRoot, linkComponent, search }: TopbarProps) {
   return (
     <header
       style={{
@@ -40,7 +57,7 @@ export function Topbar({ breadcrumb, search }: TopbarProps) {
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <Breadcrumb segments={breadcrumb} />
+        <Breadcrumb segments={withRoot(breadcrumb, breadcrumbRoot)} linkComponent={linkComponent ?? DefaultLink} />
       </div>
       <div style={{ width: 560, maxWidth: "100%" }}>{search && <GlobalSearch {...search} />}</div>
       <div />
@@ -57,15 +74,34 @@ export function Topbar({ breadcrumb, search }: TopbarProps) {
  * (the last segment, the one the user is on) shrinks only once they are
  * down to their minimum.
  */
-function Breadcrumb({ segments }: { segments: string[] }) {
+function withRoot(
+  segments: BreadcrumbSegment[],
+  root: { label: string; href: string } | undefined,
+): { label: string; href?: string }[] {
+  const normalised = segments.map((segment) => (typeof segment === "string" ? { label: segment } : segment));
+  if (!root) return normalised;
+  // The landing page names itself: no second root in front of it.
+  if (normalised[0]?.label === root.label) return normalised;
+  return [{ label: root.label, href: root.href }, ...normalised];
+}
+
+function Breadcrumb({ segments, linkComponent: Link }: { segments: { label: string; href?: string }[]; linkComponent: LinkLike }) {
   if (segments.length === 0) return <div />;
   return (
     <div
       data-breadcrumb
       style={{ display: "flex", alignItems: "center", gap: spacing.xs, fontSize: 13, minWidth: 0, flexWrap: "nowrap", overflow: "hidden" }}
     >
-      {segments.map((segment, index) => {
+      {segments.map(({ label: segment, href }, index) => {
         const isLast = index === segments.length - 1;
+        const textStyle: CSSProperties = {
+          color: isLast ? slate[9] : slate[5],
+          fontWeight: isLast ? 700 : 400,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          minWidth: 0,
+        };
         return (
           <span
             key={`${segment}-${index}`}
@@ -79,19 +115,17 @@ function Breadcrumb({ segments }: { segments: string[] }) {
             }}
           >
             {index > 0 && <span style={{ color: slate[3], flexShrink: 0 }}>/</span>}
-            <span
-              title={segment}
-              style={{
-                color: isLast ? slate[9] : slate[5],
-                fontWeight: isLast ? 700 : 400,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                minWidth: 0,
-              }}
-            >
-              {segment}
-            </span>
+            {href && !isLast ? (
+              <Link to={href} style={{ ...textStyle, textDecoration: "none" }}>
+                <span title={segment} data-breadcrumb-link>
+                  {segment}
+                </span>
+              </Link>
+            ) : (
+              <span title={segment} style={textStyle} aria-current={isLast ? "page" : undefined}>
+                {segment}
+              </span>
+            )}
           </span>
         );
       })}

@@ -61,7 +61,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
     enabled: Boolean(id),
   })
 
-  useSetBreadcrumb(embedded ? null : [t('shell.nav.valuations'), valuationQuery.data?.valuationNumber ?? id])
+  useSetBreadcrumb(embedded ? null : [{ label: t('shell.nav.valuations'), href: '/valuations' }, valuationQuery.data?.valuationNumber ?? id])
 
   // KAN-273 (ADR-035): a refused stamp says so; the retry carries its key.
   const markUsed = async () => {

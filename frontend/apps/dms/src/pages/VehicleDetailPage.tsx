@@ -121,7 +121,7 @@ export function VehicleDetailPage() {
   // into the most prominent chrome on the page.
   useSetBreadcrumb([
     t('shell.nav.masterData'),
-    t('shell.nav.vehicles'),
+    { label: t('shell.nav.vehicles'), href: '/vehicles' },
     vehicle?.vehicleNumber ?? t('vehicleDetail.header.vehicleFallback'),
   ])
 

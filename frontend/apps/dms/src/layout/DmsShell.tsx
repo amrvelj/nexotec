@@ -403,7 +403,13 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         ],
         linkComponent: Link,
       }}
-      topbar={{ search: buildGlobalSearch(t, navigate) }}
+      // KAN-104 item 1 (FR-UI-07): the dashboard is the breadcrumb's root,
+      // a link on every other screen.
+      topbar={{
+        search: buildGlobalSearch(t, navigate),
+        breadcrumbRoot: { label: t('shell.nav.dashboard'), href: '/' },
+        linkComponent: Link,
+      }}
       // KAN-275 — ADR-081 (option D): staging runs no outbox worker, so no
       // event consumer and no nightly job runs there. Say so on every
       // signed-in screen (ADR-084) rather than let a tester read a missing

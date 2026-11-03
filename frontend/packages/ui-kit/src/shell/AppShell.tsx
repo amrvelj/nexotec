@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { slate, spacing } from "../tokens";
-import { BreadcrumbProvider } from "./BreadcrumbContext";
+import { BreadcrumbProvider, type BreadcrumbSegment } from "./BreadcrumbContext";
 import { Sidebar, type SidebarProps } from "./Sidebar";
 import { Topbar, type TopbarProps } from "./Topbar";
 
@@ -37,7 +37,7 @@ export interface AppShellProps {
  * <main> exactly, with no residual scroll.
  */
 export function AppShell({ sidebar, topbar, collapsed, onToggleCollapsed, notice, children }: AppShellProps) {
-  const [breadcrumb, setBreadcrumb] = useState<string[]>([]);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbSegment[]>([]);
   const noticeRef = useRef<HTMLDivElement>(null);
   const [noticeHeight, setNoticeHeight] = useState(0);
   const [narrowViewport, setNarrowViewport] = useState(
