@@ -125,7 +125,9 @@ second local combobox.
   cursor-based lazy loading; maximum information density; Shift + wheel scrolls horizontally.
 - **The dashboard is the landing page and the breadcrumb's root** (FR-UI-07; KAN-104): the shell
   passes `topbar.breadcrumbRoot` (`shell.nav.dashboard`, `/`) and its router `Link`, and the kit's
-  `Topbar` puts it first on every screen as a link (named once on the dashboard itself). A page's
+  `Topbar` puts it first on every screen as a link — drawn as the dashboard icon alone, the label its
+  accessible name and tooltip, so the page's own segments keep their room (KAN-301's narrow
+  column) — and names the dashboard once on the dashboard itself. A page's
   segment that names a screen is a `{ label, href }` (`BreadcrumbSegment`) and renders as a link —
   the list segment on the customer, vehicle, stock, valuation, offer and contract details; a nav
   group (no screen of its own) and the current screen stay text. Account chrome lives only in the

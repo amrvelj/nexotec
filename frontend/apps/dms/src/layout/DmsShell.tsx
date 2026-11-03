@@ -407,7 +407,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
       // a link on every other screen.
       topbar={{
         search: buildGlobalSearch(t, navigate),
-        breadcrumbRoot: { label: t('shell.nav.dashboard'), href: '/' },
+        breadcrumbRoot: { label: t('shell.nav.dashboard'), href: '/', icon: <LayoutDashboard size={14} /> },
         linkComponent: Link,
       }}
       // KAN-275 — ADR-081 (option D): staging runs no outbox worker, so no

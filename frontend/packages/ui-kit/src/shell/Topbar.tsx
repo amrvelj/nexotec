@@ -11,6 +11,15 @@ const DefaultLink: LinkLike = ({ to, children, style, className }) => (
   </a>
 );
 
+/** The breadcrumb's root. With an `icon`, it is drawn as that icon alone —
+ * the label is its accessible name and tooltip — so the page's own segments
+ * keep their room in the bar (KAN-301's narrow column). */
+export interface BreadcrumbRoot {
+  label: string;
+  href: string;
+  icon?: ReactNode;
+}
+
 export interface TopbarProps {
   /** Current page's breadcrumb ("Group / Entity / Record") — AppShell
    * supplies this from whatever the active page last set via
@@ -19,7 +28,7 @@ export interface TopbarProps {
   /** FR-UI-07 (KAN-104 item 1): the landing page is the breadcrumb's root —
    * prepended to every page's own segments as a link, and shown alone on the
    * landing page itself. The label comes from the app (no kit string). */
-  breadcrumbRoot?: { label: string; href: string };
+  breadcrumbRoot?: BreadcrumbRoot;
   /** Defaults to a plain `<a>`; pass the router's Link (react-router's
    * `Link` matches this `to`-prop shape), as for the Sidebar. */
   linkComponent?: LinkLike;
@@ -74,25 +83,24 @@ export function Topbar({ breadcrumb, breadcrumbRoot, linkComponent, search }: To
  * (the last segment, the one the user is on) shrinks only once they are
  * down to their minimum.
  */
-function withRoot(
-  segments: BreadcrumbSegment[],
-  root: { label: string; href: string } | undefined,
-): { label: string; href?: string }[] {
+type Crumb = { label: string; href?: string; icon?: ReactNode };
+
+function withRoot(segments: BreadcrumbSegment[], root: BreadcrumbRoot | undefined): Crumb[] {
   const normalised = segments.map((segment) => (typeof segment === "string" ? { label: segment } : segment));
   if (!root) return normalised;
   // The landing page names itself: no second root in front of it.
   if (normalised[0]?.label === root.label) return normalised;
-  return [{ label: root.label, href: root.href }, ...normalised];
+  return [{ label: root.label, href: root.href, icon: root.icon }, ...normalised];
 }
 
-function Breadcrumb({ segments, linkComponent: Link }: { segments: { label: string; href?: string }[]; linkComponent: LinkLike }) {
+function Breadcrumb({ segments, linkComponent: Link }: { segments: Crumb[]; linkComponent: LinkLike }) {
   if (segments.length === 0) return <div />;
   return (
     <div
       data-breadcrumb
       style={{ display: "flex", alignItems: "center", gap: spacing.xs, fontSize: 13, minWidth: 0, flexWrap: "nowrap", overflow: "hidden" }}
     >
-      {segments.map(({ label: segment, href }, index) => {
+      {segments.map(({ label: segment, href, icon }, index) => {
         const isLast = index === segments.length - 1;
         const textStyle: CSSProperties = {
           color: isLast ? slate[9] : slate[5],
@@ -110,12 +118,18 @@ function Breadcrumb({ segments, linkComponent: Link }: { segments: { label: stri
               display: "flex",
               alignItems: "center",
               gap: spacing.xs,
-              minWidth: isLast ? "3em" : "2em",
-              flex: isLast ? "0 1 auto" : "0 1000 auto",
+              minWidth: icon ? undefined : isLast ? "3em" : "2em",
+              flex: icon ? "0 0 auto" : isLast ? "0 1 auto" : "0 1000 auto",
             }}
           >
             {index > 0 && <span style={{ color: slate[3], flexShrink: 0 }}>/</span>}
-            {href && !isLast ? (
+            {icon && href && !isLast ? (
+              <Link to={href} style={{ display: "flex", alignItems: "center", color: slate[5] }}>
+                <span title={segment} aria-label={segment} data-breadcrumb-link style={{ display: "flex" }}>
+                  {icon}
+                </span>
+              </Link>
+            ) : href && !isLast ? (
               <Link to={href} style={{ ...textStyle, textDecoration: "none" }}>
                 <span title={segment} data-breadcrumb-link>
                   {segment}

@@ -81,6 +81,20 @@ describe("Topbar breadcrumb — the dashboard is the root, screens are links (KA
     expect(screen.queryByRole("link")).toBeNull();
   });
 
+  it("draws a root with an icon as the icon alone, named by its label, never shrunk", () => {
+    render(
+      <MantineProvider theme={testTheme}>
+        <Topbar breadcrumb={["Stammdaten", "Kunden"]} breadcrumbRoot={{ ...root, icon: <svg data-testid="root-icon" /> }} />
+      </MantineProvider>,
+    );
+    const link = screen.getByRole("link", { name: "Übersicht" });
+    expect(link).toHaveAttribute("href", "/");
+    expect(screen.getByTestId("root-icon")).toBeInTheDocument();
+    expect(screen.queryByText("Übersicht")).toBeNull(); // no text beside the icon
+    const first = document.querySelector<HTMLElement>("[data-breadcrumb-segment]")!;
+    expect(first.style.flexShrink).toBe("0");
+  });
+
   it("keeps a segment's ellipsis and full text when it is a link", () => {
     renderWithRoot([{ label: "Kunden", href: "/customers" }, "Marco Rossi"]);
     const label = screen.getByText("Kunden");
