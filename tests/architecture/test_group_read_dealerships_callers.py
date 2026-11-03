@@ -11,9 +11,9 @@ caller filters on its own `tenant_id`. So, as `customer_in_group` is confined
 ADR-055 rules — Stock's group-readable listing and the customer 360's
 in-group-stock lookup, both in `app/inventory/services/group_listing.py`.
 `list_group_stock_items` authorises the caller (own group only, 404 never
-403) before it asks; `get_stock_items_for_vehicles` trusts the group id its
-caller passes (customer's API passes the token's) — a door older than this
-test, filed as KAN-538.
+403) before it asks; `get_stock_items_for_vehicles` takes the caller's
+`Principal` and asks only for its token's group (KAN-538), so neither can be
+pointed at another group.
 A new caller is a new group read — an ADR plus an entry here.
 """
 

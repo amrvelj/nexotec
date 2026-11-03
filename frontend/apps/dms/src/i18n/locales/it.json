@@ -1791,13 +1791,14 @@
     "missingTip": "Questa riga non può essere salvata finché manca una lingua.",
     "missingTipReadOnly": "In questa riga manca una lingua.",
     "readOnly": "Nexotec gestisce questi elenchi per tutte le aziende. Puoi consultarli qui, ma non modificarli.",
+    "maintainedBy": "Gestito da Nexotec",
     "columns": {
       "code": "Codice",
       "status": "Stato"
     },
     "forbidden": {
-      "title": "Solo per platform_admin",
-      "body": "Solo un platform_admin può modificare questi dati. Contatta la tua amministrazione."
+      "title": "Accesso negato",
+      "body": "Il tuo ruolo non consente di aprire questi elenchi. Contatta la tua amministrazione."
     },
     "list": {
       "title": "Elenco di riferimento {{code}}",

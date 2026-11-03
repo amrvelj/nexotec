@@ -74,6 +74,13 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
   per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
+- **A stock item's configuration label follows the configuration within a day** (KAN-534, rule 2):
+  `configuration_label` and `configuration_label_refreshed_at` are written when a configuration is
+  attached or a pipeline item created, and re-read nightly by `inventory.configuration_labels`
+  (`services/configuration_label.py`, after `sales.owner_labels`) through
+  `vehicle.public.get_configuration_labels` — the other label jobs' rules: `version` not bumped, a
+  current label only restamped, a configuration naming nothing or another Betrieb left alone, each
+  batch `FOR NO KEY UPDATE SKIP LOCKED`; gauge `dms.label.age_seconds{label="inventory.configuration"}`.
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
   Details in `.claude/rules/valuation.md`.

@@ -1791,13 +1791,14 @@
     "missingTip": "This row cannot be saved while a language is missing.",
     "missingTipReadOnly": "A language is missing in this row.",
     "readOnly": "Nexotec maintains these lists for every business. You can view them here, but not change them.",
+    "maintainedBy": "Maintained by Nexotec",
     "columns": {
       "code": "Code",
       "status": "Status"
     },
     "forbidden": {
-      "title": "platform_admin only",
-      "body": "Only a platform_admin may edit this data. Contact your administrator."
+      "title": "No access",
+      "body": "Your role may not open these lists. Contact your administrator."
     },
     "list": {
       "title": "Reference list {{code}}",
