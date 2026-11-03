@@ -45,7 +45,6 @@ def handle_vehicle_summary_changed_message(db: Session, message: OutboxMessage) 
     relabel_vehicle_parties_for_vehicle(db, vehicle_id=message.aggregate_id)
 
 
-
 def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> None:
     """KAN-189 (Anto, 2026-11-02, option A): when the Betrieb books the
     purchase of a trade-in's pipeline item, the contract's customer becomes

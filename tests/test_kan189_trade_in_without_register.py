@@ -37,7 +37,13 @@ from app.valuation.models.valuation import Valuation, ValuationSource
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation, list_valid_valuations_for_vin
 from app.vehicle.models.vehicle_mdm import VehicleMdm
-from tests.test_configurator_hosts import _message, _session_factory, _stock_consumes_the_confirmation
+from tests.test_configurator_hosts import _dealership as _configurator_dealership
+from tests.test_configurator_hosts import (
+    _message,
+    _record_configuration,
+    _session_factory,
+    _stock_consumes_the_confirmation,
+)
 from tests.test_sales_contract_edit import _edit
 from tests.test_sales_lifecycle_reservation import _customer, _dealership, _with_buyer
 
@@ -110,6 +116,35 @@ def test_the_vin_only_valuation_is_auto_attached_and_the_container_reads_complet
     assert updated.trade_in_value == Decimal(11000)
     trade_in_container = next(c for c in compute_containers(updated) if c.id == "trade_in")
     assert trade_in_container.status == "complete"
+    assert _vehicle_mdm_rows(db_session) == 0
+
+
+def test_a_vin_trade_in_that_finds_a_configured_valuation_holds_its_configuration_for_the_purge(db_session):
+    """KAN-189 meets KAN-270: the VIN lookup's auto-attach goes through the
+    same `_attach` as a picked valuation, so the offer takes the valuation's
+    configuration AND publishes the fact vehicle's purge counts as taken."""
+
+    dealership = _configurator_dealership(db_session)
+    vin = "WVWZZZ1KZAW189270"
+    config = _record_configuration(db_session, dealership.id, vin=vin)
+    valuation = create_valuation(
+        db_session, tenant_id=dealership.id, group_id=dealership.dealer_group_id, actor_id=uuid.uuid4(),
+        data=ValuationCreate(configuration_id=config.id, source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+    )
+    assert valuation.vehicle_vin == vin
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    updated = set_trade_in(
+        db_session, deal=offer, group_id=dealership.dealer_group_id, vin=vin, plate=None, canton=None,
+        vehicle_label="Subaru Justy", customer_id=None, actor_id=uuid.uuid4(),
+    )
+
+    assert updated.trade_in_vehicle_id is None
+    assert updated.trade_in_valuation_id == valuation.id
+    assert updated.trade_in_configuration_id == config.id
+    attached = _message(db_session, "sales.offer.configuration_attached", offer.id)
+    assert attached.payload["slot"] == "trade_in"
+    assert attached.payload["configurationId"] == str(config.id)
     assert _vehicle_mdm_rows(db_session) == 0
 
 
