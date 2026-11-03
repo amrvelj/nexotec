@@ -95,7 +95,9 @@ terminal realm it:
   `memberships=[the device's Betrieb]` — **not** whatever roles or manager flag the
   matched person's own `User` row holds, and not a filter applied after the fact. If
   the same person is a manager in the office, the terminal still never produces a
-  token carrying that authority, and no Betrieb switch is possible from a terminal.
+  token carrying that authority. (Whether a terminal session may switch Betrieb is
+  not decided by ADR-110: switch-dealership authorises from `dealership_membership`
+  rows, never the token's `memberships` claim — KAN-230 settles it.)
 
 The fixed role set is set by the realm inside `_mint_session`, not by a business
 rule someone has to remember at another call site. Rejected (ADR-110): a second

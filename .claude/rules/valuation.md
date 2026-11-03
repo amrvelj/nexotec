@@ -78,16 +78,18 @@ file in the same PR as any change to what it states. -->
   `sales.public.valuations_carried_by_pending_contracts`): that contract's confirmation would find
   the stamp set, write nothing and release the valuation's lock before signing, so a clear in
   between would leave a signed contract on an unstamped valuation. The contract is cancelled
-  first; a confirmation only runs on a contract already committed as pending, which leaves pending
-  only in the commit that signs it, so the window is closed (`tests/test_valuation_revert_use.py`
-  interleaves a clear with a re-confirmation). Audited
+  first. A confirmation only runs on a contract already committed as pending, which leaves pending
+  only in the commit that signs it, and the clear reads pending contracts **before** signed ones,
+  so a signing committed between the two reads is still seen — the window is closed
+  (`tests/test_valuation_revert_use.py` interleaves a clear with a re-confirmation, and a signing
+  with each of the two reads). Audited
   (`valuation_use_reverted_by_hand`, before/after `usedAt`, the reason) and published as
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
   rule 10): a valuation stamped for over an hour that no signed contract of its dealership
   carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both
   failed, or a hand stamp from before KAN-115; the dealer manager clears either with
-  «Verwendung aufheben», above); a signed contract whose existing trade-in valuation of
+  «Verwendung aufheben», above — once a pending contract still carrying it is cancelled); a signed contract whose existing trade-in valuation of
   the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no
   valuation, or a `valuation_ref_amount` that differs from its `final_offer`

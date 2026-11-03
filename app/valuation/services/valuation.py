@@ -403,9 +403,9 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
     already set, it writes nothing and releases the valuation's lock before it
     signs, so a clear landing in between would leave a signed contract on an
     unstamped valuation. A confirmation runs only on a contract already
-    committed as pending, and leaves pending only in the commit that signs it,
-    so this read and the signed-contract one above see every contract a
-    confirmation is working on. A stamp a failed confirmation left behind is
+    committed as pending, and leaves pending only in the commit that signs it.
+    The pending read runs before the signed one, so a signing that commits
+    between them is still seen by one of the two. A stamp a failed confirmation left behind is
     therefore cleared once its contract is cancelled. The reason is mandatory
     and is kept on the audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
     the clear itself is `revert_use`'s, so `valuation.valuation.use_reverted`
@@ -421,6 +421,12 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
             f"Valuation {valuation.valuation_number} is not marked used.",
             details={"reason": "valuation_not_used", "valuationId": str(valuation.id)},
         )
+    # KAN-520: pending FIRST, then signed — two statements under READ
+    # COMMITTED. A pending contract only ever becomes signed (`signed_at`,
+    # which never clears) or an unsigned cancel, so a signing that commits
+    # between the two reads is pending in the first or signed in the second;
+    # the other order would let it fall between them.
+    pending = valuations_carried_by_pending_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     carried = valuations_carried_by_signed_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     if valuation.id in carried:
         db.rollback()
@@ -435,7 +441,6 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
             "its contract's confirmation may still be in progress.",
             details={"reason": "stamp_too_recent", "valuationId": str(valuation.id)},
         )
-    pending = valuations_carried_by_pending_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     if valuation.id in pending:
         db.rollback()
         raise ConflictError(

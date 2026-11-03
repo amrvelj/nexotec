@@ -3652,7 +3652,9 @@ export interface paths {
          *     manager clears a «Verwendet» stamp no signed contract stands behind,
          *     with a stated reason (audited). 409 `signed_contract_carries_it` while a
          *     signed contract of this dealership carries it, 409 `valuation_not_used` when it is
-         *     not stamped.
+         *     not stamped, 409 `stamp_too_recent` within the confirmation grace, and 409
+         *     `pending_contract_carries_it` while a pending contract of this dealership
+         *     carries it (KAN-520: cancel that contract first).
          */
         post: operations["revert_valuation_use_v1_valuations__valuation_id__revert_use_post"];
         delete?: never;

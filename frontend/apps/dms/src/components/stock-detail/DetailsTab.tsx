@@ -63,14 +63,18 @@ export function DetailsTab({
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const editConfiguration = useStockConfigurationEditor()
   // KAN-510 (Anto, 2026-11-02, option A): «Konfiguration bearbeiten» on
-  // every stock car, in the pipeline or in stock, unless a contract reserves
-  // it. Then the change belongs to that contract: the card offers «Vertrag
-  // bearbeiten» instead, disabled with the reason, because a contract reserves
-  // a car only when it is signed (`reserve_for_contract` at confirmation, and
-  // the item a signed manual configuration creates), and a signed contract is
-  // frozen (ADR-083) — it is cancelled first.
+  // every stock car, in the pipeline or in stock (not one that has left
+  // stock), unless a contract reserves it. Then the change belongs to that
+  // contract: the card offers «Vertrag bearbeiten» instead, disabled with the
+  // reason. A contract reserves a car as it is signed (`reserve_for_contract`
+  // in the confirmation, and the item a signed manual configuration creates),
+  // and a signed contract is frozen (ADR-083), so it is cancelled first. A
+  // pending contract holds the reservation only while its confirmation runs
+  // (or, after a failed one, until the nightly sweep frees it), so the reason
+  // names no status.
   const reservedByContract = item.reservationState === 'reserved'
-  const mayEditConfiguration = canEditConfiguration && !reservedByContract
+  const onStock = (item.lifecycleStatus === 'pipeline' || item.lifecycleStatus === 'in_stock') && item.leftStockAt == null
+  const mayEditConfiguration = canEditConfiguration && onStock && !reservedByContract
   const reservedReasonId = useId()
 
   // KAN-510 — from the purchase dialog's VIN refusal: the dialog steps aside
@@ -126,7 +130,7 @@ export function DetailsTab({
             openConfiguratorLabel={t('stockDetail.configuration.edit')}
           />
           {/* An action, not a field: its reason is said (ADR-061). */}
-          {canEditConfiguration && reservedByContract && (
+          {canEditConfiguration && onStock && reservedByContract && (
             <Group gap="sm" mt="sm" wrap="nowrap" align="flex-start">
               <Button variant="default" size="xs" disabled aria-describedby={reservedReasonId} style={{ flexShrink: 0 }}>
                 {t('stockDetail.configuration.editContract')}

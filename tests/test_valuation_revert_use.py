@@ -11,6 +11,7 @@ option A): a pending contract carrying it refuses the clear too.
 import datetime as dt
 import os
 import uuid
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
@@ -21,10 +22,11 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
 from app.sales import reconciliation as sales_reconciliation
-from app.sales.models.contract import ContractStatus
+from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.services.contract import confirm_contract
 from app.valuation import reconciliation as valuation_reconciliation
 from app.valuation.models.valuation import Valuation
+from app.valuation.services import valuation as valuation_module
 from app.valuation.services.valuation import derive_status, revert_use_by_hand
 from tests.test_sales_lifecycle_reservation import _dealership, _session_factory
 from tests.test_sales_trade_in_valuation_use import _trade_in_contract, _valuation
@@ -128,6 +130,52 @@ def test_another_dealerships_pending_contract_does_not_refuse_the_clear(db_sessi
     _contract(db_session, uuid.uuid4(), valuation.id, signed=False, status=ContractStatus.PENDING)
 
     assert revert_use_by_hand(db_session, valuation=valuation, actor_id=None, reason="Fremder Vertrag").used_at is None
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="interleaves two real transactions: Postgres only")
+@pytest.mark.parametrize(
+    "read_name", ["valuations_carried_by_pending_contracts", "valuations_carried_by_signed_contracts"]
+)
+def test_a_signing_committed_between_the_clears_two_reads_never_lets_it_through(db_session, engine, read_name):
+    """KAN-520, the narrower race (found by the review): the clear asks Sales
+    twice, once for pending and once for signed contracts, in two statements
+    under READ COMMITTED. A signing that commits right after either read
+    must still be seen. A pending contract only ever moves to signed (with
+    `signed_at`, which never clears) or to an unsigned cancel, so reading
+    pending first and signed second sees it in one of the two; the other
+    order lets it fall between them."""
+
+    dealership = _dealership(db_session)
+    valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=3)
+    contract = _contract(db_session, dealership.id, valuation.id, signed=False, status=ContractStatus.PENDING)
+    contract_id = contract.id
+    open_session = _session_factory(engine)
+
+    real_read = getattr(valuation_module, read_name)
+
+    def read_then_sign(*args, **kwargs):
+        answer = real_read(*args, **kwargs)
+        signer = open_session()
+        try:
+            signed = signer.get(SalesContract, contract_id)
+            signed.status = ContractStatus.CONFIRMED
+            signed.signed_at = utcnow()
+            signer.commit()
+        finally:
+            signer.close()
+        return answer
+
+    manager_session = open_session()
+    try:
+        held = manager_session.get(Valuation, valuation.id)
+        with patch.object(valuation_module, read_name, read_then_sign), pytest.raises(ConflictError) as exc:
+            revert_use_by_hand(manager_session, valuation=held, actor_id=uuid.uuid4(), reason="Zwischendurch")
+    finally:
+        manager_session.close()
+
+    assert exc.value.details["reason"] in {"pending_contract_carries_it", "signed_contract_carries_it"}
+    db_session.expire_all()
+    assert db_session.get(Valuation, valuation.id).used_at is not None
 
 
 @pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="interleaves two real transactions: Postgres only")

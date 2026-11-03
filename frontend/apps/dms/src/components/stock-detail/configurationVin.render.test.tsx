@@ -243,6 +243,15 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(editContract).toHaveAccessibleDescription(reason)
   })
 
+  it('is not offered on a car that has left stock (pipeline or in stock only)', async () => {
+    configurationBackend(configurationRead(RECORDED))
+    renderItem({ ...PIPELINE_ITEM, lifecycleStatus: 'in_stock', vin: CONFIGURED_VIN, inStockAt: NOW, leftStockAt: NOW })
+
+    const card = await screen.findByTestId('configuration-summary-card')
+    expect(within(card).queryByRole('button', { name: editLabel() })).toBeNull()
+    expect(screen.queryByRole('button', { name: editContractLabel() })).toBeNull()
+  })
+
   it('offers neither to a role that may not write configurations, reserved or not', async () => {
     configurationBackend(configurationRead(RECORDED))
     renderItem(RESERVED, { canEditConfiguration: false })
