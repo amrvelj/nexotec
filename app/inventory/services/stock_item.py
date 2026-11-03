@@ -306,8 +306,8 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
             # KAN-189 (Anto, 2026-11-02, option A) — additive: the car's
             # vehicle-mdm record (promotion set it), the purchase date, who
             # booked it and, for an item a contract's confirmation created,
-            # that contract and its role. Sales records a bought trade-in's
-            # customer as its former owner from these; a consumer that
+            # that contract and its role. The customer context records a bought
+            # trade-in's customer as its former owner from these; a consumer that
             # ignores unknown keys is unaffected.
             payload={
                 "stockNumber": item.stock_number,

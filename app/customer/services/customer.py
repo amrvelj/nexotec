@@ -3307,6 +3307,21 @@ def record_former_holder_on_purchase(
                 if row.effective_to is None or row.effective_to > ended_at:
                     _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
             continue
+        # uq_vehicle_party_scope spans (vehicle, customer, role, effective_from):
+        # an earlier row of this customer starting at exactly `held_from` (and
+        # ended before the purchase) already records that start. Writing a
+        # second would fail the consumer on every redelivery until it is
+        # dead-lettered, so that row stands for the period.
+        same_start = db.scalar(
+            select(VehicleParty.id).where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.customer_id == customer_id,
+                VehicleParty.role == role,
+                VehicleParty.effective_from == held_from,
+            )
+        )
+        if same_start is not None:
+            continue
 
         party = VehicleParty(
             vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=held_from,

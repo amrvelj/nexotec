@@ -36,6 +36,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
@@ -60,7 +61,6 @@ from app.platform.daily_jobs import (
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
-from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.vehicle.consumers import handle_invoice_requested_message

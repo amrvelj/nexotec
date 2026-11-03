@@ -252,7 +252,7 @@ def test_buying_the_trade_in_records_its_customer_as_closed_former_owner_and_kee
 
 
 def test_a_purchase_dated_before_the_signature_closes_at_the_booking(db_session, engine):
-    contract, _item, message = _bought_trade_in(db_session, engine, purchase_date=dt.date(2020, 1, 1))
+    _contract, _item, message = _bought_trade_in(db_session, engine, purchase_date=dt.date(2020, 1, 1))
 
     _customer_consumes(db_session, message)
 
@@ -345,7 +345,43 @@ def test_purchase_moment_uses_the_swiss_day():
     )
     assert purchase_moment(None, booked_at=booked, known_since=known) == booked
     assert purchase_moment("2026-03-01", booked_at=booked, known_since=known) == booked
+    # A purchase dated after the booking ends at the booking (never a holder still to come).
+    assert purchase_moment("2026-07-03", booked_at=booked, known_since=known) == booked
 
 
 def contract_group_id(db_session, contract) -> uuid.UUID:
     return db_session.get(Dealership, contract.tenant_id).dealer_group_id
+
+
+def test_a_purchase_dated_in_the_future_ends_at_the_booking_never_later(db_session, engine):
+    """Review finding (2026-11-03): a future purchase date used to leave the
+    customer a CURRENT owner and keeper beside whoever holds the car — a
+    KAN-148 bypass. The history ends at the booking at the latest."""
+
+    future = dt.datetime.now(dt.UTC).date() + dt.timedelta(days=30)
+    contract, _item, message = _bought_trade_in(db_session, engine, purchase_date=future)
+
+    _customer_consumes(db_session, message)
+
+    parties = _parties(db_session)
+    assert {p.effective_to for p in parties} == {message.occurred_at}
+    assert list_customer_vehicles(db_session, customer_id=contract.customer_id) == []  # no current holder
+
+
+def test_an_earlier_row_with_the_same_start_does_not_fail_the_consumer(db_session, engine):
+    """uq_vehicle_party_scope spans (vehicle, customer, role, effective_from):
+    a row of this customer already starting at the signature, ended before
+    the purchase, stands for the period instead of failing every delivery."""
+
+    contract, item, message = _bought_trade_in(db_session, engine)
+    for role in (VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER):
+        db_session.add(
+            VehicleParty(
+                vehicle_id=item.vehicle_id, customer_id=contract.customer_id, role=role,
+                effective_from=_SIGNED_AT, effective_to=_SIGNED_AT + dt.timedelta(days=1),
+            )
+        )
+    db_session.commit()
+
+    assert _customer_consumes(db_session, message) is True
+    assert len(_parties(db_session)) == 2  # the two earlier rows, nothing added beside them

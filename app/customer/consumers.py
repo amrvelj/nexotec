@@ -77,15 +77,18 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
 
 
 def purchase_moment(purchase_date: str | None, *, booked_at: dt.datetime, known_since: dt.datetime) -> dt.datetime:
-    """When the customer stopped holding the car: the start of the purchase
-    date in Switzerland — the date the dealer booked as the purchase — or,
-    when that is missing or not after the moment the trade-in was known (a
-    purchase dated the day the contract was signed), the booking itself."""
+    """When the customer stopped holding the car (Anto, 2026-11-03, decision
+    2 A): the start of the purchase date in Switzerland — the date the dealer
+    booked as the purchase — or the booking itself when that date is missing,
+    not after the moment the trade-in was known (a purchase dated the day the
+    contract was signed), or still to come. Never later than the booking: a
+    row ended in the future would be a current holder, and this path closes
+    nobody (KAN-148, KAN-370)."""
 
     if purchase_date:
         start = dt.datetime.combine(
             dt.date.fromisoformat(purchase_date), dt.time(), tzinfo=ZoneInfo(get_settings().session_timezone)
         ).astimezone(dt.UTC)
-        if start > known_since:
+        if known_since < start <= booked_at:
             return start
     return booked_at
