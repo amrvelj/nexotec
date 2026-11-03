@@ -253,6 +253,3 @@ def test_trade_in_for_another_groups_customer_is_a_404(db_session):
         )
     db_session.rollback()
     assert db_session.scalar(select(VehicleMdm).where(VehicleMdm.vin == "WVWZZZ1KZAW444444")) is None
-
-
-# --- KAN-328: the vehicle a trade-in creates is the user's write, on a session of its own ----

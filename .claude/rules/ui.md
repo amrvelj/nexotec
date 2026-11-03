@@ -129,8 +129,10 @@ second local combobox.
   accessible name and tooltip, so the page's own segments keep their room (KAN-301's narrow
   column) — and names the dashboard once on the dashboard itself. A page's
   segment that names a screen is a `{ label, href }` (`BreadcrumbSegment`) and renders as a link —
-  the list segment on the customer, vehicle, stock, valuation, offer and contract details; a nav
-  group (no screen of its own) and the current screen stay text. Account chrome lives only in the
+  the list segment on the customer, vehicle, stock, valuation, offer and contract details, the
+  customer and valuation create screens, the offer workspace and a location's detail; a nav
+  group or a section without a screen of its own (Stammdaten, Verwaltung, Mein Konto) and the
+  current screen stay text. Account chrome lives only in the
   sidebar footer; the top bar carries the breadcrumb.
 - **ADR-076 — every CHF amount reads `CHF 12'500.00`, inputs included** (KAN-168): a CHF input
   is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare
@@ -222,9 +224,12 @@ second local combobox.
   **as delivered**, never translated (ADR-044).
 - **A new user starts in the home Betrieb's correspondence language** (Anto, 2026-11-03, KAN-104
   decision 1 B): `GET /v1/me/preferences/ui` for a user who never saved the scope answers
-  `{"uiLanguage": <the Betrieb's default_correspondence_language>}` with `updatedAt: null` — a
-  starting value, never stored; the user's own choice (the `ui` preference) wins from the first
-  switch. The platform mail texts and the push title follow the same rule
+  `{"uiLanguage": <the Betrieb's default_correspondence_language>}` with `updatedAt: null` (and a
+  stored `ui` row without `uiLanguage` gets it added on read) — a starting value the server does
+  not store; the browser's mirror keeps it for the next first frame, and the first save of any
+  `ui` field (a language switch, the sidebar, density) stores it with the rest, as the user's own
+  from then on. This applies to every user who never saved the `ui` scope, existing ones
+  included. The platform mail texts and the push title follow the same rule
   (`user_preference.ui_language_of`). Only the starting value is shared: the user's UI language
   and a customer's correspondence language stay separate fields and controls.
   `useUiPreferences.ts` keeps `'de'` as the offline fallback.

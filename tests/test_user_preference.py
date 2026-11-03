@@ -96,16 +96,16 @@ def test_get_unset_scope_returns_empty_not_404(client):
 def test_put_then_get_round_trips_arbitrary_payload(client):
     headers = _setup(client)
     body = {"schemaVersion": 1, "sidebarCollapsed": True, "density": "compact"}
-    put_response = client.put("/v1/me/preferences/ui", json=body, headers=headers)
+    put_response = client.put("/v1/me/preferences/grid:mdm.stock.list", json=body, headers=headers)
     assert put_response.status_code == 200, put_response.text
     put_body = put_response.json()
-    assert put_body["scope"] == "ui"
+    assert put_body["scope"] == "grid:mdm.stock.list"
     assert put_body["payload"]["schemaVersion"] == 1
     assert put_body["payload"]["sidebarCollapsed"] is True
     assert put_body["payload"]["density"] == "compact"
     assert put_body["updatedAt"] is not None
 
-    get_response = client.get("/v1/me/preferences/ui", headers=headers)
+    get_response = client.get("/v1/me/preferences/grid:mdm.stock.list", headers=headers)
     assert get_response.status_code == 200, get_response.text
     assert get_response.json()["payload"] == put_body["payload"]
 
@@ -231,3 +231,16 @@ def test_the_users_own_choice_wins_over_the_betriebs_language(client, db_session
     client.put("/v1/me/preferences/ui", json={"schemaVersion": 1, "uiLanguage": "fr"}, headers=headers)
 
     assert client.get("/v1/me/preferences/ui", headers=headers).json()["payload"]["uiLanguage"] == "fr"
+
+
+def test_a_ui_row_without_a_language_reads_the_betriebs_language(client, db_session):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _betrieb_speaks(db_session, dealer_id, "fr")
+    headers = _bearer(_token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+    client.put("/v1/me/preferences/ui", json={"schemaVersion": 1, "density": "compact"}, headers=headers)
+
+    payload = client.get("/v1/me/preferences/ui", headers=headers).json()["payload"]
+
+    assert payload["density"] == "compact"
+    assert payload["uiLanguage"] == "fr"

@@ -176,11 +176,11 @@ _OWN_COMMIT_WRITES = {
         "app.customer.services.customer.repoint_vehicle_party",
         "vehicle: merge flow",
     ),
-    # Trade-in and the vehicle 360 allocate a customer to a vehicle
-    # (FR-V-05, ADR-064).
+    # The vehicle 360 allocates a customer to a vehicle (FR-V-05, ADR-064);
+    # since KAN-189 the trade-in allocates no party.
     "app.customer.public.allocate_vehicle_party": (
         "app.customer.services.customer.allocate_vehicle_party",
-        "sales: trade-in; vehicle: allocate endpoint",
+        "vehicle: allocate endpoint",
     ),
     # The customer merge re-points offers and contracts (WP-8 PR-7),
     # after the merge itself has committed.
@@ -207,8 +207,7 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
         (
             "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session "
-            "(KAN-257); sales: trade-in, on its own session (KAN-328); valuation: create, on its own session "
-            "(KAN-328)"
+            "(KAN-257); since KAN-189 neither the trade-in nor a valuation creates a record"
         ),
     ),
     # Sales' Save-and-copy gives a copied offer a configuration of its own

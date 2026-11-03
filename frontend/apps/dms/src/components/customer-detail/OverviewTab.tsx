@@ -538,10 +538,9 @@ export function OverviewTab({
         ) : (
           <>
             <TextField label={f.companyName} value={customer.companyName} patchKey="companyName" {...fieldProps} />
-            {/* Legal form labels (AG/GmbH/Sàrl/Sagl…) carry real legal meaning that
-                differs by Swiss language region — left as the standard Swiss
-                designation rather than a guessed FR/IT translation. Same call as
-                canton names. */}
+            {/* Legal form labels in the UI language (customerEnums.legalForm.*,
+                KAN-104): SA / Sàrl / Sagl are the French and Italian names of
+                AG / GmbH, not separate forms. */}
             <SelectField label={f.legalForm} value={customer.legalForm} options={translatedLegalFormOptions(t)} patchKey="legalForm" clearable {...fieldProps} />
           </>
         )}

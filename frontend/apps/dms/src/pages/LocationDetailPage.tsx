@@ -44,7 +44,7 @@ export function LocationDetailPage() {
   })
   const activeCount = (all.data?.items ?? []).filter((l) => l.isActive).length
   const menu = useLocationRowMenu(dealershipId, activeCount)
-  useSetBreadcrumb([t('shell.nav.administration'), t('locations.title'), location.data?.name ?? ''])
+  useSetBreadcrumb([t('shell.nav.administration'), { label: t('locations.title'), href: '/administration/locations' }, location.data?.name ?? ''])
 
   if (location.isError) {
     const notFound = location.error instanceof ApiError && location.error.status === 404

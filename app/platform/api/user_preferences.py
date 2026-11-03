@@ -42,6 +42,14 @@ def get_my_preference(
     db: Session = Depends(get_db),
 ):
     row = user_preference_service.get_preference(db, user_id=principal.user_id, scope=scope)
+    if row is not None and scope == user_preference_service.UI_SCOPE and "uiLanguage" not in (row.payload or {}):
+        # A `ui` row written without a language (by a client other than the
+        # SPA) answers the same starting language mail and push use.
+        read = UserPreferenceRead.model_validate(row, from_attributes=True)
+        language = user_preference_service.default_ui_language(db, user_id=principal.user_id)
+        if language is not None:
+            read.payload = {**read.payload, "uiLanguage": language}
+        return read
     if row is None:
         # Absent, not 404: an unset scope simply has no override yet — the
         # frontend falls back to the module default, same as after DELETE.

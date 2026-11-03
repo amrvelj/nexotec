@@ -41,7 +41,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  useSetBreadcrumb([t('shell.nav.sales'), t('offerWorkspace.title')])
+  useSetBreadcrumb([{ label: t('shell.nav.sales'), href: '/sales' }, t('offerWorkspace.title')])
 
   const offerQuery = useQuery({
     queryKey: ['sales-offer', id],

@@ -3,10 +3,17 @@ import { slate, spacing, zIndex } from "../tokens";
 import type { BreadcrumbSegment } from "./BreadcrumbContext";
 import { GlobalSearch, type GlobalSearchProps } from "./GlobalSearch";
 
-type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSProperties; className?: string }>;
+type LinkLike = ComponentType<{
+  to: string;
+  children?: ReactNode;
+  style?: CSSProperties;
+  className?: string;
+  title?: string;
+  "aria-label"?: string;
+}>;
 
-const DefaultLink: LinkLike = ({ to, children, style, className }) => (
-  <a href={to} style={style} className={className}>
+const DefaultLink: LinkLike = ({ to, children, style, className, title, "aria-label": ariaLabel }) => (
+  <a href={to} style={style} className={className} title={title} aria-label={ariaLabel}>
     {children}
   </a>
 );
@@ -124,8 +131,13 @@ function Breadcrumb({ segments, linkComponent: Link }: { segments: Crumb[]; link
           >
             {index > 0 && <span style={{ color: slate[3], flexShrink: 0 }}>/</span>}
             {icon && href && !isLast ? (
-              <Link to={href} style={{ display: "flex", alignItems: "center", color: slate[5] }}>
-                <span title={segment} aria-label={segment} data-breadcrumb-link style={{ display: "flex" }}>
+              <Link
+                to={href}
+                title={segment}
+                aria-label={segment}
+                style={{ display: "flex", alignItems: "center", color: slate[5] }}
+              >
+                <span data-breadcrumb-link aria-hidden="true" style={{ display: "flex" }}>
                   {icon}
                 </span>
               </Link>

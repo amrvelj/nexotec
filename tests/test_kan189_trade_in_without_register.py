@@ -302,17 +302,27 @@ def test_an_open_link_the_customer_already_had_is_closed_at_the_purchase(db_sess
 
 
 def test_another_holder_in_the_group_is_left_alone(db_session, engine):
+    """Anto's ruling 4 A (2026-11-03): another customer still linked to the car
+    as owner, keeper or driver stays as is — the history row closes nobody
+    (KAN-148, KAN-370). The rejected allocate_vehicle_party design would have
+    closed this owner and keeper."""
+
     contract, item, message = _bought_trade_in(db_session, engine)
     group_id = contract_group_id(db_session, contract)
-    other = allocate_vehicle_party(
-        db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.DRIVER, group_id=group_id, actor_id=uuid.uuid4(),
-    )
+    someone_else = _customer(db_session, group_id).id
+    others = [
+        allocate_vehicle_party(
+            db_session, vehicle_id=item.vehicle_id, customer_id=someone_else, role=role,
+            group_id=group_id, actor_id=uuid.uuid4(),
+        )
+        for role in (VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER, VehiclePartyRole.DRIVER)
+    ]
 
     _customer_consumes(db_session, message)
 
-    db_session.refresh(other)
-    assert other.effective_to is None  # history closes nobody (KAN-148, KAN-370)
+    for other in others:
+        db_session.refresh(other)
+        assert other.effective_to is None, other.role
 
 
 def test_a_purchase_that_is_not_a_trade_in_links_nobody(db_session, engine):

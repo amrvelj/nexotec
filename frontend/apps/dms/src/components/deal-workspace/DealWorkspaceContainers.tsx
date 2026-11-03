@@ -408,11 +408,12 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     if (updated) tradeInKey.renew()
   }
 
-  // KAN-382 — since KAN-365 a trade-in on a deal that still points at a
-  // merged customer is refused 409 `customer_merged`. The seller cannot fix
-  // it by retrying: the deal's customer must become the one it was merged
-  // into, so the message says that and names the survivor when the API
-  // names one. Any other failure keeps the generic save error.
+  // KAN-382 — a trade-in on a deal that still pointed at a merged customer
+  // was refused 409 `customer_merged` (KAN-365). Since KAN-189 the trade-in
+  // allocates no party, so this server never sends it; the branch stays for
+  // an instance still on the older code during a rolling deploy, and reads
+  // the survivor when the API names one. Any other failure keeps the generic
+  // save error.
   const tradeInRefusalMessage = async (err: unknown): Promise<string> => {
     const live = liveContractRefusal(t, err)
     if (live) return live

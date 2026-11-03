@@ -137,8 +137,9 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     cost_basis: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
-    # WP-8 PR-6 — trade-in, copied from the offer at creation (S-D18's
-    # "vehicle AND allocation happen at OFFER time"); since KAN-67
+    # WP-8 PR-6 — trade-in, copied from the offer at creation; since KAN-189
+    # it creates no vehicle-mdm record and allocates no party (the car's
+    # customer becomes its former owner when it is bought); since KAN-67
     # (ADR-083) a pending contract may also record its own, through the
     # offer's trade-in service — a read-only reference all the same. At
     # confirmation (KAN-101)

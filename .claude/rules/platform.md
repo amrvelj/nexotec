@@ -702,7 +702,8 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   Gmail mailbox — Anto's own account today, an app password kept as a Render secret; STARTTLS
   with a verifying context). Delivery is
   not fire-and-forget: a failure is a `mail_delivery_failed` auth event and an ERROR line. Texts
-  in DE/FR/IT/EN from the user's `uiLanguage` preference (`mail_texts.py`). Tests override
+  in DE/FR/IT/EN in the user's UI language — the `uiLanguage` preference, else the home Betrieb's
+  correspondence language (KAN-104 1 B; `user_preference.ui_language_of`, `mail_texts.py`). Tests override
   `get_mailer` with the `mailbox` fixture.
 - **Auth events** (`auth_event`, FR-AU-21): every login outcome, lock, token, factor and
   session change, readable by the manager at `GET /v1/dealerships/{id}/auth-events`
