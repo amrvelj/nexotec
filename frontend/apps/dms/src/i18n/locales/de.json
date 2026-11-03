@@ -1290,7 +1290,7 @@
       "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen.",
       "edit": "Konfiguration bearbeiten",
       "editContract": "Vertrag bearbeiten",
-      "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug, und die Konfiguration wird über ihn geändert. Ein unterzeichneter Vertrag bleibt unverändert: Die Konfiguration lässt sich erst ändern, wenn er storniert ist."
+      "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist."
     }
   },
   "salesList": {

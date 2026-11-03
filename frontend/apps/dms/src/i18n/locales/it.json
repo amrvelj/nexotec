@@ -1290,7 +1290,7 @@
       "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
       "edit": "Modifica configurazione",
       "editContract": "Modifica contratto",
-      "reservedByContract": "Un contratto riserva questo veicolo e la configurazione si modifica tramite quel contratto. Un contratto firmato resta invariato: la configurazione può essere modificata solo dopo il suo annullamento."
+      "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto."
     }
   },
   "salesList": {

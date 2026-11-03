@@ -1290,7 +1290,7 @@
       "attachError": "La configuration n'a pas pu être attribuée. Veuillez réessayer.",
       "edit": "Modifier la configuration",
       "editContract": "Modifier le contrat",
-      "reservedByContract": "Un contrat réserve ce véhicule, et la configuration se modifie par ce contrat. Un contrat signé reste tel quel : la configuration ne peut être modifiée qu'une fois ce contrat annulé."
+      "reservedByContract": "Un contrat réserve ce véhicule. Tant qu'il le réserve, la configuration reste inchangée : elle ne peut être modifiée qu'une fois le contrat annulé."
     }
   },
   "salesList": {
