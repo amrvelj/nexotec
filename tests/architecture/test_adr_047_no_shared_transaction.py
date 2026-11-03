@@ -308,14 +308,10 @@ _READS = {
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
     # session of its own (tests/test_inventory_reservation_sweep.py).
     "app.sales.public.get_contract_statuses",
-    # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
-    "app.sales.public.get_trade_in_seller",
     # KAN-115: valuation asks which valuations a signed contract carries.
     "app.sales.public.valuations_carried_by_signed_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
-    # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
-    "app.valuation.public.list_valid_valuations_for_vin",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
     # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.

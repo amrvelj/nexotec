@@ -303,43 +303,10 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
             producer=_EVENT_PRODUCER,
             aggregate_type="stock_item",
             aggregate_id=item.id,
-            # KAN-189 (Anto, 2026-11-02, option A) — additive: the car's
-            # vehicle-mdm record (promotion set it), the purchase date, who
-            # booked it and, for an item a contract's confirmation created,
-            # that contract and its role. Sales records a bought trade-in's
-            # customer as its former owner from these; a consumer that
-            # ignores unknown keys is unaffected.
-            payload={
-                "stockNumber": item.stock_number,
-                "vehicleId": str(item.vehicle_id) if item.vehicle_id else None,
-                "purchaseDate": item.purchase_date.isoformat() if item.purchase_date else None,
-                "purchasedBy": str(item.updated_by) if item.updated_by else None,
-                **pipeline_origin(item.pipeline_ref),
-            },
+            payload={"stockNumber": item.stock_number},
         ),
     )
     return True
-
-
-def pipeline_origin(pipeline_ref: str | None) -> dict[str, str]:
-    """The contract a contract's confirmation created this item for, read back
-    from its `pipeline_ref` (`contract:<id>:manual` / `contract:<id>:trade_in`,
-    services/pipeline.py) as the same `originContractId` / `originRole` keys
-    `inventory.stock_item.added` carries (KAN-144). Empty for any other item."""
-
-    if not pipeline_ref:
-        return {}
-    parts = pipeline_ref.split(":")
-    if len(parts) != 3 or parts[0] != "contract" or parts[2] not in _PIPELINE_ORIGIN_ROLES:
-        return {}
-    try:
-        contract_id = uuid.UUID(parts[1])
-    except ValueError:
-        return {}
-    return {"originContractId": str(contract_id), "originRole": _PIPELINE_ORIGIN_ROLES[parts[2]]}
-
-
-_PIPELINE_ORIGIN_ROLES = {"manual": "manual_configuration", "trade_in": "trade_in"}
 
 
 def create_stock_item(

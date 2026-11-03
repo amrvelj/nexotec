@@ -75,10 +75,6 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
   per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
-  The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
-  `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
-  `originRole` (read back from `pipeline_ref`, `stock_item.pipeline_origin`), which the customer
-  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
 - **A stock item's configuration label follows the configuration within a day** (KAN-534, rule 2):
   `configuration_label` and `configuration_label_refreshed_at` are written when a configuration is
   attached or a pipeline item created, and re-read nightly by `inventory.configuration_labels`

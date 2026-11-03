@@ -59,7 +59,6 @@ from app.platform.daily_jobs import (
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
-from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
@@ -112,14 +111,6 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.purchased",
         consumer_name="sales.stock_item_purchased",
         handler=handle_stock_item_purchased_message,
-    )
-    # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
-    # recorded as the car's former owner and keeper, in the customer
-    # context's own transaction.
-    transport.register(
-        "inventory.stock_item.purchased",
-        consumer_name="customer.trade_in_purchased",
-        handler=handle_trade_in_purchased_message,
     )
     # KAN-144 — a manual configuration's contract learns the pipeline stock
     # item its confirmation created, so the purchase gate can apply to it.

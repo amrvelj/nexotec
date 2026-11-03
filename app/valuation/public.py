@@ -3,9 +3,7 @@ linter's contract allows `app.<other-context>` to import
 `app.valuation.public`, never `app.valuation.models` /
 `app.valuation.services` / `app.valuation.api` directly.
 
-`get_valuation_or_404`/`list_valid_valuations_for_vehicle`/
-`list_valid_valuations_for_vin` (KAN-189: a trade-in car not in the
-register is matched by its VIN) are read
+`get_valuation_or_404`/`list_valid_valuations_for_vehicle` are read
 surfaces for Sales's trade-in container (PR-5: "an existing valid
 valuation is offered before a new one is made") and for inventory, which
 copies the pointer onto a trade-in's pipeline stock item (KAN-101).
@@ -26,7 +24,6 @@ from app.valuation.services.valuation import (
     derive_status,
     get_valuation_or_404,
     list_valid_valuations_for_vehicle,
-    list_valid_valuations_for_vin,
 )
 from app.valuation.services.valuation import revert_use as _revert_use
 
@@ -56,6 +53,5 @@ __all__ = [
     "derive_status",
     "get_valuation_or_404",
     "list_valid_valuations_for_vehicle",
-    "list_valid_valuations_for_vin",
     "revert_valuation_use",
 ]

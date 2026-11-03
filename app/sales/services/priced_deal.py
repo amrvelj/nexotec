@@ -148,19 +148,6 @@ def project(db: Session, deal: PricedDeal) -> None:
         upsert_deal_projection(db, offer=deal)
 
 
-def has_trade_in(deal: PricedDeal) -> bool:
-    """Whether the deal carries a trade-in car: a linked vehicle-mdm record,
-    a configuration from the valuation path (KAN-10), or — since KAN-189,
-    when a trade-in never creates the record — its VIN alone. One rule for
-    the container's state and the confirmation event."""
-
-    return (
-        deal.trade_in_vehicle_id is not None
-        or deal.trade_in_configuration_id is not None
-        or bool(deal.trade_in_vin)
-    )
-
-
 def compute_containers(deal: PricedDeal) -> list[OfferContainerState]:
     """Server-computed, never client-derived (FR-S-05) — the sticky
     footer's missing-requirements list and each container's own status
@@ -194,7 +181,7 @@ def compute_containers(deal: PricedDeal) -> list[OfferContainerState]:
         OfferContainerState(
             id="trade_in",
             requirement="optional",
-            status="complete" if has_trade_in(deal) else "not_started",
+            status="complete" if deal.trade_in_vehicle_id is not None else "not_started",
         ),
     ]
     if isinstance(deal, SalesOffer):

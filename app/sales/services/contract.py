@@ -33,7 +33,7 @@ from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import apply_customer_change, resolve_customer_label
-from app.sales.services.priced_deal import has_trade_in, require_editable, require_pending
+from app.sales.services.priced_deal import require_editable, require_pending
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
@@ -419,14 +419,12 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
             manual_configuration["configurationId"] = str(contract.configuration_id)
 
     trade_in = None
-    if has_trade_in(contract):
+    if contract.trade_in_vehicle_id is not None or contract.trade_in_configuration_id is not None:
         # Trade-ins are always a used car by definition — there is no
         # separate condition concept on the trade-in side to carry here.
         # C-F (KAN-10): a trade-in captured through the valuation path has a
         # configuration and no vehicle-mdm record; it becomes a pipeline
-        # item all the same (S-D11). KAN-189: so does one recorded by VIN
-        # alone — the car is not in the register until its purchase is
-        # booked (ADR-103), which is why it must become a pipeline item.
+        # item all the same (S-D11).
         trade_in = {"vehicleLabel": contract.trade_in_label, "condition": "used"}
         if contract.trade_in_configuration_id is not None:
             trade_in["configurationId"] = str(contract.trade_in_configuration_id)

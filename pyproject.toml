@@ -246,7 +246,6 @@ source_modules = [
 ]
 forbidden_modules = [
     "app.customer.api",
-    "app.customer.consumers",
     "app.customer.models",
     "app.customer.ownership",
     "app.customer.reconciliation",
