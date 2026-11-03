@@ -12,6 +12,9 @@ worker's nightly responsible-seller label refresh and its sync-age gauge.
 `get_contract_statuses` (KAN-122) is Stock's read for its nightly
 reservation sweep: plain statuses, never an ORM row, and the caller runs it
 on a session of its own (ADR-047).
+
+`get_trade_in_seller` (KAN-189) is the customer context's read when a trade-in
+is bought: the contract's customer and since when it is known, plain data.
 """
 
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -26,6 +29,7 @@ from app.sales.services.signed_trade_ins import (
     valuations_carried_by_pending_contracts,
     valuations_carried_by_signed_contracts,
 )
+from app.sales.services.trade_in_seller import TradeInSeller, get_trade_in_seller
 from app.sales.services.transaction import repoint_customer_transactions
 
 __all__ = [
@@ -33,8 +37,10 @@ __all__ = [
     "SalesContract",
     "SalesOffer",
     "SalesOwnershipProvider",
+    "TradeInSeller",
     "Transaction",
     "get_contract_statuses",
+    "get_trade_in_seller",
     "legacy_offer_counters",
     "oldest_owner_label_age_seconds",
     "refresh_owner_labels",

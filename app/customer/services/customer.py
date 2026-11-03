@@ -3133,7 +3133,7 @@ def _close_vehicle_party(
     db: Session,
     *,
     party: VehicleParty,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     group_id: uuid.UUID,
     effective_to: dt.datetime | None = None,
     merged_into_customer_id: uuid.UUID | None = None,
@@ -3250,6 +3250,117 @@ def allocate_vehicle_party(
     db.commit()
     db.refresh(party)
     return party
+
+
+def record_former_holder_on_purchase(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, group_id: uuid.UUID,
+    held_from: dt.datetime, ended_at: dt.datetime, actor_id: uuid.UUID | None,
+) -> list[VehicleParty]:
+    """KAN-189 (Anto, 2026-11-02, option A): the Betrieb has bought the car
+    `customer_id` traded in, so that customer is recorded as its former owner
+    and keeper (ADR-064), ending at the purchase (`ended_at`). This is what
+    puts a traded-in car on the customer's Vehicles tab now that the trade-in
+    itself creates no vehicle-mdm record and allocates no party.
+
+    Per role: a row of this customer that holds the role at `ended_at` (an
+    earlier link, open or ending later) is closed at `ended_at`; one already
+    ending exactly then is left alone; otherwise a closed row
+    [`held_from`, `ended_at`) is written — history, so it closes nobody else
+    (KAN-148/KAN-370: a row ended in the past is not a holder). Taken under
+    the allocation's locks, and refused for a merged customer the same way
+    (409 `customer_merged`); the caller resolves the survivor first, so that
+    refusal means a merge committed in between and a redelivery will find
+    the survivor.
+
+    Flushes only: the customer context's consumer
+    (app.customer.consumers) commits it with its processed_event row.
+    """
+
+    held_from = min(held_from, ended_at - dt.timedelta(seconds=1))
+    # Both roles' advisory locks first, in the order a merge takes them
+    # (sorted by role value, _repoint_vehicle_parties), then the customer row
+    # FOR SHARE, then party rows: the allocation's lock order, so this never
+    # deadlocks against a merge of this customer.
+    roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
+    for role in roles:
+        _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    _refuse_merged_customer(db, customer_id)
+    written: list[VehicleParty] = []
+    for role in roles:
+        own_rows = list(
+            db.scalars(
+                select(VehicleParty)
+                .where(
+                    VehicleParty.vehicle_id == vehicle_id,
+                    VehicleParty.customer_id == customer_id,
+                    VehicleParty.role == role,
+                    VehicleParty.merged_into_customer_id.is_(None),
+                    VehicleParty.effective_from < ended_at,
+                    or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to >= ended_at),
+                )
+                .order_by(VehicleParty.effective_from)
+                .with_for_update()
+            ).all()
+        )
+        if own_rows:
+            for row in own_rows:
+                if row.effective_to is None or row.effective_to > ended_at:
+                    _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
+            continue
+
+        party = VehicleParty(
+            vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=held_from,
+            effective_to=ended_at,
+        )
+        _write_vehicle_labels(db, [party])
+        db.add(party)
+        db.flush()
+        record_audit_event(
+            db, entity_type="customer", entity_id=customer_id, tenant_id=group_id, action="vehicle_party_add",
+            actor_id=actor_id,
+            after={
+                "vehicleId": str(vehicle_id),
+                "role": role.value,
+                "effectiveFrom": party.effective_from.isoformat(),
+                "effectiveTo": ended_at.isoformat(),
+            },
+        )
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.vehicle_party.linked",
+                tenant_id=group_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="vehicle_party",
+                aggregate_id=party.id,
+                payload=_vehicle_party_payload(party),
+            ),
+        )
+        written.append(party)
+    db.flush()
+    return written
+
+
+def resolve_live_customer_id(db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID) -> uuid.UUID | None:
+    """The customer a record now lives on: `customer_id` itself, or the
+    survivor its merge chain ends at (KAN-383 keeps "merged into" naming a
+    live customer). None when the chain leaves `group_id` or does not end."""
+
+    current = customer_id
+    for _ in range(32):
+        row = db.execute(
+            select(Customer.lifecycle_status, Customer.duplicate_of_customer_id, Customer.group_id).where(
+                Customer.id == current
+            )
+        ).one_or_none()
+        if row is None or row.group_id != group_id:
+            return None
+        if row.lifecycle_status != CustomerLifecycleStatus.MERGED:
+            return current
+        if row.duplicate_of_customer_id is None:
+            return None
+        current = row.duplicate_of_customer_id
+    return None
 
 
 def _open_holders_in_group(
