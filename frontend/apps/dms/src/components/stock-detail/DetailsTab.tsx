@@ -128,7 +128,7 @@ export function DetailsTab({
           {/* An action, not a field: its reason is said (ADR-061). */}
           {canEditConfiguration && reservedByContract && (
             <Group gap="sm" mt="sm" wrap="nowrap" align="flex-start">
-              <Button variant="default" size="xs" disabled aria-describedby={reservedReasonId}>
+              <Button variant="default" size="xs" disabled aria-describedby={reservedReasonId} style={{ flexShrink: 0 }}>
                 {t('stockDetail.configuration.editContract')}
               </Button>
               <Text id={reservedReasonId} size="sm" c="dimmed">
