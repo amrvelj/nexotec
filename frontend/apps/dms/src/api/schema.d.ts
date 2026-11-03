@@ -9961,8 +9961,8 @@ export interface components {
         /**
          * TradeInRequest
          * @description WP-8 PR-5 (S-D18/ADR-064) — the one-step trade-in action. Not a
-         *     plain PATCH field set: it calls into vehicle-mdm and customer, so it
-         *     is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
+         *     plain PATCH field set: it reads vehicle-mdm (and, since KAN-189, creates
+         *     no record and allocates no party), so it is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
          *     reasoning as reservation being its own endpoint rather than a PATCH.
          *
          *     KAN-331: the VIN is normalised and validated as Stock's is (FR-V-15),

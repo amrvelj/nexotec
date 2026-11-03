@@ -53,6 +53,22 @@ def ui_language_of(db: Session, *, user_id: uuid.UUID) -> str | None:
     return default_ui_language(db, user_id=user_id)
 
 
+def payload_as_read(db: Session, *, user_id: uuid.UUID, scope: str, payload: dict | None) -> dict:
+    """What a read of `scope` answers: the stored payload, and for the `ui`
+    scope a `uiLanguage` that is the user's own when it is a string, else the
+    starting language above (KAN-104 item 2) — the same rule as
+    `ui_language_of`, so the screen, mail and push never disagree."""
+
+    answer = dict(payload or {})
+    if scope == UI_SCOPE and not isinstance(answer.get("uiLanguage"), str):
+        language = default_ui_language(db, user_id=user_id)
+        if language is not None:
+            answer["uiLanguage"] = language
+        else:
+            answer.pop("uiLanguage", None)
+    return answer
+
+
 def list_preferences(db: Session, *, user_id: uuid.UUID) -> list[UserPreference]:
     stmt = select(UserPreference).where(UserPreference.user_id == user_id).order_by(UserPreference.scope)
     return list(db.scalars(stmt).all())

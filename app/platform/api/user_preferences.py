@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.db import get_db
+from app.platform.models.user_preference import UserPreference
 from app.platform.schemas.user_preference import (
     SCOPE_PATTERN,
     UserPreferenceListRead,
@@ -30,9 +31,7 @@ def list_my_preferences(
     db: Session = Depends(get_db),
 ):
     rows = user_preference_service.list_preferences(db, user_id=principal.user_id)
-    return UserPreferenceListRead(
-        items=[UserPreferenceRead.model_validate(row, from_attributes=True) for row in rows]
-    )
+    return UserPreferenceListRead(items=[_read(db, principal, row) for row in rows])
 
 
 @router.get("/me/preferences/{scope}", response_model=UserPreferenceRead)
@@ -42,27 +41,27 @@ def get_my_preference(
     db: Session = Depends(get_db),
 ):
     row = user_preference_service.get_preference(db, user_id=principal.user_id, scope=scope)
-    if row is not None and scope == user_preference_service.UI_SCOPE and "uiLanguage" not in (row.payload or {}):
-        # A `ui` row written without a language (by a client other than the
-        # SPA) answers the same starting language mail and push use.
-        read = UserPreferenceRead.model_validate(row, from_attributes=True)
-        language = user_preference_service.default_ui_language(db, user_id=principal.user_id)
-        if language is not None:
-            read.payload = {**read.payload, "uiLanguage": language}
-        return read
     if row is None:
         # Absent, not 404: an unset scope simply has no override yet — the
         # frontend falls back to the module default, same as after DELETE.
         # KAN-104 item 2 (Anto, 2026-11-03, 1 B): an unset `ui` scope starts in
         # the home Betrieb's correspondence language; `updatedAt` stays null,
         # so it is a default, never a stored choice.
-        payload: dict = {}
-        if scope == user_preference_service.UI_SCOPE:
-            language = user_preference_service.default_ui_language(db, user_id=principal.user_id)
-            if language is not None:
-                payload = {"uiLanguage": language}
+        payload = user_preference_service.payload_as_read(db, user_id=principal.user_id, scope=scope, payload={})
         return UserPreferenceRead(scope=scope, payload=payload, updated_at=None)
-    return UserPreferenceRead.model_validate(row, from_attributes=True)
+    return _read(db, principal, row)
+
+
+def _read(db: Session, principal: Principal, row: UserPreference) -> UserPreferenceRead:
+    """A stored row as read: a `ui` row without a language (written by a
+    client other than the SPA, or with `uiLanguage: null`) answers the same
+    starting language mail and push use (KAN-104 item 2)."""
+
+    read = UserPreferenceRead.model_validate(row, from_attributes=True)
+    read.payload = user_preference_service.payload_as_read(
+        db, user_id=principal.user_id, scope=row.scope, payload=row.payload
+    )
+    return read
 
 
 @router.put("/me/preferences/{scope}", response_model=UserPreferenceRead)

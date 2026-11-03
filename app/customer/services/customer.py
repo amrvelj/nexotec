@@ -3203,7 +3203,8 @@ def allocate_vehicle_party(
     ADR-014): vehicle_mdm is a global fact (ADR-022) and VehicleParty has
     no group column, so two groups can each hold the same role on one
     VIN. The customer is resolved in the caller's group first (404, never
-    a cross-group link — the trade-in path passes a request-body id), and
+    a cross-group link — a caller may pass a request-body id; since KAN-189
+    the trade-in no longer allocates), and
     the incumbents are looked up through Customer.group_id, the same
     intra-context join as list_vehicle_parties. So an allocation closes
     EVERY open holder of (vehicle, role) in the caller's group — a

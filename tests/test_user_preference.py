@@ -244,3 +244,18 @@ def test_a_ui_row_without_a_language_reads_the_betriebs_language(client, db_sess
 
     assert payload["density"] == "compact"
     assert payload["uiLanguage"] == "fr"
+
+
+def test_a_null_language_and_the_list_read_the_betriebs_language_too(client, db_session):
+    """One rule for every read (and for mail and push): a ui row whose
+    uiLanguage is not a string reads the starting language, in the list too."""
+
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _betrieb_speaks(db_session, dealer_id, "it")
+    headers = _bearer(_token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+    client.put("/v1/me/preferences/ui", json={"schemaVersion": 1, "uiLanguage": None}, headers=headers)
+
+    assert client.get("/v1/me/preferences/ui", headers=headers).json()["payload"]["uiLanguage"] == "it"
+    listed = {item["scope"]: item["payload"] for item in client.get("/v1/me/preferences", headers=headers).json()["items"]}
+    assert listed["ui"]["uiLanguage"] == "it"
