@@ -199,6 +199,27 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 
 - **ADR-068** — a configuration is a first-class entity with its own ID, referenced by an
   offer, a stock item, a valuation or a vehicle. No list screen, no nav entry.
+- **A configuration no host ever took is deleted 30 days after it was created; one a host took
+  is kept for good, released or not** (KAN-270; Anto, 2026-11-03, option A, then C).
+  `vehicle_configuration.first_taken_at` is stamped — never moved, never cleared — by vehicle's
+  consumers `vehicle.configuration_taken_by_*` (`app/vehicle/consumers.py`) of the hosts' own
+  facts, each carrying `configurationId`: `sales.offer.configuration_attached` /
+  `sales.contract.configuration_attached` (published whenever an offer or contract starts holding a
+  configuration id — Path B, the trade-in valuation, a copied offer, a contract from its offer;
+  `slot` `vehicle` | `trade_in`), `inventory.stock_item.added`,
+  `inventory.stock_item.configuration_attached` («Konfiguration zuordnen») and `valuation.created`.
+  The daily job `vehicle.configurations.purge_unattached` (`app/vehicle/daily_jobs.py`,
+  `services/configuration_retention.py`; registered last) walks every unstamped configuration in
+  batches, asks Sales, Stock and Valuation through their read-only `referenced_configuration_ids` which
+  they name now, counts one whose `vehicle_id` links a car in the register as the vehicle record's,
+  stamps every held one (the safety net for a fact not consumed yet, and for every configuration
+  held before KAN-270), and deletes one past 30 days that nothing holds — with its options, an audit
+  row (`delete`, reason `never_taken_purged`, never the VIN or mileage) and
+  `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…`. One a
+  host let go before KAN-270 left no trace and goes like a never-taken one. Residual race (the
+  service's docstring): one past 30 days that a host attaches in the moment the job runs is deleted
+  under it, and the host's reconciliation reports the dangling reference. A copy (FR-C-11) is a new
+  configuration, unstamped until its host takes it.
 - **ADR-069** — the configurator is provider-backed (reverses PRD-Sales v2 S-D05). Manual
   configuration stays as the off-catalogue path: grey imports, oldtimers, pre-1982 vehicles,
   anything auto-i-dat does not cover.

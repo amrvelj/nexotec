@@ -243,7 +243,12 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   cannot take that lock (logged, left to the nightly run). Before compensating, the
   confirmation ends its own transactions (request and reservation), so the compensation never
   waits on a lock its own request holds (KAN-192).
-  An edit publishes no event. Never give the contract a second copy of a pricing rule.
+  An edit publishes no event — except that an offer or contract starting to hold a configuration id
+  (Path B, the trade-in valuation, a copied offer, a contract from its offer) publishes
+  `sales.offer.configuration_attached` / `sales.contract.configuration_attached` in its own
+  transaction, so Vehicle keeps a configuration a host took (KAN-270, `.claude/rules/vehicle.md`);
+  `sales.public.referenced_configuration_ids` is Vehicle's read-only safety net. Never give the contract a
+  second copy of a pricing rule.
 - **One set of bounds for the shared pricing fields** (Anto, 2026-10-28, KAN-482: no negatives):
   `OfferUpdate` takes `ContractUpdate`'s bounds for `manualBasePrice`, `discountType` and
   `discountValue` (`ge=0`, 12 digits, 2 decimals; `percent` | `amount`), and the offer's leasing

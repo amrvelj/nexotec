@@ -18,6 +18,7 @@ from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership
+from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
@@ -309,6 +310,9 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
                 payload={"offerNumber": offer.offer_number, "copiedFromOfferId": str(source.id)},
             ),
         )
+        # KAN-270: the copy holds its own configuration and the source's
+        # trade-in one; vehicle keeps a configuration a host took for good.
+        publish_held_configurations(db, deal=offer)
         upsert_deal_projection(db, offer=offer)
         db.commit()
     except Exception:

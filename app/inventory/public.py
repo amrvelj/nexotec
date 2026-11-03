@@ -19,6 +19,9 @@ a plain dict, never an ORM row, matching app.vehicle.public's own
 must not be able to hold or mutate an inventory object across a context
 boundary. `get_stock_item_vehicle` (KAN-523) is a third: which vehicle-mdm
 record (and VIN) a stock item is, so Sales can hand the sold car's plate on.
+`referenced_configuration_ids` (KAN-270) is vehicle's: which of the
+configurations it names a stock item holds, for its daily purge of the
+configurations no host ever took. A SELECT only.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -27,6 +30,7 @@ from app.inventory.services.configuration_label import (
     oldest_configuration_label_age_seconds,
     refresh_configuration_labels,
 )
+from app.inventory.services.configuration_reference import referenced_configuration_ids
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
@@ -45,6 +49,7 @@ __all__ = [
     "get_stock_item_vehicle",
     "get_stock_items_for_vehicles",
     "oldest_configuration_label_age_seconds",
+    "referenced_configuration_ids",
     "refresh_configuration_labels",
     "release",
     "reserve",

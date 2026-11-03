@@ -78,5 +78,14 @@ claim checked against the code). Fix this file in the same PR as any change to w
   `.claude/rules/inventory.md`) and the expiry job's retry of a hand-over a module refused
   (`platform.user_expiry`, KAN-200, 30 days; the Sales and Customers StateChecks name the record
   meanwhile).
+- **A context learns that another holds its record from the holder's own fact, never inside the
+  holder's transaction** (KAN-270, ADR-047, rule 2): Vehicle stamps `vehicle_configuration.first_taken_at`
+  from `sales.offer.configuration_attached`, `sales.contract.configuration_attached`,
+  `inventory.stock_item.added`, `inventory.stock_item.configuration_attached` and `valuation.created`
+  (each carrying `configurationId` when the host row has one; five consumers
+  `vehicle.configuration_taken_by_*`). Its daily job `vehicle.configurations.purge_unattached`
+  (registered last; retention, not a repair) asks the hosts' read-only
+  `referenced_configuration_ids` as a safety net before it deletes a configuration no host ever
+  took, 30 days after it was created (`.claude/rules/vehicle.md`).
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

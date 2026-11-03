@@ -370,6 +370,78 @@ def _connected_account_revoked(db_session, engine, monkeypatch):
         )
 
     return _message(db_session, connected_account.REVOKED_EVENT, account.id), ends_recorded
+def _configuration_taken(event_type: str, take) -> Fixture:
+    """KAN-270 — a host takes a configuration, from the real producer:
+    vehicle stamps it taken, once (`first_taken_at`, never moved)."""
+
+    def fixture(db_session, engine, monkeypatch):
+        from app.vehicle.models.configuration import VehicleConfiguration
+        from tests.test_configurator_hosts import _dealership as _hosts_dealership
+
+        configuration_id, aggregate_id = take(db_session, _hosts_dealership(db_session))
+
+        def stamped(db: Session) -> int:
+            return db.scalar(
+                select(func.count())
+                .select_from(VehicleConfiguration)
+                .where(VehicleConfiguration.id == configuration_id, VehicleConfiguration.first_taken_at.is_not(None))
+            )
+
+        return _message(db_session, event_type, aggregate_id), stamped
+
+    return fixture
+
+
+def _offer_takes(db_session, dealership):
+    from app.sales.schemas.offer import OfferUpdate
+    from app.sales.services.offer import create_offer, update_offer
+    from tests.test_configurator_hosts import _build_configuration
+
+    config = _build_configuration(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    update_offer(db_session, offer=offer, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
+    return config.id, offer.id
+
+
+def _contract_takes(db_session, dealership):
+    from app.sales.schemas.contract import ContractUpdate
+    from app.sales.services.contract import update_contract
+    from tests.test_configurator_hosts import _build_configuration
+    from tests.test_sales_contract_edit import _customer_born_contract
+
+    config = _build_configuration(db_session, dealership.id)
+    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    update_contract(
+        db_session, contract=contract, group_id=uuid.uuid4(), data=ContractUpdate(configuration_id=config.id), actor_id=None
+    )
+    return config.id, contract.id
+
+
+def _stock_item_added_takes(db_session, dealership):
+    from tests.test_configurator_hosts import _record_configuration
+    from tests.test_vehicle_configuration_retention import _pipeline_item
+
+    config = _record_configuration(db_session, dealership.id)
+    return config.id, _pipeline_item(db_session, dealership.id, config.id).id
+
+
+def _stock_item_attach_takes(db_session, dealership):
+    from app.inventory.services.stock_item import attach_configuration
+    from tests.test_configurator_hosts import _record_configuration
+    from tests.test_vehicle_configuration_retention import _pipeline_item
+
+    config = _record_configuration(db_session, dealership.id)
+    item = _pipeline_item(db_session, dealership.id, None)
+    attach_configuration(db_session, item=item, configuration_id=config.id, actor_id=uuid.uuid4())
+    return config.id, item.id
+
+
+def _valuation_takes(db_session, dealership):
+    from tests.test_configurator_hosts import _record_configuration
+    from tests.test_vehicle_configuration_retention import _valuation
+
+    config = _record_configuration(db_session, dealership.id)
+    return config.id, _valuation(db_session, dealership.id, config.id).id
 
 
 _FIXTURES: dict[str, Fixture] = {
@@ -384,6 +456,17 @@ _FIXTURES: dict[str, Fixture] = {
     "platform.web_push_on_digest": _digest_released,
     "vehicle.plate_on_invoice_requested": _invoice_requested_with_plate,
     "customer.vehicle_party_labels_on_summary_changed": _vehicle_summary_changed,
+    "vehicle.configuration_taken_by_offer": _configuration_taken("sales.offer.configuration_attached", _offer_takes),
+    "vehicle.configuration_taken_by_contract": _configuration_taken(
+        "sales.contract.configuration_attached", _contract_takes
+    ),
+    "vehicle.configuration_taken_by_added_stock_item": _configuration_taken(
+        "inventory.stock_item.added", _stock_item_added_takes
+    ),
+    "vehicle.configuration_taken_by_stock_item": _configuration_taken(
+        "inventory.stock_item.configuration_attached", _stock_item_attach_takes
+    ),
+    "vehicle.configuration_taken_by_valuation": _configuration_taken("valuation.created", _valuation_takes),
 }
 
 

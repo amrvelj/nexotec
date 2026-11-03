@@ -107,7 +107,9 @@ file in the same PR as any change to what it states. -->
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
   defaults its vehicle fields from it (a field sent wins), references only the vehicle-mdm
-  record the configuration already links, and creates none. **Its VIN is the configuration's**
+  record the configuration already links, and creates none; `valuation.created` carries its
+  `configurationId`, so Vehicle keeps a configuration a valuation took for good (KAN-270,
+  `valuation.public.referenced_configuration_ids` the read-only safety net). **Its VIN is the configuration's**
   (Anto, 2026-10-25, KAN-449): a `vin` sent beside one that names a car (a VIN or a linked
   record) and differs is 422 `vin_differs_from_configuration`
   (`valuationCreate.vinDiffersFromConfiguration`), compared normalised on both sides, and the
