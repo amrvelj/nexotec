@@ -11061,7 +11061,8 @@ export interface components {
          *     row (catalogue_match_status=unverified) is the common case today, not
          *     an edge case — every fixture in the existing allocation test suite
          *     creates one. A full catalogue-aware summary (falling back through
-         *     provider data, say) is ADR-073's job; this is the minimal,
+         *     provider data, say) is not built (an unbuilt feature, not an ADR: the
+         *     ADR-073 label once used for it was retired, KAN-88); this is the minimal,
          *     always-correct version. The frontend falls back to the vehicle number
          *     when these are null.
          */

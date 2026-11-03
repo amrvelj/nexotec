@@ -138,9 +138,10 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # unmatched vehicle, and nothing in this codebase resolves this join
     # anywhere else yet (even the global-search vehicle results fall back
     # to vehicleNumber as the label). A caller-side fallback is required,
-    # not optional. A full catalogue-aware summary is ADR-073's job, not
-    # this property's — this is deliberately the minimal, always-safe
-    # version.
+    # not optional. A full catalogue-aware summary is not built (an unbuilt
+    # feature, not an ADR: the ADR-073 label once used for it was retired,
+    # KAN-88), and not this property's job — this is deliberately the
+    # minimal, always-safe version.
     @property
     def make(self) -> str | None:
         return self.catalogue_variant.model_group.brand.display_name if self.catalogue_variant else None
