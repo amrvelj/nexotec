@@ -1,12 +1,15 @@
 # Workshop terminal authentication — design (ADR-028)
 
-**Status: designed, not built.** This document exists so the eventual build isn't a
+**Status: designed, not built.** The minting path is decided by **ADR-110** (Anto,
+2026-11-02, KAN-254): technicians on their own phones sign in like office staff; a shared
+workshop device signs in through the one session-minting path, `_mint_session`, in a
+terminal mode. This document exists so the eventual build isn't a
 retrofit onto a live staff login — ADR-028's own rationale for doing this now. (It
 was written against WP-4's OIDC front door; since KAN-196 that login is Nexotec's
 own, described under Context.)
 Nothing in this file is implemented; there is no `device_terminal` table, no PIN
 endpoint, no code path that issues a technician-scoped token. It is prose and a
-schema sketch, reviewed for shape now so the actual build (a future work package)
+schema sketch, reviewed for shape now so the actual build (KAN-230)
 has fewer open questions.
 
 ## Context
@@ -18,9 +21,9 @@ door): an office user signs in with e-mail and password at `POST /v1/auth/login`
 and the signed-in session in `session`. Shared workshop terminals are a
 deliberately **separate, local, device-scoped** realm (D-A-13) — ADR-028's own text
 never mentions an IdP, and nothing about the design below routes through the staff
-login or its credential store (D-A-14: realms never share one): the terminal
-path issues an `aud=dms` token with `roles=[technician]`, from a device credential
-plus a PIN. Worth stating plainly so a future reader doesn't
+password check or its credential store (D-A-14: realms never share one): the
+terminal path issues an `aud=dms` token with `roles=[technician]`, from a device
+credential plus a PIN — minted, like every session, by `_mint_session` (ADR-110). Worth stating plainly so a future reader doesn't
 wonder why a shop-floor terminal isn't "just another staff login": a technician
 standing at a shared terminal with a 4–6 digit PIN is not the same trust model as an office
 worker signing into their own browser, and forcing the same flow onto both would
@@ -32,6 +35,21 @@ at which point labour-time data — the entire point of the `technician` role
 (Roles & Permissions RP-4) — becomes worthless. Because the device itself is
 already authenticated (see below), the PIN only has to be a **second factor**, not
 a password, so 4–6 digits is an accepted tradeoff, not a shortcut.
+
+## Two ways a technician signs in (ADR-110)
+
+**Decided (Anto, 2026-11-02, KAN-254: «most technicians will use mobile»):**
+
+- **Their own phone.** A technician on a device of their own signs in through the
+  ordinary staff sign-in — their own e-mail, password and, where the Betrieb enforces it,
+  second factor — and gets their own roles, like any office user. No terminal mode, no PIN,
+  no device credential is involved; nothing new is needed beyond a mobile-usable SPA.
+- **A shared workshop device** (a phone, tablet or terminal passed between technicians):
+  the realm this document designs. The device authenticates itself first, then the
+  technician's PIN or badge, and the session is minted by `_mint_session` in its
+  `terminal` realm (below).
+
+The rest of this document is about the shared device.
 
 ## Device credential provisioning
 
@@ -62,13 +80,28 @@ Two steps, in order — the device authenticates itself before any technician do
 
 ## Never a manager, by construction
 
-The resulting session is hardcoded to `roles=frozenset({AccessRole.TECHNICIAN})`,
-`is_dealer_manager=False` on the `create_access_token()` call — **not** whatever
-roles the matched person's own `User` row otherwise holds, and not a filter
-applied after the fact. If the same person also has a manager account for normal
-office use, the terminal path must never be able to produce a token carrying that
-authority. This is a hardcoded parameter at the call site, not a business rule
-that has to be remembered and re-checked elsewhere.
+**Decided by ADR-110 (KAN-254, option A):** the terminal session is minted by the
+same `_mint_session` (`app/platform/api/auth.py`) every staff sign-in passes
+through, called with the realm `terminal` (the office's is `staff`). In the
+terminal realm it:
+
+- applies the **same user-status, access-window and membership checks** as an
+  office sign-in — a technician suspended or deactivated in Dealer Administration,
+  or outside their access window, is refused (401) at the terminal exactly as at
+  the office (Auth & Identity risk 4, FR-A-10). A check added to `_mint_session`
+  later reaches the terminal without anyone remembering to add it;
+- writes a `session` row with the terminal's 15-minute idle window (below);
+- mints `roles=frozenset({AccessRole.TECHNICIAN})`, `is_dealer_manager=False` and
+  `memberships=[the device's Betrieb]` — **not** whatever roles or manager flag the
+  matched person's own `User` row holds, and not a filter applied after the fact. If
+  the same person is a manager in the office, the terminal still never produces a
+  token carrying that authority, and no Betrieb switch is possible from a terminal.
+
+The fixed role set is set by the realm inside `_mint_session`, not by a business
+rule someone has to remember at another call site. Rejected (ADR-110): a second
+minting function sharing one status check (two places to keep aligned), and the
+original design's direct `create_access_token()` call (a second minting path that
+skips the checks and writes no session row).
 
 ## Session scope: 15-minute idle timeout
 
@@ -95,10 +128,8 @@ reuses that, nothing new:
   table; (a) is not taken, because its sessions could not be revoked when
   someone is deactivated.
 
-How the terminal path *mints* that session — through `_mint_session`, so it
-passes the same status check, or through a fixed-role variant of it — is
-KAN-254's open ADR; the "Bolt-on point" below still describes the original
-design until that ADR is approved.
+How the terminal path *mints* that session is ADR-110: through `_mint_session`
+in its `terminal` realm (above), which writes this row with the 15-minute window.
 
 ## Data model (prose sketch — explicitly not a migration)
 
@@ -120,18 +151,19 @@ reviewed before someone has to invent it under deadline pressure.
 
 ## Bolt-on point
 
-The only thing this reuses from the staff login is the session layer's token,
-`create_access_token()` — the same preserved-file guarantee
-(`app/core/auth.py::get_current_principal`'s contract) holds for this future work
-as it did when WP-4's Zitadel front door issued the staff session: this design's
-whole job is "arrive at a `user_id` + a hardcoded `{TECHNICIAN}` role set, then
-mint a token with it." Net-new work is entirely additive: a PIN/badge service
+What this reuses from the staff login is the one session-minting path,
+`_mint_session` (`app/platform/api/auth.py`), in its `terminal` realm (ADR-110) —
+and through it the session layer's token, `create_access_token()`, which already
+takes every parameter needed. `app/core/auth.py` is untouched: the preserved-file
+guarantee (`get_current_principal`'s contract) holds for this future work as it
+did when WP-4's Zitadel front door issued the staff session. This design's whole
+job is "arrive at a `user_id` from a device credential plus a PIN, then hand it to
+`_mint_session` with the realm `terminal`." Net-new work: a PIN/badge service
 **parallel to**, not a modification of, the staff identity service
 (`app/platform/services/identity.py`, `LocalPasswordProvider`); the two
-device-model tables above; and whichever idle-timeout mechanism is chosen. Nothing
-about the staff login itself needs to change to make room for this, which is the
-entire reason ADR-028 asked for this design to exist now rather than being
-discovered as a retrofit problem later. Open (KAN-254): every staff token is
-minted through `_mint_session` (`app/platform/api/auth.py`), which checks the
-user's status and writes the session row; how the terminal path gets the same
-status check needs an ADR.
+device-model tables above; the realm parameter on `_mint_session` and the
+terminal's idle window on the `session` row. Nothing about the office sign-in's
+own behaviour changes — its realm is `staff` — which is the reason ADR-028 asked
+for this design to exist now rather than being discovered as a retrofit problem
+later. The build is KAN-230, with tests that a deactivated technician's PIN is
+refused and that a manager signing in at a terminal gets technician rights only.
