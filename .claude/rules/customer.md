@@ -195,8 +195,12 @@ weekly. -->
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
   `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
-  and re-read nightly by `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`), so a
-  later catalogue match or VIN correction shows within a day (Anto's ruling, option A). A row
+  re-read when vehicle-mdm publishes `vehicle.vehicle_mdm.summary_changed` (consumer
+  `customer.vehicle_party_labels_on_summary_changed`, `app/customer/consumers.py`, KAN-186) —
+  every party row naming the vehicle, in every dealer group, locked in id order and relabelled
+  from `get_vehicle_summaries`, never from the payload — and re-read nightly by
+  `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`, the same helper), the backstop
+  for what publishes nothing (a brand rename) and the backfill (Anto's ruling, option A). A row
   without a label yet is filled for a read in memory only, and labelled by its next PATCH,
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).

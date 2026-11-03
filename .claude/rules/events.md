@@ -65,7 +65,11 @@ claim checked against the code). Fix this file in the same PR as any change to w
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84;
   `customer.advisor_labels`, KAN-403; `sales.owner_labels`, KAN-404; `inventory.configuration_labels`, KAN-534) is not
   a repair: the label is a copy, refreshed on purpose, and its age is a gauge
-  (`dms.label.age_seconds`, alert threshold in README's alarm table).
+  (`dms.label.age_seconds`, alert threshold in README's alarm table). A label may also follow
+  its owner's event — `vehicle.vehicle_mdm.summary_changed` →
+  `customer.vehicle_party_labels_on_summary_changed` (KAN-186) — whose consumer re-reads the label
+  through the owner's `public` rather than trusting the payload (delivery is unordered); the
+  nightly job stays as the backstop.
 - **A repair the nightly run makes (ADR-047: "a failure after commit is repaired by the nightly
   reconciliation job") is a daily job of the owning context with its own record, never part of
   reconciliation** — finding and fixing stay apart (Anto, 2026-10-08, KAN-122; ADR-047
