@@ -57,6 +57,7 @@ from app.platform.public import (
     StandardTextAppliesTo,
     StandardTextCategory,
     StandardTextSlot,
+    get_dealership_default_correspondence_language,
     get_dealership_or_404,
     render_document,
     render_standard_text,
@@ -70,7 +71,16 @@ from app.sales.services.contract_completeness import require_complete
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.priced_deal import require_no_live_contract
 
-_DEFAULT_LANGUAGE = SwissLanguage.DE
+
+
+def _document_language(db: Session, *, tenant_id: uuid.UUID, customer_language: str | None) -> SwissLanguage:
+    """The language a document is printed in: the customer's correspondence
+    language, else the Betrieb's own default for customers (KAN-104 item 5,
+    Anto 2026-11-03, decision 3 A; Customers FR-13) — never a silent German."""
+
+    if customer_language:
+        return SwissLanguage(customer_language)
+    return get_dealership_default_correspondence_language(db, tenant_id)
 
 
 def _vehicle_block(vehicle_label: str | None, *, language: SwissLanguage) -> KeyValueBlock:
@@ -352,7 +362,7 @@ def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UU
     # prints no new offer document — the contract is the live record (ADR-083)
     # and a fresh offer print could differ from what the customer signs.
     require_no_live_contract(db, offer)
-    language = SwissLanguage(offer.customer_language) if offer.customer_language else _DEFAULT_LANGUAGE
+    language = _document_language(db, tenant_id=offer.tenant_id, customer_language=offer.customer_language)
     dealership = get_dealership_or_404(db, offer.tenant_id)
     intro, footer = offer_standard_texts(db, offer=offer, language=language)
     content = build_offer_content(
@@ -386,7 +396,7 @@ def generate_contract_document(db: Session, *, contract: SalesContract, actor_id
     # KAN-67 — a contract with no vehicle or no price is refused by reason,
     # never rendered as an empty document; the same rule confirmation uses.
     require_complete(contract, action="printed")
-    language = SwissLanguage(contract.customer_language) if contract.customer_language else _DEFAULT_LANGUAGE
+    language = _document_language(db, tenant_id=contract.tenant_id, customer_language=contract.customer_language)
     dealership = get_dealership_or_404(db, contract.tenant_id)
     footer = contract_footer(db, contract=contract, language=language)
     content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate, footer=footer)

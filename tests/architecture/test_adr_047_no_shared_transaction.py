@@ -288,6 +288,8 @@ _READS = {
     # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
     # advisor) — the user row and their memberships, a SELECT only.
     "app.platform.public.get_active_user_acting_in",
+    # KAN-104 item 5: a document without a customer language prints in the Betrieb's default; a SELECT only.
+    "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",

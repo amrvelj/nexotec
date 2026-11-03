@@ -286,8 +286,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   the **customer's correspondence language**, with the seller-only margin panel beside it,
   never on it (architecture test: margin never in a rendered document).
   `build_offer_content` / `build_contract_content` take a required `language`; a record with no
-  customer language renders in DE (`_DEFAULT_LANGUAGE`) — a German fallback awaiting a ruling
-  (KAN-104).
+  customer language renders in the Betrieb's own default for customers
+  (`platform.public.get_dealership_default_correspondence_language`, Customers FR-13), never a
+  silent German (Anto, 2026-11-03, KAN-104 decision 3 A; `document.py::_document_language`).
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
 - **The offer's wording is the Betrieb's standard text** (KAN-208): `generate_offer_document`
   resolves `offer` / `intro` (the first paragraph) and `offer` / `footer` (`footer_text`) through
