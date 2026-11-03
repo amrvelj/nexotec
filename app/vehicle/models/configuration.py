@@ -24,7 +24,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, JSON, Boolean, Date, ForeignKey, Integer, String, Text
+from sqlalchemy import DECIMAL, JSON, Boolean, Date, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -88,6 +88,16 @@ class VehicleConfiguration(
     VehicleSpecBlock, PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base
 ):
     __tablename__ = "vehicle_configuration"
+    __table_args__ = (
+        # KAN-270: the daily purge's scan — configurations no host ever took,
+        # oldest first. Partial, so a taken configuration (nearly all of
+        # them) costs the index nothing.
+        Index(
+            "ix_vehicle_configuration_untaken_created_at",
+            "created_at",
+            postgresql_where=text("first_taken_at IS NULL"),
+        ),
+    )
 
     source: Mapped[ConfigurationSource] = mapped_column(
         StoredEnum(ConfigurationSource, length=16), nullable=False
@@ -163,6 +173,20 @@ class VehicleConfiguration(
     overridden_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # KAN-270 (Anto, 2026-11-03, option C): when a host — an offer, a
+    # contract, a stock item, a valuation, or the vehicle record it links —
+    # first took this configuration. Set by vehicle's consumers of the hosts'
+    # past-tense facts (`app/vehicle/consumers.py`) and by the daily purge's
+    # safety net, never cleared: a configuration a host took and let go is
+    # kept for good, one no host ever took is deleted 30 days after it was
+    # created (`services/configuration_retention.py`). Never copied to a copy.
+    first_taken_at: Mapped[dt.datetime | None] = mapped_column(
+        UTCDateTime(),
+        nullable=True,
+        comment="KAN-270: when a host first took this configuration; never cleared. "
+        "NULL past 30 days: purged daily.",
+    )
 
     options: Mapped[list["VehicleConfigurationOption"]] = relationship(
         back_populates="configuration",

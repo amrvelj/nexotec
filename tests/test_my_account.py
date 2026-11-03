@@ -10,11 +10,13 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.object_store import LocalDirectoryObjectStore, get_object_store
+from app.core.outbox_model import OutboxMessage
+from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.main import app as fastapi_app
 from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.connected_account import (
@@ -22,7 +24,8 @@ from app.platform.models.connected_account import (
     ConnectedAccountStatus,
     UserConnectedAccount,
 )
-from app.platform.services import connected_account
+from app.platform.public import RevokedGrant, register_grant_revoker, unregister_grant_revoker
+from app.worker import register_handlers
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,
@@ -384,6 +387,32 @@ def test_deactivating_a_user_revokes_every_connected_account(client, db_session)
 
 
 # --- the provider's revoker -----------------------------------------------------------
+#
+# KAN-412: the request never asks the provider. The revoke's event, committed
+# with it, reaches platform's consumer, which runs the registered revoker;
+# tests/test_platform_connected_account_provider_revocation.py covers the
+# DTO, the retry, the dead letter and the reconciliation.
+
+
+def _deliver_revocations(engine) -> list[Exception]:
+    """Hands every `platform.connected_account.revoked` message to the
+    worker's own consumers once; returns the delivery failures."""
+
+    transport = InProcessTransport(sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
+    register_handlers(transport)
+    failures: list[Exception] = []
+    with Session(engine) as db:
+        messages = db.scalars(
+            select(OutboxMessage)
+            .where(OutboxMessage.event_type == "platform.connected_account.revoked")
+            .order_by(OutboxMessage.id)
+        ).all()
+        for message in messages:
+            try:
+                transport.deliver(message)
+            except DeliveryError as exc:
+                failures.append(exc)
+    return failures
 
 
 @pytest.fixture()
@@ -393,19 +422,19 @@ def provider_revoker(engine):
 
     seen: list[tuple[str, str]] = []
 
-    def _revoker(account: UserConnectedAccount) -> None:
+    def _revoker(grant: RevokedGrant) -> None:
         with Session(engine) as other:
-            committed = other.get(UserConnectedAccount, account.id)
-            seen.append((str(account.id), committed.status.value))
+            committed = other.get(UserConnectedAccount, grant.connected_account_id)
+            seen.append((str(grant.connected_account_id), committed.status.value))
 
-    connected_account.register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _revoker)
+    register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _revoker)
     try:
         yield seen
     finally:
-        connected_account.unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
+        unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
 
 
-def test_the_providers_revoker_runs_after_the_revoke_committed(client, db_session, provider_revoker):
+def test_the_providers_revoker_runs_after_the_revoke_committed(client, db_session, engine, provider_revoker):
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
     grant = _grant(db_session, anna)
@@ -413,33 +442,36 @@ def test_the_providers_revoker_runs_after_the_revoke_committed(client, db_sessio
     response = client.delete(f"/v1/me/connected-accounts/{grant.id}", headers={**_as(anna), "If-Match": "1"})
 
     assert response.status_code == 200, response.text
+    assert provider_revoker == [], "the request asks no provider"
+    assert _deliver_revocations(engine) == []
     assert provider_revoker == [(str(grant.id), "revoked")]
 
 
-def test_a_failing_provider_never_undoes_a_revoke_or_a_deactivation(client, db_session, caplog):
+def test_a_failing_provider_never_undoes_a_revoke_or_a_deactivation(client, db_session, engine):
     dealership = create_dealership(client)
     create_user(client, dealership)
     anna = create_user(client, dealership, isDealerManager=False)
     first = _grant(db_session, anna)
     second = _grant(db_session, anna, label="kalender@garage.ch")
 
-    def _down(account: UserConnectedAccount) -> None:
+    def _down(grant: RevokedGrant) -> None:
         raise RuntimeError("graph.microsoft.com is down")
 
-    connected_account.register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _down)
+    register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _down)
     try:
         revoked = client.delete(f"/v1/me/connected-accounts/{first.id}", headers={**_as(anna), "If-Match": "1"})
         deactivated = deactivate(client, dealership, anna, if_match=anna["version"])
+        failures = _deliver_revocations(engine)
     finally:
-        connected_account.unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
+        unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
 
     assert revoked.status_code == 200, revoked.text
     assert deactivated.status_code == 200, deactivated.text
+    assert len(failures) == 2 and all("graph.microsoft.com is down" in str(f) for f in failures)
     db_session.expire_all()
     for grant in (first, second):
         row = db_session.get(UserConnectedAccount, grant.id)
         assert row.status == ConnectedAccountStatus.REVOKED and row.secret_ref is not None
-    assert sum("did not end grant" in r.getMessage() for r in caplog.records) == 2
 
 
 def test_the_same_mailbox_can_be_linked_again_after_a_revoke(client, db_session):

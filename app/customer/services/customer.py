@@ -1285,8 +1285,8 @@ def _repoint_earlier_merges(
     credit-block change on X takes only X's row; the nightly advisor-label
     refresh skips a customer it cannot lock and waits for nothing (KAN-403).
     The copies are only tried, never waited for: the nightly vehicle-party
-    label refresh locks party rows in id order
-    and could hold a copy while it waits for one of D's rows, so a copy held
+    label refresh and the summary-changed consumer (KAN-186) lock party rows
+    in id order and could hold a copy while they wait for one of D's rows, so a copy held
     by another writer refuses the merge (409 `merge_vehicle_party_busy`,
     nothing written), which can simply be sent again."""
 
@@ -2671,31 +2671,77 @@ def refresh_vehicle_party_labels(db: Session) -> int:
             return changed
         last_id = batch[-1].id
 
-        summaries = get_vehicle_summaries(db, [p.vehicle_id for p in batch])
-        now = utcnow()
-        unchanged_ids: list[uuid.UUID] = []
-        for party in batch:
-            summary = summaries.get(party.vehicle_id)
-            if summary is None:
-                continue
-            party.__dict__.pop("_vehicle_label_read_fill", None)
-            changes = _label_changes(party, summary)
-            if changes:
-                for column, value in changes.items():
-                    setattr(party, column, value)
-                party.vehicle_label_refreshed_at = now
-                changed += 1
-            else:
-                unchanged_ids.append(party.id)
-        db.flush()
-        if unchanged_ids:
-            db.execute(
-                update(VehicleParty)
-                .where(VehicleParty.id.in_(unchanged_ids))
-                .values(vehicle_label_refreshed_at=now, updated_at=VehicleParty.updated_at)
-                .execution_options(synchronize_session=False)
-            )
+        changed += _relabel_vehicle_parties(db, batch)
         db.commit()
+
+
+def _relabel_vehicle_parties(db: Session, parties: list[VehicleParty]) -> int:
+    """Re-reads each party's vehicle label from `get_vehicle_summaries` and
+    stamps `vehicle_label_refreshed_at` — flushed, never committed here.
+    Returns how many rows' labels changed. A row whose label changed is
+    updated through the ORM (updated_at moves); a row already current is
+    only stamped, updated_at held; a row whose vehicle no longer exists is
+    left alone (reconciliation reports it). The nightly job and the
+    summary-changed consumer share it, so both apply the same rule."""
+
+    summaries = get_vehicle_summaries(db, [p.vehicle_id for p in parties])
+    now = utcnow()
+    changed = 0
+    unchanged_ids: list[uuid.UUID] = []
+    for party in parties:
+        summary = summaries.get(party.vehicle_id)
+        if summary is None:
+            continue
+        party.__dict__.pop("_vehicle_label_read_fill", None)
+        changes = _label_changes(party, summary)
+        if changes:
+            for column, value in changes.items():
+                setattr(party, column, value)
+            party.vehicle_label_refreshed_at = now
+            changed += 1
+        else:
+            unchanged_ids.append(party.id)
+    db.flush()
+    if unchanged_ids:
+        db.execute(
+            update(VehicleParty)
+            .where(VehicleParty.id.in_(unchanged_ids))
+            .values(vehicle_label_refreshed_at=now, updated_at=VehicleParty.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+    return changed
+
+
+def relabel_vehicle_parties_for_vehicle(db: Session, *, vehicle_id: uuid.UUID) -> int:
+    """KAN-186 — what the consumer of `vehicle.vehicle_mdm.summary_changed`
+    does: every party row naming the vehicle takes its current label, so a
+    VIN correction or a new first registration shows on the Vehicles tab
+    as soon as the worker delivers the event, not the next night. Flushed
+    only; the consumer harness commits it with the processed_event row.
+
+    Every dealer group's rows: the vehicle is one global fact (ADR-022), so
+    each group's holder rows (KAN-99) name the same car and carry the same
+    label — no group's customer is read, only the rows' own vehicle_id.
+
+    The label is re-read from `app.vehicle.public.get_vehicle_summaries`,
+    never taken from the event's payload: delivery is at-least-once and
+    unordered, and an older event delivered after a newer one must not put
+    its values back. The rows are locked FOR NO KEY UPDATE in id order —
+    the order a customer merge locks its duplicate's rows in — and re-read
+    under the lock."""
+
+    rows = list(
+        db.scalars(
+            select(VehicleParty)
+            .where(VehicleParty.vehicle_id == vehicle_id)
+            .order_by(VehicleParty.id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        ).all()
+    )
+    if not rows:
+        return 0
+    return _relabel_vehicle_parties(db, rows)
 
 
 def list_vehicle_parties(

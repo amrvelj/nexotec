@@ -27,6 +27,7 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.schemas.contract import ContractUpdate
 from app.sales.services import ownership
+from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -246,6 +247,8 @@ def create_contract(
             },
         ),
     )
+    # KAN-270: a contract from an offer holds the offer's configurations too.
+    publish_held_configurations(db, deal=contract)
     upsert_deal_projection(db, contract=contract)
     db.commit()
     db.refresh(contract)

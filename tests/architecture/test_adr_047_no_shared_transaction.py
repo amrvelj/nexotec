@@ -280,6 +280,8 @@ _READS = {
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_item_vehicle",
     "app.inventory.public.get_stock_items_for_vehicles",
+    # KAN-270: vehicle's daily purge asks which configurations a stock item holds; a SELECT only.
+    "app.inventory.public.referenced_configuration_ids",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
@@ -311,6 +313,8 @@ _READS = {
     "app.sales.public.get_contract_statuses",
     # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
     "app.sales.public.get_trade_in_seller",
+    # KAN-270: vehicle's daily purge asks which configurations an offer or contract holds; a SELECT only.
+    "app.sales.public.referenced_configuration_ids",
     # KAN-115: valuation asks which valuations a signed contract carries.
     "app.sales.public.valuations_carried_by_signed_contracts",
     # KAN-520: «Verwendung aufheben» asks which valuations a pending contract carries.
@@ -319,6 +323,8 @@ _READS = {
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
     "app.valuation.public.list_valid_valuations_for_vin",
+    # KAN-270: vehicle's daily purge asks which configurations a valuation holds; a SELECT only.
+    "app.valuation.public.referenced_configuration_ids",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
     # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.

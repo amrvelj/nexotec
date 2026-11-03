@@ -113,7 +113,11 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   KAN-513).
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
-  `trade_in`; additive, KAN-144). A directly added item carries neither.
+  `trade_in`; additive, KAN-144). A directly added item carries neither. It carries
+  `configurationId` whenever the item has one, and «Konfiguration zuordnen» publishes
+  `inventory.stock_item.configuration_attached` (`stockNumber`, `configurationId`), so Vehicle keeps a
+  configuration a stock item took for good (KAN-270; `inventory.public.referenced_configuration_ids`
+  is Vehicle's read-only safety net — every stock item counts, whatever its lifecycle).
 - **A manual configuration's pipeline item is created reserved for its contract** (K-12,
   FR-I-11; KAN-158), in the consumer transaction that creates it; a trade-in's is not. Stock
   releases it on `sales.contract.cancelled` (consumer `inventory.sales_contract_cancelled`,
