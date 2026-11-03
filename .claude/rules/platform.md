@@ -686,8 +686,11 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   factor strips the session that removed it and ends the user's other sessions; platform staff's
   MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
   event like one reached through wrong passwords. Platform staff's `reset-mfa` recovery (KAN-202) removes every factor and always
-  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 2.7.1, the
-  version the `cryptography<46` pin installs; the shape checks it lacks sit in `mfa.py`, and the **key policy** refuses at registration a key
+  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 3.0.1 on
+  `cryptography` 49, KAN-386; the registration options offer, and the library accepts, EdDSA, ES256 and RS256
+  only — its defaults; the shape checks written for 2.7.1 stay in `mfa.py`, and a builtin exception the library
+  lets out at **registration** is a malformed answer, 422 `passkey_not_verified` — 3.0.1 still raises them on a
+  hand-crafted `packed`/`fido-u2f`/`tpm` statement or COSE key; and the **key policy** refuses at registration a key
   whose type does not match its algorithm family, an RSA key under 2048 bits (SP 800-131A), with an
   even modulus, past 16384 bits or with an exponent past 64 bits, an Ed25519 encoding that is not a
   canonical point on the curve (RFC 8032 §5.1.3), and a credential id past 1023 bytes (the spec's

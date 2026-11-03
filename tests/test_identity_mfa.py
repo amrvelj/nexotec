@@ -972,7 +972,7 @@ MALFORMED_ANSWERS = {
 
 @pytest.mark.parametrize("defect", list(MALFORMED_ANSWERS))
 def test_a_malformed_passkey_answer_through_the_real_library_is_a_wrong_answer(client, login, db_session, defect):
-    """`webauthn` 2.7.1 — the version the `cryptography<46` pin installs — lets
+    """`webauthn` 2.7.1 (the version installed until KAN-386) let
     these shapes reach `json.loads` and dict indexing unguarded (builtin
     exceptions, not `WebAuthnException`); the tenth review found the verify
     route answering 500 to them, outside the wrong-answer counting. Every one
@@ -1175,9 +1175,19 @@ def _cose_rsa(private_key, alg: int) -> bytes:
     return encode_cbor({1: 3, 3: alg, -1: n, -2: numbers.e.to_bytes(3, "big")})
 
 
-def _register_through_the_library(client, cookie: str, credential_id: bytes, cose_key: bytes, *, sign_count: int = 0):
+def _register_through_the_library(
+    client,
+    cookie: str,
+    credential_id: bytes,
+    cose_key: bytes,
+    *,
+    sign_count: int = 0,
+    fmt: str = "none",
+    att_stmt: object = None,
+):
     """A `none` attestation exactly as a platform authenticator would answer the
-    registration options, through the real `webauthn` library."""
+    registration options, through the real `webauthn` library (another `fmt`
+    and statement for the hand-crafted answers of KAN-386)."""
 
     from webauthn.helpers import encode_cbor
 
@@ -1189,8 +1199,8 @@ def _register_through_the_library(client, cookie: str, credential_id: bytes, cos
     ).encode()
     attestation = encode_cbor(
         {
-            "fmt": "none",
-            "attStmt": {},
+            "fmt": fmt,
+            "attStmt": {} if att_stmt is None else att_stmt,
             "authData": _auth_data(flags=0x41, sign_count=sign_count, credential_id=credential_id, cose_key=cose_key),
         }
     )
@@ -1343,6 +1353,82 @@ def test_an_attestation_the_library_refuses_is_passkey_not_verified(client, logi
     assert len(calls) == 1  # the shape checks passed it on; the library refused it
 
 
+def _residual_attestations():
+    """KAN-386: the hand-crafted registration answers whose inner structures
+    `webauthn` 2.7.1's parsers met with builtin exceptions (a 500 and an ERROR
+    line). No browser or authenticator produces them."""
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from webauthn.helpers import encode_cbor
+
+    p256 = ec.generate_private_key(ec.SECP256R1())
+    numbers = p256.public_key().public_numbers()
+    x, y = numbers.x.to_bytes(32, "big"), numbers.y.to_bytes(32, "big")
+    good_key = _cose_ec2(p256)
+    junk = b"\x30\x03junk"
+    return {
+        "packed sig is an int": ("packed", {"alg": -7, "sig": 5}, good_key),
+        "packed x5c is a string": ("packed", {"alg": -7, "sig": b"\x30\x00", "x5c": "certificate"}, good_key),
+        "packed x5c is a list of ints": ("packed", {"alg": -7, "sig": b"\x30\x00", "x5c": [1, 2]}, good_key),
+        "packed x5c is junk bytes": ("packed", {"alg": -7, "sig": b"\x30\x00", "x5c": [junk]}, good_key),
+        "fido-u2f x5c is an int": ("fido-u2f", {"sig": b"\x30\x00", "x5c": 7}, good_key),
+        "junk tpm statement": (
+            "tpm",
+            {"ver": "2.0", "alg": -257, "x5c": [junk], "sig": junk, "certInfo": junk, "pubArea": junk},
+            good_key,
+        ),
+        "junk android-key statement": ("android-key", {"alg": -7, "sig": junk, "x5c": [junk]}, good_key),
+        "COSE key is a CBOR int": ("none", {}, encode_cbor(5)),
+        "COSE key has no alg": ("none", {}, encode_cbor({1: 2, -1: 1, -2: x, -3: y})),
+        "EC2 COSE key has no x": ("none", {}, encode_cbor({1: 2, 3: -7, -1: 1, -3: y})),
+    }
+
+
+@pytest.mark.parametrize("shape", list(_residual_attestations()))
+def test_a_hand_crafted_attestation_is_refused_not_a_server_error(client, login, db_session, shape):
+    """KAN-386 (Anto, option A: `webauthn` 3.x on `cryptography` 49): every
+    residual shape the 2.7.1 parsers raised a builtin exception on is a 422 now,
+    nothing stored — nine of the ten still raise one inside 3.0.1, which the
+    registration route answers as a malformed answer. The answer carries the real challenge and origin, so the
+    library reaches the attestation statement and the key."""
+
+    fmt, att_stmt, cose_key = _residual_attestations()[shape]
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+
+    refused = _register_through_the_library(
+        client, cookie, b"crafted-" + uuid.uuid4().bytes, cose_key, fmt=fmt, att_stmt=att_stmt
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"]["factor"] == "passkey"
+    assert refused.json()["error"]["details"]["reason"] in {"passkey_not_verified", "passkey_key_not_accepted"}
+    assert db_session.scalars(select(MfaPasskey)).all() == []
+
+
+def test_a_passkey_algorithm_the_options_do_not_offer_is_not_verified(client, login, db_session):
+    """`webauthn` 3.x checks the key's algorithm against the ones the
+    registration options offered (its defaults: EdDSA, ES256, RS256), so a
+    2048-bit RSA-PSS key is the library's refusal, before the key policy."""
+
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    offered = {param["alg"] for param in json.loads(options.json()["options"])["pubKeyCredParams"]}
+    assert offered == {-8, -7, -257}
+
+    pss = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    refused = _register_through_the_library(client, cookie, b"pss-" + uuid.uuid4().bytes, _cose_rsa(pss, alg=-37))
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"] == {"factor": "passkey", "reason": "passkey_not_verified"}
+    assert db_session.scalars(select(MfaPasskey)).all() == []
+
+
 def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client, login, db_session):
     """Through the real library: a `none` attestation accepts any key that
     decodes, so the key policy judges it (twelfth to fourteenth reviews). Refused
@@ -1371,7 +1457,7 @@ def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client,
     not_a_point = encode_cbor({1: 1, 3: -8, -1: 6, -2: (2).to_bytes(32, "little")})
     past_the_ceiling = encode_cbor({1: 3, 3: -257, -1: ((1 << 16384) | 1).to_bytes(2049, "big"), -2: b"\x01\x00\x01"})
     for cose_key in (
-        _cose_rsa(small_rsa, alg=-39),
+        _cose_rsa(small_rsa, alg=-257),
         _cose_ec2(p256, alg=-257),
         _cose_rsa(big_rsa, alg=-7),
         even_modulus,

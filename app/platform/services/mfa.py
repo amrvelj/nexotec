@@ -340,18 +340,18 @@ CLIENT_DATA_MAX_BYTES = 4096
 
 
 def _well_formed_client_answer(credential: object, *, response_fields: tuple[str, ...]) -> bool:
-    """The shape check `webauthn` 2.7.1 does not do. That is the version the
-    `cryptography<46` pin installs (CI, the image, Render; 3.x wraps every
-    parser): its `parse_client_data_json` runs `json.loads` on the raw bytes
-    and indexes the result as a dict, and it decodes `userHandle` outside its
-    own `try`, so a non-UTF-8, non-JSON, non-object or absurdly nested
-    `clientDataJSON`, a non-string `type`/`challenge`/`origin`, a non-string
-    id or a `userHandle` that is not base64url raise builtin exceptions, not
-    `WebAuthnException` — a 500 that would also escape the wrong-answer
-    counting. Nothing here judges the answer; it makes sure the library sees
-    the shapes it handles. (The inner CBOR structures of an attestation are
-    not walked here — a hand-crafted `attStmt` can still raise inside 2.7.1 on
-    the registration route, where nothing is counted; KAN-386.)"""
+    """The shape check written for `webauthn` 2.7.1 (KAN-196) and kept on 3.0.1
+    (KAN-386): 3.0.1 still decodes `userHandle` outside its own `try` and
+    reads the parsed `clientDataJSON` without checking its shape everywhere,
+    so a non-UTF-8, non-JSON, non-object or absurdly nested `clientDataJSON`,
+    a non-string `type`/`challenge`/`origin`, a non-string id or a
+    `userHandle` that is not base64url could raise builtin exceptions, not
+    `WebAuthnException` — on the sign-in route a 500 that would also escape
+    the wrong-answer counting. Nothing here judges the answer; it makes sure
+    the library sees the shapes it handles. (The inner CBOR structures of an
+    attestation are not walked here: the registration route, where nothing
+    is counted, treats a builtin exception from the library as a malformed
+    answer — `_MALFORMED_ATTESTATION_ERRORS`.)"""
 
     if not isinstance(credential, dict):
         return False
@@ -396,9 +396,10 @@ def _well_formed_client_answer(credential: object, *, response_fields: tuple[str
 
 
 def _well_formed_attestation(response: dict) -> bool:
-    """2.7.1's `parse_attestation_object` indexes the decoded CBOR as a dict
-    with `fmt`, `authData` and `attStmt` without checking; refuse anything
-    else before the library sees it (its own CBOR decoder is wrapped)."""
+    """The attestation object must decode to a dict with a string `fmt`,
+    bytes `authData` and a dict `attStmt`; anything else is refused before
+    the library sees it (written for 2.7.1, whose `parse_attestation_object`
+    indexed it unchecked; kept on 3.0.1 as the first, cheap refusal)."""
 
     try:
         attestation = parse_cbor(base64url_to_bytes(response["attestationObject"]))
@@ -425,6 +426,11 @@ RSA_MAX_EXPONENT_BITS = 64
 # A credential id is at most 1023 bytes (WebAuthn L2 §5.8.3); the column holds
 # exactly that, base64url.
 CREDENTIAL_ID_MAX_BYTES = 1023
+# The builtin exceptions `verify_registration_response` lets out on a
+# hand-crafted attestation (KAN-386; `tests/test_identity_mfa.py` names each
+# shape): cryptography's DER/ASN.1 parsers raise ValueError, a buffer of the
+# wrong type TypeError, a missing CBOR field KeyError or AttributeError.
+_MALFORMED_ATTESTATION_ERRORS = (TypeError, ValueError, KeyError, IndexError, AttributeError, OverflowError)
 _EC2_ALGS = {COSEAlgorithmIdentifier.ECDSA_SHA_256, COSEAlgorithmIdentifier.ECDSA_SHA_512}
 _RSA_ALGS = {
     COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
@@ -439,7 +445,7 @@ _RSA_ALGS = {
 
 def _key_can_sign_in(key: object, alg: int) -> bool:
     """The passkey key policy: the key type must match the algorithm family
-    `verify_signature` (webauthn 2.7.1) knows — otherwise no signature ever
+    `verify_signature` (webauthn 3.0.1) knows — otherwise no signature ever
     verifies — and an RSA key or an Ed25519 encoding must be one a sign-in can
     use: RSA within the policy bounds above, Ed25519 a point on the curve.
     Part of this is stricter than what the library could verify (the 2048-bit
@@ -517,6 +523,17 @@ def register_passkey(
         # certificates are passed, so nothing server-side is judged here): a
         # forged or malformed one is a 422, never a 500, whichever of the
         # library's exceptions names the defect.
+        raise not_verified from exc
+    except _MALFORMED_ATTESTATION_ERRORS as exc:
+        # `webauthn` 3.0.1 still lets builtin exceptions out of its attestation-
+        # statement and COSE-key parsers (KAN-386: a `packed` `sig` that is an
+        # int, an `x5c` that is a string, a list of ints or junk bytes; a
+        # `fido-u2f` `x5c` that is an int; a junk `tpm` statement; a COSE key
+        # that is a CBOR int, has no `alg`, or is EC2 without `x`). Everything
+        # the library parses here is the client's answer, checked against our
+        # own fixed challenge, RP id and origin, so such an exception is a
+        # malformed answer too: the same 422, never a 500. The sign-in route
+        # keeps its shape check instead, where a wrong answer is counted.
         raise not_verified from exc
     # A `none` attestation only decodes the key and checks `alg`. A COSE key
     # that decodes but cannot be loaded (a point off the curve, integer
@@ -601,10 +618,9 @@ def verify_passkey(db: Session, *, user: User, credential: dict, challenge: byte
         )
     except WebAuthnException:
         # A malformed or forged assertion is a wrong answer like any other,
-        # whichever of the library's exceptions names the defect (2.7.1 raises
-        # `InvalidJSONStructure` unwrapped where 3.x wraps it; the shape check
-        # above keeps the builtin exceptions 2.7.1's assertion parsing can
-        # raise out of this path).
+        # whichever of the library's exceptions names the defect (the shape
+        # check above keeps the builtin exceptions the library's assertion
+        # parsing can raise out of this path).
         return False
     row.sign_count = verified.new_sign_count
     row.last_used_at = utcnow()
