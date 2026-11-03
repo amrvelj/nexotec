@@ -40,6 +40,7 @@ from app.vehicle.services.configuration import (
     get_configuration_or_404,
 )
 from app.vehicle.services.host_configuration import (
+    ConfigurationLabel,
     ConfigurationPriceLine,
     HostConfiguration,
 )
@@ -49,6 +50,17 @@ def configuration_label(config: VehicleConfiguration) -> str:
     parts = [config.brand_display_name, config.model_group_name, config.variant_name]
     label = " ".join(p for p in parts if p)
     return (label or config.catalogue_variant_label or "—")[:200]
+
+
+def get_configuration_labels(db: Session, configuration_ids: set[uuid.UUID]) -> dict[uuid.UUID, ConfigurationLabel]:
+    """KAN-534 — the current label of each configuration named, with its
+    Betrieb, for a host refreshing its rule-2 copy; an id naming nothing is
+    absent. One SELECT, read only."""
+
+    if not configuration_ids:
+        return {}
+    rows = db.scalars(select(VehicleConfiguration).where(VehicleConfiguration.id.in_(configuration_ids))).all()
+    return {row.id: ConfigurationLabel(tenant_id=row.tenant_id, label=configuration_label(row)) for row in rows}
 
 
 def _price_lines(config: VehicleConfiguration) -> list[ConfigurationPriceLine]:

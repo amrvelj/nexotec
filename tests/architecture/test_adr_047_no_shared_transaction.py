@@ -318,6 +318,8 @@ _READS = {
     "app.valuation.public.list_valid_valuations_for_vin",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
+    # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.
+    "app.vehicle.public.get_configuration_labels",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
     "app.vehicle.public.get_vehicle_or_404",

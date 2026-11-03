@@ -23,6 +23,10 @@ record (and VIN) a stock item is, so Sales can hand the sold car's plate on.
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
 from app.inventory.ownership import InventoryOwnershipProvider
+from app.inventory.services.configuration_label import (
+    oldest_configuration_label_age_seconds,
+    refresh_configuration_labels,
+)
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
@@ -40,6 +44,8 @@ __all__ = [
     "get_stock_item_pricing",
     "get_stock_item_vehicle",
     "get_stock_items_for_vehicles",
+    "oldest_configuration_label_age_seconds",
+    "refresh_configuration_labels",
     "release",
     "reserve",
     "reserve_for_contract",
