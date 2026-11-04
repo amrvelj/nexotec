@@ -127,6 +127,7 @@ const REASON_KEYS: Record<string, string> = {
       'valuation_expired',
       // KAN-253 — «Verwendung aufheben».
       'valuation_not_used',
+      'vehicle_label_follows_configuration',
       'vehicle_left_stock',
       'vehicle_not_purchased',
       'vin_already_in_stock',

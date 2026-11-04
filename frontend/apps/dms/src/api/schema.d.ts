@@ -9783,8 +9783,11 @@ export interface components {
              * @description Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves to (found, or created). Without a `vin` it is refused (422 `vehicle_id_requires_vin`): a pipeline item has no vehicle until its VIN arrives.
              */
             vehicleId?: string | null;
-            /** Vehiclelabel */
-            vehicleLabel: string;
+            /**
+             * Vehiclelabel
+             * @description Ignored: the stock item's name (`vehicleLabel`) is its configuration's label, derived by the server and refreshed whenever the configuration changes (ADR-117).
+             */
+            vehicleLabel?: string | null;
             /**
              * Vin
              * @description A car with a known VIN, taken straight into stock. Normalised first (upper-cased, all whitespace removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and digits, never I, O or Q — otherwise 422. A VIN already in this dealership's stock is 409 `vin_already_in_stock`.

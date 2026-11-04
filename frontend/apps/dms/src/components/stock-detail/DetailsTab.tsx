@@ -199,15 +199,21 @@ export function DetailsTab({
 
         <OverviewCard title={t('stockDetail.identity.title')}>
           <KeyValueRow label={t('stockDetail.identity.vehicleLabel')}>
-            <InlineEditField
-              value={item.vehicleLabel}
-              emptyLabel={t('common.notSet')}
-              onSave={(v) => onSaveField({ vehicleLabel: v })}
-              describeError={describeError}
-              isConflict={isStaleVersion}
-              onReload={onReload}
-              reloadLabel={reloadLabel}
-            />
+            {item.configurationId ? (
+              // ADR-117 (2), KAN-556: a configured car is named by its
+              // configuration and follows it — changed there, never here.
+              <span title={t('stockDetail.identity.vehicleLabelFollowsConfiguration')}>{item.vehicleLabel}</span>
+            ) : (
+              <InlineEditField
+                value={item.vehicleLabel}
+                emptyLabel={t('common.notSet')}
+                onSave={(v) => onSaveField({ vehicleLabel: v })}
+                describeError={describeError}
+                isConflict={isStaleVersion}
+                onReload={onReload}
+                reloadLabel={reloadLabel}
+              />
+            )}
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.identity.vehicleId')}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{item.vehicleId ?? t('common.notSet')}</span>

@@ -248,6 +248,7 @@
       "configuration_already_linked": "A questo veicolo è già assegnata una configurazione. Ricaricare la pagina.",
       "configuration_vin_differs": "Il VIN della configurazione non è quello di questo veicolo. La configurazione descrive un altro veicolo.",
       "configuration_held_by_stock_item": "Questa configurazione appartiene già al veicolo {{stockNumber}} in stock. Ogni veicolo ha la propria configurazione.",
+      "vehicle_label_follows_configuration": "Il nome di questo veicolo è quello della sua configurazione e la segue. Modificate la configurazione.",
       "ui_translation_blank": "Un testo dell'interfaccia non può essere vuoto.",
       "ui_translation_placeholders_changed": "Il testo deve mantenere i segnaposto del testo fornito.",
       "bank_account_used_by_location": "Una sede usa questo conto come conto bancario derogatorio. Rimuovete prima la deroga sulla sede.",
@@ -1173,6 +1174,7 @@
     "identity": {
       "title": "Veicolo",
       "vehicleLabel": "Denominazione",
+      "vehicleLabelFollowsConfiguration": "La denominazione segue la configurazione del veicolo.",
       "vehicleId": "ID veicolo"
     },
     "errors": {

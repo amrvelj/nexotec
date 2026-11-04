@@ -159,8 +159,13 @@ def test_attaching_a_configuration_links_it_once_with_an_audit_row(client, db_se
     assert body["configurationLabel"]
     assert body["version"] == item.version + 1
     [audit] = _attach_audit_rows(db_session, item.id)
-    assert audit.before == {"configurationId": None}
-    assert audit.after == {"configurationId": configuration_id, "configurationLabel": body["configurationLabel"]}
+    # KAN-556 (ADR-117 (2)): the car's name follows the configuration it took.
+    assert audit.before == {"configurationId": None, "vehicleLabel": "VW Golf 8 GTI"}
+    assert audit.after == {
+        "configurationId": configuration_id,
+        "configurationLabel": body["configurationLabel"],
+        "vehicleLabel": body["configurationLabel"],
+    }
     assert audit.tenant_id == tenant_id
 
 
