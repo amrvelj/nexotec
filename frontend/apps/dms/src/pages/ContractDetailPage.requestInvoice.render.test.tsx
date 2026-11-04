@@ -180,6 +180,43 @@ describe('ContractDetailPage › «Rechnung anfordern» with the plate (KAN-523)
     expect(button).toBeDisabled()
   })
 
+  // KAN-539 (Anto, 2026-11-03, option A): once per contract — after the
+  // request the action stays visible, disabled, and names the day.
+  it('a contract whose invoice was already requested cannot request it again, and the action says when', async () => {
+    const user = userEvent.setup()
+    const { calls } = install({ ...CONFIRMED, invoiceRequestedAt: '2026-11-03T09:15:00Z' } as unknown as SalesContractRead)
+    renderPage()
+
+    const button = await screen.findByRole('button', { name: i18n.t('contractDetail.actions.requestInvoice') })
+    expect(button).toBeDisabled()
+    await user.hover(button.parentElement as HTMLElement)
+    expect(
+      await screen.findByText(i18n.t('contractDetail.actions.requestInvoiceDisabledAlreadyRequested', { date: '03.11.2026' })),
+    ).toBeInTheDocument()
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0)
+  })
+
+  it('a second request refused by the server is said in the UI language with its day', async () => {
+    const user = userEvent.setup()
+    install(CONFIRMED, () =>
+      status(409, {
+        error: {
+          code: 'conflict',
+          message: 'Invoicing of contract C-000001 was already requested on 2026-11-03T09:15:00+00:00.',
+          details: { reason: 'invoice_already_requested', invoiceRequestedAt: '2026-11-03T09:15:00+00:00' },
+        },
+      }),
+    )
+    renderPage()
+    const dialog = await openTheDialog(user)
+    await user.click(within(dialog).getByRole('radio', { name: i18n.t('contractDetail.requestInvoice.withoutPlate') }))
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('contractDetail.requestInvoice.submit') }))
+
+    expect(
+      await within(dialog).findByText(i18n.t('apiRefusal.reasons.invoice_already_requested', { date: '03.11.2026' })),
+    ).toBeInTheDocument()
+  })
+
   it('a pending contract keeps «Vertrag bestätigen» as its primary action', async () => {
     install({ ...CONFIRMED, status: 'pending' } as unknown as SalesContractRead)
     renderPage()

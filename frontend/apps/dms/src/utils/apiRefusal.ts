@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next'
 import { ApiError } from '../api/client'
 import i18n, { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDateOnly } from './format'
+import { formatDate, formatDateOnly } from './format'
 
 type Details = Record<string, unknown>
 
@@ -171,6 +171,8 @@ const REASON_KEYS: Record<string, string> = {
       'number_range_start_out_of_range',
       // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
       'invoice_plate_vehicle_unknown',
+      // KAN-539 — «Rechnung anfordern» once per contract.
+      'invoice_already_requested',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -181,6 +183,13 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
   configuration_held_by_stock_item: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
+  // KAN-539: the instant of the first request, as a day in the user's locale.
+  invoice_already_requested: (d) => ({
+    date:
+      typeof d.invoiceRequestedAt === 'string' && !Number.isNaN(Date.parse(d.invoiceRequestedAt))
+        ? formatDate(d.invoiceRequestedAt, toSwissLocale(i18n.language as SupportedLanguage))
+        : '—',
+  }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
   // A connection's settings by their labels on the connect form; a key the
   // bundles do not name yet as the API spells it, never the missing-key marker.

@@ -455,8 +455,9 @@ def _invoiceable_contract(db_session, engine, dealership_id: uuid.UUID, group_id
 
 
 def test_a_retried_invoice_request_publishes_one_event(client, db_session, engine):
-    """request-invoice changes no version: without the key, a retry under the
-    same If-Match ran again and published a second invoice request."""
+    """Under the same key a retry replays the first success, never a 409
+    (KAN-539 now bumps the version and refuses a second request; before it,
+    a retry without the key ran again and published a second request)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()

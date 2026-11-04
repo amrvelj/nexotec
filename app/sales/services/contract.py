@@ -797,12 +797,30 @@ def request_invoice(
     the register would refuse is refused here, before anything is written
     (`services/invoice_handover.py`). The request is audited — whether a
     plate went with it, never its value (ADR-039, ADR-085).
+
+    KAN-539 (Anto, 2026-11-03, option A) — once per contract. The request
+    stamps `invoice_requested_at` in the transaction that writes the outbox
+    row, so a second request (another tab, a replayed click) is refused with
+    409 `invoice_already_requested` before anything else is checked or
+    written: Finance never gets two triggers for one sale, and the car never
+    gets a second plate from a repeat. The route holds the contract's row
+    lock (`for_update`), so two concurrent requests run one after the other
+    and the second sees the stamp.
     """
 
     if contract.status != ContractStatus.CONFIRMED:
         raise ConflictError(
             f"Contract {contract.contract_number} cannot request invoicing from status "
             f"'{contract.status.value}'."
+        )
+    if contract.invoice_requested_at is not None:
+        raise ConflictError(
+            f"Invoicing of contract {contract.contract_number} was already requested "
+            f"on {contract.invoice_requested_at.isoformat()}.",
+            details={
+                "reason": "invoice_already_requested",
+                "invoiceRequestedAt": contract.invoice_requested_at.isoformat(),
+            },
         )
     if contract.legacy_transaction_id is not None:
         raise ConflictError(
@@ -842,6 +860,9 @@ def request_invoice(
             "plateMovedFromOtherVehicle": bool(handover["moveFrom"]),
         },
     )
+    contract.invoice_requested_at = utcnow()
+    contract.updated_by = actor_id
+    contract.version += 1
     publish(
         db,
         OutboxEvent(

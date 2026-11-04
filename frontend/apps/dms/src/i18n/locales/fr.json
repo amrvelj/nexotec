@@ -301,6 +301,7 @@
       "plate_move_before_start": "L'attribution sur l'autre véhicule commence le même jour ou plus tard – veuillez choisir une date «Valable dès» ultérieure.",
       "plate_validity_invalid": "Une attribution ne peut pas se terminer avant de commencer.",
       "plate_wechselschild_not_possible": "Une plaque interchangeable relie exactement deux véhicules – cette plaque est déjà sur deux véhicules.",
+      "invoice_already_requested": "La facture de ce contrat a déjà été demandée le {{date}}.",
       "invoice_plate_vehicle_unknown": "Le véhicule de ce contrat n'a pas de fiche véhicule sur laquelle enregistrer une plaque. Demandez la facture sans plaque, puis enregistrez la plaque sur le véhicule.",
       "number_pattern_invalid": "Le modèle n'est pas valide : exactement un {counter:N} (N de 1 à 9), {year} et {location_code} au plus une fois, sinon seulement lettres, chiffres et - / . _",
       "number_pattern_too_long": "Un numéro selon ce modèle dépasserait 16 caractères.",
@@ -1415,6 +1416,7 @@
       "requestInvoice": "Demander la facture",
       "requestInvoiceDisabledNotConfirmed": "Possible seulement une fois le contrat confirmé.",
       "requestInvoiceDisabledNotPurchased": "Le véhicule n'est pas encore acheté — la facture peut être demandée dès que son achat est saisi dans le stock.",
+      "requestInvoiceDisabledAlreadyRequested": "La facture a déjà été demandée le {{date}}.",
       "requestInvoiceDisabledLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas."
     },
     "requestInvoice": {

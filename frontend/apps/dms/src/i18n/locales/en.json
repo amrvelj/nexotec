@@ -301,6 +301,7 @@
       "plate_move_before_start": "The assignment on the other vehicle starts on the same day or later – please choose a later «Valid from».",
       "plate_validity_invalid": "An assignment cannot end before it starts.",
       "plate_wechselschild_not_possible": "An interchangeable plate joins exactly two vehicles – this plate is already on two.",
+      "invoice_already_requested": "The invoice for this contract was already requested on {{date}}.",
       "invoice_plate_vehicle_unknown": "The vehicle of this contract has no vehicle record a licence plate could be recorded on. Request the invoice without a plate and record the plate on the vehicle afterwards.",
       "number_pattern_invalid": "The pattern is not valid: exactly one {counter:N} (N from 1 to 9), {year} and {location_code} at most once, otherwise only letters, digits and - / . _",
       "number_pattern_too_long": "A number following this pattern would be longer than 16 characters.",
@@ -1415,6 +1416,7 @@
       "requestInvoice": "Request invoice",
       "requestInvoiceDisabledNotConfirmed": "Only possible once the contract is confirmed.",
       "requestInvoiceDisabledNotPurchased": "The vehicle has not been purchased yet — the invoice can be requested once its purchase is booked in stock.",
+      "requestInvoiceDisabledAlreadyRequested": "The invoice was already requested on {{date}}.",
       "requestInvoiceDisabledLegacy": "Sale migrated from the legacy system — already invoiced there."
     },
     "requestInvoice": {

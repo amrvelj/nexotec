@@ -301,6 +301,7 @@
       "plate_move_before_start": "Die Zuordnung auf dem anderen Fahrzeug beginnt am selben Tag oder später – bitte ein späteres «Gültig ab» wählen.",
       "plate_validity_invalid": "Eine Zuordnung kann nicht vor ihrem Beginn enden.",
       "plate_wechselschild_not_possible": "Ein Wechselschild verbindet genau zwei Fahrzeuge – dieses Kontrollschild ist bereits auf zwei Fahrzeugen.",
+      "invoice_already_requested": "Die Rechnung für diesen Vertrag wurde bereits am {{date}} angefordert.",
       "invoice_plate_vehicle_unknown": "Für das Fahrzeug dieses Vertrags gibt es keinen Fahrzeugdatensatz, auf dem ein Kontrollschild erfasst werden kann. Fordern Sie die Rechnung ohne Kontrollschild an und erfassen Sie es danach beim Fahrzeug.",
       "number_pattern_invalid": "Das Muster ist ungültig: genau ein {counter:N} (N von 1 bis 9), höchstens einmal {year} und {location_code}, sonst nur Buchstaben, Ziffern und - / . _",
       "number_pattern_too_long": "Eine Nummer nach diesem Muster wäre länger als 16 Zeichen.",
@@ -1415,6 +1416,7 @@
       "requestInvoice": "Rechnung anfordern",
       "requestInvoiceDisabledNotConfirmed": "Erst nach der Bestätigung des Vertrags möglich.",
       "requestInvoiceDisabledNotPurchased": "Das Fahrzeug ist noch nicht eingekauft – die Rechnung kann angefordert werden, sobald der Einkauf im Bestand erfasst ist.",
+      "requestInvoiceDisabledAlreadyRequested": "Die Rechnung wurde bereits am {{date}} angefordert.",
       "requestInvoiceDisabledLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert."
     },
     "requestInvoice": {

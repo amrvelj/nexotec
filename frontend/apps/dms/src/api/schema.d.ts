@@ -5604,6 +5604,8 @@ export interface components {
             id: string;
             /** Invoiceref */
             invoiceRef: string | null;
+            /** Invoicerequestedat */
+            invoiceRequestedAt?: string | null;
             /** Isinvoiceable */
             isInvoiceable: boolean;
             /** Islegacy */
