@@ -171,7 +171,8 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
 ## API conventions
 
 Path-versioned `/v1` · camelCase JSON · cursor pagination · `updatedSince` for incremental
-sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` honoured, never
+sync · `If-Match` on every mutation of a versioned entity — the exceptions, each with its reason (six by Anto's
+ruling, KAN-428), are listed in `test_versioned_mutations_take_if_match.py` · `Idempotency-Key` honoured, never
 required, on every POST — nine ratified `/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`)
 · OpenAPI published per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
