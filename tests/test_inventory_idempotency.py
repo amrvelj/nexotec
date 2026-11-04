@@ -96,23 +96,25 @@ def _item(client, db_session, token: str) -> dict:
 
 def test_create_stock_item_twice_under_one_key_makes_one_item(client, db_session):
     token = _token()
-    label = f"Škoda Octavia {uuid.uuid4().hex[:6]}"
+    body = _item_body(db_session, token)
 
-    _twice(client, "/v1/inventory/stock-items", token, _item_body(db_session, token, vehicleLabel=label))
+    _twice(client, "/v1/inventory/stock-items", token, body)
 
-    assert _count(db_session, StockItem, StockItem.vehicle_label == label) == 1
+    # KAN-556 (ADR-117 (2)): the configuration names the car, so the one item
+    # is counted by its configuration, not by a label the client sent.
+    assert _count(db_session, StockItem, StockItem.configuration_id == uuid.UUID(body["configurationId"])) == 1
 
 
 def test_create_stock_item_with_a_reused_key_and_another_body_is_a_409(client, db_session):
     token = _token()
     body = _item_body(db_session, token)
     key, _ = _twice(client, "/v1/inventory/stock-items", token, body)
-    other = f"VW Golf {uuid.uuid4().hex[:6]}"
-
-    response = client.post("/v1/inventory/stock-items", json={**body, "vehicleLabel": other}, headers=_headers(token, key))
+    # Another body under the same key: a different condition (the label is no
+    # longer the client's, KAN-556, so a changed label would not tell).
+    response = client.post("/v1/inventory/stock-items", json={**body, "condition": "used"}, headers=_headers(token, key))
 
     _assert_key_conflict(response, key)
-    assert _count(db_session, StockItem, StockItem.vehicle_label == other) == 0
+    assert _count(db_session, StockItem, StockItem.configuration_id == uuid.UUID(body["configurationId"])) == 1
 
 
 # --- If-Match transitions: condition and purchase --------------------------------

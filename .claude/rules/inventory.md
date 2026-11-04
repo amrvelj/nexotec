@@ -55,7 +55,14 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
   invoicing and valuation fields are absent from it; `listPrice` is deliberately present. In the
   UI, group stock is a scope switch (`ScopeSwitchMenu`); the dealership is a column, not
-  sortable (it lives on platform's table). A dealership filter is not built (KAN-565, split from KAN-104). Which
+  sortable (it lives on platform's table), and **the filter** (KAN-565): `dealershipId` /
+  `dealershipIdNot` on `GET /v1/inventory/groups/{mine|id}/stock-items` (repeatable) narrow the
+  group's own roster only — an id outside it matches nothing, an empty page, never a 403/404 for
+  the id; `GET /v1/inventory/groups/mine/dealerships` is the options read (the same roster, the
+  same gate, 404 otherwise). `GroupStockGrid` offers «Betrieb ist / ist nicht» in its own
+  views-and-filters control (views saved under `inventory.stock.group`), the predicate in the URL
+  beside `?scope=group`; a scope switch drops the filters either way (the two grids filter on
+  different fields). Which
   Betriebe are in the group, and their labels, is platform's answer
   (`platform.public.list_group_read_dealerships`, KAN-121, ADR-107): Stock never joins platform's
   tables.
@@ -85,6 +92,21 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `vehicle.public.get_configuration_labels` — the other label jobs' rules: `version` not bumped, a
   current label only restamped, a configuration naming nothing or another Betrieb left alone, each
   batch `FOR NO KEY UPDATE SKIP LOCKED`; gauge `dms.label.age_seconds{label="inventory.configuration"}`.
+  Since KAN-556 the same job renames the car too (next bullet) and counts a row as current only
+  when both `configuration_label` and `vehicle_label` equal the configuration's label.
+- **A configured car is named by its configuration** (ADR-117 (2), KAN-556; Anto's ruling on
+  KAN-546, 2026-11-03): on an item with a configuration, `vehicle_label` (the «Fahrzeug» column,
+  the detail title, the marketplace's make/model, the offer's working label) **is** the
+  configuration's label — written at create (the endpoint's `vehicleLabel` is optional and
+  ignored; the FR-I-02/02b consumers name the item by the label the contract carried, their
+  configuration copy), at «Konfiguration zuordnen» (audited, `vehicleLabel` in before/after) and
+  by the nightly `inventory.configuration_labels` refresh. A PATCH may resend the name unchanged,
+  never another (422 `vehicle_label_follows_configuration`); the stock detail shows it read-only
+  with a hint. An item without a configuration keeps its own, editable text. Inventory-chain
+  migration `80667c6fddf8` named every configured item by Stock's own `configuration_label` copy
+  (never reading the vehicle context's table); on staging, which runs no worker (ADR-081), a copy
+  that was stale then stays stale, as `configuration_label` itself does there. The ADR-115 offer
+  banner listing «Bezeichnung» waits for that banner (KAN-553).
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
   Details in `.claude/rules/valuation.md`.

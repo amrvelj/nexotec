@@ -193,3 +193,44 @@ describe('One technical section in every host (KAN-459 exit criterion 2)', () =>
     expect(offer.textContent).toBe(stock.textContent)
   })
 })
+
+// KAN-556 (ADR-117 (2)) — a configured car is named by its configuration and
+// follows it: «Bezeichnung» is shown, never edited here (the server refuses
+// another name, `vehicle_label_follows_configuration`). A car without a
+// configuration keeps its inline editor.
+describe('Stock detail — a configured car\'s name follows its configuration (KAN-556)', () => {
+  it('shows the name read-only, saying why, for a configured car', async () => {
+    backend()
+    const onSaveField = vi.fn()
+    renderWithProviders(
+      <DetailsTab item={ITEM} locale="de-CH" onSaveField={onSaveField} onReload={vi.fn()} onRecordPurchase={vi.fn()} />,
+    )
+
+    await screen.findByTestId('configuration-technical-data')
+    const name = screen.getByTestId('vehicle-label-read-only')
+    expect(name).toHaveTextContent('VW Golf 8 GTI')
+    // The reason is the kit's info icon beside it (KAN-443), named «Hinweis».
+    expect(within(name.parentElement as HTMLElement).getByRole('img', { name: i18n.t('common.fieldHintIcon') })).toBeInTheDocument()
+    name.click()
+    expect(screen.queryByDisplayValue('VW Golf 8 GTI')).not.toBeInTheDocument()
+    expect(onSaveField).not.toHaveBeenCalled()
+  })
+
+  it('keeps the inline editor for a car without a configuration', async () => {
+    backend()
+    renderWithProviders(
+      <DetailsTab
+        item={{ ...ITEM, configurationId: null }}
+        locale="de-CH"
+        onSaveField={vi.fn()}
+        onReload={vi.fn()}
+        onRecordPurchase={vi.fn()}
+      />,
+    )
+
+    const name = await screen.findByText('VW Golf 8 GTI')
+    expect(screen.queryByTestId('vehicle-label-read-only')).not.toBeInTheDocument()
+    name.click()
+    expect(await screen.findByDisplayValue('VW Golf 8 GTI')).toBeInTheDocument()
+  })
+})

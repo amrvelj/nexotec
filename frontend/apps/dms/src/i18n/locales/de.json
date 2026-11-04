@@ -248,6 +248,7 @@
       "configuration_already_linked": "Diesem Fahrzeug ist bereits eine Konfiguration zugeordnet. Bitte die Seite neu laden.",
       "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug.",
       "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration.",
+      "vehicle_label_follows_configuration": "Der Name dieses Fahrzeugs ist der seiner Konfiguration und folgt ihr. Ändern Sie die Konfiguration.",
       "ui_translation_blank": "Ein UI-Text darf nicht leer sein.",
       "ui_translation_placeholders_changed": "Der Text muss die Platzhalter des ausgelieferten Textes behalten.",
       "bank_account_used_by_location": "Ein Standort verwendet dieses Konto als abweichende Bankverbindung. Entfernen Sie die Abweichung zuerst beim Standort.",
@@ -1092,6 +1093,7 @@
     "loadError": "Bestand konnte nicht geladen werden.",
     "groupLoadError": "Gruppenbestand konnte nicht geladen werden.",
     "allStockView": "Alle Fahrzeuge",
+    "allGroupStockView": "Alle Fahrzeuge der Gruppe",
     "columns": {
       "stockNumber": "Lagernr.",
       "vehicle": "Fahrzeug",
@@ -1172,6 +1174,7 @@
     "identity": {
       "title": "Fahrzeug",
       "vehicleLabel": "Bezeichnung",
+      "vehicleLabelFollowsConfiguration": "Die Bezeichnung folgt der Konfiguration des Fahrzeugs.",
       "vehicleId": "Fahrzeug-ID"
     },
     "errors": {

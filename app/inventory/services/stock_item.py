@@ -235,7 +235,15 @@ def _build_and_flush_stock_item(
         # pipeline item is created with no vehicle and promotion can give it one.
         vehicle_id=data.vehicle_id,
         vin=data.vin,
-        vehicle_label=data.vehicle_label,
+        # ADR-117 (2), KAN-556: a configured car is named by its
+        # configuration's label — the client's text is not read — and the
+        # name follows the configuration from here on (attach, the nightly
+        # refresh). An item without a configuration keeps its own text.
+        vehicle_label=(
+            configuration_label
+            if data.configuration_id is not None and configuration_label is not None
+            else data.vehicle_label
+        ),
         condition=data.condition,
         location_id=data.location_id,
         odometer_km=data.odometer_km,
@@ -406,6 +414,17 @@ def update_stock_item(
     db: Session, *, item: StockItem, data: StockItemUpdate, actor_id: uuid.UUID | None
 ) -> StockItem:
     changes = data.model_dump(exclude_unset=True)
+    # ADR-117 (2), KAN-556: a configured car's name is its configuration's
+    # label and follows it; a PATCH may resend it unchanged, never set another.
+    if (
+        item.configuration_id is not None
+        and "vehicle_label" in changes
+        and changes["vehicle_label"] != item.vehicle_label
+    ):
+        raise UnprocessableEntityError(
+            "This car's name is its configuration's label and follows it; change the configuration instead.",
+            details={"reason": "vehicle_label_follows_configuration", "field": "vehicleLabel"},
+        )
     # KAN-432 (rule 4): a condition sent on the PATCH is the same fact as
     # `change_condition`'s, so it publishes the same event, in this
     # transaction — consumers never miss a change made by either route.
@@ -449,9 +468,12 @@ def attach_configuration(
     _check_configuration_not_held(db, tenant_id=item.tenant_id, configuration_id=configuration.id)
     item.configuration_id = configuration.id
     # Rule 2's three columns: the label is a copy of the configuration's,
-    # refreshed now.
+    # refreshed now — and the car's name follows it from now on (ADR-117 (2),
+    # KAN-556), the text the retired hand-typed intake stored replaced.
+    previous_vehicle_label = item.vehicle_label
     item.configuration_label = configuration.label
     item.configuration_label_refreshed_at = utcnow()
+    item.vehicle_label = configuration.label
     item.updated_by = actor_id
     item.version += 1
     db.flush()
@@ -462,8 +484,12 @@ def attach_configuration(
         tenant_id=item.tenant_id,
         action="configuration_attached",
         actor_id=actor_id,
-        before={"configurationId": None},
-        after={"configurationId": str(configuration.id), "configurationLabel": configuration.label},
+        before={"configurationId": None, "vehicleLabel": previous_vehicle_label},
+        after={
+            "configurationId": str(configuration.id),
+            "configurationLabel": configuration.label,
+            "vehicleLabel": configuration.label,
+        },
     )
     # KAN-270: the fact vehicle keeps a configuration a host took for good by.
     publish(

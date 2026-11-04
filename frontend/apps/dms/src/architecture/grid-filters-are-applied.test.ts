@@ -7,7 +7,7 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { conditionsForField, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
-import { applyStockFilters, buildStockFilterFields } from '../stockOptions'
+import { applyGroupStockFilters, applyStockFilters, buildGroupStockFilterFields, buildStockFilterFields } from '../stockOptions'
 import { applyCustomerFilters } from '../customerOptions'
 import { applyCatalogueFilters, buildCatalogueFilterFields, CATALOGUE_FILTER_SCOPE, FACET_LIST_CODE } from '../catalogueOptions'
 import type { CatalogueFacetsRead } from '../api/types'
@@ -42,6 +42,7 @@ type Mapper = (params: URLSearchParams, predicates: FilterPredicate[]) => void
 /** Grid file (relative to src) → the mapper it must call. */
 const COVERED_GRIDS: Record<string, string> = {
   'pages/StockListPage.tsx': 'applyStockFilters',
+  'pages/stock/GroupStockGrid.tsx': 'applyGroupStockFilters',
   'pages/CustomersListPage.tsx': 'applyCustomerFilters',
   'components/catalogue/CatalogueBrowseGrid.tsx': 'applyCatalogueFilters',
 }
@@ -49,6 +50,7 @@ const COVERED_GRIDS: Record<string, string> = {
 /** Mapper → the module that defines it and the list endpoint it feeds. */
 const MAPPERS: Record<string, { module: string; endpoint: string }> = {
   applyStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/stock-items' },
+  applyGroupStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/groups/mine/stock-items' },
   applyCustomerFilters: { module: 'customerOptions.ts', endpoint: '/v1/customers' },
   applyCatalogueFilters: { module: 'catalogueOptions.ts', endpoint: '/v1/catalogue/variants' },
 }
@@ -229,6 +231,14 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
     expect(unmapped(fields, applyStockFilters, queryParamsOf(MAPPERS.applyStockFilters.endpoint))).toEqual([])
   })
 
+  it('Group stock: the Betrieb filter, «ist» and «ist nicht», is sent (KAN-565)', () => {
+    const fields = buildGroupStockFilterFields(t, [{ id: 'd-1', label: 'Garage Nord AG' }])
+    expect(fields.map((f) => f.id)).toEqual(['dealershipId'])
+    expect(
+      unmapped(fields, applyGroupStockFilters, queryParamsOf(MAPPERS.applyGroupStockFilters.endpoint)),
+    ).toEqual([])
+  })
+
   it('Customers: every column filter declares its param and conditions, and every one is sent', () => {
     const { fields, problems } = columnFilterFields(
       'pages/CustomersListPage.tsx',
@@ -274,7 +284,7 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
   it('every covered grid names a mapper whose behaviour this file runs above', () => {
     // A new grid is covered by adding its mapper to MAPPERS and a behaviour
     // case above — never by a COVERED_GRIDS entry alone.
-    const BEHAVIOUR_TESTED = ['applyStockFilters', 'applyCustomerFilters', 'applyCatalogueFilters']
+    const BEHAVIOUR_TESTED = ['applyStockFilters', 'applyGroupStockFilters', 'applyCustomerFilters', 'applyCatalogueFilters']
     expect(Object.keys(MAPPERS).sort()).toEqual([...BEHAVIOUR_TESTED].sort())
     expect([...new Set(Object.values(COVERED_GRIDS))].sort()).toEqual([...BEHAVIOUR_TESTED].sort())
   })

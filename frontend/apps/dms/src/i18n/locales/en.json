@@ -248,6 +248,7 @@
       "configuration_already_linked": "A configuration is already assigned to this vehicle. Please reload the page.",
       "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle.",
       "configuration_held_by_stock_item": "This configuration already belongs to vehicle {{stockNumber}} in stock. Every vehicle has its own configuration.",
+      "vehicle_label_follows_configuration": "This vehicle's name is its configuration's and follows it. Change the configuration instead.",
       "ui_translation_blank": "A UI string is never blank.",
       "ui_translation_placeholders_changed": "The text must keep the placeholders of the shipped text.",
       "bank_account_used_by_location": "A location uses this account as its own bank account. Remove the override on the location first.",
@@ -1092,6 +1093,7 @@
     "loadError": "Failed to load stock.",
     "groupLoadError": "Failed to load group stock.",
     "allStockView": "All stock",
+    "allGroupStockView": "All group stock",
     "columns": {
       "stockNumber": "Stock no.",
       "vehicle": "Vehicle",
@@ -1172,6 +1174,7 @@
     "identity": {
       "title": "Vehicle",
       "vehicleLabel": "Label",
+      "vehicleLabelFollowsConfiguration": "The label follows the vehicle's configuration.",
       "vehicleId": "Vehicle ID"
     },
     "errors": {

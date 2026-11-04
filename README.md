@@ -101,6 +101,44 @@ it: the staging UI says so on every signed-in screen (KAN-275, ADR-084 —
 `VITE_OUTBOX_WORKER_ABSENT` in `render.yaml`'s build command), and each
 affected module PRD carries the same status line.
 
+## Staging sign-in (KAN-551)
+
+Staging has **no shared login**. With the identAPI sandbox connection
+configured there (ADR-113), whoever signs in reaches licensed auto-i-dat
+data, and the test agreement (§3, §8) excludes third parties and
+prospective customers. So every account on staging is a named person, and
+the demo Betrieb (`Demo Garage AG`) enforces a second factor for everyone.
+Locally (`make up`, the desktop preview, cloud sessions) the password demo
+account stays — `DMS_SEED_DEMO_PASSWORD`, `scripts/seed_staging_demo.py`'s
+local path.
+
+- **The first manager** is invited by the deploy: set
+  `DMS_STAGING_FIRST_MANAGER_EMAIL` (optionally `…_FIRST_NAME` / `…_LAST_NAME`)
+  in the Render service's Environment tab; the next deploy mails the
+  invitation. Accept it, set a password, enrol an authenticator app or a
+  passkey on the screen that follows. Later deploys leave that account
+  alone. If the invitation expired (14 days) or never arrived, use
+  «Passwort vergessen» on the sign-in screen with the same address — never
+  a second deploy. A delivery failure is a `mail_delivery_failed` auth event
+  (`GET /v1/dealerships/{id}/auth-events`) and an ERROR line in the Render
+  log.
+- **A demo viewer** (a colleague, a reviewer — never a prospective customer
+  or another third party while the identAPI test access is connected) is
+  invited by a manager from Dealer Administration › Users › «Benutzer
+  einladen», with the roles they need and no manager flag. They set their
+  own password from the mail and must enrol a second factor before any
+  screen opens. **Remove them** with the row menu's «Deaktivieren» on the
+  same screen when the demo is over (their records go to the queue you
+  choose; the audit log keeps who did it). There is no delete.
+- **The shared demo login of earlier deploys** (`demo@nexotec-staging.example`)
+  is deactivated by `scripts/retire_staging_shared_demo_user.py`, which the
+  start command runs with `--commit` on every deploy: it waits until a
+  personal dealer manager has signed in with (or enrolled) a second factor, then
+  deactivates the shared user (reason `kan551_shared_demo_login_retired`
+  in the audit log) and hands its records to the unassigned queues. Delete
+  `DMS_SEED_DEMO_PASSWORD` from the Render service afterwards; it is not
+  read any more.
+
 ## Observability (WP-2 PR-3, closes G-16)
 
 Structured JSON logs with `correlationId`/`tenantId` on every line always

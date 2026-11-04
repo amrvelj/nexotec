@@ -39,9 +39,10 @@ def refresh_configuration_labels(db: Session) -> int:
     what the sync-age alarm then shows (inventory's reconciliation reports a
     configuration id naming nothing; it has no tenant-match check today).
 
-    Only `configuration_label` follows. The item's own `vehicle_label` — the
-    stock list's «Fahrzeug» column and the detail title — is Stock's field,
-    editable by users, and is not touched here.
+    The item's name follows too (ADR-117 (2), KAN-556): `vehicle_label` — the
+    stock list's «Fahrzeug» column and the detail title — is the
+    configuration's label on every configured item, so it is set with
+    `configuration_label` (a PATCH refuses another name for such an item).
 
     Each batch is read FOR NO KEY UPDATE SKIP LOCKED: an item another writer
     holds is left for the next night, never waited for.
@@ -73,10 +74,11 @@ def refresh_configuration_labels(db: Session) -> int:
             current = labels.get(item.configuration_id) if item.configuration_id is not None else None
             if current is None or current.tenant_id != item.tenant_id:
                 continue
-            if current.label == item.configuration_label:
+            if current.label == item.configuration_label and current.label == item.vehicle_label:
                 stamp_only.append(item.id)
                 continue
             item.configuration_label = current.label
+            item.vehicle_label = current.label
             item.configuration_label_refreshed_at = now
             changed += 1
         db.flush()

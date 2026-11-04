@@ -97,6 +97,17 @@ class StockItemCreateRequest(StockItemCreate):
             "for a car being bought in). Required: without it the create is 422 `configuration_required`."
         ),
     )
+    # ADR-117 (2), KAN-556: a configured car's name is its configuration's
+    # label, derived server-side and refreshed with it — no longer the
+    # client's free text. Optional, and ignored when sent, so a client that
+    # still sends it keeps working.
+    vehicle_label: str | None = Field(  # type: ignore[assignment]
+        default=None,
+        description=(
+            "Ignored: the stock item's name (`vehicleLabel`) is its configuration's label, derived by the "
+            "server and refreshed whenever the configuration changes (ADR-117)."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod

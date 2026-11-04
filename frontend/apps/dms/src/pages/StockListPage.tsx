@@ -70,10 +70,11 @@ export function StockListPage() {
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
   const filterFields = useMemo(() => buildStockFilterFields(t), [t])
-  const predicates = offeredPredicates(
-    searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : [],
-    filterFields,
+  const storedFilters = useMemo(
+    () => (searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : []),
+    [searchParams]
   )
+  const predicates = offeredPredicates(storedFilters, filterFields)
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -97,13 +98,14 @@ export function StockListPage() {
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
   const setScope = (next: StockScope) => {
-    // The group grid has no filters (§ ADR-055), so own-stock filter chips
-    // are dropped on the way in: a shared ?scope=group URL must never claim
-    // a filter the grid it opens does not apply (§ ADR-058).
-    updateUrl(next === 'group' ? { scope: 'group', filters: null } : { scope: null })
+    // The two grids filter on different fields (the group grid on the
+    // Betrieb alone, § ADR-055, KAN-565), so a scope switch drops the
+    // filters either way: a shared URL must never claim a filter the grid it
+    // opens does not apply (§ ADR-058).
+    updateUrl(next === 'group' ? { scope: 'group', filters: null } : { scope: null, filters: null })
     // A saved view is a set of filters (§ ADR-058); with its filters gone,
     // the control must stop naming it.
-    if (next === 'group') setAppliedViewId(null)
+    setAppliedViewId(null)
   }
 
   // The group grid sorts on the same indexed columns; its sort lives in the
@@ -373,6 +375,8 @@ export function StockListPage() {
           onQueryChange={setQuery}
           sort={groupSort}
           onSortChange={setGroupSort}
+          filters={storedFilters}
+          onFiltersChange={setPredicates}
         />
       ) : (
       <OverviewShellRegion

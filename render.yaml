@@ -29,13 +29,23 @@
 #      constructs Settings() on import, so it needs a syntactically valid
 #      key; the same PEM in both places is simpler than explaining why they
 #      could legally differ.
-#   3. DMS_SEED_DEMO_PASSWORD — the demo manager's password (12+ characters;
-#      KAN-196: Nexotec owns authentication again, D-A-07). The startCommand
-#      below runs the (idempotent) demo seed on every deploy; once this var
-#      has a value, the next redeploy creates the demo login
-#      (demo@nexotec-staging.example) and every deploy after that just
-#      no-ops. The demo Betrieb is seeded with MFA enforcement off so a
-#      stakeholder can sign in with the password alone.
+#   3. DMS_STAGING_FIRST_MANAGER_EMAIL — the e-mail address of the demo
+#      Betrieb's first dealer manager, a person (KAN-551, ADR-113: with the
+#      identAPI sandbox connection here, the test agreement's §3/§8 exclude
+#      a shared login). The startCommand below runs the (idempotent) seed on
+#      every deploy; once this var has a value, the next deploy invites that
+#      address — mailed through step 4's mailbox — and enforces MFA for
+#      everyone in the demo Betrieb; every deploy after that leaves the user
+#      as they are (an invitation that expired or never arrived: «Passwort
+#      vergessen» on the sign-in screen with the same address). Optional
+#      DMS_STAGING_FIRST_MANAGER_FIRST_NAME / _LAST_NAME name them (else
+#      "Erster Manager", correctable in My account). Further users are
+#      invited from Dealer Administration › Users (README › Staging
+#      sign-in). The shared demo login an earlier seed created
+#      (demo@nexotec-staging.example) is deactivated by
+#      scripts/retire_staging_shared_demo_user.py on the first deploy after
+#      a personal manager has signed in with (or enrolled) a second factor. The old
+#      DMS_SEED_DEMO_PASSWORD is not read any more — delete it.
 #   4. DMS_PLATFORM_MAIL_SMTP_PASSWORD — the staging mailbox's password (for
 #      Gmail an app password: Google Account → Security → App passwords, 16
 #      letters, pasted without spaces). Set 2026-10-24. Invitations and resets
@@ -111,6 +121,7 @@ services:
     startCommand: >-
       alembic upgrade heads &&
       (python scripts/seed_staging_demo.py || true) &&
+      (python scripts/retire_staging_shared_demo_user.py --commit || true) &&
       uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/healthz
     envVars:
@@ -133,7 +144,8 @@ services:
         sync: false
       - key: DMS_TAX_ID_ENCRYPTION_KEY
         sync: false
-      - key: DMS_SEED_DEMO_PASSWORD
+      # KAN-551: the first dealer manager's address (header step 3).
+      - key: DMS_STAGING_FIRST_MANAGER_EMAIL
         sync: false
       # KAN-196: the SPA is served from this same origin, so the e-mail links
       # and the passkey relying party are this hostname (dms-staging.onrender.com

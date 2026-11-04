@@ -472,9 +472,16 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   deactivated user who holds no credential (deactivated while invited, or after a staff MFA/
   credential reset) comes back as `invited`, not `active`, and the manager resends the
   invitation; any other edit of a deactivated user stays 409. The one exception to "only by
-  accepting" is `scripts/seed_staging_demo.py`, which activates its demo user on the row (nobody
-  to mail), audited with reason `seed_staging_demo` — the same bootstrap exception as its
-  password. A module that fails during a hand-over is answered, not raised: `failed` on the
+  accepting" is `scripts/seed_staging_demo.py`'s **local** path (`DMS_ENVIRONMENT` development,
+  local or test), which activates its password demo user on the row (nobody to mail), audited with
+  reason `seed_staging_demo` — the same bootstrap exception as its password; any other
+  environment but `staging` is refused (exit 1, nothing written). **Staging has no shared login**
+  (KAN-551, ADR-113, the identAPI test agreement's §3/§8): there the seed invites the first dealer manager (`DMS_STAGING_FIRST_MANAGER_EMAIL`; an existing holder
+  of the address is never re-invited or reset), switches the demo Betrieb's `mfa_enforced` on — and
+  back on, audited, on any deploy that finds it off — and `scripts/retire_staging_shared_demo_user.py`
+  (run with `--commit` by the start command) deactivates the earlier shared
+  `demo@nexotec-staging.example` once a personal manager has signed in with (or enrolled) a second factor, as a
+  system write handing its records to the queues; README › Staging sign-in is the runbook. A module that fails during a hand-over is answered, not raised: `failed` on the
   deactivation's and the transfer's response names the group with a stable `reason` (the
   module's own refusal code, or `module_failed`) and a message that is never an exception's
   text; the records stay with the user for the retry. The 422 of an incomplete step carries
@@ -637,7 +644,7 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   **nothing else in the schema may grow a password-shaped column**
   (`test_no_password_credential_storage.py`, inverted as D-A-07 ruled). Nobody sets another
   person's password (FR-AU-10): only an invitation or a reset token does, single-use, stored as
-  SHA-256 (`auth_tokens.py`); the seed script is the one bootstrap exception.
+  SHA-256 (`auth_tokens.py`); the seed script's local path is the one bootstrap exception.
 - **Password policy** (`password_policy.py`): ≥ 12 characters, no composition rules, the
   dealership's names, the user's names and the e-mail local part refused, Have I Been Pwned
   range check at set-time that **fails open and flags** (`credential.breach_check_pending`,

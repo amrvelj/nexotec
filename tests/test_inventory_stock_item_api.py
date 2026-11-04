@@ -95,22 +95,23 @@ def test_cross_tenant_get_is_404_not_403(client, db_session):
 
 def test_list_stock_items_filters_by_lifecycle_status(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
+    # KAN-556 (ADR-117 (2)): a configured car is named by its configuration,
+    # so the rows are told apart by id, not by a label the client sent.
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Pipeline car", "condition": "new", "configurationId": stock_configuration_id(db_session, token)},
+        json={"condition": "new", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
-    client.post(
+    in_stock = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "In-stock car", "condition": "used", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
+        json={"condition": "used", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
-    )
+    ).json()
 
     response = client.get("/v1/inventory/stock-items?lifecycle_status=in_stock", headers=_bearer(token))
     assert response.status_code == 200, response.text
     body = response.json()
-    assert len(body["items"]) == 1
-    assert body["items"][0]["vehicleLabel"] == "In-stock car"
+    assert [i["id"] for i in body["items"]] == [in_stock["id"]]
 
 
 def test_list_stock_items_filters_by_condition(client, db_session):
@@ -118,42 +119,43 @@ def test_list_stock_items_filters_by_condition(client, db_session):
     the grid offered it and never sent it, so used cars stayed listed."""
     token = _token(role=AccessRole.INVENTORY)
     other_tenant = _token(role=AccessRole.INVENTORY)
-    for label, condition in (("New car", "new"), ("Used car", "used"), ("Demo car", "demo")):
-        client.post(
+    ids = {}
+    for condition in ("new", "used", "demo"):
+        ids[condition] = client.post(
             "/v1/inventory/stock-items",
-            json={"vehicleLabel": label, "condition": condition, "configurationId": stock_configuration_id(db_session, token)},
+            json={"condition": condition, "configurationId": stock_configuration_id(db_session, token)},
             headers=_bearer(token),
-        )
+        ).json()["id"]
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Other Betrieb's new car", "condition": "new", "configurationId": stock_configuration_id(db_session, other_tenant)},
+        json={"condition": "new", "configurationId": stock_configuration_id(db_session, other_tenant)},
         headers=_bearer(other_tenant),
     )
 
     response = client.get("/v1/inventory/stock-items?condition=new", headers=_bearer(token))
     assert response.status_code == 200, response.text
     body = response.json()
-    assert [i["vehicleLabel"] for i in body["items"]] == ["New car"]
+    assert [i["id"] for i in body["items"]] == [ids["new"]]
     assert body["total"] == 1
 
 
 def test_list_stock_items_combines_condition_with_lifecycle_status(client, db_session):
     token = _token(role=AccessRole.INVENTORY)
-    client.post("/v1/inventory/stock-items", json={"vehicleLabel": "New pipeline", "condition": "new", "configurationId": stock_configuration_id(db_session, token)}, headers=_bearer(token))
-    client.post(
+    client.post("/v1/inventory/stock-items", json={"condition": "new", "configurationId": stock_configuration_id(db_session, token)}, headers=_bearer(token))
+    new_in_stock = client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "New in stock", "condition": "new", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
+        json={"condition": "new", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
-    )
+    ).json()
     client.post(
         "/v1/inventory/stock-items",
-        json={"vehicleLabel": "Used in stock", "condition": "used", "vin": "WVWZZZ1JZXW000001", "configurationId": stock_configuration_id(db_session, token)},
+        json={"condition": "used", "vin": "WVWZZZ1JZXW000001", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     )
 
     response = client.get("/v1/inventory/stock-items?condition=new&lifecycle_status=in_stock", headers=_bearer(token))
     assert response.status_code == 200, response.text
-    assert [i["vehicleLabel"] for i in response.json()["items"]] == ["New in stock"]
+    assert [i["id"] for i in response.json()["items"]] == [new_in_stock["id"]]
 
 
 def test_list_stock_items_refuses_an_unknown_condition(client):
