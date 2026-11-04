@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
@@ -143,7 +144,10 @@ def update_vehicle_mdm(
     """The only PATCH path for vin/stammnummer/first_registration_date —
     nothing else in the codebase may write them (ADR-045). A mistyped VIN
     correction on an unverified record is permitted and audit-logged here
-    like any other field; re-running the matching waterfall against the
+    like any other field (KAN-561: an `update` audit row with the actor and
+    the changed fields before and after; a PATCH that changes nothing writes
+    none, and `tenant_id` is None — vehicle-mdm is global, as the merge's
+    row); re-running the matching waterfall against the
     corrected value is the caller's job (PR-6's match_vehicle), not this
     function's — keeping this a plain field update keeps the two concerns
     (persisting a correction, deciding what it implies) separable.
@@ -156,6 +160,8 @@ def update_vehicle_mdm(
 
     summary_before = summary_fields(vehicle)
     changes = data.model_dump(exclude_unset=True)
+    changed = {field: value for field, value in changes.items() if getattr(vehicle, field) != value}
+    before = {_AUDIT_NAMES[field]: _audit_value(getattr(vehicle, field)) for field in changed}
     for field, value in changes.items():
         setattr(vehicle, field, value)
     vehicle.updated_by = actor_id
@@ -165,14 +171,60 @@ def update_vehicle_mdm(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
+        duplicate = _UNIQUE_FIELDS.get(_violated_constraint(exc))
+        if duplicate is None:
+            raise
+        field, label = duplicate
         raise ConflictError(
-            f"A vehicle with VIN '{changes.get('vin')}' already exists.", details={"vin": changes.get("vin")}
+            f"A vehicle with {label} '{changes.get(field)}' already exists.",
+            details={_AUDIT_NAMES[field]: changes.get(field)},
         ) from exc
 
+    if changed:
+        record_audit_event(
+            db,
+            entity_type=_ENTITY_TYPE,
+            entity_id=vehicle.id,
+            tenant_id=None,
+            action="update",
+            actor_id=actor_id,
+            before=before,
+            after={_AUDIT_NAMES[field]: _audit_value(getattr(vehicle, field)) for field in changed},
+        )
     publish_summary_changed_if_changed(db, vehicle=vehicle, before=summary_before)
     db.commit()
     db.refresh(vehicle)
     return vehicle
+
+
+# The PATCH's fields under their camelCase API names — the audit row's keys
+# and a duplicate refusal's `details` key (the configuration's audit rule).
+_AUDIT_NAMES = {
+    "vin": "vin",
+    "stammnummer": "stammnummer",
+    "type_approval_number": "typeApprovalNumber",
+    "first_registration_date": "firstRegistrationDate",
+    "vehicle_status": "vehicleStatus",
+}
+
+# A unique constraint the PATCH can hit -> the field it guards and its name in
+# the refusal. Any other integrity error is not a duplicate and is raised as is.
+_UNIQUE_FIELDS = {
+    "vehicle_mdm_vin_key": ("vin", "VIN"),
+    "vehicle_mdm_stammnummer_key": ("stammnummer", "Stammnummer"),
+}
+
+
+def _violated_constraint(exc: IntegrityError) -> str | None:
+    return getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+
+
+def _audit_value(value: object) -> object:
+    if isinstance(value, dt.date):
+        return value.isoformat()
+    if hasattr(value, "value"):
+        return value.value
+    return value
 
 
 def summary_fields(vehicle: VehicleMdm) -> dict[str, object]:

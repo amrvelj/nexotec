@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-
 from app.vehicle.models.vehicle_history import (
     CustodyEventType,
     OdometerSource,
