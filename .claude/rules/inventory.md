@@ -92,6 +92,21 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `vehicle.public.get_configuration_labels` — the other label jobs' rules: `version` not bumped, a
   current label only restamped, a configuration naming nothing or another Betrieb left alone, each
   batch `FOR NO KEY UPDATE SKIP LOCKED`; gauge `dms.label.age_seconds{label="inventory.configuration"}`.
+  Since KAN-556 the same job renames the car too (next bullet) and counts a row as current only
+  when both `configuration_label` and `vehicle_label` equal the configuration's label.
+- **A configured car is named by its configuration** (ADR-117 (2), KAN-556; Anto's ruling on
+  KAN-546, 2026-11-03): on an item with a configuration, `vehicle_label` (the «Fahrzeug» column,
+  the detail title, the marketplace's make/model, the offer's working label) **is** the
+  configuration's label — written at create (the endpoint's `vehicleLabel` is optional and
+  ignored; the FR-I-02/02b consumers name the item by the label the contract carried, their
+  configuration copy), at «Konfiguration zuordnen» (audited, `vehicleLabel` in before/after) and
+  by the nightly `inventory.configuration_labels` refresh. A PATCH may resend the name unchanged,
+  never another (422 `vehicle_label_follows_configuration`); the stock detail shows it read-only
+  with a hint. An item without a configuration keeps its own, editable text. Inventory-chain
+  migration `80667c6fddf8` named every configured item by Stock's own `configuration_label` copy
+  (never reading the vehicle context's table); on staging, which runs no worker (ADR-081), a copy
+  that was stale then stays stale, as `configuration_label` itself does there. The ADR-115 offer
+  banner listing «Bezeichnung» waits for that banner (KAN-553).
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
   Details in `.claude/rules/valuation.md`.

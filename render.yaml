@@ -44,7 +44,7 @@
 #      sign-in). The shared demo login an earlier seed created
 #      (demo@nexotec-staging.example) is deactivated by
 #      scripts/retire_staging_shared_demo_user.py on the first deploy after
-#      a personal manager has signed in with a second factor. The old
+#      a personal manager has signed in with (or enrolled) a second factor. The old
 #      DMS_SEED_DEMO_PASSWORD is not read any more — delete it.
 #   4. DMS_PLATFORM_MAIL_SMTP_PASSWORD — the staging mailbox's password (for
 #      Gmail an app password: Google Account → Security → App passwords, 16

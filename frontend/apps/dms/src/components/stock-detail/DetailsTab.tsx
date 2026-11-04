@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { Button, Group, Text } from '@mantine/core'
-import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
+import { FieldLabel, InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
@@ -202,7 +202,12 @@ export function DetailsTab({
             {item.configurationId ? (
               // ADR-117 (2), KAN-556: a configured car is named by its
               // configuration and follows it — changed there, never here.
-              <span title={t('stockDetail.identity.vehicleLabelFollowsConfiguration')}>{item.vehicleLabel}</span>
+              // The hint is the kit's info icon (KAN-443), reachable by keyboard and touch.
+              <FieldLabel
+                label={<span data-testid="vehicle-label-read-only">{item.vehicleLabel}</span>}
+                hint={t('stockDetail.identity.vehicleLabelFollowsConfiguration')}
+                labels={{ icon: t('common.fieldHintIcon') }}
+              />
             ) : (
               <InlineEditField
                 value={item.vehicleLabel}

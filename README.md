@@ -133,7 +133,7 @@ local path.
 - **The shared demo login of earlier deploys** (`demo@nexotec-staging.example`)
   is deactivated by `scripts/retire_staging_shared_demo_user.py`, which the
   start command runs with `--commit` on every deploy: it waits until a
-  personal dealer manager has signed in with a second factor, then
+  personal dealer manager has signed in with (or enrolled) a second factor, then
   deactivates the shared user (reason `kan551_shared_demo_login_retired`
   in the audit log) and hands its records to the unassigned queues. Delete
   `DMS_SEED_DEMO_PASSWORD` from the Render service afterwards; it is not

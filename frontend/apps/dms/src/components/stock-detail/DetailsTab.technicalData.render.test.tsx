@@ -207,8 +207,10 @@ describe('Stock detail — a configured car\'s name follows its configuration (K
     )
 
     await screen.findByTestId('configuration-technical-data')
-    const name = screen.getByText('VW Golf 8 GTI', { selector: 'span' })
-    expect(name).toHaveAttribute('title', i18n.t('stockDetail.identity.vehicleLabelFollowsConfiguration'))
+    const name = screen.getByTestId('vehicle-label-read-only')
+    expect(name).toHaveTextContent('VW Golf 8 GTI')
+    // The reason is the kit's info icon beside it (KAN-443), named «Hinweis».
+    expect(within(name.parentElement as HTMLElement).getByRole('img', { name: i18n.t('common.fieldHintIcon') })).toBeInTheDocument()
     name.click()
     expect(screen.queryByDisplayValue('VW Golf 8 GTI')).not.toBeInTheDocument()
     expect(onSaveField).not.toHaveBeenCalled()
@@ -227,7 +229,7 @@ describe('Stock detail — a configured car\'s name follows its configuration (K
     )
 
     const name = await screen.findByText('VW Golf 8 GTI')
-    expect(name).not.toHaveAttribute('title', i18n.t('stockDetail.identity.vehicleLabelFollowsConfiguration'))
+    expect(screen.queryByTestId('vehicle-label-read-only')).not.toBeInTheDocument()
     name.click()
     expect(await screen.findByDisplayValue('VW Golf 8 GTI')).toBeInTheDocument()
   })

@@ -12,14 +12,16 @@ MFA enforced, no shared credential) and scripts/retire_staging_shared_demo_user.
 
 import uuid
 
+import pyotp
 import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
-from app.core.auth import AccessRole
+from app.core.auth import AccessRole, create_access_token
 from app.core.outbox_model import OutboxMessage
 from app.core.permissions import ModuleCode
+from app.customer.models.customer import Customer
 from app.platform import reconciliation as platform_reconciliation
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
@@ -41,7 +43,7 @@ from tests.identity_support import (
     last_mail_to,
     token_in,
 )
-from tests.test_identity_mfa import _enrol_totp
+from tests.token_support import dealer_group_of
 
 PASSWORD = "staging-horse-secret-2026"
 OTHER_PASSWORD = "rotated-horse-secret-2026"
@@ -253,6 +255,20 @@ def test_a_rerun_restamps_an_actor_that_names_no_user_and_leaves_a_real_one_alon
 MANAGER_EMAIL = "first.manager@nexotec-staging.example"
 
 
+def _enrol_totp(client, cookie: str) -> None:
+    """Enrols and confirms an authenticator in the session `cookie` names —
+    the step the enrolment screen asks for."""
+
+    begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(cookie))
+    assert begun.status_code == 200, begun.text
+    confirmed = client.post(
+        "/v1/auth/mfa/totp/confirm",
+        json={"code": pyotp.TOTP(begun.json()["secret"]).now()},
+        headers=cookie_headers(cookie),
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+
 @pytest.fixture()
 def deployed_seed(engine, monkeypatch, mailbox):
     """The deployed path (DMS_ENVIRONMENT staging) against the test engine,
@@ -297,15 +313,11 @@ def _all_counts(db_session) -> tuple[int, ...]:
     )
 
 
-@pytest.mark.parametrize("environment", ["staging", "production", "prod-eu"])
-def test_a_deployed_first_run_invites_the_first_manager_and_enforces_mfa(
-    deployed_seed, db_session, mailbox, environment
-):
+def test_a_deployed_first_run_invites_the_first_manager_and_enforces_mfa(deployed_seed, db_session, mailbox):
     """No shared credential anywhere: the only user is the invited first
-    manager, holding no password, and the Betrieb enforces MFA. Any name but
-    development/local/test is a deployment (fails closed)."""
+    manager, holding no password, and the Betrieb enforces MFA."""
 
-    deployed_seed(environment=environment)
+    deployed_seed()
 
     dealership = _demo_dealership(db_session)
     users = db_session.scalars(select(User).where(User.tenant_id == dealership.id)).all()
@@ -397,6 +409,22 @@ def test_a_deployed_run_without_a_valid_first_manager_address_exits_1_and_writes
 
     with pytest.raises(SystemExit) as exited:
         deployed_seed(email=email)
+
+    assert exited.value.code == 1
+    assert _all_counts(db_session) == before
+    assert mailbox == []
+
+
+@pytest.mark.parametrize("environment", ["production", "prod-eu", "Staging"])
+def test_any_environment_but_staging_and_the_local_ones_is_refused(deployed_seed, db_session, mailbox, environment):
+    """No demo Betrieb outside staging and a developer's machine: production
+    (or any unknown name) exits 1 before anything is written."""
+
+    before = _all_counts(db_session)
+    db_session.rollback()
+
+    with pytest.raises(SystemExit) as exited:
+        deployed_seed(environment=environment)
 
     assert exited.value.code == 1
     assert _all_counts(db_session) == before
@@ -593,8 +621,9 @@ def test_the_retire_script_is_a_no_op_where_no_shared_user_exists(deployed_seed,
 
 
 def test_no_screen_or_readme_hints_a_demo_credential():
-    """Criterion 3: the sign-in screen, the bundles and the README name no
-    demo address or password."""
+    """What-to-build item 3: the sign-in screen, the bundles and the README
+    name no demo address or password (the README names the address only to
+    say it is retired)."""
 
     from pathlib import Path
 
@@ -610,3 +639,66 @@ def test_no_screen_or_readme_hints_a_demo_credential():
         if path.name == "README.md":
             continue  # the runbook names the address it retires
         assert seed_staging_demo.DEMO_EMAIL not in text, path
+
+
+def test_a_shared_user_a_manager_deactivated_by_hand_is_left_to_that_manager(
+    seed, deployed_seed, retire, db_session, client, mailbox
+):
+    """The retry hands over only what this script deactivated: a manager's
+    own deactivation keeps the decisions the manager made."""
+
+    seed()
+    deployed_seed()
+    _personal_manager_signs_in_with_mfa(client, mailbox)
+    shared = _demo_user(db_session)
+    shared.status = UserStatus.DEACTIVATED
+    shared.deactivation_reason = "left the project"
+    db_session.commit()
+    before = _all_counts(db_session)
+    db_session.rollback()
+
+    assert retire(commit=True) == 0
+
+    assert _all_counts(db_session) == before
+    db_session.expire_all()
+    assert _demo_user(db_session).deactivation_reason == "left the project"
+
+
+def test_the_shared_users_records_go_to_the_unassigned_queue(seed, deployed_seed, retire, db_session, client, mailbox):
+    """FR-A-37: nobody is there to choose, so the shared user's customers go
+    to the Customers queue, audited (`ownership_transferred`)."""
+
+    seed()
+    shared = _demo_user(db_session)
+    token = create_access_token(
+        user_id=shared.id,
+        tenant_id=shared.tenant_id,
+        group_id=dealer_group_of(str(shared.tenant_id)),
+        roles=frozenset({AccessRole.SALES}),
+        is_dealer_manager=True,
+    )
+    created = client.post(
+        "/v1/customers",
+        json={
+            "firstName": "Ada",
+            "lastName": "Byron",
+            "language": "de",
+            "emails": [{"emailType": "personal", "emailAddress": "ada@example.ch"}],
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["advisorId"] == str(shared.id)
+    deployed_seed()
+    _personal_manager_signs_in_with_mfa(client, mailbox)
+    db_session.rollback()
+
+    assert retire(commit=True) == 0
+
+    db_session.expire_all()
+    customer = db_session.get(Customer, uuid.UUID(created.json()["id"]))
+    assert customer.advisor_id is None
+    handed = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_id == shared.id, AuditEvent.action == "ownership_transferred")
+    ).all()
+    assert handed and all(a.reason == "kan551_shared_demo_login_retired" for a in handed)

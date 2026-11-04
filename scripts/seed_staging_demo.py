@@ -9,10 +9,11 @@ to run anything by hand, see the render.yaml header comment). A missing or
 invalid variable exits 1 with no side effects; once it is right, the next
 deploy seeds.
 
-Two paths, chosen by `DMS_ENVIRONMENT` (KAN-551):
+Two paths, chosen by `DMS_ENVIRONMENT` (KAN-551); any other name — production
+included — is refused (exit 1, nothing written): no demo Betrieb is ever
+created outside staging and a developer's own machine.
 
-**A deployed environment (staging — anything but development, local, test)
-gets personal, invited users and enforced MFA.** With the identAPI sandbox
+**Staging gets personal, invited users and enforced MFA.** With the identAPI sandbox
 connection configured on staging (ADR-113), a shared login would hand
 licensed auto-i-dat data to whoever holds it, which the test agreement's
 §3/§8 exclude. So the seed creates no shared credential: the first dealer
@@ -27,7 +28,8 @@ reaches an invited user too) — never by a second seed run. Further users
 are invited by that manager from Dealer Administration (README › Staging
 sign-in). The shared demo login an earlier seed created is retired by
 `scripts/retire_staging_shared_demo_user.py` once a personal manager has
-signed in with a second factor. `DMS_SEED_DEMO_PASSWORD` is not read here.
+signed in with (or enrolled) a second factor. `DMS_SEED_DEMO_PASSWORD` is not
+read here.
 
 **A local environment (development, local, test — docker compose, the
 desktop preview, cloud sessions) keeps the password demo account**
@@ -92,11 +94,12 @@ FIRST_MANAGER_LAST_NAME_VAR = "DMS_STAGING_FIRST_MANAGER_LAST_NAME"
 DEFAULT_FIRST_MANAGER_FIRST_NAME = "Erster"
 DEFAULT_FIRST_MANAGER_LAST_NAME = "Manager"
 
-# The environments that keep the local password account. Everything else is
-# a deployment and gets the invitation path — an unknown name fails closed
-# (an unset DMS_ENVIRONMENT reads as `development`, so a deployment must set it,
-# as render.yaml does).
+# The environments that keep the local password account, and the one
+# deployment that gets the invitation path. Any other name is refused — an
+# unset DMS_ENVIRONMENT reads as `development`, so a deployment must set it,
+# as render.yaml does.
 LOCAL_ENVIRONMENTS = frozenset({"development", "local", "test"})
+STAGING_ENVIRONMENT = "staging"
 
 AUDIT_REASON = "seed_staging_demo"
 
@@ -165,7 +168,7 @@ def _first_manager_data() -> UserCreate | str:
     email = (os.environ.get(FIRST_MANAGER_EMAIL_VAR) or "").strip()
     if not email:
         return (
-            f"{FIRST_MANAGER_EMAIL_VAR} is required on a deployed environment — the e-mail address the first "
+            f"{FIRST_MANAGER_EMAIL_VAR} is required on staging — the e-mail address the first "
             "dealer manager's invitation goes to (KAN-551). No shared demo login is created any more."
         )
     try:
@@ -235,7 +238,7 @@ def _finish(db: Session, *, dealership: Dealership, actor: User) -> None:
         print(f"Stamped the first manager (id={actor.id}) as the actor on {', '.join(stamped)}.")
 
 
-# --- the deployed path (KAN-551) ---------------------------------------------------------------
+# --- the staging path (KAN-551) ----------------------------------------------------------------
 
 
 def _enforce_mfa(db: Session, *, dealership: Dealership) -> None:
@@ -325,7 +328,7 @@ def _main_deployed() -> None:
         print(data)
         sys.exit(1)
     if os.environ.get("DMS_SEED_DEMO_PASSWORD"):
-        print("DMS_SEED_DEMO_PASSWORD is set but not read on a deployed environment (KAN-551); delete it.")
+        print("DMS_SEED_DEMO_PASSWORD is set but not read on staging (KAN-551); delete it.")
     mailer = get_mailer()
 
     db = SessionLocal()
@@ -452,10 +455,14 @@ def _main_local() -> None:
 
 
 def main() -> None:
-    if _environment() in LOCAL_ENVIRONMENTS:
+    environment = _environment()
+    if environment in LOCAL_ENVIRONMENTS:
         _main_local()
-    else:
+    elif environment == STAGING_ENVIRONMENT:
         _main_deployed()
+    else:
+        print(f"DMS_ENVIRONMENT={environment}: this seed runs on staging and local environments only; nothing written.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

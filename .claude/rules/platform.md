@@ -474,13 +474,13 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   invitation; any other edit of a deactivated user stays 409. The one exception to "only by
   accepting" is `scripts/seed_staging_demo.py`'s **local** path (`DMS_ENVIRONMENT` development,
   local or test), which activates its password demo user on the row (nobody to mail), audited with
-  reason `seed_staging_demo` — the same bootstrap exception as its password. **A deployed
-  environment has no shared login** (KAN-551, ADR-113, the identAPI test agreement's §3/§8): there
-  the seed invites the first dealer manager (`DMS_STAGING_FIRST_MANAGER_EMAIL`; an existing holder
+  reason `seed_staging_demo` — the same bootstrap exception as its password; any other
+  environment but `staging` is refused (exit 1, nothing written). **Staging has no shared login**
+  (KAN-551, ADR-113, the identAPI test agreement's §3/§8): there the seed invites the first dealer manager (`DMS_STAGING_FIRST_MANAGER_EMAIL`; an existing holder
   of the address is never re-invited or reset), switches the demo Betrieb's `mfa_enforced` on — and
   back on, audited, on any deploy that finds it off — and `scripts/retire_staging_shared_demo_user.py`
   (run with `--commit` by the start command) deactivates the earlier shared
-  `demo@nexotec-staging.example` once a personal manager has signed in with a second factor, as a
+  `demo@nexotec-staging.example` once a personal manager has signed in with (or enrolled) a second factor, as a
   system write handing its records to the queues; README › Staging sign-in is the runbook. A module that fails during a hand-over is answered, not raised: `failed` on the
   deactivation's and the transfer's response names the group with a stable `reason` (the
   module's own refusal code, or `module_failed`) and a message that is never an exception's

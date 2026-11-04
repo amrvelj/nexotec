@@ -1,7 +1,8 @@
 """KAN-551: deactivates the shared demo login (`demo@nexotec-staging.example`)
 an earlier staging seed created, once a personal dealer manager of the demo
-Betrieb has signed in with a second factor — so retiring it can never leave
-the Betrieb without a way in.
+Betrieb holds a session that proved a second factor (signed in with one, or
+enrolled one in it) — so retiring it can never leave the Betrieb without a
+way in.
 
 Dry run unless `--commit`. render.yaml's startCommand runs it with
 `--commit` on every staging deploy, after the seed (Render's free tier has
@@ -11,8 +12,10 @@ deactivates the shared user; after that it is a no-op.
 
 The precondition, judged on the database: a user homed in the demo Betrieb,
 not the shared one, `active`, holding the manager flag, with a session whose
-`amr` carries `mfa` — a sign-in that proved a second factor, not merely an
-enrolment. The deactivation is the platform's own write, as the nightly
+`amr` carries `mfa` — a sign-in with a second factor, or the session in which
+one was enrolled and confirmed with its code (`_record_factor_on_session`):
+either way the person holds a working password and factor. The deactivation
+is the platform's own write, as the nightly
 `platform.user_expiry` job makes it (null actor, KAN-243; platform_admin
 authority): `update_user` sets the status, ends every session and
 delegation and writes the `update` audit row with the reason
@@ -21,8 +24,14 @@ goes to its module's unassigned queue (FR-A-37 — nobody is there to choose),
 one `ownership_transferred` audit row per group. A module that refuses the
 hand-over is reported and the script exits 1; the records stay with the
 deactivated user and the next run hands them over (`release_everything` is
-a no-op for a user with nothing open). The last-manager rule (FR-A-13) still
-applies and cannot refuse here: the precondition is another active manager.
+a no-op for a user with nothing open) — but only for a user this script
+deactivated (`deactivation_reason` is its reason): a shared user a manager
+deactivated by hand keeps the decisions that manager made, as the expiry
+job's retry leaves a user it did not deactivate alone. The status is judged
+again under the user-row lock (KAN-380), so a manager's deactivation racing
+this one wins. The last-manager rule (FR-A-13) still applies; a refusal
+(`last_manager_elsewhere`: the shared user is the last manager of a sister
+Betrieb) is reported and nothing is written.
 
     python scripts/retire_staging_shared_demo_user.py            # dry run
     python scripts/retire_staging_shared_demo_user.py --commit
@@ -36,6 +45,7 @@ from sqlalchemy.orm import Session
 
 import app.ownership_registry  # noqa: F401 — registers every context's ownership provider
 from app.core.auth import AccessRole
+from app.core.errors import BadRequestError
 from app.db import SessionLocal
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.dealership import Dealership
@@ -85,16 +95,20 @@ def run(db: Session, *, commit: bool, session_factory=SessionLocal) -> int:
         print("No shared demo user — nothing to retire.")
         return 0
     if shared.status == UserStatus.DEACTIVATED:
-        # A hand-over that failed on an earlier run is retried here.
+        if shared.deactivation_reason != REASON:
+            print("The shared demo user was deactivated by someone else; its records are theirs to decide.")
+            return 0
+        # A hand-over that failed on an earlier run of this script is retried.
         if not commit:
-            print("The shared demo user is already deactivated.")
+            print("The shared demo user is already deactivated by this script.")
             return 0
         return _hand_over(db, session_factory, shared)
 
     manager = personal_manager_signed_in_with_mfa(db, dealership_id=dealership.id, shared_user_id=shared.id)
     if manager is None:
         print(
-            "Waiting: no personal dealer manager of the demo Betrieb has signed in with a second factor yet. "
+            "Waiting: no personal dealer manager of the demo Betrieb has signed in with (or enrolled) a second "
+            "factor yet. "
             "The shared demo user stays as it is."
         )
         return 0
@@ -106,15 +120,25 @@ def run(db: Session, *, commit: bool, session_factory=SessionLocal) -> int:
         return 0
 
     user = user_service.get_user_for_update_or_404(db, dealership.id, shared.id)  # KAN-380's lock order
-    user_service.update_user(
-        db,
-        user=user,
-        data=UserUpdate(status=UserStatus.DEACTIVATED),
-        actor_id=None,  # a system write (KAN-243: null actor)
-        actor_roles=_SYSTEM_ROLES,
-        reason=REASON,
-        allow_deactivation=True,
-    )
+    if user.status == UserStatus.DEACTIVATED:
+        # Deactivated by someone else between the read and the lock: theirs.
+        db.rollback()
+        print("The shared demo user was deactivated meanwhile; nothing to do.")
+        return 0
+    try:
+        user_service.update_user(
+            db,
+            user=user,
+            data=UserUpdate(status=UserStatus.DEACTIVATED),
+            actor_id=None,  # a system write (KAN-243: null actor)
+            actor_roles=_SYSTEM_ROLES,
+            reason=REASON,
+            allow_deactivation=True,
+        )
+    except BadRequestError as exc:  # the last-manager rule (FR-A-13)
+        db.rollback()
+        print(f"Not deactivated: {exc.message}")
+        return 1
     print(f"Deactivated the shared demo user (id={user.id}); its sessions are ended.")
     return _hand_over(db, session_factory, user)
 
