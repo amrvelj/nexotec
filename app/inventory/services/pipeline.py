@@ -205,8 +205,10 @@ def promote_and_flush(
     """FR-V-04: VIN arrival on a pipeline item. Idempotent per stock item:
     it returns early when the item already carries a `vehicle_id` for the
     same VIN, so a second call is a no-op, not a second event (KAN-127).
-    No `pipeline_vehicle_id` column exists; that is only FR-V-04's PRD term
-    for the stock item's own id.
+    The vehicle record keeps no pointer back to the stock entry: Stock's
+    `stock_item.vehicle_id` is the one link between the two, and a car
+    bought, sold and bought again has one stock entry per stay, each naming
+    it (Anto, 2026-10-31, KAN-504 option A; PRD-Vehicles FR-V-04 amended).
 
     `vin` is normalised and validated first (KAN-324), as a create's is, so
     a retry spelling the same VIN differently is the same no-op, and a VIN
