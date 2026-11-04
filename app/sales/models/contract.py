@@ -177,6 +177,12 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     delivery_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+    # KAN-539 (Anto, 2026-11-03, option A): «Rechnung anfordern» happens once
+    # per contract. Set by request_invoice in the same transaction as the
+    # `sales.contract.invoice_requested` outbox row; a second request is
+    # refused (409 `invoice_already_requested`), so Finance never receives
+    # two triggers for one sale. Who asked is in the audit log.
+    invoice_requested_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     @declared_attr
     def is_invoiceable(cls) -> Mapped[bool]:

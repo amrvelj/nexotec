@@ -3887,7 +3887,9 @@ export interface paths {
         post?: never;
         /**
          * Remove Accessory
-         * @description Sets valid_to; the row is never deleted (FR-V-13).
+         * @description Sets valid_to; the row is never deleted (FR-V-13). KAN-427: any
+         *     Betrieb may end it (the car is shared; Anto, option B), always audited;
+         *     the end date is today in Switzerland, never the UTC day.
          */
         delete: operations["remove_accessory_v1_vehicle_mdm__vehicle_id__accessories__accessory_id__delete"];
         options?: never;
@@ -5604,6 +5606,8 @@ export interface components {
             id: string;
             /** Invoiceref */
             invoiceRef: string | null;
+            /** Invoicerequestedat */
+            invoiceRequestedAt: string | null;
             /** Isinvoiceable */
             isInvoiceable: boolean;
             /** Islegacy */

@@ -301,6 +301,7 @@
       "plate_move_before_start": "L'assegnazione sull'altro veicolo inizia lo stesso giorno o più tardi – scegliere una data «Valida dal» successiva.",
       "plate_validity_invalid": "Un'assegnazione non può terminare prima di iniziare.",
       "plate_wechselschild_not_possible": "Una targa trasferibile collega esattamente due veicoli – questa targa è già su due veicoli.",
+      "invoice_already_requested": "La fattura di questo contratto è già stata richiesta il {{date}}.",
       "invoice_plate_vehicle_unknown": "Il veicolo di questo contratto non ha una scheda veicolo su cui registrare una targa. Richieda la fattura senza targa e registri poi la targa sul veicolo.",
       "number_pattern_invalid": "Il modello non è valido: esattamente un {counter:N} (N da 1 a 9), {year} e {location_code} al massimo una volta, altrimenti solo lettere, cifre e - / . _",
       "number_pattern_too_long": "Un numero secondo questo modello supererebbe 16 caratteri.",
@@ -1415,6 +1416,7 @@
       "requestInvoice": "Richiedi fattura",
       "requestInvoiceDisabledNotConfirmed": "Possibile solo dopo la conferma del contratto.",
       "requestInvoiceDisabledNotPurchased": "Il veicolo non è ancora stato acquistato — la fattura può essere richiesta non appena l'acquisto è registrato in stock.",
+      "requestInvoiceDisabledAlreadyRequested": "La fattura è già stata richiesta il {{date}}.",
       "requestInvoiceDisabledLegacy": "Vendita ripresa dal vecchio sistema — già fatturata lì."
     },
     "requestInvoice": {

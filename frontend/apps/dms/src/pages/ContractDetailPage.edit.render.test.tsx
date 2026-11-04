@@ -71,6 +71,7 @@ const EMPTY: SalesContractRead = {
   signedAt: null,
   deliveryDate: null,
   isInvoiceable: false,
+  invoiceRequestedAt: null,
   isLegacy: false,
   invoiceRef: null,
   cancelledReason: null,

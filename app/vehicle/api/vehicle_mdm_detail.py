@@ -4,7 +4,6 @@ odometer, accessories and party roles, each scoped by a known vehicle id
 this context's endpoints.
 """
 
-import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -264,12 +263,17 @@ def remove_accessory(
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
-    """Sets valid_to; the row is never deleted (FR-V-13)."""
+    """Sets valid_to; the row is never deleted (FR-V-13). KAN-427: any
+    Betrieb may end it (the car is shared; Anto, option B), always audited;
+    the end date is today in Switzerland, never the UTC day."""
 
-    accessory = db.get(VehicleAccessory, accessory_id)
+    accessory = db.get(VehicleAccessory, accessory_id, with_for_update=True)
     if accessory is None or accessory.vehicle_id != vehicle_id:
         raise NotFoundError(f"Accessory {accessory_id} was not found.")
-    history_service.remove_accessory(db, accessory=accessory, valid_to=dt.datetime.now(dt.UTC).date())
+    history_service.remove_accessory(
+        db, accessory=accessory, valid_to=plate_service.swiss_today(), actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+    )
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/party-roles", response_model=list[VehiclePartyAllocationRead])

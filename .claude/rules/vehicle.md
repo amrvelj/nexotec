@@ -137,6 +137,17 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   publishes nothing — the nightly label refresh catches it (KAN-560) — and no production
   code writes a vehicle-mdm record's `catalogue_variant_id` after creation yet. The FR-V-12 merge changes no summary field
   of either record; its party re-point relabels through `customer.public.repoint_vehicle_party`.
+- **Every identity PATCH is audited** (KAN-561): `update_vehicle_mdm` writes an `update` audit row (the
+  actor, the changed fields before and after under their camelCase names; none for a PATCH that changes
+  nothing; `tenant_id` null — vehicle-mdm is global). `"vin": null` or `"vehicleStatus": null` is a 422;
+  a duplicate VIN or Stammnummer is a 409 that names that field (`details.vin` / `details.stammnummer`),
+  and any other integrity error is not reported as a duplicate.
+- **Any Betrieb may end a recorded accessory; every end is audited** (Anto, 2026-11-03, KAN-427
+  option B: the car is shared). `DELETE /v1/vehicle-mdm/{id}/accessories/{id}` sets `validTo` to
+  today in Switzerland (`plate.swiss_today`, never the UTC day) and writes an `accessory_ended` audit
+  row (actor, the row before and after — its `recordingTenantId` included) under the ending Betrieb and,
+  when another Betrieb recorded it, once more under that one (Anto, 2026-11-04, KAN-427 option A: both
+  see it); the row is never deleted (FR-V-13), and an accessory already ended is left as it is.
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway
