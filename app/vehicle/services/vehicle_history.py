@@ -127,27 +127,31 @@ def remove_accessory(
 
     KAN-427 (Anto, 2026-11-03, option B): the car is shared, so any Betrieb
     with vehicle_mdm write may end an accessory another Betrieb recorded —
-    and every end is audited with the actor, the ending Betrieb
-    (`tenant_id`) and the row as it was (its recording Betrieb included), so
-    an end by someone else is never untraceable. An accessory already ended
-    is left as it is: a repeated DELETE neither moves its end date nor
-    writes a second audit row.
+    and every end is audited with the actor, the ending Betrieb and the row
+    as it was (its recording Betrieb included), so an end by someone else is
+    never untraceable. Both Betriebe see it (Anto, 2026-11-04, option A): the
+    row is written under the ending Betrieb (`tenant_id`) and, when another
+    Betrieb recorded the accessory, once more under that one. An accessory
+    already ended is left as it is: a repeated DELETE neither moves its end
+    date nor writes another audit row.
     """
 
     if accessory.valid_to is not None:
         return accessory
     before = _accessory_audit(accessory)
     accessory.valid_to = valid_to
-    record_audit_event(
-        db,
-        entity_type=ACCESSORY_ENTITY_TYPE,
-        entity_id=accessory.id,
-        tenant_id=tenant_id,
-        action=ACTION_ACCESSORY_ENDED,
-        actor_id=actor_id,
-        before=before,
-        after=_accessory_audit(accessory),
-    )
+    after = _accessory_audit(accessory)
+    for audit_tenant_id in dict.fromkeys((tenant_id, accessory.recording_tenant_id)):
+        record_audit_event(
+            db,
+            entity_type=ACCESSORY_ENTITY_TYPE,
+            entity_id=accessory.id,
+            tenant_id=audit_tenant_id,
+            action=ACTION_ACCESSORY_ENDED,
+            actor_id=actor_id,
+            before=before,
+            after=after,
+        )
     db.commit()
     db.refresh(accessory)
     return accessory

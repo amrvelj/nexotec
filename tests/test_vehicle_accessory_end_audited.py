@@ -63,15 +63,35 @@ def test_another_betrieb_may_end_the_accessory_and_the_end_is_audited(client, db
     ended = client.delete(f"/v1/vehicle-mdm/{vehicle['id']}/accessories/{accessory['id']}", headers=headers_b)
 
     assert ended.status_code == 204, ended.text
-    [row] = _ended_audit_rows(db_session, accessory["id"])
-    assert row.actor_id == user_b
-    assert row.tenant_id == garage_b
-    assert row.before["validTo"] is None
-    assert row.before["recordingTenantId"] == str(garage_a)
-    assert row.before["accessoryType"] == "towbar"
-    assert row.after["validTo"] == plate_service.swiss_today().isoformat()
+    rows = _ended_audit_rows(db_session, accessory["id"])
+    # Both Betriebe see it (Anto, 2026-11-04, option A): the one that ended it
+    # and the one that recorded it, the same entry in each one's audit log.
+    assert sorted(str(row.tenant_id) for row in rows) == sorted([str(garage_a), str(garage_b)])
+    for row in rows:
+        assert row.actor_id == user_b
+        assert row.before["validTo"] is None
+        assert row.before["recordingTenantId"] == str(garage_a)
+        assert row.before["accessoryType"] == "towbar"
+        assert row.after["validTo"] == plate_service.swiss_today().isoformat()
     stored = db_session.get(VehicleAccessory, uuid.UUID(accessory["id"]))
     assert stored is not None  # FR-V-13: closed, never deleted
+
+
+def test_the_recording_betrieb_ending_its_own_accessory_writes_one_row(client, db_session):
+    vehicle, accessory, garage_a = _towbar_recorded_by_garage_a(client)
+    token_a = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=garage_a, group_id=dealer_group_of(str(garage_a)),
+        roles=frozenset(), is_dealer_manager=True,
+    )
+
+    ended = client.delete(
+        f"/v1/vehicle-mdm/{vehicle['id']}/accessories/{accessory['id']}",
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
+
+    assert ended.status_code == 204, ended.text
+    [row] = _ended_audit_rows(db_session, accessory["id"])
+    assert row.tenant_id == garage_a
 
 
 def test_ending_an_ended_accessory_changes_nothing(client, db_session, monkeypatch):
@@ -88,7 +108,7 @@ def test_ending_an_ended_accessory_changes_nothing(client, db_session, monkeypat
 
     db_session.expire_all()
     assert db_session.get(VehicleAccessory, uuid.UUID(accessory["id"])).valid_to == first_end
-    assert len(_ended_audit_rows(db_session, accessory["id"])) == 1
+    assert len(_ended_audit_rows(db_session, accessory["id"])) == 2  # the first end's two rows, no more
 
 
 def test_the_end_date_is_the_swiss_day_not_the_utc_day(client, db_session, monkeypatch):

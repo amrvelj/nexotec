@@ -12,7 +12,8 @@ purged; the KAN-100 replica backfill reads it the same way). Since KAN-523
 the request also writes an `invoice_requested` audit row. The stamp is the
 earliest of the two, so every contract requested before this migration —
 before KAN-523 too — is refused a second request. Every other contract stays
-NULL. Re-runnable (it fills only NULL stamps). Guarded for offline mode
+NULL. Anto confirmed this backfill (2026-11-04, option A; his plan had
+left existing rows empty). Re-runnable (it fills only NULL stamps). Guarded for offline mode
 (KAN-174): the backfill reads rows.
 
 Downgrade drops the column; a second request is then possible again, so it

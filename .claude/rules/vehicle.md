@@ -145,8 +145,9 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 - **Any Betrieb may end a recorded accessory; every end is audited** (Anto, 2026-11-03, KAN-427
   option B: the car is shared). `DELETE /v1/vehicle-mdm/{id}/accessories/{id}` sets `validTo` to
   today in Switzerland (`plate.swiss_today`, never the UTC day) and writes an `accessory_ended` audit
-  row (actor, the ending Betrieb, the row before and after — its `recordingTenantId` included); the
-  row is never deleted (FR-V-13), and an accessory already ended is left as it is (no second row).
+  row (actor, the row before and after — its `recordingTenantId` included) under the ending Betrieb and,
+  when another Betrieb recorded it, once more under that one (Anto, 2026-11-04, KAN-427 option A: both
+  see it); the row is never deleted (FR-V-13), and an accessory already ended is left as it is.
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway
