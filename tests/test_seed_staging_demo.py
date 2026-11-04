@@ -3,6 +3,11 @@
 stack up with no demo user and no error. KAN-97 made it raise TypeError on
 every fresh stack and only the review noticed. These tests run the real
 main() against the test database: create, then no-op, then reconcile.
+
+KAN-551: the seed has two paths. The tests up to the KAN-551 section run the
+local one (`DMS_ENVIRONMENT` development: the password demo account); the
+KAN-551 section runs the deployed one (staging: an invited first manager,
+MFA enforced, no shared credential) and scripts/retire_staging_shared_demo_user.py.
 """
 
 import uuid
@@ -16,12 +21,27 @@ from app.core.auth import AccessRole
 from app.core.outbox_model import OutboxMessage
 from app.core.permissions import ModuleCode
 from app.platform import reconciliation as platform_reconciliation
+from app.platform.models.auth_event import AuthEvent
+from app.platform.models.auth_session import AuthSession
+from app.platform.models.auth_token import AuthToken
+from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership
+from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.schemas.user import UserCreate
 from app.platform.services import user as user_service
-from scripts import seed_staging_demo
+from scripts import retire_staging_shared_demo_user, seed_staging_demo
+from tests.identity_support import (
+    STRONG_PASSWORD,
+    RecordingMailer,
+    cookie_headers,
+    create_dealership,
+    create_user,
+    last_mail_to,
+    token_in,
+)
+from tests.test_identity_mfa import _enrol_totp
 
 PASSWORD = "staging-horse-secret-2026"
 OTHER_PASSWORD = "rotated-horse-secret-2026"
@@ -35,6 +55,8 @@ def seed(engine, monkeypatch):
         "SessionLocal",
         sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False),
     )
+
+    monkeypatch.setattr(seed_staging_demo, "_environment", lambda: "development")
 
     def run(password: str = PASSWORD) -> None:
         monkeypatch.setenv("DMS_SEED_DEMO_PASSWORD", password)
@@ -224,3 +246,367 @@ def test_a_rerun_restamps_an_actor_that_names_no_user_and_leaves_a_real_one_alon
     assert (dealership.created_by, dealership.updated_by) == (user.id, user.id)
     assert (group.created_by, group.updated_by) == (user.id, other.id)
     assert platform_reconciliation.run(db_session).orphans_found == 0
+
+
+# --- KAN-551: a deployed environment has no shared login ------------------------
+
+MANAGER_EMAIL = "first.manager@nexotec-staging.example"
+
+
+@pytest.fixture()
+def deployed_seed(engine, monkeypatch, mailbox):
+    """The deployed path (DMS_ENVIRONMENT staging) against the test engine,
+    its invitation recorded in the same `mailbox` the API's mails land in."""
+
+    monkeypatch.setattr(
+        seed_staging_demo,
+        "SessionLocal",
+        sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False),
+    )
+    monkeypatch.setattr(seed_staging_demo, "get_mailer", lambda: RecordingMailer(sent=mailbox))
+    monkeypatch.delenv("DMS_SEED_DEMO_PASSWORD", raising=False)
+
+    def run(email: str | None = MANAGER_EMAIL, environment: str = "staging") -> None:
+        monkeypatch.setattr(seed_staging_demo, "_environment", lambda: environment)
+        if email is None:
+            monkeypatch.delenv(seed_staging_demo.FIRST_MANAGER_EMAIL_VAR, raising=False)
+        else:
+            monkeypatch.setenv(seed_staging_demo.FIRST_MANAGER_EMAIL_VAR, email)
+        seed_staging_demo.main()
+
+    return run
+
+
+def _demo_dealership(db_session) -> Dealership:
+    dealership = db_session.scalar(select(Dealership).where(Dealership.legal_name == seed_staging_demo.DEMO_LEGAL_NAME))
+    assert dealership is not None
+    return dealership
+
+
+def _mfa_enforced(db_session, dealership: Dealership) -> bool:
+    config = db_session.scalar(select(DealershipAuthConfig).where(DealershipAuthConfig.dealership_id == dealership.id))
+    assert config is not None
+    return config.mfa_enforced
+
+
+def _all_counts(db_session) -> tuple[int, ...]:
+    return _counts(db_session) + (
+        db_session.scalar(select(func.count()).select_from(AuthToken)),
+        db_session.scalar(select(func.count()).select_from(Credential)),
+        db_session.scalar(select(func.count()).select_from(AuthEvent)),
+    )
+
+
+@pytest.mark.parametrize("environment", ["staging", "production", "prod-eu"])
+def test_a_deployed_first_run_invites_the_first_manager_and_enforces_mfa(
+    deployed_seed, db_session, mailbox, environment
+):
+    """No shared credential anywhere: the only user is the invited first
+    manager, holding no password, and the Betrieb enforces MFA. Any name but
+    development/local/test is a deployment (fails closed)."""
+
+    deployed_seed(environment=environment)
+
+    dealership = _demo_dealership(db_session)
+    users = db_session.scalars(select(User).where(User.tenant_id == dealership.id)).all()
+    assert [(u.email, u.status, u.is_dealer_manager) for u in users] == [(MANAGER_EMAIL, UserStatus.INVITED, True)]
+    assert db_session.scalar(select(func.count()).select_from(Credential)) == 0
+    assert db_session.scalar(select(User).where(User.email == seed_staging_demo.DEMO_EMAIL)) is None
+    assert _mfa_enforced(db_session, dealership) is True
+    assert [mail.to for mail in mailbox] == [MANAGER_EMAIL]
+    assert "/invitations/accept?token=" in mailbox[0].text
+    # The first manager is the actor of what the seed created and the granter
+    # of the licences (KAN-318, KAN-198), so reconciliation finds nothing.
+    manager = users[0]
+    granted_by = db_session.scalars(
+        select(ModuleEntitlement.granted_by).where(ModuleEntitlement.dealership_id == dealership.id)
+    ).all()
+    assert set(granted_by) == {manager.id}
+    assert (dealership.created_by, manager.created_by) == (manager.id, manager.id)
+    assert platform_reconciliation.run(db_session).orphans_found == 0
+
+
+def test_a_second_deployed_run_writes_nothing_and_mails_nobody(deployed_seed, db_session, mailbox):
+    deployed_seed()
+    before = _all_counts(db_session)
+    manager = db_session.scalar(select(User).where(User.email == MANAGER_EMAIL))
+    assert manager is not None
+    manager_before = (manager.version, manager.updated_at, manager.invited_at)
+    db_session.rollback()
+
+    deployed_seed()
+
+    assert _all_counts(db_session) == before
+    assert len(mailbox) == 1
+    db_session.expire_all()
+    manager = db_session.scalar(select(User).where(User.email == MANAGER_EMAIL))
+    assert (manager.version, manager.updated_at, manager.invited_at) == manager_before
+
+
+def test_an_accepted_first_manager_is_never_reinvited_or_reset_by_a_deploy(deployed_seed, db_session, client, mailbox):
+    """The lock-out the ticket warns about: a deploy after the manager set a
+    password must leave the account working exactly as it is."""
+
+    deployed_seed()
+    accepted = client.post(
+        "/v1/auth/invitations/accept", json={"token": token_in(mailbox[0]), "password": STRONG_PASSWORD}
+    )
+    assert accepted.status_code == 200, accepted.text
+    credential = db_session.scalar(select(Credential))
+    hash_before = credential.password_hash
+    tokens_before = db_session.scalar(select(func.count()).select_from(AuthToken))
+    db_session.rollback()
+
+    deployed_seed()
+
+    db_session.expire_all()
+    manager = db_session.scalar(select(User).where(User.email == MANAGER_EMAIL))
+    assert manager.status == UserStatus.ACTIVE
+    assert db_session.scalar(select(Credential)).password_hash == hash_before
+    assert db_session.scalar(select(func.count()).select_from(AuthToken)) == tokens_before
+    assert len(mailbox) == 1
+    login = client.post("/v1/auth/login", json={"email": MANAGER_EMAIL, "password": STRONG_PASSWORD})
+    assert login.status_code == 200, login.text
+
+
+def test_the_invited_manager_signs_in_and_is_sent_to_enrol_a_second_factor(deployed_seed, client, mailbox):
+    """Exit criterion 1's flow, in the test client: the invitation's link,
+    a password, then the MFA enrolment every screen waits for."""
+
+    deployed_seed()
+
+    accepted = client.post(
+        "/v1/auth/invitations/accept", json={"token": token_in(mailbox[0]), "password": STRONG_PASSWORD}
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["session"]["mfaEnrolmentRequired"] is True
+    cookie = accepted.cookies.get("dms_session")
+    refused = client.get("/v1/me", headers=cookie_headers(cookie))
+    assert refused.status_code == 403
+    assert refused.json()["error"]["details"]["mfaEnrolmentRequired"] is True
+    _enrol_totp(client, cookie)
+    assert client.get("/v1/me", headers=cookie_headers(cookie)).status_code == 200
+
+
+@pytest.mark.parametrize("email", [None, "", "not-an-address"])
+def test_a_deployed_run_without_a_valid_first_manager_address_exits_1_and_writes_nothing(
+    deployed_seed, db_session, mailbox, email
+):
+    before = _all_counts(db_session)
+    db_session.rollback()
+
+    with pytest.raises(SystemExit) as exited:
+        deployed_seed(email=email)
+
+    assert exited.value.code == 1
+    assert _all_counts(db_session) == before
+    assert mailbox == []
+
+
+def test_a_deployed_run_ignores_the_demo_password(deployed_seed, monkeypatch, db_session):
+    monkeypatch.setenv("DMS_SEED_DEMO_PASSWORD", PASSWORD)
+
+    deployed_seed()
+
+    assert db_session.scalar(select(User).where(User.email == seed_staging_demo.DEMO_EMAIL)) is None
+    assert db_session.scalar(select(func.count()).select_from(Credential)) == 0
+
+
+def test_staging_seeded_before_kan551_gets_mfa_switched_on_and_its_shared_user_left_for_the_retire_script(
+    seed, deployed_seed, db_session, client
+):
+    """The staging database as it is today: the shared demo user with a
+    password and MFA off. The deploy switches MFA on (audited, a system
+    write), invites the first manager and touches the shared user not at
+    all — retiring it is the retire script's, once a personal login works."""
+
+    seed()
+    dealership = _demo_dealership(db_session)
+    shared = _demo_user(db_session)
+    shared_before = (shared.status, shared.version)
+    assert _mfa_enforced(db_session, dealership) is False
+    db_session.rollback()
+
+    deployed_seed()
+
+    db_session.expire_all()
+    assert _mfa_enforced(db_session, dealership) is True
+    audit = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "auth_config_set")).all()
+    assert [(a.entity_id, a.actor_id, a.reason, a.before, a.after) for a in audit] == [
+        (dealership.id, None, "seed_staging_demo", {"mfa_enforced": False}, {"mfa_enforced": True})
+    ]
+    shared = _demo_user(db_session)
+    assert (shared.status, shared.version) == shared_before
+    manager = db_session.scalar(select(User).where(User.email == MANAGER_EMAIL))
+    assert manager is not None and manager.tenant_id == dealership.id
+    # The rows the old seed stamped with the shared user keep it: it names a user.
+    assert dealership.created_by == shared.id
+    assert platform_reconciliation.run(db_session).orphans_found == 0
+    # The shared login now owes a second factor before any screen opens.
+    login = _login(client, PASSWORD)
+    assert login.status_code == 200, login.text
+    assert login.json()["session"]["mfaEnrolmentRequired"] is True
+
+    # A manager who switches it off again gets it back on the next deploy.
+    db_session.execute(
+        update(DealershipAuthConfig)
+        .where(DealershipAuthConfig.dealership_id == dealership.id)
+        .values(mfa_enforced=False)
+    )
+    db_session.commit()
+    deployed_seed()
+    db_session.expire_all()
+    assert _mfa_enforced(db_session, dealership) is True
+
+
+def test_an_address_held_by_another_betriebs_user_is_left_alone(deployed_seed, db_session, client, mailbox):
+    other_dealership = create_dealership(client)
+    other = create_user(client, other_dealership, email=MANAGER_EMAIL)
+    mails_before = len(mailbox)
+    other_row = db_session.get(User, uuid.UUID(other["id"]))
+    other_before = (other_row.tenant_id, other_row.version, other_row.invited_at)
+    db_session.rollback()
+
+    deployed_seed()
+
+    db_session.expire_all()
+    dealership = _demo_dealership(db_session)
+    assert _mfa_enforced(db_session, dealership) is True
+    assert db_session.scalars(select(User).where(User.tenant_id == dealership.id)).all() == []
+    other_row = db_session.get(User, uuid.UUID(other["id"]))
+    assert (other_row.tenant_id, other_row.version, other_row.invited_at) == other_before
+    assert len(mailbox) == mails_before
+
+
+# --- KAN-551: retiring the shared demo login --------------------------------------
+
+
+@pytest.fixture()
+def retire(engine):
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+    def run(*, commit: bool) -> int:
+        db = factory()
+        try:
+            return retire_staging_shared_demo_user.run(db, commit=commit, session_factory=factory)
+        finally:
+            db.close()
+
+    return run
+
+
+def test_the_retire_script_names_the_seeds_own_demo_betrieb_and_address():
+    assert retire_staging_shared_demo_user.DEMO_LEGAL_NAME == seed_staging_demo.DEMO_LEGAL_NAME
+    assert retire_staging_shared_demo_user.DEMO_EMAIL == seed_staging_demo.DEMO_EMAIL
+
+
+def _personal_manager_signs_in_with_mfa(client, mailbox) -> None:
+    accepted = client.post(
+        "/v1/auth/invitations/accept",
+        json={"token": token_in(last_mail_to(mailbox, MANAGER_EMAIL)), "password": STRONG_PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    _enrol_totp(client, accepted.cookies.get("dms_session"))
+
+
+def test_the_shared_demo_user_stays_until_a_personal_manager_has_signed_in_with_a_second_factor(
+    seed, deployed_seed, retire, db_session, client, mailbox
+):
+    seed()
+    deployed_seed()
+    before = _all_counts(db_session)
+    db_session.rollback()
+
+    # Invited, not yet accepted.
+    assert retire(commit=True) == 0
+    # Accepted with a password, no factor yet: still not proof enough.
+    accepted = client.post(
+        "/v1/auth/invitations/accept",
+        json={"token": token_in(last_mail_to(mailbox, MANAGER_EMAIL)), "password": STRONG_PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    after_accept = _all_counts(db_session)
+    db_session.rollback()
+    assert retire(commit=True) == 0
+
+    db_session.expire_all()
+    assert _demo_user(db_session).status == UserStatus.ACTIVE
+    assert _all_counts(db_session) == after_accept
+    assert after_accept != before  # the acceptance itself wrote, the script did not
+
+
+def test_a_dry_run_changes_nothing_even_when_it_could_retire(seed, deployed_seed, retire, db_session, client, mailbox):
+    seed()
+    deployed_seed()
+    _personal_manager_signs_in_with_mfa(client, mailbox)
+    before = _all_counts(db_session)
+    db_session.rollback()
+
+    assert retire(commit=False) == 0
+
+    db_session.expire_all()
+    assert _demo_user(db_session).status == UserStatus.ACTIVE
+    assert _all_counts(db_session) == before
+
+
+def test_commit_retires_the_shared_demo_user_audited_and_once(seed, deployed_seed, retire, db_session, client, mailbox):
+    seed()
+    deployed_seed()
+    shared_session = _login(client, PASSWORD)
+    assert shared_session.status_code == 200, shared_session.text
+    _personal_manager_signs_in_with_mfa(client, mailbox)
+    db_session.rollback()
+
+    assert retire(commit=True) == 0
+
+    db_session.expire_all()
+    shared = _demo_user(db_session)
+    assert shared.status == UserStatus.DEACTIVATED
+    audit = db_session.scalars(
+        select(AuditEvent).where(
+            AuditEvent.entity_id == shared.id, AuditEvent.reason == "kan551_shared_demo_login_retired"
+        )
+    ).all()
+    assert [(a.action, a.actor_id, a.after.get("status")) for a in audit] == [("update", None, "deactivated")]
+    # Its sessions are ended, and the password no longer signs in.
+    live = db_session.scalars(
+        select(AuthSession).where(AuthSession.user_id == shared.id, AuthSession.revoked_at.is_(None))
+    ).all()
+    assert live == []
+    assert _login(client, PASSWORD).status_code == 401
+    # The personal manager still signs in.
+    assert client.post("/v1/auth/login", json={"email": MANAGER_EMAIL, "password": STRONG_PASSWORD}).status_code == 200
+
+    before = _all_counts(db_session)
+    db_session.rollback()
+    assert retire(commit=True) == 0
+    assert _all_counts(db_session) == before
+
+
+def test_the_retire_script_is_a_no_op_where_no_shared_user_exists(deployed_seed, retire, db_session):
+    assert retire(commit=True) == 0  # no demo Betrieb at all
+    deployed_seed()
+    before = _all_counts(db_session)
+    db_session.rollback()
+    assert retire(commit=True) == 0
+    assert _all_counts(db_session) == before
+
+
+def test_no_screen_or_readme_hints_a_demo_credential():
+    """Criterion 3: the sign-in screen, the bundles and the README name no
+    demo address or password."""
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    sources = [
+        root / "README.md",
+        *sorted((root / "frontend/apps/dms/src").rglob("*.ts*")),
+        *sorted((root / "frontend/apps/dms/src/i18n/locales").glob("*.json")),
+    ]
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        assert "DMS_SEED_DEMO_PASSWORD=" not in text, path
+        if path.name == "README.md":
+            continue  # the runbook names the address it retires
+        assert seed_staging_demo.DEMO_EMAIL not in text, path
