@@ -1092,6 +1092,7 @@
     "loadError": "Impossibile caricare lo stock.",
     "groupLoadError": "Impossibile caricare lo stock del gruppo.",
     "allStockView": "Tutti i veicoli",
+    "allGroupStockView": "Tutti i veicoli del gruppo",
     "columns": {
       "stockNumber": "N. di magazzino",
       "vehicle": "Veicolo",

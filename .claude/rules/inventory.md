@@ -55,7 +55,14 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
   invoicing and valuation fields are absent from it; `listPrice` is deliberately present. In the
   UI, group stock is a scope switch (`ScopeSwitchMenu`); the dealership is a column, not
-  sortable (it lives on platform's table). A dealership filter is not built (KAN-565, split from KAN-104). Which
+  sortable (it lives on platform's table), and **the filter** (KAN-565): `dealershipId` /
+  `dealershipIdNot` on `GET /v1/inventory/groups/{mine|id}/stock-items` (repeatable) narrow the
+  group's own roster only — an id outside it matches nothing, an empty page, never a 403/404 for
+  the id; `GET /v1/inventory/groups/mine/dealerships` is the options read (the same roster, the
+  same gate, 404 otherwise). `GroupStockGrid` offers «Betrieb ist / ist nicht» in its own
+  views-and-filters control (views saved under `inventory.stock.group`), the predicate in the URL
+  beside `?scope=group`; a scope switch drops the filters either way (the two grids filter on
+  different fields). Which
   Betriebe are in the group, and their labels, is platform's answer
   (`platform.public.list_group_read_dealerships`, KAN-121, ADR-107): Stock never joins platform's
   tables.

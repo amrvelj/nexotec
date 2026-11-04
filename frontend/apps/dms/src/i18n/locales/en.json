@@ -1092,6 +1092,7 @@
     "loadError": "Failed to load stock.",
     "groupLoadError": "Failed to load group stock.",
     "allStockView": "All stock",
+    "allGroupStockView": "All group stock",
     "columns": {
       "stockNumber": "Stock no.",
       "vehicle": "Vehicle",

@@ -1092,6 +1092,7 @@
     "loadError": "Bestand konnte nicht geladen werden.",
     "groupLoadError": "Gruppenbestand konnte nicht geladen werden.",
     "allStockView": "Alle Fahrzeuge",
+    "allGroupStockView": "Alle Fahrzeuge der Gruppe",
     "columns": {
       "stockNumber": "Lagernr.",
       "vehicle": "Fahrzeug",

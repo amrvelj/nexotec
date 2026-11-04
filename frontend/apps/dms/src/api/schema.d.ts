@@ -2110,6 +2110,28 @@ export interface paths {
         patch: operations["update_provider_v1_integrations_providers__provider_id__patch"];
         trace?: never;
     };
+    "/v1/inventory/groups/mine/dealerships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Group Stock Dealerships
+         * @description KAN-565: the Betriebe the group stock listing's «Betrieb» filter
+         *     offers — the same roster and the same gate as the listing (404 for a
+         *     caller it refuses, or while the group's read is off).
+         */
+        get: operations["list_my_group_stock_dealerships_v1_inventory_groups_mine_dealerships_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/inventory/groups/mine/stock-items": {
         parameters: {
             query?: never;
@@ -7231,6 +7253,30 @@ export interface components {
              * Format: uuid
              */
             userId: string;
+        };
+        /**
+         * GroupStockDealershipList
+         * @description The whole roster in one response: a group has a handful of Betriebe,
+         *     never a page's worth.
+         */
+        GroupStockDealershipList: {
+            /** Items */
+            items: components["schemas"]["GroupStockDealershipRead"][];
+        };
+        /**
+         * GroupStockDealershipRead
+         * @description KAN-565: one Betrieb of the caller's group, as the group stock
+         *     listing's «Betrieb» filter offers it — the id the listing's
+         *     `dealershipId` / `dealershipIdNot` take and the label it shows.
+         */
+        GroupStockDealershipRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -17326,10 +17372,47 @@ export interface operations {
             };
         };
     };
+    list_my_group_stock_dealerships_v1_inventory_groups_mine_dealerships_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupStockDealershipList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_my_group_stock_v1_inventory_groups_mine_stock_items_get: {
         parameters: {
             query?: {
                 q?: string | null;
+                /** @description Only these Betriebe of the group (repeatable). An id outside the group matches nothing. */
+                dealershipId?: string[] | null;
+                /** @description Every Betrieb of the group but these (repeatable). */
+                dealershipIdNot?: string[] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -17369,6 +17452,10 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string | null;
+                /** @description Only these Betriebe of the group (repeatable). An id outside the group matches nothing. */
+                dealershipId?: string[] | null;
+                /** @description Every Betrieb of the group but these (repeatable). */
+                dealershipIdNot?: string[] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
