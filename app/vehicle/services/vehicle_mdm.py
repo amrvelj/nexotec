@@ -1,6 +1,7 @@
 """VehicleMdm service layer (WP-5 PR-3)."""
 
 import datetime as dt
+import re
 import uuid
 
 from sqlalchemy import select
@@ -217,7 +218,14 @@ _UNIQUE_FIELDS = {
 
 
 def _violated_constraint(exc: IntegrityError) -> str | None:
-    return getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+    """Postgres names the constraint; SQLite (the fast lane only, ADR-011)
+    names the column — «UNIQUE constraint failed: vehicle_mdm.vin»."""
+
+    name = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+    if name is not None:
+        return str(name)
+    failed = re.search(r"UNIQUE constraint failed: vehicle_mdm\.(\w+)", str(exc.orig))
+    return f"vehicle_mdm_{failed.group(1)}_key" if failed else None
 
 
 def _audit_value(value: object) -> object:

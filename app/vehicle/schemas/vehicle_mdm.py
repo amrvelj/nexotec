@@ -44,8 +44,9 @@ class VehicleMdmUpdate(CamelModel):
         vehicle-mdm, a status always set) is a 422, never a NOT NULL
         violation that reached the database."""
 
-        required = ("vin", "vehicle_status")
-        cleared = [name for name in required if name in self.model_fields_set and getattr(self, name) is None]
+        required = {"vin": "vin", "vehicle_status": "vehicleStatus"}
+        sent = self.model_fields_set
+        cleared = [api for name, api in required.items() if name in sent and getattr(self, name) is None]
         if cleared:
             raise ValueError(f"{', '.join(cleared)} cannot be cleared.")
         return self

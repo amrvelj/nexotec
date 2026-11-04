@@ -57,7 +57,8 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/users/{user_id}/invitations": "a single-use token and the user's invited_at "
     "stamp (a timestamp, not an edit; the version does not move)",
     "/v1/dealer-groups/{dealer_group_id}/enable-group-read": _KAN_428 + "a platform admin's one-way switch "
-    "(ADR-030), refused without a recorded legal basis; a repeat changes nothing",
+    "(ADR-030) that only ever sets group read on, refused without a recorded legal basis; a repeat sets the same "
+    "value again (it still bumps the version)",
     "/v1/platform/users/{user_id}/recovery/{action}": "tokens, factors, the lockout counter, sessions or the "
     "invited_at stamp — never a field a manager edits; change-email and grant-manager, which do, take If-Match",
     "/v1/reference-data/{list_code}": _NEW_ROW,
@@ -74,8 +75,8 @@ POST_WITHOUT_IF_MATCH = {
     "sample data and writes nothing",
     "/v1/dealerships/{dealership_id}/number-range-previews": "the edit dialog's live example (KAN-207): renders "
     "the next number of an unsaved pattern and writes nothing",
-    "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428 + "an event row on the legacy vehicle table, "
-    "write-frozen by ADR-021; whether the write should exist at all is that freeze's question",
+    "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428 + "a custody event row and the legacy "
+    "vehicle row's custodian; refused outright while legacy_vehicle_write_frozen is on, the default (ADR-021)",
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
     "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "
     "configurations' versions — only NULL fields, never a value a user set",
@@ -196,7 +197,7 @@ def test_an_exemption_names_an_unversioned_model_and_a_live_route():
         assert reason
 
 
-_OPEN_QUESTION_MARKERS = ("pending", "decision", "open question", "tbd", "todo")
+_OPEN_QUESTION_MARKERS = ("pending", "question", "undecided", "to be decided", "tbd", "todo")
 
 
 def test_every_exemption_states_a_ruled_reason():

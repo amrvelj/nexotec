@@ -40,9 +40,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   action on a confirmed contract is «Rechnung anfordern» (`components/contract-detail/RequestInvoiceDialog.tsx`).
   **Once per contract** (Anto, 2026-11-03, KAN-539 option A): the request stamps
   `sales_contract.invoice_requested_at` (and bumps `version`) in the transaction of its outbox row; a
-  second one is 409 `invoice_already_requested` (with `invoiceRequestedAt`), before any other write, and
-  the page keeps the action visible but disabled, naming the day. The migration took the stamp from each
-  contract's first `invoice_requested` audit row, so a contract requested before it is refused too.
+  second one is refused before any write — a stale screen by its If-Match, one with the current version
+  by 409 `invoice_already_requested` (with `invoiceRequestedAt`) — and the page keeps the action visible
+  but disabled, naming the day. The migration took each contract's stamp from its earliest
+  `sales.contract.invoice_requested` outbox row or `invoice_requested` audit row (the outbox is never
+  purged), so a contract requested before it — before KAN-523 too — is refused as well.
 - **ADR-047** — a write spanning two contexts is a call with a compensating action, never a
   shared transaction (CLAUDE.md rule 12). The one bounded exception is
   `scripts/migrate_transaction_rows.py` (ADR-091, Anto 2026-10-12, KAN-106): it writes Sales and

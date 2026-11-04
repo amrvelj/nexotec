@@ -132,7 +132,7 @@ class ContractRead(CamelModel):
     signed_at: dt.datetime | None
     delivery_date: dt.date | None
     # KAN-539 — when «Rechnung anfordern» was done; set once, never cleared.
-    invoice_requested_at: dt.datetime | None = None
+    invoice_requested_at: dt.datetime | None
     is_invoiceable: bool
     # KAN-147 — migrated from the legacy `transaction` table (ADR-050): the
     # old system invoiced it, so it can be neither invoiced nor cancelled.

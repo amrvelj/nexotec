@@ -799,13 +799,14 @@ def request_invoice(
     plate went with it, never its value (ADR-039, ADR-085).
 
     KAN-539 (Anto, 2026-11-03, option A) — once per contract. The request
-    stamps `invoice_requested_at` in the transaction that writes the outbox
-    row, so a second request (another tab, a replayed click) is refused with
-    409 `invoice_already_requested` before anything else is checked or
-    written: Finance never gets two triggers for one sale, and the car never
-    gets a second plate from a repeat. The route holds the contract's row
-    lock (`for_update`), so two concurrent requests run one after the other
-    and the second sees the stamp.
+    stamps `invoice_requested_at` and bumps the version in the transaction
+    that writes the outbox row. A second request is refused before anything
+    is written: from a screen read before the first (another tab) by the
+    stale If-Match (409, current version), from one with the current
+    version by 409 `invoice_already_requested`. Finance never gets two
+    triggers for one sale, and the car never gets a second plate from a
+    repeat. The route holds the contract's row lock (`for_update`), so two
+    concurrent requests run one after the other and the second sees both.
     """
 
     if contract.status != ContractStatus.CONFIRMED:
