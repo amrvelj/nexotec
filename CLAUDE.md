@@ -170,14 +170,10 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
 
 ## API conventions
 
-Path-versioned `/v1` · camelCase JSON · **camelCase query parameters** (Anto, 2026-11-03, KAN-477: every new
-one; the snake_case names already shipped — `updated_since` among them — are legacy, listed in
-`test_query_parameters_are_camel_case.py`, and gain a camelCase alias when their endpoint is next touched) ·
-cursor pagination · `updated_since` for incremental sync (`updatedSince` once aliased) · `If-Match` on
-every mutation of a versioned entity — the exceptions, each with its reason (six by Anto's ruling,
-KAN-428), are listed in `test_versioned_mutations_take_if_match.py` · `Idempotency-Key` honoured, never
-required, on every POST — nine ratified `/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`)
-· OpenAPI published per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
+Path-versioned `/v1` · camelCase JSON and query parameters (KAN-477; legacy snake_case ones, `updated_since` for incremental sync
+among them, in `test_query_parameters_are_camel_case.py`) · cursor pagination · `If-Match` on every mutation of a versioned entity
+(reasoned exceptions: `test_versioned_mutations_take_if_match.py`) · `Idempotency-Key` honoured, never required, on every POST — nine ratified
+`/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`) · OpenAPI per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
 ## Domain rules that apply everywhere
 

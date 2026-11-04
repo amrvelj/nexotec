@@ -171,7 +171,8 @@ def update_vehicle_mdm(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        duplicate = _UNIQUE_FIELDS.get(_violated_constraint(exc))
+        constraint = _violated_constraint(exc)
+        duplicate = _UNIQUE_FIELDS.get(constraint) if constraint is not None else None
         if duplicate is None:
             raise
         field, label = duplicate
