@@ -39,6 +39,11 @@ function files(dir: string, out: string[] = []): string[] {
   return out
 }
 
+/** A test (`*.test.*`, `*.spec.*`) or anything under src/test, by its src-relative path. */
+export function isScanned(path: string): boolean {
+  return /\.(test|spec)\.tsx?$/.test(path) || path.startsWith('test/')
+}
+
 /** `a/b/../c/./d` → `a/c/d`, on `/`-separated paths. */
 function normalise(path: string): string {
   const out: string[] = []
@@ -87,7 +92,9 @@ export function providersWithoutTestTheme(text: string, fileName = 'src/pages/pr
       ts.isIdentifier(node.expression) &&
       mantineNamespaces.has(node.expression.text) &&
       node.name.text === 'MantineProvider')
+  // A spread can carry (or override) any theme, so a tag with one cannot be judged.
   const passesSharedTheme = (attributes: ts.JsxAttributes): boolean =>
+    !attributes.properties.some((attribute) => ts.isJsxSpreadAttribute(attribute)) &&
     attributes.properties.some(
       (attribute) =>
         ts.isJsxAttribute(attribute) &&
@@ -118,9 +125,7 @@ export function providersWithoutTestTheme(text: string, fileName = 'src/pages/pr
 
 describe('render tests mount Mantine with the test theme (KAN-526, KAN-543)', () => {
   it('every MantineProvider a test mounts passes testTheme', () => {
-    const scanned = files(SRC_ROOT).filter(
-      (f) => /\.(test|spec)\.tsx?$/.test(f) || relative(SRC_ROOT, f).startsWith(`test${'/'}`),
-    )
+    const scanned = files(SRC_ROOT).filter((f) => isScanned(relative(SRC_ROOT, f).split('\\').join('/')))
     const offences = scanned.flatMap((f) => {
       const path = `src/${relative(SRC_ROOT, f).split('\\').join('/')}`
       return providersWithoutTestTheme(readFileSync(f, 'utf8'), path).map((o) => `${path}:${o}`)
@@ -146,10 +151,16 @@ describe('render tests mount Mantine with the test theme (KAN-526, KAN-543)', ()
     expect(providersWithoutTestTheme(`${imports}// wrapper: MantineProvider\nit('mounts a MantineProvider', () => {})`)).toEqual([])
   })
 
+  it('scans tests, specs and src/test, nothing else', () => {
+    expect(['pages/X.test.tsx', 'pages/X.spec.tsx', 'utils/y.spec.ts', 'test/renderWithProviders.tsx'].every(isScanned)).toBe(true)
+    expect(['pages/X.tsx', 'utils/specials.ts'].some(isScanned)).toBe(false)
+  })
+
   it('goes red for a tag with another theme or none', () => {
     expect(providersWithoutTestTheme(`${imports}<MantineProvider theme={theme}>x</MantineProvider>`)).toHaveLength(1)
     expect(providersWithoutTestTheme(`${imports}<MantineProvider>x</MantineProvider>`)).toHaveLength(1)
     expect(providersWithoutTestTheme(`${imports}<MantineProvider {...props} />`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`${imports}<MantineProvider theme={testTheme} {...rest}>x</MantineProvider>`)).toHaveLength(1)
   })
 
   it('goes red for a provider mounted any other way', () => {

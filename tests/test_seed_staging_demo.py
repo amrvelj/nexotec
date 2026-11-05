@@ -276,6 +276,9 @@ def test_the_local_seeds_create_audit_rows_are_system_writes(seed, db_session):
     assert ("dealership", "create", None, seed_staging_demo.AUDIT_REASON) in audit
     assert ("user", "create", None, seed_staging_demo.AUDIT_REASON) in audit
     assert ("user", "update", None, seed_staging_demo.AUDIT_REASON) in audit
+    # The first location create_dealership writes names the seed too (review).
+    [location_create] = [(actor, reason) for entity, action, actor, reason in audit if (entity, action) == ("location", "create")]
+    assert location_create[0] is None and location_create[1].startswith(f"{seed_staging_demo.AUDIT_REASON} — FR-A-03")
     named = {actor for _, _, actor, _ in audit if actor is not None}
     assert named <= {user.id}, "an audit actor names someone who is not a user"
     for row in (group, dealership, user):
@@ -586,6 +589,34 @@ def test_an_address_held_by_another_betriebs_user_is_left_alone(deployed_seed, d
     other_row = db_session.get(User, uuid.UUID(other["id"]))
     assert (other_row.tenant_id, other_row.version, other_row.invited_at) == other_before
     assert len(mailbox) == mails_before
+
+
+def test_a_manager_invited_on_a_later_deploy_takes_over_the_rows_the_first_deploy_left(
+    deployed_seed, db_session, client, mailbox
+):
+    """KAN-345 (review): a first deploy that finds the address held by another
+    Betrieb's user creates the demo Betrieb as a system write and invites
+    nobody; the deploy that does invite the first manager hands the Betrieb's
+    rows to them, as a single first run would (KAN-318)."""
+
+    other_dealership = create_dealership(client)
+    create_user(client, other_dealership, email=MANAGER_EMAIL)
+
+    deployed_seed()
+    db_session.expire_all()
+    dealership = _demo_dealership(db_session)
+    assert (dealership.created_by, dealership.updated_by) == (None, None)
+
+    deployed_seed(email="second.manager@nexotec-staging.example")
+
+    db_session.expire_all()
+    group, dealership = db_session.get(DealerGroup, dealership.dealer_group_id), _demo_dealership(db_session)
+    manager = db_session.scalar(select(User).where(User.email == "second.manager@nexotec-staging.example"))
+    assert manager is not None and manager.tenant_id == dealership.id
+    for row in (group, dealership, manager):
+        assert row.created_by == manager.id, row
+    # (No reconciliation run here: the other Betrieb the API helpers made
+    # names a token's random actor, which is the fixture's, not the seed's.)
 
 
 # --- KAN-551: retiring the shared demo login --------------------------------------

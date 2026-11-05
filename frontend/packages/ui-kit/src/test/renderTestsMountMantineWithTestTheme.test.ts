@@ -76,7 +76,9 @@ export function providersWithoutTestTheme(text: string, fileName = 'src/pages/pr
       ts.isIdentifier(node.expression) &&
       mantineNamespaces.has(node.expression.text) &&
       node.name.text === 'MantineProvider')
+  // A spread can carry (or override) any theme, so a tag with one cannot be judged.
   const passesSharedTheme = (attributes: ts.JsxAttributes): boolean =>
+    !attributes.properties.some((attribute) => ts.isJsxSpreadAttribute(attribute)) &&
     attributes.properties.some(
       (attribute) =>
         ts.isJsxAttribute(attribute) &&
@@ -134,6 +136,7 @@ describe('ui-kit render tests mount Mantine with the test theme (KAN-533, KAN-54
     expect(providersWithoutTestTheme(`${imports}<MantineProvider theme={theme}>x</MantineProvider>`)).toHaveLength(1)
     expect(providersWithoutTestTheme(`${imports}<MantineProvider>x</MantineProvider>`)).toHaveLength(1)
     expect(providersWithoutTestTheme(`${imports}<MantineProvider {...props} />`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`${imports}<MantineProvider theme={testTheme} {...rest}>x</MantineProvider>`)).toHaveLength(1)
   })
 
   it('goes red for a provider mounted any other way', () => {

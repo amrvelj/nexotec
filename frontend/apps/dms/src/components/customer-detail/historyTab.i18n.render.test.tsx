@@ -88,7 +88,9 @@ describe('HistoryTab in French (KAN-336)', () => {
     expect(screen.getByText('Statut du cycle de vie')).toBeInTheDocument()
     expect(screen.getByText(/— → Prospect/)).toBeInTheDocument()
     expect(screen.getByText('Langue de correspondance')).toBeInTheDocument()
-    expect(screen.getByText(/— → Italien/)).toBeInTheDocument()
+    // The correspondence language is named in itself for every user (KAN-343).
+    expect(screen.getByText(/— → Italiano/)).toBeInTheDocument()
+    expect(screen.queryByText(/Italien\b/)).not.toBeInTheDocument()
     // The advisor id renders the label the customer record carries.
     expect(screen.getByText('Conseiller')).toBeInTheDocument()
     expect(screen.getByText(/— → Anna Muster/)).toBeInTheDocument()

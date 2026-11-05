@@ -16,6 +16,10 @@ MANDATORY DRY RUN. The default writes nothing: the real path runs in one
 transaction that is rolled back, and the report says what a real run would
 change. Re-run with --commit after reading it.
 
+Rows are read FOR NO KEY UPDATE SKIP LOCKED and held until the commit, so a
+seller putting another car on a deal meanwhile is never overwritten; a row
+another writer holds at that moment is left for the next run.
+
 Re-runnable: a second --commit run finds nothing to fill.
 
 Exit status: 0 when no row is left without a label it could have (in a dry
@@ -54,6 +58,11 @@ def _unlabelled(db: Session, model: type[SalesOffer] | type[SalesContract]) -> l
             select(model)
             .where(model.stock_item_id.is_not(None), model.stock_item_label.is_(None))
             .order_by(model.tenant_id, model.id)
+            # Held until the commit (or the dry run's rollback), so a seller
+            # moving the deal to another car meanwhile waits and keeps their
+            # car's label; a row someone holds now is left for the next run
+            # (the label jobs' rule, KAN-403/KAN-404).
+            .with_for_update(key_share=True, skip_locked=True)
         ).all()
     )
 

@@ -15,9 +15,17 @@ that Betrieb prints in that language fails with 422
 Anto's ruling: remove such a footer. Printing works again at once — the
 document falls back to the platform seed's footer — and the Betrieb retypes
 its own in Dealer Administration › Standard texts, where the check runs.
-Only the three carried-over codes are touched, in the language whose text
-holds the brace; a text a Betrieb saved itself has passed `validate_body`
-and is never touched.
+Only rows under the three carried-over codes, in the language whose text
+holds the brace, and only rows nobody has saved since:
+
+- a row whose braces are not all well-formed tokens (`{{ … }}`) is removed
+  whatever its history — the renderer refuses it as malformed;
+- a row exactly as ec4559d84ad3 wrote it (dealership scope, version 1, one of
+  its four titles) that holds `{{` or `}}` at all is removed — it never passed
+  `validate_body`, and a legacy footer had no placeholders;
+- a row a Betrieb saved since (a PATCH moves its version; a location variant
+  is POSTed) passed `validate_body`, so its tokens are valid: kept, even
+  when it holds `{{dealership.name}}`.
 
 It runs after `ec4559d84ad3` on every environment: where that one has run
 already, it removes what it copied; where production data is still to be
@@ -52,10 +60,30 @@ _CARRIED_OVER_CODES = (
     "contract.footer.carried_over",
 )
 
+# ec4559d84ad3's four titles, written out (a migration never imports another).
+_CARRIED_OVER_TITLES = (
+    "Fusszeile (aus der Dokumentvorlage übernommen)",
+    "Pied de page (repris du modèle de document)",
+    "Piè di pagina (ripreso dal modello di documento)",
+    "Footer (carried over from the document template)",
+)
+
+
+def _quoted(values: tuple[str, ...]) -> str:
+    return ", ".join("'" + value.replace("'", "''") + "'" for value in values)
+
+
+# A brace left once every well-formed token (`{{ … }}`, the renderer's own
+# shape) is taken out: what the renderer refuses as malformed.
+_MALFORMED = (
+    "(strpos(regexp_replace(body, '\\{\\{[^{}]*\\}\\}', '', 'g'), '{{') > 0 "
+    "OR strpos(regexp_replace(body, '\\{\\{[^{}]*\\}\\}', '', 'g'), '}}') > 0)"
+)
+_ANY_BRACE = "(strpos(body, '{{') > 0 OR strpos(body, '}}') > 0)"
+_AS_CARRIED_OVER = f"(location_id IS NULL AND version = 1 AND title IN ({_quoted(_CARRIED_OVER_TITLES)}))"
 _WHERE = (
-    "source = 'dealer' AND slot = 'footer' AND code IN ("
-    + ", ".join(f"'{code}'" for code in _CARRIED_OVER_CODES)
-    + ") AND (strpos(body, '{{') > 0 OR strpos(body, '}}') > 0)"
+    f"source = 'dealer' AND slot = 'footer' AND code IN ({_quoted(_CARRIED_OVER_CODES)}) "
+    f"AND ({_MALFORMED} OR ({_AS_CARRIED_OVER} AND {_ANY_BRACE}))"
 )
 
 

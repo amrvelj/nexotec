@@ -266,7 +266,7 @@ def create_dealership(
     # one is its registered seat, made with it.
     from app.platform.services.location import new_first_location
 
-    new_first_location(db, dealership=dealership, actor_id=actor_id)
+    new_first_location(db, dealership=dealership, actor_id=actor_id, system_reason=audit_reason)
     # KAN-207 (D-A-17): its number ranges, with the neutral seeds, unfrozen.
     from app.platform.services.number_range import seed_number_ranges
 

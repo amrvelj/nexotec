@@ -28,12 +28,30 @@ def _calls(tree: ast.AST):
             yield name, node
 
 
+def _forwarded_inside_the_services(tree: ast.AST) -> set[int]:
+    """Calls inside `create_dealership` / `create_user` themselves: the system
+    path's own plumbing (the reason handed on to the first location's audit
+    row), not a caller taking it."""
+
+    inside: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in _SYSTEM_PATH_SERVICES:
+            inside |= {id(call) for _, call in _calls(node)}
+    return inside
+
+
 def _offences(source: str) -> list[str]:
     out: list[str] = []
-    for name, call in _calls(ast.parse(source)):
+    tree = ast.parse(source)
+    forwarded = _forwarded_inside_the_services(tree)
+    for name, call in _calls(tree):
+        if id(call) in forwarded:
+            continue
         keywords = {kw.arg: kw.value for kw in call.keywords if kw.arg is not None}
         if "system_reason" in keywords:
             out.append(f"{call.lineno}: {name}(system_reason=…)")
+        if name in _SYSTEM_PATH_SERVICES and any(kw.arg is None for kw in call.keywords):
+            out.append(f"{call.lineno}: {name}(**…) cannot be judged")
         if name in _SYSTEM_PATH_SERVICES:
             actor = keywords.get("actor_id")
             if actor is None:
@@ -73,6 +91,13 @@ def test_matches_the_shapes_it_exists_to_stop():
     ]
     assert _offences("create_dealership(db, data=d)") == ["1: create_dealership() without actor_id="]
     assert _offences("create_dealership(db, data=d, actor_id=principal.user_id)") == []
+    # The services hand their own reason on; a caller elsewhere may not.
+    forwarding = "def create_dealership(db, *, actor_id, system_reason=None):\n    f(system_reason=system_reason)"
+    assert _offences(forwarding) == []
+    assert _offences("def other():\n    f(system_reason='x')") == ["2: f(system_reason=…)"]
+    assert _offences("create_user(db, actor_id=principal.user_id, **{'system_reason': 'x'})") == [
+        "1: create_user(**…) cannot be judged"
+    ]
 
 
 def test_the_seed_takes_it():

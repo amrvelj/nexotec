@@ -330,9 +330,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   language: `invoice.footer.carried_over` (not the default) and `offer.footer.carried_over` /
   `contract.footer.carried_over` as its **default** offer and contract footer, so the offers and
   contracts it prints keep the footer they printed before (a language or Betrieb without one gets
-  the seed default). A carried-over footer holding `{{` or `}}` (a stray brace the renderer
-  refuses) is removed by `7d3e9b2c4a18` in that language, under all three codes, with a `KAN-519
-  REPORT` line per row — printing falls back to the seed footer and the Betrieb retypes its own
+  the seed default). An unprintable carried-over footer — braces that are no token, or any
+  `{{`/`}}` in one nobody saved since the carry-over — is removed by `7d3e9b2c4a18` in that language
+  (an edited one passed `validate_body` and stays), with a `KAN-519 REPORT` line per row — printing falls back to the seed footer and the Betrieb retypes its own
   (Anto, 2026-11-03, KAN-519 option C). Sales prints the offer's intro and footer and the contract's footer.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. **Built (KAN-207):** `number_range` (`app/platform/models/number_range.py`,

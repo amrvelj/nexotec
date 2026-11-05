@@ -155,10 +155,16 @@ def test_a_legacy_footer_with_a_stray_brace_is_removed_in_the_same_upgrade_that_
         engine.dispose()
 
 
-def test_where_kan208_ran_already_only_the_carried_over_footers_with_a_brace_go(scratch_url):
+def test_where_kan208_ran_already_only_unprintable_carried_over_footers_go(scratch_url):
+    """On an environment where KAN-208 ran: a carried-over footer nobody has
+    saved since that holds a brace goes, and so does one whose braces are not
+    tokens; a carried-over footer the Betrieb edited since passed
+    validate_body — a valid token in it stays (the case the review found)."""
+
     _alembic(scratch_url, "upgrade", "heads")
     _alembic(scratch_url, "downgrade", _BEFORE_KAN519)
     engine = create_engine(scratch_url)
+    carried_over_title = "Fusszeile (aus der Dokumentvorlage übernommen)"
     try:
         with Session(engine) as session:
             betrieb = _dealership(session, "Garage Bestand AG")
@@ -168,25 +174,32 @@ def test_where_kan208_ran_already_only_the_carried_over_footers_with_a_brace_go(
                 "INSERT INTO standard_text (id, dealership_id, location_id, scope, code, category, applies_to, "
                 "slot, language, title, body, source, is_default, active, sort_order, template_approved, "
                 "version, created_at, updated_at) VALUES (gen_random_uuid(), :d, NULL, 'dealership', :code, "
-                "'document', :applies_to, 'footer', :language, 'Fusszeile', :body, 'dealer', :is_default, true, "
-                "100, false, 1, now(), now())"
+                "'document', :applies_to, 'footer', :language, :title, :body, 'dealer', :is_default, true, "
+                "100, false, :version, now(), now())"
             )
-            for code, applies_to, is_default in (
-                ("offer.footer.carried_over", "offer", True),
-                ("contract.footer.carried_over", "contract", True),
-            ):
-                conn.execute(insert, {"d": betrieb, "code": code, "applies_to": applies_to, "is_default": is_default,
-                                      "language": "de", "body": "Bis {{bald}}"})
-                conn.execute(insert, {"d": betrieb, "code": code, "applies_to": applies_to, "is_default": is_default,
-                                      "language": "it", "body": "Grazie."})
-            # A text the Betrieb wrote itself passed validate_body on save and is never touched.
-            conn.execute(insert, {"d": betrieb, "code": "offer.footer.own", "applies_to": "offer",
-                                  "is_default": False, "language": "de", "body": "{{ dealership.name }} dankt."})
+
+            def row(code, applies_to, language, body, *, version=1, title=carried_over_title, is_default=True):
+                conn.execute(insert, {"d": betrieb, "code": code, "applies_to": applies_to, "language": language,
+                                      "body": body, "version": version, "title": title, "is_default": is_default})
+
+            # As ec4559d84ad3 wrote them: a brace, even a well-formed one, never passed validate_body.
+            row("offer.footer.carried_over", "offer", "de", "Bis {{bald}}")
+            row("contract.footer.carried_over", "contract", "de", "Bis {{bald}}")
+            # Clean: stays.
+            row("offer.footer.carried_over", "offer", "it", "Grazie.")
+            row("contract.footer.carried_over", "contract", "it", "Grazie.")
+            # Edited by the Betrieb since (version moved): its valid token stays …
+            row("offer.footer.carried_over", "offer", "fr", "{{ dealership.name }} vous remercie.", version=2,
+                title="Pied de page")
+            # … but a brace that is no token at all is unprintable whatever the history.
+            row("contract.footer.carried_over", "contract", "fr", "Fin }} du texte", version=3, title="Pied de page")
+            # A text the Betrieb wrote itself under another code is never touched.
+            row("offer.footer.own", "offer", "de", "{{ dealership.name }} dankt.", title="Eigene", is_default=False)
     finally:
         engine.dispose()
 
     output = _alembic(scratch_url, "upgrade", "heads")
-    assert "KAN-519: 2 carried-over footer text(s) removed" in output
+    assert "KAN-519: 3 carried-over footer text(s) removed" in output
 
     engine = create_engine(scratch_url)
     try:
@@ -197,6 +210,7 @@ def test_where_kan208_ran_already_only_the_carried_over_footers_with_a_brace_go(
             ).all()
         assert [tuple(r) for r in rows] == [
             ("contract.footer.carried_over", "it", "Grazie."),
+            ("offer.footer.carried_over", "fr", "{{ dealership.name }} vous remercie."),
             ("offer.footer.carried_over", "it", "Grazie."),
             ("offer.footer.own", "de", "{{ dealership.name }} dankt."),
         ]
@@ -205,7 +219,7 @@ def test_where_kan208_ran_already_only_the_carried_over_footers_with_a_brace_go(
         with engine.begin() as conn:
             assert conn.execute(
                 text("SELECT count(*) FROM standard_text WHERE dealership_id = :d"), {"d": betrieb}
-            ).scalar() == 3
+            ).scalar() == 4
     finally:
         engine.dispose()
 

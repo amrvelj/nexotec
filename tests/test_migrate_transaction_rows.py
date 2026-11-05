@@ -164,6 +164,12 @@ def test_commit_migrates_a_completed_sale_with_a_real_stock_link(db_session):
     assert offer is not None
     assert offer.stock_item_id == stock_item.id
     assert offer.vehicle_snapshot_frozen_at is not None  # the real freeze_vehicle_snapshot ran, not a stand-in
+    # KAN-157 (rule 2): both carry the stock number the offer's freeze copied.
+    assert offer.stock_item_label == stock_item.stock_number
+    assert (contract.stock_item_label, contract.stock_item_denorm_refreshed_at) == (
+        offer.stock_item_label,
+        offer.stock_item_denorm_refreshed_at,
+    )
     # KAN-100: no purchase was ever booked for a car only ever sold, so the
     # contract derives not-invoiceable from Stock's fact. (That a migrated,
     # CONFIRMED legacy sale could still be handed to invoicing when its car

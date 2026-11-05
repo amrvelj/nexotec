@@ -381,9 +381,16 @@ def _main_deployed() -> None:
         _enforce_mfa(db, dealership=dealership)
         manager, manager_created = _ensure_first_manager(db, mailer, dealership=dealership, data=data)
         if manager is None:
-            print("No first manager in the demo Betrieb: entitlements and actor stamps wait for one.")
+            print(
+                "No first manager in the demo Betrieb: entitlements wait for one, and the Betrieb's rows stay "
+                "system writes until the run that invites one."
+            )
             return
-        created = _created_with(db, dealership) if dealership_created else ()
+        # The Betrieb's own rows are claimed when it or its first manager
+        # arrived in this run: before a first manager exists nobody but the
+        # seed has written them (a run that found no manager left them as
+        # system writes, and the run that invites one claims them).
+        created = _created_with(db, dealership) if dealership_created or manager_created else ()
         _finish(db, dealership=dealership, actor=manager, created=created + ((manager,) if manager_created else ()))
         print("Sign-in: the first manager accepts the mailed invitation and enrols a second factor.")
     finally:
@@ -417,7 +424,7 @@ def _main_local() -> None:
         seed_actor_roles = frozenset({AccessRole.PLATFORM_ADMIN})
 
         dealership, dealership_created = _ensure_dealership(db)
-        created: tuple[_ActorRow, ...] = _created_with(db, dealership) if dealership_created else ()
+        user_created = False
 
         # KAN-196: the local demo Betrieb starts with MFA not enforced (see
         # the module docstring). Only when no auth config exists yet — a
@@ -466,7 +473,7 @@ def _main_local() -> None:
             user.version += 1
             db.commit()
             db.refresh(user)
-            created += (user,)
+            user_created = True
             print(f"Created demo user {DEMO_EMAIL}.")
         else:
             print(f"Demo user {DEMO_EMAIL} already exists.")
@@ -494,6 +501,11 @@ def _main_local() -> None:
             db.commit()
             print(f"Set demo user {DEMO_EMAIL}'s password from DMS_SEED_DEMO_PASSWORD.")
 
+        # As on the deployed path: claimed when the Betrieb or its manager
+        # arrived in this run.
+        created: tuple[_ActorRow, ...] = (
+            _created_with(db, dealership) + (user,) if dealership_created or user_created else ()
+        )
         _finish(db, dealership=dealership, actor=user, created=created)
         print(f"Sign in as {DEMO_EMAIL} with the password in DMS_SEED_DEMO_PASSWORD.")
     finally:
