@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import ts from 'typescript'
 
 // KAN-533 — the ui-kit's copy of apps/dms's KAN-526 guard
 // (apps/dms/src/architecture/render-tests-mount-mantine-with-test-theme.test.ts).
@@ -6,87 +7,159 @@ import { describe, expect, it } from 'vitest'
 // transition unless reduced motion is respected; one such timer fired after
 // its file's jsdom was gone and failed a fully green run. Every ui-kit test
 // therefore mounts Mantine with `testTheme` (./testTheme.ts,
-// `respectReducedMotion`). This refuses a `<MantineProvider` in a test, or in
-// src/test, whose `theme` is anything else — the next file that mounts its own
-// provider would reopen the leak. Unlike the dms guard it also refuses a
-// provider mounted any other way — `wrapper: MantineProvider`,
-// `createElement(MantineProvider, …)`, a provider passed around by name —
-// and reads `*.spec.*` files too: every `MantineProvider` in a test is an
-// import or a `<MantineProvider theme={testTheme}>` tag. Vite reads the
-// sources (`?raw`), so the ui-kit needs no Node types for it.
+// `respectReducedMotion`).
+//
+// KAN-543 — both guards read each file with the TypeScript compiler, so
+// comments and strings are never code and an import is seen for what it
+// binds. In a test (`*.test.*`, `*.spec.*`) or in src/test, every use of
+// Mantine's provider must be a `<MantineProvider …>` tag — under whatever
+// local name it was imported as — whose `theme` is the `testTheme` imported
+// from src/test/testTheme.ts. Any other use (`wrapper: MantineProvider`,
+// `createElement(MantineProvider, …)`, a provider handed to a helper) cannot
+// be judged and is refused, and so is a `testTheme` declared locally, imported
+// from another file, or another export aliased into that name. The two guards
+// share this code; a change to one is made to both. Vite reads the sources
+// (`?raw`), so the ui-kit needs no Node types for it.
 
 const SOURCES = import.meta.glob<string>(['../**/*.test.ts', '../**/*.test.tsx', '../**/*.spec.ts', '../**/*.spec.tsx', './**/*.ts', './**/*.tsx'], {
   query: '?raw',
   import: 'default',
   eager: true,
 })
-const THIS_FILE = './renderTestsMountMantineWithTestTheme.test.ts'
+const SHARED_TEST_THEME = 'src/test/testTheme'
 
-/** Every Mantine provider `text` mounts without the shared test theme: an
- * opening `<MantineProvider …>` tag without `theme={testTheme}`; any other use
- * of the name outside an import statement, a closing tag or a comment (a
- * `wrapper:`, a `createElement`, a provider handed to a helper — none can be
- * judged); and a `testTheme` that is not the one from `src/test/testTheme.ts`
- * (a local `const testTheme = createTheme({})` would pass the tag rule). */
-export function providersWithoutTestTheme(text: string): string[] {
+/** `a/b/../c/./d` → `a/c/d`, on `/`-separated paths. */
+function normalise(path: string): string {
+  const out: string[] = []
+  for (const part of path.split('/')) {
+    if (part === '' || part === '.') continue
+    if (part === '..') out.pop()
+    else out.push(part)
+  }
+  return out.join('/')
+}
+
+function resolvesTo(fileName: string, specifier: string, target: string): boolean {
+  if (!specifier.startsWith('.')) return false
+  const dir = fileName.split('/').slice(0, -1).join('/')
+  return normalise(`${dir}/${specifier}`).replace(/\.tsx?$/, '') === target
+}
+
+/** Every Mantine provider `text` (the file `fileName`, a `src/`-relative
+ * path) mounts without the shared test theme, as `<line>: <code>`. */
+export function providersWithoutTestTheme(text: string, fileName = 'src/pages/probe.test.tsx'): string[] {
+  const file = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const providerNames = new Set(['MantineProvider'])
+  const mantineNamespaces = new Set<string>()
+  const sharedThemeNames = new Set<string>()
+  for (const statement of file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    const specifier = statement.moduleSpecifier.text
+    const bindings = statement.importClause?.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings) && specifier === '@mantine/core') mantineNamespaces.add(bindings.name.text)
+    if (!bindings || !ts.isNamedImports(bindings)) continue
+    for (const element of bindings.elements) {
+      const imported = (element.propertyName ?? element.name).text
+      if (specifier === '@mantine/core' && imported === 'MantineProvider') providerNames.add(element.name.text)
+      if (imported === 'testTheme' && resolvesTo(fileName, specifier, SHARED_TEST_THEME)) sharedThemeNames.add(element.name.text)
+    }
+  }
+
   const offences: string[] = []
-  for (const match of text.matchAll(/<MantineProvider\b([^>]*)>/g)) {
-    if (!/\btheme=\{testTheme\}/.test(match[1])) offences.push(match[0])
+  const offence = (node: ts.Node, what: string) => {
+    const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1
+    offences.push(`${line}: ${what}`)
   }
-  const rest = text
-    // Comments: a block comment, and `//` at a line's start or after
-    // whitespace — never the `//` of a URL inside a string.
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[ \t])\/\/[^\n]*/gm, '$1')
-    // Import statements only: `import … from '…'` (its specifier list may
-    // span lines) and a side-effect `import '…'`. Neither can run on into
-    // the code after it.
-    .replace(/^import\s+(?:type\s+)?[\w*{}\s,$]+?\s+from\s*['"][^'"\n]+['"];?/gm, '')
-    .replace(/^import\s*['"][^'"\n]+['"];?/gm, '')
-  const usesTestTheme = /\btheme=\{testTheme\}/.test(text)
-  const importsSharedTestTheme = /^import\s*\{[^}]*\btestTheme\b[^}]*\}\s*from\s*['"](?:\.{1,2}\/)+(?:test\/)?testTheme['"]/m.test(text)
-  if (usesTestTheme && !importsSharedTestTheme) offences.push('testTheme is not imported from src/test/testTheme')
-  for (const match of rest.replace(/<\/?MantineProvider\b[^>]*>/g, '').matchAll(/[^\n]*\bMantineProvider\b[^\n]*/g)) {
-    offences.push(match[0].trim())
+  const isProvider = (node: ts.Node): boolean =>
+    (ts.isIdentifier(node) && providerNames.has(node.text)) ||
+    (ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      mantineNamespaces.has(node.expression.text) &&
+      node.name.text === 'MantineProvider')
+  // A spread can carry (or override) any theme, so a tag with one cannot be judged.
+  const passesSharedTheme = (attributes: ts.JsxAttributes): boolean =>
+    !attributes.properties.some((attribute) => ts.isJsxSpreadAttribute(attribute)) &&
+    attributes.properties.some(
+      (attribute) =>
+        ts.isJsxAttribute(attribute) &&
+        attribute.name.getText(file) === 'theme' &&
+        attribute.initializer !== undefined &&
+        ts.isJsxExpression(attribute.initializer) &&
+        attribute.initializer.expression !== undefined &&
+        ts.isIdentifier(attribute.initializer.expression) &&
+        sharedThemeNames.has(attribute.initializer.expression.text),
+    )
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) || ts.isJsxClosingElement(node)) return
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && isProvider(node.tagName)) {
+      if (!passesSharedTheme(node.attributes)) offence(node, node.getText(file).split('\n')[0])
+      ts.forEachChild(node.attributes, visit)
+      return
+    }
+    if (isProvider(node)) {
+      offence(node, node.parent.getText(file).split('\n')[0])
+      return
+    }
+    ts.forEachChild(node, visit)
   }
+  visit(file)
   return offences
 }
 
-describe('ui-kit render tests mount Mantine with the test theme (KAN-533)', () => {
+describe('ui-kit render tests mount Mantine with the test theme (KAN-533, KAN-543)', () => {
   it('every MantineProvider a test mounts passes testTheme', () => {
-    const scanned = Object.entries(SOURCES).filter(([path]) => path !== THIS_FILE && !path.endsWith('/test/renderTestsMountMantineWithTestTheme.test.ts'))
-    const offences = scanned.flatMap(([path, text]) => providersWithoutTestTheme(text).map((tag) => `${path}: ${tag}`))
+    const scanned = Object.entries(SOURCES).map(([key, text]) => [normalise(`src/test/${key}`), text] as const)
+    const offences = scanned.flatMap(([path, text]) => providersWithoutTestTheme(text, path).map((o) => `${path}:${o}`))
     // The ui-kit has ~25 test files today, 16 of them mounting their own provider.
     expect(scanned.length).toBeGreaterThan(20)
     expect(scanned.filter(([, text]) => text.includes('<MantineProvider')).length).toBeGreaterThan(10)
     expect(offences).toEqual([])
   })
 
-  it('goes red for a provider with another theme or none', () => {
-    expect(providersWithoutTestTheme('<MantineProvider theme={theme}>')).toHaveLength(1)
-    expect(providersWithoutTestTheme('<MantineProvider>')).toHaveLength(1)
-    expect(providersWithoutTestTheme('<MantineProvider theme={theme} env="test">')).toHaveLength(1)
-    expect(
-      providersWithoutTestTheme("import { testTheme } from './testTheme'\n<MantineProvider env=\"test\" theme={testTheme} withCssVariables={false}>"),
-    ).toEqual([])
-    expect(providersWithoutTestTheme('renderHook(() => useX(), { wrapper: MantineProvider })')).toHaveLength(1)
-    expect(providersWithoutTestTheme('render(createElement(MantineProvider, { theme }, ui))')).toHaveLength(1)
-    const imports = 'import { Button, MantineProvider } from "@mantine/core"\nimport { testTheme } from "../test/testTheme"\n'
-    expect(
-      providersWithoutTestTheme(`${imports}// a MantineProvider in a comment\nrender(<MantineProvider theme={testTheme}><Button /></MantineProvider>)`),
-    ).toEqual([])
-    // A side-effect import last, then a provider, then a `from "…"` in a title:
-    // the import stripping must not run on into the code between them.
-    expect(
-      providersWithoutTestTheme(`${imports}import './styles.css'\nrenderHook(f, { wrapper: MantineProvider })\nit('reads from "x"', () => {})`),
-    ).toHaveLength(1)
-    // `//` inside a string is not a comment.
-    expect(providersWithoutTestTheme(`${imports}load('http://x', { wrapper: MantineProvider })`)).toHaveLength(1)
-    // A local testTheme is not the shared one.
+  const imports = "import { Button, MantineProvider } from '@mantine/core'\nimport { testTheme } from '../test/testTheme'\n"
+
+  it('passes the shared theme, under any local name for either import', () => {
+    expect(providersWithoutTestTheme(`${imports}render(<MantineProvider env="test" theme={testTheme} withCssVariables={false}><Button /></MantineProvider>)`)).toEqual([])
+    expect(providersWithoutTestTheme(`${imports}render(<MantineProvider theme={testTheme} />)`)).toEqual([])
     expect(
       providersWithoutTestTheme(
-        'import { MantineProvider, createTheme } from "@mantine/core"\nconst testTheme = createTheme({})\nrender(<MantineProvider theme={testTheme} />)',
+        "import { MantineProvider as MP } from '@mantine/core'\nimport { testTheme as shared } from '../test/testTheme'\n<MP theme={shared}>x</MP>",
       ),
-    ).toEqual(['testTheme is not imported from src/test/testTheme'])
+    ).toEqual([])
+    expect(providersWithoutTestTheme("import { MantineProvider } from '@mantine/core'\nimport { testTheme } from './testTheme'\n<MantineProvider theme={testTheme} />", 'src/test/renderWithProviders.tsx')).toEqual([])
+    // A comment or a string naming it is not code.
+    expect(providersWithoutTestTheme(`${imports}// wrapper: MantineProvider\nit('mounts a MantineProvider', () => {})`)).toEqual([])
+  })
+
+  it('goes red for a tag with another theme or none', () => {
+    expect(providersWithoutTestTheme(`${imports}<MantineProvider theme={theme}>x</MantineProvider>`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`${imports}<MantineProvider>x</MantineProvider>`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`${imports}<MantineProvider {...props} />`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`${imports}<MantineProvider theme={testTheme} {...rest}>x</MantineProvider>`)).toHaveLength(1)
+  })
+
+  it('goes red for a provider mounted any other way', () => {
+    expect(providersWithoutTestTheme(`${imports}renderHook(() => useX(), { wrapper: MantineProvider })`)).toEqual([
+      '3: wrapper: MantineProvider',
+    ])
+    expect(providersWithoutTestTheme(`${imports}render(createElement(MantineProvider, { theme }, ui))`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`${imports}mountWith(MantineProvider)`)).toHaveLength(1)
+    expect(providersWithoutTestTheme("import * as M from '@mantine/core'\nrenderHook(f, { wrapper: M.MantineProvider })")).toHaveLength(1)
+  })
+
+  it('goes red for the three shapes text matching could not judge', () => {
+    // An aliased import, then the alias as the tag.
+    expect(providersWithoutTestTheme("import { MantineProvider as MP } from '@mantine/core'\n<MP theme={theme}>x</MP>")).toEqual([
+      '2: <MP theme={theme}>',
+    ])
+    // A `/*` inside a string hides nothing.
+    expect(providersWithoutTestTheme(`${imports}const glob = '/*'\nrenderHook(f, { wrapper: MantineProvider })\nconst end = '*/'`)).toHaveLength(1)
+    // A testTheme that is not the shared one: declared here, imported from
+    // elsewhere, or another export aliased into that name.
+    const tag = '<MantineProvider theme={testTheme} />'
+    expect(providersWithoutTestTheme(`import { MantineProvider, createTheme } from '@mantine/core'\nconst testTheme = createTheme({})\n${tag}`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`import { MantineProvider } from '@mantine/core'\nimport { testTheme } from './myTheme'\n${tag}`)).toHaveLength(1)
+    expect(providersWithoutTestTheme(`import { MantineProvider } from '@mantine/core'\nimport { theme as testTheme } from '../test/testTheme'\n${tag}`)).toHaveLength(1)
   })
 })

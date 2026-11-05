@@ -400,12 +400,6 @@
       "merged": "Merged",
       "do_not_contact": "Do not contact"
     },
-    "language": {
-      "de": "German",
-      "fr": "French",
-      "it": "Italian",
-      "en": "English"
-    },
     "salutation": {
       "herr": "Mr",
       "frau": "Ms",

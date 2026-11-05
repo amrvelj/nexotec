@@ -63,7 +63,12 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   rule 2's label (`stock_item_label`, the stock number from the event, and
   `stock_item_denorm_refreshed_at`; KAN-150).
   `SalesContract.is_invoiceable` is **derived on read** from it — there is no stored column, so a
-  contract written after the purchase is invoiceable at once (KAN-100).
+  contract written after the purchase is invoiceable at once (KAN-100). An offer and a contract on a stock car carry the same pair (KAN-157,
+  Anto 2026-11-03, option A): copied once, when the car is put on the deal, from the `stockNumber`
+  in `inventory.public.get_stock_item_pricing` that the snapshot freeze reads anyway; cleared
+  with `stock_item_id` (`deal_editing`); a contract from an offer and a copied offer take the
+  offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py`
+  (dry run unless `--commit`) fills the rows written before.
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
   legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back") is not
   emitted yet, so nothing clears it (KAN-146). Nightly reconciliation alarms on a replica row

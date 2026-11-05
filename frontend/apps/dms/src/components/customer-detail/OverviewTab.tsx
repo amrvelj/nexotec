@@ -8,7 +8,7 @@ import { BlockingFactsStrip } from './BlockingFactsStrip'
 import {
   translatedEmailTypeOptions,
   translatedGenderOptions,
-  translatedLanguageOptions,
+  LANGUAGE_OPTIONS,
   translatedLifecycleOptions,
   translatedPaymentTermsOptions,
   translatedPhoneTypeOptions,
@@ -544,7 +544,7 @@ export function OverviewTab({
             <SelectField label={f.legalForm} value={customer.legalForm} options={translatedLegalFormOptions(t)} patchKey="legalForm" clearable {...fieldProps} />
           </>
         )}
-        <SelectField label={f.correspondenceLanguage} value={customer.language} options={translatedLanguageOptions(t)} patchKey="language" {...fieldProps} />
+        <SelectField label={f.correspondenceLanguage} value={customer.language} options={LANGUAGE_OPTIONS} patchKey="language" {...fieldProps} />
         {/* preferredChannel moved to the Contact card (FR-18 region 3, KAN-54) —
             it names a channel, so it belongs with the channels. */}
       </OverviewCard>

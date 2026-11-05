@@ -21,7 +21,8 @@ boundary. `get_stock_item_vehicle` (KAN-523) is a third: which vehicle-mdm
 record (and VIN) a stock item is, so Sales can hand the sold car's plate on.
 `referenced_configuration_ids` (KAN-270) is vehicle's: which of the
 configurations it names a stock item holds, for its daily purge of the
-configurations no host ever took. A SELECT only.
+configurations no host ever took. A SELECT only. `get_stock_numbers`
+(KAN-157) is Sales' label backfill: stock numbers by id, plain data.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -34,7 +35,7 @@ from app.inventory.services.configuration_reference import referenced_configurat
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
-from app.inventory.services.stock_item import get_stock_item_or_404
+from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers
 from app.inventory.services.valuation import set_valuation_ref
 from app.inventory.services.vehicle_link import get_stock_item_vehicle
 
@@ -48,6 +49,7 @@ __all__ = [
     "get_stock_item_pricing",
     "get_stock_item_vehicle",
     "get_stock_items_for_vehicles",
+    "get_stock_numbers",
     "oldest_configuration_label_age_seconds",
     "referenced_configuration_ids",
     "refresh_configuration_labels",

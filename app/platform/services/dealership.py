@@ -31,6 +31,7 @@ from app.platform.schemas.dealership import (
     DealershipOverrideAddress,
     DealershipUpdate,
 )
+from app.platform.services.actor_reference import system_write_reason
 from app.platform.services.reference_data import get_active_reference_value_codes
 
 # KAN-203 (enforcement rule 7: every administrative write with before and
@@ -211,7 +212,17 @@ def list_dealerships(
     return build_page(rows, params)
 
 
-def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUID) -> Dealership:
+def create_dealership(
+    db: Session,
+    *,
+    data: DealershipCreate,
+    actor_id: uuid.UUID | None,
+    system_reason: str | None = None,
+) -> Dealership:
+    """`actor_id=None` with a `system_reason` is the system path for seeds and
+    scripts only (KAN-345, `actor_reference.system_write_reason`)."""
+
+    audit_reason = system_write_reason(actor_id, system_reason)
     dealer_group_id = data.dealer_group_id
     if dealer_group_id is None:
         # No group named — this dealership starts as a group of one (the
@@ -255,7 +266,7 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
     # one is its registered seat, made with it.
     from app.platform.services.location import new_first_location
 
-    new_first_location(db, dealership=dealership, actor_id=actor_id)
+    new_first_location(db, dealership=dealership, actor_id=actor_id, system_reason=audit_reason)
     # KAN-207 (D-A-17): its number ranges, with the neutral seeds, unfrozen.
     from app.platform.services.number_range import seed_number_ranges
 
@@ -268,6 +279,7 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
         tenant_id=dealership.id,
         action="create",
         actor_id=actor_id,
+        reason=audit_reason,
         after={
             "legal_name": dealership.legal_name,
             "uid": dealership.uid,

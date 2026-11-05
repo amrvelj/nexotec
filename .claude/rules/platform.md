@@ -330,7 +330,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   language: `invoice.footer.carried_over` (not the default) and `offer.footer.carried_over` /
   `contract.footer.carried_over` as its **default** offer and contract footer, so the offers and
   contracts it prints keep the footer they printed before (a language or Betrieb without one gets
-  the seed default). Sales prints the offer's intro and footer and the contract's footer.
+  the seed default). An unprintable carried-over footer — braces that are no token, or any
+  `{{`/`}}` in one nobody saved since the carry-over — is removed by `7d3e9b2c4a18` in that language
+  (an edited one passed `validate_body` and stays), with a `KAN-519 REPORT` line per row — printing falls back to the seed footer and the Betrieb retypes its own
+  (Anto, 2026-11-03, KAN-519 option C). Sales prints the offer's intro and footer and the contract's footer.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. **Built (KAN-207):** `number_range` (`app/platform/models/number_range.py`,
   migration `2b478e186431`), one row per Betrieb per document type (eleven, the PRD's table; customer
@@ -406,7 +409,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `/administration/locations` (list + one screen per site) on `app/platform/api/locations.py`:
   `/v1/dealerships/{id}/locations` list/create/read/PATCH — **no delete**; `isActive: false`
   deactivates, refused for the Betrieb's last active location (409 `last_active_location`, judged
-  under the dealership row lock). A new Betrieb gets its first location from its registered seat
+  under the dealership row lock; `tests/test_platform_location_last_active_race.py` races two
+  deactivations on two connections, KAN-519). A new Betrieb gets its first location from its registered seat
   (`create_dealership` → `location.new_first_location`; the migration backfilled one per Betrieb
   without). `code` is unique per Betrieb and fixed once saved (422 `location_code_immutable`; a
   row saved without one gets it once); a location is referenced by id only. `location_types` (JSON
@@ -474,7 +478,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   invitation; any other edit of a deactivated user stays 409. The one exception to "only by
   accepting" is `scripts/seed_staging_demo.py`'s **local** path (`DMS_ENVIRONMENT` development,
   local or test), which activates its password demo user on the row (nobody to mail), audited with
-  reason `seed_staging_demo` — the same bootstrap exception as its password; any other
+  reason `seed_staging_demo` — the same bootstrap exception as its password; its `create` audit rows
+  are system writes too (KAN-345, Anto 2026-11-03, option A: `create_dealership`/`create_user` take
+  `actor_id=None` with a `system_reason`, from `scripts/` only), the rows themselves stamped with the
+  manager afterwards (KAN-318); any other
   environment but `staging` is refused (exit 1, nothing written). **Staging has no shared login**
   (KAN-551, ADR-113, the identAPI test agreement's §3/§8): there the seed invites the first dealer manager (`DMS_STAGING_FIRST_MANAGER_EMAIL`; an existing holder
   of the address is never re-invited or reset), switches the demo Betrieb's `mfa_enforced` on — and
@@ -530,7 +537,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `test_notify_call_sites_use_registered_codes.py`). Its events: the declaration **and** a
   platform migration inserting the rows, in the PR that raises them. `security` is locked (immediate, in-app and push); `in_app` cannot be switched
   off while a family delivers (422 `in_app_is_the_record`); `digest` holds rows (`delivered_at`
-  NULL) until the daily `platform.notifications.digest`; `platform.notifications.purge` drops rows
+  NULL) until the daily `platform.notifications.digest`, which publishes one
+  `platform.notification_digest.released` per user filed under no Betrieb (`tenant_id` null — a digest
+  may span sister Betriebe; KAN-519, Anto 2026-11-03, option A); `platform.notifications.purge` drops rows
   past 90 days and subscriptions whose session ran out. The **security family hangs on
   `auth_events.record`** (`services/security_alerts.py::on_auth_event`): new-device login
   (`details.newDevice`: the user agent matches none of the user's earlier sessions, and there was

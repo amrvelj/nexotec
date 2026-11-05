@@ -29,6 +29,7 @@ from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserAdminRead, UserCreate, UserUpdate
 from app.platform.services import auth_events, auth_sessions, connected_account, text_delegation, user_location
+from app.platform.services.actor_reference import system_write_reason
 
 # access_roles/is_dealer_manager are audited alongside role/status even
 # though the spec text only says "role and status" — they gate
@@ -450,14 +451,19 @@ def create_user(
     *,
     dealership_id: uuid.UUID,
     data: UserCreate,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     actor_roles: frozenset[AccessRole],
     commit: bool = True,
+    system_reason: str | None = None,
 ) -> User:
     """With `commit=False` the user is flushed, not committed: the create
     route issues the invitation on the same session and commits once, so
-    the user and the invitation exist together or not at all (FR-A-09)."""
+    the user and the invitation exist together or not at all (FR-A-09).
 
+    `actor_id=None` with a `system_reason` is the system path for seeds and
+    scripts only (KAN-345, `actor_reference.system_write_reason`)."""
+
+    audit_reason = system_write_reason(actor_id, system_reason)
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
     user_id = uuid7()
     user = User(
@@ -510,6 +516,7 @@ def create_user(
         tenant_id=dealership_id,
         action="create",
         actor_id=actor_id,
+        reason=audit_reason,
         after={
             "role": _plain(user.role),
             "access_roles": user.access_roles,

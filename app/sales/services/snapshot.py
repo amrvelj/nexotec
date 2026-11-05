@@ -102,6 +102,11 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal) -> bool:
 
     if deal.vehicle_source == "stock" and deal.stock_item_id is not None:
         pricing = get_stock_item_pricing(db, tenant_id=deal.tenant_id, stock_item_id=deal.stock_item_id)
+        if deal.stock_item_label is None:
+            # KAN-157 (rule 2): the stock number, copied once with the price
+            # this read already brings (Anto, 2026-11-03, option A).
+            deal.stock_item_label = pricing["stockNumber"]
+            deal.stock_item_denorm_refreshed_at = utcnow()
         snapshot = {
             "_identity": identity,
             "vehicleLabel": deal.vehicle_label,

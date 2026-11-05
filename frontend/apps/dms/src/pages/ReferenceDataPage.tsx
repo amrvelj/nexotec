@@ -26,6 +26,7 @@ import { apiRefusalText, isStaleVersion, refusedField } from '../utils/apiRefusa
 import { useInlineEditRefusal } from '../hooks/useInlineEditRefusal'
 import type { ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
+import { LANGUAGE_ENDONYMS, LANGUAGE_ORDER } from '../i18n/languageEndonyms'
 import { fetchAllReferenceValues } from '../hooks/useReferenceValueOptions'
 import {
   LANGUAGE_FIELDS,
@@ -189,10 +190,9 @@ export function ReferenceDataPage() {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={140}>{t('referenceData.columns.code')}</Table.Th>
-                  <Table.Th>Deutsch</Table.Th>
-                  <Table.Th>Français</Table.Th>
-                  <Table.Th>Italiano</Table.Th>
-                  <Table.Th>English</Table.Th>
+                  {LANGUAGE_ORDER.map((language) => (
+                    <Table.Th key={language}>{LANGUAGE_ENDONYMS[language]}</Table.Th>
+                  ))}
                   <Table.Th w={44} aria-label={t('referenceData.columns.status')} />
                 </Table.Tr>
               </Table.Thead>
@@ -375,10 +375,10 @@ function CreateValueDialog({
           data-autofocus
           required
         />
-        <TextInput label="Deutsch" value={form.labelDe} onChange={set('labelDe')} error={fieldErrors.labelDe} required />
-        <TextInput label="Français" value={form.labelFr} onChange={set('labelFr')} error={fieldErrors.labelFr} required />
-        <TextInput label="Italiano" value={form.labelIt} onChange={set('labelIt')} error={fieldErrors.labelIt} required />
-        <TextInput label="English" value={form.labelEn} onChange={set('labelEn')} error={fieldErrors.labelEn} required />
+        <TextInput label={LANGUAGE_ENDONYMS.de} value={form.labelDe} onChange={set('labelDe')} error={fieldErrors.labelDe} required />
+        <TextInput label={LANGUAGE_ENDONYMS.fr} value={form.labelFr} onChange={set('labelFr')} error={fieldErrors.labelFr} required />
+        <TextInput label={LANGUAGE_ENDONYMS.it} value={form.labelIt} onChange={set('labelIt')} error={fieldErrors.labelIt} required />
+        <TextInput label={LANGUAGE_ENDONYMS.en} value={form.labelEn} onChange={set('labelEn')} error={fieldErrors.labelEn} required />
         <Text c="dimmed" size="xs">
           {t('referenceData.create.allLanguagesHint')}
         </Text>

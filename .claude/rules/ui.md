@@ -188,6 +188,13 @@ second local combobox.
   `localeKeyParity.test.ts` keeps that from shipping. Ruled so by Anto (2026-11-03, KAN-104
   decision 2 A): no marker when English has the text. No hardcoded user-visible string,
   including labels in dialogs and wizards.
+- **The one exception: the four language endonyms** (Anto, 2026-11-03, KAN-343 option A). The
+  reference-data screen's language columns and fields and a customer's correspondence language
+  (create, detail, list filter and export, History tab) name each language in itself for every
+  user — «Deutsch», «Français», «Italiano», «English» — from the one list
+  `i18n/languageEndonyms.ts`; `architecture/language-endonyms-one-list.test.ts` refuses the
+  literals anywhere else in `apps/dms/src`. The UI-language picker (Mein Konto, Users) and the
+  per-language editors (Übersetzungen, Standardtexte) still translate the names.
 - **The platform's published UI strings override the bundles at runtime** (KAN-209, FR-A-30…32):
   `i18n/runtimeTranslations.ts`, started by `main.tsx`, fetches `GET /v1/i18n/{language}` for the
   start language (and English) beside its bundle; the first paint waits for both, at most

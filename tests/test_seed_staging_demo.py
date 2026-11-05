@@ -27,11 +27,13 @@ from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.credential import Credential
-from app.platform.models.dealership import DealerGroup, Dealership
+from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate
+from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
 from scripts import retire_staging_shared_demo_user, seed_staging_demo
 from tests.identity_support import (
@@ -250,6 +252,84 @@ def test_a_rerun_restamps_an_actor_that_names_no_user_and_leaves_a_real_one_alon
     assert platform_reconciliation.run(db_session).orphans_found == 0
 
 
+# --- KAN-345: the seed's audit rows name no placeholder actor -------------------
+
+
+def _seed_audit_rows(db_session, dealership: Dealership) -> list[tuple[str, str, uuid.UUID | None, str | None]]:
+    rows = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.tenant_id == dealership.id).order_by(AuditEvent.created_at, AuditEvent.id)
+    ).all()
+    return [(a.entity_type, a.action, a.actor_id, a.reason) for a in rows]
+
+
+def test_the_local_seeds_create_audit_rows_are_system_writes(seed, db_session):
+    """KAN-345 (Anto, 2026-11-03, option A): the dealership `create`, the user
+    `create` and the activation `update` used to carry a random uuid4 that
+    named nobody, kept forever by the append-only log. They now name no actor
+    and give the seed as the reason; the rows themselves still name the demo
+    manager (KAN-318)."""
+
+    seed()
+
+    group, dealership, user = _seeded_rows(db_session)
+    audit = _seed_audit_rows(db_session, dealership)
+    assert ("dealership", "create", None, seed_staging_demo.AUDIT_REASON) in audit
+    assert ("user", "create", None, seed_staging_demo.AUDIT_REASON) in audit
+    assert ("user", "update", None, seed_staging_demo.AUDIT_REASON) in audit
+    # The first location create_dealership writes names the seed too (review).
+    [location_create] = [(actor, reason) for entity, action, actor, reason in audit if (entity, action) == ("location", "create")]
+    assert location_create[0] is None and location_create[1].startswith(f"{seed_staging_demo.AUDIT_REASON} — FR-A-03")
+    named = {actor for _, _, actor, _ in audit if actor is not None}
+    assert named <= {user.id}, "an audit actor names someone who is not a user"
+    for row in (group, dealership, user):
+        assert (row.created_by, row.updated_by) == (user.id, user.id), row
+    assert platform_reconciliation.run(db_session).orphans_found == 0
+
+
+def test_the_create_services_refuse_a_write_with_no_actor_and_no_reason(db_session):
+    """The system path is explicit: no actor without a reason, no reason
+    beside an actor — a programming error, never a silent system write."""
+
+    dealership_id = uuid.uuid4()  # refused before anything is read or written
+    data = UserCreate(
+        first_name="No",
+        last_name="Actor",
+        email="no.actor@example.com",
+        role=UserRole.GM,
+        access_roles=[AccessRole.SALES],
+    )
+    with pytest.raises(ValueError, match="system_reason"):
+        user_service.create_user(
+            db_session, dealership_id=dealership_id, data=data, actor_id=None, actor_roles=frozenset()
+        )
+    with pytest.raises(ValueError, match="system_reason"):
+        user_service.create_user(
+            db_session,
+            dealership_id=dealership_id,
+            data=data,
+            actor_id=uuid.uuid4(),
+            actor_roles=frozenset(),
+            system_reason="seed_staging_demo",
+        )
+    with pytest.raises(ValueError, match="system_reason"):
+        dealership_service.create_dealership(
+            db_session,
+            data=DealershipCreate(
+                legal_name="Ohne Akteur AG",
+                franchise_type=FranchiseType.INDEPENDENT,
+                address=DealershipAddress(
+                    street="Bahnhofstrasse", house_number="2", postal_code="8001", locality="Zürich", canton="ZH"
+                ),
+                phone="+41441234567",
+                uid="CHE-000.000.000",
+            ),
+            actor_id=None,
+            system_reason="  ",
+        )
+    assert db_session.scalar(select(func.count()).select_from(User)) == 0
+    assert db_session.scalar(select(func.count()).select_from(Dealership)) == 0
+
+
 # --- KAN-551: a deployed environment has no shared login ------------------------
 
 MANAGER_EMAIL = "first.manager@nexotec-staging.example"
@@ -336,6 +416,11 @@ def test_a_deployed_first_run_invites_the_first_manager_and_enforces_mfa(deploye
     assert set(granted_by) == {manager.id}
     assert (dealership.created_by, manager.created_by) == (manager.id, manager.id)
     assert platform_reconciliation.run(db_session).orphans_found == 0
+    # KAN-345: the two `create` audit rows are system writes, not a placeholder.
+    audit = _seed_audit_rows(db_session, dealership)
+    assert ("dealership", "create", None, seed_staging_demo.AUDIT_REASON) in audit
+    assert ("user", "create", None, seed_staging_demo.AUDIT_REASON) in audit
+    assert {actor for _, _, actor, _ in audit if actor is not None} <= {manager.id}
 
 
 def test_a_second_deployed_run_writes_nothing_and_mails_nobody(deployed_seed, db_session, mailbox):
@@ -504,6 +589,70 @@ def test_an_address_held_by_another_betriebs_user_is_left_alone(deployed_seed, d
     other_row = db_session.get(User, uuid.UUID(other["id"]))
     assert (other_row.tenant_id, other_row.version, other_row.invited_at) == other_before
     assert len(mailbox) == mails_before
+
+
+def test_a_manager_invited_on_a_later_deploy_takes_over_the_rows_the_first_deploy_left(
+    deployed_seed, db_session, client, mailbox
+):
+    """KAN-345 (review): a first deploy that finds the address held by another
+    Betrieb's user creates the demo Betrieb as a system write and invites
+    nobody; the deploy that does invite the first manager hands the Betrieb's
+    rows to them, as a single first run would (KAN-318)."""
+
+    other_dealership = create_dealership(client)
+    create_user(client, other_dealership, email=MANAGER_EMAIL)
+
+    deployed_seed()
+    db_session.expire_all()
+    dealership = _demo_dealership(db_session)
+    assert (dealership.created_by, dealership.updated_by) == (None, None)
+
+    deployed_seed(email="second.manager@nexotec-staging.example")
+
+    db_session.expire_all()
+    group, dealership = db_session.get(DealerGroup, dealership.dealer_group_id), _demo_dealership(db_session)
+    manager = db_session.scalar(select(User).where(User.email == "second.manager@nexotec-staging.example"))
+    assert manager is not None and manager.tenant_id == dealership.id
+    for row in (group, dealership, manager):
+        assert row.created_by == manager.id, row
+    # (No reconciliation run here: the other Betrieb the API helpers made
+    # names a token's random actor, which is the fixture's, not the seed's.)
+
+
+def test_a_first_manager_invited_into_a_betrieb_the_seed_did_not_create_leaves_its_null_actors(
+    deployed_seed, db_session, mailbox
+):
+    """KAN-345 (second review): staging's demo Betrieb predates the system
+    path, and migrations wrote some of its rows with a null actor on purpose
+    (KAN-204's first location). Inviting its first manager stamps the manager
+    on their own row only, never on those nulls."""
+
+    dealership = dealership_service.create_dealership(
+        db_session,
+        data=DealershipCreate(
+            legal_name=seed_staging_demo.DEMO_LEGAL_NAME,
+            franchise_type=FranchiseType.INDEPENDENT,
+            address=DealershipAddress(
+                street="Bahnhofstrasse", house_number="1", postal_code="8001", locality="Zürich", canton="ZH"
+            ),
+            phone="+41441234567",
+            uid="CHE-000.000.000",
+        ),
+        actor_id=uuid.uuid4(),  # an earlier seed's placeholder: not this seed's system write
+    )
+    [location] = db_session.scalars(select(Location).where(Location.tenant_id == dealership.id)).all()
+    location.created_by = location.updated_by = None  # as a migration's backfill writes it
+    db_session.commit()
+
+    deployed_seed()
+
+    db_session.expire_all()
+    manager = db_session.scalar(select(User).where(User.email == MANAGER_EMAIL))
+    assert manager is not None and manager.created_by == manager.id
+    location = db_session.get(Location, location.id)
+    assert (location.created_by, location.updated_by) == (None, None)
+    # The earlier placeholder on the Betrieb is still repaired (KAN-318's restamp).
+    assert db_session.get(Dealership, dealership.id).created_by == manager.id
 
 
 # --- KAN-551: retiring the shared demo login --------------------------------------
