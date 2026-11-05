@@ -474,7 +474,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   invitation; any other edit of a deactivated user stays 409. The one exception to "only by
   accepting" is `scripts/seed_staging_demo.py`'s **local** path (`DMS_ENVIRONMENT` development,
   local or test), which activates its password demo user on the row (nobody to mail), audited with
-  reason `seed_staging_demo` — the same bootstrap exception as its password; any other
+  reason `seed_staging_demo` — the same bootstrap exception as its password; its `create` audit rows
+  are system writes too (KAN-345, Anto 2026-11-03, option A: `create_dealership`/`create_user` take
+  `actor_id=None` with a `system_reason`, from `scripts/` only), the rows themselves stamped with the
+  manager afterwards (KAN-318); any other
   environment but `staging` is refused (exit 1, nothing written). **Staging has no shared login**
   (KAN-551, ADR-113, the identAPI test agreement's §3/§8): there the seed invites the first dealer manager (`DMS_STAGING_FIRST_MANAGER_EMAIL`; an existing holder
   of the address is never re-invited or reset), switches the demo Betrieb's `mfa_enforced` on — and

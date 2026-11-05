@@ -50,7 +50,6 @@ Can also be run directly, e.g. against local dev:
 
 import os
 import sys
-import uuid
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -105,6 +104,8 @@ AUDIT_REASON = "seed_staging_demo"
 
 _ACTOR_COLUMNS = ("created_by", "updated_by")
 
+_ActorRow = DealerGroup | Dealership | User | DealershipSettings | Location | NumberRange
+
 
 def _environment() -> str:
     return get_settings().environment
@@ -114,14 +115,14 @@ def _stamp_actor(
     db: Session,
     *,
     actor: User,
-    rows: tuple[DealerGroup | Dealership | User | DealershipSettings | Location | NumberRange, ...],
+    rows: tuple[_ActorRow, ...],
 ) -> list[str]:
     """KAN-318: the first manager is the actor of its own group, dealership
-    and user row. The services stamp whatever actor_id they are given, and
-    the first user an environment has cannot exist before its dealership
-    does (create_user needs the dealership's id), so the creates run with a
-    placeholder and the rows are stamped afterwards — created_by has no
-    service path at all, so this is a direct write. Every value that names
+    and user row. The first user an environment has cannot exist before its
+    dealership does (create_user needs the dealership's id), so the creates
+    are system writes (KAN-345) and _claim_system_created hands this run's
+    rows to the manager; created_by has no service path at all, so both are
+    direct writes. This one repairs what earlier seeds left: every value that names
     no `user` row is replaced, on every run: an environment seeded before
     KAN-318 still holds the random uuid4 the seed used to write, and the
     nightly platform reconciliation (app.platform.reconciliation) would
@@ -137,6 +138,38 @@ def _stamp_actor(
         for column in _ACTOR_COLUMNS:
             value = getattr(row, column)
             if value is not None and value not in existing:
+                setattr(row, column, actor.id)
+                changed.append(f"{row.__tablename__}.{column}")
+    if changed:
+        db.commit()
+    return changed
+
+
+def _created_with(db: Session, dealership: Dealership) -> tuple[_ActorRow, ...]:
+    """The rows `create_dealership` writes with a new Betrieb: its group, the
+    Betrieb, its settings, its first location and its number ranges."""
+
+    group = db.get(DealerGroup, dealership.dealer_group_id)
+    assert group is not None, "create_dealership always creates or names a dealer group"
+    settings_row = db.scalar(select(DealershipSettings).where(DealershipSettings.dealership_id == dealership.id))
+    locations = tuple(db.scalars(select(Location).where(Location.tenant_id == dealership.id)).all())
+    ranges = tuple(db.scalars(select(NumberRange).where(NumberRange.tenant_id == dealership.id)).all())
+    return (group, dealership) + ((settings_row,) if settings_row is not None else ()) + locations + ranges
+
+
+def _claim_system_created(db: Session, *, actor: User, rows: tuple[_ActorRow, ...]) -> list[str]:
+    """KAN-345 beside KAN-318: rows this run created as a system write carry
+    a null actor, and the first manager takes them over — the same outcome
+    KAN-318 gave them, without a placeholder id the audit log would keep.
+    Only the rows this run created: a null on any other row names nobody on
+    purpose and stays (_stamp_actor). The audit rows keep their null actor
+    and the seed's reason; the audit log is append-only. Returns what
+    changed."""
+
+    changed: list[str] = []
+    for row in rows:
+        for column in _ACTOR_COLUMNS:
+            if getattr(row, column) is None:
                 setattr(row, column, actor.id)
                 changed.append(f"{row.__tablename__}.{column}")
     if changed:
@@ -185,11 +218,15 @@ def _first_manager_data() -> UserCreate | str:
         return f"The first manager's variables are not valid ({fields}); nothing was written."
 
 
-def _ensure_dealership(db: Session, *, seed_actor_id: uuid.UUID) -> Dealership:
+def _ensure_dealership(db: Session) -> tuple[Dealership, bool]:
+    """The demo Betrieb, and whether this run created it. Created as a system
+    write (KAN-345): no user exists yet, so the rows and the `create` audit
+    row carry no actor, and the audit row's reason names this seed."""
+
     dealership = db.scalar(select(Dealership).where(Dealership.legal_name == DEMO_LEGAL_NAME))
     if dealership is not None:
         print(f"Demo dealership already exists (id={dealership.id}).")
-        return dealership
+        return dealership, False
     dealership = dealership_service.create_dealership(
         db,
         data=DealershipCreate(
@@ -205,14 +242,17 @@ def _ensure_dealership(db: Session, *, seed_actor_id: uuid.UUID) -> Dealership:
             phone="+41441234567",
             uid="CHE-000.000.000",
         ),
-        actor_id=seed_actor_id,
+        actor_id=None,
+        system_reason=AUDIT_REASON,
     )
     print(f"Created demo dealership '{DEMO_LEGAL_NAME}' (id={dealership.id}).")
-    return dealership
+    return dealership, True
 
 
-def _finish(db: Session, *, dealership: Dealership, actor: User) -> None:
-    """The steps both paths share once the Betrieb has its manager."""
+def _finish(db: Session, *, dealership: Dealership, actor: User, created: tuple[_ActorRow, ...] = ()) -> None:
+    """The steps both paths share once the Betrieb has its manager.
+    `created` are the rows this run wrote as a system write (KAN-345):
+    their null actor is the seed's, so the manager takes them over."""
 
     # KAN-198 (D-A-04): a new Betrieb starts unlicensed; the demo one holds
     # every module so nothing disappears on a fresh environment (the
@@ -226,13 +266,16 @@ def _finish(db: Session, *, dealership: Dealership, actor: User) -> None:
     group = db.get(DealerGroup, dealership.dealer_group_id)
     assert group is not None, "create_dealership always creates or names a dealer group"
     # KAN-203: create_dealership writes the settings row with the same
-    # placeholder actor, so it is stamped with the rest.
+    # actor as the Betrieb, so it is stamped with the rest.
     settings_row = db.scalar(select(DealershipSettings).where(DealershipSettings.dealership_id == dealership.id))
     # KAN-204: so does the first location (FR-A-03), made from the seat.
     locations = tuple(db.scalars(select(Location).where(Location.tenant_id == dealership.id)).all())
     # KAN-207: and its number ranges, seeded with it.
     ranges = tuple(db.scalars(select(NumberRange).where(NumberRange.tenant_id == dealership.id)).all())
     rows = (group, dealership, actor) + ((settings_row,) if settings_row is not None else ()) + locations + ranges
+    claimed = _claim_system_created(db, actor=actor, rows=created)
+    if claimed:
+        print(f"Stamped the first manager (id={actor.id}) as the actor on {', '.join(claimed)}.")
     stamped = _stamp_actor(db, actor=actor, rows=rows)
     if stamped:
         print(f"Stamped the first manager (id={actor.id}) as the actor on {', '.join(stamped)}.")
@@ -280,12 +323,12 @@ def _ensure_first_manager(
     *,
     dealership: Dealership,
     data: UserCreate,
-    seed_actor_id: uuid.UUID,
-) -> User | None:
+) -> tuple[User | None, bool]:
     """Invites the first manager once. Whoever already holds the address is
     left exactly as they are — never re-invited, never reset — so a deploy
     can never take away an account that works. Returns the manager when they
-    are homed in the demo Betrieb, else None."""
+    are homed in the demo Betrieb, else None, and whether this run created
+    them."""
 
     existing = identity.find_user_by_email(db, str(data.email))
     if existing is not None:
@@ -294,23 +337,24 @@ def _ensure_first_manager(
                 f"{FIRST_MANAGER_EMAIL_VAR} names a user of another Betrieb; nothing was changed for them. "
                 "Give them a membership of the demo Betrieb from Dealer Administration, or set another address."
             )
-            return None
+            return None, False
         print(f"The first manager already exists (status {existing.status.value}); left as they are.")
-        return existing
+        return existing, False
 
     # The user and the invitation token in one transaction, as the Users
     # screen's POST writes them (FR-A-09): create_user flushes, the
     # invitation adds the token, the commit below is the only one. The seed
-    # acts as the platform (KAN-97); the placeholder actor is stamped over
-    # by _finish (KAN-318) — the `create` audit row keeps it, the audit log
-    # is append-only.
+    # acts as the platform (KAN-97), as a system write (KAN-345): the
+    # `create` audit row names no actor and gives this seed as its reason;
+    # _finish stamps the manager on the row itself (KAN-318).
     user = user_service.create_user(
         db,
         dealership_id=dealership.id,
         data=data,
-        actor_id=seed_actor_id,
+        actor_id=None,
         actor_roles=frozenset({AccessRole.PLATFORM_ADMIN}),
         commit=False,
+        system_reason=AUDIT_REASON,
     )
     identity.issue_invitation(db, mailer, user=user, actor_id=None, ip_address="")
     db.commit()
@@ -319,7 +363,7 @@ def _ensure_first_manager(
         f"Invited the first manager (id={user.id}); the invitation went to the address in "
         f"{FIRST_MANAGER_EMAIL_VAR}. A failed delivery is a mail_delivery_failed auth event."
     )
-    return user
+    return user, True
 
 
 def _main_deployed() -> None:
@@ -333,14 +377,14 @@ def _main_deployed() -> None:
 
     db = SessionLocal()
     try:
-        seed_actor_id = uuid.uuid4()
-        dealership = _ensure_dealership(db, seed_actor_id=seed_actor_id)
+        dealership, dealership_created = _ensure_dealership(db)
         _enforce_mfa(db, dealership=dealership)
-        manager = _ensure_first_manager(db, mailer, dealership=dealership, data=data, seed_actor_id=seed_actor_id)
+        manager, manager_created = _ensure_first_manager(db, mailer, dealership=dealership, data=data)
         if manager is None:
             print("No first manager in the demo Betrieb: entitlements and actor stamps wait for one.")
             return
-        _finish(db, dealership=dealership, actor=manager)
+        created = _created_with(db, dealership) if dealership_created else ()
+        _finish(db, dealership=dealership, actor=manager, created=created + ((manager,) if manager_created else ()))
         print("Sign-in: the first manager accepts the mailed invitation and enrols a second factor.")
     finally:
         db.close()
@@ -365,15 +409,15 @@ def _main_local() -> None:
     try:
         # This seed acts as the platform, and calls the user service with
         # platform_admin authority — the service refuses platform_admin-only
-        # changes to anyone else (KAN-97). The services require an actor id
-        # and the demo manager does not exist yet, so the creates run with a
-        # placeholder that _stamp_actor replaces on the rows once the
-        # manager exists (KAN-318). The two `create` audit rows keep it:
-        # the audit log is append-only.
-        seed_actor_id = uuid.uuid4()
+        # changes to anyone else (KAN-97). No user exists before the demo
+        # manager, so the creates are system writes (KAN-345, Anto
+        # 2026-11-03, option A): their audit rows name no actor and give
+        # this seed as the reason; _finish stamps the manager on the rows
+        # themselves once they exist (KAN-318).
         seed_actor_roles = frozenset({AccessRole.PLATFORM_ADMIN})
 
-        dealership = _ensure_dealership(db, seed_actor_id=seed_actor_id)
+        dealership, dealership_created = _ensure_dealership(db)
+        created: tuple[_ActorRow, ...] = _created_with(db, dealership) if dealership_created else ()
 
         # KAN-196: the local demo Betrieb starts with MFA not enforced (see
         # the module docstring). Only when no auth config exists yet — a
@@ -396,8 +440,9 @@ def _main_local() -> None:
                     access_roles=[AccessRole.SALES],
                     is_dealer_manager=True,
                 ),
-                actor_id=seed_actor_id,
+                actor_id=None,
                 actor_roles=seed_actor_roles,
+                system_reason=AUDIT_REASON,
             )
             # No invitation is mailed for the demo account (there is nobody to
             # mail); the seed activates it in the invitation's place — on the
@@ -411,16 +456,17 @@ def _main_local() -> None:
                 entity_id=user.id,
                 tenant_id=user.tenant_id,
                 action="update",
-                actor_id=seed_actor_id,
+                actor_id=None,
                 before={"status": user.status.value},
                 after={"status": UserStatus.ACTIVE.value},
                 reason=AUDIT_REASON,
             )
             user.status = UserStatus.ACTIVE
-            user.updated_by = seed_actor_id
+            user.updated_by = None
             user.version += 1
             db.commit()
             db.refresh(user)
+            created += (user,)
             print(f"Created demo user {DEMO_EMAIL}.")
         else:
             print(f"Demo user {DEMO_EMAIL} already exists.")
@@ -448,7 +494,7 @@ def _main_local() -> None:
             db.commit()
             print(f"Set demo user {DEMO_EMAIL}'s password from DMS_SEED_DEMO_PASSWORD.")
 
-        _finish(db, dealership=dealership, actor=user)
+        _finish(db, dealership=dealership, actor=user, created=created)
         print(f"Sign in as {DEMO_EMAIL} with the password in DMS_SEED_DEMO_PASSWORD.")
     finally:
         db.close()
