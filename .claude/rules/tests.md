@@ -92,9 +92,11 @@ as any change to what it states. -->
   Mantine is mounted with `testTheme` (`src/test/testTheme.ts`: reduced motion respected, so a
   transition starts no animation frame or timer that could land after the file's jsdom is gone),
   through `renderWithProviders` or a test's own `<MantineProvider theme={testTheme}>`
-  (`render-tests-mount-mantine-with-test-theme.test.ts`); the shared teardown drains React's queued
+  (`render-tests-mount-mantine-with-test-theme.test.ts`, which parses each test with the TypeScript
+  compiler and refuses any other use of the provider — `wrapper:`, `createElement`, an aliased
+  import's tag without the theme — and a `testTheme` not imported from `src/test/testTheme`; KAN-543); the shared teardown drains React's queued
   Scheduler work before jsdom goes (`src/test/setup.ts`; KAN-526). The ui-kit's suite does the
   same (KAN-533): `packages/ui-kit/src/test/testTheme.ts`, its setup's `matchMedia` reporting
-  reduced motion, and `renderTestsMountMantineWithTestTheme.test.ts`, which also refuses a
-  provider mounted any other way (`wrapper:`, `createElement`); it has no teardown drain.
+  reduced motion, and `renderTestsMountMantineWithTestTheme.test.ts`, the same parser and rules (KAN-543); it has no
+  teardown drain.
   i18n keys are checked by `localeKeyParity.test.ts`.
