@@ -302,10 +302,14 @@ def update_contract(
     confirm"), a cancelled one closed: both refuse with
     `contract_not_pending`.
 
-    Publishes no event: nothing outside Sales acts on a pending contract,
-    and the frozen figures travel in `sales.contract.confirmed`'s
-    pricingSnapshot (ADR-046), exactly as an offer's autosave publishes
-    none. The deal grid is re-projected in the same transaction.
+    An edit publishes no event — nothing outside Sales acts on a pending
+    contract's figures, and the frozen ones travel in
+    `sales.contract.confirmed`'s pricingSnapshot (ADR-046), as with an
+    offer's autosave — except that a contract starting to hold a
+    configuration id (Path B through deal_editing) publishes
+    `sales.contract.configuration_attached` in this transaction, so Vehicle
+    keeps a configuration a host took (KAN-270, `.claude/rules/sales.md`).
+    The deal grid is re-projected in the same transaction.
 
     KAN-315 (Anto, 2026-10-12): a contract priced without inputs (KAN-67)
     is not editable, yet since KAN-307 it cannot be signed without a buyer —
