@@ -142,6 +142,11 @@ def update_offer(
     required, any order. `customer_id` is resolved server-side into a
     denormalized label/locality on every change (never trusted from the
     client) — see the module's "split by staleness class" rule.
+
+    An edit publishes no event, except that an offer starting to hold a
+    configuration id (Path B through deal_editing) publishes
+    `sales.offer.configuration_attached` in this transaction (KAN-270,
+    `.claude/rules/sales.md`).
     """
 
     changes = data.model_dump(exclude_unset=True)
