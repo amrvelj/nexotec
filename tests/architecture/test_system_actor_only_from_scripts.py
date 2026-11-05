@@ -18,6 +18,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
 _SYSTEM_PATH_SERVICES = {"create_dealership", "create_user"}
+# Where the two services live: only there may a call hand the reason on.
+_SERVICE_FILES = {"app/platform/services/dealership.py", "app/platform/services/user.py"}
 
 
 def _calls(tree: ast.AST):
@@ -40,10 +42,10 @@ def _forwarded_inside_the_services(tree: ast.AST) -> set[int]:
     return inside
 
 
-def _offences(source: str) -> list[str]:
+def _offences(source: str, path: str = "app/probe.py") -> list[str]:
     out: list[str] = []
     tree = ast.parse(source)
-    forwarded = _forwarded_inside_the_services(tree)
+    forwarded = _forwarded_inside_the_services(tree) if path in _SERVICE_FILES else set()
     for name, call in _calls(tree):
         if id(call) in forwarded:
             continue
@@ -67,7 +69,7 @@ def test_no_module_in_app_takes_the_system_path():
     offenders = [
         f"{path.relative_to(_REPO_ROOT)}:{offence}"
         for path in files
-        for offence in _offences(path.read_text())
+        for offence in _offences(path.read_text(), str(path.relative_to(_REPO_ROOT)))
     ]
     assert offenders == [], "Only seeds and scripts write without an actor (KAN-345):\n" + "\n".join(offenders)
 
@@ -93,7 +95,13 @@ def test_matches_the_shapes_it_exists_to_stop():
     assert _offences("create_dealership(db, data=d, actor_id=principal.user_id)") == []
     # The services hand their own reason on; a caller elsewhere may not.
     forwarding = "def create_dealership(db, *, actor_id, system_reason=None):\n    f(system_reason=system_reason)"
-    assert _offences(forwarding) == []
+    assert _offences(forwarding, "app/platform/services/dealership.py") == []
+    # … and only there: a route handler of the same name is judged like any caller.
+    route = "def create_user(body, principal):\n    svc.create_user(db, actor_id=None, system_reason='api')"
+    assert _offences(route, "app/platform/api/dealerships.py") == [
+        "2: create_user(system_reason=…)",
+        "2: create_user(actor_id=None)",
+    ]
     assert _offences("def other():\n    f(system_reason='x')") == ["2: f(system_reason=…)"]
     assert _offences("create_user(db, actor_id=principal.user_id, **{'system_reason': 'x'})") == [
         "1: create_user(**…) cannot be judged"

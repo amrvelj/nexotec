@@ -55,7 +55,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
+from app.core.audit import list_audit_events, record_audit_event
 from app.core.auth import AccessRole
 from app.core.config import get_settings
 from app.core.errors import BadRequestError, UnprocessableEntityError
@@ -155,6 +155,19 @@ def _created_with(db: Session, dealership: Dealership) -> tuple[_ActorRow, ...]:
     locations = tuple(db.scalars(select(Location).where(Location.tenant_id == dealership.id)).all())
     ranges = tuple(db.scalars(select(NumberRange).where(NumberRange.tenant_id == dealership.id)).all())
     return (group, dealership) + ((settings_row,) if settings_row is not None else ()) + locations + ranges
+
+
+def _seed_created(db: Session, dealership: Dealership) -> bool:
+    """Whether this seed created the Betrieb as a system write (KAN-345): its
+    `create` audit row names no actor and gives this seed as the reason. Only
+    then are its rows' nulls the seed's own — a Betrieb that existed before
+    (staging's, from earlier seeds) also holds rows migrations wrote with a
+    null actor on purpose (KAN-204's first locations, KAN-207's ranges)."""
+
+    return any(
+        event.action == "create" and event.actor_id is None and event.reason == AUDIT_REASON
+        for event in list_audit_events(db, entity_type="dealership", entity_id=dealership.id, tenant_id=dealership.id)
+    )
 
 
 def _claim_system_created(db: Session, *, actor: User, rows: tuple[_ActorRow, ...]) -> list[str]:
@@ -386,11 +399,11 @@ def _main_deployed() -> None:
                 "system writes until the run that invites one."
             )
             return
-        # The Betrieb's own rows are claimed when it or its first manager
-        # arrived in this run: before a first manager exists nobody but the
-        # seed has written them (a run that found no manager left them as
-        # system writes, and the run that invites one claims them).
-        created = _created_with(db, dealership) if dealership_created or manager_created else ()
+        # The Betrieb's own rows are claimed when this run created it, or
+        # invited its first manager into a Betrieb an earlier run of this seed
+        # created as a system write (one that found no manager to invite).
+        claim = dealership_created or (manager_created and _seed_created(db, dealership))
+        created = _created_with(db, dealership) if claim else ()
         _finish(db, dealership=dealership, actor=manager, created=created + ((manager,) if manager_created else ()))
         print("Sign-in: the first manager accepts the mailed invitation and enrols a second factor.")
     finally:
@@ -501,10 +514,11 @@ def _main_local() -> None:
             db.commit()
             print(f"Set demo user {DEMO_EMAIL}'s password from DMS_SEED_DEMO_PASSWORD.")
 
-        # As on the deployed path: claimed when the Betrieb or its manager
-        # arrived in this run.
-        created: tuple[_ActorRow, ...] = (
-            _created_with(db, dealership) + (user,) if dealership_created or user_created else ()
+        # As on the deployed path: claimed when this run created the Betrieb,
+        # or created its manager in a Betrieb this seed created earlier.
+        claim = dealership_created or (user_created and _seed_created(db, dealership))
+        created: tuple[_ActorRow, ...] = (_created_with(db, dealership) if claim else ()) + (
+            (user,) if user_created else ()
         )
         _finish(db, dealership=dealership, actor=user, created=created)
         print(f"Sign in as {DEMO_EMAIL} with the password in DMS_SEED_DEMO_PASSWORD.")

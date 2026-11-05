@@ -27,7 +27,7 @@ from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.credential import Credential
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.user import User, UserRole, UserStatus
@@ -617,6 +617,42 @@ def test_a_manager_invited_on_a_later_deploy_takes_over_the_rows_the_first_deplo
         assert row.created_by == manager.id, row
     # (No reconciliation run here: the other Betrieb the API helpers made
     # names a token's random actor, which is the fixture's, not the seed's.)
+
+
+def test_a_first_manager_invited_into_a_betrieb_the_seed_did_not_create_leaves_its_null_actors(
+    deployed_seed, db_session, mailbox
+):
+    """KAN-345 (second review): staging's demo Betrieb predates the system
+    path, and migrations wrote some of its rows with a null actor on purpose
+    (KAN-204's first location). Inviting its first manager stamps the manager
+    on their own row only, never on those nulls."""
+
+    dealership = dealership_service.create_dealership(
+        db_session,
+        data=DealershipCreate(
+            legal_name=seed_staging_demo.DEMO_LEGAL_NAME,
+            franchise_type=FranchiseType.INDEPENDENT,
+            address=DealershipAddress(
+                street="Bahnhofstrasse", house_number="1", postal_code="8001", locality="Zürich", canton="ZH"
+            ),
+            phone="+41441234567",
+            uid="CHE-000.000.000",
+        ),
+        actor_id=uuid.uuid4(),  # an earlier seed's placeholder: not this seed's system write
+    )
+    [location] = db_session.scalars(select(Location).where(Location.tenant_id == dealership.id)).all()
+    location.created_by = location.updated_by = None  # as a migration's backfill writes it
+    db_session.commit()
+
+    deployed_seed()
+
+    db_session.expire_all()
+    manager = db_session.scalar(select(User).where(User.email == MANAGER_EMAIL))
+    assert manager is not None and manager.created_by == manager.id
+    location = db_session.get(Location, location.id)
+    assert (location.created_by, location.updated_by) == (None, None)
+    # The earlier placeholder on the Betrieb is still repaired (KAN-318's restamp).
+    assert db_session.get(Dealership, dealership.id).created_by == manager.id
 
 
 # --- KAN-551: retiring the shared demo login --------------------------------------

@@ -8,7 +8,8 @@ before."""
 
 import uuid
 
-from sqlalchemy import update
+from sqlalchemy import select, update
+from sqlalchemy.orm import sessionmaker
 
 from app.sales.models.contract import SalesContract
 from app.sales.models.offer import SalesOffer
@@ -83,7 +84,7 @@ def test_a_contract_from_the_offer_from_the_car_and_a_copied_offer_all_carry_it(
     assert (copied.stock_item_id, copied.stock_item_label) == (item.id, item.stock_number)
 
 
-def test_the_backfill_fills_rows_written_before_dry_run_first_and_reports_what_it_cannot(db_session):
+def test_the_backfill_fills_rows_written_before_dry_run_first_and_reports_what_it_cannot(engine, db_session):
     dealership = _make_dealership(db_session)
     item = _stock_item(db_session, dealership.id, with_option=False)
     offer = _offer_with_vehicle(db_session, dealership.id, item)
@@ -116,6 +117,18 @@ def test_the_backfill_fills_rows_written_before_dry_run_first_and_reports_what_i
     assert filled_contract.stock_item_label == item.stock_number
     assert (filled_offer.version, filled_contract.version) == versions  # a label is a copy, not an edit
     assert db_session.get(SalesOffer, orphan_id).stock_item_label is None
+
+    # A row another writer holds is skipped, counted and left for the next run.
+    blocker = sessionmaker(bind=engine)()
+    try:
+        held = blocker.scalar(select(SalesOffer).where(SalesOffer.id == orphan_id).with_for_update())
+        assert held is not None
+        skipped = backfill_script.backfill(db_session, commit=False)
+        assert skipped.skipped == {"offer": 1} and skipped.unresolved == []
+        assert "SKIPPED (held by another writer — run again): 1" in backfill_script.render(skipped, committed=False)
+    finally:
+        blocker.rollback()
+        blocker.close()
 
     again = backfill_script.backfill(db_session, commit=True)
     assert again.filled == [] and again.unresolved == [("offer", orphan_id, missing_item)]

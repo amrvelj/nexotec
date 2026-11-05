@@ -18,12 +18,14 @@ change. Re-run with --commit after reading it.
 
 Rows are read FOR NO KEY UPDATE SKIP LOCKED and held until the commit, so a
 seller putting another car on a deal meanwhile is never overwritten; a row
-another writer holds at that moment is left for the next run.
+another writer holds at that moment is left for the next run and counted as
+SKIPPED in the report.
 
 Re-runnable: a second --commit run finds nothing to fill.
 
-Exit status: 0 when no row is left without a label it could have (in a dry
-run: when none needed one), 1 otherwise.
+Exit status: 0 when no row is left without a label it could have — none
+unresolved, none skipped as held (in a dry run: when none needed one), 1
+otherwise.
 
 Usage:
     DMS_DATABASE_URL=... python scripts/backfill_sales_stock_item_labels.py           # dry run
@@ -36,7 +38,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -50,6 +52,9 @@ from app.sales.models.offer import SalesOffer
 class Report:
     filled: list[tuple[str, uuid.UUID, str]] = field(default_factory=list)
     unresolved: list[tuple[str, uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    # Unlabelled rows another writer held during the run (SKIP LOCKED): left
+    # for the next run.
+    skipped: dict[str, int] = field(default_factory=dict)
 
 
 def _unlabelled(db: Session, model: type[SalesOffer] | type[SalesContract]) -> list:
@@ -72,6 +77,13 @@ def backfill(db: Session, *, commit: bool) -> Report:
     now = utcnow()
     for kind, model in (("offer", SalesOffer), ("contract", SalesContract)):
         rows = _unlabelled(db, model)
+        waiting = db.scalar(
+            select(func.count())
+            .select_from(model)
+            .where(model.stock_item_id.is_not(None), model.stock_item_label.is_(None))
+        )
+        if waiting and waiting > len(rows):
+            report.skipped[kind] = waiting - len(rows)
         by_tenant: dict[uuid.UUID, list] = defaultdict(list)
         for row in rows:
             by_tenant[row.tenant_id].append(row)
@@ -101,6 +113,8 @@ def render(report: Report, *, committed: bool) -> str:
     lines += [f"  {kind} {row_id}: {number}" for kind, row_id, number in report.filled]
     lines += ["", f"UNRESOLVED (no stock item of the row's own Betrieb): {len(report.unresolved)}"]
     lines += [f"  {kind} {row_id}: stock item {item_id}" for kind, row_id, item_id in report.unresolved]
+    lines += ["", f"SKIPPED (held by another writer — run again): {sum(report.skipped.values())}"]
+    lines += [f"  {kind}: {count}" for kind, count in sorted(report.skipped.items())]
     return "\n".join(lines)
 
 
@@ -119,8 +133,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(render(report, committed=args.commit))
     if args.commit:
-        return 1 if report.unresolved else 0
-    return 1 if report.filled or report.unresolved else 0
+        return 1 if report.unresolved or report.skipped else 0
+    return 1 if report.filled or report.unresolved or report.skipped else 0
 
 
 if __name__ == "__main__":

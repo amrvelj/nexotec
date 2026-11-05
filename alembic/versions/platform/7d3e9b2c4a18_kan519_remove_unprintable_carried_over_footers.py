@@ -16,7 +16,7 @@ Anto's ruling: remove such a footer. Printing works again at once — the
 document falls back to the platform seed's footer — and the Betrieb retypes
 its own in Dealer Administration › Standard texts, where the check runs.
 Only rows under the three carried-over codes, in the language whose text
-holds the brace, and only rows nobody has saved since:
+holds the brace, and only rows that cannot print:
 
 - a row whose braces are not all well-formed tokens (`{{ … }}`) is removed
   whatever its history — the renderer refuses it as malformed;
