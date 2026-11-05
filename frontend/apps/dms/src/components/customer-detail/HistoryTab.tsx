@@ -5,6 +5,7 @@ import { slate } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
 import { formatCurrencyChf, formatDateOnly, formatDateTime, formatNumber } from '../../utils/format'
 import type { AuditEventRead } from '../../api/types'
+import { languageEndonym } from '../../i18n/languageEndonyms'
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
@@ -131,11 +132,11 @@ function fieldLabel(key: string, t: Translate): string {
 }
 
 // The stored enum values of the customer entity, translated through the same
-// customerEnums.* keys the Overview tab's selects use.
+// customerEnums.* keys the Overview tab's selects use (the language, named in
+// itself, aside — KAN-343).
 const ENUM_KEY: Record<string, string> = {
   salutation: 'customerEnums.salutation',
   gender: 'customerEnums.gender',
-  language: 'customerEnums.language',
   lifecycleStatus: 'customerEnums.lifecycleStatus',
   preferredChannel: 'customerEnums.preferredChannel',
   paymentTerms: 'customerEnums.paymentTerms',
@@ -150,6 +151,8 @@ const ENUM_KEY: Record<string, string> = {
 
 function enumLabel(key: string, value: string, t: Translate, exists: (key: string) => boolean): string | null {
   const k = camelKey(key)
+  // The correspondence language is named in itself for every user (KAN-343).
+  if (k === 'language') return languageEndonym(value)
   const base = ENUM_KEY[k]
   // A value with no key (one retired since it was recorded) is shown as stored.
   if (base === undefined || !exists(`${base}.${value}`)) return null

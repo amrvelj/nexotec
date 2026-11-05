@@ -41,6 +41,7 @@ import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { languageEndonym } from '../i18n/languageEndonyms'
 import {
   CANTON_OPTIONS,
   UNASSIGNED_ADVISOR,
@@ -48,7 +49,7 @@ import {
   translatedCustomerTypeLabel,
   translatedCustomerTypeOptions,
   translatedGenderLabel,
-  translatedLanguageOptions,
+  LANGUAGE_OPTIONS,
   translatedLifecycleLabel,
   translatedLifecycleOptions,
   translatedPaymentTermsLabel,
@@ -286,8 +287,8 @@ export function CustomersListPage() {
         header: t('customersList.columns.language'),
         cell: ({ row }) => <LanguageBadge language={row.original.language} />,
         meta: {
-          filter: { type: 'select', param: 'language', options: translatedLanguageOptions(t), conditions: ['is', 'isNot'] },
-          exportValue: (row) => t(`customerEnums.language.${row.language}`),
+          filter: { type: 'select', param: 'language', options: LANGUAGE_OPTIONS, conditions: ['is', 'isNot'] },
+          exportValue: (row) => languageEndonym(row.language),
         },
       },
       {

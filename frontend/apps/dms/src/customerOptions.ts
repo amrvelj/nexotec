@@ -7,7 +7,6 @@ import type {
   CustomerType,
   EmailType,
   Gender,
-  Language,
   LegalForm,
   PaymentTerms,
   PhoneType,
@@ -15,12 +14,9 @@ import type {
   Salutation,
 } from './api/types'
 
-export const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'en', label: 'English' },
-]
+// The correspondence language is named in itself for every user (KAN-343):
+// one list, shared with the reference-data screen.
+export { LANGUAGE_OPTIONS } from './i18n/languageEndonyms'
 
 export const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'individual', label: 'Individual' },
@@ -124,15 +120,6 @@ export function translatedLifecycleOptions(t: Translate): { value: CustomerLifec
     { value: 'active', label: t('customerEnums.lifecycleStatus.active') },
     { value: 'inactive', label: t('customerEnums.lifecycleStatus.inactive') },
     { value: 'do_not_contact', label: t('customerEnums.lifecycleStatus.do_not_contact') },
-  ]
-}
-
-export function translatedLanguageOptions(t: Translate): { value: Language; label: string }[] {
-  return [
-    { value: 'de', label: t('customerEnums.language.de') },
-    { value: 'fr', label: t('customerEnums.language.fr') },
-    { value: 'it', label: t('customerEnums.language.it') },
-    { value: 'en', label: t('customerEnums.language.en') },
   ]
 }
 
