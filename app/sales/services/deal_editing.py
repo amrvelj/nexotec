@@ -31,6 +31,7 @@ def apply_vehicle_and_pricing_changes(
     version and flushes; does not commit — the caller owns the transaction.
     """
 
+    stock_item_before = deal.stock_item_id
     if "configuration_id" in changes:
         _attach_configuration(
             db, deal=deal, configuration_id=changes.pop("configuration_id"), changes=changes, host=host
@@ -41,6 +42,11 @@ def apply_vehicle_and_pricing_changes(
 
     for field, value in changes.items():
         setattr(deal, field, value)
+    if deal.stock_item_id != stock_item_before:
+        # KAN-157: the stock number names the car it was copied for; the
+        # freeze below copies the new car's.
+        deal.stock_item_label = None
+        deal.stock_item_denorm_refreshed_at = None
 
     deal.updated_by = actor_id
     deal.version += 1

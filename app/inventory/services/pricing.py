@@ -115,6 +115,10 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
     if base_price is None and not options:
         base_price = item.effective_price if item.effective_price is not None else item.list_price
     return {
+        # KAN-157: the stock number, rule 2's label for the offer's and the
+        # contract's stock_item_id — read with the price the offer freezes
+        # anyway, so no new hop (rule 11).
+        "stockNumber": item.stock_number,
         "basePrice": base_price,
         "listPrice": item.list_price,
         "effectivePrice": item.effective_price,

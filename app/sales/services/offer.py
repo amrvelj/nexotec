@@ -261,6 +261,8 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
             customer_denorm_refreshed_at=source.customer_denorm_refreshed_at,
             vehicle_source=source.vehicle_source,
             stock_item_id=source.stock_item_id,
+            stock_item_label=source.stock_item_label,
+            stock_item_denorm_refreshed_at=source.stock_item_denorm_refreshed_at,
             vehicle_label=source.vehicle_label,
             manual_vehicle_condition=source.manual_vehicle_condition,
             manual_base_price=source.manual_base_price,

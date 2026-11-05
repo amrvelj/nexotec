@@ -171,6 +171,8 @@ def create_contract(
         ),
         vehicle_source=offer.vehicle_source if offer is not None else None,
         stock_item_id=offer.stock_item_id if offer is not None else None,
+        stock_item_label=offer.stock_item_label if offer is not None else None,
+        stock_item_denorm_refreshed_at=offer.stock_item_denorm_refreshed_at if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
         manual_vehicle_condition=offer.manual_vehicle_condition if offer is not None else None,
         # KAN-67 (ADR-083) — the pricing inputs travel with the figures, so

@@ -2,6 +2,7 @@
 
 import hashlib
 import uuid
+from collections.abc import Iterable
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -82,6 +83,22 @@ def get_stock_item_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")
     return item
+
+
+def get_stock_numbers(
+    db: Session, *, tenant_id: uuid.UUID, stock_item_ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """KAN-157: the stock number of each of the tenant's items among
+    `stock_item_ids` — plain data for Sales' label backfill. An id naming no
+    item of the tenant is absent from the answer. A SELECT only."""
+
+    ids = set(stock_item_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(StockItem.id, StockItem.stock_number).where(StockItem.tenant_id == tenant_id, StockItem.id.in_(ids))
+    ).all()
+    return {row.id: row.stock_number for row in rows}
 
 
 def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> StockItem:
