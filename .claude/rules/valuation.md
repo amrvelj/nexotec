@@ -34,7 +34,13 @@ file in the same PR as any change to what it states. -->
   current; older ones stay readable and are never edited or deleted (only the `used_at` stamp
   changes). «Neu bewerten» creates a new row whose `supersedesValuationId` names the old one;
   no read marks the old row superseded yet. A manual
-  figure is **marked manual everywhere it renders**.
+  figure is **marked manual everywhere it renders**. «Neu bewerten» is the detail's primary; its
+  alternative, also in the grid's row menu (`valuationRowMenu.tsx`, ADR-061), is «Offerte aus
+  dieser Bewertung erstellen» (KAN-569; Anto 2026-11-05, 1A/2A): a draft offer, the valuation's
+  customer when it has one (none otherwise), the valuation attached as trade-in, then the
+  workspace — a draft valuation allowed, an expired or used one disabled with the reason, hidden
+  without the `sales_offers` write; a refused later step keeps the screen, names the offer made,
+  and a retry continues that offer.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.
