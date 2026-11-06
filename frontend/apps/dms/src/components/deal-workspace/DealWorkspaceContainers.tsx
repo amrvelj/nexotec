@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
@@ -198,12 +198,17 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
  * `build` mode only, PRD v1.4: a used car being sold comes from stock).
  * A stock car shows its stock number beside it (KAN-570), opening the stock
  * detail through the host's `onOpenStockItem`. */
+/** Fahrzeug — the car on the deal. `readOnly` disables every write in it
+ * (the configuration card's edit, the stock search, the configurator) under a
+ * disabled fieldset, while the stock number, which only opens the car, stays
+ * outside it and live (KAN-501, KAN-570). */
 export function DealVehicleContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
   patch,
   onOpenStockItem,
-}: DealContainerProps<D> & { onOpenStockItem?: () => void }) {
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; readOnly?: boolean }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const overlay = useOverlay()
@@ -250,7 +255,9 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({
       {deal.configurationId ? (
         <Stack gap={4} data-testid="offer-vehicle-configured">
           <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
-          <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          <LockedWhile readOnly={readOnly}>
+            <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          </LockedWhile>
           {stockNumber}
         </Stack>
       ) : deal.vehicleLabel ? (
@@ -259,33 +266,37 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({
           {stockNumber}
         </Group>
       ) : vehicleMode === 'search' ? (
-        <Picker
-          rows={(vehicleSearch.data?.items ?? []).map(
-            (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
-          )}
-          query={vehicleQuery}
-          onQueryChange={setVehicleQuery}
-          onSelect={(row) =>
-            void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
-              .then(() => setVehicleMode('idle'))
-              .catch(reportedByHost)
-          }
-          loading={vehicleSearch.isFetching}
-          placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
-          emptyLabel={t('common.noMatches')}
-        />
+        <LockedWhile readOnly={readOnly}>
+          <Picker
+            rows={(vehicleSearch.data?.items ?? []).map(
+              (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
+            )}
+            query={vehicleQuery}
+            onQueryChange={setVehicleQuery}
+            onSelect={(row) =>
+              void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
+                .then(() => setVehicleMode('idle'))
+                .catch(reportedByHost)
+            }
+            loading={vehicleSearch.isFetching}
+            placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
+            emptyLabel={t('common.noMatches')}
+          />
+        </LockedWhile>
       ) : (
-        <Stack gap="xs">
-          <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
-          <Group gap="xs">
-            <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
-              {t('offerWorkspace.vehicle.search')}
-            </Button>
-            <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
-              {t('offerWorkspace.vehicle.configure')}
-            </Button>
-          </Group>
-        </Stack>
+        <LockedWhile readOnly={readOnly}>
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
+            <Group gap="xs">
+              <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
+                {t('offerWorkspace.vehicle.search')}
+              </Button>
+              <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
+                {t('offerWorkspace.vehicle.configure')}
+              </Button>
+            </Group>
+          </Stack>
+        </LockedWhile>
       )}
     </OverviewCard>
   )
@@ -538,5 +549,15 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
         />
       )}
     </OverviewCard>
+  )
+}
+
+/** A disabled fieldset around a container's write controls (KAN-426), so
+ * what only shows can sit outside it and stay live (KAN-501). */
+function LockedWhile({ readOnly, children }: { readOnly: boolean; children: ReactNode }) {
+  return (
+    <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      {children}
+    </fieldset>
   )
 }

@@ -233,9 +233,9 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           button of the containers below read-only while a live contract exists; the
           number inputs are also disabled by their own prop and show no
           steppers (those act on pointer-down, which a fieldset does not stop).
-          KAN-501: the customer and pricing containers sit outside it and take
-          `readOnly` themselves, so what only shows — the customer overlay,
-          «zum Lagerfahrzeug» — still opens. */}
+          KAN-501: the customer, vehicle and pricing containers sit outside it and
+          take `readOnly` themselves, so what only shows — the customer overlay,
+          the stock number (KAN-570), «zum Lagerfahrzeug» — still opens. */}
       <Stack gap="lg">
         <LockedWhile readOnly={readOnly}>
           {/* KAN-405: the responsible seller, through the same save queue. */}
@@ -243,9 +243,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         </LockedWhile>
 
         <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} readOnly={readOnly} />
-        <LockedWhile readOnly={readOnly}>
-          <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
-        </LockedWhile>
+        <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} readOnly={readOnly} />
         <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} readOnly={readOnly} />
         <LockedWhile readOnly={readOnly}>
           <Stack gap="lg">

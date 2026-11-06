@@ -75,6 +75,28 @@ async function opensTheStockDetail(backend: ReturnType<typeof installFakeBackend
 }
 
 describe('the vehicle container shows the stock number beside the car (KAN-570)', () => {
+  it('stays live on a read-only draft (an offer with a live contract, KAN-426/KAN-501) while the writes are locked', async () => {
+    const onOpenStockItem = vi.fn()
+    installFakeBackend([])
+    renderWithProviders(
+      <DealVehicleContainer ownerType="offer" deal={OFFER} patch={async () => {}} save={vi.fn()} onOpenStockItem={onOpenStockItem} readOnly />,
+    )
+
+    const link = screen.getByRole('button', { name: stockNumberText() })
+    expect(link).toBeEnabled()
+    await userEvent.setup().click(link)
+    expect(onOpenStockItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('locks the search and the configurator on a read-only draft without a car', () => {
+    installFakeBackend([])
+    const empty = { ...OFFER, vehicleSource: null, stockItemId: null, stockItemLabel: null, vehicleLabel: null } as unknown as SalesOfferRead
+    renderWithProviders(<DealVehicleContainer ownerType="offer" deal={empty} patch={async () => {}} save={vi.fn()} readOnly />)
+
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.vehicle.search') })).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.vehicle.configure') })).toBeDisabled()
+  })
+
   for (const ownerType of ['offer', 'contract'] as const) {
     it(`${ownerType === 'offer' ? 'offer workspace' : 'pending contract'}: «Lagernummer» beside the car, opening the stock detail`, async () => {
       const onOpenStockItem = vi.fn()
