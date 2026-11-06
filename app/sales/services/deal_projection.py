@@ -129,6 +129,8 @@ def _project_contract(db: Session, contract: SalesContract) -> SalesDeal:
     deal.customer_locality = contract.customer_locality
     deal.customer_denorm_refreshed_at = contract.customer_denorm_refreshed_at
     deal.vehicle_label = contract.vehicle_label
+    # KAN-570: the stock number the contract carries (KAN-157).
+    deal.stock_item_label = contract.stock_item_label
     # KAN-200: the responsible seller of the live entity.
     deal.owner_user_id = contract.owner_user_id
     deal.owner_label = contract.owner_label
@@ -169,6 +171,8 @@ def _project_offer(db: Session, offer: SalesOffer) -> SalesDeal:
     deal.customer_locality = offer.customer_locality
     deal.customer_denorm_refreshed_at = offer.customer_denorm_refreshed_at
     deal.vehicle_label = offer.vehicle_label
+    # KAN-570: the stock number the offer carries (KAN-157).
+    deal.stock_item_label = offer.stock_item_label
     # KAN-200: the responsible seller of the live entity.
     deal.owner_user_id = offer.owner_user_id
     deal.owner_label = offer.owner_label

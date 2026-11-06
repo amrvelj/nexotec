@@ -24,6 +24,7 @@ import {
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { RequestInvoiceDialog, type RequestInvoiceBody } from '../components/contract-detail/RequestInvoiceDialog'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
+import { StockNumberLink } from '../components/deal-workspace/StockNumberLink'
 import { buildDealTakeOverAction } from '../components/dealRowMenu'
 import { useAuth } from '../auth/AuthContext'
 import { CustomerDetailContent } from './CustomerDetailPage'
@@ -409,6 +410,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           <>
             <SalesTypeBadge entityType="contract" label={translatedSalesEntityTypeLabel(t, 'contract')} />
             <SalesStatusBadge status={contract.status as never} label={translatedSalesDealStatusLabel(t, contract.status as never)} />
+            {/* KAN-570: beside the car (the title) once the vehicle container,
+                which shows it while the contract is edited, is gone. */}
+            {!(isPending && !pricedWithoutInputs) && contract.stockItemId && contract.stockItemLabel && (
+              <StockNumberLink stockNumber={contract.stockItemLabel} onOpen={openStockItemOverlay} />
+            )}
           </>
         }
         primaryAction={{
@@ -480,7 +486,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           )}
           {ownerSelect}
           <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
-          <DealVehicleContainer {...containerProps} />
+          <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
           <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
           <DealTradeInContainer {...containerProps} />
         </Stack>

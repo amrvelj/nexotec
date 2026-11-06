@@ -15,6 +15,7 @@ import { ConfiguratorOverlay } from '../configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../configurator/hostCommitError'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { StockNumberLink } from './StockNumberLink'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { customerName } from '../../utils/customer'
 import { formatCurrencyChf } from '../../utils/format'
@@ -194,8 +195,15 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
 }
 
 /** Fahrzeug — FR-S-05 Path A (stock search) or Path B (the configurator,
- * `build` mode only, PRD v1.4: a used car being sold comes from stock). */
-export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType, deal, patch }: DealContainerProps<D>) {
+ * `build` mode only, PRD v1.4: a used car being sold comes from stock).
+ * A stock car shows its stock number beside it (KAN-570), opening the stock
+ * detail through the host's `onOpenStockItem`. */
+export function DealVehicleContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  patch,
+  onOpenStockItem,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const overlay = useOverlay()
@@ -231,6 +239,9 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
       ),
     })
 
+  const stockNumber =
+    deal.stockItemId && deal.stockItemLabel ? <StockNumberLink stockNumber={deal.stockItemLabel} onOpen={onOpenStockItem} /> : null
+
   return (
     <OverviewCard
       title={t('offerWorkspace.containers.vehicle')}
@@ -240,9 +251,13 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
         <Stack gap={4} data-testid="offer-vehicle-configured">
           <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
           <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          {stockNumber}
         </Stack>
       ) : deal.vehicleLabel ? (
-        <Text fw={600}>{deal.vehicleLabel}</Text>
+        <Group gap="sm" align="baseline" wrap="wrap">
+          <Text fw={600}>{deal.vehicleLabel}</Text>
+          {stockNumber}
+        </Group>
       ) : vehicleMode === 'search' ? (
         <Picker
           rows={(vehicleSearch.data?.items ?? []).map(

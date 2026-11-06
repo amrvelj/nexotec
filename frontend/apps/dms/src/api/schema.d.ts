@@ -5685,6 +5685,8 @@ export interface components {
             status: components["schemas"]["ContractStatus"];
             /** Stockitemid */
             stockItemId: string | null;
+            /** Stockitemlabel */
+            stockItemLabel?: string | null;
             /** Totalbeforediscount */
             totalBeforeDiscount?: string | null;
             /** Tradeinconfigurationid */
@@ -6715,6 +6717,8 @@ export interface components {
             ownerUserId?: string | null;
             /** Status */
             status: string;
+            /** Stockitemlabel */
+            stockItemLabel?: string | null;
             /**
              * Updatedat
              * Format: date-time
@@ -8509,6 +8513,8 @@ export interface components {
             status: components["schemas"]["OfferStatus"];
             /** Stockitemid */
             stockItemId: string | null;
+            /** Stockitemlabel */
+            stockItemLabel?: string | null;
             /** Totalbeforediscount */
             totalBeforeDiscount: string | null;
             /** Tradeinconfigurationid */

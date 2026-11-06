@@ -244,7 +244,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
         <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} readOnly={readOnly} />
         <LockedWhile readOnly={readOnly}>
-          <DealVehicleContainer {...containerProps} />
+          <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
         </LockedWhile>
         <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} readOnly={readOnly} />
         <LockedWhile readOnly={readOnly}>
