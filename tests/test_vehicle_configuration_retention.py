@@ -398,6 +398,10 @@ def _held_by_valuation(db, dealership):
 
 
 def _linked_to_a_vehicle(db, dealership):
+    """KAN-567 (Anto, 2026-11-05, option A): a configuration whose VIN linked
+    it to a car in the register is held by that record for good — no offer,
+    contract, stock car or valuation needs to take it."""
+
     config = _record_configuration(db, dealership.id)
     config.vehicle_id = uuid.uuid4()  # a VIN that resolved to a car in the register (ADR-070)
     db.commit()
@@ -424,6 +428,26 @@ def test_a_held_but_unstamped_configuration_is_stamped_and_survives(db_session, 
 
     kept = _config(db_session, configuration_id)
     assert kept is not None and kept.first_taken_at is not None
+    assert _discarded(db_session, configuration_id) == 0
+
+
+def test_a_configuration_only_a_known_car_links_is_kept_for_good(db_session):
+    """KAN-567 (Anto, 2026-11-05, option A; ADR-120): no offer, contract,
+    stock car or valuation ever takes it — the car in the register holds it,
+    and every later run keeps it, the stamp unchanged."""
+
+    dealership = _dealership(db_session)
+    configuration_id = _linked_to_a_vehicle(db_session, dealership)
+    _age(db_session, configuration_id, days=31)
+    run_daily_unattached_configuration_purge(db_session)
+    stamped_at = _config(db_session, configuration_id).first_taken_at
+    assert stamped_at is not None
+
+    _age(db_session, configuration_id, days=400)
+    run_daily_unattached_configuration_purge(db_session)
+
+    kept = _config(db_session, configuration_id)
+    assert kept is not None and kept.first_taken_at == stamped_at
     assert _discarded(db_session, configuration_id) == 0
 
 

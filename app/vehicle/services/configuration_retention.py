@@ -40,6 +40,15 @@ before these facts were published — the first run after the release stamps
 them all. A configuration a host took and let go before the release left no
 trace and is purged like a never-taken one (nothing was live yet).
 
+**A configuration linked to a known car counts as taken** (Anto, 2026-11-05,
+KAN-567 option A; ADR-120): the vehicle register is one of a configuration's
+hosts (ADR-068), so one whose VIN linked it to a car (`vehicle_id`) is stamped
+and kept for good, even when no offer, contract, stock car or valuation took
+it — nothing is deleted on a doubtful reading. The accepted cost: an orphaned
+`record`-mode configuration of a known car (a failed or lost save) is never
+cleaned up. A later rule that drops the link from the held set could no
+longer tell these stamps from a real host's, so it would need its own marker.
+
 **Residual race, accepted:** a configuration past 30 days that a host
 attaches in the very moment the job runs — the host read it before the job
 locked it, and commits its reference after the job asked it and before the
@@ -172,6 +181,7 @@ def purge_unattached_configurations(
         # first read and the lock is seen (the module docstring's race is
         # what is left).
         ids = [row.id for row in batch]
+        # KAN-567 (option A): a link to a car in the register holds it.
         held = {row.id for row in batch if row.vehicle_id is not None}
         held |= {config.id for config in locked if config.vehicle_id is not None}
         for held_by in held_by_hosts:
