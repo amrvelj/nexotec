@@ -76,8 +76,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   on the car derives «nicht fakturierbar» until the next purchase — unless Stock holds the car as
   bought again by then, which the consumer re-reads through `inventory.public.is_stock_item_purchased`
   (delivery is unordered: a storno may arrive after the next purchase). That consumer's read is
-  asynchronous; `request_invoice` still reads only the local replica (open with Anto, KAN-146: ADR-052
-  reads "never queries Stock synchronously"). Unhandled: a purchase whose
+  asynchronous; `request_invoice` still reads only the local replica (ADR-052 addendum, Anto
+  2026-11-06, KAN-146 option A: "never a synchronous query" governs the invoicing path). Unhandled: a purchase whose
   first delivery failed arriving after its storno recreates the row — the KAN-145 check below
   reports it once the storno is an hour old. Nightly reconciliation alarms on a replica row
   naming no stock item, on a stock item Stock holds as purchased, last changed over an hour ago,

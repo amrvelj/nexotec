@@ -80,8 +80,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `inventory.stock_item.purchased` (published once per booking, by `mark_purchased_if_ready` —
   twice for a car bought, stornoed and bought again (KAN-146); the legacy
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
-  per stock item and never queries Stock synchronously for it on the invoicing path (the one
-  asynchronous re-read, Sales' storno consumer's, is in `sales.md`; open with Anto, KAN-146). Reservation does not need the
+  per stock item and never queries Stock synchronously for it on the invoicing path (ADR-052
+  addendum 2026-11-06, KAN-146: Sales' storno consumer re-reads it asynchronously, `sales.md`). Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
   The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
   `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
@@ -133,9 +133,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   issues none yet); a published car staying published (the feed keeps sending it, though
   `compute_blocking_conditions` would refuse to publish a pipeline car); `einstandspreis` closed to
   hand booking with `purchase:`/`storno:` keys reserved; the days in stock restarting at the next
-  booking; Sales' storno consumer re-reading `is_invoiceable` through `inventory.public` (ADR-052
-  keeps the invoicing path local; the alternative is a booking number on both events and the
-  replica, a migration). A storno and «Rechnung anfordern» can still race (each reads the other's side without a
+  booking. A storno and «Rechnung anfordern» can still race (each reads the other's side without a
   shared lock); Sales' reconciliation reports the result (`sales.md`).
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
