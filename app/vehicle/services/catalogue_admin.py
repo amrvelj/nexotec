@@ -61,6 +61,12 @@ def create_brand(db: Session, *, data: BrandCreate, actor_id: uuid.UUID) -> Bran
 
 
 def update_brand(db: Session, *, brand: Brand, data: BrandUpdate, actor_id: uuid.UUID) -> Brand:
+    """A rename changes the make of every car of the brand and publishes
+    nothing (Anto, 2026-11-05, KAN-560 option B; ADR-119's one exception): the
+    customer context's nightly `customer.vehicle_party_labels` refresh shows
+    the new make the next morning. One `summary_changed` per car would flood
+    the outbox for a rare staff correction."""
+
     changes = data.model_dump(exclude_unset=True)
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
