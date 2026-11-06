@@ -172,11 +172,31 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
             deal.trade_in_label = valuation.configuration_label or deal.trade_in_label
             deal.trade_in_vin = valuation.vehicle_vin
             deal.trade_in_vehicle_id = valuation.vehicle_id
+    elif deal.trade_in_vehicle_id is None and not deal.trade_in_vin and valuation.vehicle_vin:
+        # KAN-569: a valuation made without a configuration names its car by
+        # the VIN it stored (and the record it linked, KAN-189). Attached to a
+        # deal with no trade-in car yet — «Offerte aus dieser Bewertung
+        # erstellen» — that car becomes the trade-in, as a VIN trade-in
+        # (`set_trade_in`) would make it: without it the deal carried the
+        # valuation's value but no car, `has_trade_in` was false, and the
+        # confirmation took no car into the pipeline. A deal that already
+        # names its trade-in car keeps it.
+        deal.trade_in_vin = valuation.vehicle_vin
+        deal.trade_in_vehicle_id = valuation.vehicle_id
+        deal.trade_in_label = _valuation_vehicle_label(valuation) or deal.trade_in_label
     deal.trade_in_value = valuation.final_offer
     # Seller-adjustable afterward (S-D04) — defaults to the valuation's own
     # figure, not force-kept in sync with it.
     if deal.trade_in_purchase_price is None:
         deal.trade_in_purchase_price = valuation.final_offer
+
+
+def _valuation_vehicle_label(valuation) -> str | None:
+    """«Make Model Trim» as the valuation recorded them, or None."""
+
+    parts = [part.strip() for part in (valuation.vehicle_make, valuation.vehicle_model, valuation.vehicle_trim) if part]
+    label = " ".join(part for part in parts if part)
+    return label[:200] or None
 
 
 def _recompute_payable(deal: PricedDeal) -> None:
