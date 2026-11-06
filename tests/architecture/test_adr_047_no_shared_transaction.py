@@ -311,6 +311,12 @@ _READS = {
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
     # session of its own (tests/test_inventory_reservation_sweep.py).
     "app.sales.public.get_contract_statuses",
+    # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
+    # bought now (delivery is unordered); a SELECT only.
+    "app.inventory.public.is_stock_item_purchased",
+    # KAN-146: «Einkauf stornieren» asks whether a contract on the car requested
+    # its invoice, on a session of its own (tests/test_inventory_purchase_storno.py).
+    "app.sales.public.contract_with_invoice_requested_for_stock_item",
     # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
     "app.sales.public.get_trade_in_seller",
     # KAN-270: vehicle's daily purge asks which configurations an offer or contract holds; a SELECT only.

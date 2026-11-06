@@ -1,7 +1,7 @@
 import datetime as dt
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import NormalisedVin
@@ -37,3 +37,18 @@ class NotionalInputTaxOverrideRequest(CamelModel):
     applicable: bool
     rate: Decimal | None = None
     reason: str
+
+
+class PurchaseStornoRequest(CamelModel):
+    """FR-I-05 (KAN-146): «Einkauf stornieren» is audited with its reason —
+    required, never empty."""
+
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped

@@ -20,6 +20,21 @@ interface WagenbuchTabProps {
   canRecordCost?: boolean
 }
 
+/** What an entry does to the result: a revenue adds its amount, a cost takes
+ * it away. A counter-entry carries the negated amount (KAN-146: the storno of
+ * a purchase books `einstandspreis` at −24'500), so it moves the result the
+ * other way. */
+function effectOnResult(entry: LedgerEntryRead): number {
+  const amount = Number(entry.amount)
+  return entry.direction === 'revenue' ? amount : -amount
+}
+
+/** One sign, then the amount: «+CHF 24'500.00», «−CHF 480.00» — never the
+ * number's own minus after ours (KAN-146: «−-CHF 24'500.00»). */
+function signedChf(effect: number): string {
+  return `${effect >= 0 ? '+' : '−'}${formatCurrencyChf(Math.abs(effect))}`
+}
+
 /**
  * § FR-I-15a — the Wagenbuch (ADR-029, entity-private, never group-
  * readable). A plain hand-built list, not the full DataGrid: an embedded,
@@ -32,10 +47,7 @@ export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = nu
   const [dialogOpen, setDialogOpen] = useState(false)
   const closedReasonId = useId()
 
-  const total = entries.reduce(
-    (sum, e) => sum + (e.direction === 'revenue' ? Number(e.amount) : -Number(e.amount)),
-    0
-  )
+  const total = entries.reduce((sum, e) => sum + effectOnResult(e), 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
@@ -94,11 +106,10 @@ export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = nu
                     style={{
                       padding: spacing.sm,
                       textAlign: 'right',
-                      color: entry.direction === 'revenue' ? semantic.success.text : slate[9],
+                      color: effectOnResult(entry) > 0 ? semantic.success.text : slate[9],
                     }}
                   >
-                    {entry.direction === 'revenue' ? '+' : '−'}
-                    {formatCurrencyChf(Number(entry.amount))}
+                    {signedChf(effectOnResult(entry))}
                   </td>
                   <td style={{ padding: spacing.sm, color: slate[5] }}>
                     {entry.isAuto ? t('stockDetail.wagenbuch.auto') : t('stockDetail.wagenbuch.manual')}

@@ -57,7 +57,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   exception, permanent and Platform's (ADR-109, KAN-207): the offer's number is handed out inside the
   offer's own transaction (below, "Visibility and numbers").
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
-  Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
+  Stock synchronously. Stock publishes `inventory.stock_item.purchased` once per booking, so the replica is
   kept **per stock item** (`sales_stock_item_purchase`, written by
   `app/sales/services/stock_item_purchase.py`) whether or not a contract exists yet, with
   rule 2's label (`stock_item_label`, the stock number from the event, and
@@ -70,11 +70,23 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py`
   (dry run unless `--commit`) fills the rows written before.
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
-  legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back") is not
-  emitted yet, so nothing clears it (KAN-146). Nightly reconciliation alarms on a replica row
+  legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back", KAN-146) is
+  consumed as `sales.stock_item_storno`: it deletes the replica row (locked first, as the purchase
+  consumer locks it), so every contract
+  on the car derives «nicht fakturierbar» until the next purchase — unless Stock holds the car as
+  bought again by then, which the consumer re-reads through `inventory.public.is_stock_item_purchased`
+  (delivery is unordered: a storno may arrive after the next purchase). That consumer's read is
+  asynchronous; `request_invoice` still reads only the local replica (open with Anto, KAN-146: ADR-052
+  reads "never queries Stock synchronously"). Unhandled: a purchase whose
+  first delivery failed arriving after its storno recreates the row — the KAN-145 check below
+  reports it once the storno is an hour old. Nightly reconciliation alarms on a replica row
   naming no stock item, on a stock item Stock holds as purchased, last changed over an hour ago,
   with no replica row in its own dealership, and on a replica row whose item Stock does not hold
-  as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145).
+  as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145) —
+  unless Stock stornoed that item for the dealership less than an hour ago (the storno event's
+  `occurred_at`; KAN-146) — and on a contract, not cancelled, whose invoice was requested for a
+  stock item Stock does not hold as purchased in its dealership (the storno / «Rechnung anfordern»
+  race; KAN-146).
   Every cross-context id on every Sales table is reconciled (KAN-145, KAN-243): an id naming
   nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);

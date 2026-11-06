@@ -26,7 +26,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **ADR-103 — purchase booking puts a car on stock** (Anto, 2026-10-25, KAN-446): the chain is
   configuration → pipeline → purchase → contract → invoice. `POST …/stock-items/{id}/purchase`
   on a pipeline item needs the VIN (`RecordPurchaseRequest.vin`; 422 `purchase_requires_vin`
-  without it) and promotes the item before the purchase facts are written, in one transaction,
+  without it) — except a stornoed car, which kept its VIN and record (KAN-146, below) — and promotes the item before the purchase facts are written, in one transaction,
   so `inventory.stock_item.purchased` is published at once; on an item in stock a `vin` that is
   not the item's is 422 `purchase_vin_mismatch`. **A pipeline item is bought with its
   configuration's VIN** (KAN-510; Anto, 2026-11-01, option B then A): when the configuration
@@ -77,9 +77,11 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `stock_reservation` (KAN-376; `tests/test_inventory_write_capabilities.py`), so widening one
   row opens no other write. Details in `.claude/rules/platform.md`.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
-  `inventory.stock_item.purchased` (published once, by `mark_purchased_if_ready`; the legacy
+  `inventory.stock_item.purchased` (published once per booking, by `mark_purchased_if_ready` —
+  twice for a car bought, stornoed and bought again (KAN-146); the legacy
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
-  per stock item and never queries Stock synchronously for it. Reservation does not need the
+  per stock item and never queries Stock synchronously for it on the invoicing path (the one
+  asynchronous re-read, Sales' storno consumer's, is in `sales.md`; open with Anto, KAN-146). Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
   The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
   `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
@@ -107,6 +109,34 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   (never reading the vehicle context's table); on staging, which runs no worker (ADR-081), a copy
   that was stale then stays stale, as `configuration_label` itself does there. The ADR-115 offer
   banner listing «Bezeichnung» waits for that banner (KAN-553).
+- **A purchase is booked once and reversed by «Einkauf stornieren»** (KAN-146, FR-I-05; Anto,
+  2026-11-05). Booking posts the purchase price to the Wagenbuch as an automatic `einstandspreis`
+  (`services/ledger.py::post_purchase_entries`, key `purchase:<uuid7>`, dated the purchase date's
+  start in Switzerland) and audits `purchase_booked`; `einstandspreis` is automatic-only since (no
+  hand booking), and a hand booking may not use a `purchase:`/`storno:` key (422
+  `source_ref_reserved`). A second booking is 409 `purchase_already_booked`. `POST
+  …/stock-items/{id}/purchase/storno` (`stock_acquisition`, If-Match, Idempotency-Key, a required
+  `reason` ≤ 500) appends one counter-entry per automatic purchase entry not yet reversed (negated,
+  key `storno:<its key>`), clears the purchase facts and `is_invoiceable`, returns the car to
+  `pipeline` (`in_stock_at` cleared) **keeping its VIN and `vehicle_id`** — so it still blocks the
+  VIN and is booked again without a new one (`record_purchase` restocks it without promoting; another
+  VIN is 422 `purchase_vin_mismatch`) — audits `purchase_storno` with the reason and publishes
+  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`), all in one transaction.
+  A reserved car may be stornoed; the reservation stays. Refused: no booked purchase (409
+  `purchase_not_booked`), left stock (409 `purchase_storno_left_stock`), or a contract on the car
+  that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, read
+  through `sales.public.contract_with_invoice_requested_for_stock_item` on a session of its own).
+  The storno reverses every `einstandspreis` entry not yet reversed — a hand-booked one from before
+  KAN-146 included — keyed `storno:<the entry's id>`. The stock detail's purchase card carries the
+  action (`PurchaseStornoDialog`); the stock grid has no row menu yet (KAN-571). **Built as the
+  safe default, open with Anto on KAN-146:** «Rechnung angefordert» counting as invoiced (Finance
+  issues none yet); a published car staying published (the feed keeps sending it, though
+  `compute_blocking_conditions` would refuse to publish a pipeline car); `einstandspreis` closed to
+  hand booking with `purchase:`/`storno:` keys reserved; the days in stock restarting at the next
+  booking; Sales' storno consumer re-reading `is_invoiceable` through `inventory.public` (ADR-052
+  keeps the invoicing path local; the alternative is a booking number on both events and the
+  replica, a migration). A storno and «Rechnung anfordern» can still race (each reads the other's side without a
+  shared lock); Sales' reconciliation reports the result (`sales.md`).
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
   Details in `.claude/rules/valuation.md`.
@@ -208,9 +238,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
   has never seen takes the winner's record and carries on — then is stocked or refused
   `vin_already_in_stock` (KAN-257; promotion runs at purchase booking, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
-  history; a storno'd car (`storno_pending`, which nothing sets yet — no storno flow exists,
-  KAN-146) would still block its VIN. The same car may be in pipeline twice (pipeline
-  items carry no VIN until promotion). The legacy transaction import follows the same rule: a car
+  history; a stornoed car (KAN-146, below) is back in pipeline with its VIN and still blocks it
+  (`storno_pending` is still set by nothing). The same car may be in pipeline twice (a pipeline
+  item carries no VIN until promotion; a stornoed one keeps its own and blocks it, as above). The legacy transaction import follows the same rule: a car
   the old system shows sold and later traded back in gets a second item, the sold one is never
   reopened, and a row for a car live Stock holds or has sold is reported
   (`vehicle_known_to_live_stock`), never applied — history is imported before a dealership starts

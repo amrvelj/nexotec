@@ -41,6 +41,7 @@ EXPECTED_CAPABILITY: dict[tuple[str, str], str] = {
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/condition"): "stock_condition",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/purchase"): "stock_acquisition",
     ("PATCH", "/v1/inventory/stock-items/{stock_item_id}/purchase/notional-input-tax"): "stock_acquisition",
+    ("POST", "/v1/inventory/stock-items/{stock_item_id}/purchase/storno"): "stock_acquisition",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/ledger-entries"): "stock_acquisition",
     ("PATCH", "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}"): "marketplace_publishing",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/publish"): "marketplace_publishing",
@@ -116,6 +117,7 @@ def stock_item(client, db_session) -> tuple[uuid.UUID, dict]:
 _SALES_REFUSED = [
     ("POST", "/purchase"),
     ("PATCH", "/purchase/notional-input-tax"),
+    ("POST", "/purchase/storno"),
     ("POST", "/ledger-entries"),
     ("PATCH", "/publishing/autoscout24"),
     ("POST", "/publishing/autoscout24/publish"),

@@ -73,8 +73,12 @@ DIRECTION_BY_CATEGORY: dict[LedgerCategory, LedgerDirection] = {
 
 # verkaufserloes/foerderung stay automatic-only; kickback/zusatzerloes are
 # hand-bookable in practice (amended 2026-08-21) since Finance doesn't
-# exist yet to post them.
-AUTOMATIC_ONLY_CATEGORIES = frozenset({LedgerCategory.VERKAUFSERLOES, LedgerCategory.FOERDERUNG})
+# exist yet to post them. einstandspreis is automatic too (FR-I-15a): since
+# KAN-146 the purchase booking posts it and its storno reverses it, so a hand
+# booking would count the purchase price twice.
+AUTOMATIC_ONLY_CATEGORIES = frozenset(
+    {LedgerCategory.EINSTANDSPREIS, LedgerCategory.VERKAUFSERLOES, LedgerCategory.FOERDERUNG}
+)
 
 
 class StockItemLedger(PrimaryKeyMixin, TenantScopedMixin, Base):

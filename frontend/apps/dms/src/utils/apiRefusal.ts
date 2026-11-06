@@ -174,6 +174,12 @@ const REASON_KEYS: Record<string, string> = {
       'invoice_plate_vehicle_unknown',
       // KAN-539 — «Rechnung anfordern» once per contract.
       'invoice_already_requested',
+      // KAN-146 — a purchase booked once, and «Einkauf stornieren».
+      'purchase_already_booked',
+      'purchase_not_booked',
+      'purchase_storno_invoice_requested',
+      'purchase_storno_left_stock',
+      'source_ref_reserved',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -192,6 +198,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
         : '—',
   }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
+  // KAN-146: the contract whose invoice request keeps the purchase booked.
+  purchase_storno_invoice_requested: (d) => ({ contractNumber: String(d.contractNumber ?? '—') }),
   // A connection's settings by their labels on the connect form; a key the
   // bundles do not name yet as the API spells it, never the missing-key marker.
   missing_config_fields: (d, t) => ({

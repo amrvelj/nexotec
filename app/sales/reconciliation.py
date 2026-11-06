@@ -57,6 +57,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.base import utcnow
+from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import Customer, customer_in_group
 from app.inventory.public import StockItem
@@ -542,10 +543,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     StateCheck(
         # The item exists (a missing one is the reference check above) but is
-        # not purchased in Stock for the replica's dealership. No grace: the
-        # replica only follows Stock's fact, and Stock never sets
-        # is_invoiceable back until it emits storno (KAN-146), whose lag this
-        # check must then allow for.
+        # not purchased in Stock for the replica's dealership. Since KAN-146
+        # Stock sets is_invoiceable back when it stornos a purchase, and Sales
+        # deletes the row only when it consumes inventory.stock_item.storno —
+        # so a replica whose item Stock stornoed for this dealership less than
+        # the outbox-lag grace ago (the storno event's occurred_at: when Stock
+        # reversed the purchase) is not a finding yet.
         label="purchase replica whose stock item is not purchased in Stock for its dealership",
         source_model=SalesStockItemPurchase,
         source_row_id_column=SalesStockItemPurchase.id,
@@ -560,6 +563,39 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             StockItem.is_invoiceable.is_(True),
         )
         .correlate(SalesStockItemPurchase)
+        .exists()
+        & ~select(OutboxMessage.id)
+        .where(
+            OutboxMessage.event_type == "inventory.stock_item.storno",
+            OutboxMessage.aggregate_id == SalesStockItemPurchase.stock_item_id,
+            OutboxMessage.tenant_id == SalesStockItemPurchase.tenant_id,
+            OutboxMessage.occurred_at >= utcnow() - _OUTBOX_LAG_GRACE,
+        )
+        .correlate(SalesStockItemPurchase)
+        .exists(),
+    ),
+    StateCheck(
+        # KAN-146 — «Einkauf stornieren» refuses a car whose invoice a contract
+        # requested, but the two can race: request_invoice reads Sales' replica,
+        # which a storno clears only when its event is consumed, and the
+        # storno's read of Sales takes no lock. A contract that handed a sale to
+        # Finance for a stock car Stock does not hold as bought in its
+        # dealership is the result. No grace: nothing makes it right later.
+        label="contract whose invoice was requested for a stock item Stock does not hold as purchased",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        where=lambda: SalesContract.invoice_requested_at.is_not(None)
+        & (SalesContract.status != ContractStatus.CANCELLED)
+        & SalesContract.stock_item_id.is_not(None)
+        # A stock item that does not exist is the reference check's finding.
+        & select(StockItem.id).where(StockItem.id == SalesContract.stock_item_id).correlate(SalesContract).exists()
+        & ~select(StockItem.id)
+        .where(
+            StockItem.id == SalesContract.stock_item_id,
+            StockItem.tenant_id == SalesContract.tenant_id,
+            StockItem.is_invoiceable.is_(True),
+        )
+        .correlate(SalesContract)
         .exists(),
     ),
     StateCheck(

@@ -314,7 +314,12 @@
       "number_range_reason_required": "Una modifica a una serie congelata richiede una motivazione.",
       "number_range_exhausted": "La serie non ha più numeri liberi per le cifre del suo contatore. Si rivolga al supporto.",
       "number_location_code_missing": "Questa serie stampa il codice della sede, e il documento non indica alcuna sede con un codice.",
-      "number_range_counter_too_short": "Il contatore di questo modello ha troppe poche cifre per il prossimo numero della serie. Scelga più cifre per {counter:N}."
+      "number_range_counter_too_short": "Il contatore di questo modello ha troppe poche cifre per il prossimo numero della serie. Scelga più cifre per {counter:N}.",
+      "purchase_already_booked": "L'acquisto di questo veicolo è già registrato. Stornatelo prima di registrarlo di nuovo.",
+      "purchase_not_booked": "Per questo veicolo non è registrato alcun acquisto da stornare.",
+      "purchase_storno_left_stock": "Questo veicolo ha già lasciato lo stock. Il suo acquisto non può più essere stornato.",
+      "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
+      "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1197,7 +1202,18 @@
       "isInvoiceable": "Fatturabile",
       "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
       "notRecorded": "Nessun acquisto ancora registrato.",
-      "configurationVinDiffers": "Il VIN è diverso da quello della configurazione."
+      "configurationVinDiffers": "Il VIN è diverso da quello della configurazione.",
+      "storno": {
+        "button": "Stornare l'acquisto",
+        "title": "Stornare l'acquisto",
+        "body": "L'acquisto di {{stockNumber}} viene annullato: il prezzo di costo viene stornato nel registro veicolo, il veicolo torna nella pipeline con il suo VIN ed è di nuovo fatturabile solo dopo un nuovo acquisto. Una prenotazione rimane.",
+        "reasonLabel": "Motivo",
+        "reasonRequired": "Indicate un motivo.",
+        "submit": "Stornare l'acquisto",
+        "cancel": "Annulla",
+        "failed": "Non è stato possibile stornare l'acquisto.",
+        "leftStock": "Non possibile: il veicolo ha lasciato lo stock."
+      }
     },
     "wagenbuch": {
       "result": "Risultato",

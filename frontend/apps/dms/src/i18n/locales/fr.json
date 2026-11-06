@@ -314,7 +314,12 @@
       "number_range_reason_required": "Une modification d'une plage gelée nécessite un motif.",
       "number_range_exhausted": "La plage n'a plus de numéro libre pour les chiffres de son compteur. Veuillez contacter le support.",
       "number_location_code_missing": "Cette plage imprime le code du site, et le document ne nomme aucun site avec un code.",
-      "number_range_counter_too_short": "Le compteur de ce modèle a trop peu de chiffres pour le prochain numéro de la plage. Choisissez plus de chiffres pour {counter:N}."
+      "number_range_counter_too_short": "Le compteur de ce modèle a trop peu de chiffres pour le prochain numéro de la plage. Choisissez plus de chiffres pour {counter:N}.",
+      "purchase_already_booked": "L'achat de ce véhicule est déjà saisi. Annulez-le avant de le saisir à nouveau.",
+      "purchase_not_booked": "Aucun achat n'est saisi pour ce véhicule, il n'y a rien à annuler.",
+      "purchase_storno_left_stock": "Ce véhicule a déjà quitté le stock. Son achat ne peut plus être annulé.",
+      "purchase_storno_invoice_requested": "La facture du contrat {{contractNumber}} a déjà été demandée. L'achat ne peut plus être annulé.",
+      "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1197,7 +1202,18 @@
       "isInvoiceable": "Facturable",
       "error": "L’achat n’a pas pu être enregistré. Veuillez réessayer.",
       "notRecorded": "Aucun achat saisi pour l'instant.",
-      "configurationVinDiffers": "Le VIN diffère de celui de la configuration."
+      "configurationVinDiffers": "Le VIN diffère de celui de la configuration.",
+      "storno": {
+        "button": "Annuler l'achat",
+        "title": "Annuler l'achat",
+        "body": "L'achat de {{stockNumber}} est annulé : le prix de revient est contre-passé dans le livre de bord, le véhicule retourne dans le pipeline avec son VIN et n'est à nouveau facturable qu'après un nouvel achat. Une réservation est maintenue.",
+        "reasonLabel": "Motif",
+        "reasonRequired": "Veuillez indiquer un motif.",
+        "submit": "Annuler l'achat",
+        "cancel": "Retour",
+        "failed": "L'achat n'a pas pu être annulé.",
+        "leftStock": "Impossible : le véhicule a quitté le stock."
+      }
     },
     "wagenbuch": {
       "result": "Résultat",
