@@ -1,5 +1,5 @@
-import { Car, CheckCircle, RefreshCw, Undo2, User } from 'lucide-react'
-import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
+import { Car, CheckCircle, Handshake, RefreshCw, Undo2, User } from 'lucide-react'
+import type { DetailHeaderAction, RowMenuAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { ValuationRead } from '../api/types'
 
 /** KAN-253 — the server's `CONFIRMATION_GRACE`: a stamp younger than this may
@@ -16,10 +16,22 @@ export interface ValuationRowMenuActions {
   onRevertUse?: () => void
   onOpenCustomer?: () => void
   onOpenVehicle?: () => void
+  /** KAN-569 (ADR-061; Anto's answer A on KAN-528) — «Offerte aus dieser
+   * Bewertung erstellen». Passed only when the session may write offers
+   * (`sales_offers`); otherwise the entry is hidden, never disabled (KAN-430).
+   * `salesEntitled` is the active Betrieb's `sales` module (KAN-377): without
+   * it the entry is shown disabled with its reason. A second click while a
+   * run is in flight is ignored by the run itself
+   * (`useCreateOfferFromValuation`), never by a reason-less disabled item. */
+  createOffer?: { onClick: () => void; salesEntitled: boolean }
 }
 
 export interface ValuationRowMenu {
   primary: DetailHeaderAction
+  /** «Offerte aus dieser Bewertung erstellen» beside «Neu bewerten», when
+   * the session may write offers (KAN-569); also in the overflow's
+   * `createFrom` group, so the grid's row menu carries the same entry. */
+  alternative?: DetailHeaderAction
   overflow: RowMenuGroups
 }
 
@@ -42,6 +54,14 @@ export interface ValuationRowMenu {
  * deal stands behind — a hand stamp from before KAN-115, or a confirmation
  * that failed and was cancelled: offered to the dealer manager only, enabled
  * only for a used valuation no signed contract carries.
+ *
+ * «Offerte aus dieser Bewertung erstellen» (KAN-569) starts a draft offer
+ * with this valuation as its trade-in. The API attaches an expired or used
+ * valuation without complaint and refuses an expired one only at contract
+ * confirmation (`trade_in_valuation_expired`), so the menu says so before the
+ * click. A draft is allowed and a valuation without a customer gives an offer
+ * without a buyer (Anto, 2026-11-05, answers 1A and 2A): the action is no
+ * stricter than the contract that will consume the valuation.
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -63,6 +83,21 @@ export function buildValuationRowMenu(
         : valuation.usedAt && Date.now() - Date.parse(valuation.usedAt) < CONFIRMATION_GRACE_MS
           ? t('valuationDetail.actions.revertUseTooRecent')
           : undefined
+
+  const createOfferDisabledReason = !actions.createOffer?.salesEntitled
+    ? t('valuationDetail.actions.createOfferNoSales')
+    : valuation.status === 'expired'
+      ? t('valuationDetail.actions.createOfferExpired')
+      : valuation.status === 'used'
+        ? t('valuationDetail.actions.createOfferUsed')
+        : undefined
+  const createOffer: RowMenuAction | undefined = actions.createOffer && {
+    label: t('valuationDetail.actions.createOffer'),
+    icon: <Handshake size={16} />,
+    onClick: actions.createOffer.onClick,
+    disabled: createOfferDisabledReason !== undefined,
+    disabledReason: createOfferDisabledReason,
+  }
 
   const overflow: RowMenuGroups = {
     navigate: [
@@ -93,6 +128,7 @@ export function buildValuationRowMenu(
           ]
         : []),
     ],
+    ...(createOffer ? { createFrom: [createOffer] } : {}),
   }
 
   return {
@@ -101,6 +137,7 @@ export function buildValuationRowMenu(
       icon: <RefreshCw size={16} />,
       onClick: actions.onRevalue,
     },
+    alternative: createOffer,
     overflow,
   }
 }

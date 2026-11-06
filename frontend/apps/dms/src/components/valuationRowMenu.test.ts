@@ -119,4 +119,52 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       vi.useRealTimers()
     }
   })
+
+  it('KAN-569: without the right to write offers there is no alternative and no «create offer» entry (KAN-430)', () => {
+    const menu = buildValuationRowMenu(
+      t,
+      { status: 'valid', hasSignedContract: false, customerId: null, vehicleId: null },
+      { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
+    )
+    expect(menu.alternative).toBeUndefined()
+    expect(menu.overflow.createFrom).toBeUndefined()
+  })
+
+  it.each([
+    // [status, salesEntitled, expected disabledReason key or null when enabled]
+    ['valid', true, null],
+    ['draft', true, null], // 2A: a draft is allowed — it does not refuse a contract's confirmation either
+    ['expired', true, 'valuationDetail.actions.createOfferExpired'],
+    ['used', true, 'valuationDetail.actions.createOfferUsed'],
+    ['valid', false, 'valuationDetail.actions.createOfferNoSales'],
+  ] as const)(
+    'KAN-569: «create offer» for status=%s, salesEntitled=%s (reason %s) — the same entry as alternative and in the row menu',
+    (status, salesEntitled, expectedReason) => {
+      const onClick = vi.fn()
+      const menu = buildValuationRowMenu(
+        t,
+        { status, hasSignedContract: false, customerId: null, vehicleId: null },
+        { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick, salesEntitled } }
+      )
+      expect(menu.alternative?.label).toBe('valuationDetail.actions.createOffer')
+      expect(menu.alternative?.disabled).toBe(expectedReason !== null)
+      expect(menu.alternative?.disabledReason).toBe(expectedReason ?? undefined)
+      expect(menu.overflow.createFrom).toEqual([menu.alternative])
+      menu.alternative!.onClick()
+      expect(onClick).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it('KAN-569: every disabled «create offer» carries its reason (ADR-061: never disabled without one)', () => {
+    for (const status of ['draft', 'valid', 'expired', 'used'] as const) {
+      for (const salesEntitled of [true, false]) {
+        const entry = buildValuationRowMenu(
+          t,
+          { status, hasSignedContract: false, customerId: null, vehicleId: null },
+          { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick: vi.fn(), salesEntitled } }
+        ).alternative!
+        expect(entry.disabled ? entry.disabledReason : 'enabled').toBeTruthy()
+      }
+    }
+  })
 })

@@ -1632,7 +1632,10 @@
     "errors": {
       "failedToLoad": "Bewertung konnte nicht geladen werden.",
       "somethingWentWrong": "Etwas ist schiefgelaufen.",
-      "markUsedFailed": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen."
+      "markUsedFailed": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen.",
+      "createOfferFailed": "Die Offerte konnte nicht erstellt werden.",
+      "createOfferTradeInFailed": "Die Offerte {{offerNumber}} wurde erstellt, aber die Bewertung konnte nicht als Eintausch übernommen werden: {{reason}}",
+      "openCreatedOffer": "Offerte öffnen"
     },
     "actions": {
       "revalue": "Neu bewerten",
@@ -1644,7 +1647,11 @@
       "revertUse": "Verwendung aufheben",
       "revertUseNotUsed": "Nur für eine als verwendet markierte Bewertung.",
       "revertUseSignedContract": "Nicht möglich: Ein unterschriebener Vertrag enthält diese Bewertung als Eintausch.",
-      "revertUseTooRecent": "Erst eine Stunde nach der Markierung möglich: Die Bestätigung des Vertrags läuft vielleicht noch."
+      "revertUseTooRecent": "Erst eine Stunde nach der Markierung möglich: Die Bestätigung des Vertrags läuft vielleicht noch.",
+      "createOffer": "Offerte aus dieser Bewertung erstellen",
+      "createOfferExpired": "Nicht möglich: Die Bewertung ist abgelaufen. Bitte zuerst neu bewerten.",
+      "createOfferUsed": "Nicht möglich: Die Bewertung ist bereits als verwendet markiert.",
+      "createOfferNoSales": "Nicht möglich: Dieser Betrieb hat das Modul Verkauf nicht."
     },
     "expiredBanner": {
       "title": "Bewertung abgelaufen",

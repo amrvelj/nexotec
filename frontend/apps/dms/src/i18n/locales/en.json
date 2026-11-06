@@ -1632,7 +1632,10 @@
     "errors": {
       "failedToLoad": "The valuation could not be loaded.",
       "somethingWentWrong": "Something went wrong.",
-      "markUsedFailed": "The valuation could not be marked as used. Please try again."
+      "markUsedFailed": "The valuation could not be marked as used. Please try again.",
+      "createOfferFailed": "The offer could not be created.",
+      "createOfferTradeInFailed": "Offer {{offerNumber}} was created, but the valuation could not be taken over as its trade-in: {{reason}}",
+      "openCreatedOffer": "Open offer"
     },
     "actions": {
       "revalue": "Revalue",
@@ -1644,7 +1647,11 @@
       "revertUse": "Clear use",
       "revertUseNotUsed": "Only for a valuation marked as used.",
       "revertUseSignedContract": "Not possible: a signed contract carries this valuation as its trade-in.",
-      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress."
+      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress.",
+      "createOffer": "Create offer from this valuation",
+      "createOfferExpired": "Not possible: the valuation has expired. Revalue it first.",
+      "createOfferUsed": "Not possible: the valuation is already marked as used.",
+      "createOfferNoSales": "Not possible: this business does not have the Sales module."
     },
     "expiredBanner": {
       "title": "Valuation expired",

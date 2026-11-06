@@ -1632,7 +1632,10 @@
     "errors": {
       "failedToLoad": "Impossibile caricare la valutazione.",
       "somethingWentWrong": "Qualcosa è andato storto.",
-      "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare."
+      "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare.",
+      "createOfferFailed": "Non è stato possibile creare l’offerta.",
+      "createOfferTradeInFailed": "L’offerta {{offerNumber}} è stata creata, ma la valutazione non è stata ripresa come permuta: {{reason}}",
+      "openCreatedOffer": "Apri offerta"
     },
     "actions": {
       "revalue": "Rivaluta",
@@ -1644,7 +1647,11 @@
       "revertUse": "Annulla utilizzo",
       "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
       "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta.",
-      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso."
+      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso.",
+      "createOffer": "Crea offerta da questa valutazione",
+      "createOfferExpired": "Non possibile: la valutazione è scaduta. Rivalutare prima.",
+      "createOfferUsed": "Non possibile: la valutazione è già segnata come utilizzata.",
+      "createOfferNoSales": "Non possibile: questa azienda non dispone del modulo Vendita."
     },
     "expiredBanner": {
       "title": "Valutazione scaduta",

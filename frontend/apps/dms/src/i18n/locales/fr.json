@@ -1632,7 +1632,10 @@
     "errors": {
       "failedToLoad": "L’évaluation n’a pas pu être chargée.",
       "somethingWentWrong": "Une erreur est survenue.",
-      "markUsedFailed": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer."
+      "markUsedFailed": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer.",
+      "createOfferFailed": "L’offre n’a pas pu être créée.",
+      "createOfferTradeInFailed": "L’offre {{offerNumber}} a été créée, mais l’évaluation n’a pas pu être reprise comme véhicule de reprise : {{reason}}",
+      "openCreatedOffer": "Ouvrir l’offre"
     },
     "actions": {
       "revalue": "Réévaluer",
@@ -1644,7 +1647,11 @@
       "revertUse": "Annuler l'utilisation",
       "revertUseNotUsed": "Uniquement pour une évaluation marquée comme utilisée.",
       "revertUseSignedContract": "Impossible : un contrat signé contient cette évaluation comme reprise.",
-      "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours."
+      "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours.",
+      "createOffer": "Créer une offre à partir de cette évaluation",
+      "createOfferExpired": "Impossible : l’évaluation a expiré. Veuillez d’abord réévaluer.",
+      "createOfferUsed": "Impossible : l’évaluation est déjà marquée comme utilisée.",
+      "createOfferNoSales": "Impossible : cette entreprise ne dispose pas du module Vente."
     },
     "expiredBanner": {
       "title": "Évaluation expirée",
