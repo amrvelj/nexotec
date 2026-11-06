@@ -200,7 +200,12 @@ def promote_to_vehicle_mdm(
 
 
 def promote_and_flush(
-    db: Session, *, item: StockItem, vin: str, catalogue_variant_id: uuid.UUID | None = None
+    db: Session,
+    *,
+    item: StockItem,
+    vin: str,
+    catalogue_variant_id: uuid.UUID | None = None,
+    actor_id: uuid.UUID | None = None,
 ) -> StockItem:
     """FR-V-04: VIN arrival on a pipeline item. Idempotent per stock item:
     it returns early when the item already carries a `vehicle_id` for the
@@ -228,17 +233,28 @@ def promote_and_flush(
             details={"stockItemId": str(item.id)},
         )
 
+    # KAN-554 (ADR-116): a pipeline item created with its VIN is promoted
+    # under that VIN only — another one describes another car.
+    if item.vin is not None and item.vin != vin:
+        raise UnprocessableEntityError(
+            f"Stock item {item.id} carries VIN {item.vin}, not {vin}.",
+            details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
+        )
+
     # KAN-111: the same car may be in pipeline twice (two contracts can
     # carry one trade-in, KAN-101), never twice in stock. Checked before
-    # vehicle-mdm is touched, so a refused promotion writes nothing.
-    _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin)
+    # vehicle-mdm is touched, so a refused promotion writes nothing. The item
+    # itself is left out: one created with its VIN holds it already (KAN-554).
+    _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
 
     # On vehicle-mdm's own session (vehicle_resolution's docstring): its
     # commit never commits this transaction, and losing its insert race to
     # another promotion of a VIN it had never seen (KAN-257) resolves to the
     # winner's record instead of rolling this session back. A winner that
     # took the car into this dealership's stock is refused by the index below.
-    vehicle = resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
+    # KAN-243, KAN-554: a record purchase booking creates names the user who
+    # booked it (`actor_id`); a promotion with none is a system write.
+    vehicle = resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
 
     try:
         # A savepoint, so a racing promotion of the same VIN undoes only
@@ -251,7 +267,7 @@ def promote_and_flush(
             item.in_stock_at = utcnow()
             item.version += 1
     except IntegrityError:
-        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=vin)
+        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
         if held_by is None:
             raise
         raise _vin_already_in_stock(held_by) from None

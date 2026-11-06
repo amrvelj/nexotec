@@ -54,7 +54,18 @@ def _stock_item_read(item: StockItem) -> StockItemRead:
     return base.model_copy(update={"ageing_bucket": stock_item_service.compute_ageing_bucket(item)})
 
 
-@router.post("/inventory/stock-items", response_model=StockItemRead, status_code=201)
+@router.post(
+    "/inventory/stock-items",
+    response_model=StockItemRead,
+    status_code=201,
+    description=(
+        "Adds a car to this Betrieb's stock pipeline from the configuration the configurator produced. Every "
+        "create lands as `lifecycleStatus: pipeline` — a `vin` sent with it is stored on the pipeline item, "
+        "never put in stock (ADR-103, ADR-116; KAN-554). Booking the purchase "
+        "(`POST /v1/inventory/stock-items/{id}/purchase`) is the only path to `in_stock`; it uses the stored "
+        "VIN when the request sends none. Before KAN-554 a create with a `vin` went straight to `in_stock`."
+    ),
+)
 def create_stock_item(
     body: StockItemCreateRequest,
     principal: Principal = Depends(require_write("stock_items")),

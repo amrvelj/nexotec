@@ -3,8 +3,10 @@
 KAN-244 (Anto ticked A + C): a VIN sent to `POST /v1/inventory/stock-items`
 is normalised (upper-cased, every whitespace character removed) and then
 validated as vehicle-mdm validates it; one still malformed is a 422. A
-create with a VIN finds or creates the vehicle-mdm record from the VIN, as
-promotion does, and ignores a `vehicleId` the client sent.
+`vehicleId` the client sent with a VIN is ignored: the record is found or
+created from the VIN. Since KAN-554 (ADR-116; Anto, 2026-11-05, option A)
+that happens at purchase booking, not on create — a create with a VIN lands
+in pipeline carrying it and writes nothing to vehicle-mdm.
 
 KAN-324 (Anto, 2026-10-12, option A): a create WITHOUT a VIN refuses a
 `vehicleId` with 422 `vehicle_id_requires_vin` — before KAN-324 it was
@@ -17,7 +19,8 @@ the lookup and both insert; vehicle-mdm's own unique index refuses the
 second. The loser resolves the VIN to the record the winner created
 (FR-V-15: same VIN, same car) and carries on — it then promotes, or is
 refused with `vin_already_in_stock` when the winner took the car into the
-same dealership's stock.
+same dealership's stock. Since KAN-554 only promotion resolves a VIN; a
+create racing another create of the same VIN is refused by the index.
 """
 
 import os
@@ -40,6 +43,7 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import create_or_get_vehicle_mdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from tests.configuration_test_support import stock_configuration_id
+from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
@@ -65,6 +69,35 @@ def _post(client, db_session, headers, **fields):
         "configurationId": stock_configuration_id(db_session, headers), **fields,
     }
     return client.post("/v1/inventory/stock-items", json=body, headers=headers)
+
+
+def _dealership(client) -> uuid.UUID:
+    """A real dealership: booking a purchase reads its VAT rate."""
+
+    payload = {
+        "legalName": "Garage Musterbetrieb AG",
+        "franchiseType": "independent",
+        "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
+        "phone": "+41441234567",
+        "uid": valid_uid(),
+    }
+    admin = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), group_id=uuid.uuid4(), roles=frozenset({AccessRole.PLATFORM_ADMIN})
+    )
+    response = client.post("/v1/dealerships", json=payload, headers={"Authorization": f"Bearer {admin}"})
+    assert response.status_code == 201, response.text
+    return uuid.UUID(response.json()["id"])
+
+
+def _book(client, headers, item: dict, **extra):
+    body = {
+        "supplierName": "Hans Muster", "supplierIsVatRegistered": False,
+        "purchasePrice": "8000.00", "purchaseDate": "2026-10-30", **extra,
+    }
+    return client.post(
+        f"/v1/inventory/stock-items/{item['id']}/purchase", json=body,
+        headers={**headers, "If-Match": str(item["version"])},
+    )
 
 
 def _vehicle_by_vin(db_session, vin: str) -> VehicleMdm | None:
@@ -108,10 +141,10 @@ def test_the_vin_is_stored_as_vehicle_mdm_spells_it(client, db_session):
 
     assert created.status_code == 201, created.text
     assert created.json()["vin"] == VIN
-    assert created.json()["lifecycleStatus"] == "in_stock"
-    vehicle = _vehicle_by_vin(db_session, VIN)
-    assert vehicle is not None
-    assert created.json()["vehicleId"] == str(vehicle.id)
+    # KAN-554: a pipeline item carrying its VIN; vehicle-mdm is not written.
+    assert created.json()["lifecycleStatus"] == "pipeline"
+    assert created.json()["vehicleId"] is None
+    assert _vehicle_by_vin(db_session, VIN) is None
 
 
 @pytest.mark.parametrize(
@@ -137,39 +170,62 @@ def test_a_vin_still_malformed_after_normalising_is_422_and_writes_nothing(clien
     assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 0
 
 
-# --- KAN-244 C: the vehicle is resolved from the VIN --------------------------
+# --- KAN-244 C, KAN-554 A: the vehicle is resolved from the VIN, at purchase ---
 
 
-def test_a_create_with_a_vin_ignores_the_clients_vehicle_id_and_creates_the_vehicle(client, db_session):
+def test_a_create_with_a_vin_ignores_the_clients_vehicle_id_and_writes_nothing_to_vehicle_mdm(client, db_session):
     someone_elses = uuid.uuid4()
 
     created = _post(client, db_session, _bearer(), vin=VIN, vehicleId=str(someone_elses))
 
     assert created.status_code == 201, created.text
-    vehicle = _vehicle_by_vin(db_session, VIN)
-    assert vehicle is not None
-    assert created.json()["vehicleId"] == str(vehicle.id)
-    assert created.json()["vehicleId"] != str(someone_elses)
+    assert created.json()["vehicleId"] is None
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 0
 
 
-def test_the_vehicle_a_create_resolves_names_the_user_who_created_it(client, db_session):
-    """KAN-243: a null created_by means a system write; a user's stock create is not one."""
-    user_id = uuid.uuid4()
+def test_a_create_with_a_vin_never_looks_the_vin_up_in_vehicle_mdm(client, db_session, monkeypatch):
+    """KAN-554 option A: the create does not ask vehicle-mdm at all — a car
+    not yet bought has no record there (ADR-045, ADR-103)."""
 
-    created = _post(client, db_session, _bearer(user_id=user_id), vin=VIN)
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("a stock create must not look a VIN up in vehicle-mdm")
+
+    monkeypatch.setattr(vehicle_mdm_service, "get_vehicle_mdm_by_vin", refuse)
+
+    created = _post(client, db_session, _bearer(), vin=VIN)
 
     assert created.status_code == 201, created.text
-    assert _vehicle_by_vin(db_session, VIN).created_by == user_id
 
 
-def test_a_create_with_a_vin_vehicle_mdm_knows_uses_that_record(client, db_session):
+def test_the_vehicle_a_purchase_resolves_names_the_user_who_booked_it(client, db_session):
+    """KAN-243: a null created_by means a system write; a user's booking is
+    not one. Since KAN-554 the record of a car created with its VIN is
+    created when its purchase is booked."""
+
+    booker = uuid.uuid4()
+    tenant_id = _dealership(client)
+    created = _post(client, db_session, _bearer(tenant_id), vin=VIN)
+    assert created.status_code == 201, created.text
+
+    booked = _book(client, _bearer(tenant_id, user_id=booker), created.json())
+
+    assert booked.status_code == 200, booked.text
+    assert _vehicle_by_vin(db_session, VIN).created_by == booker
+
+
+def test_the_purchase_of_a_car_created_with_a_vin_vehicle_mdm_knows_uses_that_record(client, db_session):
     known, _created = create_or_get_vehicle_mdm(db_session, vin=VIN)
     other, _created = create_or_get_vehicle_mdm(db_session, vin="ZFA31200000123456")
-
-    created = _post(client, db_session, _bearer(), vin=VIN.lower(), vehicleId=str(other.id))
-
+    tenant_id = _dealership(client)
+    created = _post(client, db_session, _bearer(tenant_id), vin=VIN.lower(), vehicleId=str(other.id))
     assert created.status_code == 201, created.text
-    assert created.json()["vehicleId"] == str(known.id)
+    assert created.json()["vehicleId"] is None
+
+    booked = _book(client, _bearer(tenant_id), created.json())
+
+    assert booked.status_code == 200, booked.text
+    assert booked.json()["vehicleId"] == str(known.id)
+    assert booked.json()["lifecycleStatus"] == "in_stock"
     assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 2
 
 
@@ -216,7 +272,7 @@ def test_the_schema_itself_refuses_a_vehicle_id_without_a_vin():
         StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vehicle_id=uuid.uuid4())
 
     assert [e["type"] for e in refused.value.errors()] == ["vehicle_id_requires_vin"]
-    # With a VIN the pair is accepted (the service then ignores the vehicleId, KAN-244 C).
+    # With a VIN the pair is accepted (the service then ignores the vehicleId, KAN-244 C; KAN-554).
     StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vehicle_id=uuid.uuid4(), vin=VIN)
 
 
@@ -452,40 +508,32 @@ def test_losing_the_race_never_discards_the_callers_own_pending_work(db_session,
 
 
 @_postgres_only
-def test_a_create_that_loses_the_insert_race_uses_the_winners_record(client, db_session, engine, monkeypatch):
-    winners: list[uuid.UUID] = []
-
-    def another_dealership_takes_the_car(other, vin):
-        winners.append(vehicle_mdm_service.create_vehicle_mdm(other, vin=vin, catalogue_variant_id=None).id)
-
-    misses = _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
-
-    created = _post(client, db_session, _bearer(), vin=VIN, vehicleId=str(uuid.uuid4()))
-
-    assert misses == [VIN]
-    assert created.status_code == 201, created.text
-    assert created.json()["vehicleId"] == str(winners[0])
-
-
-@_postgres_only
 def test_a_create_that_loses_the_race_to_its_own_dealership_is_409_vin_already_in_stock(
     client, db_session, engine, monkeypatch
 ):
+    """Two creates of one VIN both pass the check; the index refuses the
+    second, and the create maps that to the same 409 (KAN-111). Since
+    KAN-554 the winner is another create — a pipeline item carrying the VIN."""
+
     tenant_id = uuid.uuid4()
     held: list[StockItem] = []
+    raced: list[str] = []
+    real_check = stock_item_service._check_vin_not_in_stock
 
-    def the_same_dealership_takes_the_car_in(other, vin):
-        # A promotion's order: vehicle-mdm first (its own commit), then the item.
-        vehicle_mdm_service.create_vehicle_mdm(other, vin=vin, catalogue_variant_id=None)
-        held.append(
-            create_stock_item(
-                other, tenant_id=tenant_id,
-                data=StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vin=vin),
-                actor_id=None,
-            )
-        )
+    def the_same_dealership_takes_the_car_in_first(db, *, tenant_id, vin, excluding=None):
+        real_check(db, tenant_id=tenant_id, vin=vin, excluding=excluding)
+        if not raced:  # once: the winner's own create runs this check too
+            raced.append(vin)
+            with Session(bind=engine, autoflush=False, expire_on_commit=False) as other:
+                held.append(
+                    create_stock_item(
+                        other, tenant_id=tenant_id,
+                        data=StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vin=vin),
+                        actor_id=None,
+                    )
+                )
 
-    _lose_the_first_lookup(monkeypatch, engine, winner=the_same_dealership_takes_the_car_in)
+    monkeypatch.setattr(stock_item_service, "_check_vin_not_in_stock", the_same_dealership_takes_the_car_in_first)
 
     refused = _post(client, db_session, _bearer(tenant_id), vin=VIN)
 

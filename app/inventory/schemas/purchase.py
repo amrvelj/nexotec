@@ -19,6 +19,9 @@ class RecordPurchaseRequest(CamelModel):
         description=(
             "KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, "
             "which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 "
+            "`vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item "
+            "already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out "
+            "and, when sent, must be the item's own (422 `purchase_vin_mismatch`). (409 "
             "`vin_already_in_stock` when another item of this dealership holds it in stock). When the item's "
             "configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the "
             "VIN is corrected on the configuration). On an item already in stock it may be sent and must be "

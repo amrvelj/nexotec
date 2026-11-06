@@ -90,7 +90,16 @@ def record_purchase(
         item.lifecycle_status = LifecycleStatus.IN_STOCK
         item.in_stock_at = utcnow()
     elif item.lifecycle_status == LifecycleStatus.PIPELINE:
-        if data.vin is None:
+        # KAN-554 (ADR-116): a pipeline item created with its VIN is bought
+        # under that VIN — the request may repeat it or leave it out, never
+        # name another car.
+        if item.vin is not None and data.vin is not None and data.vin != item.vin:
+            raise UnprocessableEntityError(
+                f"Stock item {item.id} carries VIN {item.vin}, not {data.vin}.",
+                details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
+            )
+        vin = data.vin if data.vin is not None else item.vin
+        if vin is None:
             raise UnprocessableEntityError(
                 f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
                 details={"reason": "purchase_requires_vin", "stockItemId": str(item.id)},
@@ -106,9 +115,9 @@ def record_purchase(
             configuration = get_configuration_for_host(
                 db, tenant_id=item.tenant_id, configuration_id=item.configuration_id
             )
-            if configuration_vin_differs(configuration.vin, data.vin):
+            if configuration_vin_differs(configuration.vin, vin):
                 raise configuration_vin_differs_error(field="vin")
-        item = promote_and_flush(db, item=item, vin=data.vin)
+        item = promote_and_flush(db, item=item, vin=vin, actor_id=actor_id)
     elif data.vin is not None and data.vin != item.vin:
         raise UnprocessableEntityError(
             f"Stock item {item.id} carries VIN {item.vin}, not {data.vin}.",
