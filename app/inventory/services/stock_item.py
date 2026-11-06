@@ -101,6 +101,20 @@ def get_stock_numbers(
     return {row.id: row.stock_number for row in rows}
 
 
+def is_stock_item_purchased(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> bool:
+    """KAN-146: whether this dealership holds the stock item as bought now —
+    `is_invoiceable`, the fact `inventory.stock_item.purchased` and
+    `inventory.stock_item.storno` replicate (ADR-052). Sales' storno consumer
+    re-reads it because delivery is unordered. A SELECT only; an item of
+    another dealership, or none, is False."""
+
+    return bool(
+        db.scalar(
+            select(StockItem.is_invoiceable).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id)
+        )
+    )
+
+
 def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> StockItem:
     """KAN-429: the item locked until the caller commits, as Sales' offer
     and contract routes load theirs (KAN-311). Every route that checks

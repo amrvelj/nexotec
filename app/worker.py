@@ -66,7 +66,11 @@ from app.platform.daily_jobs import (
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
-from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
+from app.sales.consumers import (
+    handle_stock_item_added_message,
+    handle_stock_item_purchased_message,
+    handle_stock_item_storno_message,
+)
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.vehicle.consumers import handle_configuration_taken_message, handle_invoice_requested_message
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
@@ -118,6 +122,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.purchased",
         consumer_name="sales.stock_item_purchased",
         handler=handle_stock_item_purchased_message,
+    )
+    # KAN-146 (ADR-052: storno "sets it back") — a stornoed purchase deletes
+    # Sales' replica row, so every contract on the car derives «nicht
+    # fakturierbar» until it is bought again.
+    transport.register(
+        "inventory.stock_item.storno",
+        consumer_name="sales.stock_item_storno",
+        handler=handle_stock_item_storno_message,
     )
     # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
     # recorded as the car's former owner and keeper, in the customer

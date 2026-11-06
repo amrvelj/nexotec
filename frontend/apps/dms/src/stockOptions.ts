@@ -38,11 +38,12 @@ export function translatedStockReservationLabel(t: Translate, state: StockReserv
   return t(`stockEnums.reservationState.${state}`)
 }
 
-// verkaufserloes/foerderung excluded — automatic-only server-side
-// (app.inventory.models.stock_item_ledger.AUTOMATIC_ONLY_CATEGORIES), so
+// einstandspreis/verkaufserloes/foerderung excluded — automatic-only
+// server-side (app.inventory.models.stock_item_ledger.AUTOMATIC_ONLY_CATEGORIES;
+// the purchase booking posts the Einstandspreis since KAN-146), so
 // hand-booking them from RecordCostDialog is never offered.
 const HAND_BOOKABLE_LEDGER_CATEGORIES: LedgerCategory[] = [
-  'einstandspreis', 'landed_cost', 'aufbereitung', 'reparatur', 'gutachten', 'standkosten',
+  'landed_cost', 'aufbereitung', 'reparatur', 'gutachten', 'standkosten',
   'werbung', 'garantie', 'abwertung', 'promotion', 'sonstige_kosten',
   'kickback', 'zusatzerloes', 'sonstige_ertraege',
 ]

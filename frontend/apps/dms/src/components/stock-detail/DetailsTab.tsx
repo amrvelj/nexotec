@@ -7,6 +7,7 @@ import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { AttachConfigurationButton } from './AttachConfigurationButton'
+import { PurchaseStornoDialog } from './PurchaseStornoDialog'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import { useStockConfigurationEditor } from './useStockConfigurationEditor'
 import type { ConfigurationRead, StockItemRead } from '../../api/types'
@@ -28,6 +29,10 @@ interface DetailsTabProps {
    * (`configurations`) — «Konfiguration bearbeiten» on the card and beside
    * the purchase dialog's VIN refusal. Hidden when not. */
   canEditConfiguration?: boolean
+  /** KAN-146: the stock item after «Einkauf stornieren» reversed its
+   * purchase. Offered beside a booked purchase to the same role that books it
+   * (`canRecordPurchase`). */
+  onPurchaseStornoed?: (updated: StockItemRead) => void
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -56,11 +61,14 @@ export function DetailsTab({
   canRecordPurchase = true,
   canAttachConfiguration = true,
   canEditConfiguration = true,
+  onPurchaseStornoed,
   onRecordPurchase,
 }: DetailsTabProps) {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
+  const [stornoDialogOpen, setStornoDialogOpen] = useState(false)
+  const stornoReasonId = useId()
   const editConfiguration = useStockConfigurationEditor()
   // KAN-510 (Anto, 2026-11-02, option A): «Konfiguration bearbeiten» on
   // every stock car, in the pipeline or in stock (not one that has left
@@ -255,15 +263,47 @@ export function DetailsTab({
               <KeyValueRow label={t('stockDetail.purchase.isInvoiceable')}>
                 {item.isInvoiceable ? t('common.yes') : t('common.no')}
               </KeyValueRow>
+              {/* KAN-146 (FR-I-05): an action, not a field — on a car that has
+                  left stock it stays visible, disabled, and says why (ADR-061). */}
+              {canRecordPurchase && onPurchaseStornoed && (
+                <Group gap="sm" mt="sm" wrap="nowrap" align="flex-start">
+                  <Button
+                    variant="default"
+                    size="xs"
+                    color="red"
+                    disabled={item.leftStockAt != null}
+                    aria-describedby={item.leftStockAt != null ? stornoReasonId : undefined}
+                    onClick={() => setStornoDialogOpen(true)}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {t('stockDetail.purchase.storno.button')}
+                  </Button>
+                  {item.leftStockAt != null && (
+                    <Text id={stornoReasonId} size="sm" c="dimmed">
+                      {t('stockDetail.purchase.storno.leftStock')}
+                    </Text>
+                  )}
+                </Group>
+              )}
             </OverviewCard>
           )}
         </div>
       </ProgressiveDisclosure>
 
+      {onPurchaseStornoed && (
+        <PurchaseStornoDialog
+          opened={stornoDialogOpen}
+          onClose={() => setStornoDialogOpen(false)}
+          item={item}
+          onStornoed={onPurchaseStornoed}
+        />
+      )}
       <RecordPurchaseDialog
         opened={purchaseDialogOpen}
         onClose={() => setPurchaseDialogOpen(false)}
-        requiresVin={item.lifecycleStatus === 'pipeline'}
+        // KAN-146: a stornoed car is back in pipeline with its VIN and is
+        // bought again under it — the dialog asks for none.
+        requiresVin={item.lifecycleStatus === 'pipeline' && item.vin == null}
         configurationId={item.configurationId ?? null}
         onEditConfiguration={mayEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}

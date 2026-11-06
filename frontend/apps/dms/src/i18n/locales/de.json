@@ -314,7 +314,12 @@
       "number_range_reason_required": "Eine Änderung an einem eingefrorenen Nummernkreis braucht eine Begründung.",
       "number_range_exhausted": "Der Nummernkreis hat keine Nummer mehr frei für die Stellen seines Zählers. Bitte wenden Sie sich an den Support.",
       "number_location_code_missing": "Dieser Nummernkreis druckt den Standortcode, und das Dokument nennt keinen Standort mit Code.",
-      "number_range_counter_too_short": "Der Zähler dieses Musters hat zu wenige Stellen für die nächste Nummer des Nummernkreises. Wählen Sie mehr Stellen für {counter:N}."
+      "number_range_counter_too_short": "Der Zähler dieses Musters hat zu wenige Stellen für die nächste Nummer des Nummernkreises. Wählen Sie mehr Stellen für {counter:N}.",
+      "purchase_already_booked": "Der Einkauf dieses Fahrzeugs ist bereits erfasst. Stornieren Sie ihn, bevor Sie ihn neu erfassen.",
+      "purchase_not_booked": "Für dieses Fahrzeug ist kein Einkauf erfasst, der storniert werden könnte.",
+      "purchase_storno_left_stock": "Dieses Fahrzeug hat den Bestand bereits verlassen. Sein Einkauf kann nicht mehr storniert werden.",
+      "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
+      "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1197,7 +1202,18 @@
       "isInvoiceable": "Fakturierbar",
       "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
       "notRecorded": "Noch kein Einkauf erfasst.",
-      "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab."
+      "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab.",
+      "storno": {
+        "button": "Einkauf stornieren",
+        "title": "Einkauf stornieren",
+        "body": "Der Einkauf von {{stockNumber}} wird rückgängig gemacht: Der Einstandspreis wird im Wagenbuch gegengebucht, das Fahrzeug geht mit seiner VIN zurück in die Pipeline und ist erst nach einem neuen Einkauf wieder fakturierbar. Eine Reservation bleibt bestehen.",
+        "reasonLabel": "Grund",
+        "reasonRequired": "Bitte geben Sie einen Grund an.",
+        "submit": "Einkauf stornieren",
+        "cancel": "Abbrechen",
+        "failed": "Der Einkauf konnte nicht storniert werden.",
+        "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen."
+      }
     },
     "wagenbuch": {
       "result": "Ergebnis",

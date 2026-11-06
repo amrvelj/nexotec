@@ -2453,6 +2453,27 @@ export interface paths {
         patch: operations["override_notional_input_tax_v1_inventory_stock_items__stock_item_id__purchase_notional_input_tax_patch"];
         trace?: never;
     };
+    "/v1/inventory/stock-items/{stock_item_id}/purchase/storno": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Storno Purchase
+         * @description FR-I-05 «Einkauf stornieren» (KAN-146): on the matrix's "Stock
+         *     acquisition, landed cost, storno" row, like the booking it reverses.
+         */
+        post: operations["storno_purchase_v1_inventory_stock_items__stock_item_id__purchase_storno_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/inventory/stock-items/{stock_item_id}/reservations": {
         parameters: {
             query?: never;
@@ -9041,6 +9062,15 @@ export interface components {
          * @enum {string}
          */
         PublishingState: "not_published" | "published";
+        /**
+         * PurchaseStornoRequest
+         * @description FR-I-05 (KAN-146): «Einkauf stornieren» is audited with its reason —
+         *     required, never empty.
+         */
+        PurchaseStornoRequest: {
+            /** Reason */
+            reason: string;
+        };
         /**
          * PushConfigRead
          * @description Whether this deployment can send Web Push, and the VAPID application
@@ -18329,6 +18359,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["NotionalInputTaxOverrideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    storno_purchase_v1_inventory_stock_items__stock_item_id__purchase_storno_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseStornoRequest"];
             };
         };
         responses: {

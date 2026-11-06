@@ -314,7 +314,12 @@
       "number_range_reason_required": "A change to a frozen number range needs a reason.",
       "number_range_exhausted": "The number range has no number left for its counter's digits. Please contact support.",
       "number_location_code_missing": "This number range prints the location code, and the document names no location with a code.",
-      "number_range_counter_too_short": "This pattern's counter has too few digits for the range's next number. Choose more digits for {counter:N}."
+      "number_range_counter_too_short": "This pattern's counter has too few digits for the range's next number. Choose more digits for {counter:N}.",
+      "purchase_already_booked": "The purchase of this vehicle is already booked. Cancel it before booking it again.",
+      "purchase_not_booked": "No purchase is booked for this vehicle, so there is nothing to cancel.",
+      "purchase_storno_left_stock": "This vehicle has already left stock. Its purchase can no longer be cancelled.",
+      "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
+      "source_ref_reserved": "This reference is reserved for the purchase and its cancellation."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1197,7 +1202,18 @@
       "isInvoiceable": "Invoiceable",
       "error": "The purchase could not be recorded. Please try again.",
       "notRecorded": "No purchase recorded yet.",
-      "configurationVinDiffers": "The VIN differs from the configuration's."
+      "configurationVinDiffers": "The VIN differs from the configuration's.",
+      "storno": {
+        "button": "Cancel purchase",
+        "title": "Cancel purchase",
+        "body": "The purchase of {{stockNumber}} is reversed: the acquisition cost is posted back in the Wagenbuch, the vehicle returns to the pipeline with its VIN and can be invoiced again only after a new purchase. A reservation stays.",
+        "reasonLabel": "Reason",
+        "reasonRequired": "Please give a reason.",
+        "submit": "Cancel purchase",
+        "cancel": "Back",
+        "failed": "The purchase could not be cancelled.",
+        "leftStock": "Not possible: the vehicle has left stock."
+      }
     },
     "wagenbuch": {
       "result": "Result",

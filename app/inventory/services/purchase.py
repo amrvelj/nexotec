@@ -5,15 +5,26 @@ acquisition booking, never shown on a customer document, never read or
 written by Sales.
 """
 
+import datetime as dt
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import UnprocessableEntityError
+from app.core.base import utcnow
+from app.core.config import get_settings
+from app.core.errors import ConflictError, UnprocessableEntityError
+from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
-from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
+from app.inventory.schemas.purchase import (
+    NotionalInputTaxOverrideRequest,
+    PurchaseStornoRequest,
+    RecordPurchaseRequest,
+)
+from app.inventory.services.ledger import post_purchase_entries, reverse_purchase_entries
 from app.inventory.services.pipeline import promote_and_flush
 from app.inventory.services.stock_item import (
     configuration_vin_differs,
@@ -21,7 +32,10 @@ from app.inventory.services.stock_item import (
     mark_purchased_if_ready,
 )
 from app.platform.public import get_dealership_or_404
+from app.sales.public import contract_with_invoice_requested_for_stock_item
 from app.vehicle.public import get_configuration_for_host
+
+_EVENT_PRODUCER = "inventory"
 
 
 def _compute_notional_input_tax(*, purchase_price: Decimal, rate: Decimal | None) -> Decimal | None:
@@ -53,7 +67,29 @@ def record_purchase(
     configuration's (422 `configuration_vin_differs`, KAN-510).
     """
 
-    if item.lifecycle_status == LifecycleStatus.PIPELINE:
+    # KAN-146 (Anto, 2026-11-05): a purchase is booked once; a second booking
+    # waits for its storno, which reverses the first one's Wagenbuch entry
+    # and returns the car to pipeline. Overwriting the facts would leave the
+    # first Einstandspreis in the book and the audit trail.
+    if item.purchase_price is not None:
+        raise ConflictError(
+            f"The purchase of stock item {item.stock_number} is already booked — storno it before booking again.",
+            details={"reason": "purchase_already_booked", "stockItemId": str(item.id)},
+        )
+
+    if item.lifecycle_status == LifecycleStatus.PIPELINE and item.vehicle_id is not None:
+        # A stornoed car (KAN-146): it kept its VIN and its vehicle-mdm record
+        # on the pipeline item (Anto, 2026-11-05) and still blocks that VIN in
+        # stock (FR-I-12), so booking it again promotes nothing — it returns to
+        # stock under the VIN it has. Another VIN describes another car.
+        if data.vin is not None and data.vin != item.vin:
+            raise UnprocessableEntityError(
+                f"Stock item {item.id} carries VIN {item.vin}, not {data.vin}.",
+                details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
+            )
+        item.lifecycle_status = LifecycleStatus.IN_STOCK
+        item.in_stock_at = utcnow()
+    elif item.lifecycle_status == LifecycleStatus.PIPELINE:
         if data.vin is None:
             raise UnprocessableEntityError(
                 f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
@@ -99,7 +135,149 @@ def record_purchase(
     item.version += 1
     db.flush()
 
+    # KAN-146: the Einstandspreis is an automatic Wagenbuch position
+    # (FR-I-15a), posted with the booking, dated the purchase date's start
+    # in Switzerland; the booking is audited like every other purchase-side
+    # write.
+    post_purchase_entries(db, item=item, occurred_at=_start_of_swiss_day(data.purchase_date), actor_id=actor_id)
+    record_audit_event(
+        db,
+        entity_type="stock_item",
+        entity_id=item.id,
+        tenant_id=item.tenant_id,
+        action="purchase_booked",
+        actor_id=actor_id,
+        after=_purchase_facts(item),
+    )
     mark_purchased_if_ready(db, item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def _start_of_swiss_day(day: dt.date) -> dt.datetime:
+    """The start of a calendar day in Switzerland, in UTC — the moment a
+    date-only business fact (the purchase date) is booked at."""
+
+    return dt.datetime.combine(day, dt.time(), tzinfo=ZoneInfo(get_settings().session_timezone)).astimezone(dt.UTC)
+
+
+def _purchase_facts(item: StockItem) -> dict[str, Any]:
+    """The booked purchase as the audit trail keeps it — what a storno's
+    `before` shows was reversed."""
+
+    def text(value: object) -> str | None:
+        return None if value is None else str(value)
+
+    return {
+        "supplierName": item.supplier_name,
+        "supplierIsVatRegistered": item.supplier_is_vat_registered,
+        "purchasePrice": text(item.purchase_price),
+        "purchaseDate": item.purchase_date.isoformat() if item.purchase_date else None,
+        "purchaseInvoiceRef": item.purchase_invoice_ref,
+        "landedCost": text(item.landed_cost),
+        "notionalInputTaxApplicable": item.notional_input_tax_applicable,
+        "notionalInputTaxRate": text(item.notional_input_tax_rate),
+        "notionalInputTaxAmount": text(item.notional_input_tax_amount),
+        "notionalInputTaxOverridden": item.notional_input_tax_overridden,
+        "lifecycleStatus": item.lifecycle_status.value,
+        "isInvoiceable": item.is_invoiceable,
+    }
+
+
+def storno_purchase(
+    db: Session, *, item: StockItem, data: PurchaseStornoRequest, actor_id: uuid.UUID | None
+) -> StockItem:
+    """FR-I-05 «Einkauf stornieren» (KAN-146; Anto, 2026-11-05). Reverses a
+    booked purchase in one transaction: the Wagenbuch counter-entries
+    (append, never an edit), the purchase facts cleared, the car back in
+    pipeline — keeping its VIN and vehicle-mdm record, so it still blocks
+    that VIN in stock and books again without a new one — the audit row with
+    the reason, and `inventory.stock_item.storno`, on which Sales deletes its
+    purchase replica so every contract on the car derives «nicht
+    fakturierbar» until it is bought again (ADR-052).
+
+    A reserved car may be stornoed: its reservation stays. Refused when no
+    purchase is booked (409 `purchase_not_booked`), when the car has left
+    stock (409 `purchase_storno_left_stock`, FR-I-12) and when a contract on it has
+    requested its invoice (409 `purchase_storno_invoice_requested`, with
+    `contractNumber`):
+    the hand-off to Finance happened, so for the business the car is
+    invoiced. That last answer is Sales', read on a session of its own
+    (ADR-047) while this one holds the item's row lock.
+
+    The caller loaded `item` with its row lock and checked If-Match.
+    """
+
+    if item.purchase_price is None:
+        raise ConflictError(
+            f"Stock item {item.stock_number} has no booked purchase to storno.",
+            details={"reason": "purchase_not_booked", "stockItemId": str(item.id)},
+        )
+    if item.left_stock_at is not None:
+        raise ConflictError(
+            f"Stock item {item.stock_number} has left stock — its purchase can no longer be stornoed.",
+            details={"reason": "purchase_storno_left_stock", "stockItemId": str(item.id)},
+        )
+    with Session(bind=db.get_bind(), autoflush=False) as sales_db:
+        invoiced_by = contract_with_invoice_requested_for_stock_item(
+            sales_db, tenant_id=item.tenant_id, stock_item_id=item.id
+        )
+    if invoiced_by is not None:
+        raise ConflictError(
+            f"Contract {invoiced_by} has requested the invoice for stock item {item.stock_number} — "
+            "its purchase can no longer be stornoed.",
+            details={"reason": "purchase_storno_invoice_requested", "contractNumber": invoiced_by, "stockItemId": str(item.id)},
+        )
+
+    before = _purchase_facts(item)
+    reverse_purchase_entries(db, item=item, occurred_at=utcnow(), actor_id=actor_id)
+
+    item.supplier_name = None
+    item.supplier_is_vat_registered = None
+    item.purchase_price = None
+    item.purchase_date = None
+    item.purchase_invoice_ref = None
+    item.landed_cost = None
+    item.notional_input_tax_applicable = None
+    item.notional_input_tax_rate = None
+    item.notional_input_tax_amount = None
+    item.notional_input_tax_overridden = False
+    item.is_invoiceable = False
+    # Back in pipeline (FR-I-05): no longer «An Lager», so its days in stock
+    # stop; booking it again starts them anew.
+    item.lifecycle_status = LifecycleStatus.PIPELINE
+    item.in_stock_at = None
+    item.updated_by = actor_id
+    item.version += 1
+    db.flush()
+
+    record_audit_event(
+        db,
+        entity_type="stock_item",
+        entity_id=item.id,
+        tenant_id=item.tenant_id,
+        action="purchase_storno",
+        actor_id=actor_id,
+        before=before,
+        after=_purchase_facts(item),
+        reason=data.reason,
+    )
+    publish(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.storno",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={
+                "stockNumber": item.stock_number,
+                "vehicleId": str(item.vehicle_id) if item.vehicle_id else None,
+                "stornoedBy": str(actor_id) if actor_id else None,
+            },
+        ),
+    )
     db.commit()
     db.refresh(item)
     return item

@@ -33,14 +33,15 @@ from app.core.processed_event_model import ProcessedEvent
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
-from app.inventory.schemas.purchase import RecordPurchaseRequest
+from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.publishing import publish, unpublish
-from app.inventory.services.purchase import record_purchase
+from app.inventory.services.purchase import record_purchase, storno_purchase
 from app.sales.models.contract import SalesContract
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.services.contract import cancel_contract, request_invoice
 from app.sales.services.invoice_handover import HandoverPlate
+from app.sales.services.stock_item_purchase import record_stock_item_purchased
 from app.vehicle.models.plate import VehiclePlate
 from app.worker import register_handlers
 from tests.test_inventory_marketplace_transmission import (
@@ -170,6 +171,38 @@ def _stock_item_purchased(db_session, engine, monkeypatch):
         )
 
     return message, replicas
+
+
+def _stock_item_storno(db_session, engine, monkeypatch):
+    """KAN-146 — Stock stornos a purchase Sales holds: Sales deletes its
+    replica once (the measure counts the replica rows that are gone)."""
+
+    contract = _confirmed_manual_contract(db_session, engine, _dealership(db_session))
+    item = _stock_creates_the_pipeline_item(db_session, contract)
+    promote_to_vehicle_mdm(db_session, item=item, vin="WVGZZZE2ZNP000012")
+    record_purchase(
+        db_session, item=item,
+        data=RecordPurchaseRequest(
+            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    purchased = _message(db_session, "inventory.stock_item.purchased", item.id)
+    record_stock_item_purchased(
+        db_session, tenant_id=item.tenant_id, stock_item_id=item.id, event_id=purchased.id,
+        stock_item_label=item.stock_number, recorded_at=purchased.occurred_at,
+    )
+    db_session.commit()
+    storno_purchase(db_session, item=item, data=PurchaseStornoRequest(reason="Lieferung storniert"), actor_id=None)
+    message = _message(db_session, "inventory.stock_item.storno", item.id)
+
+    def removed_replicas(db: Session) -> int:
+        return 1 - db.scalar(
+            select(func.count()).select_from(SalesStockItemPurchase).where(SalesStockItemPurchase.stock_item_id == item.id)
+        )
+
+    return message, removed_replicas
 
 
 def _trade_in_purchased(db_session, engine, monkeypatch):
@@ -467,6 +500,7 @@ _FIXTURES: dict[str, Fixture] = {
     "inventory.sales_contract_cancelled": _contract_cancelled,
     "sales.stock_item_added": _stock_item_added,
     "sales.stock_item_purchased": _stock_item_purchased,
+    "sales.stock_item_storno": _stock_item_storno,
     "customer.trade_in_purchased": _trade_in_purchased,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,

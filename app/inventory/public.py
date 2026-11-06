@@ -23,6 +23,8 @@ record (and VIN) a stock item is, so Sales can hand the sold car's plate on.
 configurations it names a stock item holds, for its daily purge of the
 configurations no host ever took. A SELECT only. `get_stock_numbers`
 (KAN-157) is Sales' label backfill: stock numbers by id, plain data.
+`is_stock_item_purchased` (KAN-146) is Sales' storno consumer's re-read of the
+purchase fact as it is now (delivery is unordered); a SELECT only, a bool.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -35,7 +37,7 @@ from app.inventory.services.configuration_reference import referenced_configurat
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
-from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers
+from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers, is_stock_item_purchased
 from app.inventory.services.valuation import set_valuation_ref
 from app.inventory.services.vehicle_link import get_stock_item_vehicle
 
@@ -50,6 +52,7 @@ __all__ = [
     "get_stock_item_vehicle",
     "get_stock_items_for_vehicles",
     "get_stock_numbers",
+    "is_stock_item_purchased",
     "oldest_configuration_label_age_seconds",
     "referenced_configuration_ids",
     "refresh_configuration_labels",

@@ -186,6 +186,15 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     })
     purchaseKey.renew()
     queryClient.setQueryData(['stock-item', id], updated)
+    // KAN-146: the booking posts the Einstandspreis to the Wagenbuch.
+    void queryClient.invalidateQueries({ queryKey: ['stock-item', id, 'ledger-entries'] })
+  }
+
+  // KAN-146: «Einkauf stornieren» answered with the item back in pipeline;
+  // its Wagenbuch gained the counter-entry.
+  const purchaseStornoed = (updated: StockItemRead) => {
+    queryClient.setQueryData(['stock-item', id], updated)
+    void queryClient.invalidateQueries({ queryKey: ['stock-item', id, 'ledger-entries'] })
   }
 
   const recordCost = async (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => {
@@ -273,6 +282,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
           canAttachConfiguration={canWriteStockItems && canWriteConfigurations}
           canEditConfiguration={canWriteConfigurations}
           onRecordPurchase={recordPurchase}
+          onPurchaseStornoed={purchaseStornoed}
         />
       )}
       {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} canPublish={canPublish} />}
