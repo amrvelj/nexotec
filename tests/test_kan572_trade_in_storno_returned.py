@@ -238,6 +238,32 @@ def test_the_reopen_closes_a_holder_allocated_since(db_session, engine):
     assert [p.customer_id for p in owners_now] == [contract.customer_id]
 
 
+def test_a_late_returned_storno_never_closes_a_holder_allocated_after_it(db_session, engine):
+    """Review finding (2026-11-07, third round): P1 consumed → S1 (returned)
+    whose delivery is late → another customer is allocated as owner after the
+    storno → S1 delivered. The newer owner stays; the old storno overwrites
+    nothing for that role."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    storno = _storno(db_session, item, returned=True)
+    group_id = contract_group_id(db_session, contract)
+    newer = allocate_vehicle_party(
+        db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+    )
+
+    assert _customer_consumes_storno(db_session, storno) is True
+
+    db_session.refresh(newer)
+    assert newer.effective_to is None
+    owners_now = [p for p in _parties(db_session) if p.role == VehiclePartyRole.OWNER and p.effective_to is None]
+    assert [p.id for p in owners_now] == [newer.id]
+    # The keeper role had no newer holder: the trade-in customer is its keeper again.
+    keepers_now = [p for p in _parties(db_session) if p.role == VehiclePartyRole.KEEPER and p.effective_to is None]
+    assert [p.customer_id for p in keepers_now] == [contract.customer_id]
+
+
 def test_a_redelivered_storno_reopens_once(db_session, engine):
     _contract, item, purchased = _bought_trade_in(db_session, engine)
     _customer_consumes(db_session, purchased)

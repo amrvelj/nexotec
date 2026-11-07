@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MantineProvider } from "@mantine/core";
+import { testTheme } from "../test/testTheme";
 import { DataGrid } from "./DataGrid";
 import type { GridColumnDef } from "./types";
 import { FR_DATA_GRID_LABELS } from "../test/frenchLabels";
@@ -59,7 +61,7 @@ afterEach(() => {
   else delete (HTMLElement.prototype as { scrollWidth?: number }).scrollWidth;
 });
 
-function grid() {
+function grid(extra: Partial<Parameters<typeof DataGrid<Row>>[0]> = {}) {
   return (
     <DataGrid<Row>
       columns={columns}
@@ -77,6 +79,7 @@ function grid() {
       isFiltered={false}
       labels={FR_DATA_GRID_LABELS}
       emptyState={{ icon: null, title: "", description: "" }}
+      {...extra}
     />
   );
 }
@@ -108,5 +111,22 @@ describe("DataGrid — a column is never narrower than its heading (KAN-578)", (
     render(grid());
     // 120 (ID) + 300 (VEICOLO, its own width) + 139 (CHILOMETRAGGIO)
     expect(screen.getByRole("table").style.minWidth).toBe("559px");
+  });
+
+  it("counts the selection (40 px) and action (48 px) columns too", () => {
+    render(
+      <MantineProvider theme={testTheme}>
+        {grid({
+        rowActions: () => ({}),
+        selection: {
+          selectedIds: new Set<string>(),
+          onSelectionChange: () => {},
+          selectAllLabel: "Tout sélectionner",
+          selectRowLabel: (row) => `Sélectionner ${row.id}`,
+        },
+        })}
+      </MantineProvider>,
+    );
+    expect(screen.getByRole("table").style.minWidth).toBe(`${559 + 40 + 48}px`);
   });
 });

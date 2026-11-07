@@ -253,4 +253,3 @@ def purchase_booked_after(
         )
         is not None
     )
-

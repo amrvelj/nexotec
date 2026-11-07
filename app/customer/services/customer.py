@@ -3465,7 +3465,13 @@ def reopen_former_holder_after_storno(
         ).first()
         if party is None:
             continue
-        for other in _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id, excluding=party.id):
+        others = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id, excluding=party.id)
+        # A holder recorded (or starting) after the storno is a newer fact
+        # than this storno — a late delivery must never overwrite it. The
+        # role is left as it is; an older holder is closed, as any reopen does.
+        if any(other.created_at > closed_until or other.effective_from > closed_until for other in others):
+            continue
+        for other in others:
             _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
         before = {
             "vehicleId": str(party.vehicle_id),
