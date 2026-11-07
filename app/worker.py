@@ -67,6 +67,7 @@ from app.platform.daily_jobs import (
 )
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import (
+    handle_customer_merged_message,
     handle_stock_item_added_message,
     handle_stock_item_purchased_message,
     handle_stock_item_storno_message,
@@ -130,6 +131,16 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.storno",
         consumer_name="sales.stock_item_storno",
         handler=handle_stock_item_storno_message,
+    )
+    # KAN-185 (ADR-047; Anto, 2026-10-31, option A) — a customer merge moves
+    # Sales' records of the duplicate (legacy transactions, offers,
+    # contracts, deals) to the survivor in Sales' own transaction; the merge
+    # writes nothing of Sales'. A failure is redelivered on the outbox's
+    # backoff and dead-lettered (with its alert) after the last attempt.
+    transport.register(
+        "customer.merged",
+        consumer_name="sales.customer_merged",
+        handler=handle_customer_merged_message,
     )
     # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
     # recorded as the car's former owner and keeper, in the customer

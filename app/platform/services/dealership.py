@@ -128,8 +128,7 @@ def enable_group_read(db: Session, *, dealer_group: DealerGroup, actor_id: uuid.
     # app.customer.services.customer, which imports app.vehicle.public,
     # which imports app.platform.public — a top-level import here would
     # complete that cycle. Both edges are still visible to import-linter,
-    # which walks the whole AST, not just top-level imports (same pattern
-    # already used by app.customer.services.customer._repoint_transactions).
+    # which walks the whole AST, not just top-level imports.
     from app.customer.public import has_any_basis_for_group
 
     if not has_any_basis_for_group(db, group_id=dealer_group.id):

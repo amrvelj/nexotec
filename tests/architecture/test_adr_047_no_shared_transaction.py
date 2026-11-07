@@ -13,8 +13,8 @@ What it proves:
    - `_OWN_COMMIT_WRITES` — a cross-context write that commits its own
      transaction (the convention the code calls "Pattern B");
    - `_SHARED_TRANSACTION_EXCEPTIONS` — a write that joins the caller's
-     transaction (ADR-047's forbidden shape). One entry, the tracked debt,
-     see below;
+     transaction (ADR-047's forbidden shape), tracked as debt. Empty since
+     KAN-185, see below;
    - `_RULED_SHARED_TRANSACTIONS` — the same shape, ruled a permanent
      exception by ADR (ADR-109: number allocation, KAN-207);
    - `_READS` — reviewed as reading only.
@@ -48,17 +48,15 @@ What it proves:
    Every package under app/ is one of the twelve contexts or declared
    wiring (`core`, `api`).
 
-The one known debt, tracked here, not ruled — decided by Anto on 2026-10-07
-(KAN-90, exit criterion 1): `app.sales.public.repoint_customer_transactions`, called by
-`app.customer.services.customer._repoint_transactions` inside the customer
-merge, does NOT commit; its docstring says it "joins the caller's
-transaction". The caller's own comment already calls this "tracked
-residual coupling ... replace with a `customer.merged` event that sales
-consumes idempotently". It is recorded here rather than fixed because the
-table it touches is retired for new business writes (ADR-050:
-`_refuse_retired_write()` refuses every create/update/complete/cancel), so
-the debt is bounded to legacy rows touched by a merge; the replacement is
-KAN-185.
+The one debt this test tracked — decided by Anto on 2026-10-07 (KAN-90,
+exit criterion 1) — is paid (KAN-185; Anto, 2026-10-31, option A):
+`app.sales.public.repoint_customer_transactions`, called inside the
+customer merge's own transaction, is gone. The merge publishes
+`customer.merged` and Sales' consumer `sales.customer_merged` moves the
+duplicate's legacy transactions, offers, contracts and deals in its own
+transaction. `_SHARED_TRANSACTION_EXCEPTIONS` is empty, and
+`test_no_shared_transaction_debt_remains` keeps it so: a new entry is a new
+debt, Anto's call by name.
 
 Two more found while building KAN-90 were fixed rather than recorded
 (Anto, 2026-10-07): the retired `complete_transaction`'s unreachable body,
@@ -182,12 +180,6 @@ _OWN_COMMIT_WRITES = {
         "app.customer.services.customer.allocate_vehicle_party",
         "vehicle: allocate endpoint",
     ),
-    # The customer merge re-points offers and contracts (WP-8 PR-7),
-    # after the merge itself has committed.
-    "app.sales.public.repoint_customer_sales_records": (
-        "app.sales.services.customer_merge.repoint_customer_sales_records",
-        "customer: merge flow",
-    ),
     # A confirmation consumes its trade-in valuation, and reverts it as
     # the compensating action (KAN-101, ADR-074).
     "app.valuation.public.consume_valuation_for_contract": (
@@ -240,14 +232,11 @@ _OWN_COMMIT_WRITES = {
     ),
 }
 
-# ADR-047's forbidden shape, known and tracked. Anto, 2026-10-07 (KAN-90):
-# recorded, not fixed here — see the module docstring. KAN-185 replaces it.
-_SHARED_TRANSACTION_EXCEPTIONS = {
-    "app.sales.public.repoint_customer_transactions": (
-        "customer: _repoint_transactions inside the merge transaction; legacy table retired by ADR-050; "
-        "to be replaced by a customer.merged event consumed by sales (KAN-185)"
-    ),
-}
+# ADR-047's forbidden shape, known and tracked as debt. The one entry Anto
+# recorded on 2026-10-07 (KAN-90) was paid by KAN-185 (the customer merge's
+# legacy-transaction re-point became the `customer.merged` consumer
+# `sales.customer_merged`). Empty; a new entry is a new debt, by name.
+_SHARED_TRANSACTION_EXCEPTIONS: dict[str, str] = {}
 
 # ADR-047's forbidden shape, RULED a permanent exception by ADR — not debt.
 # ADR-109 (Anto, 2026-10-31, KAN-207 option 2: "numbering central … it should
@@ -271,6 +260,8 @@ _READS = {
     "app.customer.public.get_customer_or_404",
     "app.customer.public.has_any_basis_for_group",
     "app.customer.public.has_usable_domicile_address",
+    # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.
+    "app.customer.public.resolve_live_customer_id",
     "app.customer.public.list_vehicle_party_holders",
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
@@ -724,10 +715,12 @@ def test_cross_context_public_modules_are_imported_by_name() -> None:
     )
 
 
-def test_the_known_shared_transaction_is_still_the_only_one() -> None:
-    """Exit criterion 3: the debt is named, not silently exempt."""
+def test_no_shared_transaction_debt_remains() -> None:
+    """KAN-90's exit criterion 3 named the one debt; KAN-185 paid it. No
+    cross-context write joins its caller's transaction as tracked debt: a
+    new one is named here by Anto's decision, never silently exempt."""
 
-    assert set(_SHARED_TRANSACTION_EXCEPTIONS) == {"app.sales.public.repoint_customer_transactions"}
+    assert _SHARED_TRANSACTION_EXCEPTIONS == {}
 
 
 def test_the_ruled_shared_transaction_is_number_allocation_alone() -> None:

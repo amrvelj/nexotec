@@ -808,15 +808,17 @@ def test_an_allocation_to_the_duplicate_after_its_merge_locked_it_is_refused(eng
     db_session.commit()
     vehicle_id, duplicate_id, survivor_id = vehicle.id, duplicate.id, survivor.id
     reached, release = threading.Event(), threading.Event()
-    real_repoint = customer_service._repoint_transactions
+    # The merge's first step after the parties (since KAN-185 the contacts;
+    # the legacy-transaction re-point it used to pause on became an event).
+    real_repoint = customer_service._repoint_contacts
 
-    def _pause_after_the_parties(db, **kwargs):
-        if threading.current_thread().name == "merge":
+    def _pause_after_the_parties(db, *args, **kwargs):
+        if threading.current_thread().name == "merge" and not reached.is_set():
             reached.set()
             release.wait(timeout=10)
-        return real_repoint(db, **kwargs)
+        return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -953,15 +955,17 @@ def test_a_history_create_racing_its_customers_merge_is_refused(engine, db_sessi
     db_session.commit()
     vehicle_id, duplicate_id, survivor_id = vehicle.id, duplicate.id, survivor.id
     reached, release = threading.Event(), threading.Event()
-    real_repoint = customer_service._repoint_transactions
+    # The merge's first step after the parties (since KAN-185 the contacts;
+    # the legacy-transaction re-point it used to pause on became an event).
+    real_repoint = customer_service._repoint_contacts
 
-    def _pause_after_the_parties(db, **kwargs):
-        if threading.current_thread().name == "merge":
+    def _pause_after_the_parties(db, *args, **kwargs):
+        if threading.current_thread().name == "merge" and not reached.is_set():
             reached.set()
             release.wait(timeout=10)
-        return real_repoint(db, **kwargs)
+        return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -1014,15 +1018,17 @@ def test_a_merge_into_a_customer_whose_own_merge_is_in_flight_is_refused(engine,
     _allocate(db_session, d_car.id, d, group_id)
     x_id, d_id, t_id = x.id, d.id, t.id
     reached, release = threading.Event(), threading.Event()
-    real_repoint = customer_service._repoint_transactions
+    # The merge's first step after the parties (since KAN-185 the contacts;
+    # the legacy-transaction re-point it used to pause on became an event).
+    real_repoint = customer_service._repoint_contacts
 
-    def _pause_after_the_parties(db, **kwargs):
-        if threading.current_thread().name == "merge-d-into-t":
+    def _pause_after_the_parties(db, *args, **kwargs):
+        if threading.current_thread().name == "merge-d-into-t" and not reached.is_set():
             reached.set()
             release.wait(timeout=10)
-        return real_repoint(db, **kwargs)
+        return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -1078,15 +1084,17 @@ def test_two_merges_in_opposite_directions_never_both_commit(engine, db_session,
     _allocate(db_session, b_car.id, b, group_id)
     a_id, b_id = a.id, b.id
     reached, release = threading.Event(), threading.Event()
-    real_repoint = customer_service._repoint_transactions
+    # The merge's first step after the parties (since KAN-185 the contacts;
+    # the legacy-transaction re-point it used to pause on became an event).
+    real_repoint = customer_service._repoint_contacts
 
-    def _pause_after_the_parties(db, **kwargs):
-        if threading.current_thread().name == "merge-a-into-b":
+    def _pause_after_the_parties(db, *args, **kwargs):
+        if threading.current_thread().name == "merge-a-into-b" and not reached.is_set():
             reached.set()
             release.wait(timeout=10)
-        return real_repoint(db, **kwargs)
+        return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -1173,15 +1181,17 @@ def test_a_merge_x_into_d_holding_d_first_ends_with_x_naming_t(engine, db_sessio
     _allocate(db_session, d_car.id, d, group_id)
     x_id, d_id, t_id = x.id, d.id, t.id
     reached, release = threading.Event(), threading.Event()
-    real_repoint = customer_service._repoint_transactions
+    # The merge's first step after the parties (since KAN-185 the contacts;
+    # the legacy-transaction re-point it used to pause on became an event).
+    real_repoint = customer_service._repoint_contacts
 
-    def _pause_after_the_parties(db, **kwargs):
-        if threading.current_thread().name == "merge-x-into-d":
+    def _pause_after_the_parties(db, *args, **kwargs):
+        if threading.current_thread().name == "merge-x-into-d" and not reached.is_set():
             reached.set()
             release.wait(timeout=10)
-        return real_repoint(db, **kwargs)
+        return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
 
