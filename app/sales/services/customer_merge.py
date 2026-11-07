@@ -7,13 +7,15 @@ transaction; it writes nothing of Sales'. Sales' consumer
 holds for the duplicate — the retired legacy `transaction` rows (ADR-050:
 retired for business writes, but a merge still moves them), offers,
 contracts and deals — to the survivor, in its own transaction with its
-processed-event row. The outbox retries it until it succeeds; no shared
-cross-context transaction remains (CLAUDE.md rule 12), and nothing waits for
-the nightly report.
+processed-event row. A failure is redelivered on the outbox's backoff and,
+after its last attempt, dead-lettered with an alert (`app/core/outbox_worker.py`);
+a replay re-runs it. No shared cross-context transaction remains (CLAUDE.md
+rule 12). No nightly check yet finds a Sales row still naming a merged
+customer (KAN-581).
 
 Before KAN-185 the legacy rows moved inside the merge's own transaction (the
 tracked ADR-047 debt) and offers/contracts/deals in an own-commit call after
-it, left to nightly reconciliation when it failed.
+it, whose failure nothing reported.
 """
 
 import uuid

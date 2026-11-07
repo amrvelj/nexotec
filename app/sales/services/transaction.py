@@ -5,9 +5,9 @@ transition" (spec §4) — every create/update/complete/cancel is logged.
 RETIRED for new business writes (ADR-050, WP-8 PR-7): create, update,
 complete and cancel all refuse via _refuse_retired_write. /complete used
 to mutate Vehicle custody/status inside Sales' own transaction; that body
-was unreachable and has been deleted (KAN-90, ADR-047).
-repoint_customer_transactions is the one write left, kept for legacy rows
-after a customer merge (KAN-185 replaces it with an event).
+was unreachable and has been deleted (KAN-90, ADR-047). A customer merge
+moves legacy rows through the `customer.merged` consumer
+(services/customer_merge.py, KAN-185).
 """
 
 import datetime as dt

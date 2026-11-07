@@ -134,8 +134,9 @@ def register_handlers(transport: InProcessTransport) -> None:
     )
     # KAN-185 (ADR-047; Anto, 2026-10-31, option A) — a customer merge moves
     # Sales' records of the duplicate (legacy transactions, offers,
-    # contracts, deals) to the survivor in Sales' own transaction, retried
-    # by the outbox until it succeeds; the merge writes nothing of Sales'.
+    # contracts, deals) to the survivor in Sales' own transaction; the merge
+    # writes nothing of Sales'. A failure is redelivered on the outbox's
+    # backoff and dead-lettered (with its alert) after the last attempt.
     transport.register(
         "customer.merged",
         consumer_name="sales.customer_merged",
