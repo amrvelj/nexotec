@@ -17,7 +17,9 @@ import type { StockItemRead } from '../api/types'
  * - «Konfiguration bearbeiten» on a car with a configuration, «Konfiguration
  *   zuordnen» on one without (KAN-463, KAN-510).
  *
- * What the user's role may never use is hidden (KAN-430); what this car
+ * What the user's role may never use is hidden (KAN-430) — «Vertrag
+ * erstellen» and «Offerte erstellen» too (`sales_contracts`, `sales_offers`),
+ * header buttons included; what this car
  * does not allow now is disabled with the reason (a car that left stock, a
  * car a contract reserves, a purchase booked or not).
  */
@@ -59,6 +61,10 @@ export type StockRowMenuItem = Pick<
 >
 
 export interface StockRowMenuPermissions {
+  /** `sales_contracts`. */
+  canCreateContract: boolean
+  /** `sales_offers`. */
+  canCreateOffer: boolean
   /** `stock_acquisition` — books and stornos the purchase. */
   canBookPurchase: boolean
   /** `stock_condition`. */
@@ -72,9 +78,15 @@ export interface StockRowMenuPermissions {
 export type StockRowMenuHandlers = Record<StockOpenAction, () => void>
 
 export interface StockRowMenu {
-  primary: DetailHeaderAction
-  alternative: DetailHeaderAction
+  /** Absent for a role that may not create contracts. */
+  primary?: DetailHeaderAction
+  /** Absent for a role that may not create offers. */
+  alternative?: DetailHeaderAction
   overflow: RowMenuGroups
+  /** Each action the menu offers, by name — absent when hidden for the role.
+   * A detail opened from the list runs the asked-for action only when it is
+   * offered here and not disabled. */
+  offered: Partial<Record<StockOpenAction, RowMenuAction>>
 }
 
 type T = (key: string, options?: Record<string, unknown>) => string
@@ -86,6 +98,9 @@ export function buildStockRowMenu(
   permissions: StockRowMenuPermissions,
   /** The date the car left stock, already formatted in the user's locale. */
   leftStockDate: string | null,
+  /** The detail is creating an offer or a contract for this car: both deal
+   * actions wait for it (no reason line — the button shows it is working). */
+  creatingDeal = false,
 ): StockRowMenu {
   const leftStockReason = leftStockDate ? t('stockDetail.actions.leftStock', { date: leftStockDate }) : undefined
   const left = leftStockReason !== undefined
@@ -95,55 +110,61 @@ export function buildStockRowMenu(
     label: t('stockDetail.actions.createContract'),
     icon: <FileSignature size={16} />,
     onClick: handlers.createContract,
-    disabled: left,
+    disabled: left || creatingDeal,
     disabledReason: leftStockReason,
   }
   const offer: RowMenuAction = {
     label: t('stockDetail.actions.createOffer'),
     icon: <Handshake size={16} />,
     onClick: handlers.createOffer,
-    disabled: left,
+    disabled: left || creatingDeal,
     disabledReason: leftStockReason,
+  }
+
+  const offered: Partial<Record<StockOpenAction, RowMenuAction>> = {}
+  const register = (name: StockOpenAction, action: RowMenuAction): RowMenuAction => {
+    offered[name] = action
+    return action
   }
 
   const edit: NonNullable<RowMenuGroups['edit']> = []
   if (permissions.canBookPurchase) {
     const reason = leftStockReason ?? (booked ? t('stockDetail.rowMenu.purchaseAlreadyBooked') : undefined)
-    edit.push({
+    edit.push(register('recordPurchase', {
       label: t('stockDetail.purchase.recordButton'),
       icon: <PackagePlus size={16} />,
       onClick: handlers.recordPurchase,
       disabled: reason !== undefined,
       disabledReason: reason,
-    })
+    }))
   }
   if (permissions.canChangeCondition) {
-    edit.push({
+    edit.push(register('changeCondition', {
       label: t('stockDetail.rowMenu.changeCondition'),
       icon: <RefreshCcw size={16} />,
       onClick: handlers.changeCondition,
       disabled: left,
       disabledReason: leftStockReason,
-    })
+    }))
   }
   if (item.configurationId) {
     if (permissions.canEditConfiguration) {
       // KAN-510: a car a contract reserves is changed through that contract.
       const reason = leftStockReason ?? (item.reservationState === 'reserved' ? t('stockDetail.configuration.reservedByContract') : undefined)
-      edit.push({
+      edit.push(register('editConfiguration', {
         label: t('stockDetail.configuration.edit'),
         icon: <Workflow size={16} />,
         onClick: handlers.editConfiguration,
         disabled: reason !== undefined,
         disabledReason: reason,
-      })
+      }))
     }
   } else if (permissions.canAttachConfiguration) {
-    edit.push({
+    edit.push(register('attachConfiguration', {
       label: t('stockDetail.configuration.attach'),
       icon: <Workflow size={16} />,
       onClick: handlers.attachConfiguration,
-    })
+    }))
   }
 
   const destructive: NonNullable<RowMenuGroups['destructive']> = []
@@ -153,18 +174,23 @@ export function buildStockRowMenu(
       : booked
         ? undefined
         : t('stockDetail.rowMenu.purchaseNotBooked')
-    destructive.push({
+    destructive.push(register('stornoPurchase', {
       label: t('stockDetail.purchase.storno.button'),
       icon: <Undo2 size={16} />,
       onClick: handlers.stornoPurchase,
       disabled: reason !== undefined,
       disabledReason: reason,
-    })
+    }))
   }
 
+  const createFrom: RowMenuAction[] = []
+  if (permissions.canCreateContract) createFrom.push(register('createContract', contract))
+  if (permissions.canCreateOffer) createFrom.push(register('createOffer', offer))
+
   return {
-    primary: contract,
-    alternative: offer,
-    overflow: { edit, createFrom: [contract, offer], destructive },
+    primary: permissions.canCreateContract ? contract : undefined,
+    alternative: permissions.canCreateOffer ? offer : undefined,
+    overflow: { edit, createFrom, destructive },
+    offered,
   }
 }

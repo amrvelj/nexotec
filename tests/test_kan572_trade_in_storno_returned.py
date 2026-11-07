@@ -177,6 +177,27 @@ def test_a_late_first_purchase_never_rewrites_the_one_that_stands(db_session, en
     assert {p.customer_id for p in _parties(db_session)} == {contract.customer_id}
 
 
+def test_a_late_returned_storno_after_the_car_was_bought_again_reopens_nobody(db_session, engine):
+    """Review finding (2026-11-07): purchase consumed → storno (returned)
+    whose delivery fails → the car is bought again → the storno is
+    redelivered. Stock holds the car as bought, so the customer is not
+    reopened as its holder; the second purchase's history stands."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    storno = _storno(db_session, item, returned=True)
+    second = _buy_again(db_session, item, dt.date(2026, 11, 2))
+    _customer_consumes(db_session, second)
+
+    assert _customer_consumes_storno(db_session, storno) is True
+
+    assert list_customer_vehicles(db_session, customer_id=contract.customer_id) == []
+    assert all(p.effective_to is not None for p in _parties(db_session))
+    assert db_session.scalars(
+        select(AuditEvent).where(AuditEvent.reason == "trade_in_returned_to_customer")
+    ).all() == []
+
+
 def test_the_reopen_closes_a_holder_allocated_since(db_session, engine):
     """No path bypasses the close rule (KAN-148): a customer allocated as owner
     after the purchase stops holding the car when it goes back."""

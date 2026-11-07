@@ -24,6 +24,8 @@ function handlers(): StockRowMenuHandlers {
 }
 
 const ALL: StockRowMenuPermissions = {
+  canCreateContract: true,
+  canCreateOffer: true,
   canBookPurchase: true,
   canChangeCondition: true,
   canAttachConfiguration: true,
@@ -40,8 +42,8 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
   it('primary «Vertrag erstellen», alternative «Offerte erstellen»; the overflow carries the full set in order', () => {
     const menu = buildStockRowMenu(t, BOUGHT, handlers(), ALL, null)
 
-    expect(menu.primary.label).toBe('stockDetail.actions.createContract')
-    expect(menu.alternative.label).toBe('stockDetail.actions.createOffer')
+    expect(menu.primary?.label).toBe('stockDetail.actions.createContract')
+    expect(menu.alternative?.label).toBe('stockDetail.actions.createOffer')
     expect((menu.overflow.edit ?? []).map((a) => a.label)).toEqual([
       'stockDetail.purchase.recordButton',
       'stockDetail.rowMenu.changeCondition',
@@ -70,15 +72,15 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
     })
   })
 
-  it('a car that left stock allows nothing but says why on every action', () => {
+  it('a car that left stock allows no deal, purchase, condition or configuration edit, and says why on each', () => {
     const menu = buildStockRowMenu(t, { ...BOUGHT, leftStockAt: '2026-10-01T00:00:00Z' }, handlers(), ALL, '01.10.2026')
 
-    for (const action of [menu.primary, menu.alternative, ...all(menu)]) {
+    for (const action of [menu.primary!, menu.alternative!, ...all(menu)]) {
       expect(action.disabled, action.label).toBe(true)
       expect(action.disabledReason, action.label).toBeTruthy()
     }
     expect(find(menu, 'stockDetail.purchase.storno.button').disabledReason).toBe('stockDetail.purchase.storno.leftStock')
-    expect(menu.primary.disabledReason).toBe('stockDetail.actions.leftStock:01.10.2026')
+    expect(menu.primary?.disabledReason).toBe('stockDetail.actions.leftStock:01.10.2026')
   })
 
   it('a car a contract reserves keeps «Konfiguration bearbeiten» visible, disabled with the reason (KAN-510)', () => {
@@ -94,16 +96,32 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
     const labels = all(menu).map((a) => a.label)
     expect(labels).toContain('stockDetail.configuration.attach')
     expect(labels).not.toContain('stockDetail.configuration.edit')
+    // A car that left stock may still be given its configuration: the server
+    // allows the attach there (the technical data of a sold car).
+    const left = buildStockRowMenu(t, { ...PIPELINE, configurationId: null, leftStockAt: '2026-10-01T00:00:00Z' }, handlers(), ALL, '01.10.2026')
+    expect(find(left, 'stockDetail.configuration.attach').disabled).toBeFalsy()
   })
 
   it('what the role may never use is hidden, not disabled (KAN-430)', () => {
     const menu = buildStockRowMenu(t, BOUGHT, handlers(), {
+      canCreateContract: true,
+      canCreateOffer: true,
       canBookPurchase: false,
       canChangeCondition: false,
       canAttachConfiguration: false,
       canEditConfiguration: false,
     }, null)
     expect(all(menu).map((a) => a.label)).toEqual(['stockDetail.actions.createContract', 'stockDetail.actions.createOffer'])
+    expect(Object.keys(menu.offered).sort()).toEqual(['createContract', 'createOffer'])
+  })
+
+  it('a role that may not create offers or contracts gets neither header button nor menu entry (sales_offers, sales_contracts)', () => {
+    const menu = buildStockRowMenu(t, BOUGHT, handlers(), { ...ALL, canCreateContract: false, canCreateOffer: false }, null)
+    expect(menu.primary).toBeUndefined()
+    expect(menu.alternative).toBeUndefined()
+    expect(menu.overflow.createFrom).toEqual([])
+    expect(menu.offered.createContract).toBeUndefined()
+    expect(menu.offered.createOffer).toBeUndefined()
   })
 
   it('each item calls its own handler', () => {
@@ -111,7 +129,7 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
     const menu = buildStockRowMenu(t, BOUGHT, h, ALL, null)
     find(menu, 'stockDetail.rowMenu.changeCondition').onClick()
     find(menu, 'stockDetail.purchase.storno.button').onClick()
-    menu.primary.onClick()
+    menu.primary!.onClick()
     expect(h.changeCondition).toHaveBeenCalledOnce()
     expect(h.stornoPurchase).toHaveBeenCalledOnce()
     expect(h.createContract).toHaveBeenCalledOnce()

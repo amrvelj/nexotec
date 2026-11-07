@@ -13,6 +13,8 @@ export const GATED_CAPABILITIES = [
   'marketplace_publishing',
   'number_ranges',
   'reference_lists',
+  'sales_contracts',
+  'sales_offers',
   'stock_acquisition',
   'stock_condition',
   'stock_items',

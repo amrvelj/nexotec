@@ -353,6 +353,8 @@ export function StockListPage() {
   const canWriteConfigurations = useCanWrite('configurations')
   const canBookPurchase = useCanWrite('stock_acquisition')
   const canChangeCondition = useCanWrite('stock_condition')
+  const canCreateContract = useCanWrite('sales_contracts')
+  const canCreateOffer = useCanWrite('sales_offers')
   const canAddVehicle = canWriteStockItems && canWriteConfigurations
 
   const applyView = (view: SavedView) => {
@@ -497,6 +499,8 @@ export function StockListPage() {
                 editConfiguration: openAt('editConfiguration'),
               },
               {
+                canCreateContract,
+                canCreateOffer,
                 canBookPurchase,
                 canChangeCondition,
                 canAttachConfiguration: canWriteStockItems && canWriteConfigurations,

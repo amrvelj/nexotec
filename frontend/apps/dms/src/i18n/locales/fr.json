@@ -1215,7 +1215,7 @@
         "failed": "L'achat n'a pas pu être annulé.",
         "leftStock": "Impossible : le véhicule a quitté le stock.",
         "returnedToCustomer": "Le véhicule retourne au client",
-        "returnedToCustomerHint": "Le client qui l'a repris redevient propriétaire et détenteur. Sans coche, son historique reste tel que l'achat l'a enregistré."
+        "returnedToCustomerHint": "Le client qui l'a donné en reprise redevient propriétaire et détenteur. Sans coche, son historique reste tel que l'achat l'a enregistré."
       }
     },
     "wagenbuch": {

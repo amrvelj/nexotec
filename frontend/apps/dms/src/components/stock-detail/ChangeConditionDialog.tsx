@@ -3,6 +3,7 @@ import { Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { StockItemCondition, StockItemRead } from '../../api/types'
 import { translatedStockConditionOptions } from '../../stockOptions'
 import { apiRefusalText } from '../../utils/apiRefusal'
@@ -17,7 +18,8 @@ interface ChangeConditionDialogProps {
 /**
  * KAN-571 (Anto, 2026-11-07, 2b option A) — «Zustand ändern»: the only place
  * the SPA calls `POST /v1/inventory/stock-items/{id}/condition`
- * (`stock_condition`, If-Match; the server audits the change). The user
+ * (`stock_condition`, If-Match, an Idempotency-Key per opening; the server
+ * audits the change). The user
  * picks the new condition (Neu, Occasion, Vorführwagen, Tageszulassung); the
  * current one is preselected and saving it unchanged is held back. A refusal
  * (a stale version among them) is said in the UI language.
@@ -27,24 +29,29 @@ export function ChangeConditionDialog({ opened, onClose, item, onChanged }: Chan
   const [condition, setCondition] = useState<StockItemCondition>(item.condition)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // KAN-266: a retried submit replays the first answer instead of a 409.
+  const idempotency = useIdempotencyKey()
 
   useEffect(() => {
     if (opened) {
       setCondition(item.condition)
       setSubmitError(null)
+      idempotency.renew()
     }
-  }, [opened, item.condition])
+  }, [opened, item.condition, idempotency])
 
   const submit = async () => {
     if (condition === item.condition) return
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const updated = await api.post<StockItemRead>(
-        `/inventory/stock-items/${item.id}/condition`,
-        { condition },
-        { 'If-Match': String(item.version) },
-      )
+      const path = `/inventory/stock-items/${item.id}/condition`
+      const body = { condition }
+      const updated = await api.post<StockItemRead>(path, body, {
+        'If-Match': String(item.version),
+        ...idempotency.headers([path, body]),
+      })
+      idempotency.renew()
       onChanged(updated)
       onClose()
     } catch (err) {

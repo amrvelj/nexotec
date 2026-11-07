@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, type FakeBackend } from '../test/fakeBackend'
+import { ALL_ENTITLEMENTS, installFakeBackend, type FakeBackend, type FakeRoute } from '../test/fakeBackend'
 import type { StockItemPage, StockItemRead } from '../api/types'
 import { StockDetailPage } from './StockDetailPage'
 import { StockListPage } from './StockListPage'
@@ -42,8 +43,23 @@ const ITEM: StockItemRead = {
   createdAt: NOW, updatedAt: NOW,
 }
 
-function install(): FakeBackend {
+function session(writableCapabilities: string[]): FakeRoute {
+  return {
+    method: 'GET',
+    match: /\/auth\/me$/,
+    handler: () => ({
+      user: { id: 'u-1', firstName: 'Ivo', lastName: 'Lager', email: 'ivo@example.ch', accessRoles: ['inventory'] },
+      activeDealership: { id: 'dealership-1', legalName: 'Test Motors AG' },
+      memberships: [{ id: 'dealership-1', legalName: 'Test Motors AG' }],
+      entitlements: ALL_ENTITLEMENTS,
+      writableCapabilities,
+    }),
+  }
+}
+
+function install(writableCapabilities?: string[]): FakeBackend {
   return installFakeBackend([
+    ...(writableCapabilities ? [session(writableCapabilities)] : []),
     { method: 'GET', match: /^\/inventory\/stock-items$/, handler: (): StockItemPage => ({ items: [ITEM], nextCursor: null, total: 1, totalIsEstimate: false }) },
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
@@ -153,5 +169,59 @@ describe('Stock — one row menu for list and detail (KAN-571)', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: i18n.t('stockDetail.purchase.storno.title') })).toBeInTheDocument()
+  })
+
+  it('a role that may not create offers or contracts sees neither in the header nor in the menu (KAN-430)', async () => {
+    const user = userEvent.setup()
+    install(['configurations', 'stock_items', 'stock_condition', 'stock_acquisition', 'marketplace_publishing'])
+    render(`/stock/${ID}`)
+    await screen.findAllByText('Škoda Octavia Combi 2.0 TDI RS 4x4')
+
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.actions.createContract') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.actions.createOffer') })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
+    const items = names(await screen.findByRole('menu'))
+    expect(items.some((n) => n.includes(i18n.t('stockDetail.actions.createContract')))).toBe(false)
+    expect(items.some((n) => n.includes(i18n.t('stockDetail.rowMenu.changeCondition')))).toBe(true)
+  })
+
+  it('a hand-made router state for an action the role may not use runs nothing', async () => {
+    const backend = install(['configurations', 'stock_items', 'stock_condition', 'stock_acquisition'])
+    renderWithProviders(
+      <Routes>
+        <Route path="/start" element={<Navigate to={`/stock/${ID}`} state={{ stockOpenAction: 'createContract' }} />} />
+        <Route path="/stock/:id" element={<DetailWithState />} />
+      </Routes>,
+      { route: '/start' },
+    )
+    await screen.findAllByText('Škoda Octavia Combi 2.0 TDI RS 4x4')
+    await waitFor(() => expect(screen.getByTestId('router-state').textContent).toBe('null'))
+    expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')).toHaveLength(0)
+  })
+
+  it('«Vertrag erstellen» asked for by the router state creates exactly one contract, under StrictMode', async () => {
+    // The page guards the action once per navigation (React's StrictMode runs
+    // a mounting component's effects twice). Here the session loads after
+    // mount, so the action runs on an update and this test does not by
+    // itself prove that guard; it pins the outcome: one POST, then the
+    // contract opens.
+    const backend = installFakeBackend([
+      { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
+      { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
+      { method: 'POST', match: /^\/sales\/contracts$/, handler: () => ({ id: 'k-1', version: 1 }) },
+    ])
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    queryClient.setQueryData(['stock-item', ID], ITEM)
+    renderWithProviders(
+      <Routes>
+        <Route path="/start" element={<Navigate to={`/stock/${ID}`} state={{ stockOpenAction: 'createContract' }} />} />
+        <Route path="/stock/:id" element={<DetailWithState />} />
+        <Route path="/sales/contracts/:id" element={<p>contract page</p>} />
+      </Routes>,
+      { route: '/start', strictMode: true, queryClient },
+    )
+
+    expect(await screen.findByText('contract page')).toBeInTheDocument()
+    expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')).toHaveLength(1)
   })
 })
