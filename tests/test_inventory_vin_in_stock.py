@@ -319,7 +319,7 @@ def _bearer() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_post_with_a_vin_in_stock_returns_409_with_the_reason(client, db_session):
+def test_post_with_a_vin_another_item_holds_returns_409_with_the_reason(client, db_session):
     headers = _bearer()
     body = {"vehicleLabel": "Volkswagen Golf", "condition": "used", "vin": VIN}
     body["configurationId"] = stock_configuration_id(db_session, headers)

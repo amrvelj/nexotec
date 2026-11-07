@@ -121,7 +121,7 @@ def _stock_item_count(db_session) -> int:
         "wVw-ZZZ1KZAW000001".replace("-", " "),  # a no-break space pasted from a document
     ],
 )
-def test_a_differently_spelled_vin_of_a_car_in_stock_is_a_duplicate(client, spelling, db_session):
+def test_a_differently_spelled_vin_another_item_holds_is_a_duplicate(client, spelling, db_session):
     headers = _bearer()
     first = _post(client, db_session, headers, vin=VIN)
     assert first.status_code == 201, first.text

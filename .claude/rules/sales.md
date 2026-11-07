@@ -155,8 +155,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   renders read-only (disabled fieldsets over every write control, «Offerte generieren» disabled with
   the reason) under a banner naming the contract with «Vertrag öffnen», and every container
   words a save refused `offer_has_contract` in that banner's sentence. What only shows stays live
-  (KAN-501): the customer and pricing containers take `readOnly` themselves, so the selected
-  customer's overlay and «zum Lagerfahrzeug» still open.
+  (KAN-501): the customer, vehicle and pricing containers take `readOnly` themselves
+  (`components/deal-workspace/LockedWhile.tsx` around their writes), so the selected customer's
+  overlay, the stock number (KAN-570) and «zum Lagerfahrzeug» still open.
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;

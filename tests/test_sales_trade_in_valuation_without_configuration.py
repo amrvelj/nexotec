@@ -31,11 +31,15 @@ from tests.test_sales_trade_in_valuation_use import _confirm
 VIN = "WVWZZZ1KZAW569001"
 
 
-def _valuation(db_session, tenant_id, group_id, *, vin: str | None = VIN):
+def _valuation(db_session, tenant_id, group_id, *, vin: str | None = VIN, named: bool = True):
     return create_valuation(
         db_session, tenant_id=tenant_id, group_id=group_id,
         data=ValuationCreate(
-            vin=vin, vehicle_make="VW", vehicle_model="Golf", vehicle_trim="1.5 TSI Life", source="manual",
+            vin=vin,
+            vehicle_make="VW" if named else None,
+            vehicle_model="Golf" if named else None,
+            vehicle_trim="1.5 TSI Life" if named else None,
+            source="manual",
             final_offer=Decimal("12000.00"),
         ),
         actor_id=uuid.uuid4(),
@@ -119,3 +123,53 @@ def test_its_contract_takes_the_car_into_the_pipeline_on_confirmation(db_session
     ).one()
     assert message.payload["tradeIn"]["vehicleLabel"] == "VW Golf 1.5 TSI Life"
     assert message.payload["tradeIn"]["valuationId"] == str(valuation.id)
+
+
+def test_a_valuation_with_a_vin_but_no_make_or_model_is_named_by_its_vin(db_session, engine):
+    """The label is never empty: the confirmation publishes it and Stock's
+    consumer names the pipeline item by it (`StockItemCreate.vehicle_label`
+    is required) — an empty one would dead-letter the confirmation."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, named=False)
+    item = create_in_stock_item(
+        db_session, tenant_id=dealership.id,
+        data=StockItemCreate(vehicle_label="Skoda Octavia 2.0 TDI", condition=StockItemCondition.USED, vin="TMBJJ7NE0L0569004"),
+    )
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+    assert offer.trade_in_label == VIN
+    offer = update_offer(
+        db_session, offer=offer, group_id=group_id,
+        data=OfferUpdate(
+            customer_id=_customer(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
+            vehicle_label=item.vehicle_label,
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+
+    _confirm(db_session, engine, contract, group_id)
+
+    message = db_session.query(OutboxMessage).filter_by(
+        aggregate_id=contract.id, event_type="sales.contract.confirmed"
+    ).one()
+    assert message.payload["tradeIn"]["vehicleLabel"] == VIN
+
+
+def test_a_chassis_number_stored_on_the_valuation_brings_no_car(db_session):
+    """A trade-in takes only a VIN (`NormalisedVin`); a pre-1981 chassis
+    number a valuation stored (KAN-353) brings its value only, as before."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, vin=None)
+    valuation.vehicle_vin = "1302412345"  # as a chassis number is stored; ValuationCreate's own rule aside
+    db_session.commit()
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    assert offer.trade_in_vin is None
+    assert not has_trade_in(offer)

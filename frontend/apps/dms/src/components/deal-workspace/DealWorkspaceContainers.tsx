@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
@@ -15,6 +15,7 @@ import { ConfiguratorOverlay } from '../configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../configurator/hostCommitError'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { LockedWhile } from './LockedWhile'
 import { StockNumberLink } from './StockNumberLink'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { customerName } from '../../utils/customer'
@@ -197,11 +198,10 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
 /** Fahrzeug — FR-S-05 Path A (stock search) or Path B (the configurator,
  * `build` mode only, PRD v1.4: a used car being sold comes from stock).
  * A stock car shows its stock number beside it (KAN-570), opening the stock
- * detail through the host's `onOpenStockItem`. */
-/** Fahrzeug — the car on the deal. `readOnly` disables every write in it
- * (the configuration card's edit, the stock search, the configurator) under a
- * disabled fieldset, while the stock number, which only opens the car, stays
- * outside it and live (KAN-501, KAN-570). */
+ * detail through the host's `onOpenStockItem`. `readOnly` disables every
+ * write in it (the configuration card's edit, the stock search, the
+ * configurator) under a disabled fieldset, while the stock number, which only
+ * opens the car, stays outside it and live (KAN-501, KAN-570). */
 export function DealVehicleContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
@@ -549,15 +549,5 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
         />
       )}
     </OverviewCard>
-  )
-}
-
-/** A disabled fieldset around a container's write controls (KAN-426), so
- * what only shows can sit outside it and stay live (KAN-501). */
-function LockedWhile({ readOnly, children }: { readOnly: boolean; children: ReactNode }) {
-  return (
-    <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-      {children}
-    </fieldset>
   )
 }

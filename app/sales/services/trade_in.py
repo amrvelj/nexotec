@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.errors import ConflictError
-from app.core.validators import normalise_vin
+from app.core.validators import is_valid_vin, normalise_vin
 from app.customer.public import get_customer_or_404
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
@@ -172,7 +172,7 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
             deal.trade_in_label = valuation.configuration_label or deal.trade_in_label
             deal.trade_in_vin = valuation.vehicle_vin
             deal.trade_in_vehicle_id = valuation.vehicle_id
-    elif deal.trade_in_vehicle_id is None and not deal.trade_in_vin and valuation.vehicle_vin:
+    elif deal.trade_in_vehicle_id is None and not deal.trade_in_vin and is_valid_vin(valuation.vehicle_vin):
         # KAN-569: a valuation made without a configuration names its car by
         # the VIN it stored (and the record it linked, KAN-189). Attached to a
         # deal with no trade-in car yet — «Offerte aus dieser Bewertung
@@ -180,10 +180,14 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
         # (`set_trade_in`) would make it: without it the deal carried the
         # valuation's value but no car, `has_trade_in` was false, and the
         # confirmation took no car into the pipeline. A deal that already
-        # names its trade-in car keeps it.
+        # names its trade-in car keeps it. Only a VIN as a VIN trade-in takes
+        # one (`NormalisedVin`): a pre-1981 chassis number stored on the
+        # valuation (KAN-353) brings no car. The label is never empty — the
+        # confirmation publishes it and Stock names the pipeline item by it —
+        # so a valuation without make or model is named by its VIN.
         deal.trade_in_vin = valuation.vehicle_vin
         deal.trade_in_vehicle_id = valuation.vehicle_id
-        deal.trade_in_label = _valuation_vehicle_label(valuation) or deal.trade_in_label
+        deal.trade_in_label = _valuation_vehicle_label(valuation) or deal.trade_in_label or valuation.vehicle_vin
     deal.trade_in_value = valuation.final_offer
     # Seller-adjustable afterward (S-D04) — defaults to the valuation's own
     # figure, not force-kept in sync with it.

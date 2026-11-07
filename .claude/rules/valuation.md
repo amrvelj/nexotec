@@ -41,10 +41,12 @@ file in the same PR as any change to what it states. -->
   workspace — a draft valuation allowed, an expired or used one disabled with the reason, hidden
   without the `sales_offers` write; a refused later step keeps the screen, names the offer made,
   and a retry continues that offer. A valuation made **without a configuration** brings its car
-  to a deal that names no trade-in car yet — its stored VIN, linked record and «Make Model Trim»
-  (`sales/services/trade_in.py::_attach`, KAN-569) — so `has_trade_in` holds and the confirmation
-  takes the car into the pipeline; a deal that already names its car keeps it, and a valuation
-  with no VIN still brings only its value.
+  to a deal that names no trade-in car yet — its stored VIN, linked record and «Make Model Trim»,
+  or the VIN as the label when it has no make or model (the confirmation publishes the label and
+  Stock names the pipeline item by it) (`sales/services/trade_in.py::_attach`, KAN-569) — so
+  `has_trade_in` holds and the confirmation takes the car into the pipeline; a deal that already
+  names its car keeps it, and a valuation with no VIN, or a pre-1981 chassis number in it, still
+  brings only its value (decision with Anto).
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.

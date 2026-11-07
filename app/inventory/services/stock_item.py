@@ -419,8 +419,7 @@ def create_stock_item(
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
     if data.configuration_id is not None:
         # KAN-509: after the VIN check, so the same car posted twice is still
-        # refused as `vin_already_in_stock`, the refusal that names it; both
-        # before vehicle-mdm is touched.
+        # refused as `vin_already_in_stock`, the refusal that names it.
         _lock_configuration(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
         _check_configuration_not_held(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
     # KAN-554 (ADR-116; Anto, 2026-11-05, option A): a VIN given on create is

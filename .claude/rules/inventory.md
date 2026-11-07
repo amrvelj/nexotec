@@ -49,7 +49,11 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   no record, ADR-045). Its purchase booking may leave `vin` out (the item's is used) or repeat it;
   another is 422 `purchase_vin_mismatch`. Promotion leaves the item itself out of its uniqueness
   check, and the record it creates names the booking user (KAN-243). Tests that need a car in
-  stock without a purchase use `tests/stock_support.py` (create, then promote).
+  stock without a purchase use `tests/stock_support.py` (create, then promote). **Open (decision
+  with Anto):** the item's VIN has no write path, so once its configuration's VIN is corrected
+  («Konfiguration bearbeiten», KAN-510) or a factory order's configuration gets one, the booking is
+  refused either way (`configuration_vin_differs` without a VIN, `purchase_vin_mismatch` with the
+  new one) — only an API create reaches it; the SPA's intake sends no VIN.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
