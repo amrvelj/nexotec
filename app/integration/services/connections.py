@@ -437,6 +437,10 @@ def remove_secret(
         db, entity_type="integration_secret_ref", entity_id=existing.id, tenant_id=connection.tenant_id,
         action="delete_secret", actor_id=actor_id, reason=f"slot={slot.value}",
     )
+    # KAN-488: a removed credential is a credential change like a rotation —
+    # `rotated_at` is what the identAPI adapter keys its cached tokens by, so a
+    # token obtained with the removed secret stops being used at once.
+    connection.rotated_at = utcnow()
     db.delete(existing)
     db.commit()
 

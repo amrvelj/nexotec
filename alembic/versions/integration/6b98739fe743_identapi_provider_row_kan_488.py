@@ -25,7 +25,10 @@ and the eight counters of a SOAP account sheet as `capability_codes`
 Existing `auto_i_dat` connections carry SOAP credentials the identAPI cannot
 use: their secret references and entitlement rows are deleted, their config
 emptied and their status set to `not_configured` with a `last_error` that
-tells the dealer manager what to enter. Only staging's demo connection
+tells the dealer manager what to enter. The mock's connections keep their
+config and lose only their entitlement rows (keyed by the old vocabulary).
+Every step is a data step, so the whole migration is skipped in an offline
+`--sql` render (KAN-174) — there is no DDL to render. Only staging's demo connection
 exists (no production dealer has one). The secret *material* those
 references pointed at stays in the secrets manager under the connection's
 path until the connection is deleted or the slot is set again: this
@@ -95,6 +98,13 @@ def _provider_table() -> sa.TableClause:
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        # KAN-174: every step here is a data step (JSON provider rows, the
+        # connection reset with its row counts) and needs a live database;
+        # there is no DDL to render.
+        op.execute("-- KAN-488 (6b98739fe743): data-only migration skipped in offline mode; needs a live database")
+        return
+
     bind = op.get_bind()
     provider = _provider_table()
     bind.execute(provider.update().where(provider.c.provider_code == _PROVIDER_CODE).values(**_NEW))
@@ -103,10 +113,6 @@ def upgrade() -> None:
         .where(provider.c.provider_code == _MOCK_PROVIDER_CODE)
         .values(capability_codes=_IDENTAPI_CAPABILITY_CODES)
     )
-
-    if context.is_offline_mode():
-        op.execute("-- KAN-488: resetting existing auto_i_dat connections skipped: it reads rows and needs a live database")
-        return
 
     connection_ids = sa.text(
         "SELECT id FROM integration_connection "
@@ -119,6 +125,13 @@ def upgrade() -> None:
         sa.text(f"DELETE FROM integration_entitlement WHERE connection_id IN ({connection_ids.text})"),
         {"code": _PROVIDER_CODE},
     )
+    # The mock's connections keep their config (no credentials), but their
+    # entitlement rows are keyed by the SOAP sheet lines, now outside the
+    # vocabulary: dropped, re-probed on the next Test connection.
+    mock_entitlements = bind.execute(
+        sa.text(f"DELETE FROM integration_entitlement WHERE connection_id IN ({connection_ids.text})"),
+        {"code": _MOCK_PROVIDER_CODE},
+    )
     connections = bind.execute(
         sa.text(
             "UPDATE integration_connection "
@@ -130,12 +143,16 @@ def upgrade() -> None:
     )
     print(
         f"KAN-488: reset {connections.rowcount} auto_i_dat connection(s) to not_configured; "
-        f"deleted {refs.rowcount} SOAP secret reference(s) and {entitlements.rowcount} entitlement row(s). "
+        f"deleted {refs.rowcount} SOAP secret reference(s), {entitlements.rowcount} entitlement row(s) "
+        f"and {mock_entitlements.rowcount} mock entitlement row(s). "
         "Secret material under those references stays in the secrets manager until the slot is set again."
     )
 
 
 def downgrade() -> None:
+    if context.is_offline_mode():
+        op.execute("-- KAN-488 (6b98739fe743): data-only downgrade skipped in offline mode; needs a live database")
+        return
     bind = op.get_bind()
     provider = _provider_table()
     bind.execute(provider.update().where(provider.c.provider_code == _PROVIDER_CODE).values(**_OLD))

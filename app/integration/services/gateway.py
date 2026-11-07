@@ -302,18 +302,18 @@ def call_capability(
                 raise
             try:
                 yield adapter
-            except ProviderConfigurationError as exc:
+            except ProviderConfigurationError:
                 # KAN-488: the identAPI adapter resolves its credential and
                 # builds its token inside the block (lazily, on the first
-                # request), so a missing `clientId` or `client_secret` surfaces
-                # here rather than in the factory. Same rule as there: the
-                # dealer's to fix, never reached the provider — unlogged and
-                # uncharged, as long as nothing was sent.
-                if meter.requests:
-                    _record_failed_call(
-                        gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at, correlation_id=correlation_id, capture_raw_payload=capture_raw_payload,
-                        meter=meter,
-                    )
+                # request), so a missing `clientId` or `client_secret`, or a
+                # call with nobody to enrol, surfaces here rather than in the
+                # factory. Same rule as there: the dealer's to fix, so the
+                # breaker is never charged and no row is invented for a request
+                # that was not sent. What the adapter did send before it
+                # stopped (the discovery read) keeps the row it wrote, and the
+                # audit rows it recorded (a secret resolution) are committed.
+                _bound_lock_wait(gateway_db)
+                gateway_db.commit()
                 raise
             except Exception as exc:
                 _record_failed_call(
@@ -433,8 +433,8 @@ def test_connection(
     load-bearing — a probe's rejection is only attributable to the
     capability because `System` has just accepted the same credentials — so
     a connection that fails here is never probed. Each probe is a real,
-    logged, potentially billed provider call: one click is now two calls
-    for `auto_i_dat`, not one.
+    logged, potentially billed provider call: for the identAPI one click is
+    the login, the caption call and six probes (KAN-488).
 
     KAN-80 (Anto, option A): testing the `dat` connection also refreshes the
     tenant's cached `vin_decode` entitlement row, healthy or not — the one

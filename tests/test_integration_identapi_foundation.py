@@ -21,7 +21,7 @@ from app.core.observability import JSONLogFormatter
 from app.core.redact import SECRET_FIELDS
 from app.integration.adapters import auto_i_dat_ident, autoi_oauth
 from app.integration.adapters.auto_i_dat_ident import OP_CAPTION_CODE
-from app.integration.adapters.autoi_oauth import OAUTH_TOKEN_OPERATION
+from app.integration.adapters.autoi_oauth import OAUTH_DISCOVERY_OPERATION, OAUTH_TOKEN_OPERATION
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionStatus
 from app.integration.models.entitlement import EntitlementSource
@@ -79,6 +79,9 @@ def test_test_connection_logs_in_reads_the_captions_and_probes_every_option(db_s
     # and all six probes (exit criterion 3).
     token_rows = _rows(db_session, s.connection, OAUTH_TOKEN_OPERATION)
     assert [(r.status, r.cost_units) for r in token_rows] == [(CallStatus.SUCCESS, 0)]
+    assert [(r.status, r.cost_units) for r in _rows(db_session, s.connection, OAUTH_DISCOVERY_OPERATION)] == [
+        (CallStatus.SUCCESS, 0)
+    ]
     assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.SUCCESS]
     assert len(s.fake.token_requests()) == 1
 
@@ -88,6 +91,9 @@ def test_test_connection_logs_in_reads_the_captions_and_probes_every_option(db_s
         expected = CallStatus.ERROR if code in ("vin", "bewertung") else CallStatus.SUCCESS
         assert [r.status for r in rows] == [expected], (code, rows)
     assert {r.path for r in s.fake.api_requests()} == {"/caption/code", *PROBE_PATHS.values()}
+    assert {r.capability for r in _rows(db_session, s.connection)} == {
+        OAUTH_DISCOVERY_OPERATION, OAUTH_TOKEN_OPERATION, OP_CAPTION_CODE, *PROBE_OPERATIONS.values(),
+    }
 
     # Six rows, probed, 403 = not granted (exit criterion 1's shape).
     rows = connection_service.list_entitlements(db_session, connection_id=s.connection.id)
@@ -158,9 +164,10 @@ def test_a_wrong_client_secret_ends_as_error_naming_the_token_endpoint_and_makes
     assert "invalid_client" in updated.last_error
     assert "not-the-secret" not in updated.last_error
     assert s.fake.api_requests() == []
-    # The one request, logged as the failed login it was, at no cost.
+    # Discovery, then the one login, logged as the failure it was, both at no cost.
     assert [(r.capability, r.status, r.cost_units) for r in _rows(db_session, s.connection)] == [
-        (OAUTH_TOKEN_OPERATION, CallStatus.ERROR, 0)
+        (OAUTH_DISCOVERY_OPERATION, CallStatus.SUCCESS, 0),
+        (OAUTH_TOKEN_OPERATION, CallStatus.ERROR, 0),
     ]
     assert connection_service.list_entitlements(db_session, connection_id=s.connection.id) == []
 
@@ -186,9 +193,13 @@ def test_a_missing_client_secret_is_the_dealers_to_fix_not_a_provider_failure(db
     assert updated.status == ConnectionStatus.ERROR
     assert "'client_secret' credential" in (updated.last_error or "")
     assert s.fake.token_requests() == []
-    # Nothing reached the provider: no row, no breaker charge (as `wsdlUrl` was).
-    assert _rows(db_session, s.connection) == []
+    # Discovery ran (and keeps its honest row); no login was attempted, no
+    # breaker charge (as `wsdlUrl` was), and the secret was never resolved.
+    assert [(r.capability, r.status) for r in _rows(db_session, s.connection)] == [
+        (OAUTH_DISCOVERY_OPERATION, CallStatus.SUCCESS)
+    ]
     assert charged == []
+    assert s.secrets.resolutions == 0
 
 
 def test_a_missing_client_id_is_refused_before_any_request(db_session, monkeypatch):
@@ -310,6 +321,7 @@ def test_a_user_who_does_not_act_in_the_betrieb_has_no_token(db_session, monkeyp
     updated = gateway.test_connection(db_session, connection=s.connection, actor_id=stranger.id)
 
     assert updated.status == ConnectionStatus.ERROR
+    assert "not a member of this connection's Betrieb" in (updated.last_error or "")
     assert s.fake.seen == []
 
 
@@ -493,3 +505,146 @@ def test_the_test_endpoint_enrols_the_signed_in_user(client, db_session, monkeyp
     assert {e["capabilityCode"] for e in body["entitlements"]} == set(fx.CAPABILITY_CODES)
     (token_request,) = s.fake.token_requests()
     assert token_request.form["user_id"] == str(s.user.id)
+
+
+# --- review findings (2026-11-07) ----------------------------------------------------------------
+
+
+def test_a_refused_login_while_probing_leaves_every_entitlement_row_untouched(db_session, monkeypatch):
+    """Finding 1: a 401 twice on a probe is a refused login, not "not licensed".
+    The rows stay as they were and the connection, whose access check passed,
+    stays connected."""
+
+    import httpx
+
+    s = fx.connected(db_session, monkeypatch)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    before = _entitlements(db_session, s.connection)
+    assert before == dict.fromkeys(fx.CAPABILITY_CODES, True)
+
+    # The API now answers 401 to every probe, whatever token it carries; the
+    # caption check still passes on the cached token.
+    real = s.fake._ident_api
+
+    def refuse_probes(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/caption/code":
+            return real(request)
+        return httpx.Response(401, json={"status": "401", "title": "Unauthorized"})
+
+    monkeypatch.setattr(s.fake, "_ident_api", refuse_probes)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert _entitlements(db_session, s.connection) == before
+
+
+def test_a_not_built_operation_is_neither_logged_nor_charged(db_session, monkeypatch):
+    """Finding 2: identification's plate rung reaches `lookup_plate`, which the
+    identAPI adapter does not implement until KAN-547. Five such calls must not
+    open the connection's circuit breaker nor invent call-log rows."""
+
+    from app.integration.errors import ProviderGatewayError
+    from app.integration.services.gateway import call_capability
+
+    s = fx.connected(db_session, monkeypatch)
+    for _ in range(resilience._FAILURE_THRESHOLD):
+        with pytest.raises(ProviderGatewayError, match="KAN-547"), call_capability(
+            db_session, connection=s.connection, capability="kontrollschild", actor_id=s.user.id
+        ) as adapter:
+            adapter.lookup_plate("ZH 123456")
+
+    assert _rows(db_session, s.connection) == []
+    assert resilience.is_circuit_open(s.connection.id) is False
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    assert updated.status == ConnectionStatus.CONNECTED
+
+
+def test_a_failed_discovery_resolves_no_secret_and_leaves_an_honest_row(db_session, monkeypatch):
+    """Findings 6 and 7: discovery is read before the secret is resolved, and
+    it is a metered request of its own."""
+
+    fake = FakeAutoi(discovery={**fx.DISCOVERY, "token_endpoint_auth_methods_supported": ["private_key_jwt"]})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert s.secrets.resolutions == 0
+    # The document arrived and was refused: that request's own ERROR row.
+    assert [(r.capability, r.status, r.cost_units) for r in _rows(db_session, s.connection)] == [
+        (OAUTH_DISCOVERY_OPERATION, CallStatus.ERROR, 0)
+    ]
+
+
+def test_every_secret_resolution_is_audited_even_when_the_login_then_fails(db_session, monkeypatch):
+    """Finding 6, the other half: the audit row of a resolution survives a
+    refused login (the gateway commits what the adapter recorded)."""
+
+    from app.core.audit import AuditEvent
+
+    s = fx.connected(db_session, monkeypatch)
+    s.secrets.values[(s.connection.id, "client_secret")] = "not-the-secret"
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    resolutions = (
+        db_session.query(AuditEvent)
+        .filter_by(entity_type="integration_secret_ref", entity_id=s.connection.id, action="secret_resolved")
+        .count()
+    )
+    assert s.secrets.resolutions == 1 == resolutions
+
+
+def test_removing_the_secret_drops_the_cached_token(db_session, monkeypatch):
+    """Finding 8: a removed credential is a credential change — the next call
+    logs in again (and fails, honestly, for want of a secret)."""
+
+    s = fx.connected(db_session, monkeypatch)
+    # The secret as a dealer sets it: a secret-ref row plus the stored value.
+    connection_service.set_secret(
+        db_session, connection=s.connection, slot=SecretSlot.CLIENT_SECRET, value=fx.CLIENT_SECRET,
+        actor_id=s.user.id, secrets_backend_module=s.secrets,
+    )
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    connection_service.remove_secret(
+        db_session, connection=s.connection, slot=SecretSlot.CLIENT_SECRET, actor_id=s.user.id,
+        secrets_backend_module=s.secrets,
+    )
+    db_session.refresh(s.connection)
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "'client_secret' credential" in (updated.last_error or "")
+    assert len(s.fake.api_requests()) == 7  # only the first test's calls
+
+
+def test_a_connection_without_a_betrieb_says_so(db_session, monkeypatch):
+    """Finding 9: three reasons, three sentences."""
+
+    from app.integration.models.connection import ConnectionScope
+
+    s = fx.connected(db_session, monkeypatch)
+    s.connection.scope = ConnectionScope.PLATFORM
+    s.connection.tenant_id = None
+    db_session.commit()
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "belongs to no Betrieb" in (updated.last_error or "")
+
+
+def test_a_401_invalidates_only_that_users_token(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    other = fx.make_user(db_session, tenant_id=s.connection.tenant_id, email="bob.tester@example.test", first_name="Bob")
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=other.id)
+    assert len(s.fake.token_requests()) == 2
+
+    s.fake.expire_tokens_once = True
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    assert len(s.fake.token_requests()) == 3
+    gateway.test_connection(db_session, connection=s.connection, actor_id=other.id)
+    assert len(s.fake.token_requests()) == 3  # Bob's token was never dropped

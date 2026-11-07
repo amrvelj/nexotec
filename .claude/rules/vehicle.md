@@ -223,7 +223,10 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   here — never pasted into a public issue, gist, PR on another repo or chat. Fixtures and the
   mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, DAT account
   9900001, `test-dealer`; mock OptKeys 9xxxxx; the mock's plates resolve to invented cars),
-  never a value from an account sheet or a specification example.
+  never a value from an account sheet or a specification example. The entitlement probes'
+  inputs (`auto_i_dat_ident.py`: an FzKey, two Typenschein numbers, a VIN) are the examples of
+  auto-i's **publicly served** OpenAPI document, not of the confidential PDFs — public, not an
+  account value (KAN-488; the test fake routes on the adapter's constants for the same reason).
 - **No MCP for provider data** (identAPI test agreement §3; KAN-490): provider-licensed
   vehicle data is never exposed through an MCP server, a tool manifest or any agent-facing API.
   KAN-227's planned AI prompt hook (`vehicle_listing`, not built) may use provider data only
@@ -356,9 +359,10 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   block that metered none writes its one row under its label, as before; the circuit breaker
   stays per block, and a block that fails after its last answer arrived marks that request's
   row `ERROR`. **Nexotec enforces no quota and sends no usage warning**: auto-i-dat limits its
-  own access (Anto, 2026-10-29). `scripts/verify_auto_i_dat.py` (the manual go-live check)
-  builds the real adapter directly: its requests are neither logged nor refused on production —
-  run it only from a test environment.
+  own access (Anto, 2026-10-29). `scripts/verify_auto_i_dat.py` builds the **SOAP** adapter directly
+  against a SOAP-configured connection — none exists since KAN-488's migration wiped the SOAP
+  config, so it cannot run until KAN-550 removes it; the identAPI has no such script, its
+  go-live check is «Test connection» itself.
 - **Looked-up catalogue data is kept and shared** (Anto, 2026-10-29, KAN-487): what a single
   lookup stored in the catalogue tables is kept indefinitely — no retention window — and variant
   master data stays readable by every Betrieb (ADR-075). The plate-lookup cache keeps its 30-day
@@ -400,8 +404,8 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   `engine_cycle`. **The sync does not read that row yet (KAN-447):** `catalogue_sync.py` resolves
   `Antrieb` under `drivetrain` for every vehicle kind and never writes `engine_cycle`. Routing
   by vehicle kind waits for a staging account — whether the provider selects the code group by
-  `FzArt` or `FzArtExtern` is unknown (`scripts/verify_auto_i_dat.py` prints it as a manual
-  go-live check); never route it on a guess.
+  `FzArt` or `FzArtExtern` is unknown (a SOAP question that dies with the SOAP adapter, KAN-550;
+  the identAPI's captions are per vehicle type, KAN-547); never route it on a guess.
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
   code; never a numeric CodeGrpNr (`resolve_provider_code` refuses one; migration

@@ -1,4 +1,5 @@
-"""Per-capability entitlement probing (Configurator C-0 / KAN-38 PR 2b).
+"""Per-capability entitlement probing (Configurator C-0 / KAN-38 PR 2b;
+restated for the identAPI by KAN-488).
 
 This module holds provider knowledge only — *which* capability maps to
 *which* call, and *which* answer means "refused". It never talks to the
@@ -6,34 +7,28 @@ database or the gateway; `services/gateway.py::test_connection` owns the
 calling discipline (call log, circuit breaker) and
 `services/connections.py::record_probed_entitlement` owns the write.
 
-**The protocol has no "not entitled" signal.** *Webservice Fahrzeuge* p4
-documents ``Status`` 0 / 1 / 2 and nothing else; an empty string means
-"invalid Benutzername / Passwort / Sprache / Datenname". Entitlement is
-therefore *inferred*, never read, and the inference below cannot be
-verified until a staging account exists (KAN-38 exit criterion 1 has the
-same blocker) — `scripts/verify_auto_i_dat.py` prints the probe outcome so
-it can be checked against the account sheet the day one does.
+**The identAPI says "not entitled" explicitly**: a 403 on the endpoint that
+represents a licence option (`ProviderNotEntitledError`). Each of the six
+options is probed by one documented call with auto-i's own documentation
+example as input (`adapters/auto_i_dat_ident.py`); 200 (or 404) is granted,
+403 is not, and anything else — a refused login, an outage, a 400/422 on our
+request — leaves the row exactly as it was.
 
-**Why `fahrzeuge` is the one capability probed.** The probe runs only after
-`System` has just accepted the same connection, which rules out three of
-p4's four causes (Benutzername, Passwort, Sprache). A criteria-free
-`FahrzeugArten` that then comes back as an empty string can only be the
-fourth: the Datenname itself. With no ``Suchwerte`` there is also nothing
-that could have been malformed.
-
-The other sheet capabilities are not probed: their Datennamen need real
-business input (a vehicle key, a plate, a Typenschein), and an invented one
-cannot tell "no such vehicle" (``Status`` 2) from "not entitled". The
-asymmetry decides it — a wrong "granted" is the optimistic default this
-registry already applies everywhere, while a wrong "not granted" would
-switch off a capability the dealer paid for.
+**The SOAP protocol has no such signal** (*Webservice Fahrzeuge* p4 documents
+``Status`` 0 / 1 / 2 and nothing else; an empty string means "invalid
+Benutzername / Passwort / Sprache / Datenname"), so the mock, which still
+speaks the SOAP shapes until KAN-547/KAN-550, keeps the one inferred probe:
+a criteria-free ``FahrzeugArten`` that comes back as the empty string right
+after the access check accepted the same credentials can only be the
+Datenname. It is keyed by the identAPI's basis option so the vocabulary is one.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.integration.adapters.auto_i_dat_parse import ProviderRejectedError as SoapEmptyAnswerError
 from app.integration.adapters.base import ProviderAdapter
-from app.integration.errors import ProviderNotEntitledError, ProviderRejectedError
+from app.integration.errors import ProviderNotEntitledError
 
 
 @dataclass(frozen=True)
@@ -87,11 +82,14 @@ def probes_for(provider_code: str) -> tuple[CapabilityProbe, ...]:
 
 def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool:
     """`True` = the provider answered (data or "no data"), `False` = it
-    refused. Only a refusal means refused: the identAPI's 403
+    refused the capability. Only that reads as refused: the identAPI's 403
     (`ProviderNotEntitledError`, KAN-488) and the SOAP empty string
-    (`ProviderRejectedError`). Maintenance, transport failures and a 400/422
-    (`ProviderRequestError`: our request, not the licence) propagate, because
-    none of them says anything about what the account is entitled to.
+    (`auto_i_dat_parse.ProviderRejectedError`, the p4 inference). A refused
+    login (`errors.ProviderRejectedError`: a 401, a bad secret), maintenance,
+    a transport failure and a 400/422 (`ProviderRequestError`: our request,
+    not the licence) propagate, because none of them says anything about what
+    the account is entitled to — a login that fails mid-probing must not switch
+    off every option (KAN-488 review finding 1).
 
     Only meaningful when `System` was accepted for the same connection just
     before; see the module docstring for why that ordering is what makes a
@@ -100,6 +98,6 @@ def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool:
 
     try:
         probe.call(adapter)
-    except (ProviderNotEntitledError, ProviderRejectedError):
+    except (ProviderNotEntitledError, SoapEmptyAnswerError):
         return False
     return True

@@ -36,7 +36,7 @@ import base64
 import threading
 import time
 import uuid
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -57,6 +57,7 @@ DISCOVERY_URL = "https://www.autoi.ch/.well-known/oauth-authorization-server"
 SCOPE = "ident"
 GRANT_TYPE = "user_enrollment"
 OAUTH_TOKEN_OPERATION = "oauth_token"
+OAUTH_DISCOVERY_OPERATION = "oauth_discovery"
 _CLIENT_AUTH_METHOD = "client_secret_basic"
 
 _DISCOVERY_CACHE_SECONDS = 24 * 3600.0
@@ -70,7 +71,11 @@ class EnrolledUser:
     """The Nexotec user a token is requested for. `user_id` is the user's
     immutable id in Nexotec (`user.id`), which auto-i keys its registration
     by (max. 50 characters; a UUID is 36). `language` is a BCP 47 tag for
-    `Accept-Language` (`de-CH`, `fr-CH`, …)."""
+    `Accept-Language`, the UI language auto-i registers the user with. It is
+    `de-CH` for every user today: the user's UI preference is not readable
+    through `platform.public` (`user_preference.ui_language_of` is internal to
+    the platform context), and reading it is a public-door addition for the
+    identification ticket, not a side effect here."""
 
     user_id: str
     email: str
@@ -118,13 +123,22 @@ def clear_caches() -> None:
         _token_cache.clear()
 
 
-def invalidate_tokens(connection_id: uuid.UUID) -> None:
-    """Drops every cached token of a connection — the adapter's answer to a
-    401 from the identAPI (the token was revoked or has lapsed early)."""
+def invalidate_tokens(connection_id: uuid.UUID, user_id: str | None = None) -> None:
+    """Drops the cached token of one user on a connection (the adapter's
+    answer to a 401 from the identAPI: that token was revoked or lapsed
+    early), or every user's token on it when `user_id` is None."""
 
     with _cache_lock:
-        for key in [k for k in _token_cache if k[0] == connection_id]:
+        for key in [k for k in _token_cache if k[0] == connection_id and (user_id is None or k[2] == user_id)]:
             del _token_cache[key]
+
+
+def _evict_expired(now: float) -> None:
+    """Called under the lock when a token is stored: entries past their
+    expiry are dropped, so the cache never grows past the live tokens."""
+
+    for key in [k for k, t in _token_cache.items() if t.expires_at <= now]:
+        del _token_cache[key]
 
 
 def is_timeout(exc: BaseException) -> bool:
@@ -163,8 +177,10 @@ def build_http_client(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> httpx.Clie
 
 class AutoiOAuthClient:
     """Discovery plus the enrollment grant over one injected `httpx.Client`.
-    `request_token` is the only method that sends anything (the architecture
-    test guards that by name); `metadata` is read through it as well."""
+    `_send` is the only method that touches the client; `_discover` and
+    `request_token` are the two metered requests (`oauth_discovery`,
+    `oauth_token`, both at no cost) — the architecture test guards all three
+    by name."""
 
     def __init__(self, http: httpx.Client, *, discovery_url: str = DISCOVERY_URL) -> None:
         self._http = http
@@ -184,7 +200,15 @@ class AutoiOAuthClient:
         return metadata
 
     def _discover(self) -> AuthorizationServerMetadata:
-        response = self._send("GET", self._discovery_url)
+        # Metered like every other request to auto-i (KAN-486), at no cost:
+        # the row is what tells a failed Test connection apart from a failed
+        # login when the authorization server itself is unreachable.
+        with provider_request(OAUTH_DISCOVERY_OPERATION, cost_units=Decimal(0), is_timeout=is_timeout) as request:
+            response = call_with_retry(lambda: request.attempt(lambda: self._send("GET", self._discovery_url)))
+            return self._read_metadata(response)
+
+    @staticmethod
+    def _read_metadata(response: httpx.Response) -> AuthorizationServerMetadata:
         if response.status_code != 200:
             raise ProviderTransportError(
                 f"The auto-i authorization server metadata answered HTTP {response.status_code}."
@@ -240,18 +264,23 @@ class AutoiOAuthClient:
             cached = _token_cache.get(key)
         if cached is not None and cached.expires_at - _TOKEN_SAFETY_MARGIN_SECONDS > now:
             return cached.value
-        token = self.request_token(client_id=client_id, client_secret=resolve_client_secret(), user=user)
+        token = self.request_token(client_id=client_id, resolve_client_secret=resolve_client_secret, user=user)
         with _cache_lock:
+            _evict_expired(now)
             _token_cache[key] = token
         return token.value
 
-    def request_token(self, *, client_id: str, client_secret: str, user: EnrolledUser) -> AccessToken:
+    def request_token(self, *, client_id: str, resolve_client_secret: Callable[[], str], user: EnrolledUser) -> AccessToken:
         """One `POST token_endpoint` — one `oauth_token` call-log row at no
         cost, the retry a second row (KAN-486). Only a transport failure or a
         5xx is retried; 400/401 is the provider's answer and is raised as a
-        rejection naming the endpoint's status."""
+        rejection naming the endpoint's status. Discovery comes first and the
+        secret is resolved only once there is an endpoint to send it to, so a
+        resolution (and its audit row) never happens for a login that could
+        not be attempted."""
 
         token_endpoint = self.metadata().token_endpoint
+        client_secret = resolve_client_secret()
         headers = {
             "Authorization": basic_authorization(client_id, client_secret),
             "Content-Type": "application/x-www-form-urlencoded",

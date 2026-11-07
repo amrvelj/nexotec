@@ -82,3 +82,13 @@ class ProviderRequestError(ProviderGatewayError):
     message carries the provider's `title`/`detail`, which describe our
     request, never a credential.
     """
+
+
+class ProviderOperationNotBuiltError(ProviderConfigurationError):
+    """An operation the adapter does not implement yet — the identAPI's
+    identification, browse, details, VIN and valuation methods until their
+    tickets land (KAN-488). A `ProviderConfigurationError`, so the gateway
+    neither logs a call that was never sent nor charges the circuit breaker
+    (five plate lookups must not take a connection offline); the message names
+    the ticket.
+    """

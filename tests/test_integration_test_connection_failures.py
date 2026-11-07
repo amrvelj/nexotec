@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 
 from app.core.auth import create_access_token
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
-from app.integration.adapters.autoi_oauth import OAUTH_TOKEN_OPERATION
+from app.integration.adapters.autoi_oauth import OAUTH_DISCOVERY_OPERATION, OAUTH_TOKEN_OPERATION
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
 from app.integration.models.provider import IntegrationProvider
@@ -144,15 +144,20 @@ def test_a_provider_failure_marks_the_connection_error_instead_of_raising(db_ses
 
 def test_a_wrong_secret_is_a_failed_login_and_never_reaches_entitlement_probing(db_session, monkeypatch):
     """Probing runs only after the access check succeeded. A refused login must
-    therefore end the test with exactly one logged, failed `oauth_token` row and
-    no identAPI request at all."""
+    therefore end the test with the discovery row, one logged, failed
+    `oauth_token` row and no identAPI request at all."""
 
     s = _wrong_secret(db_session, monkeypatch)
 
     gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
-    calls = db_session.query(IntegrationCallLog).filter_by(connection_id=s.connection.id).all()
-    assert [(c.capability, c.status) for c in calls] == [(OAUTH_TOKEN_OPERATION, CallStatus.ERROR)]
+    calls = (
+        db_session.query(IntegrationCallLog).filter_by(connection_id=s.connection.id)
+        .order_by(IntegrationCallLog.created_at, IntegrationCallLog.id).all()
+    )
+    assert [(c.capability, c.status) for c in calls] == [
+        (OAUTH_DISCOVERY_OPERATION, CallStatus.SUCCESS), (OAUTH_TOKEN_OPERATION, CallStatus.ERROR),
+    ]
     assert s.fake.api_requests() == []
     assert connection_service.list_entitlements(db_session, connection_id=s.connection.id) == []
 

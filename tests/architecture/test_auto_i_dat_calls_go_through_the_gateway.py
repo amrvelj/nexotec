@@ -12,9 +12,10 @@ touches ``self._http`` and is called from ``_request`` alone. Everything else
 methods — is a parameterisation of ``_request``.
 
 **The OAuth client** (`adapters/autoi_oauth.py`) has the same shape for the
-token endpoint: ``_send`` is the only method touching ``self._http``, and
-``request_token`` the only one opening ``provider_request`` / ``call_with_retry``
-(the ``oauth_token`` row).
+authorization server: ``_send`` is the only method touching ``self._http``,
+and ``_discover`` (the ``oauth_discovery`` row) and ``request_token`` (the
+``oauth_token`` row) are the only two opening ``provider_request`` /
+``call_with_retry`` and calling ``_send``.
 
 **The SOAP adapter** (`adapters/auto_i_dat_soap.py`) keeps its guard until
 KAN-550 removes it: ``_suchen`` is its one choke point.
@@ -100,7 +101,7 @@ def test_the_identapi_adapter_sends_every_request_through_request():
     )
 
 
-def test_the_oauth_client_sends_every_token_request_through_request_token():
+def test_the_oauth_client_sends_only_through_its_two_metered_requests():
     tree = ast.parse((_ADAPTERS / "autoi_oauth.py").read_text())
     cls = _class(tree, "AutoiOAuthClient")
     for method in _methods(cls):
@@ -113,10 +114,13 @@ def test_the_oauth_client_sends_every_token_request_through_request_token():
             assert not touches_client, f"AutoiOAuthClient.{method.name} touches self._http — only _send may"
         metered = _calls(method, "provider_request")
         retried = _calls(method, "call_with_retry")
-        if method.name == "request_token":
-            assert metered and retried, "request_token must be the metered, retried token request"
+        sends = _calls_method(method, "_send")
+        if method.name in ("request_token", "_discover"):
+            assert metered and retried and sends, f"{method.name} must be a metered, retried request through _send"
         else:
-            assert not metered and not retried, f"AutoiOAuthClient.{method.name} meters or retries outside request_token"
+            assert not metered and not retried and not sends, (
+                f"AutoiOAuthClient.{method.name} sends, meters or retries outside request_token / _discover"
+            )
 
 
 def test_only_suchen_touches_the_soap_client_and_the_retry_layer():

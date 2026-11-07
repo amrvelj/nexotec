@@ -85,8 +85,8 @@ from app.integration.adapters.base import (
 )
 from app.integration.errors import (
     ProviderConfigurationError,
-    ProviderGatewayError,
     ProviderNotEntitledError,
+    ProviderOperationNotBuiltError,
     ProviderRejectedError,
     ProviderRequestError,
     ProviderTransportError,
@@ -131,7 +131,10 @@ class _Unauthorized(ProviderRejectedError):
 
 
 def _not_built(ticket: str, what: str) -> NoReturn:
-    raise ProviderGatewayError(f"{what} is not available on the identAPI adapter until {ticket} is built.")
+    # A `ProviderConfigurationError`: nothing was sent, so the gateway writes
+    # no row and charges no breaker (a caller probing every rung of
+    # identification must not take the connection offline).
+    raise ProviderOperationNotBuiltError(f"{what} is not available on the identAPI adapter until {ticket} is built.")
 
 
 class AutoIDatIdentAdapter:
@@ -145,6 +148,7 @@ class AutoIDatIdentAdapter:
         actor_id: uuid.UUID | None,
         purpose: str,
         user: EnrolledUser | None,
+        no_user_reason: str | None = None,
         base_url: str = BASE_URL,
     ) -> None:
         self._db = db
@@ -154,6 +158,7 @@ class AutoIDatIdentAdapter:
         self._actor_id = actor_id
         self._purpose = purpose
         self._user = user
+        self._no_user_reason = no_user_reason
         self._base_url = base_url.rstrip("/")
 
     # -- credentials ------------------------------------------------------
@@ -194,10 +199,7 @@ class AutoIDatIdentAdapter:
 
     def _access_token(self) -> str:
         if self._user is None:
-            raise ProviderConfigurationError(
-                "identAPI calls need a signed-in user: auto-i enrols each user by name and e-mail, "
-                "and this call has none."
-            )
+            raise ProviderConfigurationError(self._no_user_reason or NO_ACTOR_REASON)
         return self._oauth.access_token(
             connection_id=self._connection.id,
             cache_key=self._cache_key(),
@@ -239,7 +241,7 @@ class AutoIDatIdentAdapter:
                     f"{operation}: the identAPI refused the access token twice (HTTP 401) — "
                     "check the client id and the client secret of this connection."
                 ) from None
-            invalidate_tokens(self._connection.id)
+            invalidate_tokens(self._connection.id, self._user.user_id if self._user else None)
             return self._request(operation, method, path, params, _retry_auth=False)
 
     def _send(
@@ -478,11 +480,29 @@ def _http_client() -> httpx.Client:
     return _shared_http
 
 
-def enrolled_user_for(db: Session, connection: IntegrationConnection, actor_id: uuid.UUID | None) -> EnrolledUser | None:
-    """The acting user as auto-i wants them named: through `platform.public`,
-    the one door into the platform context. `None` when there is no actor
-    (a job with no user) or the actor does not act in the connection's
-    Betrieb — the adapter then refuses the call before it is sent."""
+# The three ways a call can have nobody to enrol, each its own sentence in
+# `last_error` (the dealer manager, or platform staff, reads it).
+NO_ACTOR_REASON = (
+    "identAPI calls need a signed-in user: auto-i enrols each user by name and e-mail, and this call has none."
+)
+NO_TENANT_REASON = (
+    "This connection belongs to no Betrieb, so there is no user auto-i could enrol — "
+    "the identAPI service account is configured on a Betrieb's connection."
+)
+NOT_ACTING_IN_BETRIEB_REASON = (
+    "The signed-in user is not a member of this connection's Betrieb, so auto-i cannot enrol them for it — "
+    "test the connection as a member of that Betrieb (platform staff included)."
+)
+
+
+def enrolled_user_for(
+    db: Session, connection: IntegrationConnection, actor_id: uuid.UUID | None
+) -> tuple[EnrolledUser | None, str | None]:
+    """The acting user as auto-i wants them named — through `platform.public`,
+    the one door into the platform context — or `None` with the reason the
+    adapter raises before anything is sent: no actor (a job with no user), a
+    connection without a Betrieb, or an actor who does not act in it (platform
+    staff testing a dealer's connection, KAN-488 review finding 9)."""
 
     # Imported here, not at module scope: `app.integration` imports this
     # adapter on load, and an eager import would make every import of the
@@ -491,12 +511,17 @@ def enrolled_user_for(db: Session, connection: IntegrationConnection, actor_id: 
     # noticed). The door stays the same: `platform.public`, nothing else.
     from app.platform.public import get_active_user_acting_in
 
-    if actor_id is None or connection.tenant_id is None:
-        return None
+    if actor_id is None:
+        return None, NO_ACTOR_REASON
+    if connection.tenant_id is None:
+        return None, NO_TENANT_REASON
     user = get_active_user_acting_in(db, dealership_id=connection.tenant_id, user_id=actor_id)
     if user is None:
-        return None
-    return EnrolledUser(user_id=str(user.id), email=user.email, first_name=user.first_name, last_name=user.last_name)
+        return None, NOT_ACTING_IN_BETRIEB_REASON
+    return (
+        EnrolledUser(user_id=str(user.id), email=user.email, first_name=user.first_name, last_name=user.last_name),
+        None,
+    )
 
 
 def _build_ident_adapter(
@@ -507,6 +532,7 @@ def _build_ident_adapter(
     request, inside the caller's `call_capability` block, does both."""
 
     http = _http_client()
+    user, no_user_reason = enrolled_user_for(db, connection, actor_id)
     return AutoIDatIdentAdapter(
         db=db,
         connection=connection,
@@ -514,7 +540,8 @@ def _build_ident_adapter(
         oauth=AutoiOAuthClient(http),
         actor_id=actor_id,
         purpose=purpose,
-        user=enrolled_user_for(db, connection, actor_id),
+        user=user,
+        no_user_reason=no_user_reason,
     )
 
 

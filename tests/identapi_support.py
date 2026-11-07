@@ -173,8 +173,9 @@ class FakeSecretsBackend:
         self.resolutions = 0
 
     def resolve_secret(self, *, connection_id: uuid.UUID, slot: str) -> str:
-        self.resolutions += 1
-        return self.values[(connection_id, slot)]
+        value = self.values[(connection_id, slot)]  # a missing slot raises, as the real SDK does
+        self.resolutions += 1  # counts resolutions that handed out a value
+        return value
 
     # the write side, so `connection_service.set_secret(..., secrets_backend_module=self)` works too
     def create_secret(self, *, connection_id, slot, value):
