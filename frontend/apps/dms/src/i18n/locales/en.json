@@ -319,7 +319,8 @@
       "purchase_not_booked": "No purchase is booked for this vehicle, so there is nothing to cancel.",
       "purchase_storno_left_stock": "This vehicle has already left stock. Its purchase can no longer be cancelled.",
       "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
-      "source_ref_reserved": "This reference is reserved for the purchase and its cancellation."
+      "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
+      "storno_return_not_trade_in": "Only a trade-in can go back to its customer."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1212,7 +1213,9 @@
         "submit": "Cancel purchase",
         "cancel": "Back",
         "failed": "The purchase could not be cancelled.",
-        "leftStock": "Not possible: the vehicle has left stock."
+        "leftStock": "Not possible: the vehicle has left stock.",
+        "returnedToCustomer": "The car goes back to the customer",
+        "returnedToCustomerHint": "The customer who traded it in becomes its owner and keeper again. Unticked, their vehicle history stays as the purchase recorded it."
       }
     },
     "wagenbuch": {

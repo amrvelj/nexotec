@@ -180,6 +180,8 @@ const REASON_KEYS: Record<string, string> = {
       'purchase_storno_invoice_requested',
       'purchase_storno_left_stock',
       'source_ref_reserved',
+      // KAN-572 — only a trade-in's car can go back to its customer.
+      'storno_return_not_trade_in',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

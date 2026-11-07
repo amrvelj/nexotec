@@ -9070,6 +9070,12 @@ export interface components {
         PurchaseStornoRequest: {
             /** Reason */
             reason: string;
+            /**
+             * Returnedtocustomer
+             * @description KAN-572 (Anto, 2026-11-07, option C): the trade-in went back to the customer who traded it in, so the customer context reopens that customer as the car's owner and keeper. Only a trade-in's car (422 `storno_return_not_trade_in` otherwise); false — the default — leaves the customer's history as the purchase wrote it: the customer did hand the car over.
+             * @default false
+             */
+            returnedToCustomer?: boolean;
         };
         /**
          * PushConfigRead

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Stack, Text, Textarea } from '@mantine/core'
+import { useEffect, useId, useState } from 'react'
+import { Checkbox, Stack, Text, Textarea } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { StockItemRead } from '../../api/types'
 import { apiRefusalText } from '../../utils/apiRefusal'
@@ -10,7 +11,7 @@ import { apiRefusalText } from '../../utils/apiRefusal'
 interface PurchaseStornoDialogProps {
   opened: boolean
   onClose: () => void
-  item: Pick<StockItemRead, 'id' | 'version' | 'stockNumber'>
+  item: Pick<StockItemRead, 'id' | 'version' | 'stockNumber' | 'pipelineRef'>
   onStornoed: (updated: StockItemRead) => void
 }
 
@@ -23,11 +24,27 @@ interface PurchaseStornoDialogProps {
  * derives «nicht fakturierbar» for its contract until it is bought again. A
  * refusal (left stock, invoice requested, a stale version) is said in the UI
  * language.
+ *
+ * KAN-572 (Anto, 2026-11-07, option C): on a trade-in's car — a pipeline item
+ * a contract's confirmation created for its trade-in (`pipelineRef`
+ * `contract:<id>:trade_in`) — the user says whether the car went back to the
+ * customer who traded it in (`returnedToCustomer`). Ticked, the customer is
+ * their owner and keeper again; unticked (the default), their history stays
+ * as the purchase wrote it. Any other car is never asked (the API refuses it,
+ * 422 `storno_return_not_trade_in`).
  */
+export function isTradeInStockItem(item: Pick<StockItemRead, 'pipelineRef'>): boolean {
+  return /^contract:[^:]+:trade_in$/.test(item.pipelineRef ?? '')
+}
+
 export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: PurchaseStornoDialogProps) {
   const { t } = useTranslation()
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
+  const [returnedToCustomer, setReturnedToCustomer] = useState(false)
+  const tradeIn = isTradeInStockItem(item)
+  const hint = useFieldHint()
+  const returnedHintId = useId()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   // KAN-266: a retried submit replays the first answer instead of a 409.
@@ -37,6 +54,7 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
     if (opened) {
       setReason('')
       setReasonError(null)
+      setReturnedToCustomer(false)
       setSubmitError(null)
       idempotency.renew()
     }
@@ -53,7 +71,7 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
       const path = `/inventory/stock-items/${item.id}/purchase/storno`
       const updated = await api.post<StockItemRead>(
         path,
-        { reason: reason.trim() },
+        tradeIn ? { reason: reason.trim(), returnedToCustomer } : { reason: reason.trim() },
         { 'If-Match': String(item.version), ...idempotency.headers([path]) },
       )
       idempotency.renew()
@@ -93,6 +111,17 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
           withAsterisk
           data-autofocus
         />
+        {tradeIn && (
+          <Checkbox
+            {...hint(
+              t('stockDetail.purchase.storno.returnedToCustomer'),
+              t('stockDetail.purchase.storno.returnedToCustomerHint'),
+              { descriptionId: returnedHintId },
+            )}
+            checked={returnedToCustomer}
+            onChange={(e) => setReturnedToCustomer(e.currentTarget.checked)}
+          />
+        )}
         {submitError && (
           <Text size="xs" c="red" role="alert">
             {submitError}

@@ -37,6 +37,7 @@ from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
 from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
+from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
@@ -138,6 +139,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.purchased",
         consumer_name="customer.trade_in_purchased",
         handler=handle_trade_in_purchased_message,
+    )
+    # KAN-572 (Anto, 2026-11-07, option C) — a trade-in whose purchase was
+    # stornoed and which went back to its customer reopens that customer as
+    # owner and keeper, in the customer context's own transaction.
+    transport.register(
+        "inventory.stock_item.storno",
+        consumer_name="customer.trade_in_storno",
+        handler=handle_trade_in_storno_message,
     )
     # KAN-144 — a manual configuration's contract learns the pipeline stock
     # item its confirmation created, so the purchase gate can apply to it.

@@ -319,7 +319,8 @@
       "purchase_not_booked": "Per questo veicolo non è registrato alcun acquisto da stornare.",
       "purchase_storno_left_stock": "Questo veicolo ha già lasciato lo stock. Il suo acquisto non può più essere stornato.",
       "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
-      "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno."
+      "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
+      "storno_return_not_trade_in": "Solo un veicolo in permuta può tornare al cliente."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1212,7 +1213,9 @@
         "submit": "Stornare l'acquisto",
         "cancel": "Annulla",
         "failed": "Non è stato possibile stornare l'acquisto.",
-        "leftStock": "Non possibile: il veicolo ha lasciato lo stock."
+        "leftStock": "Non possibile: il veicolo ha lasciato lo stock.",
+        "returnedToCustomer": "Il veicolo torna al cliente",
+        "returnedToCustomerHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
       }
     },
     "wagenbuch": {

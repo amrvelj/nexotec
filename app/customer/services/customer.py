@@ -3403,6 +3403,98 @@ def record_former_holder_on_purchase(
     return written
 
 
+def reopen_former_holder_after_storno(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, group_id: uuid.UUID,
+    closed_after: dt.datetime, closed_until: dt.datetime, actor_id: uuid.UUID | None,
+) -> list[VehicleParty]:
+    """KAN-572 (Anto, 2026-11-07, option C): Stock cancelled a trade-in's
+    purchase and said the car went back to `customer_id`, who traded it in.
+    That customer holds it again, so per role (owner, keeper) the row the
+    purchase closed (KAN-189, `record_former_holder_on_purchase`) is reopened
+    — `effectiveTo` back to open, the same row, so the history shows no
+    handover that did not happen.
+
+    The row is this customer's latest of that role closed between the
+    contract's signature (`closed_after`) and the storno (`closed_until`):
+    the purchase closed it there, at the purchase date's start or at the
+    booking. A role the customer holds now is left alone (a redelivery, or a
+    later allocation), and so is a role with no such row (a purchase this
+    context never recorded). A reopen goes through the close rule like every
+    other (KAN-148): every other open holder of the role in the group is
+    closed, under the allocation's locks and order — advisory, then the
+    customer row (`customer_merged` refused, KAN-365), then party rows. The
+    copy a merge kept (`merged_into_customer_id`) is never reopened.
+
+    Audited as `vehicle_party_update` with reason `trade_in_returned_to_customer`
+    and published as `customer.vehicle_party.linked`, as a reopen by PATCH is
+    (KAN-352). Flushes only: the consumer commits it with its processed_event
+    row."""
+
+    roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
+    for role in roles:
+        _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    _refuse_merged_customer(db, customer_id)
+    now = utcnow()
+    reopened: list[VehicleParty] = []
+    for role in roles:
+        mine = (
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.customer_id == customer_id,
+            VehicleParty.role == role,
+            VehicleParty.merged_into_customer_id.is_(None),
+        )
+        holds_now = db.scalar(
+            select(VehicleParty.id).where(
+                *mine,
+                VehicleParty.effective_from <= now,
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > now),
+            )
+        )
+        if holds_now is not None:
+            continue
+        party = db.scalars(
+            select(VehicleParty)
+            .where(
+                *mine,
+                VehicleParty.effective_to >= closed_after,
+                VehicleParty.effective_to <= closed_until,
+            )
+            .order_by(VehicleParty.effective_to.desc())
+            .limit(1)
+            .with_for_update()
+        ).first()
+        if party is None:
+            continue
+        for other in _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id, excluding=party.id):
+            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
+        before = {
+            "vehicleId": str(party.vehicle_id),
+            "role": party.role.value,
+            "effectiveFrom": party.effective_from.isoformat(),
+            "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+        }
+        party.effective_to = None
+        db.flush()
+        record_audit_event(
+            db, entity_type="customer", entity_id=customer_id, tenant_id=group_id, action="vehicle_party_update",
+            actor_id=actor_id, before=before, after={"effectiveTo": None}, reason="trade_in_returned_to_customer",
+        )
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.vehicle_party.linked",
+                tenant_id=group_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="vehicle_party",
+                aggregate_id=party.id,
+                payload=_vehicle_party_payload(party),
+            ),
+        )
+        reopened.append(party)
+    db.flush()
+    return reopened
+
+
 def resolve_live_customer_id(db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID) -> uuid.UUID | None:
     """The customer a record now lives on: `customer_id` itself, or the
     survivor its merge chain ends at (KAN-383 keeps "merged into" naming a

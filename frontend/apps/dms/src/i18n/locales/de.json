@@ -319,7 +319,8 @@
       "purchase_not_booked": "Für dieses Fahrzeug ist kein Einkauf erfasst, der storniert werden könnte.",
       "purchase_storno_left_stock": "Dieses Fahrzeug hat den Bestand bereits verlassen. Sein Einkauf kann nicht mehr storniert werden.",
       "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
-      "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert."
+      "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
+      "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1212,7 +1213,9 @@
         "submit": "Einkauf stornieren",
         "cancel": "Abbrechen",
         "failed": "Der Einkauf konnte nicht storniert werden.",
-        "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen."
+        "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
+        "returnedToCustomer": "Das Fahrzeug geht an den Kunden zurück",
+        "returnedToCustomerHint": "Der Kunde, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
       }
     },
     "wagenbuch": {

@@ -319,7 +319,8 @@
       "purchase_not_booked": "Aucun achat n'est saisi pour ce véhicule, il n'y a rien à annuler.",
       "purchase_storno_left_stock": "Ce véhicule a déjà quitté le stock. Son achat ne peut plus être annulé.",
       "purchase_storno_invoice_requested": "La facture du contrat {{contractNumber}} a déjà été demandée. L'achat ne peut plus être annulé.",
-      "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation."
+      "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation.",
+      "storno_return_not_trade_in": "Seul un véhicule de reprise peut retourner au client."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1212,7 +1213,9 @@
         "submit": "Annuler l'achat",
         "cancel": "Retour",
         "failed": "L'achat n'a pas pu être annulé.",
-        "leftStock": "Impossible : le véhicule a quitté le stock."
+        "leftStock": "Impossible : le véhicule a quitté le stock.",
+        "returnedToCustomer": "Le véhicule retourne au client",
+        "returnedToCustomerHint": "Le client qui l'a repris redevient propriétaire et détenteur. Sans coche, son historique reste tel que l'achat l'a enregistré."
       }
     },
     "wagenbuch": {

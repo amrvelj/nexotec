@@ -159,6 +159,66 @@ describe('«Einkauf stornieren» (KAN-146)', () => {
   })
 })
 
+// KAN-572 (Anto, 2026-11-07, option C) — on a trade-in's car the user says
+// whether it went back to the customer who traded it in; that customer is then
+// their owner and keeper again. Any other car is never asked.
+describe('«Einkauf stornieren» on a trade-in (KAN-572)', () => {
+  const TRADE_IN: StockItemRead = { ...BOUGHT, pipelineRef: 'contract:c-0042:trade_in' }
+  const returnedLabel = () => i18n.t('stockDetail.purchase.storno.returnedToCustomer')
+
+  async function openStorno(item: StockItemRead) {
+    const user = userEvent.setup()
+    renderTab(item, { onPurchaseStornoed: vi.fn() })
+    await openPurchaseBlock(user)
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.storno.button') }))
+    await screen.findByRole('dialog')
+    await user.type(
+      screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.purchase.storno.reasonLabel')) }),
+      'Kunde behält das Fahrzeug',
+    )
+    return user
+  }
+
+  it('asks, unticked by default, and sends returnedToCustomer when ticked', async () => {
+    const backend = installFakeBackend([
+      { method: 'POST', match: /^\/inventory\/stock-items\/s1\/purchase\/storno$/, handler: () => STORNOED },
+    ])
+    const user = await openStorno(TRADE_IN)
+
+    const box = screen.getByRole('checkbox', { name: (n) => n.startsWith(returnedLabel()) })
+    expect(box).not.toBeChecked()
+    expect(box).toHaveAccessibleDescription(i18n.t('stockDetail.purchase.storno.returnedToCustomerHint'))
+    await user.click(box)
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: i18n.t('stockDetail.purchase.storno.submit') }))
+
+    await waitFor(() => expect(backend.callsTo(/purchase\/storno$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/purchase\/storno$/, 'POST')[0].body).toEqual({
+      reason: 'Kunde behält das Fahrzeug',
+      returnedToCustomer: true,
+    })
+  })
+
+  it('left unticked, says the car stayed: the customer keeps their history', async () => {
+    const backend = installFakeBackend([
+      { method: 'POST', match: /^\/inventory\/stock-items\/s1\/purchase\/storno$/, handler: () => STORNOED },
+    ])
+    const user = await openStorno(TRADE_IN)
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: i18n.t('stockDetail.purchase.storno.submit') }))
+
+    await waitFor(() => expect(backend.callsTo(/purchase\/storno$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/purchase\/storno$/, 'POST')[0].body).toEqual({
+      reason: 'Kunde behält das Fahrzeug',
+      returnedToCustomer: false,
+    })
+  })
+
+  it('is never asked for a car that is not a trade-in', async () => {
+    installFakeBackend([])
+    await openStorno(BOUGHT)
+    expect(screen.queryByRole('checkbox', { name: (n) => n.startsWith(returnedLabel()) })).not.toBeInTheDocument()
+  })
+})
+
 // KAN-146 — the storno's counter-entry carries the negated Einstandspreis.
 // The Wagenbuch put its own «−» before every cost, so it read «−-CHF 24'500.00».
 describe('Wagenbuch — a counter-entry reads as one signed amount (KAN-146)', () => {
