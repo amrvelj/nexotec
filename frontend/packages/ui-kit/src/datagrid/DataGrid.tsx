@@ -15,6 +15,28 @@ type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSPro
 const ACTION_COLUMN_WIDTH = 48;
 const SELECTION_COLUMN_WIDTH = 40;
 
+const NO_WRAP_ELLIPSIS: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+
+/** § Composite cells, `default` density, one line: the primary keeps its
+ * content width (capped at the cell) and does not shrink (KAN-573). */
+const INLINE_COMPOSITE_PRIMARY_STYLE: CSSProperties = {
+  ...NO_WRAP_ELLIPSIS,
+  fontSize: 14,
+  color: slate[9],
+  flex: "0 0 auto",
+  maxWidth: "100%",
+};
+
+/** …and the secondary takes what is left, shrinking to an ellipsis (to
+ * zero width if need be) before the primary gives up anything. */
+const INLINE_COMPOSITE_SECONDARY_STYLE: CSSProperties = {
+  ...NO_WRAP_ELLIPSIS,
+  fontSize: 12,
+  color: slate[5],
+  flex: "0 1 auto",
+  minWidth: 0,
+};
+
 export interface DataGridSelectionProps<T = unknown> {
   selectedIds: Set<string>;
   onSelectionChange: (selectedIds: Set<string>) => void;
@@ -360,27 +382,25 @@ export function DataGrid<T>({
                               // second fact sits on the SAME line as the
                               // first — only `comfortable` stacks them, and
                               // `compact` drops the secondary line entirely.
-                              <div style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}>
-                                <span
-                                  style={{
-                                    fontSize: 14,
-                                    color: slate[9],
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
+                              // The primary is the column's fact and keeps
+                              // priority (KAN-573): it takes its own width up
+                              // to the whole cell and never shrinks while the
+                              // secondary has width left; the secondary
+                              // shrinks to an ellipsis — down to nothing —
+                              // before a single character of the primary is
+                              // cut. Before, the secondary refused to shrink,
+                              // so a 17-character VIN reduced the stock grid's
+                              // vehicle name to «V…».
+                              <div
+                                data-composite="inline"
+                                style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}
+                              >
+                                <span data-composite-part="primary" style={INLINE_COMPOSITE_PRIMARY_STYLE}>
                                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                 </span>
                                 <span
-                                  style={{
-                                    fontSize: 12,
-                                    color: slate[5],
-                                    flexShrink: 0,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
+                                  data-composite-part="secondary"
+                                  style={INLINE_COMPOSITE_SECONDARY_STYLE}
                                 >
                                   {meta.secondary(row.original)}
                                 </span>
