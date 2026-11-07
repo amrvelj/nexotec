@@ -124,6 +124,13 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
     expect(menu.offered.createOffer).toBeUndefined()
   })
 
+  it('while a deal is being created, both deal actions wait for it and say so', () => {
+    const menu = buildStockRowMenu(t, BOUGHT, handlers(), ALL, null, true)
+    for (const action of [menu.primary!, menu.alternative!]) {
+      expect(action).toMatchObject({ disabled: true, disabledReason: 'stockDetail.rowMenu.creatingDeal' })
+    }
+  })
+
   it('each item calls its own handler', () => {
     const h = handlers()
     const menu = buildStockRowMenu(t, BOUGHT, h, ALL, null)

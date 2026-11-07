@@ -1320,7 +1320,8 @@
     "rowMenu": {
       "changeCondition": "Zustand ändern",
       "purchaseAlreadyBooked": "Der Einkauf ist bereits erfasst.",
-      "purchaseNotBooked": "Noch kein Einkauf erfasst."
+      "purchaseNotBooked": "Noch kein Einkauf erfasst.",
+      "creatingDeal": "Wird gerade erstellt …"
     },
     "condition": {
       "title": "Zustand ändern",

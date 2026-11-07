@@ -198,6 +198,24 @@ def test_a_late_returned_storno_after_the_car_was_bought_again_reopens_nobody(db
     ).all() == []
 
 
+def test_a_stale_returned_storno_replayed_after_a_rebooking_that_was_stornoed_too_reopens_nobody(db_session, engine):
+    """Review finding (2026-11-07, second round): P1 → S1 (returned, its
+    delivery fails or is dead-lettered) → P2 → S2 (not returned) → S1
+    replayed. The car is not bought now, but S1 is stale — P2 overtook it —
+    so the customer must not become its current holder."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    stale = _storno(db_session, item, returned=True)
+    _customer_consumes(db_session, _buy_again(db_session, item, dt.date(2026, 11, 2)))
+    _customer_consumes_storno(db_session, _storno(db_session, item, returned=False))
+
+    assert _customer_consumes_storno(db_session, stale) is True
+
+    assert list_customer_vehicles(db_session, customer_id=contract.customer_id) == []
+    assert all(p.effective_to is not None for p in _parties(db_session))
+
+
 def test_the_reopen_closes_a_holder_allocated_since(db_session, engine):
     """No path bypasses the close rule (KAN-148): a customer allocated as owner
     after the purchase stops holding the car when it goes back."""

@@ -6,6 +6,7 @@ import { QueryClient } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
+import { useAuth } from '../auth/AuthContext'
 import { ALL_ENTITLEMENTS, installFakeBackend, type FakeBackend, type FakeRoute } from '../test/fakeBackend'
 import type { StockItemPage, StockItemRead } from '../api/types'
 import { StockDetailPage } from './StockDetailPage'
@@ -200,11 +201,11 @@ describe('Stock — one row menu for list and detail (KAN-571)', () => {
   })
 
   it('«Vertrag erstellen» asked for by the router state creates exactly one contract, under StrictMode', async () => {
-    // The page guards the action once per navigation (React's StrictMode runs
-    // a mounting component's effects twice). Here the session loads after
-    // mount, so the action runs on an update and this test does not by
-    // itself prove that guard; it pins the outcome: one POST, then the
-    // contract opens.
+    // StrictMode runs a mounting component's effects twice. The detail mounts
+    // only once the session is read (as ProtectedRoute does in the app) and
+    // the car is already cached, so the action is ready in the mount phase:
+    // without the once-per-navigation guard the second run would POST a
+    // second contract.
     const backend = installFakeBackend([
       { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
       { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
@@ -215,7 +216,7 @@ describe('Stock — one row menu for list and detail (KAN-571)', () => {
     renderWithProviders(
       <Routes>
         <Route path="/start" element={<Navigate to={`/stock/${ID}`} state={{ stockOpenAction: 'createContract' }} />} />
-        <Route path="/stock/:id" element={<DetailWithState />} />
+        <Route path="/stock/:id" element={<AfterSession><DetailWithState /></AfterSession>} />
         <Route path="/sales/contracts/:id" element={<p>contract page</p>} />
       </Routes>,
       { route: '/start', strictMode: true, queryClient },
@@ -225,3 +226,8 @@ describe('Stock — one row menu for list and detail (KAN-571)', () => {
     expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')).toHaveLength(1)
   })
 })
+
+/** Renders its children once the session is read, as ProtectedRoute does. */
+function AfterSession({ children }: { children: React.ReactNode }) {
+  return useAuth().loading ? null : <>{children}</>
+}

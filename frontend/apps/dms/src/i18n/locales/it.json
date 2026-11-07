@@ -1320,7 +1320,8 @@
     "rowMenu": {
       "changeCondition": "Modifica stato",
       "purchaseAlreadyBooked": "L'acquisto è già registrato.",
-      "purchaseNotBooked": "Nessun acquisto ancora registrato."
+      "purchaseNotBooked": "Nessun acquisto ancora registrato.",
+      "creatingDeal": "Creazione in corso …"
     },
     "condition": {
       "title": "Modifica stato",

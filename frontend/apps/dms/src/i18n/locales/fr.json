@@ -1320,7 +1320,8 @@
     "rowMenu": {
       "changeCondition": "Modifier l'état",
       "purchaseAlreadyBooked": "L'achat est déjà saisi.",
-      "purchaseNotBooked": "Aucun achat saisi pour l'instant."
+      "purchaseNotBooked": "Aucun achat saisi pour l'instant.",
+      "creatingDeal": "Création en cours …"
     },
     "condition": {
       "title": "Modifier l'état",

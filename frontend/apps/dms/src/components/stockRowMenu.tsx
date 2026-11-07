@@ -99,26 +99,27 @@ export function buildStockRowMenu(
   /** The date the car left stock, already formatted in the user's locale. */
   leftStockDate: string | null,
   /** The detail is creating an offer or a contract for this car: both deal
-   * actions wait for it (no reason line — the button shows it is working). */
+   * actions wait for it, and say so (ADR-061: never disabled without a reason). */
   creatingDeal = false,
 ): StockRowMenu {
   const leftStockReason = leftStockDate ? t('stockDetail.actions.leftStock', { date: leftStockDate }) : undefined
   const left = leftStockReason !== undefined
   const booked = item.purchasePrice != null
+  const dealReason = leftStockReason ?? (creatingDeal ? t('stockDetail.rowMenu.creatingDeal') : undefined)
 
   const contract: RowMenuAction = {
     label: t('stockDetail.actions.createContract'),
     icon: <FileSignature size={16} />,
     onClick: handlers.createContract,
-    disabled: left || creatingDeal,
-    disabledReason: leftStockReason,
+    disabled: dealReason !== undefined,
+    disabledReason: dealReason,
   }
   const offer: RowMenuAction = {
     label: t('stockDetail.actions.createOffer'),
     icon: <Handshake size={16} />,
     onClick: handlers.createOffer,
-    disabled: left || creatingDeal,
-    disabledReason: leftStockReason,
+    disabled: dealReason !== undefined,
+    disabledReason: dealReason,
   }
 
   const offered: Partial<Record<StockOpenAction, RowMenuAction>> = {}

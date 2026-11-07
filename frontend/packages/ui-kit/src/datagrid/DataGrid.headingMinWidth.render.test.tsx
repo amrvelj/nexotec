@@ -103,4 +103,10 @@ describe("DataGrid — a column is never narrower than its heading (KAN-578)", (
     expect(header("VEICOLO").style.minWidth).toBe("300px");
     expect(cell("Škoda Octavia Combi 2.0 TDI RS 4x4").style.minWidth).toBe("300px");
   });
+
+  it("the table is at least as wide as its columns' minimums, so a row spans the whole scrolled width", () => {
+    render(grid());
+    // 120 (ID) + 300 (VEICOLO, its own width) + 139 (CHILOMETRAGGIO)
+    expect(screen.getByRole("table").style.minWidth).toBe("559px");
+  });
 });

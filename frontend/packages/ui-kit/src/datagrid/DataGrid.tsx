@@ -219,6 +219,17 @@ export function DataGrid<T>({
   }, []);
   const unsizedMinWidth = (columnId: string) =>
     Math.max(UNSIZED_MIN_WIDTH, Math.ceil((headingWidths[columnId] ?? 0) + HEADER_PADDING_X));
+  // The table is at least as wide as its columns' minimums together, so the
+  // header and every body row (each `width: 100%` of it) span the whole
+  // scrollable width: scrolled sideways, a row's divider, hover and selection
+  // background and its link still reach the last column.
+  const tableMinWidth = allColumns.reduce((sum, column) => {
+    const id = String(column.id);
+    if (id === "__actions") return sum + ACTION_COLUMN_WIDTH;
+    if (id === "__select") return sum + SELECTION_COLUMN_WIDTH;
+    const ownWidth = (column.meta as GridColumnDef<T>["meta"])?.width;
+    return sum + (ownWidth ?? unsizedMinWidth(id));
+  }, 0);
 
   const virtualizer = useVirtualizer({
     count: tableRows.length,
@@ -308,7 +319,7 @@ export function DataGrid<T>({
             children anyway) — a div grid with ARIA table roles keeps the
             same semantics/accessibility without that conflict, the
             standard pattern for a virtualized table. */}
-        <div role="table" aria-rowcount={total ?? rows.length} style={{ width: "100%" }}>
+        <div role="table" aria-rowcount={total ?? rows.length} style={{ width: "100%", minWidth: tableMinWidth }}>
           <div role="rowgroup" style={{ position: "sticky", top: 0, zIndex: 2 }}>
             {table.getHeaderGroups().map((headerGroup) => (
               <div role="row" key={headerGroup.id} style={{ display: "flex" }}>
@@ -534,13 +545,18 @@ function HeaderCell({
   onResize?: (width: number) => void;
 }) {
   const headingRef = useRef<HTMLSpanElement>(null);
-  // Re-measured after every render (a language switch changes the label);
-  // the grid stores a width only when it changed, so this never loops.
+  const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
+  // Measured when what the heading shows changes — its label (a language
+  // switch), the sort indicator and its ordinal — never on a scroll; the grid
+  // stores a width only when it changed, so this never loops.
+  const ordinal = sort.length > 1 && sortIndex !== -1 ? sortIndex + 1 : 0;
   useLayoutEffect(() => {
     const heading = headingRef.current;
     if (heading && onMeasureHeading) onMeasureHeading(heading.scrollWidth);
-  });
-  const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
+    // onMeasureHeading is a new closure on every grid render; the width it
+    // reports depends only on what the heading shows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label, sortIndex, ordinal]);
   const isSorted = sortIndex !== -1;
   const direction = isSorted ? sort[sortIndex].direction : null;
 

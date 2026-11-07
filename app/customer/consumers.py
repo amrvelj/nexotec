@@ -30,7 +30,7 @@ from app.customer.services.customer import (
     reopen_former_holder_after_storno,
     resolve_live_customer_id,
 )
-from app.inventory.public import standing_purchase_date
+from app.inventory.public import purchase_booked_after, standing_purchase_date
 from app.platform.public import get_dealership_or_404
 from app.sales.public import get_trade_in_seller
 
@@ -124,9 +124,9 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
     (`returnedToCustomer`). That customer holds it again: the owner and
     keeper rows the purchase closed (KAN-189) are reopened. A storno that
     does not say so changes nothing here — the customer did hand the car
-    over; only the dealer's booking was reversed. Nor does one that arrives
-    after the car was bought again (Stock re-read, as Sales does): the car is
-    the dealer's then.
+    over; only the dealer's booking was reversed. Nor does a stale one: a
+    storno a later purchase booking overtook (Stock asked, as Sales does),
+    whether that booking stands or was stornoed in turn.
 
     The contract's customer is Sales' fact, read through `app.sales.public`,
     and followed through a merge to its survivor, as the purchase consumer
@@ -147,12 +147,15 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
     if not payload.get("vehicleId"):
         logger.warning("Trade-in storno %s carries no vehicleId; no holder reopened.", message.id)
         return
-    # Delivery is unordered after a failed delivery: a storno may arrive after
-    # the car was bought again. Stock's fact is re-read as it is now (as
-    # Sales' storno consumer does): a car Stock holds as bought is not with
-    # the customer, whatever this older storno said.
-    if standing_purchase_date(db, tenant_id=message.tenant_id, stock_item_id=message.aggregate_id) is not None:
-        logger.info("Trade-in storno %s: the car is bought again; no holder reopened.", message.id)
+    # Delivery is unordered after a failed delivery (and a dead letter may be
+    # replayed much later): a storno may arrive after the car was bought
+    # again — and that booking may itself have been stornoed since. Stock is
+    # asked whether a purchase was booked after this storno; if so the storno
+    # is stale and says nothing about who holds the car now.
+    if purchase_booked_after(
+        db, tenant_id=message.tenant_id, stock_item_id=message.aggregate_id, after=message.occurred_at
+    ):
+        logger.info("Trade-in storno %s: a later purchase overtook it; no holder reopened.", message.id)
         return
 
     contract_id = uuid.UUID(payload["originContractId"])
