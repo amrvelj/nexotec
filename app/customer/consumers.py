@@ -78,8 +78,9 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
 
     # KAN-572: delivery is unordered after a failed delivery, so a purchase
     # event may arrive after its storno (or after the car was booked again).
-    # Stock's fact is re-read as it is now: only the purchase that still
-    # stands is recorded — a later booking publishes its own event, and a
+    # Stock's fact is re-read as it is now: only a purchase that still
+    # stands is recorded, judged by its purchase date (a purchase stornoed
+    # and booked again under the same date is taken for the standing one) — a later booking publishes its own event, and a
     # car that went back to its customer must not show a handover. Accepted
     # residual (Anto, 2026-11-07, KAN-572 option A; customer.md): consumed
     # after an unflagged storno committed — a failed delivery, or just a

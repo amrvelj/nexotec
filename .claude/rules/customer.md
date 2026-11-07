@@ -163,8 +163,10 @@ weekly. -->
   open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
   the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
   failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
-  records only a purchase that still stands (a late event of a stornoed or re-booked purchase writes
-  nothing; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
+  records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
+  purchase, or of one booked again under another date, writes nothing; booked again under the same
+  date, the late event is taken for the standing one — the same history, except that a date not after
+  the signature ends it at the late event's booking; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
   purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
   `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
   stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
