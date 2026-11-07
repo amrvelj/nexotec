@@ -154,6 +154,17 @@ weekly. -->
   a customer merged since is followed to its survivor. Same locks and `customer_merged` refusal
   as an allocation. The step lives in the customer context (Anto's ruling 1 A), so no write
   spans two contexts (rule 12).
+- **A stornoed trade-in that went back to its customer reopens them** (KAN-572; Anto, 2026-11-07,
+  option C): `customer.trade_in_storno` consumes `inventory.stock_item.storno` and, only when it says
+  `returnedToCustomer`, `reopen_former_holder_after_storno` reopens the owner and keeper rows the
+  purchase closed — the same rows (`effectiveTo` back to open), this customer's latest of the role
+  closed between the contract's signature and the storno — audited `vehicle_party_update` with reason
+  `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
+  open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
+  the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
+  failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
+  records only a purchase that still stands (a late event of a stornoed or re-booked purchase writes
+  nothing; the standing one publishes its own).
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and
