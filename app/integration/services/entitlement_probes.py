@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from app.integration.adapters.auto_i_dat_parse import ProviderRejectedError as SoapEmptyAnswerError
 from app.integration.adapters.base import ProviderAdapter
-from app.integration.errors import ProviderNotEntitledError
+from app.integration.errors import ProviderNotEntitledError, ProviderRejectedError
 
 
 @dataclass(frozen=True)
@@ -80,16 +80,17 @@ def probes_for(provider_code: str) -> tuple[CapabilityProbe, ...]:
     return _PROBES_BY_PROVIDER.get(provider_code, ())
 
 
-def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool:
+def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool | None:
     """`True` = the provider answered (data or "no data"), `False` = it
-    refused the capability. Only that reads as refused: the identAPI's 403
-    (`ProviderNotEntitledError`, KAN-488) and the SOAP empty string
-    (`auto_i_dat_parse.ProviderRejectedError`, the p4 inference). A refused
-    login (`errors.ProviderRejectedError`: a 401, a bad secret), maintenance,
-    a transport failure and a 400/422 (`ProviderRequestError`: our request,
-    not the licence) propagate, because none of them says anything about what
-    the account is entitled to — a login that fails mid-probing must not switch
-    off every option (KAN-488 review finding 1).
+    refused the capability, `None` = the login was refused and probing must
+    stop. Only a refusal of the capability reads as not granted: the
+    identAPI's 403 (`ProviderNotEntitledError`, KAN-488) and the SOAP empty
+    string (`auto_i_dat_parse.ProviderRejectedError`, the p4 inference). A
+    refused login (`errors.ProviderRejectedError`: a 401 twice, a bad secret)
+    is `None`. Maintenance, a transport failure and a 400/422
+    (`ProviderRequestError`: our request, not the licence) propagate, because
+    none of them says anything about what the account is entitled to — and none
+    of them, nor a refused login, may switch off an option (KAN-488 review).
 
     Only meaningful when `System` was accepted for the same connection just
     before; see the module docstring for why that ordering is what makes a
@@ -100,4 +101,10 @@ def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool:
         probe.call(adapter)
     except (ProviderNotEntitledError, SoapEmptyAnswerError):
         return False
+    except ProviderRejectedError:
+        # A refused login (a 401 twice, a secret that stopped working between
+        # the access check and this probe): not about the capability, and not
+        # a provider failure either — the connection is told to stop probing,
+        # so the circuit breaker is not charged once per remaining option.
+        return None
     return True

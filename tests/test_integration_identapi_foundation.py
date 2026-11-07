@@ -199,7 +199,8 @@ def test_a_missing_client_secret_is_the_dealers_to_fix_not_a_provider_failure(db
         (OAUTH_DISCOVERY_OPERATION, CallStatus.SUCCESS)
     ]
     assert charged == []
-    assert s.secrets.resolutions == 0
+    # The read was attempted once (after discovery) and handed out nothing.
+    assert (s.secrets.attempts, s.secrets.resolutions) == (1, 0)
 
 
 def test_a_missing_client_id_is_refused_before_any_request(db_session, monkeypatch):
@@ -532,11 +533,62 @@ def test_a_refused_login_while_probing_leaves_every_entitlement_row_untouched(db
         return httpx.Response(401, json={"status": "401", "title": "Unauthorized"})
 
     monkeypatch.setattr(s.fake, "_ident_api", refuse_probes)
+    logins_before = len(s.fake.token_requests())
 
     updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     assert updated.status == ConnectionStatus.CONNECTED
     assert _entitlements(db_session, s.connection) == before
+    # Probing stopped at the first refused login: one refresh, not one per
+    # option, and the breaker untouched (review F1).
+    assert len(s.fake.token_requests()) == logins_before + 1
+    assert resilience.is_circuit_open(s.connection.id) is False
+    assert resilience._circuit_for(s.connection.id).failure_count == 0
+
+
+def test_the_providers_answer_to_a_bad_request_never_charges_the_breaker(db_session, monkeypatch):
+    """Review F1, the other path: five 422 answers on probes (or five wrong
+    Stammnummern typed by a user) are the provider answering, not failing."""
+
+    fake = FakeAutoi(api_status={path: 422 for path in PROBE_PATHS.values()})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert _entitlements(db_session, s.connection) == {}
+    assert resilience._circuit_for(s.connection.id).failure_count == 0
+    for operation in PROBE_OPERATIONS.values():
+        (row,) = _rows(db_session, s.connection, operation)
+        assert row.status == CallStatus.ERROR  # refused, and logged as such
+
+
+def test_a_404_on_the_access_check_is_not_a_connected_account(db_session, monkeypatch):
+    """Review F5: a retired `/caption/code` path is an error, not "connected"
+    with an empty vocabulary; a 404 reads as "nothing found" on lookups only."""
+
+    fake = FakeAutoi(api_status={"/caption/code": 404})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "HTTP 404" in (updated.last_error or "")
+    assert connection_service.list_entitlements(db_session, connection_id=s.connection.id) == []
+
+
+def test_last_error_carries_the_providers_title_but_never_its_prose(db_session, monkeypatch):
+    """Review F6: the json:api `detail` is server prose and stays out of a
+    message every dealer manager reads; the bounded `title` is enough."""
+
+    fake = FakeAutoi(api_status={"/caption/code": 422})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "HTTP 422" in (updated.last_error or "") and "Unprocessable" in (updated.last_error or "")
+    assert "No vehicle for this key" not in (updated.last_error or "")
 
 
 def test_a_not_built_operation_is_neither_logged_nor_charged(db_session, monkeypatch):
@@ -570,7 +622,7 @@ def test_a_failed_discovery_resolves_no_secret_and_leaves_an_honest_row(db_sessi
     updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     assert updated.status == ConnectionStatus.ERROR
-    assert s.secrets.resolutions == 0
+    assert s.secrets.attempts == 0  # never even asked
     # The document arrived and was refused: that request's own ERROR row.
     assert [(r.capability, r.status, r.cost_units) for r in _rows(db_session, s.connection)] == [
         (OAUTH_DISCOVERY_OPERATION, CallStatus.ERROR, 0)

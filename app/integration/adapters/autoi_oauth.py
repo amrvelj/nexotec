@@ -11,7 +11,8 @@ instruction for Nexotec (mail of 2026-11-07) names two things to implement:
   ``scope=ident``. The client authenticates with HTTP Basic
   (``client_secret_basic``: the client id and the client secret) and names the
   Nexotec user on whose behalf it calls: ``user_id``, ``email``, ``first_name``,
-  ``last_name`` and the user's UI language in ``Accept-Language``. auto-i
+  ``last_name`` and a UI language in ``Accept-Language`` (``de-CH`` for every
+  user until KAN-585 reads the user's own through ``platform.public``). auto-i
   registers that person on first access. The token is therefore **per
   connection and per user**, valid ``expires_in`` seconds (1200 today), with no
   refresh token.
@@ -74,8 +75,7 @@ class EnrolledUser:
     `Accept-Language`, the UI language auto-i registers the user with. It is
     `de-CH` for every user today: the user's UI preference is not readable
     through `platform.public` (`user_preference.ui_language_of` is internal to
-    the platform context), and reading it is a public-door addition for the
-    identification ticket, not a side effect here."""
+    the platform context); reading it is KAN-585, not a side effect here."""
 
     user_id: str
     email: str
@@ -251,7 +251,7 @@ class AutoiOAuthClient:
         cache_key: Hashable,
         user: EnrolledUser,
         client_id: str,
-        resolve_client_secret,
+        resolve_client_secret: Callable[[], str],
     ) -> str:
         """The user's token on this connection: cached while it is valid, else
         requested — and only then is the client secret resolved

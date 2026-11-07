@@ -42,6 +42,7 @@ from app.integration.adapters.base import ProviderAdapter
 from app.integration.errors import (
     ProviderConfigurationError,
     ProviderGatewayError,
+    ProviderRequestError,
     ProviderTimeoutError,
     ProviderTransportError,
 )
@@ -361,7 +362,13 @@ def _record_failed_call(
     that row is marked as the failure, so the log never shows a failed,
     breaker-charged call as a success. No extra row: nothing more was sent."""
 
-    resilience.record_failure(connection.id)
+    # KAN-488: a 400/422 on the identAPI (`ProviderRequestError`) is the
+    # provider's coherent answer to our request — an unknown key, a malformed
+    # filter — not a failure of the provider. The request's row reads ERROR
+    # (it was refused), but five such answers must not take the connection
+    # offline: a user typing a wrong Stammnummer five times is not an outage.
+    if not isinstance(exc, ProviderRequestError):
+        resilience.record_failure(connection.id)
     if meter.requests:
         log = meter.last_log
         if log is not None and log.status == CallStatus.SUCCESS:
@@ -409,9 +416,11 @@ def _maybe_capture_payload(
 def test_connection(
     db: Session, *, connection: IntegrationConnection, actor_id: uuid.UUID | None = None
 ) -> IntegrationConnection:
-    """The dealer-facing "Test connection" action (PR-7's own UI) — a
-    lightweight probe: fetch the system watermark, which every provider
-    account can read regardless of its other entitlements. Updates
+    """The dealer-facing "Test connection" action (PR-7's own UI) — an
+    access check every account of the provider can pass whatever its other
+    entitlements (`entitlement_probes.access_check`: for the identAPI the
+    login plus `GET /caption/code`, for the SOAP-shaped mock the `System`
+    watermark), then the entitlement probes. Updates
     status/last_verified_at/last_error directly.
 
     Any `ProviderGatewayError` — a refusal, a rejected login, a maintenance
@@ -427,12 +436,12 @@ def test_connection(
     resolved: nothing is logged, the breaker is not charged, and a healthy
     connection is not marked `ERROR` for a call that never happened.
 
-    KAN-38 PR 2b: once the watermark call has succeeded, also probes the
+    KAN-38 PR 2b: once the access check has succeeded, also probes the
     capabilities `services/entitlement_probes.py` can probe honestly and
     records each result as an `integration_entitlement` row. The ordering is
-    load-bearing — a probe's rejection is only attributable to the
-    capability because `System` has just accepted the same credentials — so
-    a connection that fails here is never probed. Each probe is a real,
+    load-bearing — a probe's refusal is only attributable to the capability
+    because the access check has just accepted the same credentials — so a
+    connection that fails here is never probed. Each probe is a real,
     logged, potentially billed provider call: for the identAPI one click is
     the login, the caption call and six probes (KAN-488).
 
@@ -519,6 +528,17 @@ def _probe_entitlements(
                 probe.capability_code, connection.id, exc_info=True,
             )
             continue
+        if granted is None:
+            # KAN-488: the login was refused under the probes (the access check
+            # had passed). Nothing is known about the remaining options, and
+            # retrying the login once per option would open the breaker for a
+            # connection whose card reads connected — so probing stops here.
+            logger.warning(
+                "entitlement probing stopped on connection %s: the login was refused at %s; "
+                "the remaining options are left unchanged",
+                connection.id, probe.capability_code,
+            )
+            break
         connection_service.record_probed_entitlement(
             db, connection_id=connection.id, capability_code=probe.capability_code, granted=granted
         )

@@ -35,8 +35,10 @@ anything is sent.
 
 What this adapter does **not** do yet: identification, browse, options,
 valuation and the VIN rung are KAN-547, KAN-548, KAN-211, KAN-552 and KAN-549.
-Every ``ProviderAdapter`` method they own raises ``ProviderGatewayError``
-naming its ticket — an explicit "not built", never a silent empty answer.
+Every ``ProviderAdapter`` method they own raises
+``ProviderOperationNotBuiltError`` (a ``ProviderConfigurationError``: nothing
+sent, nothing logged, the breaker untouched) naming its ticket — an explicit
+"not built", never a silent empty answer.
 What it does today: ``fetch_code_captions`` (the access check of *Test
 connection*) and the six entitlement probes
 (``services/entitlement_probes.py``), each a single documented identAPI call
@@ -217,6 +219,7 @@ class AutoIDatIdentAdapter:
         path: str,
         params: Mapping[str, str | int | bool] | None = None,
         *,
+        empty_on_404: bool = False,
         _retry_auth: bool = True,
     ) -> dict[str, Any]:
         """Every identAPI request. The token is obtained (and, if it has to
@@ -234,7 +237,7 @@ class AutoIDatIdentAdapter:
                 response = call_with_retry(
                     lambda: request.attempt(lambda: self._send(operation, method, url, params, headers))
                 )
-                return self._accept(operation, response)
+                return self._accept(operation, response, empty_on_404=empty_on_404)
         except _Unauthorized:
             if not _retry_auth:
                 raise ProviderRejectedError(
@@ -242,7 +245,7 @@ class AutoIDatIdentAdapter:
                     "check the client id and the client secret of this connection."
                 ) from None
             invalidate_tokens(self._connection.id, self._user.user_id if self._user else None)
-            return self._request(operation, method, path, params, _retry_auth=False)
+            return self._request(operation, method, path, params, empty_on_404=empty_on_404, _retry_auth=False)
 
     def _send(
         self, operation: str, method: str, url: str, params: Mapping[str, str | int | bool] | None, headers: dict[str, str]
@@ -260,18 +263,20 @@ class AutoIDatIdentAdapter:
         return response
 
     @staticmethod
-    def _accept(operation: str, response: httpx.Response) -> dict[str, Any]:
+    def _accept(operation: str, response: httpx.Response, *, empty_on_404: bool) -> dict[str, Any]:
         status = response.status_code
         if status == 401:
             raise _Unauthorized(f"{operation}: HTTP 401")
         if status == 403:
             raise ProviderNotEntitledError(operation)
         if status in (400, 422):
-            raise ProviderRequestError(f"{operation}: the identAPI refused the request (HTTP {status}){_json_api_detail(response)}.")
-        if status == 404:
-            # Not in the OpenAPI document's response list; read as "nothing
-            # found" for a lookup, which is what json:api's `dataIsEmpty`
-            # expresses on a 200.
+            raise ProviderRequestError(f"{operation}: the identAPI refused the request (HTTP {status}){_json_api_title(response)}.")
+        if status == 404 and empty_on_404:
+            # Not in the OpenAPI document's response list for any endpoint —
+            # an inference: read as "nothing found" for a lookup (the probes),
+            # which is what json:api's `dataIsEmpty` expresses on a 200. The
+            # access check never asks for it: a 404 on `/caption/code` is a
+            # retired path, not a connected account (KAN-488 review F5).
             return {"data": [], "meta": {"totalCount": 0, "dataIsEmpty": True}}
         if status != 200:
             raise ProviderTransportError(f"{operation}: the identAPI answered HTTP {status}.")
@@ -298,28 +303,28 @@ class AutoIDatIdentAdapter:
     # body; the probe only cares whether it was refused with 403.
 
     def probe_ident_basis(self) -> dict[str, Any]:
-        return self._request(OP_VEHICLECATALOG, "GET", f"/vehiclecatalog/autoi/{PROBE_FZ_KEY_CATALOG}")
+        return self._request(OP_VEHICLECATALOG, "GET", f"/vehiclecatalog/autoi/{PROBE_FZ_KEY_CATALOG}", empty_on_404=True)
 
     def probe_ausstattung(self) -> dict[str, Any]:
-        return self._request(OP_VEHICLEOPTION_CATALOG, "GET", f"/vehicleoption/catalog/autoi/{PROBE_FZ_KEY_OPTIONS}")
+        return self._request(OP_VEHICLEOPTION_CATALOG, "GET", f"/vehicleoption/catalog/autoi/{PROBE_FZ_KEY_OPTIONS}", empty_on_404=True)
 
     def probe_bewertung(self) -> dict[str, Any]:
         return self._request(
             OP_RESIDUALVALUE, "GET", f"/residualvalue/{PROBE_FZ_KEY_RESIDUAL}/{PROBE_MODEL_YEAR_RESIDUAL}"
-        )
+        , empty_on_404=True)
 
     def probe_vin(self) -> dict[str, Any]:
-        return self._request(OP_VINREQUEST, "GET", f"/vinrequest/{PROBE_VIN}")
+        return self._request(OP_VINREQUEST, "GET", f"/vinrequest/{PROBE_VIN}", empty_on_404=True)
 
     def probe_pneu(self) -> dict[str, Any]:
         return self._request(
             OP_TYRESANDRIMS_TYPEAPPROVAL, "GET", f"/tyresandrims/typeapproval/{PROBE_TYPE_APPROVAL_TYRES}"
-        )
+        , empty_on_404=True)
 
     def probe_energielabel(self) -> dict[str, Any]:
         return self._request(
             OP_ENERGYLABEL_INFO, "GET", f"/energylabel/info/typeapproval/{PROBE_TYPE_APPROVAL_ENERGY}"
-        )
+        , empty_on_404=True)
 
     # -- ProviderAdapter methods other tickets build ------------------------------
 
@@ -437,10 +442,12 @@ class AutoIDatIdentAdapter:
         _not_built("KAN-547", "The code map")
 
 
-def _json_api_detail(response: httpx.Response) -> str:
-    """`title` and `detail` of a json:api error body — they describe our
-    request (an unknown identifier, a malformed filter), never a credential,
-    and they are what a dealer manager needs to read in `last_error`."""
+def _json_api_title(response: httpx.Response) -> str:
+    """The json:api error body's `title` — a short, bounded summary of the
+    problem ("Bad Request", "Unprocessable") — for `last_error`. Its free-text
+    `detail` is left out, as the token endpoint's `error_description` is: a
+    server's prose is never persisted into a message every dealer manager can
+    read (`errors.py`'s rule; KAN-488 review F6)."""
 
     try:
         body = response.json()
@@ -448,8 +455,8 @@ def _json_api_detail(response: httpx.Response) -> str:
         return ""
     if not isinstance(body, dict):
         return ""
-    parts = [str(body[k]) for k in ("title", "detail") if isinstance(body.get(k), str) and body[k].strip()]
-    return f": {' — '.join(parts)}" if parts else ""
+    title = body.get("title")
+    return f": {title.strip()[:80]}" if isinstance(title, str) and title.strip() else ""
 
 
 # -- the gateway's factory -----------------------------------------------------

@@ -42,10 +42,11 @@ _ENTITY_TYPE = "integration_connection"
 #               row reads as "granted".
 #   feature     A name a screen asks about through `tenant_has_capability`.
 #               Derived on each ask: `valuation` follows the sheet line
-#               `bewertung` (FEATURE_SHEET_LINES); `vin_decode` follows the
-#               health of the tenant's `dat` connection (below). `vin_decode`
-#               is NOT the sheet lines `vin` / `vin_ident_db` — those count VIN
-#               calls billed on the auto-i-dat sheet, this asks whether the
+#               `bewertung`, `packages` and `images` follow `ausstattung`
+#               (FEATURE_SHEET_LINES); `vin_decode` follows the health of the
+#               tenant's `dat` connection (below, until KAN-549). `vin_decode`
+#               is NOT the licence option `vin` — that one says whether the
+#               identAPI account may send VIN queries, this asks whether the
 #               tenant can decode a VIN at all; its row is a display cache.
 #   call label  What `call_capability(capability=...)` names a block by:
 #               `vehicle_data` (catalogue_sync's and identification's umbrella
@@ -58,10 +59,7 @@ _ENTITY_TYPE = "integration_connection"
 # tests/architecture/test_capability_codes_are_in_the_vocabulary.py fails when
 # a consumer reads a code that is in none of the first two layers.
 
-# A feature whose entitlement is exactly one sheet line: `valuation` is the
-# Bewertung webservice, and `Bew` is that webservice's counter. `packages`,
-# `images` and `forecast` are absent because the specification supports no
-# such mapping (see catalogue_entitlements.py).
+# A feature whose entitlement is exactly one licence option.
 # KAN-488: the identAPI's licence options replace the sheet lines (migration
 # 6b98739fe743): `ident_basis`, `ausstattung`, `bewertung`, `vin`, `pneu`,
 # `energielabel`. The features screens ask about keep their names and follow

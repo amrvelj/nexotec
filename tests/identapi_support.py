@@ -161,6 +161,8 @@ class FakeAutoi:
             return _json_api_error(422, "Unprocessable", "No vehicle for this key.")
         if status == 400:
             return _json_api_error(400, "Bad Request", "The filter is malformed.")
+        if status == 404:
+            return httpx.Response(404, text="Not Found")
         return _json_api_error(status, "Server error")
 
 
@@ -170,11 +172,13 @@ class FakeSecretsBackend:
 
     def __init__(self, values: dict[tuple[uuid.UUID, str], str] | None = None) -> None:
         self.values = dict(values or {})
-        self.resolutions = 0
+        self.attempts = 0  # every read the adapter asked for
+        self.resolutions = 0  # those that handed out a value
 
     def resolve_secret(self, *, connection_id: uuid.UUID, slot: str) -> str:
+        self.attempts += 1
         value = self.values[(connection_id, slot)]  # a missing slot raises, as the real SDK does
-        self.resolutions += 1  # counts resolutions that handed out a value
+        self.resolutions += 1
         return value
 
     # the write side, so `connection_service.set_secret(..., secrets_backend_module=self)` works too

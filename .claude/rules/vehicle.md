@@ -201,17 +201,22 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `platform.public.get_active_user_acting_in`) — auto-i registers each user on first use. The
   Bearer token (1200 s) is cached in process **per connection and per user**, keyed by the
   connection's `version` and `rotated_at` (an edit or a rotation drops it), never persisted,
-  never logged (`access_token` / `Authorization` are redacted field names); a token request is one
-  `oauth_token` row at `cost_units = 0`, the secret resolved and audited once per token request. A
-  call with no signed-in user, no `clientId` or no secret is a `ProviderConfigurationError` —
-  unlogged, uncharged, the dealer's to fix. The provider row (migration `6b98739fe743`) is
+  never logged (`access_token` / `Authorization` are redacted field names); the discovery read and
+  each token request are rows of their own (`oauth_discovery`, `oauth_token`, both `cost_units = 0`),
+  the secret resolved and audited once per token request and only after discovery produced an
+  endpoint. A call with no signed-in user, no `clientId` or no secret is a
+  `ProviderConfigurationError` — the dealer's to fix: the breaker is never charged and no row is
+  invented for a request that was not sent (what was sent before it stopped, the discovery read,
+  keeps its row). A 400/422 is the provider's answer to our request, logged `ERROR` on its row and
+  never charged to the breaker either; only a transport failure, a 5xx or a refused login charges it. The provider row (migration `6b98739fe743`) is
   `auth_type oauth2_user_enrollment`, slots `[client_secret]`, config `[clientId]`,
   `capability_codes [ident_basis, ausstattung, bewertung, vin, pneu, energielabel]`: the identAPI's
   licence options, each probed by one documented call on «Test connection» (inputs are auto-i's
   own documentation examples; 403 = not granted, 200/404 = granted, anything else leaves the row).
   `images`/`packages` are features over `ausstattung`; the plate rung's entitlement is
-  `ident_basis`. «Test connection» = token + `GET /caption/code?lang=de` + the six probes, with
-  the clicking user as the actor. Identification, browse, details, VIN and valuation on the
+  `ident_basis`. «Test connection» = discovery (cached a day) + token + `GET /caption/code?lang=de`
+  + the six probes, with the clicking user as the actor; a login refused under the probes stops
+  them and leaves every row as it was. Identification, browse, details, VIN and valuation on the
   identAPI are KAN-547/548/211/549/552; the SOAP adapter (`auto_i_dat_soap.py`, legacy code
   `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550/KAN-547.
 - Catalogue browse makes **no** live provider call (architecture test).
