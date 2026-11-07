@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import { usePersistedPreference } from './usePersistedPreference'
+import { readLocalMirror } from './persistedPreferenceStorage'
 
 // KAN-531 — a write still waiting on its 500 ms debounce when the screen
 // unmounts is sent at once, under the scope it was made for. Before, the
@@ -226,5 +227,22 @@ describe('usePersistedPreference — a pending write survives the tab closing (K
     await vi.waitFor(() => expect(error).toHaveBeenCalled())
     expect(puts(backend, 'grid:test')).toHaveLength(1)
     error.mockRestore()
+  })
+})
+
+// KAN-104 item 2 — the server's answer (a new user's starting language, say)
+// becomes the browser's mirror, so the next load's first frame already paints
+// with it, not with the defaults or this browser's last user. Nothing is PUT.
+describe('usePersistedPreference — the server answer is the next first frame (KAN-104)', () => {
+  it('writes the server payload to the local mirror without saving it back', async () => {
+    const backend = installFakeBackend([
+      { method: 'GET', match: /\/me\/preferences\/ui$/, handler: () => ({ scope: 'ui', payload: { density: 'compact' }, updatedAt: null }) },
+    ])
+    const { result } = renderHook(() => usePersistedPreference<Prefs>('ui', 'test-ui-mirror', DEFAULTS))
+
+    await vi.waitFor(() => expect(result.current.value.density).toBe('compact'))
+
+    expect(readLocalMirror<Prefs>('test-ui-mirror', DEFAULTS).density).toBe('compact')
+    expect(puts(backend, 'ui')).toHaveLength(0)
   })
 })

@@ -4,9 +4,9 @@
 never a shared transaction. It would work today because everything
 shares one database. That is exactly why it is forbidden." reserve()/
 release() each own their own commit — Pattern B (app.customer.services.
-customer.repoint_vehicle_party), not Pattern A (app.sales.services.
-transaction.repoint_customer_transactions's "join the caller's
-transaction"). A future Sales caller (WP-8) calls this from OUTSIDE its
+customer.repoint_vehicle_party), never Pattern A ("join the caller's
+transaction" — the last such call, the customer merge's legacy-transaction
+re-point, became an event in KAN-185). A future Sales caller (WP-8) calls this from OUTSIDE its
 own contract-write transaction, with its own Idempotency-Key, a timeout
 and one retry on its side — this module's only obligation is that ITS
 half is atomic and idempotent on its own. Sales confirms through

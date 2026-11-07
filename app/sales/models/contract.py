@@ -89,8 +89,9 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
         GUID(), nullable=True, comment="Owned by the inventory context (StockItem.id). No DB-level FK."
     )
     # Rule 2's display label (the stock number) and when it was copied. Set
-    # when Sales learns a manual configuration's pipeline item (KAN-144);
-    # null on a stock-sourced contract, where Sales never sees the number.
+    # when Sales learns a manual configuration's pipeline item (KAN-144),
+    # and for a stock car once, when it is put on the contract or on the
+    # offer the contract copies (KAN-157, Anto 2026-11-03, option A).
     stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
     stock_item_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -137,8 +138,9 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     cost_basis: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
-    # WP-8 PR-6 — trade-in, copied from the offer at creation (S-D18's
-    # "vehicle AND allocation happen at OFFER time"); since KAN-67
+    # WP-8 PR-6 — trade-in, copied from the offer at creation; since KAN-189
+    # it creates no vehicle-mdm record and allocates no party (the car's
+    # customer becomes its former owner when it is bought); since KAN-67
     # (ADR-083) a pending contract may also record its own, through the
     # offer's trade-in service — a read-only reference all the same. At
     # confirmation (KAN-101)
@@ -176,6 +178,12 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     delivery_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+    # KAN-539 (Anto, 2026-11-03, option A): «Rechnung anfordern» happens once
+    # per contract. Set by request_invoice in the same transaction as the
+    # `sales.contract.invoice_requested` outbox row; a second request is
+    # refused (409 `invoice_already_requested`), so Finance never receives
+    # two triggers for one sale. Who asked is in the audit log.
+    invoice_requested_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     @declared_attr
     def is_invoiceable(cls) -> Mapped[bool]:

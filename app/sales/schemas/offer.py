@@ -29,8 +29,8 @@ class OfferContainerState(CamelModel):
 
 class TradeInRequest(CamelModel):
     """WP-8 PR-5 (S-D18/ADR-064) — the one-step trade-in action. Not a
-    plain PATCH field set: it calls into vehicle-mdm and customer, so it
-    is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
+    plain PATCH field set: it reads vehicle-mdm (and, since KAN-189, creates
+    no record and allocates no party), so it is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
     reasoning as reservation being its own endpoint rather than a PATCH.
 
     KAN-331: the VIN is normalised and validated as Stock's is (FR-V-15),
@@ -42,7 +42,9 @@ class TradeInRequest(CamelModel):
     plate: str | None = None
     canton: str | None = None
     vehicle_label: str
-    # None = same customer as the offer's own Kunde container.
+    # Since KAN-189 only checked (404 outside the caller's group) and
+    # otherwise unused: the former owner is the contract's customer. Whether
+    # to deprecate it is KAN-562 (a contract question for Anto).
     customer_id: uuid.UUID | None = None
 
 
@@ -94,6 +96,8 @@ class OfferRead(CamelModel):
     owner_label: str | None = None
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
+    # KAN-570: the stock car's number (KAN-157's copy; null without one).
+    stock_item_label: str | None = None
     vehicle_label: str | None
     configuration_id: uuid.UUID | None = None
     configuration_label: str | None = None

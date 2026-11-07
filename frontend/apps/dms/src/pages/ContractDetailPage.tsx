@@ -24,6 +24,7 @@ import {
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { RequestInvoiceDialog, type RequestInvoiceBody } from '../components/contract-detail/RequestInvoiceDialog'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
+import { StockNumberLink } from '../components/deal-workspace/StockNumberLink'
 import { buildDealTakeOverAction } from '../components/dealRowMenu'
 import { useAuth } from '../auth/AuthContext'
 import { CustomerDetailContent } from './CustomerDetailPage'
@@ -32,9 +33,10 @@ import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../salesOptions'
-import { formatCurrencyChf } from '../utils/format'
+import { formatCurrencyChf, formatDate } from '../utils/format'
 import type { SalesContractRead, ValuationRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { toSwissLocale, type SupportedLanguage } from '../i18n'
 
 export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -64,7 +66,7 @@ export interface ContractDetailContentProps {
  * contract without a buyer cannot be confirmed (KAN-307).
  */
 export function ContractDetailContent({ contractId: id, embedded = false }: ContractDetailContentProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   // KAN-405: «Übernehmen» takes the contract for the signed-in user.
   const currentUserId = useAuth().user?.id ?? null
   const queryClient = useQueryClient()
@@ -100,7 +102,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     enabled: tradeInValuationId != null,
   })
 
-  useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), contractQuery.data?.contractNumber ?? id])
+  useSetBreadcrumb(embedded ? null : [{ label: t('shell.nav.sales'), href: '/sales' }, contractQuery.data?.contractNumber ?? id])
 
   // KAN-307 — the buyer's record, for its do-not-contact state (the server
   // refuses that confirmation; the button says so first).
@@ -306,13 +308,19 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // (ADR-061: one primary action); the server's gates are mirrored so the
   // click is never invited only to be refused.
   const isConfirmed = contract.status === 'confirmed'
+  // KAN-539 — once per contract: after the request the action stays visible,
+  // disabled, and names the day it was done.
   const requestInvoiceDisabledReason = !isConfirmed
     ? t('contractDetail.actions.requestInvoiceDisabledNotConfirmed')
-    : contract.isLegacy
-      ? t('contractDetail.actions.requestInvoiceDisabledLegacy')
-      : !contract.isInvoiceable
-        ? t('contractDetail.actions.requestInvoiceDisabledNotPurchased')
-        : undefined
+    : contract.invoiceRequestedAt
+      ? t('contractDetail.actions.requestInvoiceDisabledAlreadyRequested', {
+          date: formatDate(contract.invoiceRequestedAt, toSwissLocale(i18n.language as SupportedLanguage)),
+        })
+      : contract.isLegacy
+        ? t('contractDetail.actions.requestInvoiceDisabledLegacy')
+        : !contract.isInvoiceable
+          ? t('contractDetail.actions.requestInvoiceDisabledNotPurchased')
+          : undefined
   const runPrimaryAction = () => {
     if (isConfirmed) {
       setInvoiceNotice(null)
@@ -402,6 +410,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           <>
             <SalesTypeBadge entityType="contract" label={translatedSalesEntityTypeLabel(t, 'contract')} />
             <SalesStatusBadge status={contract.status as never} label={translatedSalesDealStatusLabel(t, contract.status as never)} />
+            {/* KAN-570: beside the car (the title) once the vehicle container,
+                which shows it while the contract is edited, is gone. */}
+            {!(isPending && !pricedWithoutInputs) && contract.stockItemId && contract.stockItemLabel && (
+              <StockNumberLink stockNumber={contract.stockItemLabel} onOpen={openStockItemOverlay} />
+            )}
           </>
         }
         primaryAction={{
@@ -473,7 +486,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           )}
           {ownerSelect}
           <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
-          <DealVehicleContainer {...containerProps} />
+          <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
           <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
           <DealTradeInContainer {...containerProps} />
         </Stack>

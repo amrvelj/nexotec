@@ -195,7 +195,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
 
   const customer = customerQuery.data
   const label = customer ? (customer.customerType === 'business' ? customer.companyName : `${customer.firstName} ${customer.lastName}`) : null
-  useSetBreadcrumb(embedded ? null : [t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
+  useSetBreadcrumb(embedded ? null : [t('shell.nav.masterData'), { label: t('shell.nav.customers'), href: '/customers' }, label ?? t('customerDetail.header.customerFallback')])
 
   // KAN-473: only a stale If-Match 409 offers the reload.
   const isConflict = isStaleVersion

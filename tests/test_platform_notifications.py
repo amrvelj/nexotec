@@ -345,6 +345,39 @@ def test_off_writes_nothing_and_digest_holds_until_the_daily_job(client, login, 
     assert len(_outbox(db_session, notifications.DIGEST_RELEASED_EVENT)) == 1
 
 
+def test_a_digest_spanning_two_betriebe_is_one_event_filed_under_no_betrieb(client, login, db_session, probe_event):
+    """KAN-519 (Anto, 2026-11-03, option A): someone who works in two
+    Betriebe gets one digest for the whole day — one event, one push — and the
+    event names no Betrieb. It used to take the first held row's Betrieb,
+    which misfiled the other's notifications."""
+
+    home_betrieb = create_dealership(client)
+    anna = create_user(client, home_betrieb)
+    cookie = login.session_cookie(anna)
+    user_id = uuid.UUID(anna["id"])
+    sister = uuid.UUID(create_dealership(client, legalName="Garage Schwester AG"))
+    assert (
+        client.put(
+            "/v1/me/notification-preferences/administration",
+            json={"timing": "digest", "push": True},
+            headers={**cookie_headers(cookie), "If-Match": "0"},
+        ).status_code
+        == 200
+    )
+    home = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT, dealership_id=uuid.UUID(home_betrieb))
+    elsewhere = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT, dealership_id=sister)
+    assert home is not None and elsewhere is not None and home.delivered_at is None
+    db_session.commit()
+    assert {home.dealership_id, elsewhere.dealership_id} == {uuid.UUID(home_betrieb), sister}
+
+    assert notifications.release_digests(db_session) == 1
+    db_session.commit()
+
+    [digest] = _outbox(db_session, notifications.DIGEST_RELEASED_EVENT)
+    assert digest.tenant_id is None
+    assert digest.payload == {"userId": anna["id"], "count": 2, "families": ["administration"]}
+
+
 # --- Web Push subscriptions (FR-A-49) ----------------------------------------------------
 
 

@@ -24,16 +24,54 @@ context that was never group-scoped to begin with.
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.auth import Principal
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.inventory.models.stock_item import StockItem
 from app.platform.public import DealershipRef, list_group_read_dealerships
+
+
+def _group_roster(
+    db: Session,
+    *,
+    principal_group_id: uuid.UUID,
+    requested_group_id: uuid.UUID,
+    is_authorized: Callable[[], bool],
+) -> dict[uuid.UUID, DealershipRef]:
+    """The group's Betriebe by id, or 404 (never 403) for a caller whose role
+    does not grant the read, a group that is not the caller's own, a group
+    that does not exist or whose read is off."""
+
+    if not is_authorized() or principal_group_id != requested_group_id:
+        raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
+    # None for a group that does not exist or whose read is off — the same 404.
+    refs = list_group_read_dealerships(db, group_id=requested_group_id)
+    if refs is None:
+        raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
+    return {ref.id: ref for ref in refs}
+
+
+def list_group_stock_dealerships(
+    db: Session,
+    *,
+    principal_group_id: uuid.UUID,
+    requested_group_id: uuid.UUID,
+    is_authorized: Callable[[], bool],
+) -> list[DealershipRef]:
+    """KAN-565: the Betriebe the group stock listing can be filtered by —
+    exactly the roster `list_group_stock_items` reads, behind the same
+    gate, ordered by label for the filter's options."""
+
+    roster = _group_roster(
+        db, principal_group_id=principal_group_id, requested_group_id=requested_group_id, is_authorized=is_authorized
+    )
+    return sorted(roster.values(), key=lambda ref: (ref.label.casefold(), str(ref.id)))
 
 
 def list_group_stock_items(
@@ -44,6 +82,8 @@ def list_group_stock_items(
     is_authorized: Callable[[], bool],
     q: str | None,
     params: SortPageParams,
+    dealership_ids: Collection[uuid.UUID] | None = None,
+    dealership_ids_not: Collection[uuid.UUID] | None = None,
 ) -> tuple[list[tuple[StockItem, DealershipRef]], str | None, int, bool]:
     """Returns one page of (item, dealership) pairs so the caller can build
     dealershipLabel without a second round trip, plus the next cursor and
@@ -54,19 +94,24 @@ def list_group_stock_items(
     group with group_read_enabled still off, or a caller whose role
     doesn't grant this read at all (is_authorized, supplied by the API
     layer, same shape as get_group_read_or_404's own parameter).
+
+    KAN-565 (ADR-055 «the dealership as a filter»): `dealership_ids` keeps
+    only those Betriebe, `dealership_ids_not` drops them. Both only ever
+    narrow the group's own roster — an id that is not a Betrieb of the
+    caller's group (while its read is on) matches nothing, so it yields an
+    empty page, never a 403 or 404 that would say whether it exists.
     """
 
-    if not is_authorized() or principal_group_id != requested_group_id:
-        raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
+    dealerships = _group_roster(
+        db, principal_group_id=principal_group_id, requested_group_id=requested_group_id, is_authorized=is_authorized
+    )
+    selected = set(dealerships)
+    if dealership_ids:
+        selected &= set(dealership_ids)
+    if dealership_ids_not:
+        selected -= set(dealership_ids_not)
 
-    # None for a group that does not exist or whose read is off — the same
-    # 404 as before.
-    refs = list_group_read_dealerships(db, group_id=requested_group_id)
-    if refs is None:
-        raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
-    dealerships = {ref.id: ref for ref in refs}
-
-    stmt = select(StockItem).where(StockItem.tenant_id.in_(list(dealerships)), StockItem.left_stock_at.is_(None))
+    stmt = select(StockItem).where(StockItem.tenant_id.in_(sorted(selected)), StockItem.left_stock_at.is_(None))
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
@@ -86,7 +131,7 @@ def list_group_stock_items(
 
 
 def get_stock_items_for_vehicles(
-    db: Session, *, group_id: uuid.UUID, vehicle_ids: list[uuid.UUID]
+    db: Session, *, principal: Principal, vehicle_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, dict]:
     """KAN-49 / FR-19 amendment — "is this vehicle sitting in the group's
     own stock, and what's its stock item" for a batch of vehicles at once
@@ -114,12 +159,17 @@ def get_stock_items_for_vehicles(
     so `left_stock_at IS NULL` (currently in stock) is required — a link
     to a car that has already left is not "currently in the group's own
     stock" — and the newest match wins if more than one somehow qualifies.
+
+    KAN-538 (rule 7): the group is the caller's token's, never an id it
+    passes — this function authorises its own group read, as
+    list_group_stock_items does, so no caller can ask about another
+    group's stock (tests/test_inventory_group_stock_for_vehicles.py).
     """
 
     if not vehicle_ids:
         return {}
 
-    refs = list_group_read_dealerships(db, group_id=group_id)
+    refs = list_group_read_dealerships(db, group_id=principal.group_id)
     if not refs:
         return {}
     dealership_ids = [ref.id for ref in refs]

@@ -2,6 +2,7 @@
 
 import hashlib
 import uuid
+from collections.abc import Iterable
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -22,7 +23,6 @@ from app.inventory.models.stock_item import (
     StockNumberSequence,
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
-from app.inventory.services.vehicle_resolution import resolve_vehicle_mdm_by_vin
 from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD, get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
@@ -84,6 +84,36 @@ def get_stock_item_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid
     return item
 
 
+def get_stock_numbers(
+    db: Session, *, tenant_id: uuid.UUID, stock_item_ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """KAN-157: the stock number of each of the tenant's items among
+    `stock_item_ids` — plain data for Sales' label backfill. An id naming no
+    item of the tenant is absent from the answer. A SELECT only."""
+
+    ids = set(stock_item_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(StockItem.id, StockItem.stock_number).where(StockItem.tenant_id == tenant_id, StockItem.id.in_(ids))
+    ).all()
+    return {row.id: row.stock_number for row in rows}
+
+
+def is_stock_item_purchased(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> bool:
+    """KAN-146: whether this dealership holds the stock item as bought now —
+    `is_invoiceable`, the fact `inventory.stock_item.purchased` and
+    `inventory.stock_item.storno` replicate (ADR-052). Sales' storno consumer
+    re-reads it because delivery is unordered. A SELECT only; an item of
+    another dealership, or none, is False."""
+
+    return bool(
+        db.scalar(
+            select(StockItem.is_invoiceable).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id)
+        )
+    )
+
+
 def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> StockItem:
     """KAN-429: the item locked until the caller commits, as Sales' offer
     and contract routes load theirs (KAN-311). Every route that checks
@@ -107,17 +137,22 @@ def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_it
     return item
 
 
-def _item_in_stock_with_vin(db: Session, *, tenant_id: uuid.UUID, vin: str) -> StockItem | None:
+def _item_in_stock_with_vin(
+    db: Session, *, tenant_id: uuid.UUID, vin: str, excluding: uuid.UUID | None = None
+) -> StockItem | None:
     """KAN-111: the dealership's item holding this VIN that has not left
     stock — what `uq_stock_item_tenant_id_vin_in_stock` allows at most one
     of. An item that left stock (invoiced, FR-I-12) does not count; a
-    storno'd one still does (Anto, 2026-10-07)."""
+    storno'd one still does (Anto, 2026-10-07), and so does a pipeline item
+    created with its VIN (KAN-554). `excluding` leaves out the item being
+    promoted, which holds its own VIN already when it was created with one."""
 
-    return db.scalar(
-        select(StockItem).where(
-            StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
-        )
+    query = select(StockItem).where(
+        StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
     )
+    if excluding is not None:
+        query = query.where(StockItem.id != excluding)
+    return db.scalar(query)
 
 
 def _vin_already_in_stock(held_by: StockItem) -> ConflictError:
@@ -199,12 +234,14 @@ def _check_configuration_not_held(db: Session, *, tenant_id: uuid.UUID, configur
         )
 
 
-def _check_vin_not_in_stock(db: Session, *, tenant_id: uuid.UUID, vin: str) -> None:
+def _check_vin_not_in_stock(
+    db: Session, *, tenant_id: uuid.UUID, vin: str, excluding: uuid.UUID | None = None
+) -> None:
     """Refuse before writing, so the ordinary duplicate is a 409 with a
     reason. Two writers can still race past it; the unique index then
     refuses, and the callers map that to the same 409."""
 
-    held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=vin)
+    held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=vin, excluding=excluding)
     if held_by is not None:
         raise _vin_already_in_stock(held_by)
 
@@ -230,12 +267,22 @@ def _build_and_flush_stock_item(
     item = StockItem(
         tenant_id=tenant_id,
         stock_number=allocate_stock_number(db, tenant_id),
-        # With a VIN, create_stock_item has resolved this from vehicle-mdm
-        # (KAN-244); without one StockItemCreate refuses it (KAN-324), so a
-        # pipeline item is created with no vehicle and promotion can give it one.
+        # Every item is created without a vehicle-mdm record: a car not yet
+        # bought has none (ADR-045, ADR-103; KAN-554, Anto 2026-11-05, option
+        # A). Promotion at purchase booking gives it one. StockItemCreate
+        # refuses a vehicleId without a VIN (KAN-324) and create_stock_item
+        # drops one sent with a VIN.
         vehicle_id=data.vehicle_id,
         vin=data.vin,
-        vehicle_label=data.vehicle_label,
+        # ADR-117 (2), KAN-556: a configured car is named by its
+        # configuration's label — the client's text is not read — and the
+        # name follows the configuration from here on (attach, the nightly
+        # refresh). An item without a configuration keeps its own text.
+        vehicle_label=(
+            configuration_label
+            if data.configuration_id is not None and configuration_label is not None
+            else data.vehicle_label
+        ),
         condition=data.condition,
         location_id=data.location_id,
         odometer_km=data.odometer_km,
@@ -246,11 +293,11 @@ def _build_and_flush_stock_item(
         configuration_id=data.configuration_id,
         configuration_label=configuration_label if data.configuration_id is not None else None,
         configuration_label_refreshed_at=utcnow() if data.configuration_id is not None else None,
-        # A stock item created directly (not via the pipeline/promotion
-        # path, PR-2) already has a VIN in hand — it goes straight to
-        # in_stock rather than sitting in pipeline with nothing to promote.
-        lifecycle_status=LifecycleStatus.IN_STOCK if data.vin else LifecycleStatus.PIPELINE,
-        in_stock_at=utcnow() if data.vin else None,
+        # ADR-103, ADR-116 (KAN-554): every create lands in pipeline, a VIN
+        # given with it included. Purchase booking (purchase.record_purchase)
+        # is the only path to in_stock.
+        lifecycle_status=LifecycleStatus.PIPELINE,
+        in_stock_at=None,
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -268,8 +315,15 @@ def _build_and_flush_stock_item(
             # KAN-144 — `origin` (originContractId, originRole) is added only
             # when a contract's confirmation created the item, so Sales can
             # link a manual configuration to it. Additive: a consumer that
-            # ignores unknown keys is unaffected.
-            payload={"stockNumber": item.stock_number, "vehicleLabel": item.vehicle_label, **(origin or {})},
+            # ignores unknown keys is unaffected. KAN-270: `configurationId`,
+            # likewise only when the item has one — vehicle keeps a
+            # configuration a host took for good.
+            payload={
+                "stockNumber": item.stock_number,
+                "vehicleLabel": item.vehicle_label,
+                **({"configurationId": str(item.configuration_id)} if item.configuration_id is not None else {}),
+                **(origin or {}),
+            },
         ),
     )
     return item
@@ -303,10 +357,43 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
             producer=_EVENT_PRODUCER,
             aggregate_type="stock_item",
             aggregate_id=item.id,
-            payload={"stockNumber": item.stock_number},
+            # KAN-189 (Anto, 2026-11-02, option A) — additive: the car's
+            # vehicle-mdm record (promotion set it), the purchase date, who
+            # booked it and, for an item a contract's confirmation created,
+            # that contract and its role. The customer context records a bought
+            # trade-in's customer as its former owner from these; a consumer that
+            # ignores unknown keys is unaffected.
+            payload={
+                "stockNumber": item.stock_number,
+                "vehicleId": str(item.vehicle_id) if item.vehicle_id else None,
+                "purchaseDate": item.purchase_date.isoformat() if item.purchase_date else None,
+                "purchasedBy": str(item.updated_by) if item.updated_by else None,
+                **pipeline_origin(item.pipeline_ref),
+            },
         ),
     )
     return True
+
+
+def pipeline_origin(pipeline_ref: str | None) -> dict[str, str]:
+    """The contract a contract's confirmation created this item for, read back
+    from its `pipeline_ref` (`contract:<id>:manual` / `contract:<id>:trade_in`,
+    services/pipeline.py) as the same `originContractId` / `originRole` keys
+    `inventory.stock_item.added` carries (KAN-144). Empty for any other item."""
+
+    if not pipeline_ref:
+        return {}
+    parts = pipeline_ref.split(":")
+    if len(parts) != 3 or parts[0] != "contract" or parts[2] not in _PIPELINE_ORIGIN_ROLES:
+        return {}
+    try:
+        contract_id = uuid.UUID(parts[1])
+    except ValueError:
+        return {}
+    return {"originContractId": str(contract_id), "originRole": _PIPELINE_ORIGIN_ROLES[parts[2]]}
+
+
+_PIPELINE_ORIGIN_ROLES = {"manual": "manual_configuration", "trade_in": "trade_in"}
 
 
 def create_stock_item(
@@ -332,19 +419,16 @@ def create_stock_item(
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
     if data.configuration_id is not None:
         # KAN-509: after the VIN check, so the same car posted twice is still
-        # refused as `vin_already_in_stock`, the refusal that names it; both
-        # before vehicle-mdm is touched.
+        # refused as `vin_already_in_stock`, the refusal that names it.
         _lock_configuration(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
         _check_configuration_not_held(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
-    if data.vin is not None:
-        # KAN-244 (Anto, option C): the item's vehicle is the one its VIN
-        # resolves to, as on promotion — a client's vehicleId is ignored.
-        # Resolved on vehicle-mdm's own session, before any write of ours, so
-        # its commit (or its rollback on a lost race, KAN-257) never touches
-        # this transaction. A refusal below leaves the vehicle-mdm record in
-        # place: it is the car's global record (FR-V-15), whoever holds it.
-        vehicle = resolve_vehicle_mdm_by_vin(db, vin=data.vin, actor_id=actor_id)
-        data = data.model_copy(update={"vehicle_id": vehicle.id, "vin": vehicle.vin})
+    # KAN-554 (ADR-116; Anto, 2026-11-05, option A): a VIN given on create is
+    # stored (normalised and validated by StockItemCreate, KAN-244) on a
+    # pipeline item, and nothing is written to vehicle-mdm — a car not yet
+    # bought has no record there (ADR-045, ADR-103). Purchase booking promotes
+    # it (FR-V-04) and resolves its record then. A client's vehicleId is
+    # ignored, as since KAN-244: the record is found from the VIN, at promotion.
+    data = data.model_copy(update={"vehicle_id": None})
     try:
         item = _build_and_flush_stock_item(
             db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,
@@ -366,6 +450,17 @@ def update_stock_item(
     db: Session, *, item: StockItem, data: StockItemUpdate, actor_id: uuid.UUID | None
 ) -> StockItem:
     changes = data.model_dump(exclude_unset=True)
+    # ADR-117 (2), KAN-556: a configured car's name is its configuration's
+    # label and follows it; a PATCH may resend it unchanged, never set another.
+    if (
+        item.configuration_id is not None
+        and "vehicle_label" in changes
+        and changes["vehicle_label"] != item.vehicle_label
+    ):
+        raise UnprocessableEntityError(
+            "This car's name is its configuration's label and follows it; change the configuration instead.",
+            details={"reason": "vehicle_label_follows_configuration", "field": "vehicleLabel"},
+        )
     # KAN-432 (rule 4): a condition sent on the PATCH is the same fact as
     # `change_condition`'s, so it publishes the same event, in this
     # transaction — consumers never miss a change made by either route.
@@ -409,9 +504,12 @@ def attach_configuration(
     _check_configuration_not_held(db, tenant_id=item.tenant_id, configuration_id=configuration.id)
     item.configuration_id = configuration.id
     # Rule 2's three columns: the label is a copy of the configuration's,
-    # refreshed now.
+    # refreshed now — and the car's name follows it from now on (ADR-117 (2),
+    # KAN-556), the text the retired hand-typed intake stored replaced.
+    previous_vehicle_label = item.vehicle_label
     item.configuration_label = configuration.label
     item.configuration_label_refreshed_at = utcnow()
+    item.vehicle_label = configuration.label
     item.updated_by = actor_id
     item.version += 1
     db.flush()
@@ -422,8 +520,24 @@ def attach_configuration(
         tenant_id=item.tenant_id,
         action="configuration_attached",
         actor_id=actor_id,
-        before={"configurationId": None},
-        after={"configurationId": str(configuration.id), "configurationLabel": configuration.label},
+        before={"configurationId": None, "vehicleLabel": previous_vehicle_label},
+        after={
+            "configurationId": str(configuration.id),
+            "configurationLabel": configuration.label,
+            "vehicleLabel": configuration.label,
+        },
+    )
+    # KAN-270: the fact vehicle keeps a configuration a host took for good by.
+    publish(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.configuration_attached",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={"stockNumber": item.stock_number, "configurationId": str(configuration.id)},
+        ),
     )
     db.commit()
     db.refresh(item)

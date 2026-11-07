@@ -2,7 +2,6 @@
 amended, FR-V-09/FR-V-17)."""
 
 import datetime as dt
-import os
 import uuid
 from decimal import Decimal
 
@@ -29,13 +28,8 @@ from app.valuation.services.valuation import (
 )
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
-from tests.test_inventory_vin_resolution import _lose_the_first_lookup
 from tests.token_support import dealer_group_of
-
-_postgres_only = pytest.mark.skipif(
-    not os.environ.get("DMS_TEST_DATABASE_URL"),
-    reason="the insert race needs a second connection that sees the first one's commit — Postgres lane",
-)
+from tests.vin_support import unique_vin
 
 
 def test_valuation_number_increments_per_tenant(db_session):
@@ -58,7 +52,7 @@ def test_creatable_with_no_customer_no_vehicle(db_session):
         db_session,
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
-        data=ValuationCreate(source=ValuationSource.AUTO_I_DAT, provider_value=Decimal(19000), final_offer=Decimal(19000)),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.AUTO_I_DAT, provider_value=Decimal(19000), final_offer=Decimal(19000)),
         actor_id=uuid.uuid4(),
     )
 
@@ -68,98 +62,45 @@ def test_creatable_with_no_customer_no_vehicle(db_session):
     assert derive_status(valuation) == "valid"
 
 
-def test_creating_with_a_vin_resolves_or_creates_the_real_vehicle_mdm(db_session):
-    """"Ist das Fahrzeug nicht erfasst, wird es mit der Bewertung angelegt
-    — ein Schritt, nicht zwei." (confirmed live)."""
+def test_creating_with_a_vin_writes_no_vehicle_mdm_record(db_session):
+    """KAN-189 (Anto, 2026-10-31 / 2026-11-01, options B then A; ADR-070 as
+    amended): a valuation keeps the VIN on its own row; a car enters the
+    register when it is bought (ADR-103), never because it was valued. Before
+    KAN-189 this created the record "in the same step"."""
 
-    tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session,
-        tenant_id=tenant_id,
+        tenant_id=uuid.uuid4(),
         group_id=uuid.uuid4(),
-        data=ValuationCreate(
-            vin="WBA4Y9F55LCE89GLA", source=ValuationSource.MANUAL, final_offer=Decimal(16350),
-        ),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="wba4y9f55lce89gla", source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
         actor_id=uuid.uuid4(),
     )
-    assert valuation.vehicle_id is not None
+
+    assert valuation.vehicle_id is None
     assert valuation.vehicle_vin == "WBA4Y9F55LCE89GLA"
-
-    # Creating a second valuation with the SAME vin resolves to the same
-    # vehicle-mdm record (FR-V-15's own "not a validation error" rule).
-    second = create_valuation(
-        db_session,
-        tenant_id=tenant_id,
-        group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WBA4Y9F55LCE89GLA", source=ValuationSource.MANUAL, final_offer=Decimal(16000)),
-        actor_id=uuid.uuid4(),
-    )
-    assert second.vehicle_id == valuation.vehicle_id
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 0
 
 
-def test_the_vehicle_a_valuation_creates_names_the_user_who_created_it(db_session):
-    """KAN-328 / KAN-243: a null created_by means a system write; a user's valuation is not one."""
+def test_creating_with_a_vin_links_the_record_vehicle_mdm_already_holds(db_session):
+    """KAN-189: a car already in the register is linked, never duplicated —
+    two valuations of it name the same record."""
 
-    actor_id = uuid.uuid4()
-    valuation = create_valuation(
-        db_session, tenant_id=uuid.uuid4(), group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WBA4Y9F55LCE89GLB", source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
-        actor_id=actor_id,
-    )
-
-    vehicle = db_session.get(VehicleMdm, valuation.vehicle_id)
-    assert vehicle is not None
-    assert (vehicle.created_by, vehicle.updated_by) == (actor_id, actor_id)
-
-
-@_postgres_only
-def test_a_valuation_that_loses_the_insert_race_references_the_winners_vehicle(db_session, engine, monkeypatch):
-    """KAN-328: two writers resolving a VIN vehicle-mdm has never seen both
-    insert; the loser resolves to the winner's record (FR-V-15: same VIN,
-    same car) instead of answering 409 — as Stock does since KAN-257."""
-
-    vin = "WBA4Y9F55LCE89GLC"
-    winners: list[uuid.UUID] = []
-
-    def another_dealership_takes_the_car(other, raced_vin):
-        winners.append(vehicle_mdm_service.create_vehicle_mdm(other, vin=raced_vin, catalogue_variant_id=None).id)
-
-    misses = _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
-
-    valuation = create_valuation(
-        db_session, tenant_id=uuid.uuid4(), group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
-        actor_id=uuid.uuid4(),
-    )
-
-    assert misses == [vin]  # the race really happened
-    assert valuation.vehicle_id == winners[0]
-    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 1
-
-
-@_postgres_only
-def test_losing_the_race_never_discards_the_valuations_own_pending_work(db_session, engine, monkeypatch):
-    """KAN-328: vehicle-mdm's guard rolls back the session it is handed. The
-    valuation hands it a session of its own, so what the request had
-    pending — here the valuation counter already moved once — survives the
-    lost race and lands with the valuation's own commit."""
-
-    vin = "WBA4Y9F55LCE89GLD"
+    existing = vehicle_mdm_service.create_vehicle_mdm(db_session, vin="WBA4Y9F55LCE89GLB", catalogue_variant_id=None)
     tenant_id = uuid.uuid4()
-    assert allocate_valuation_number(db_session, tenant_id) == "B-000001"  # pending, not committed
 
-    def another_dealership_takes_the_car(other, raced_vin):
-        vehicle_mdm_service.create_vehicle_mdm(other, vin=raced_vin, catalogue_variant_id=None)
-
-    _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
-
-    valuation = create_valuation(
+    first = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WBA4Y9F55LCE89GLB", source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
+        actor_id=uuid.uuid4(),
+    )
+    second = create_valuation(
+        db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WBA4Y9F55LCE89GLB", source=ValuationSource.MANUAL, final_offer=Decimal(16000)),
         actor_id=uuid.uuid4(),
     )
 
-    assert valuation.valuation_number == "B-000002"
+    assert first.vehicle_id == second.vehicle_id == existing.id
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 1
 
 
 def test_deductions_are_stored_as_child_rows(db_session):
@@ -168,7 +109,7 @@ def test_deductions_are_stored_as_child_rows(db_session):
         db_session,
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
-        data=ValuationCreate(
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf",
             source=ValuationSource.AUTO_I_DAT,
             provider_value=Decimal(27850),
             deductions=[
@@ -193,7 +134,7 @@ def test_final_offer_may_differ_from_provider_value_minus_deductions(db_session)
         db_session,
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
-        data=ValuationCreate(
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf",
             source=ValuationSource.AUTO_I_DAT,
             provider_value=Decimal(27850),
             deductions=[DeductionInput(label="MFK", amount=Decimal(570))],
@@ -208,7 +149,7 @@ def test_status_derivation_never_stored(db_session):
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
     )
     assert derive_status(valuation) == "valid"
 
@@ -223,7 +164,7 @@ def test_draft_is_never_counted_as_valid_regardless_of_its_own_validity(db_sessi
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal(10000), is_draft=True),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal(10000), is_draft=True),
         actor_id=uuid.uuid4(),
     )
     assert derive_status(valuation) == "draft"
@@ -233,7 +174,7 @@ def test_mark_used_is_terminal_and_idempotent(db_session):
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
     )
     used = mark_used(db_session, valuation=valuation, actor_id=uuid.uuid4())
     assert derive_status(used) == "used"
@@ -247,7 +188,7 @@ def test_mark_used_is_terminal_and_idempotent(db_session):
 def _manual_valuation(db_session, tenant_id: uuid.UUID, *, expired: bool = False) -> Valuation:
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
     )
     if expired:
         valuation.valid_until = utcnow() - dt.timedelta(days=1)
@@ -326,14 +267,14 @@ def test_list_valid_valuations_for_vehicle_excludes_expired_and_draft(db_session
         db_session,
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="1HGCM82633A004352", source=ValuationSource.MANUAL, final_offer=Decimal(5000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="1HGCM82633A004352", source=ValuationSource.MANUAL, final_offer=Decimal(5000)),
         actor_id=uuid.uuid4(),
     )
     expired = create_valuation(
         db_session,
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="1HGCM82633A004352", source=ValuationSource.MANUAL, final_offer=Decimal(4800)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="1HGCM82633A004352", source=ValuationSource.MANUAL, final_offer=Decimal(4800)),
         actor_id=uuid.uuid4(),
     )
     expired.valid_until = utcnow() - dt.timedelta(days=1)
@@ -347,7 +288,7 @@ def test_unattached_chip_matches_ohne_kunde(db_session):
     tenant_id = uuid.uuid4()
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal(1000)), actor_id=uuid.uuid4(),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal(1000)), actor_id=uuid.uuid4(),
     )
     sort_fields = [SortField(api_name="createdAt", column=Valuation.created_at, direction="desc", nullable=False)]
     params = SortPageParams(limit=50, cursor=None, sort_fields=sort_fields)
@@ -391,7 +332,7 @@ def test_create_valuation_over_http_returns_a_derived_status(client):
 
     response = client.post(
         "/v1/valuations",
-        json={"finalOffer": "1000.00", "source": "manual", "validForDays": 30},
+        json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "1000.00", "source": "manual", "validForDays": 30},
         headers=_bearer(_sales_token()),
     )
     assert response.status_code == 201, response.text
@@ -405,7 +346,7 @@ def test_list_valuations_over_http_returns_a_derived_status_per_row(client):
     token = _sales_token()
     create = client.post(
         "/v1/valuations",
-        json={"finalOffer": "500.00", "source": "manual", "validForDays": 30},
+        json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "500.00", "source": "manual", "validForDays": 30},
         headers=_bearer(token),
     )
     assert create.status_code == 201, create.text
@@ -434,10 +375,10 @@ def test_valuation_read_says_whether_a_signed_contract_carries_it(client, db_ses
 
     token, tenant_id = _sales_principal()
     carried = client.post(
-        "/v1/valuations", json={"finalOffer": "800.00", "source": "manual"}, headers=_bearer(token)
+        "/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "800.00", "source": "manual"}, headers=_bearer(token)
     ).json()
     alone = client.post(
-        "/v1/valuations", json={"finalOffer": "900.00", "source": "manual"}, headers=_bearer(token)
+        "/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "900.00", "source": "manual"}, headers=_bearer(token)
     ).json()
     assert carried["hasSignedContract"] is False
     _contract_carrying(db_session, uuid.UUID(carried["id"]), tenant_id=tenant_id, signed=True)
@@ -450,7 +391,7 @@ def test_valuation_read_says_whether_a_signed_contract_carries_it(client, db_ses
 def test_mark_used_over_http_refuses_a_valuation_no_signed_contract_carries(client):
     token, _tenant_id = _sales_principal()
     created = client.post(
-        "/v1/valuations", json={"finalOffer": "700.00", "source": "manual"}, headers=_bearer(token)
+        "/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "700.00", "source": "manual"}, headers=_bearer(token)
     ).json()
 
     response = client.post(
@@ -465,7 +406,7 @@ def test_mark_used_over_http_refuses_a_valuation_no_signed_contract_carries(clie
 def test_mark_used_over_http_stamps_an_expired_valuation_a_signed_contract_carries(client, db_session):
     token, tenant_id = _sales_principal()
     created = client.post(
-        "/v1/valuations", json={"finalOffer": "600.00", "source": "manual"}, headers=_bearer(token)
+        "/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "600.00", "source": "manual"}, headers=_bearer(token)
     ).json()
     valuation = db_session.get(Valuation, uuid.UUID(created["id"]))
     valuation.valid_until = utcnow() - dt.timedelta(days=1)

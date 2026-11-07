@@ -614,7 +614,7 @@ def list_customer_vehicles(
     # fields here, as it gets no /v1/stock-items — nor does a token minted
     # before the module was taken away.
     stock_by_vehicle = (
-        get_stock_items_for_vehicles(db, group_id=principal.group_id, vehicle_ids=vehicle_ids)
+        get_stock_items_for_vehicles(db, principal=principal, vehicle_ids=vehicle_ids)
         if holds_entitlement(db, principal, ModuleCode.SALES)
         else {}
     )

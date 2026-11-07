@@ -8,7 +8,7 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import Vin
@@ -36,6 +36,20 @@ class VehicleMdmUpdate(CamelModel):
     type_approval_number: str | None = Field(default=None, max_length=6)
     first_registration_date: dt.date | None = None
     vehicle_status: VehicleStatus | None = None
+
+    @model_validator(mode="after")
+    def _required_fields_are_never_cleared(self) -> "VehicleMdmUpdate":
+        """KAN-561 — `None` here means "not sent"; a `null` the caller sent
+        for a field the record must always have (the VIN is mandatory in
+        vehicle-mdm, a status always set) is a 422, never a NOT NULL
+        violation that reached the database."""
+
+        required = {"vin": "vin", "vehicle_status": "vehicleStatus"}
+        sent = self.model_fields_set
+        cleared = [api for name, api in required.items() if name in sent and getattr(self, name) is None]
+        if cleared:
+            raise ValueError(f"{', '.join(cleared)} cannot be cleared.")
+        return self
 
 
 class VehicleMdmRead(CamelModel):

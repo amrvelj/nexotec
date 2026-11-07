@@ -14,7 +14,7 @@ from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
-from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
+from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import (
     StockItemConditionChange,
     StockItemConfigurationAttach,
@@ -54,7 +54,18 @@ def _stock_item_read(item: StockItem) -> StockItemRead:
     return base.model_copy(update={"ageing_bucket": stock_item_service.compute_ageing_bucket(item)})
 
 
-@router.post("/inventory/stock-items", response_model=StockItemRead, status_code=201)
+@router.post(
+    "/inventory/stock-items",
+    response_model=StockItemRead,
+    status_code=201,
+    description=(
+        "Adds a car to this Betrieb's stock pipeline from the configuration the configurator produced. Every "
+        "create lands as `lifecycleStatus: pipeline` — a `vin` sent with it is stored on the pipeline item, "
+        "never put in stock (ADR-103, ADR-116; KAN-554). Booking the purchase "
+        "(`POST /v1/inventory/stock-items/{id}/purchase`) is the only path to `in_stock`; it uses the stored "
+        "VIN when the request sends none. Before KAN-554 a create with a `vin` went straight to `in_stock`."
+    ),
+)
 def create_stock_item(
     body: StockItemCreateRequest,
     principal: Principal = Depends(require_write("stock_items")),
@@ -170,6 +181,23 @@ def record_purchase(
     item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = purchase_service.record_purchase(db, item=item, data=body, actor_id=principal.user_id)
+    return _stock_item_read(item)
+
+
+@router.post("/inventory/stock-items/{stock_item_id}/purchase/storno", response_model=StockItemRead)
+def storno_purchase(
+    stock_item_id: uuid.UUID,
+    body: PurchaseStornoRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("stock_acquisition")),
+    db: Session = Depends(get_db),
+):
+    """FR-I-05 «Einkauf stornieren» (KAN-146): on the matrix's "Stock
+    acquisition, landed cost, storno" row, like the booking it reverses."""
+
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(item.version, if_match, entity_name="StockItem")
+    item = purchase_service.storno_purchase(db, item=item, data=body, actor_id=principal.user_id)
     return _stock_item_read(item)
 
 

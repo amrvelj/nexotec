@@ -248,6 +248,7 @@
       "configuration_already_linked": "A configuration is already assigned to this vehicle. Please reload the page.",
       "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle.",
       "configuration_held_by_stock_item": "This configuration already belongs to vehicle {{stockNumber}} in stock. Every vehicle has its own configuration.",
+      "vehicle_label_follows_configuration": "This vehicle's name is its configuration's and follows it. Change the configuration instead.",
       "ui_translation_blank": "A UI string is never blank.",
       "ui_translation_placeholders_changed": "The text must keep the placeholders of the shipped text.",
       "bank_account_used_by_location": "A location uses this account as its own bank account. Remove the override on the location first.",
@@ -288,6 +289,7 @@
       "standard_text_seed_language_missing": "This template does not exist in this language.",
       "standard_text_seed_not_shipped": "Nexotec ships no text for this seed; there is nothing to restore.",
       "logo_too_many_pixels": "This PNG is {{width, number}} × {{height, number}} px — more than {{max, number}} megapixels. No logo needs that many: a whole A4 page at 300 dpi has barely 9, and every document carrying the logo would have to load them all. Scale the image down, or upload an SVG.",
+      "pending_contract_carries_it": "An open contract carries this valuation as its trade-in; its confirmation would use it. Cancel that contract first.",
       "signed_contract_carries_it": "A signed contract carries this valuation as its trade-in, so it stays used.",
       "stamp_too_recent": "This valuation was marked as used less than an hour ago; its contract's confirmation may still be in progress. Please try again later.",
       "valuation_not_used": "This valuation is not marked as used.",
@@ -300,6 +302,7 @@
       "plate_move_before_start": "The assignment on the other vehicle starts on the same day or later – please choose a later «Valid from».",
       "plate_validity_invalid": "An assignment cannot end before it starts.",
       "plate_wechselschild_not_possible": "An interchangeable plate joins exactly two vehicles – this plate is already on two.",
+      "invoice_already_requested": "The invoice for this contract was already requested on {{date}}.",
       "invoice_plate_vehicle_unknown": "The vehicle of this contract has no vehicle record a licence plate could be recorded on. Request the invoice without a plate and record the plate on the vehicle afterwards.",
       "number_pattern_invalid": "The pattern is not valid: exactly one {counter:N} (N from 1 to 9), {year} and {location_code} at most once, otherwise only letters, digits and - / . _",
       "number_pattern_too_long": "A number following this pattern would be longer than 16 characters.",
@@ -311,7 +314,15 @@
       "number_range_reason_required": "A change to a frozen number range needs a reason.",
       "number_range_exhausted": "The number range has no number left for its counter's digits. Please contact support.",
       "number_location_code_missing": "This number range prints the location code, and the document names no location with a code.",
-      "number_range_counter_too_short": "This pattern's counter has too few digits for the range's next number. Choose more digits for {counter:N}."
+      "number_range_counter_too_short": "This pattern's counter has too few digits for the range's next number. Choose more digits for {counter:N}.",
+      "purchase_already_booked": "The purchase of this vehicle is already booked. Cancel it before booking it again.",
+      "purchase_not_booked": "No purchase is booked for this vehicle, so there is nothing to cancel.",
+      "purchase_storno_left_stock": "This vehicle has already left stock. Its purchase can no longer be cancelled.",
+      "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
+      "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
+      "storno_return_not_trade_in": "Only a trade-in can go back to its customer.",
+      "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
+      "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -397,12 +408,6 @@
       "merged": "Merged",
       "do_not_contact": "Do not contact"
     },
-    "language": {
-      "de": "German",
-      "fr": "French",
-      "it": "Italian",
-      "en": "English"
-    },
     "salutation": {
       "herr": "Mr",
       "frau": "Ms",
@@ -464,6 +469,14 @@
       "counter": "Counter",
       "web": "Web",
       "phone": "Phone"
+    },
+    "legalForm": {
+      "ag": "AG (company limited by shares)",
+      "gmbh": "GmbH (limited liability company)",
+      "einzelfirma": "Sole proprietorship",
+      "verein": "Association",
+      "genossenschaft": "Cooperative",
+      "weitere": "Other"
     }
   },
   "customersList": {
@@ -1082,6 +1095,7 @@
     "loadError": "Failed to load stock.",
     "groupLoadError": "Failed to load group stock.",
     "allStockView": "All stock",
+    "allGroupStockView": "All group stock",
     "columns": {
       "stockNumber": "Stock no.",
       "vehicle": "Vehicle",
@@ -1162,6 +1176,7 @@
     "identity": {
       "title": "Vehicle",
       "vehicleLabel": "Label",
+      "vehicleLabelFollowsConfiguration": "The label follows the vehicle's configuration.",
       "vehicleId": "Vehicle ID"
     },
     "errors": {
@@ -1190,7 +1205,20 @@
       "isInvoiceable": "Invoiceable",
       "error": "The purchase could not be recorded. Please try again.",
       "notRecorded": "No purchase recorded yet.",
-      "configurationVinDiffers": "The VIN differs from the configuration's."
+      "configurationVinDiffers": "The VIN differs from the configuration's.",
+      "storno": {
+        "button": "Cancel purchase",
+        "title": "Cancel purchase",
+        "body": "The purchase of {{stockNumber}} is reversed: the acquisition cost is posted back in the Wagenbuch, the vehicle returns to the pipeline with its VIN and can be invoiced again only after a new purchase. A reservation stays.",
+        "reasonLabel": "Reason",
+        "reasonRequired": "Please give a reason.",
+        "submit": "Cancel purchase",
+        "cancel": "Back",
+        "failed": "The purchase could not be cancelled.",
+        "leftStock": "Not possible: the vehicle has left stock.",
+        "returnedToCustomer": "The car goes back to the customer",
+        "returnedToCustomerHint": "The customer who traded it in becomes its owner and keeper again. Unticked, their vehicle history stays as the purchase recorded it."
+      }
     },
     "wagenbuch": {
       "result": "Result",
@@ -1287,7 +1315,23 @@
       "missing": "No configuration is assigned to this vehicle. Without one, the technical data are missing.",
       "attach": "Assign configuration",
       "attachError": "The configuration could not be assigned. Please try again.",
-      "edit": "Edit configuration"
+      "edit": "Edit configuration",
+      "editContract": "Edit contract",
+      "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled."
+    },
+    "rowMenu": {
+      "changeCondition": "Change condition",
+      "purchaseAlreadyBooked": "The purchase is already recorded.",
+      "purchaseNotBooked": "No purchase recorded yet.",
+      "creatingDeal": "Being created …"
+    },
+    "condition": {
+      "title": "Change condition",
+      "body": "New condition for {{stockNumber}}:",
+      "label": "Condition",
+      "submit": "Save",
+      "cancel": "Cancel",
+      "failed": "The condition could not be changed."
     }
   },
   "salesList": {
@@ -1305,7 +1349,8 @@
       "status": "Status",
       "margin": "Margin",
       "changed": "Changed",
-      "owner": "Responsible"
+      "owner": "Responsible",
+      "stockNumber": "Stock number"
     },
     "chips": {
       "all": "All",
@@ -1404,6 +1449,7 @@
       "requestInvoice": "Request invoice",
       "requestInvoiceDisabledNotConfirmed": "Only possible once the contract is confirmed.",
       "requestInvoiceDisabledNotPurchased": "The vehicle has not been purchased yet — the invoice can be requested once its purchase is booked in stock.",
+      "requestInvoiceDisabledAlreadyRequested": "The invoice was already requested on {{date}}.",
       "requestInvoiceDisabledLegacy": "Sale migrated from the legacy system — already invoiced there."
     },
     "requestInvoice": {
@@ -1462,7 +1508,8 @@
       "configure": "Configure",
       "searchPlaceholder": "Stock number, VIN, plate …",
       "configured": "Configured",
-      "attachError": "The configuration could not be attached."
+      "attachError": "The configuration could not be attached.",
+      "stockNumber": "Stock number {{stockNumber}}"
     },
     "pricing": {
       "emptyHint": "Pricing starts with the vehicle — choose one first.",
@@ -1606,7 +1653,10 @@
     "errors": {
       "failedToLoad": "The valuation could not be loaded.",
       "somethingWentWrong": "Something went wrong.",
-      "markUsedFailed": "The valuation could not be marked as used. Please try again."
+      "markUsedFailed": "The valuation could not be marked as used. Please try again.",
+      "createOfferFailed": "The offer could not be created.",
+      "createOfferTradeInFailed": "Offer {{offerNumber}} was created, but the valuation could not be taken over as its trade-in: {{reason}}",
+      "openCreatedOffer": "Open offer"
     },
     "actions": {
       "revalue": "Revalue",
@@ -1618,7 +1668,12 @@
       "revertUse": "Clear use",
       "revertUseNotUsed": "Only for a valuation marked as used.",
       "revertUseSignedContract": "Not possible: a signed contract carries this valuation as its trade-in.",
-      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress."
+      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress.",
+      "createOffer": "Create offer from this valuation",
+      "createOfferExpired": "Not possible: the valuation has expired. Revalue it first.",
+      "createOfferUsed": "Not possible: the valuation is already marked as used.",
+      "createOfferNoSales": "Not possible: this business does not have the Sales module.",
+      "createOfferNoVin": "Not possible: the valuation names no car with a VIN that can be taken in trade."
     },
     "expiredBanner": {
       "title": "Valuation expired",
@@ -1789,13 +1844,14 @@
     "missingTip": "This row cannot be saved while a language is missing.",
     "missingTipReadOnly": "A language is missing in this row.",
     "readOnly": "Nexotec maintains these lists for every business. You can view them here, but not change them.",
+    "maintainedBy": "Maintained by Nexotec",
     "columns": {
       "code": "Code",
       "status": "Status"
     },
     "forbidden": {
-      "title": "platform_admin only",
-      "body": "Only a platform_admin may edit this data. Contact your administrator."
+      "title": "No access",
+      "body": "Your role may not open these lists. Contact your administrator."
     },
     "list": {
       "title": "Reference list {{code}}",

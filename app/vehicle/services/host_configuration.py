@@ -44,6 +44,16 @@ class ConfigurationPriceLine:
 
 
 @dataclasses.dataclass(frozen=True)
+class ConfigurationLabel:
+    """KAN-534 — a configuration's current label and the Betrieb it belongs
+    to: what a host's rule-2 copy (`stock_item.configuration_label`) is
+    refreshed from."""
+
+    tenant_id: uuid.UUID
+    label: str
+
+
+@dataclasses.dataclass(frozen=True)
 class HostConfiguration:
     id: uuid.UUID
     version: int

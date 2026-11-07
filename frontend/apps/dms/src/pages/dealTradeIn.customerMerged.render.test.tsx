@@ -11,10 +11,12 @@ import type { SalesContractRead, SalesOfferRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
-// KAN-382 — since KAN-365 a trade-in on a deal that still points at a merged
-// customer is refused 409 `customer_merged`. The offer workspace and the
-// pending contract said only "could not be saved"; they now say that the
-// customer was merged, naming the survivor when the API names one.
+// KAN-382 — a trade-in on a deal that still pointed at a merged customer was
+// refused 409 `customer_merged` (KAN-365). The offer workspace and the
+// pending contract said only "could not be saved"; they say that the
+// customer was merged, naming the survivor when the API names one. Since
+// KAN-189 this server no longer sends it (the trade-in allocates no party);
+// the screen still answers it, for an older instance during a rolling deploy.
 
 const API_MESSAGE = 'This customer has been merged into another; give the vehicle role to the customer it was merged into.'
 

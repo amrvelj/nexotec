@@ -13,7 +13,7 @@ from decimal import Decimal
 import pytest
 from fastapi import APIRouter, FastAPI
 from pydantic.alias_generators import to_camel
-from sqlalchemy import event, select
+from sqlalchemy import event, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.auth import AccessRole, create_access_token
@@ -55,6 +55,7 @@ from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lis
 from tests.dealership_support import valid_uid
 from tests.route_walk import api_routes
 from tests.test_sales_lifecycle_reservation import _with_buyer
+from tests.vin_support import unique_vin
 
 # --- fixtures -----------------------------------------------------------
 
@@ -481,17 +482,20 @@ def test_a_valuation_refuses_a_build_configuration(db_session):
     assert refused.value.details["reason"] == "configuration_mode_not_allowed"
 
 
-def test_a_valuation_without_a_configuration_behaves_as_before(db_session):
-    """FR-V-17's other half stands: no configuration, a VIN still resolves
-    or creates the vehicle in the same step."""
+def test_a_valuation_without_a_configuration_writes_no_vehicle_mdm_either(db_session):
+    """KAN-189 (ADR-070 as amended): no configuration, and still no
+    vehicle-mdm record — FR-V-17's "created in the same step" half is gone;
+    the car enters the register when it is bought (ADR-103)."""
 
     dealership = _dealership(db_session)
     valuation = create_valuation(
         db_session, tenant_id=dealership.id, group_id=uuid.uuid4(), actor_id=None,
-        data=ValuationCreate(vin="WVWZZZ1KZAW000777", source=ValuationSource.MANUAL, final_offer=Decimal(1)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW000777", source=ValuationSource.MANUAL, final_offer=Decimal(1)),
     )
-    assert valuation.vehicle_id is not None
+    assert valuation.vehicle_id is None
+    assert valuation.vehicle_vin == "WVWZZZ1KZAW000777"
     assert valuation.configuration_id is None
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm).where(VehicleMdm.vin == "WVWZZZ1KZAW000777")) == 0
 
 
 # --- the trade-in carve-out ----------------------------------------------
@@ -535,8 +539,11 @@ def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_r
         )
         valuation = create_valuation(
             db_session, tenant_id=tenant_id, group_id=group_id, actor_id=None,
+            # KAN-574: identified by its plate, the configuration has no VIN;
+            # the seller types it beside it (KAN-449 option A).
             data=ValuationCreate(
-                configuration_id=trade_in_config.id, source=ValuationSource.MANUAL, final_offer=Decimal("31500.00"),
+                configuration_id=trade_in_config.id, vin=unique_vin(), source=ValuationSource.MANUAL,
+                final_offer=Decimal("31500.00"),
             ),
         )
 
@@ -771,7 +778,11 @@ def test_copying_a_configured_offer_copies_the_configuration_and_keeps_its_lines
     trade_in_config = _record_configuration(db_session, dealership.id)
     valuation = create_valuation(
         db_session, tenant_id=dealership.id, group_id=uuid.uuid4(), actor_id=None,
-        data=ValuationCreate(configuration_id=trade_in_config.id, source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+        # KAN-574: the record configuration has no VIN; the seller types it.
+        data=ValuationCreate(
+            configuration_id=trade_in_config.id, vin=unique_vin(), source=ValuationSource.MANUAL,
+            final_offer=Decimal("2500.00"),
+        ),
     )
     source = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     source = update_offer(db_session, offer=source, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)

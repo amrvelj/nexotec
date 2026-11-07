@@ -12,6 +12,7 @@ import { ValuationCreatePage } from './ValuationCreatePage'
 import { ValuationsListPage } from './ValuationsListPage'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
+import { nameValuationCar } from '../test/nameValuationCar'
 
 // C-F (KAN-10) — the valuation host (FR-C-14, record only), Vehicle 360's
 // read-only Specification tab (FR-C-15), and Customer 360 reaching it only
@@ -80,8 +81,9 @@ describe('Valuation → new valuation (FR-C-14)', () => {
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
     expect(within(dialog).getByTestId('configuration-summary-card')).toBeInTheDocument()
-    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'))).toHaveValue('Subaru')
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'), { exact: false })).toHaveValue('Subaru')
     await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')
+    await nameValuationCar(user, dialog)
     await user.click(within(dialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
 
     await waitFor(() => expect(posted).toHaveLength(1))
@@ -126,11 +128,11 @@ describe('Valuation → new valuation (FR-C-14)', () => {
     // Skipping the capture: the dialog still has the VIN and first registration.
     await user.click(screen.getByRole('button', { name: i18n.t('valuationCreate.configurator.skip') }))
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
-    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'))).toHaveValue(vehicle.vin)
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'), { exact: false })).toHaveValue(vehicle.vin)
     expect(within(dialog).getByLabelText(i18n.t('valuationCreate.firstRegistration'))).toHaveValue('1999-04-01')
     // Make, model and trim come from the catalogue variant the car is matched to.
-    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'))).toHaveValue('Volkswagen')
-    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.model'))).toHaveValue('Golf')
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'), { exact: false })).toHaveValue('Volkswagen')
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.model'), { exact: false })).toHaveValue('Golf')
     expect(within(dialog).getByLabelText(i18n.t('valuationCreate.trim'))).toHaveValue('1.6 Comfortline')
 
     // Closing returns to the vehicle it was requested from.
@@ -170,7 +172,7 @@ describe('Valuation → new valuation (FR-C-14)', () => {
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
-    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'))).toHaveValue('Subaru')
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'), { exact: false })).toHaveValue('Subaru')
     expect(within(dialog).getByTestId('configuration-summary-card')).toBeInTheDocument()
   })
 

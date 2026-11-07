@@ -38,6 +38,14 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   value), and the payload gains `vehicleId`, `vin`, `groupId`, `plate`, `canton`, `moveFrom`,
   `requestedOn` and `requestedBy` (the car's fields null without a plate). The contract page's primary
   action on a confirmed contract is «Rechnung anfordern» (`components/contract-detail/RequestInvoiceDialog.tsx`).
+  **Once per contract** (Anto, 2026-11-03, KAN-539 option A): the request stamps
+  `sales_contract.invoice_requested_at` (and bumps `version`) in the transaction of its outbox row; a
+  second one is refused before any write — a stale screen by its If-Match, one with the current version
+  by 409 `invoice_already_requested` (with `invoiceRequestedAt`) — and the page keeps the action visible
+  but disabled, naming the day. The migration took each contract's stamp from its earliest
+  `sales.contract.invoice_requested` outbox row or `invoice_requested` audit row (the outbox is never
+  purged), so a contract requested before it — before KAN-523 too — is refused as well (Anto confirmed
+  this backfill, 2026-11-04, option A).
 - **ADR-047** — a write spanning two contexts is a call with a compensating action, never a
   shared transaction (CLAUDE.md rule 12). The one bounded exception is
   `scripts/migrate_transaction_rows.py` (ADR-091, Anto 2026-10-12, KAN-106): it writes Sales and
@@ -49,19 +57,45 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   exception, permanent and Platform's (ADR-109, KAN-207): the offer's number is handed out inside the
   offer's own transaction (below, "Visibility and numbers").
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
-  Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
+  Stock synchronously. Stock publishes `inventory.stock_item.purchased` once per booking, so the replica is
   kept **per stock item** (`sales_stock_item_purchase`, written by
   `app/sales/services/stock_item_purchase.py`) whether or not a contract exists yet, with
   rule 2's label (`stock_item_label`, the stock number from the event, and
   `stock_item_denorm_refreshed_at`; KAN-150).
   `SalesContract.is_invoiceable` is **derived on read** from it — there is no stored column, so a
-  contract written after the purchase is invoiceable at once (KAN-100).
+  contract written after the purchase is invoiceable at once (KAN-100). An offer and a contract on a stock car carry the same pair (KAN-157,
+  Anto 2026-11-03, option A): copied once, when the car is put on the deal, from the `stockNumber`
+  in `inventory.public.get_stock_item_pricing` that the snapshot freeze reads anyway; cleared
+  with `stock_item_id` (`deal_editing`); a contract from an offer and a copied offer take the
+  offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py`
+  (dry run unless `--commit`) fills the rows written before. **It is on screen** (KAN-570; Anto,
+  2026-11-05, option A): `OfferRead`/`ContractRead.stockItemLabel` (additive); «Lagernummer S-…»
+  beside the car (`StockNumberLink`) in the vehicle container of the offer workspace and the pending
+  contract, and in the header of the sent offer and of a contract past editing, opening the stock
+  detail as an overlay (ADR-059); and on the deal row, `sales_deal.stock_item_label` (Sales-chain
+  migration `e7a3c5d1b9f4`, indexed), written by `upsert_deal_projection` from the live entity,
+  compared by the deal-row StateChecks, filled for older rows by
+  `scripts/backfill_sales_deal_projection.py` (dry run unless `--commit`; **run once per
+  environment after the deploy**) — the Sales grid's optional «Lagernummer» column, hidden by
+  default, sortable (`sort=stockItemLabel`).
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
-  legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back") is not
-  emitted yet, so nothing clears it (KAN-146). Nightly reconciliation alarms on a replica row
+  legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back", KAN-146) is
+  consumed as `sales.stock_item_storno`: it deletes the replica row (locked first, as the purchase
+  consumer locks it), so every contract
+  on the car derives «nicht fakturierbar» until the next purchase — unless Stock holds the car as
+  bought again by then, which the consumer re-reads through `inventory.public.is_stock_item_purchased`
+  (delivery is unordered: a storno may arrive after the next purchase). That consumer's read is
+  asynchronous; `request_invoice` still reads only the local replica (ADR-052 addendum, Anto
+  2026-11-06, KAN-146 option A: "never a synchronous query" governs the invoicing path). Unhandled: a purchase whose
+  first delivery failed arriving after its storno recreates the row — the KAN-145 check below
+  reports it once the storno is an hour old. Nightly reconciliation alarms on a replica row
   naming no stock item, on a stock item Stock holds as purchased, last changed over an hour ago,
   with no replica row in its own dealership, and on a replica row whose item Stock does not hold
-  as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145).
+  as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145) —
+  unless Stock stornoed that item for the dealership less than an hour ago (the storno event's
+  `occurred_at`; KAN-146) — and on a contract, not cancelled, whose invoice was requested for a
+  stock item Stock does not hold as purchased in its dealership (the storno / «Rechnung anfordern»
+  race; KAN-146).
   Every cross-context id on every Sales table is reconciled (KAN-145, KAN-243): an id naming
   nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
@@ -121,8 +155,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   renders read-only (disabled fieldsets over every write control, «Offerte generieren» disabled with
   the reason) under a banner naming the contract with «Vertrag öffnen», and every container
   words a save refused `offer_has_contract` in that banner's sentence. What only shows stays live
-  (KAN-501): the customer and pricing containers take `readOnly` themselves, so the selected
-  customer's overlay and «zum Lagerfahrzeug» still open.
+  (KAN-501): the customer, vehicle and pricing containers take `readOnly` themselves
+  (`components/deal-workspace/LockedWhile.tsx` around their writes), so the selected customer's
+  overlay, the stock number (KAN-570) and «zum Lagerfahrzeug» still open.
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;
@@ -130,7 +165,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   cancelled contract stays on the customer's contracts and the offer's history. A contract
   without an offer keeps its own row, cancelled or not. Generating a document re-projects the
   row, so its document count moves with it. Nightly reconciliation reports a row whose number,
-  status, buyer, locality, car, seller or document count differs from its live entity, or whose
+  status, buyer, locality, car, stock number (KAN-570), seller or document count differs from its live entity, or whose
   shape is wrong (two StateChecks, rule 10); `scripts/backfill_sales_deal_projection.py` (dry run
   unless `--commit`) re-projects the rows written before KAN-408/KAN-409.
 - **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`
@@ -228,12 +263,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   buyer it lacks — KAN-315 — and given a responsible seller — KAN-405). Every contract
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
-  version as read and would let an edit land after signing. A trade-in save commits part-way
-  (the vehicle-party allocations commit the request session, ADR-047; vehicle-mdm resolves the
-  VIN on a session of its own and, losing an insert race, takes the winner's record — KAN-328),
-  which releases that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
-  that it is editable and still at the version the caller sent (KAN-309; the offer's trade-in
-  and line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
+  version as read and would let an edit land after signing. A trade-in save is one transaction
+  since KAN-189 (it creates no vehicle-mdm record and allocates no party; it only reads the
+  register), so it holds that lock to its commit (`tests/test_sales_trade_in_lock.py`);
+  `set_trade_in` still re-locks and re-checks editability and the caller's version before writing
+  (KAN-309, from when it committed part-way; the line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
   that changes the row (PATCH, line items, trade-in, trade-in valuation, finalize, cancel) loads
   it `for_update` (`get_offer_or_404`), so two saves of one offer run one after the other and
   the second is a stale-version 409, never a lost update. A failed
@@ -243,7 +277,12 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   cannot take that lock (logged, left to the nightly run). Before compensating, the
   confirmation ends its own transactions (request and reservation), so the compensation never
   waits on a lock its own request holds (KAN-192).
-  An edit publishes no event. Never give the contract a second copy of a pricing rule.
+  An edit publishes no event — except that an offer or contract starting to hold a configuration id
+  (Path B, the trade-in valuation, a copied offer, a contract from its offer) publishes
+  `sales.offer.configuration_attached` / `sales.contract.configuration_attached` in its own
+  transaction, so Vehicle keeps a configuration a host took (KAN-270, `.claude/rules/vehicle.md`);
+  `sales.public.referenced_configuration_ids` is Vehicle's read-only safety net. Never give the contract a
+  second copy of a pricing rule.
 - **One set of bounds for the shared pricing fields** (Anto, 2026-10-28, KAN-482: no negatives):
   `OfferUpdate` takes `ContractUpdate`'s bounds for `manualBasePrice`, `discountType` and
   `discountValue` (`ge=0`, 12 digits, 2 decimals; `percent` | `amount`), and the offer's leasing
@@ -287,8 +326,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   the **customer's correspondence language**, with the seller-only margin panel beside it,
   never on it (architecture test: margin never in a rendered document).
   `build_offer_content` / `build_contract_content` take a required `language`; a record with no
-  customer language renders in DE (`_DEFAULT_LANGUAGE`) — a German fallback awaiting a ruling
-  (KAN-104).
+  customer language renders in the Betrieb's own default for customers
+  (`platform.public.get_dealership_default_correspondence_language`, Customers FR-13), never a
+  silent German (Anto, 2026-11-03, KAN-104 decision 3 A; `document.py::_document_language`).
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
 - **The offer's wording is the Betrieb's standard text** (KAN-208): `generate_offer_document`
   resolves `offer` / `intro` (the first paragraph) and `offer` / `footer` (`footer_text`) through

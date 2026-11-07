@@ -41,6 +41,8 @@ import {
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
+import { STOCK_VEHICLE_COLUMN_WIDTH } from './stock/columns/stockVehicleColumn'
+import { buildStockRowMenu, stockOpenState, type StockOpenAction } from '../components/stockRowMenu'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
 import { useCanWrite } from '../auth/useCanWrite'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
@@ -70,10 +72,11 @@ export function StockListPage() {
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
   const filterFields = useMemo(() => buildStockFilterFields(t), [t])
-  const predicates = offeredPredicates(
-    searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : [],
-    filterFields,
+  const storedFilters = useMemo(
+    () => (searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : []),
+    [searchParams]
   )
+  const predicates = offeredPredicates(storedFilters, filterFields)
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -97,13 +100,14 @@ export function StockListPage() {
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
   const setScope = (next: StockScope) => {
-    // The group grid has no filters (§ ADR-055), so own-stock filter chips
-    // are dropped on the way in: a shared ?scope=group URL must never claim
-    // a filter the grid it opens does not apply (§ ADR-058).
-    updateUrl(next === 'group' ? { scope: 'group', filters: null } : { scope: null })
+    // The two grids filter on different fields (the group grid on the
+    // Betrieb alone, § ADR-055, KAN-565), so a scope switch drops the
+    // filters either way: a shared URL must never claim a filter the grid it
+    // opens does not apply (§ ADR-058).
+    updateUrl(next === 'group' ? { scope: 'group', filters: null } : { scope: null, filters: null })
     // A saved view is a set of filters (§ ADR-058); with its filters gone,
     // the control must stop naming it.
-    if (next === 'group') setAppliedViewId(null)
+    setAppliedViewId(null)
   }
 
   // The group grid sorts on the same indexed columns; its sort lives in the
@@ -163,7 +167,7 @@ export function StockListPage() {
         id: 'vehicleLabel',
         header: t('stockList.columns.vehicle'),
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.vehicleLabel}</span>,
-        meta: { locked: true, secondary: (row) => row.vin },
+        meta: { locked: true, width: STOCK_VEHICLE_COLUMN_WIDTH, secondary: (row) => row.vin },
       },
       {
         id: 'condition',
@@ -347,6 +351,10 @@ export function StockListPage() {
   // that may write neither is not offered it.
   const canWriteStockItems = useCanWrite('stock_items')
   const canWriteConfigurations = useCanWrite('configurations')
+  const canBookPurchase = useCanWrite('stock_acquisition')
+  const canChangeCondition = useCanWrite('stock_condition')
+  const canCreateContract = useCanWrite('sales_contracts')
+  const canCreateOffer = useCanWrite('sales_offers')
   const canAddVehicle = canWriteStockItems && canWriteConfigurations
 
   const applyView = (view: SavedView) => {
@@ -373,6 +381,8 @@ export function StockListPage() {
           onQueryChange={setQuery}
           sort={groupSort}
           onSortChange={setGroupSort}
+          filters={storedFilters}
+          onFiltersChange={setPredicates}
         />
       ) : (
       <OverviewShellRegion
@@ -469,15 +479,46 @@ export function StockListPage() {
               </Button>
             ),
           }}
-          rowActions={(row) => ({
-            navigate: [
+          rowActions={(row) => {
+            // KAN-571 / ADR-061 — the SAME builder the stock detail's header
+            // uses, so list and detail cannot drift apart. Every action needs
+            // the detail's own state (its dialogs, the configurator, the deal
+            // it starts), so the car opens right there at the action picked.
+            const openAt = (action: StockOpenAction) => () =>
+              navigate(`/stock/${row.id}`, { state: stockOpenState(action) })
+            const menu = buildStockRowMenu(
+              t,
+              row,
               {
-                label: t('stockList.rowActions.open'),
-                icon: <ExternalLink size={16} />,
-                onClick: () => navigate(`/stock/${row.id}`),
+                createContract: openAt('createContract'),
+                createOffer: openAt('createOffer'),
+                recordPurchase: openAt('recordPurchase'),
+                stornoPurchase: openAt('stornoPurchase'),
+                changeCondition: openAt('changeCondition'),
+                attachConfiguration: openAt('attachConfiguration'),
+                editConfiguration: openAt('editConfiguration'),
               },
-            ],
-          })}
+              {
+                canCreateContract,
+                canCreateOffer,
+                canBookPurchase,
+                canChangeCondition,
+                canAttachConfiguration: canWriteStockItems && canWriteConfigurations,
+                canEditConfiguration: canWriteConfigurations,
+              },
+              row.leftStockAt ? formatDate(row.leftStockAt, locale) : null,
+            )
+            return {
+              navigate: [
+                {
+                  label: t('stockList.rowActions.open'),
+                  icon: <ExternalLink size={16} />,
+                  onClick: () => navigate(`/stock/${row.id}`),
+                },
+              ],
+              ...menu.overflow,
+            }
+          }}
         />
       </OverviewShellRegion>
       )}

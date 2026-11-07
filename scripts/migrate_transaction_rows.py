@@ -596,6 +596,9 @@ def _migrate_sale(db: Session, txn: Transaction, *, held: _HeldVins) -> RowOutco
         customer_language=offer.customer_language,
         vehicle_source=offer.vehicle_source,
         stock_item_id=offer.stock_item_id,
+        # KAN-157 (rule 2): the stock number the offer's freeze copied.
+        stock_item_label=offer.stock_item_label,
+        stock_item_denorm_refreshed_at=offer.stock_item_denorm_refreshed_at,
         vehicle_label=offer.vehicle_label,
         base_price=offer.base_price,
         options_total=offer.options_total,

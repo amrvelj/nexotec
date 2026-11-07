@@ -14,10 +14,14 @@ a child row, a copy, …) must take `require_if_match` too, unless it is listed
 in POST_WITHOUT_IF_MATCH with why. A POST that creates a top-level record has
 no version to match and is not walked. The POST list is declared by hand —
 which rows a route writes cannot be read off the route — so each entry says
-what it writes. Ten change a versioned row without If-Match: four by design
-(the hand-over, the system's catalogue fill, a connection test's health
-stamp, a new bank account that takes the default — each says why) and six that are KAN-428's, an open question for
-Anto, not a ruling.
+what it writes. Ten change a versioned row without If-Match, each by design and
+each saying why: the hand-over, the system's catalogue fill, a connection
+test's health stamp, a new bank account that takes the default, and the six
+state transitions KAN-428 named — publish, unpublish, reserve, release,
+enable group read and the legacy custody event — which Anto ruled stay
+without If-Match (2026-11-03, KAN-428 option C). An entry states a reason,
+never an open question: `test_every_exemption_states_a_ruled_reason` refuses
+one that says a decision is pending.
 """
 
 from app.core.base import VersionedMixin
@@ -38,7 +42,9 @@ MUTATING = {"PATCH", "PUT", "DELETE"}
 
 _NEW_ROW = "creates a new row; no existing versioned row changes"
 _CHILD_ROW = "creates an unversioned child row; the parent's version does not move"
-_KAN_428 = "KAN-428: changes a versioned row without If-Match — Anto's decision pending"
+# KAN-428 (Anto, 2026-11-03, option C): six transitions that bump a version
+# stay without If-Match, each guarded by its own state rule instead.
+_KAN_428 = "no If-Match by Anto's ruling (2026-11-03, KAN-428 option C): "
 
 # path -> why the POST on an existing entity takes no If-Match.
 POST_WITHOUT_IF_MATCH = {
@@ -50,7 +56,9 @@ POST_WITHOUT_IF_MATCH = {
     "and a second first grant is a 409 (KAN-380)",
     "/v1/dealerships/{dealership_id}/users/{user_id}/invitations": "a single-use token and the user's invited_at "
     "stamp (a timestamp, not an edit; the version does not move)",
-    "/v1/dealer-groups/{dealer_group_id}/enable-group-read": _KAN_428,
+    "/v1/dealer-groups/{dealer_group_id}/enable-group-read": _KAN_428 + "a platform admin's one-way switch "
+    "(ADR-030) that only ever sets group read on, refused without a recorded legal basis; a repeat sets the same "
+    "value again (it still bumps the version)",
     "/v1/platform/users/{user_id}/recovery/{action}": "tokens, factors, the lockout counter, sessions or the "
     "invited_at stamp — never a field a manager edits; change-email and grant-manager, which do, take If-Match",
     "/v1/reference-data/{list_code}": _NEW_ROW,
@@ -67,7 +75,8 @@ POST_WITHOUT_IF_MATCH = {
     "sample data and writes nothing",
     "/v1/dealerships/{dealership_id}/number-range-previews": "the edit dialog's live example (KAN-207): renders "
     "the next number of an unsaved pattern and writes nothing",
-    "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428,
+    "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428 + "a custody event row and the legacy "
+    "vehicle row's custodian; refused outright while legacy_vehicle_write_frozen is on, the default (ADR-021)",
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
     "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "
     "configurations' versions — only NULL fields, never a value a user set",
@@ -83,11 +92,16 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/customers/{customer_id}/external-ids": _CHILD_ROW,
     "/v1/customers/{customer_id}/vehicles": _CHILD_ROW,
     "/v1/customers/{customer_id}/legal-basis": _CHILD_ROW,
-    "/v1/inventory/stock-items/{stock_item_id}/reservations": _KAN_428,
-    "/v1/inventory/reservations/{reservation_id}/release": _KAN_428,
+    "/v1/inventory/stock-items/{stock_item_id}/reservations": _KAN_428 + "a car already held refuses a second "
+    "hold (409); platform staff only (KAN-376) — Sales reserves through its own internal call",
+    "/v1/inventory/reservations/{reservation_id}/release": _KAN_428 + "names the reservation it ends, so it "
+    "cannot end a later one; platform staff only (KAN-376)",
     "/v1/inventory/stock-items/{stock_item_id}/ledger-entries": _CHILD_ROW,
-    "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/publish": _KAN_428,
-    "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/unpublish": _KAN_428,
+    "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/publish": _KAN_428 + "a state switch with "
+    "the same result whoever sends it, refused while a blocking condition holds; its version bump makes another "
+    "tab's next listing-text save a stale 409, which the ruling accepts",
+    "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/unpublish": _KAN_428 + "a state switch that "
+    "needs confirm=true (it deletes the listing at the marketplace); same version effect as publish",
     "/v1/inventory/stock-items/{stock_item_id}/media": _CHILD_ROW,
     "/v1/inventory/stock-items/{stock_item_id}/media/reorder": "the photos' positions (unversioned rows)",
     "/v1/sales/offers/{offer_id}/copy": _NEW_ROW,
@@ -181,3 +195,19 @@ def test_an_exemption_names_an_unversioned_model_and_a_live_route():
         assert key in live, f"{key}: no such route any more — drop the entry"
         assert not issubclass(model, VersionedMixin), f"{key}: {model.__name__} is versioned — the route needs If-Match"
         assert reason
+
+
+_OPEN_QUESTION_MARKERS = ("pending", "question", "undecided", "to be decided", "tbd", "todo")
+
+
+def test_every_exemption_states_a_ruled_reason():
+    """KAN-428: six entries once read "Anto's decision pending", so the guard
+    passed on a question nobody had answered. An exemption is a reason (or a
+    ruling); one that names an open question is refused."""
+
+    reasons = {path: why for path, why in POST_WITHOUT_IF_MATCH.items()}
+    reasons |= {f"{method} {path}": why for (method, path), (_, why) in UNVERSIONED.items()}
+    open_questions = {
+        key: why for key, why in reasons.items() if any(marker in why.lower() for marker in _OPEN_QUESTION_MARKERS)
+    }
+    assert not open_questions, open_questions

@@ -101,6 +101,44 @@ it: the staging UI says so on every signed-in screen (KAN-275, ADR-084 —
 `VITE_OUTBOX_WORKER_ABSENT` in `render.yaml`'s build command), and each
 affected module PRD carries the same status line.
 
+## Staging sign-in (KAN-551)
+
+Staging has **no shared login**. With the identAPI sandbox connection
+configured there (ADR-113), whoever signs in reaches licensed auto-i-dat
+data, and the test agreement (§3, §8) excludes third parties and
+prospective customers. So every account on staging is a named person, and
+the demo Betrieb (`Demo Garage AG`) enforces a second factor for everyone.
+Locally (`make up`, the desktop preview, cloud sessions) the password demo
+account stays — `DMS_SEED_DEMO_PASSWORD`, `scripts/seed_staging_demo.py`'s
+local path.
+
+- **The first manager** is invited by the deploy: set
+  `DMS_STAGING_FIRST_MANAGER_EMAIL` (optionally `…_FIRST_NAME` / `…_LAST_NAME`)
+  in the Render service's Environment tab; the next deploy mails the
+  invitation. Accept it, set a password, enrol an authenticator app or a
+  passkey on the screen that follows. Later deploys leave that account
+  alone. If the invitation expired (14 days) or never arrived, use
+  «Passwort vergessen» on the sign-in screen with the same address — never
+  a second deploy. A delivery failure is a `mail_delivery_failed` auth event
+  (`GET /v1/dealerships/{id}/auth-events`) and an ERROR line in the Render
+  log.
+- **A demo viewer** (a colleague, a reviewer — never a prospective customer
+  or another third party while the identAPI test access is connected) is
+  invited by a manager from Dealer Administration › Users › «Benutzer
+  einladen», with the roles they need and no manager flag. They set their
+  own password from the mail and must enrol a second factor before any
+  screen opens. **Remove them** with the row menu's «Deaktivieren» on the
+  same screen when the demo is over (their records go to the queue you
+  choose; the audit log keeps who did it). There is no delete.
+- **The shared demo login of earlier deploys** (`demo@nexotec-staging.example`)
+  is deactivated by `scripts/retire_staging_shared_demo_user.py`, which the
+  start command runs with `--commit` on every deploy: it waits until a
+  personal dealer manager has signed in with (or enrolled) a second factor, then
+  deactivates the shared user (reason `kan551_shared_demo_login_retired`
+  in the audit log) and hands its records to the unassigned queues. Delete
+  `DMS_SEED_DEMO_PASSWORD` from the Render service afterwards; it is not
+  read any more.
+
 ## Observability (WP-2 PR-3, closes G-16)
 
 Structured JSON logs with `correlationId`/`tenantId` on every line always
@@ -129,7 +167,7 @@ with a suggested alert; consumer lag is a dashboard signal, KAN-286):
 | `dms.outbox.lag_seconds` | Age of the oldest still-pending outbox message | fires if > 300s |
 | `dms.outbox.dead_letter_count` | Messages that exhausted all retry attempts | fires if > 0 |
 | `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | dashboard only, no alert — see the outbox rows (KAN-286) |
-| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job; KAN-403: `customer.advisor`, refreshed by `customer.advisor_labels` — an advisor id that names no user is never restamped and keeps this one firing: look for it in `customer.advisor_id` before suspecting the job; a customer a writer held when the job passed keeps it firing until the next night; KAN-404: `sales.owner`, the responsible seller on offers, contracts and deal rows, refreshed by `sales.owner_labels` — the same reading: look for an `owner_user_id` that names no user first) | fires if > 93600s (26h), per label |
+| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job; KAN-403: `customer.advisor`, refreshed by `customer.advisor_labels` — an advisor id that names no user is never restamped and keeps this one firing: look for it in `customer.advisor_id` before suspecting the job; a customer a writer held when the job passed keeps it firing until the next night; KAN-404: `sales.owner`, the responsible seller on offers, contracts and deal rows, refreshed by `sales.owner_labels` — the same reading: look for an `owner_user_id` that names no user first; KAN-534: `inventory.configuration`, a stock item's configuration label, refreshed by `inventory.configuration_labels` — look for a `stock_item.configuration_id` naming no configuration, or another Betrieb's, first) | fires if > 93600s (26h), per label |
 | `dms.reconciliation.age_seconds` | Seconds since the nightly reconciliation (`reconciliation.run_all`) last completed a run; unset until it has run once | fires if > 93600s (26h), or if absent once the worker has run a day |
 
 Consumers are registered in `app/worker.py::register_handlers` — that

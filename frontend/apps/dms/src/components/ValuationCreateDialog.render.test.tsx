@@ -5,6 +5,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
+import { nameValuationCar } from '../test/nameValuationCar'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import { ValuationCreateDialog } from './ValuationCreateDialog'
 import type { ConfigurationRead } from '../api/types'
@@ -40,6 +41,7 @@ async function submit(user: ReturnType<typeof userEvent.setup>, finalOffer: stri
   const field = within(dialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false })
   await user.clear(field)
   await user.type(field, finalOffer)
+  await nameValuationCar(user, dialog)
   await user.click(within(dialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
 }
 
@@ -147,11 +149,11 @@ describe('ValuationCreateDialog — a refused VIN is named at the VIN input (KAN
       ])
       renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
       const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
-      await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin')), 'WVWZZZ1KZAO331338')
+      await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'), { exact: false }), 'WVWZZZ1KZAO331338')
       await submit(user, '12000')
 
       expect(await within(dialog).findByText(i18n.t('common.invalidVin'))).toBeInTheDocument()
-      expect(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'))).toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'), { exact: false })).toHaveAttribute('aria-invalid', 'true')
       expect(within(dialog).queryByText('Request validation failed.')).toBeNull()
     } finally {
       await i18n.changeLanguage('de')
@@ -198,7 +200,7 @@ describe('ValuationCreateDialog — a pre-1981 chassis number (KAN-353)', () => 
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
-    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin')), '9112300123')
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'), { exact: false }), '9112300123')
     await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.firstRegistration')), '1972-05-01')
     await submit(user, '85000')
 
@@ -216,7 +218,7 @@ describe('ValuationCreateDialog — a pre-1981 chassis number (KAN-353)', () => 
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
-    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin')), '9112300123')
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'), { exact: false }), '9112300123')
     await submit(user, '85000')
 
     expect(await screen.findByText(i18n.t('common.chassisNumberNeedsPre1981'))).toBeInTheDocument()
@@ -263,7 +265,10 @@ describe("ValuationCreateDialog — the VIN of a configuration's valuation (KAN-
     expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({ vin: null, configurationId: 'cfg-1' })
   })
 
-  it('a configuration linked to a car without a stored VIN still keeps the VIN read-only', async () => {
+  it('a configuration linked to a car without a stored VIN keeps the VIN read-only and cannot be valued', async () => {
+    // KAN-574 (Anto, 2026-11-07, option A): a valuation names its car by its
+    // VIN; this shape (no writer leaves it today) has none to give, so the
+    // configuration's VIN is repaired first — the submit stays disabled.
     const user = userEvent.setup()
     const backend = install()
     const linkedOnly = { ...configuration, vin: null, vehicleId: 'veh-1' } as ConfigurationRead
@@ -271,10 +276,27 @@ describe("ValuationCreateDialog — the VIN of a configuration's valuation (KAN-
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
     expect(vinField(dialog)).toHaveAttribute('readonly')
-    await submit(user, '18000')
+    const field = within(dialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false })
+    await user.type(field, '18000')
 
-    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
-    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({ vin: null, configurationId: 'cfg-1' })
+    expect(within(dialog).getByRole('button', { name: i18n.t('valuationCreate.submit') })).toBeDisabled()
+    expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(0)
+  })
+
+  it('the submit waits for the car: VIN, make and model (KAN-574)', async () => {
+    const user = userEvent.setup()
+    install()
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    const button = () => within(dialog).getByRole('button', { name: i18n.t('valuationCreate.submit') })
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '9000')
+    expect(button()).toBeDisabled()
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'), { exact: false }), 'WVWZZZ1KZAW574098')
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.make'), { exact: false }), 'VW')
+    expect(button()).toBeDisabled()
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.model'), { exact: false }), 'Golf')
+    expect(button()).toBeEnabled()
   })
 
   it('a configuration with no VIN links no car, so the VIN stays free to type and is sent', async () => {

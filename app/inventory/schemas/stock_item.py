@@ -1,14 +1,16 @@
 """StockItem schemas (WP-7 PR-1).
 
 `vin` is writable only when an item is created (`StockItemCreate`, a car
-with a known VIN taken straight into stock) and by the promotion path
+whose VIN is known before it is bought — it lands in pipeline carrying it,
+KAN-554) and by the promotion path
 (PR-2, ADR-045) — never by an update: `StockItemUpdate` omits it, matching
 app.vehicle.schemas.vehicle_mdm's own rule that a vehicle's VIN is
 corrected only through VehicleMdmUpdate.
 
 On create the VIN is normalised and then validated exactly as vehicle-mdm
-validates it (KAN-244, Anto's option A), and the item's vehicle is resolved
-from it, never taken from the client (option C) — see `StockItemCreate`.
+validates it (KAN-244, Anto's option A). The item gets no vehicle on create:
+its vehicle-mdm record is resolved from the VIN at purchase booking, never
+taken from the client (KAN-244 option C; KAN-554 option A, ADR-116).
 Without a VIN there is no vehicle to name: a `vehicleId` sent without one is
 refused (KAN-324, Anto's option A), never stored unverified.
 """
@@ -35,10 +37,10 @@ class StockItemCreate(CamelModel):
     list_price: Decimal | None = None
     effective_price: Decimal | None = None
     first_registration_date: dt.date | None = None
-    # KAN-244 (Anto, option C): with a VIN, the vehicle is the vehicle-mdm
-    # record that VIN resolves to (found, or created — as promotion does);
-    # a vehicleId the client sends is ignored, not refused, so a client that
-    # sends one today keeps working. Without a VIN (a pipeline-style create)
+    # KAN-244 (Anto, option C): with a VIN, a vehicleId the client sends is
+    # ignored, not refused, so a client that sends one today keeps working;
+    # since KAN-554 (option A) the item's vehicle is resolved from the VIN
+    # at purchase booking, not on create. Without a VIN (a pipeline-style create)
     # a vehicleId is refused — 422 `vehicle_id_requires_vin`, the validator
     # below (KAN-324, Anto's option A): a pipeline item has no vehicle until
     # its VIN arrives, and one stored unverified named a record nobody had
@@ -46,17 +48,19 @@ class StockItemCreate(CamelModel):
     vehicle_id: uuid.UUID | None = Field(
         default=None,
         description=(
-            "Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves "
-            "to (found, or created). Without a `vin` it is refused (422 `vehicle_id_requires_vin`): a pipeline "
-            "item has no vehicle until its VIN arrives."
+            "Ignored when `vin` is sent: the item's vehicle is the vehicle-mdm record its VIN resolves to "
+            "(found, or created) when its purchase is booked. Without a `vin` it is refused (422 "
+            "`vehicle_id_requires_vin`): a pipeline item has no vehicle until it is bought."
         ),
     )
     vin: NormalisedVin | None = Field(
         default=None,
         description=(
-            "A car with a known VIN, taken straight into stock. Normalised first (upper-cased, all whitespace "
-            "removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and "
-            "digits, never I, O or Q — otherwise 422. A VIN already in this dealership's stock is 409 "
+            "The car's VIN, when it is known before the car is bought. The item still lands in pipeline "
+            "(`lifecycleStatus: pipeline`, ADR-103/ADR-116): only booking its purchase puts it in stock, under "
+            "this VIN. Normalised first (upper-cased, all whitespace removed), then validated as vehicle-mdm "
+            "validates a VIN: 17 characters, uppercase letters and digits, never I, O or Q — otherwise 422. A "
+            "VIN another item of this dealership holds (in stock, or in pipeline with it) is 409 "
             "`vin_already_in_stock`."
         ),
     )
@@ -95,6 +99,17 @@ class StockItemCreateRequest(StockItemCreate):
         description=(
             "The configuration the configurator produced for this car (`build` for a factory order, `record` "
             "for a car being bought in). Required: without it the create is 422 `configuration_required`."
+        ),
+    )
+    # ADR-117 (2), KAN-556: a configured car's name is its configuration's
+    # label, derived server-side and refreshed with it — no longer the
+    # client's free text. Optional, and ignored when sent, so a client that
+    # still sends it keeps working.
+    vehicle_label: str | None = Field(  # type: ignore[assignment]
+        default=None,
+        description=(
+            "Ignored: the stock item's name (`vehicleLabel`) is its configuration's label, derived by the "
+            "server and refreshed whenever the configuration changes (ADR-117)."
         ),
     )
 

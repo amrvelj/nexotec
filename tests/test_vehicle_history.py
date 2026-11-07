@@ -68,7 +68,9 @@ def test_removing_an_accessory_sets_valid_to_and_never_deletes(db_session):
     )
     accessory_id = accessory.id
 
-    removed = remove_accessory(db_session, accessory=accessory, valid_to=dt.date(2026, 1, 1))
+    removed = remove_accessory(
+        db_session, accessory=accessory, valid_to=dt.date(2026, 1, 1), actor_id=None, tenant_id=TENANT_ID
+    )
     assert removed.valid_to == dt.date(2026, 1, 1)
 
     from sqlalchemy import select

@@ -4,8 +4,9 @@
 One row per stock item whose purchase Sales has learned of — from the
 `inventory.stock_item.purchased` event, whether or not any contract
 referenced the item at the time.
-The event is published once (inventory.services.stock_item.
-mark_purchased_if_ready); keeping the fact keyed by stock item, not on the
+The event is published once per booking (inventory.services.stock_item.
+mark_purchased_if_ready) — again after a storno and a new booking (KAN-146),
+which finds no row, the storno having deleted it; keeping the fact keyed by stock item, not on the
 contract, is what lets a contract written AFTER the purchase start with
 `is_invoiceable = True` without asking Stock synchronously.
 
@@ -15,8 +16,10 @@ no event) and by the KAN-100 migration's backfill from the outbox.
 SalesContract.is_invoiceable is derived from it on read; there is no
 per-contract copy to fall out of step.
 
-`inventory.stock_item.storno` (ADR-052: "sets it back") is not emitted by
-Stock yet; when it is, its consumer deletes the row and clears the flag.
+`inventory.stock_item.storno` (ADR-052: "sets it back") deletes the row
+(KAN-146, app.sales.services.stock_item_purchase.record_stock_item_storno),
+so every contract on the car derives `is_invoiceable = False` until Stock
+publishes its next purchase.
 """
 
 import datetime as dt

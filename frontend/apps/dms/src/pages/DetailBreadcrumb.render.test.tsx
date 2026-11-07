@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { waitFor } from '@testing-library/react'
-import { BreadcrumbProvider } from '@nexotec/ui-kit'
+import { BreadcrumbProvider, type BreadcrumbSegment } from '@nexotec/ui-kit'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import type { StockItemRead, VehicleMdmRead } from '../api/types'
@@ -21,9 +21,14 @@ import { StockDetailPage } from './StockDetailPage'
 const UUID_LIKE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
 function captureBreadcrumbs() {
+  // Segments as their text (KAN-104 item 1: a segment may carry an href).
   const calls: string[][] = []
   const Capture = ({ children }: { children: React.ReactNode }) => (
-    <BreadcrumbProvider value={(segments) => calls.push(segments)}>{children}</BreadcrumbProvider>
+    <BreadcrumbProvider
+      value={(segments: BreadcrumbSegment[]) => calls.push(segments.map((s) => (typeof s === 'string' ? s : s.label)))}
+    >
+      {children}
+    </BreadcrumbProvider>
   )
   return { calls, Capture }
 }

@@ -1285,8 +1285,8 @@ def _repoint_earlier_merges(
     credit-block change on X takes only X's row; the nightly advisor-label
     refresh skips a customer it cannot lock and waits for nothing (KAN-403).
     The copies are only tried, never waited for: the nightly vehicle-party
-    label refresh locks party rows in id order
-    and could hold a copy while it waits for one of D's rows, so a copy held
+    label refresh and the summary-changed consumer (KAN-186) lock party rows
+    in id order and could hold a copy while they wait for one of D's rows, so a copy held
     by another writer refuses the merge (409 `merge_vehicle_party_busy`,
     nothing written), which can simply be sent again."""
 
@@ -1331,25 +1331,6 @@ def _repoint_earlier_merges(
             after={"duplicateOfCustomerId": str(target_id)},
         )
     return [merged.id for merged in earlier]
-
-
-def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
-    # Sales owns Transaction (one writer per fact) — customer only knows the
-    # duplicate/target IDs from its own merge flow, so the actual row
-    # mutation happens inside app.sales, reached through its public surface.
-    # This is still a direct in-transaction cross-context write, same as
-    # before the restructure; it's tracked residual coupling PR-4/PR-5 must
-    # replace with a `customer.merged` event that sales consumes idempotently.
-    #
-    # Import is deferred to call time (not module top-level): sales's own
-    # transaction service imports app.customer.public at top level to
-    # validate customer_id on transaction create, so a top-level import here
-    # would be a circular import. Both edges are still visible to
-    # import-linter either way — it walks the whole AST, not just the
-    # top-level imports.
-    from app.sales.public import repoint_customer_transactions
-
-    return repoint_customer_transactions(db, duplicate_id=duplicate_id, target_id=target_id)
 
 
 def _repoint_contacts(
@@ -1448,8 +1429,8 @@ def merge_customer(
 ) -> Customer:
     """Merges `customer` (the duplicate) into the survivor (FR-09).
 
-    Re-points vehicle-party rows, transactions, phones, emails and external
-    IDs at the survivor in the same transaction as the flag flip — a merge
+    Re-points vehicle-party rows, phones, emails and external IDs at the
+    survivor in the same transaction as the flag flip — a merge
     that only sets the flag silently orphans the survivor's 360 view from
     everything the duplicate used to carry, which the PRD's own Risks
     section calls "worse than no merge... a correctness bug, not an
@@ -1486,7 +1467,6 @@ def merge_customer(
     parties_repointed, parties_kept_closed = _repoint_vehicle_parties(
         db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
     )
-    transactions_repointed = _repoint_transactions(db, duplicate_id=customer.id, target_id=target.id)
     phones_repointed, phones_dropped = _repoint_contacts(
         db, CustomerPhone, ("phone_e164",), duplicate_id=customer.id, target_id=target.id
     )
@@ -1528,7 +1508,6 @@ def merge_customer(
             # KAN-177: the overlapping rows are kept, closed and marked, not dropped.
             "vehiclePartiesKeptClosed": len(parties_kept_closed),
             "vehiclePartiesKeptClosedIds": [str(party_id) for party_id in parties_kept_closed],
-            "transactionsRepointed": transactions_repointed,
             "phonesRepointed": phones_repointed,
             "phonesDropped": phones_dropped,
             "emailsRepointed": emails_repointed,
@@ -1543,6 +1522,9 @@ def merge_customer(
             "earlierMergesRepointedIds": [str(customer_id) for customer_id in earlier_merges_repointed],
         },
     )
+    # KAN-185 (ADR-047) — Sales moves its records of the duplicate (legacy
+    # transactions, offers, contracts, deals) from this event, in its own
+    # transaction (`sales.customer_merged`); the merge writes nothing of Sales'.
     publish_event(
         db,
         OutboxEvent(
@@ -1571,17 +1553,6 @@ def merge_customer(
             details={"reason": "merge_conflict_on_survivor"},
         ) from exc
     db.refresh(customer)
-
-    # WP-8 PR-7 — Pattern B (ADR-047, own commit), called AFTER the merge
-    # above has already committed, never joining that transaction (unlike
-    # _repoint_transactions above, which predates this rule being written
-    # down for Transaction — that one is left as-is since the table it
-    # touches is itself retired, ADR-050). A failure here is repaired by
-    # nightly reconciliation, not by rolling back the merge.
-    from app.sales.public import repoint_customer_sales_records
-
-    repoint_customer_sales_records(db, duplicate_id=customer.id, target_id=target.id)
-
     return customer
 
 
@@ -2671,31 +2642,77 @@ def refresh_vehicle_party_labels(db: Session) -> int:
             return changed
         last_id = batch[-1].id
 
-        summaries = get_vehicle_summaries(db, [p.vehicle_id for p in batch])
-        now = utcnow()
-        unchanged_ids: list[uuid.UUID] = []
-        for party in batch:
-            summary = summaries.get(party.vehicle_id)
-            if summary is None:
-                continue
-            party.__dict__.pop("_vehicle_label_read_fill", None)
-            changes = _label_changes(party, summary)
-            if changes:
-                for column, value in changes.items():
-                    setattr(party, column, value)
-                party.vehicle_label_refreshed_at = now
-                changed += 1
-            else:
-                unchanged_ids.append(party.id)
-        db.flush()
-        if unchanged_ids:
-            db.execute(
-                update(VehicleParty)
-                .where(VehicleParty.id.in_(unchanged_ids))
-                .values(vehicle_label_refreshed_at=now, updated_at=VehicleParty.updated_at)
-                .execution_options(synchronize_session=False)
-            )
+        changed += _relabel_vehicle_parties(db, batch)
         db.commit()
+
+
+def _relabel_vehicle_parties(db: Session, parties: list[VehicleParty]) -> int:
+    """Re-reads each party's vehicle label from `get_vehicle_summaries` and
+    stamps `vehicle_label_refreshed_at` — flushed, never committed here.
+    Returns how many rows' labels changed. A row whose label changed is
+    updated through the ORM (updated_at moves); a row already current is
+    only stamped, updated_at held; a row whose vehicle no longer exists is
+    left alone (reconciliation reports it). The nightly job and the
+    summary-changed consumer share it, so both apply the same rule."""
+
+    summaries = get_vehicle_summaries(db, [p.vehicle_id for p in parties])
+    now = utcnow()
+    changed = 0
+    unchanged_ids: list[uuid.UUID] = []
+    for party in parties:
+        summary = summaries.get(party.vehicle_id)
+        if summary is None:
+            continue
+        party.__dict__.pop("_vehicle_label_read_fill", None)
+        changes = _label_changes(party, summary)
+        if changes:
+            for column, value in changes.items():
+                setattr(party, column, value)
+            party.vehicle_label_refreshed_at = now
+            changed += 1
+        else:
+            unchanged_ids.append(party.id)
+    db.flush()
+    if unchanged_ids:
+        db.execute(
+            update(VehicleParty)
+            .where(VehicleParty.id.in_(unchanged_ids))
+            .values(vehicle_label_refreshed_at=now, updated_at=VehicleParty.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+    return changed
+
+
+def relabel_vehicle_parties_for_vehicle(db: Session, *, vehicle_id: uuid.UUID) -> int:
+    """KAN-186 — what the consumer of `vehicle.vehicle_mdm.summary_changed`
+    does: every party row naming the vehicle takes its current label, so a
+    VIN correction or a new first registration shows on the Vehicles tab
+    as soon as the worker delivers the event, not the next night. Flushed
+    only; the consumer harness commits it with the processed_event row.
+
+    Every dealer group's rows: the vehicle is one global fact (ADR-022), so
+    each group's holder rows (KAN-99) name the same car and carry the same
+    label — no group's customer is read, only the rows' own vehicle_id.
+
+    The label is re-read from `app.vehicle.public.get_vehicle_summaries`,
+    never taken from the event's payload: delivery is at-least-once and
+    unordered, and an older event delivered after a newer one must not put
+    its values back. The rows are locked FOR NO KEY UPDATE in id order —
+    the order a customer merge locks its duplicate's rows in — and re-read
+    under the lock."""
+
+    rows = list(
+        db.scalars(
+            select(VehicleParty)
+            .where(VehicleParty.vehicle_id == vehicle_id)
+            .order_by(VehicleParty.id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        ).all()
+    )
+    if not rows:
+        return 0
+    return _relabel_vehicle_parties(db, rows)
 
 
 def list_vehicle_parties(
@@ -3133,7 +3150,7 @@ def _close_vehicle_party(
     db: Session,
     *,
     party: VehicleParty,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     group_id: uuid.UUID,
     effective_to: dt.datetime | None = None,
     merged_into_customer_id: uuid.UUID | None = None,
@@ -3203,7 +3220,8 @@ def allocate_vehicle_party(
     ADR-014): vehicle_mdm is a global fact (ADR-022) and VehicleParty has
     no group column, so two groups can each hold the same role on one
     VIN. The customer is resolved in the caller's group first (404, never
-    a cross-group link — the trade-in path passes a request-body id), and
+    a cross-group link — a caller may pass a request-body id; since KAN-189
+    the trade-in no longer allocates), and
     the incumbents are looked up through Customer.group_id, the same
     intra-context join as list_vehicle_parties. So an allocation closes
     EVERY open holder of (vehicle, role) in the caller's group — a
@@ -3250,6 +3268,257 @@ def allocate_vehicle_party(
     db.commit()
     db.refresh(party)
     return party
+
+
+def record_former_holder_on_purchase(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, group_id: uuid.UUID,
+    held_from: dt.datetime, ended_at: dt.datetime, actor_id: uuid.UUID | None,
+) -> list[VehicleParty]:
+    """KAN-189 (Anto, 2026-11-02, option A): the Betrieb has bought the car
+    `customer_id` traded in, so that customer is recorded as its former owner
+    and keeper (ADR-064), ending at the purchase (`ended_at`). This is what
+    puts a traded-in car on the customer's Vehicles tab now that the trade-in
+    itself creates no vehicle-mdm record and allocates no party.
+
+    Per role: a row of this customer that holds the role at `ended_at` (an
+    earlier link, open or ending later) is closed at `ended_at`; one already
+    ending exactly then is left alone; otherwise a closed row
+    [`held_from`, `ended_at`) is written — history, so it closes nobody else
+    (KAN-148/KAN-370: a row ended in the past is not a holder). Taken under
+    the allocation's locks, and refused for a merged customer the same way
+    (409 `customer_merged`); the caller resolves the survivor first, so that
+    refusal means a merge committed in between and a redelivery will find
+    the survivor.
+
+    Flushes only: the customer context's consumer
+    (app.customer.consumers) commits it with its processed_event row.
+    """
+
+    held_from = min(held_from, ended_at - dt.timedelta(seconds=1))
+    # Both roles' advisory locks first, in the order a merge takes them
+    # (sorted by role value, _repoint_vehicle_parties), then the customer row
+    # FOR SHARE, then party rows: the allocation's lock order, so this never
+    # deadlocks against a merge of this customer.
+    roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
+    for role in roles:
+        _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    _refuse_merged_customer(db, customer_id)
+    written: list[VehicleParty] = []
+    for role in roles:
+        own_rows = list(
+            db.scalars(
+                select(VehicleParty)
+                .where(
+                    VehicleParty.vehicle_id == vehicle_id,
+                    VehicleParty.customer_id == customer_id,
+                    VehicleParty.role == role,
+                    VehicleParty.merged_into_customer_id.is_(None),
+                    VehicleParty.effective_from < ended_at,
+                    or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to >= ended_at),
+                )
+                .order_by(VehicleParty.effective_from)
+                .with_for_update()
+            ).all()
+        )
+        if own_rows:
+            for row in own_rows:
+                if row.effective_to is None or row.effective_to > ended_at:
+                    _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
+            continue
+        # uq_vehicle_party_scope spans (vehicle, customer, role, effective_from):
+        # an earlier row of this customer starting at exactly `held_from` (and
+        # ended before the purchase) already records that start. Writing a
+        # second would fail the consumer on every redelivery until it is
+        # dead-lettered, so that row stands for the period.
+        same_start = db.scalar(
+            select(VehicleParty.id).where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.customer_id == customer_id,
+                VehicleParty.role == role,
+                VehicleParty.effective_from == held_from,
+            )
+        )
+        if same_start is not None:
+            continue
+
+        party = VehicleParty(
+            vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=held_from,
+            effective_to=ended_at,
+        )
+        _write_vehicle_labels(db, [party])
+        db.add(party)
+        db.flush()
+        record_audit_event(
+            db, entity_type="customer", entity_id=customer_id, tenant_id=group_id, action="vehicle_party_add",
+            actor_id=actor_id,
+            after={
+                "vehicleId": str(vehicle_id),
+                "role": role.value,
+                "effectiveFrom": party.effective_from.isoformat(),
+                "effectiveTo": ended_at.isoformat(),
+            },
+        )
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.vehicle_party.linked",
+                tenant_id=group_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="vehicle_party",
+                aggregate_id=party.id,
+                payload=_vehicle_party_payload(party),
+            ),
+        )
+        written.append(party)
+    db.flush()
+    return written
+
+
+def reopen_former_holder_after_storno(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, group_id: uuid.UUID,
+    closed_after: dt.datetime, closed_until: dt.datetime, actor_id: uuid.UUID | None,
+) -> list[VehicleParty]:
+    """KAN-572 (Anto, 2026-11-07, option C): Stock cancelled a trade-in's
+    purchase and said the car went back to `customer_id`, who traded it in.
+    That customer holds it again, so per role (owner, keeper) the row the
+    purchase closed (KAN-189, `record_former_holder_on_purchase`) is reopened
+    — `effectiveTo` back to open, the same row, so the history shows no
+    handover that did not happen.
+
+    The row is this customer's latest of that role closed between the
+    contract's signature (`closed_after`) and the storno (`closed_until`):
+    the purchase closed it there, at the purchase date's start or at the
+    booking. A role the customer holds now is left alone (a redelivery, or a
+    later allocation), and so is a role with no such row (a purchase this
+    context never recorded). A role is left alone too when a row of it was
+    recorded after the storno and, as it stands now, is open or ends after
+    it was recorded (a newer fact; a history row recorded later does not
+    count), or a holder of it starts after the storno. Not caught (API only,
+    the accepted residual in customer.md): an older row reopened by a PATCH
+    after the storno is closed by a late storno, and a row recorded after the
+    storno whose end a PATCH moved back before its own recording reads as
+    history, so a late storno reopens over it. Otherwise a reopen goes through the
+    close rule like every other (KAN-148): every other open holder of the role
+    in the group is closed, under the allocation's locks and order — advisory, then the
+    customer row (`customer_merged` refused, KAN-365), then party rows. The
+    copy a merge kept (`merged_into_customer_id`) is never reopened.
+
+    Audited as `vehicle_party_update` with reason `trade_in_returned_to_customer`
+    and published as `customer.vehicle_party.linked`, as a reopen by PATCH is
+    (KAN-352). Flushes only: the consumer commits it with its processed_event
+    row."""
+
+    roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
+    for role in roles:
+        _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    _refuse_merged_customer(db, customer_id)
+    now = utcnow()
+    reopened: list[VehicleParty] = []
+    for role in roles:
+        mine = (
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.customer_id == customer_id,
+            VehicleParty.role == role,
+            VehicleParty.merged_into_customer_id.is_(None),
+        )
+        holds_now = db.scalar(
+            select(VehicleParty.id).where(
+                *mine,
+                VehicleParty.effective_from <= now,
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > now),
+            )
+        )
+        if holds_now is not None:
+            continue
+        party = db.scalars(
+            select(VehicleParty)
+            .where(
+                *mine,
+                VehicleParty.effective_to >= closed_after,
+                VehicleParty.effective_to <= closed_until,
+            )
+            .order_by(VehicleParty.effective_to.desc())
+            .limit(1)
+            .with_for_update()
+        ).first()
+        if party is None:
+            continue
+        # A row of this role in the group recorded after the storno that, as
+        # it stands now, is open or ends after it was recorded (a customer
+        # linked since, or linked and disconnected since) is a newer fact than
+        # this storno: a late delivery must not overwrite it, so the role is
+        # left as it is. A holder recorded before the storno but
+        # starting after it (a future start) is left too: closing it would end
+        # it before it began.
+        newer_row = db.scalar(
+            select(VehicleParty.id)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.role == role,
+                Customer.group_id == group_id,
+                VehicleParty.id != party.id,
+                VehicleParty.created_at > closed_until,
+                # …and, as it stands now, open or ending after it was
+                # recorded: a history row (ended before it was recorded)
+                # closes nobody (KAN-370), so it does not stop the reopen.
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > VehicleParty.created_at),
+            )
+            .limit(1)
+        )
+        others = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id, excluding=party.id)
+        if newer_row is not None or any(other.effective_from > closed_until for other in others):
+            continue
+        for other in others:
+            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
+        before = {
+            "vehicleId": str(party.vehicle_id),
+            "role": party.role.value,
+            "effectiveFrom": party.effective_from.isoformat(),
+            "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+        }
+        party.effective_to = None
+        db.flush()
+        record_audit_event(
+            db, entity_type="customer", entity_id=customer_id, tenant_id=group_id, action="vehicle_party_update",
+            actor_id=actor_id, before=before, after={"effectiveTo": None}, reason="trade_in_returned_to_customer",
+        )
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.vehicle_party.linked",
+                tenant_id=group_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="vehicle_party",
+                aggregate_id=party.id,
+                payload=_vehicle_party_payload(party),
+            ),
+        )
+        reopened.append(party)
+    db.flush()
+    return reopened
+
+
+def resolve_live_customer_id(db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID) -> uuid.UUID | None:
+    """The customer a record now lives on: `customer_id` itself, or the
+    survivor its merge chain ends at (KAN-383 keeps "merged into" naming a
+    live customer). None when the chain leaves `group_id` or does not end."""
+
+    current = customer_id
+    for _ in range(32):
+        row = db.execute(
+            select(Customer.lifecycle_status, Customer.duplicate_of_customer_id, Customer.group_id).where(
+                Customer.id == current
+            )
+        ).one_or_none()
+        if row is None or row.group_id != group_id:
+            return None
+        if row.lifecycle_status != CustomerLifecycleStatus.MERGED:
+            return current
+        if row.duplicate_of_customer_id is None:
+            return None
+        current = row.duplicate_of_customer_id
+    return None
 
 
 def _open_holders_in_group(
@@ -3409,10 +3678,7 @@ def repoint_vehicle_party(db: Session, *, duplicate_vehicle_id: uuid.UUID, survi
     — customer stays the sole writer of VehicleParty.vehicle_id even though
     the merge decision belongs to vehicle. ADR-047: a write spanning two
     contexts is a call with a compensating action, never a shared
-    transaction — unlike app.sales.services.transaction.
-    repoint_customer_transactions (which joins the caller's transaction and
-    predates this rule being written down), this function commits its OWN
-    transaction and is called AFTER the vehicle side has already committed
+    transaction — this function commits its OWN transaction and is called AFTER the vehicle side has already committed
     its own repointing. A failure here is repaired by the nightly
     reconciliation job, not by rolling back the vehicle merge — the correct
     trade per ADR-047, not an oversight.

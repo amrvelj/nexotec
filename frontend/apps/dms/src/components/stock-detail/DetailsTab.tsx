@@ -1,15 +1,21 @@
-import { useState } from 'react'
-import { Button } from '@mantine/core'
-import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
+import { useEffect, useId, useState } from 'react'
+import { Button, Group, Text } from '@mantine/core'
+import { FieldLabel, InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
+import { api } from '../../api/client'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { AttachConfigurationButton } from './AttachConfigurationButton'
+import { useAttachConfiguration } from './useAttachConfiguration'
+import { PurchaseStornoDialog } from './PurchaseStornoDialog'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import { useStockConfigurationEditor } from './useStockConfigurationEditor'
 import type { ConfigurationRead, StockItemRead } from '../../api/types'
+
+export type DetailsTabAction = 'recordPurchase' | 'stornoPurchase' | 'attachConfiguration' | 'editConfiguration'
 
 interface DetailsTabProps {
   item: StockItemRead
@@ -28,6 +34,17 @@ interface DetailsTabProps {
    * (`configurations`) — «Konfiguration bearbeiten» on the card and beside
    * the purchase dialog's VIN refusal. Hidden when not. */
   canEditConfiguration?: boolean
+  /** KAN-146: the stock item after «Einkauf stornieren» reversed its
+   * purchase. Offered beside a booked purchase to the same role that books it
+   * (`canRecordPurchase`). */
+  onPurchaseStornoed?: (updated: StockItemRead) => void
+  /** KAN-571: an action the stock row menu asked for (the header's overflow,
+   * or the Stock list through the router state) whose dialog or configurator
+   * lives on this tab. It runs once; `onRequestedActionHandled` clears it. An
+   * action this car or role does not allow (a hand-made router state) is
+   * dropped, as the menu would never offer it. */
+  requestedAction?: DetailsTabAction | null
+  onRequestedActionHandled?: () => void
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -56,20 +73,59 @@ export function DetailsTab({
   canRecordPurchase = true,
   canAttachConfiguration = true,
   canEditConfiguration = true,
+  onPurchaseStornoed,
+  requestedAction = null,
+  onRequestedActionHandled,
   onRecordPurchase,
 }: DetailsTabProps) {
   const { t } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
+  const [stornoDialogOpen, setStornoDialogOpen] = useState(false)
+  const stornoReasonId = useId()
   const editConfiguration = useStockConfigurationEditor()
-  // KAN-510: only a pipeline car the Betrieb took in itself. A car in stock
-  // has its VIN from the purchase; a pipeline car a contract's confirmation
-  // created (`pipelineRef` «contract:…», a configured car or a trade-in)
-  // carries the configuration that contract was signed on. Editing either
-  // would make Stock's technical data differ from what was bought or signed —
-  // open with Anto on KAN-510.
-  const mayEditConfiguration =
-    canEditConfiguration && item.lifecycleStatus === 'pipeline' && !item.pipelineRef?.startsWith('contract:')
+  // KAN-510 (Anto, 2026-11-02, option A): «Konfiguration bearbeiten» on
+  // every stock car, in the pipeline or in stock (not one that has left
+  // stock), unless a contract reserves it. Then the change belongs to that
+  // contract: the card offers «Vertrag bearbeiten» instead, disabled with the
+  // reason. A contract reserves a car as it is signed (`reserve_for_contract`
+  // in the confirmation, and the item a signed manual configuration creates),
+  // and a signed contract is frozen (ADR-083), so it is cancelled first. A
+  // pending contract holds the reservation only while its confirmation runs
+  // (or, after a failed one, until the nightly sweep frees it), so the reason
+  // names no status.
+  const reservedByContract = item.reservationState === 'reserved'
+  const onStock = (item.lifecycleStatus === 'pipeline' || item.lifecycleStatus === 'in_stock') && item.leftStockAt == null
+  const mayEditConfiguration = canEditConfiguration && onStock && !reservedByContract
+  const reservedReasonId = useId()
+  const queryClient = useQueryClient()
+  const attachConfiguration = useAttachConfiguration(item)
+
+  // KAN-571 — the row menu's actions that open this tab's own dialogs.
+  useEffect(() => {
+    if (!requestedAction) return
+    onRequestedActionHandled?.()
+    const booked = item.purchasePrice != null
+    const onStockNow = item.leftStockAt == null
+    if (requestedAction === 'recordPurchase' && canRecordPurchase && !booked && onStockNow) {
+      setPurchaseDialogOpen(true)
+    } else if (requestedAction === 'stornoPurchase' && canRecordPurchase && onPurchaseStornoed && booked && onStockNow) {
+      setStornoDialogOpen(true)
+    } else if (requestedAction === 'attachConfiguration' && canAttachConfiguration && !item.configurationId) {
+      attachConfiguration()
+    } else if (requestedAction === 'editConfiguration' && mayEditConfiguration && item.configurationId) {
+      const configurationId = item.configurationId
+      void queryClient
+        .fetchQuery({
+          queryKey: ['configuration', configurationId],
+          queryFn: () => api.get<ConfigurationRead>(`/configurations/${configurationId}`),
+        })
+        .then((configuration) => editConfiguration(configuration))
+        .catch(() => undefined) // the card says the configuration could not be read
+    }
+    // Runs once per request; the handlers are recreated on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedAction])
 
   // KAN-510 — from the purchase dialog's VIN refusal: the dialog steps aside
   // (a modal would hold the focus the configurator needs) and comes back,
@@ -123,6 +179,17 @@ export function DetailsTab({
             onOpenConfigurator={mayEditConfiguration ? (configuration) => editConfiguration(configuration) : undefined}
             openConfiguratorLabel={t('stockDetail.configuration.edit')}
           />
+          {/* An action, not a field: its reason is said (ADR-061). */}
+          {canEditConfiguration && onStock && reservedByContract && (
+            <Group gap="sm" mt="sm" wrap="nowrap" align="flex-start">
+              <Button variant="default" size="xs" disabled aria-describedby={reservedReasonId} style={{ flexShrink: 0 }}>
+                {t('stockDetail.configuration.editContract')}
+              </Button>
+              <Text id={reservedReasonId} size="sm" c="dimmed">
+                {t('stockDetail.configuration.reservedByContract')}
+              </Text>
+            </Group>
+          )}
         </OverviewCard>
       ) : (
         // KAN-463 — an item the retired hand-typed intake created has no
@@ -182,15 +249,26 @@ export function DetailsTab({
 
         <OverviewCard title={t('stockDetail.identity.title')}>
           <KeyValueRow label={t('stockDetail.identity.vehicleLabel')}>
-            <InlineEditField
-              value={item.vehicleLabel}
-              emptyLabel={t('common.notSet')}
-              onSave={(v) => onSaveField({ vehicleLabel: v })}
-              describeError={describeError}
-              isConflict={isStaleVersion}
-              onReload={onReload}
-              reloadLabel={reloadLabel}
-            />
+            {item.configurationId ? (
+              // ADR-117 (2), KAN-556: a configured car is named by its
+              // configuration and follows it — changed there, never here.
+              // The hint is the kit's info icon (KAN-443), reachable by keyboard and touch.
+              <FieldLabel
+                label={<span data-testid="vehicle-label-read-only">{item.vehicleLabel}</span>}
+                hint={t('stockDetail.identity.vehicleLabelFollowsConfiguration')}
+                labels={{ icon: t('common.fieldHintIcon') }}
+              />
+            ) : (
+              <InlineEditField
+                value={item.vehicleLabel}
+                emptyLabel={t('common.notSet')}
+                onSave={(v) => onSaveField({ vehicleLabel: v })}
+                describeError={describeError}
+                isConflict={isStaleVersion}
+                onReload={onReload}
+                reloadLabel={reloadLabel}
+              />
+            )}
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.identity.vehicleId')}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{item.vehicleId ?? t('common.notSet')}</span>
@@ -227,15 +305,47 @@ export function DetailsTab({
               <KeyValueRow label={t('stockDetail.purchase.isInvoiceable')}>
                 {item.isInvoiceable ? t('common.yes') : t('common.no')}
               </KeyValueRow>
+              {/* KAN-146 (FR-I-05): an action, not a field — on a car that has
+                  left stock it stays visible, disabled, and says why (ADR-061). */}
+              {canRecordPurchase && onPurchaseStornoed && (
+                <Group gap="sm" mt="sm" wrap="nowrap" align="flex-start">
+                  <Button
+                    variant="default"
+                    size="xs"
+                    color="red"
+                    disabled={item.leftStockAt != null}
+                    aria-describedby={item.leftStockAt != null ? stornoReasonId : undefined}
+                    onClick={() => setStornoDialogOpen(true)}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {t('stockDetail.purchase.storno.button')}
+                  </Button>
+                  {item.leftStockAt != null && (
+                    <Text id={stornoReasonId} size="sm" c="dimmed">
+                      {t('stockDetail.purchase.storno.leftStock')}
+                    </Text>
+                  )}
+                </Group>
+              )}
             </OverviewCard>
           )}
         </div>
       </ProgressiveDisclosure>
 
+      {onPurchaseStornoed && (
+        <PurchaseStornoDialog
+          opened={stornoDialogOpen}
+          onClose={() => setStornoDialogOpen(false)}
+          item={item}
+          onStornoed={onPurchaseStornoed}
+        />
+      )}
       <RecordPurchaseDialog
         opened={purchaseDialogOpen}
         onClose={() => setPurchaseDialogOpen(false)}
-        requiresVin={item.lifecycleStatus === 'pipeline'}
+        // KAN-146: a stornoed car is back in pipeline with its VIN and is
+        // bought again under it — the dialog asks for none.
+        requiresVin={item.lifecycleStatus === 'pipeline' && item.vin == null}
         configurationId={item.configurationId ?? null}
         onEditConfiguration={mayEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}

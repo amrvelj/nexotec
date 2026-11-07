@@ -247,11 +247,14 @@ def create_location(
     return location
 
 
-def new_first_location(db: Session, *, dealership: Dealership, actor_id: uuid.UUID | None) -> Location:
+def new_first_location(
+    db: Session, *, dealership: Dealership, actor_id: uuid.UUID | None, system_reason: str | None = None
+) -> Location:
     """FR-A-03: a new Betrieb's first location, from its registered seat —
     so the Locations screen is never empty and the rule holds from the first
     day. No code (the dealer chooses it, once) and no hours yet. Flushes;
-    the caller's dealership write owns the transaction."""
+    the caller's dealership write owns the transaction. A Betrieb created as
+    a system write (KAN-345) names that system first in the audit reason."""
 
     default = holiday_service.default_calendar_for_canton(db, dealership.address_canton)
     location = Location(
@@ -280,7 +283,8 @@ def new_first_location(db: Session, *, dealership: Dealership, actor_id: uuid.UU
         action="create",
         actor_id=actor_id,
         after=_snapshot(location),
-        reason="FR-A-03: the first location, from the registered seat",
+        reason=(f"{system_reason} — " if system_reason else "")
+        + "FR-A-03: the first location, from the registered seat",
     )
     return location
 

@@ -18,6 +18,7 @@ from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership
+from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
@@ -141,6 +142,11 @@ def update_offer(
     required, any order. `customer_id` is resolved server-side into a
     denormalized label/locality on every change (never trusted from the
     client) — see the module's "split by staleness class" rule.
+
+    An edit publishes no event, except that an offer starting to hold a
+    configuration id (Path B through deal_editing) publishes
+    `sales.offer.configuration_attached` in this transaction, so Vehicle
+    keeps a configuration a host took (KAN-270, `.claude/rules/sales.md`).
     """
 
     changes = data.model_dump(exclude_unset=True)
@@ -260,6 +266,8 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
             customer_denorm_refreshed_at=source.customer_denorm_refreshed_at,
             vehicle_source=source.vehicle_source,
             stock_item_id=source.stock_item_id,
+            stock_item_label=source.stock_item_label,
+            stock_item_denorm_refreshed_at=source.stock_item_denorm_refreshed_at,
             vehicle_label=source.vehicle_label,
             manual_vehicle_condition=source.manual_vehicle_condition,
             manual_base_price=source.manual_base_price,
@@ -309,6 +317,9 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
                 payload={"offerNumber": offer.offer_number, "copiedFromOfferId": str(source.id)},
             ),
         )
+        # KAN-270: the copy holds its own configuration and the source's
+        # trade-in one; vehicle keeps a configuration a host took for good.
+        publish_held_configurations(db, deal=offer)
         upsert_deal_projection(db, offer=offer)
         db.commit()
     except Exception:

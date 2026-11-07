@@ -151,7 +151,7 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it, so it needs
     its own test. Two exceptions are ruled by ADR: ADR-091 (the legacy transaction backfill, expiring
-    after its production run) and ADR-109 (number allocation alone: `platform.public.allocate_number`, KAN-207); the one tracked debt — a customer merge re-pointing Sales' legacy `transaction` rows in its own transaction (`tests/architecture/test_adr_047_no_shared_transaction.py`) — is a debt.
+    after its production run) and ADR-109 (number allocation alone: `platform.public.allocate_number`, KAN-207). No tracked debt remains (`tests/architecture/test_adr_047_no_shared_transaction.py`): a customer merge reaches Sales only through `customer.merged`.
 
 ## Preserve verbatim — already correct, do not "improve"
 
@@ -163,17 +163,17 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
   (`concurrency.py`) · POST idempotency keys (`idempotency.py`) · cursor pagination with count
   threshold (`pagination.py`)
 - The error taxonomy (`errors.py`) — 400/401/403/404/409/422, one body shape · `CamelModel`,
-  camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`)
+  camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`; one rewrite: ADR-121)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
   `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099); D-A-22 moved `dealership.tax_id` off it to a plain `uid`
 
 ## API conventions
 
-Path-versioned `/v1` · camelCase JSON · cursor pagination · `updatedSince` for incremental
-sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` honoured, never
-required, on every POST — nine ratified `/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`)
-· OpenAPI published per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
+Path-versioned `/v1` · camelCase JSON and query parameters (KAN-477; legacy snake_case ones, `updated_since` for incremental sync
+among them, in `test_query_parameters_are_camel_case.py`, gain a camelCase alias when their endpoint is next touched) · cursor pagination · `If-Match` on every mutation of a versioned entity
+(reasoned exceptions: `test_versioned_mutations_take_if_match.py`) · `Idempotency-Key` honoured, never required, on every POST — nine ratified
+`/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`) · OpenAPI per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
 ## Domain rules that apply everywhere
 

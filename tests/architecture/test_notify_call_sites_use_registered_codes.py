@@ -164,5 +164,5 @@ def test_a_cross_context_notify_is_refused_by_the_adr_047_test(tmp_path):
     committed = adr047._classification_problems(app, as_own_commit, shared, reads)
     assert any(symbol in p and "no longer commits" in p for p in committed), committed
     # The shared-transaction exceptions are pinned by name, so they cannot quietly grow:
-    # the tracked debt, and number allocation ruled by ADR-109 (KAN-207).
-    assert set(shared) == {"app.sales.public.repoint_customer_transactions", "app.platform.public.allocate_number"}
+    # number allocation ruled by ADR-109 (KAN-207) alone — KAN-185 paid the tracked debt.
+    assert set(shared) == {"app.platform.public.allocate_number"}

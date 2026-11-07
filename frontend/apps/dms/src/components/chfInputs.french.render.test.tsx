@@ -9,6 +9,7 @@ import { RecordCostDialog } from './stock-detail/RecordCostDialog'
 import { PriceBuildUp } from './PriceBuildUp'
 import { ValuationCreateDialog } from './ValuationCreateDialog'
 import type { SalesPricedDealRead } from '../api/types'
+import { nameValuationCar } from '../test/nameValuationCar'
 
 // KAN-168 / ADR-076: a CHF input reads `CHF 12'500.00` on every screen, in
 // every UI language — under the French UI too, whose own CLDR number format
@@ -89,6 +90,7 @@ describe("CHF inputs under the French UI (KAN-168)", () => {
     const finalOffer = within(dialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }) as HTMLInputElement
     await user.type(finalOffer, '12500')
     await user.tab()
+    await nameValuationCar(user, dialog)
 
     expect(finalOffer.value).toBe("CHF 12'500.00")
     await user.click(within(dialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))

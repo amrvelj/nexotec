@@ -83,6 +83,11 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     stock_item_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the inventory context (StockItem.id). No DB-level FK."
     )
+    # Rule 2's display label (the stock number) and when it was copied —
+    # once, when the car is put on the offer (KAN-157, Anto 2026-11-03,
+    # option A: a stock number never changes). Cleared with stock_item_id.
+    stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    stock_item_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     manual_vehicle_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # C-F (KAN-10, FR-C-12) — offer Path B: the configuration this vehicle
@@ -147,12 +152,13 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     cost_basis: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
-    # WP-8 PR-5 (S-D18/ADR-064) — the trade-in vehicle AND its customer
-    # allocation happen at OFFER time, distinct from the pipeline-stock-item
-    # moment which stays at contract confirmation (S-D11/ADR-045). Sales
-    # never owns the traded-in vehicle — trade_in_vehicle_id is a real
-    # VehicleMdm.id, created via app.vehicle.public.create_or_get_vehicle_mdm,
-    # never a Sales-owned record.
+    # The vehicle-mdm record of the traded-in car, when the register already
+    # holds it: since KAN-189 (Anto, 2026-10-31 B / 2026-11-01 A) the trade-in
+    # only LINKS an existing record (vehicle.public.match_vehicle) and creates
+    # none, and allocates no owner/keeper; a VIN-only trade-in keeps
+    # trade_in_vin, and the car enters the register at its purchase
+    # (ADR-103), when its customer is recorded as former owner and keeper
+    # (customer.trade_in_purchased). Sales never owns the vehicle.
     trade_in_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the vehicle context (VehicleMdm.id). No DB-level FK."
     )

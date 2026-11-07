@@ -377,7 +377,12 @@ def set_preference(
 def release_digests(db: Session, *, now: dt.datetime | None = None) -> int:
     """Delivers every held notification into its inbox and publishes one
     `platform.notification_digest.released` per user. Returns how many users
-    got a digest. Does not commit."""
+    got a digest. Does not commit.
+
+    The event is filed under no Betrieb (`tenant_id` null; KAN-519, Anto
+    2026-11-03, option A): a digest is the person's own inbox for the day,
+    and for someone who works in two Betriebe it holds notifications of both
+    — naming one of them, as the first held row's used to, misfiled it."""
 
     now = now or utcnow()
     held = db.execute(
@@ -404,7 +409,7 @@ def release_digests(db: Session, *, now: dt.datetime | None = None) -> int:
             db,
             outbox.OutboxEvent(
                 event_type=DIGEST_RELEASED_EVENT,
-                tenant_id=rows[0].dealership_id,
+                tenant_id=None,
                 producer=PRODUCER,
                 aggregate_type="user",
                 aggregate_id=user_id,
@@ -430,8 +435,4 @@ def ui_language_of(db: Session, user_id: uuid.UUID) -> str | None:
     """The user's UI language preference — the language the SPA shows them,
     and so the push title's (the mail texts' rule, `identity._language_of`)."""
 
-    preference = preference_service.get_preference(db, user_id=user_id, scope="ui")
-    if preference is None:
-        return None
-    language = (preference.payload or {}).get("uiLanguage")
-    return language if isinstance(language, str) else None
+    return preference_service.ui_language_of(db, user_id=user_id)

@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next'
 import { ApiError } from '../api/client'
 import i18n, { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDateOnly } from './format'
+import { formatDate, formatDateOnly } from './format'
 
 type Details = Record<string, unknown>
 
@@ -93,6 +93,7 @@ const REASON_KEYS: Record<string, string> = {
       'offer_already_contracted',
       'passkey_key_not_accepted',
       'passkey_not_verified',
+      'pending_contract_carries_it',
       'phone_already_on_customer',
       'photo_not_an_image',
       'photo_too_large',
@@ -118,14 +119,18 @@ const REASON_KEYS: Record<string, string> = {
       'standard_text_template_id_required',
       'standard_text_template_whatsapp_only',
       'too_many_images',
+      // KAN-574 — a valuation names its car; a trade-in is a car.
+      'trade_in_valuation_names_no_car',
       'ui_translation_blank',
       'ui_translation_placeholders_changed',
       'unknown_fields',
       'unrecognised_identifier',
       'use_deactivate_endpoint',
       'valuation_expired',
+      'valuation_names_no_car',
       // KAN-253 — «Verwendung aufheben».
       'valuation_not_used',
+      'vehicle_label_follows_configuration',
       'vehicle_left_stock',
       'vehicle_not_purchased',
       'vin_already_in_stock',
@@ -170,6 +175,16 @@ const REASON_KEYS: Record<string, string> = {
       'number_range_start_out_of_range',
       // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
       'invoice_plate_vehicle_unknown',
+      // KAN-539 — «Rechnung anfordern» once per contract.
+      'invoice_already_requested',
+      // KAN-146 — a purchase booked once, and «Einkauf stornieren».
+      'purchase_already_booked',
+      'purchase_not_booked',
+      'purchase_storno_invoice_requested',
+      'purchase_storno_left_stock',
+      'source_ref_reserved',
+      // KAN-572 — only a trade-in's car can go back to its customer.
+      'storno_return_not_trade_in',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -180,7 +195,16 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
   configuration_held_by_stock_item: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
+  // KAN-539: the instant of the first request, as a day in the user's locale.
+  invoice_already_requested: (d) => ({
+    date:
+      typeof d.invoiceRequestedAt === 'string' && !Number.isNaN(Date.parse(d.invoiceRequestedAt))
+        ? formatDate(d.invoiceRequestedAt, toSwissLocale(i18n.language as SupportedLanguage))
+        : '—',
+  }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
+  // KAN-146: the contract whose invoice request keeps the purchase booked.
+  purchase_storno_invoice_requested: (d) => ({ contractNumber: String(d.contractNumber ?? '—') }),
   // A connection's settings by their labels on the connect form; a key the
   // bundles do not name yet as the API spells it, never the missing-key marker.
   missing_config_fields: (d, t) => ({

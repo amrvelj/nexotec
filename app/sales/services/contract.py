@@ -27,13 +27,14 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.schemas.contract import ContractUpdate
 from app.sales.services import ownership
+from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import apply_customer_change, resolve_customer_label
-from app.sales.services.priced_deal import require_editable, require_pending
+from app.sales.services.priced_deal import has_trade_in, require_editable, require_pending
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
@@ -170,6 +171,8 @@ def create_contract(
         ),
         vehicle_source=offer.vehicle_source if offer is not None else None,
         stock_item_id=offer.stock_item_id if offer is not None else None,
+        stock_item_label=offer.stock_item_label if offer is not None else None,
+        stock_item_denorm_refreshed_at=offer.stock_item_denorm_refreshed_at if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
         manual_vehicle_condition=offer.manual_vehicle_condition if offer is not None else None,
         # KAN-67 (ADR-083) — the pricing inputs travel with the figures, so
@@ -246,6 +249,8 @@ def create_contract(
             },
         ),
     )
+    # KAN-270: a contract from an offer holds the offer's configurations too.
+    publish_held_configurations(db, deal=contract)
     upsert_deal_projection(db, contract=contract)
     db.commit()
     db.refresh(contract)
@@ -297,10 +302,14 @@ def update_contract(
     confirm"), a cancelled one closed: both refuse with
     `contract_not_pending`.
 
-    Publishes no event: nothing outside Sales acts on a pending contract,
-    and the frozen figures travel in `sales.contract.confirmed`'s
-    pricingSnapshot (ADR-046), exactly as an offer's autosave publishes
-    none. The deal grid is re-projected in the same transaction.
+    An edit publishes no event — nothing outside Sales acts on a pending
+    contract's figures, and the frozen ones travel in
+    `sales.contract.confirmed`'s pricingSnapshot (ADR-046), as with an
+    offer's autosave — except that a contract starting to hold a
+    configuration id (Path B through deal_editing) publishes
+    `sales.contract.configuration_attached` in this transaction, so Vehicle
+    keeps a configuration a host took (KAN-270, `.claude/rules/sales.md`).
+    The deal grid is re-projected in the same transaction.
 
     KAN-315 (Anto, 2026-10-12): a contract priced without inputs (KAN-67)
     is not editable, yet since KAN-307 it cannot be signed without a buyer —
@@ -419,12 +428,14 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
             manual_configuration["configurationId"] = str(contract.configuration_id)
 
     trade_in = None
-    if contract.trade_in_vehicle_id is not None or contract.trade_in_configuration_id is not None:
+    if has_trade_in(contract):
         # Trade-ins are always a used car by definition — there is no
         # separate condition concept on the trade-in side to carry here.
         # C-F (KAN-10): a trade-in captured through the valuation path has a
         # configuration and no vehicle-mdm record; it becomes a pipeline
-        # item all the same (S-D11).
+        # item all the same (S-D11). KAN-189: so does one recorded by VIN
+        # alone — the car is not in the register until its purchase is
+        # booked (ADR-103), which is why it must become a pipeline item.
         trade_in = {"vehicleLabel": contract.trade_in_label, "condition": "used"}
         if contract.trade_in_configuration_id is not None:
             trade_in["configurationId"] = str(contract.trade_in_configuration_id)
@@ -792,12 +803,31 @@ def request_invoice(
     the register would refuse is refused here, before anything is written
     (`services/invoice_handover.py`). The request is audited — whether a
     plate went with it, never its value (ADR-039, ADR-085).
+
+    KAN-539 (Anto, 2026-11-03, option A) — once per contract. The request
+    stamps `invoice_requested_at` and bumps the version in the transaction
+    that writes the outbox row. A second request is refused before anything
+    is written: from a screen read before the first (another tab) by the
+    stale If-Match (409, current version), from one with the current
+    version by 409 `invoice_already_requested`. Finance never gets two
+    triggers for one sale, and the car never gets a second plate from a
+    repeat. The route holds the contract's row lock (`for_update`), so two
+    concurrent requests run one after the other and the second sees both.
     """
 
     if contract.status != ContractStatus.CONFIRMED:
         raise ConflictError(
             f"Contract {contract.contract_number} cannot request invoicing from status "
             f"'{contract.status.value}'."
+        )
+    if contract.invoice_requested_at is not None:
+        raise ConflictError(
+            f"Invoicing of contract {contract.contract_number} was already requested "
+            f"on {contract.invoice_requested_at.isoformat()}.",
+            details={
+                "reason": "invoice_already_requested",
+                "invoiceRequestedAt": contract.invoice_requested_at.isoformat(),
+            },
         )
     if contract.legacy_transaction_id is not None:
         raise ConflictError(
@@ -837,6 +867,9 @@ def request_invoice(
             "plateMovedFromOtherVehicle": bool(handover["moveFrom"]),
         },
     )
+    contract.invoice_requested_at = utcnow()
+    contract.updated_by = actor_id
+    contract.version += 1
     publish(
         db,
         OutboxEvent(

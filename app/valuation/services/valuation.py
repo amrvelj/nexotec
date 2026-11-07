@@ -1,24 +1,20 @@
 """Valuation service layer (WP-8 PR-5).
 
-**The vehicle a VIN valuation creates is resolved on a session of its own**
-(KAN-328, as Stock's `inventory/services/vehicle_resolution.py` does since
-KAN-257). `create_or_get_vehicle_mdm` commits its own transaction (ADR-047)
-and, on a lost insert race, its guard rolls back the session it is handed —
-handed the request session, the first would commit whatever the request had
-pending (the valuation counter, for one) and the second would silently
-discard it. So `_resolve_vehicle_id` gives vehicle-mdm a short-lived
-session bound to the same database and takes back the id. A lost race (two
-writers resolving a VIN vehicle-mdm has never seen) is vehicle-mdm's 409
-naming the VIN; the loser looks again and goes on with the winner's record
-— FR-V-15: same VIN, same car — instead of answering 409. The record names
-the user whose valuation created it (KAN-243: a null `created_by` means a
-system write).
+**A valuation never creates a vehicle-mdm record** (Anto, 2026-10-31 /
+2026-11-01, KAN-189 options B then A; ADR-070 as amended). A car enters the
+shared register when the Betrieb buys it (ADR-103's purchase booking), not
+when someone values it. A valuation keeps its VIN on its own row and only
+*links* the record vehicle-mdm already holds for that VIN, read through
+`vehicle.public.match_vehicle` (a read; before KAN-189 this path created the
+record on a session of its own, KAN-328). The offer's trade-in finds a
+valuation by that VIN (`list_valid_valuations_for_vin`, FR-S-08), so a car
+not yet in the register is still offered its valuation.
 """
 
 import datetime as dt
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -30,10 +26,10 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
 from app.customer.public import get_customer_or_404
-from app.sales.public import valuations_carried_by_signed_contracts
+from app.sales.public import valuations_carried_by_pending_contracts, valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.valuation.schemas.valuation import ValuationCreate
-from app.vehicle.public import CONFIGURATION_MODE_RECORD, create_or_get_vehicle_mdm, get_configuration_for_host
+from app.vehicle.public import CONFIGURATION_MODE_RECORD, get_configuration_for_host, match_vehicle
 
 _EVENT_PRODUCER = "valuation"
 
@@ -69,28 +65,12 @@ def allocate_valuation_number(db: Session, tenant_id: uuid.UUID) -> str:
     return f"B-{value:06d}"
 
 
-def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
-    """vehicle-mdm's own refusal of a second row for this VIN — and nothing
-    else, so any other conflict still reaches the caller."""
+def _linked_vehicle_id(db: Session, *, vin: str, group_id: uuid.UUID) -> uuid.UUID | None:
+    """The vehicle-mdm record vehicle-mdm already holds for `vin`, or None —
+    a read only; nothing is created (KAN-189). `match_vehicle` takes the
+    group for its plate rung; a VIN alone never reaches that rung."""
 
-    details = exc.details or {}
-    return "reason" not in details and details.get("vin") == vin
-
-
-def _resolve_vehicle_id(db: Session, *, vin: str, actor_id: uuid.UUID | None) -> uuid.UUID:
-    """The id of the vehicle-mdm record for `vin`, created if vehicle-mdm
-    has never seen it — committed before this returns, on a session of its
-    own (module docstring)."""
-
-    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
-        try:
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
-        except ConflictError as exc:
-            if not _lost_the_insert_race(exc, vin):
-                raise
-            # The guard rolled `own` back; the winner's row is committed.
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
-        return vehicle.id
+    return getattr(match_vehicle(db, vin=vin, group_id=group_id).vehicle, "id", None)
 
 
 def derive_status(valuation: Valuation) -> str:
@@ -143,9 +123,10 @@ def create_valuation(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: ValuationCreate, actor_id: uuid.UUID | None
 ) -> Valuation:
     """Creatable with no customer, no offer, no vehicle in the register
-    (confirmed live). Without a configuration, a `vin` resolves or creates
-    the real vehicle-mdm record in the SAME step (FR-V's own "one step, not
-    two"). With one (C-F, FR-C-14), nothing is written to vehicle-mdm.
+    (confirmed live). Nothing is ever written to vehicle-mdm (KAN-189;
+    with a configuration, FR-C-14, ADR-070): without a configuration a `vin`
+    links the record vehicle-mdm already holds for it, if any; with one, the
+    record the configuration links.
     """
 
     configuration = None
@@ -176,23 +157,43 @@ def create_valuation(
     # creates or links a vehicle-mdm record, not even the one a configuration
     # links.
     stored_vin = data.vin if data.vin is not None or configuration is None else _normalised_or_none(configuration.vin)
+
+    def _from_configuration(value, attribute: str):
+        if value is not None or configuration is None:
+            return value
+        return getattr(configuration, attribute)
+
     require_vin_or_pre_1981_chassis_number(
         stored_vin,
         data.vehicle_first_registration
         if data.vehicle_first_registration is not None or configuration is None
         else configuration.first_registration_date,
     )
+    # KAN-574 (Anto, 2026-11-07, option A): a valuation names its car — VIN,
+    # make and model are required, each defaulted from the configuration when
+    # it has one (a field sent wins, ADR-070) and typed otherwise. A VIN typed
+    # beside a configuration without one is stored (KAN-449 option A; open
+    # with Anto on KAN-574). A pre-1981 chassis number counts as
+    # the VIN (KAN-353, judged just above). Without them a
+    # trade-in would lower a deal's price for a car nobody can take in.
+    vehicle_make = _from_configuration(data.vehicle_make, "brand_display_name")
+    vehicle_model = _from_configuration(data.vehicle_model, "model_group_name")
+    missing = [
+        field
+        for field, value in (("vin", stored_vin), ("vehicleMake", vehicle_make), ("vehicleModel", vehicle_model))
+        if value is None or not str(value).strip()
+    ]
+    if missing:
+        raise UnprocessableEntityError(
+            "A valuation names its car: VIN, make and model are required (from its configuration, or typed).",
+            details={"reason": "valuation_names_no_car", "fields": missing},
+        )
     vehicle_id = None
     if not is_chassis_number(stored_vin):
         if configuration is not None:
             vehicle_id = configuration.vehicle_id
         elif data.vin:
-            vehicle_id = _resolve_vehicle_id(db, vin=data.vin, actor_id=actor_id)
-
-    def _from_configuration(value, attribute: str):
-        if value is not None or configuration is None:
-            return value
-        return getattr(configuration, attribute)
+            vehicle_id = _linked_vehicle_id(db, vin=data.vin, group_id=group_id)
 
     customer_label = None
     if data.customer_id is not None:
@@ -206,8 +207,8 @@ def create_valuation(
         tenant_id=tenant_id,
         valuation_number=allocate_valuation_number(db, tenant_id),
         vehicle_id=vehicle_id,
-        vehicle_make=_from_configuration(data.vehicle_make, "brand_display_name"),
-        vehicle_model=_from_configuration(data.vehicle_model, "model_group_name"),
+        vehicle_make=vehicle_make,
+        vehicle_model=vehicle_model,
         vehicle_trim=_from_configuration(data.vehicle_trim, "variant_name"),
         vehicle_plate=_from_configuration(data.vehicle_plate, "licence_plate"),
         vehicle_vin=stored_vin,
@@ -251,7 +252,13 @@ def create_valuation(
             producer=_EVENT_PRODUCER,
             aggregate_type="valuation",
             aggregate_id=valuation.id,
-            payload={"valuationNumber": valuation.valuation_number},
+            # KAN-270: `configurationId`, only when the valuation has one (as
+            # Stock's `inventory.stock_item.added` carries it) — vehicle keeps
+            # a configuration a host took for good. Additive.
+            payload={
+                "valuationNumber": valuation.valuation_number,
+                **({"configurationId": str(valuation.configuration_id)} if valuation.configuration_id is not None else {}),
+            },
         ),
     )
     db.commit()
@@ -389,23 +396,25 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
     carries the valuation — a signed deal used it, and it stays used
     (ADR-066, KAN-115) — with `details.reason == "signed_contract_carries_it"`;
     and refused for a valuation that is not stamped (`"valuation_not_used"`). A
-    pending contract does not count: it never used the valuation, and its
-    confirmation stamps it again. A stamp younger than `CONFIRMATION_GRACE`
+    pending contract never used the valuation, but it blocks the clear (below).
+    A stamp younger than `CONFIRMATION_GRACE`
     is refused too (`"stamp_too_recent"`): its confirmation may still be
     signing the contract, and the lock here holds only the valuation row, not
     the contract (another context's) — so the action clears what the nightly
     check reports, and nothing younger.
 
-    **A window left open (KAN-520):** a stamp already older than the grace
-    whose PENDING contract is being confirmed again at the same moment. That
-    confirmation finds the stamp set, writes nothing and releases the
-    valuation's lock before it signs, so a clear landing in between passes
-    every check and the contract signs on an unstamped valuation. The nightly
-    `sales/reconciliation.py` check («signed contract whose trade-in valuation
-    is not used») reports it and «Als verwendet markieren» repairs it.
-    Closing it needs a read of Sales' pending contracts under their lock — a
-    boundary decision for Anto. The reason is mandatory and is kept on the
-    audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
+    **Refused while a PENDING contract of this dealership carries the
+    valuation** (KAN-520, Anto 2026-11-03, option A; `"pending_contract_carries_it"`,
+    read through `sales.public.valuations_carried_by_pending_contracts`).
+    Such a contract's confirmation may run at any moment: finding the stamp
+    already set, it writes nothing and releases the valuation's lock before it
+    signs, so a clear landing in between would leave a signed contract on an
+    unstamped valuation. A confirmation runs only on a contract already
+    committed as pending, and leaves pending only in the commit that signs it.
+    The pending read runs before the signed one, so a signing that commits
+    between them is still seen by one of the two. A stamp a failed confirmation left behind is
+    therefore cleared once its contract is cancelled. The reason is mandatory
+    and is kept on the audit row (`valuation_use_reverted_by_hand`, before/after `usedAt`);
     the clear itself is `revert_use`'s, so `valuation.valuation.use_reverted`
     is published as for the compensation. One commit.
     """
@@ -419,6 +428,12 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
             f"Valuation {valuation.valuation_number} is not marked used.",
             details={"reason": "valuation_not_used", "valuationId": str(valuation.id)},
         )
+    # KAN-520: pending FIRST, then signed — two statements under READ
+    # COMMITTED. A pending contract only ever becomes signed (`signed_at`,
+    # which never clears) or an unsigned cancel, so a signing that commits
+    # between the two reads is pending in the first or signed in the second;
+    # the other order would let it fall between them.
+    pending = valuations_carried_by_pending_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     carried = valuations_carried_by_signed_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
     if valuation.id in carried:
         db.rollback()
@@ -432,6 +447,13 @@ def revert_use_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID
             f"Valuation {valuation.valuation_number} was marked used less than an hour ago; "
             "its contract's confirmation may still be in progress.",
             details={"reason": "stamp_too_recent", "valuationId": str(valuation.id)},
+        )
+    if valuation.id in pending:
+        db.rollback()
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} is the trade-in of a pending contract, whose confirmation "
+            "would use it; cancel that contract first.",
+            details={"reason": "pending_contract_carries_it", "valuationId": str(valuation.id)},
         )
     used_at = valuation.used_at
     record_audit_event(
@@ -456,6 +478,27 @@ def list_valid_valuations_for_vehicle(db: Session, *, tenant_id: uuid.UUID, vehi
     rows = db.scalars(
         select(Valuation)
         .where(Valuation.tenant_id == tenant_id, Valuation.vehicle_id == vehicle_id)
+        .order_by(Valuation.created_at.desc())
+    ).all()
+    return [v for v in rows if derive_status(v) == "valid"]
+
+
+def list_valid_valuations_for_vin(db: Session, *, tenant_id: uuid.UUID, vin: str) -> list[Valuation]:
+    """FR-S-08 for a car that is not in the register (KAN-189): this
+    Betrieb's valid valuations whose VIN is `vin`, newest first. Compared
+    normalised on both sides (upper case, no spaces), so a row stored before
+    the create normalised its VIN (KAN-338) is found too. A chassis number
+    (KAN-353) is matched like a VIN: it is stored the same way."""
+
+    wanted = normalise_vin(vin)
+    if not wanted:
+        return []
+    rows = db.scalars(
+        select(Valuation)
+        .where(
+            Valuation.tenant_id == tenant_id,
+            func.upper(func.replace(Valuation.vehicle_vin, " ", "")) == wanted,
+        )
         .order_by(Valuation.created_at.desc())
     ).all()
     return [v for v in rows if derive_status(v) == "valid"]

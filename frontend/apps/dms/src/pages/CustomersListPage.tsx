@@ -41,21 +41,22 @@ import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { languageEndonym } from '../i18n/languageEndonyms'
 import {
   CANTON_OPTIONS,
   UNASSIGNED_ADVISOR,
   applyCustomerFilters,
-  legalFormLabel,
   translatedCustomerTypeLabel,
   translatedCustomerTypeOptions,
   translatedGenderLabel,
-  translatedLanguageOptions,
+  LANGUAGE_OPTIONS,
   translatedLifecycleLabel,
   translatedLifecycleOptions,
   translatedPaymentTermsLabel,
   translatedPreferredChannelLabel,
   translatedSalutationLabel,
   translatedSourceLabel,
+  translatedLegalFormLabel,
 } from '../customerOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, todayLocalIsoDate } from '../utils/format'
 import { customerName } from '../utils/customer'
@@ -240,7 +241,7 @@ export function CustomersListPage() {
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
         // § Composite cells (FR-17 as amended 2026-09-07) — name carries
         // locality as its secondary: inline at `default` density, stacked
-        // at `comfortable`, gone at `compact`. The `contact` column below
+        // at `comfortable`, inline again at `compact` (KAN-577). The `contact` column below
         // is the other composite cell; both use `meta.secondary`, the one
         // mechanism DataGrid already implements.
         meta: {
@@ -286,8 +287,8 @@ export function CustomersListPage() {
         header: t('customersList.columns.language'),
         cell: ({ row }) => <LanguageBadge language={row.original.language} />,
         meta: {
-          filter: { type: 'select', param: 'language', options: translatedLanguageOptions(t), conditions: ['is', 'isNot'] },
-          exportValue: (row) => t(`customerEnums.language.${row.language}`),
+          filter: { type: 'select', param: 'language', options: LANGUAGE_OPTIONS, conditions: ['is', 'isNot'] },
+          exportValue: (row) => languageEndonym(row.language),
         },
       },
       {
@@ -350,7 +351,7 @@ export function CustomersListPage() {
       text('lastName', t('customersList.columns.lastName'), (row) => row.lastName),
       text('gender', t('customersList.columns.gender'), (row) => translatedGenderLabel(t, row.gender)),
       text('companyName', t('customersList.columns.companyName'), (row) => row.companyName),
-      text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? legalFormLabel(row.legalForm) : null)),
+      text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? translatedLegalFormLabel(t, row.legalForm) : null)),
       text('website', t('customersList.columns.website'), (row) => row.website),
       date('birthDate', t('customersList.columns.birthDate'), (row) => row.birthDate, formatDateOnly),
       text('nationality', t('customersList.columns.nationality'), (row) => countryLabel(row.nationality)),

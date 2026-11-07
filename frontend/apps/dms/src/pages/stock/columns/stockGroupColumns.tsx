@@ -11,6 +11,7 @@ import {
 } from '../../../stockOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../../../utils/format'
 import type { StockItemGroupRead } from '../../../api/types'
+import { STOCK_VEHICLE_COLUMN_WIDTH } from './stockVehicleColumn'
 
 type Translate = (key: string) => string
 
@@ -47,7 +48,7 @@ export function buildStockGroupColumns(t: Translate, locale: string): GridColumn
       id: 'vehicleLabel',
       header: t('stockList.columns.vehicle'),
       cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.vehicleLabel}</span>,
-      meta: { locked: true },
+      meta: { locked: true, width: STOCK_VEHICLE_COLUMN_WIDTH },
     },
     {
       id: 'dealershipLabel',

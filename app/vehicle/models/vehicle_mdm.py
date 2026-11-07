@@ -103,12 +103,11 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         index=True,  # KAN-161: a vehicle-list sort key (U-03)
     )
 
-    # Provenance of a one-way PR-7 migration — permanently retained per
-    # FR-V-04's own "MDM permanently stores pipeline_vehicle_id as
-    # provenance" precedent (a PRD term only: no such column exists — the
-    # promotion is idempotent per stock item because it returns early once
-    # the item carries a vehicle_id for that VIN, KAN-127), applied to the OLD
-    # vehicle table's id. Never used for lookups; purely an audit trail.
+    # Provenance of the one-way PR-7 migration, retained permanently: the OLD
+    # vehicle table's id this row was split from. Never used for lookups;
+    # purely an audit trail. A car promoted from the pipeline keeps no such
+    # pointer to its stock entry — Stock's `stock_item.vehicle_id` is that
+    # link (Anto, 2026-10-31, KAN-504 option A; FR-V-04 amended).
     migrated_from_legacy_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
         nullable=True,
@@ -138,9 +137,10 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # unmatched vehicle, and nothing in this codebase resolves this join
     # anywhere else yet (even the global-search vehicle results fall back
     # to vehicleNumber as the label). A caller-side fallback is required,
-    # not optional. A full catalogue-aware summary is ADR-073's job, not
-    # this property's — this is deliberately the minimal, always-safe
-    # version.
+    # not optional. A full catalogue-aware summary is not built (an unbuilt
+    # feature, not an ADR: the ADR-073 label once used for it was retired,
+    # KAN-88), and not this property's job — this is deliberately the
+    # minimal, always-safe version.
     @property
     def make(self) -> str | None:
         return self.catalogue_variant.model_group.brand.display_name if self.catalogue_variant else None

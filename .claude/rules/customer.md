@@ -92,9 +92,9 @@ weekly. -->
   stays editable. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
-  `weitere`). Labels are meant to be localised; today they are hardcoded German in
-  `customerOptions.ts` (KAN-104). SA, Sàrl and Sagl are the French/Italian *names* of AG and
-  GmbH, not separate forms; the registered name keeps its own suffix.
+  `weitere`). Labels are localised (`customerEnums.legalForm.*`, `translatedLegalFormOptions` /
+  `translatedLegalFormLabel` in `customerOptions.ts`; KAN-104). SA, Sàrl and Sagl are the
+  French/Italian *names* of AG and GmbH, not separate forms; the registered name keeps its own suffix.
 - **Canton is derived server-side from the postal code (D-13)** and never accepted from the
   client. It is not a removable field: the list filter, a grid column and the audit trail
   depend on it.
@@ -126,13 +126,13 @@ weekly. -->
   `finance.invoice.issued` (WP-9, KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
   legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
-  it first (the allocate routes 404 an unknown one; the trade-in on an offer or a pending
-  contract, `set_trade_in`, creates or gets it) — and resolves the customer in the caller's
-  group (404, never a cross-group link).
+  it first (the allocate routes 404 an unknown one; since KAN-189 the trade-in on an offer or a
+  pending contract allocates no party at all — the car is linked to the customer once it is
+  bought, below) — and resolves the customer in the caller's group (404, never a cross-group link).
 - **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
   (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
   `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this
-  covers the trade-in path too), then closes **every** open holder of that (vehicle, role) in
+  covered the trade-in path too before KAN-189), then closes **every** open holder of that (vehicle, role) in
   the caller's group, found through `Customer.group_id`, in the **same transaction** as the
   insert — never another group's row. Concurrent allocations are serialised by a Postgres
   advisory lock on (vehicle, role, group): a row lock cannot do it, because a concurrent
@@ -140,6 +140,56 @@ weekly. -->
   `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
   KAN-140) are filtered the same way, through one shared statement: a name can only come from
   a holder the group filter already admits.
+- **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
+  rulings below, 2026-11-03, all A): the
+  customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
+  `app/customer/consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
+  the contract's customer and signature through `sales.public.get_trade_in_seller` and, in its own
+  consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
+  keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
+  when that date is not after the signature or is still to come (never later than the booking: an
+  end to come would make a current holder) — held since the signature. A row of the customer
+  already holding the role then is closed there instead, and one already starting at the
+  signature stands for the period; no other holder is touched (history closes nobody, KAN-370);
+  a customer merged since is followed to its survivor. Same locks and `customer_merged` refusal
+  as an allocation. The step lives in the customer context (Anto's ruling 1 A), so no write
+  spans two contexts (rule 12).
+- **A stornoed trade-in that went back to its customer reopens them** (KAN-572; Anto, 2026-11-07,
+  option C): `customer.trade_in_storno` consumes `inventory.stock_item.storno` and, only when it says
+  `returnedToCustomer`, `reopen_former_holder_after_storno` reopens the owner and keeper rows the
+  purchase closed — the same rows (`effectiveTo` back to open), this customer's latest of the role
+  closed between the contract's signature and the storno — audited `vehicle_party_update` with reason
+  `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
+  open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
+  the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
+  failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
+  records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
+  purchase, or of one booked again under another date, writes nothing; booked again under the same
+  date, the late event is taken for the standing one, and the history may then end at the late event's
+  booking instead — whenever `purchase_moment` falls back to the booking for it: a date not after the
+  signature, or still to come when it was booked; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
+  purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
+  `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
+  stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
+  recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
+  recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
+  promptly and in order, the returned customer does not get that role back and the role has no current
+  holder until the future holder starts (never ended before it began; KAN-583 is the same question
+  for allocations).
+  **Accepted residual**
+  (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
+  whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
+  backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
+  *unflagged* storno records no handover unless the car is bought again — after a *returned* storno
+  the customer who got the car back is then recorded nowhere (in order, they would be its current
+  owner and keeper) —, a returned storno consumed
+  after a later booking reopens nobody (so the period the customer held the car again is not
+  recorded), with a re-booking the history may end at either purchase, depending on which event is
+  consumed when, and
+  two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
+  is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
+  before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
+  after first ruling A on a narrower «failed delivery only» description.*
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and
@@ -189,14 +239,19 @@ weekly. -->
   customer it cannot lock, KAN-403). The copies are only tried, never waited
   for — the nightly vehicle-party label refresh takes no explicit lock and no SKIP LOCKED: its
   UPDATEs lock a batch's party rows as they are written and wait for a held one, so it could hold
-  one while it waits for D's — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
+  one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
+  `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
   `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
-  and re-read nightly by `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`), so a
-  later catalogue match or VIN correction shows within a day (Anto's ruling, option A). A row
+  re-read when vehicle-mdm publishes `vehicle.vehicle_mdm.summary_changed` (consumer
+  `customer.vehicle_party_labels_on_summary_changed`, `app/customer/consumers.py`, KAN-186) —
+  every party row naming the vehicle, in every dealer group, locked in id order and relabelled
+  from `get_vehicle_summaries`, never from the payload — and re-read nightly by
+  `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`, the same helper), the backstop
+  for what publishes nothing (a brand rename) and the backfill (Anto's ruling, option A). A row
   without a label yet is filled for a read in memory only, and labelled by its next PATCH,
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).
@@ -205,7 +260,8 @@ weekly. -->
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
   `GET /v1/customers/{id}/vehicles` fills `stockItem` from
-  `app.inventory.public.get_stock_items_for_vehicles` only when
+  `app.inventory.public.get_stock_items_for_vehicles` (which takes the caller's `Principal` and reads
+  only its token's group, KAN-538) only when
   `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a
   token minted before it was taken away, gets `stockItem: null`. The customer router carries no
   entitlement gate, so any other inventory or sales data a customer route embeds needs the same check.

@@ -2110,6 +2110,28 @@ export interface paths {
         patch: operations["update_provider_v1_integrations_providers__provider_id__patch"];
         trace?: never;
     };
+    "/v1/inventory/groups/mine/dealerships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Group Stock Dealerships
+         * @description KAN-565: the Betriebe the group stock listing's «Betrieb» filter
+         *     offers — the same roster and the same gate as the listing (404 for a
+         *     caller it refuses, or while the group's read is off).
+         */
+        get: operations["list_my_group_stock_dealerships_v1_inventory_groups_mine_dealerships_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/inventory/groups/mine/stock-items": {
         parameters: {
             query?: never;
@@ -2171,7 +2193,10 @@ export interface paths {
         /** List Stock Items */
         get: operations["list_stock_items_v1_inventory_stock_items_get"];
         put?: never;
-        /** Create Stock Item */
+        /**
+         * Create Stock Item
+         * @description Adds a car to this Betrieb's stock pipeline from the configuration the configurator produced. Every create lands as `lifecycleStatus: pipeline` — a `vin` sent with it is stored on the pipeline item, never put in stock (ADR-103, ADR-116; KAN-554). Booking the purchase (`POST /v1/inventory/stock-items/{id}/purchase`) is the only path to `in_stock`; it uses the stored VIN when the request sends none. Before KAN-554 a create with a `vin` went straight to `in_stock`.
+         */
         post: operations["create_stock_item_v1_inventory_stock_items_post"];
         delete?: never;
         options?: never;
@@ -2429,6 +2454,27 @@ export interface paths {
         head?: never;
         /** Override Notional Input Tax */
         patch: operations["override_notional_input_tax_v1_inventory_stock_items__stock_item_id__purchase_notional_input_tax_patch"];
+        trace?: never;
+    };
+    "/v1/inventory/stock-items/{stock_item_id}/purchase/storno": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Storno Purchase
+         * @description FR-I-05 «Einkauf stornieren» (KAN-146): on the matrix's "Stock
+         *     acquisition, landed cost, storno" row, like the booking it reverses.
+         */
+        post: operations["storno_purchase_v1_inventory_stock_items__stock_item_id__purchase_storno_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/inventory/stock-items/{stock_item_id}/reservations": {
@@ -3652,7 +3698,9 @@ export interface paths {
          *     manager clears a «Verwendet» stamp no signed contract stands behind,
          *     with a stated reason (audited). 409 `signed_contract_carries_it` while a
          *     signed contract of this dealership carries it, 409 `valuation_not_used` when it is
-         *     not stamped.
+         *     not stamped, 409 `stamp_too_recent` within the confirmation grace, and 409
+         *     `pending_contract_carries_it` while a pending contract of this dealership
+         *     carries it (KAN-520: cancel that contract first).
          */
         post: operations["revert_valuation_use_v1_valuations__valuation_id__revert_use_post"];
         delete?: never;
@@ -3885,7 +3933,9 @@ export interface paths {
         post?: never;
         /**
          * Remove Accessory
-         * @description Sets valid_to; the row is never deleted (FR-V-13).
+         * @description Sets valid_to; the row is never deleted (FR-V-13). KAN-427: any
+         *     Betrieb may end it (the car is shared; Anto, option B), always audited;
+         *     the end date is today in Switzerland, never the UTC day.
          */
         delete: operations["remove_accessory_v1_vehicle_mdm__vehicle_id__accessories__accessory_id__delete"];
         options?: never;
@@ -5602,6 +5652,8 @@ export interface components {
             id: string;
             /** Invoiceref */
             invoiceRef: string | null;
+            /** Invoicerequestedat */
+            invoiceRequestedAt: string | null;
             /** Isinvoiceable */
             isInvoiceable: boolean;
             /** Islegacy */
@@ -5633,6 +5685,8 @@ export interface components {
             status: components["schemas"]["ContractStatus"];
             /** Stockitemid */
             stockItemId: string | null;
+            /** Stockitemlabel */
+            stockItemLabel?: string | null;
             /** Totalbeforediscount */
             totalBeforeDiscount?: string | null;
             /** Tradeinconfigurationid */
@@ -6663,6 +6717,8 @@ export interface components {
             ownerUserId?: string | null;
             /** Status */
             status: string;
+            /** Stockitemlabel */
+            stockItemLabel?: string | null;
             /**
              * Updatedat
              * Format: date-time
@@ -7225,6 +7281,30 @@ export interface components {
              * Format: uuid
              */
             userId: string;
+        };
+        /**
+         * GroupStockDealershipList
+         * @description The whole roster in one response: a group has a handful of Betriebe,
+         *     never a page's worth.
+         */
+        GroupStockDealershipList: {
+            /** Items */
+            items: components["schemas"]["GroupStockDealershipRead"][];
+        };
+        /**
+         * GroupStockDealershipRead
+         * @description KAN-565: one Betrieb of the caller's group, as the group stock
+         *     listing's «Betrieb» filter offers it — the id the listing's
+         *     `dealershipId` / `dealershipIdNot` take and the label it shows.
+         */
+        GroupStockDealershipRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -8433,6 +8513,8 @@ export interface components {
             status: components["schemas"]["OfferStatus"];
             /** Stockitemid */
             stockItemId: string | null;
+            /** Stockitemlabel */
+            stockItemLabel?: string | null;
             /** Totalbeforediscount */
             totalBeforeDiscount: string | null;
             /** Tradeinconfigurationid */
@@ -8990,6 +9072,21 @@ export interface components {
          */
         PublishingState: "not_published" | "published";
         /**
+         * PurchaseStornoRequest
+         * @description FR-I-05 (KAN-146): «Einkauf stornieren» is audited with its reason —
+         *     required, never empty.
+         */
+        PurchaseStornoRequest: {
+            /** Reason */
+            reason: string;
+            /**
+             * Returnedtocustomer
+             * @description KAN-572 (Anto, 2026-11-07, option C): the trade-in went back to the customer who traded it in, so the customer context reopens that customer as the car's owner and keeper. Only a trade-in's car (422 `storno_return_not_trade_in` otherwise); false — the default — leaves the customer's history as the purchase wrote it: the customer did hand the car over.
+             * @default false
+             */
+            returnedToCustomer?: boolean;
+        };
+        /**
          * PushConfigRead
          * @description Whether this deployment can send Web Push, and the VAPID application
          *     server key the browser subscribes with (null when it cannot).
@@ -9077,7 +9174,7 @@ export interface components {
             supplierName: string;
             /**
              * Vin
-             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`).
+             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and never bought is the exception: when its configuration's VIN has changed since, the configuration's wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`).
              */
             vin?: string | null;
         };
@@ -9728,14 +9825,17 @@ export interface components {
             odometerKm?: number | null;
             /**
              * Vehicleid
-             * @description Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves to (found, or created). Without a `vin` it is refused (422 `vehicle_id_requires_vin`): a pipeline item has no vehicle until its VIN arrives.
+             * @description Ignored when `vin` is sent: the item's vehicle is the vehicle-mdm record its VIN resolves to (found, or created) when its purchase is booked. Without a `vin` it is refused (422 `vehicle_id_requires_vin`): a pipeline item has no vehicle until it is bought.
              */
             vehicleId?: string | null;
-            /** Vehiclelabel */
-            vehicleLabel: string;
+            /**
+             * Vehiclelabel
+             * @description Ignored: the stock item's name (`vehicleLabel`) is its configuration's label, derived by the server and refreshed whenever the configuration changes (ADR-117).
+             */
+            vehicleLabel?: string | null;
             /**
              * Vin
-             * @description A car with a known VIN, taken straight into stock. Normalised first (upper-cased, all whitespace removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and digits, never I, O or Q — otherwise 422. A VIN already in this dealership's stock is 409 `vin_already_in_stock`.
+             * @description The car's VIN, when it is known before the car is bought. The item still lands in pipeline (`lifecycleStatus: pipeline`, ADR-103/ADR-116): only booking its purchase puts it in stock, under this VIN. Normalised first (upper-cased, all whitespace removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and digits, never I, O or Q — otherwise 422. A VIN another item of this dealership holds (in stock, or in pipeline with it) is 409 `vin_already_in_stock`.
              */
             vin?: string | null;
         };
@@ -9959,8 +10059,8 @@ export interface components {
         /**
          * TradeInRequest
          * @description WP-8 PR-5 (S-D18/ADR-064) — the one-step trade-in action. Not a
-         *     plain PATCH field set: it calls into vehicle-mdm and customer, so it
-         *     is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
+         *     plain PATCH field set: it reads vehicle-mdm (and, since KAN-189, creates
+         *     no record and allocates no party), so it is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
          *     reasoning as reservation being its own endpoint rather than a PATCH.
          *
          *     KAN-331: the VIN is normalised and validated as Stock's is (FR-V-15),
@@ -10595,7 +10695,17 @@ export interface components {
             /** Error Type */
             type: string;
         };
-        /** ValuationCreate */
+        /**
+         * ValuationCreate
+         * @description KAN-574 (Anto, 2026-11-07, option A): a valuation names its car. `vin`
+         *     (or a pre-1981 chassis number), `vehicleMake` and `vehicleModel` are
+         *     required — each defaulted from the configuration when `configurationId`
+         *     is sent (a field sent wins), typed otherwise (a VIN typed beside a
+         *     configuration that has none is stored, KAN-449 option A — open with Anto on
+         *     KAN-574); a missing one is 422
+         *     `valuation_names_no_car` with the missing `fields`. The fields stay
+         *     optional in the schema because a configuration supplies them.
+         */
         ValuationCreate: {
             /** Configurationid */
             configurationId?: string | null;
@@ -11061,7 +11171,8 @@ export interface components {
          *     row (catalogue_match_status=unverified) is the common case today, not
          *     an edge case — every fixture in the existing allocation test suite
          *     creates one. A full catalogue-aware summary (falling back through
-         *     provider data, say) is ADR-073's job; this is the minimal,
+         *     provider data, say) is not built (an unbuilt feature, not an ADR: the
+         *     ADR-073 label once used for it was retired, KAN-88); this is the minimal,
          *     always-correct version. The frontend falls back to the vehicle number
          *     when these are null.
          */
@@ -17319,10 +17430,47 @@ export interface operations {
             };
         };
     };
+    list_my_group_stock_dealerships_v1_inventory_groups_mine_dealerships_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupStockDealershipList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_my_group_stock_v1_inventory_groups_mine_stock_items_get: {
         parameters: {
             query?: {
                 q?: string | null;
+                /** @description Only these Betriebe of the group (repeatable). An id outside the group matches nothing. */
+                dealershipId?: string[] | null;
+                /** @description Every Betrieb of the group but these (repeatable). */
+                dealershipIdNot?: string[] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -17362,6 +17510,10 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string | null;
+                /** @description Only these Betriebe of the group (repeatable). An id outside the group matches nothing. */
+                dealershipId?: string[] | null;
+                /** @description Every Betrieb of the group but these (repeatable). */
+                dealershipIdNot?: string[] | null;
                 /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -18232,6 +18384,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["NotionalInputTaxOverrideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    storno_purchase_v1_inventory_stock_items__stock_item_id__purchase_storno_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseStornoRequest"];
             };
         };
         responses: {

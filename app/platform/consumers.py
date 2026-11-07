@@ -10,6 +10,11 @@ register_handlers` lists them:
 - `platform.notification_digest.released` -> `platform.web_push_on_digest`
   (`handle_digest_released_message`): one pointer to the inbox for the
   day's digest, when any of its families pushes.
+- `platform.connected_account.revoked` ->
+  `platform.connected_account_provider_revocation`
+  (`handle_connected_account_revoked_message`, KAN-412): the provider's
+  registered revoker ends the grant at the provider; a refusal raises, so
+  the outbox redelivers and finally dead-letters.
 
 A push is a pointer, never the record (FR-A-50), and never an e-mail
 (D-A-40).
@@ -21,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
 from app.platform.models.notification import Notification, NotificationFamily
-from app.platform.services import notification_catalogue, notifications, push_subscriptions
+from app.platform.services import connected_account, notification_catalogue, notifications, push_subscriptions
 from app.platform.services.web_push import PushMessage
 
 
@@ -56,3 +61,11 @@ def handle_digest_released_message(db: Session, message: OutboxMessage) -> None:
             title=notification_catalogue.digest_push_title(language), link=notification_catalogue.INBOX_LINK
         ),
     )
+
+
+def handle_connected_account_revoked_message(db: Session, message: OutboxMessage) -> None:
+    """The revoke committed; now the provider (KAN-412). The payload names
+    the grant; its reference is read from the row by its own service. A
+    revoker's exception is left to propagate — that is the retry."""
+
+    connected_account.end_at_provider(db, account_id=uuid.UUID(message.payload["connectedAccountId"]))

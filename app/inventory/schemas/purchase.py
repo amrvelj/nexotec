@@ -1,7 +1,7 @@
 import datetime as dt
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import NormalisedVin
@@ -19,7 +19,11 @@ class RecordPurchaseRequest(CamelModel):
         description=(
             "KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, "
             "which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 "
-            "`vin_already_in_stock` when another item of this dealership holds it in stock). When the item's "
+            "`vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item "
+            "already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out "
+            "and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and "
+            "never bought is the exception: when its configuration's VIN has changed since, the configuration's "
+            "wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's "
             "configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the "
             "VIN is corrected on the configuration). On an item already in stock it may be sent and must be "
             "the item's own (422 `purchase_vin_mismatch`)."
@@ -37,3 +41,27 @@ class NotionalInputTaxOverrideRequest(CamelModel):
     applicable: bool
     rate: Decimal | None = None
     reason: str
+
+
+class PurchaseStornoRequest(CamelModel):
+    """FR-I-05 (KAN-146): «Einkauf stornieren» is audited with its reason —
+    required, never empty."""
+
+    reason: str = Field(min_length=1, max_length=500)
+    returned_to_customer: bool = Field(
+        default=False,
+        description=(
+            "KAN-572 (Anto, 2026-11-07, option C): the trade-in went back to the customer who traded it in, so "
+            "the customer context reopens that customer as the car's owner and keeper. Only a trade-in's car "
+            "(422 `storno_return_not_trade_in` otherwise); false — the default — leaves the customer's history "
+            "as the purchase wrote it: the customer did hand the car over."
+        ),
+    )
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped

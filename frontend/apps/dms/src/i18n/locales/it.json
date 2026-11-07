@@ -248,6 +248,7 @@
       "configuration_already_linked": "A questo veicolo è già assegnata una configurazione. Ricaricare la pagina.",
       "configuration_vin_differs": "Il VIN della configurazione non è quello di questo veicolo. La configurazione descrive un altro veicolo.",
       "configuration_held_by_stock_item": "Questa configurazione appartiene già al veicolo {{stockNumber}} in stock. Ogni veicolo ha la propria configurazione.",
+      "vehicle_label_follows_configuration": "Il nome di questo veicolo è quello della sua configurazione e la segue. Modificate la configurazione.",
       "ui_translation_blank": "Un testo dell'interfaccia non può essere vuoto.",
       "ui_translation_placeholders_changed": "Il testo deve mantenere i segnaposto del testo fornito.",
       "bank_account_used_by_location": "Una sede usa questo conto come conto bancario derogatorio. Rimuovete prima la deroga sulla sede.",
@@ -288,6 +289,7 @@
       "standard_text_seed_language_missing": "Questo modello non esiste in questa lingua.",
       "standard_text_seed_not_shipped": "Nexotec non fornisce alcun testo per questo modello; non c'è nulla da ripristinare.",
       "logo_too_many_pixels": "Questo PNG misura {{width, number}} × {{height, number}} px – più di {{max, number}} megapixel. Nessun logo ne ha bisogno: un’intera pagina A4 a 300 dpi ne conta appena 9, e ogni documento con il logo dovrebbe caricarli tutti. Riducete l’immagine o caricate un SVG.",
+      "pending_contract_carries_it": "Un contratto aperto riporta questa valutazione come permuta; la sua conferma la utilizzerebbe. Annullare prima quel contratto.",
       "signed_contract_carries_it": "Un contratto firmato riporta questa valutazione come permuta, quindi resta utilizzata.",
       "stamp_too_recent": "Questa valutazione è stata contrassegnata come utilizzata meno di un'ora fa; la conferma del suo contratto potrebbe essere ancora in corso. Riprovare più tardi.",
       "valuation_not_used": "Questa valutazione non è contrassegnata come utilizzata.",
@@ -300,6 +302,7 @@
       "plate_move_before_start": "L'assegnazione sull'altro veicolo inizia lo stesso giorno o più tardi – scegliere una data «Valida dal» successiva.",
       "plate_validity_invalid": "Un'assegnazione non può terminare prima di iniziare.",
       "plate_wechselschild_not_possible": "Una targa trasferibile collega esattamente due veicoli – questa targa è già su due veicoli.",
+      "invoice_already_requested": "La fattura di questo contratto è già stata richiesta il {{date}}.",
       "invoice_plate_vehicle_unknown": "Il veicolo di questo contratto non ha una scheda veicolo su cui registrare una targa. Richieda la fattura senza targa e registri poi la targa sul veicolo.",
       "number_pattern_invalid": "Il modello non è valido: esattamente un {counter:N} (N da 1 a 9), {year} e {location_code} al massimo una volta, altrimenti solo lettere, cifre e - / . _",
       "number_pattern_too_long": "Un numero secondo questo modello supererebbe 16 caratteri.",
@@ -311,7 +314,15 @@
       "number_range_reason_required": "Una modifica a una serie congelata richiede una motivazione.",
       "number_range_exhausted": "La serie non ha più numeri liberi per le cifre del suo contatore. Si rivolga al supporto.",
       "number_location_code_missing": "Questa serie stampa il codice della sede, e il documento non indica alcuna sede con un codice.",
-      "number_range_counter_too_short": "Il contatore di questo modello ha troppe poche cifre per il prossimo numero della serie. Scelga più cifre per {counter:N}."
+      "number_range_counter_too_short": "Il contatore di questo modello ha troppe poche cifre per il prossimo numero della serie. Scelga più cifre per {counter:N}.",
+      "purchase_already_booked": "L'acquisto di questo veicolo è già registrato. Stornatelo prima di registrarlo di nuovo.",
+      "purchase_not_booked": "Per questo veicolo non è registrato alcun acquisto da stornare.",
+      "purchase_storno_left_stock": "Questo veicolo ha già lasciato lo stock. Il suo acquisto non può più essere stornato.",
+      "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
+      "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
+      "storno_return_not_trade_in": "Solo un veicolo in permuta può tornare al cliente.",
+      "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
+      "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -397,12 +408,6 @@
       "merged": "Unito",
       "do_not_contact": "Non contattare"
     },
-    "language": {
-      "de": "Tedesco",
-      "fr": "Francese",
-      "it": "Italiano",
-      "en": "Inglese"
-    },
     "salutation": {
       "herr": "Signor",
       "frau": "Signora",
@@ -464,6 +469,14 @@
       "counter": "Sportello",
       "web": "Web",
       "phone": "Telefono"
+    },
+    "legalForm": {
+      "ag": "SA",
+      "gmbh": "Sagl",
+      "einzelfirma": "Ditta individuale",
+      "verein": "Associazione",
+      "genossenschaft": "Società cooperativa",
+      "weitere": "Altra"
     }
   },
   "customersList": {
@@ -1082,6 +1095,7 @@
     "loadError": "Impossibile caricare lo stock.",
     "groupLoadError": "Impossibile caricare lo stock del gruppo.",
     "allStockView": "Tutti i veicoli",
+    "allGroupStockView": "Tutti i veicoli del gruppo",
     "columns": {
       "stockNumber": "N. di magazzino",
       "vehicle": "Veicolo",
@@ -1162,6 +1176,7 @@
     "identity": {
       "title": "Veicolo",
       "vehicleLabel": "Denominazione",
+      "vehicleLabelFollowsConfiguration": "La denominazione segue la configurazione del veicolo.",
       "vehicleId": "ID veicolo"
     },
     "errors": {
@@ -1190,7 +1205,20 @@
       "isInvoiceable": "Fatturabile",
       "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
       "notRecorded": "Nessun acquisto ancora registrato.",
-      "configurationVinDiffers": "Il VIN è diverso da quello della configurazione."
+      "configurationVinDiffers": "Il VIN è diverso da quello della configurazione.",
+      "storno": {
+        "button": "Stornare l'acquisto",
+        "title": "Stornare l'acquisto",
+        "body": "L'acquisto di {{stockNumber}} viene annullato: il prezzo di costo viene stornato nel registro veicolo, il veicolo torna nella pipeline con il suo VIN ed è di nuovo fatturabile solo dopo un nuovo acquisto. Una prenotazione rimane.",
+        "reasonLabel": "Motivo",
+        "reasonRequired": "Indicate un motivo.",
+        "submit": "Stornare l'acquisto",
+        "cancel": "Annulla",
+        "failed": "Non è stato possibile stornare l'acquisto.",
+        "leftStock": "Non possibile: il veicolo ha lasciato lo stock.",
+        "returnedToCustomer": "Il veicolo torna al cliente",
+        "returnedToCustomerHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
+      }
     },
     "wagenbuch": {
       "result": "Risultato",
@@ -1287,7 +1315,23 @@
       "missing": "A questo veicolo non è assegnata alcuna configurazione. Senza di essa mancano i dati tecnici.",
       "attach": "Assegna configurazione",
       "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
-      "edit": "Modifica configurazione"
+      "edit": "Modifica configurazione",
+      "editContract": "Modifica contratto",
+      "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto."
+    },
+    "rowMenu": {
+      "changeCondition": "Modifica stato",
+      "purchaseAlreadyBooked": "L'acquisto è già registrato.",
+      "purchaseNotBooked": "Nessun acquisto ancora registrato.",
+      "creatingDeal": "Creazione in corso …"
+    },
+    "condition": {
+      "title": "Modifica stato",
+      "body": "Nuovo stato per {{stockNumber}}:",
+      "label": "Stato",
+      "submit": "Salva",
+      "cancel": "Annulla",
+      "failed": "Non è stato possibile modificare lo stato."
     }
   },
   "salesList": {
@@ -1305,7 +1349,8 @@
       "status": "Stato",
       "margin": "Margine",
       "changed": "Modificato",
-      "owner": "Responsabile"
+      "owner": "Responsabile",
+      "stockNumber": "N. di magazzino"
     },
     "chips": {
       "all": "Tutti",
@@ -1404,6 +1449,7 @@
       "requestInvoice": "Richiedi fattura",
       "requestInvoiceDisabledNotConfirmed": "Possibile solo dopo la conferma del contratto.",
       "requestInvoiceDisabledNotPurchased": "Il veicolo non è ancora stato acquistato — la fattura può essere richiesta non appena l'acquisto è registrato in stock.",
+      "requestInvoiceDisabledAlreadyRequested": "La fattura è già stata richiesta il {{date}}.",
       "requestInvoiceDisabledLegacy": "Vendita ripresa dal vecchio sistema — già fatturata lì."
     },
     "requestInvoice": {
@@ -1462,7 +1508,8 @@
       "configure": "Configura",
       "searchPlaceholder": "Numero di magazzino, VIN, targa …",
       "configured": "Configurato",
-      "attachError": "Non è stato possibile riprendere la configurazione."
+      "attachError": "Non è stato possibile riprendere la configurazione.",
+      "stockNumber": "N. di magazzino {{stockNumber}}"
     },
     "pricing": {
       "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
@@ -1606,7 +1653,10 @@
     "errors": {
       "failedToLoad": "Impossibile caricare la valutazione.",
       "somethingWentWrong": "Qualcosa è andato storto.",
-      "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare."
+      "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare.",
+      "createOfferFailed": "Non è stato possibile creare l’offerta.",
+      "createOfferTradeInFailed": "L’offerta {{offerNumber}} è stata creata, ma la valutazione non è stata ripresa come permuta: {{reason}}",
+      "openCreatedOffer": "Apri offerta"
     },
     "actions": {
       "revalue": "Rivaluta",
@@ -1618,7 +1668,12 @@
       "revertUse": "Annulla utilizzo",
       "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
       "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta.",
-      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso."
+      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso.",
+      "createOffer": "Crea offerta da questa valutazione",
+      "createOfferExpired": "Non possibile: la valutazione è scaduta. Rivalutare prima.",
+      "createOfferUsed": "Non possibile: la valutazione è già segnata come utilizzata.",
+      "createOfferNoSales": "Non possibile: questa azienda non dispone del modulo Vendita.",
+      "createOfferNoVin": "Non possibile: la valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
     "expiredBanner": {
       "title": "Valutazione scaduta",
@@ -1789,13 +1844,14 @@
     "missingTip": "Questa riga non può essere salvata finché manca una lingua.",
     "missingTipReadOnly": "In questa riga manca una lingua.",
     "readOnly": "Nexotec gestisce questi elenchi per tutte le aziende. Puoi consultarli qui, ma non modificarli.",
+    "maintainedBy": "Gestito da Nexotec",
     "columns": {
       "code": "Codice",
       "status": "Stato"
     },
     "forbidden": {
-      "title": "Solo per platform_admin",
-      "body": "Solo un platform_admin può modificare questi dati. Contatta la tua amministrazione."
+      "title": "Accesso negato",
+      "body": "Il tuo ruolo non consente di aprire questi elenchi. Contatta la tua amministrazione."
     },
     "list": {
       "title": "Elenco di riferimento {{code}}",

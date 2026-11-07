@@ -98,9 +98,9 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(created).toHaveLength(1))
-    expect(created[0]).toMatchObject({
-      vehicleLabel: 'Subaru Justy G3X', condition: 'used', configurationId: 'cfg-r', odometerKm: 148000,
-    })
+    expect(created[0]).toMatchObject({ condition: 'used', configurationId: 'cfg-r', odometerKm: 148000 })
+    // KAN-556 (ADR-117 (2)): the server names the car by its configuration.
+    expect(created[0]).not.toHaveProperty('vehicleLabel')
     await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/stock/si-9'))
   })
 

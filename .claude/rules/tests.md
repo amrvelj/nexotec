@@ -42,8 +42,7 @@ as any change to what it states. -->
   `platform.public.list_group_read_dealerships` called only by Stock's group listing (KAN-121),
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
-  write committing its own transaction except the one allow-listed entry, the KAN-185 debt
-  (tracked, not ruled), and number allocation (`platform.public.allocate_number`, ruled by ADR-109,
+  write committing its own transaction except number allocation (`platform.public.allocate_number`, ruled by ADR-109,
   KAN-207); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
   is the one exception ruled by ADR (ADR-091, KAN-106) and the three other scripts that reach two
   contexts' internals are recorded by name (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
@@ -56,14 +55,17 @@ as any change to what it states. -->
   and that gate only on a route whose path carries `{category}` (KAN-199),
   every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
   refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
-  (KAN-243), the customer-group predicate used only by reconciliation (KAN-259), and a
+  (KAN-243), the create services' system path (`actor_id=None` + `system_reason`) taken from
+  `scripts/` only, never from `app/` (KAN-345), the customer-group predicate used only by reconciliation (KAN-259), and a
   connected account never read by the identity and session layer, its model named only by its
   service (KAN-201, FR-AU-23), and platform staff's recovery never naming a password write or
   read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10), and every PATCH/PUT/DELETE and every POST on an existing entity taking If-Match unless listed
   with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428), and
   every mapped model registered by `app/model_registry.py` alone (KAN-187), and no tracked file
   carrying a real provider account value nor the mock carrying a specification example (KAN-491),
-  and no MCP SDK import, server or tool declaration, manifest or dependency at all (KAN-490, identAPI §3).
+  and the audit log's one rewrite, `redact_audit_values`, called only by its allow-listed
+  modules and no raw UPDATE/DELETE of `audit_event` (ADR-121, KAN-564), and no MCP SDK import, server or tool declaration, manifest or dependency at all (KAN-490, identAPI §3), and every query parameter camelCase but the frozen list of legacy snake_case names, each
+  tied to its endpoint (KAN-477).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.
@@ -90,9 +92,11 @@ as any change to what it states. -->
   Mantine is mounted with `testTheme` (`src/test/testTheme.ts`: reduced motion respected, so a
   transition starts no animation frame or timer that could land after the file's jsdom is gone),
   through `renderWithProviders` or a test's own `<MantineProvider theme={testTheme}>`
-  (`render-tests-mount-mantine-with-test-theme.test.ts`); the shared teardown drains React's queued
+  (`render-tests-mount-mantine-with-test-theme.test.ts`, which parses each test with the TypeScript
+  compiler and refuses any other use of the provider — `wrapper:`, `createElement`, an aliased
+  import's tag without the theme — and a `testTheme` not imported from `src/test/testTheme`; KAN-543); the shared teardown drains React's queued
   Scheduler work before jsdom goes (`src/test/setup.ts`; KAN-526). The ui-kit's suite does the
   same (KAN-533): `packages/ui-kit/src/test/testTheme.ts`, its setup's `matchMedia` reporting
-  reduced motion, and `renderTestsMountMantineWithTestTheme.test.ts`, which also refuses a
-  provider mounted any other way (`wrapper:`, `createElement`); it has no teardown drain.
+  reduced motion, and `renderTestsMountMantineWithTestTheme.test.ts`, the same parser and rules (KAN-543); it has no
+  teardown drain.
   i18n keys are checked by `localeKeyParity.test.ts`.

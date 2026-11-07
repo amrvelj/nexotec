@@ -202,7 +202,9 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen», `number_ranges` for the Number ranges screen's edit (KAN-207), `reference_lists` — the PRD's Platform
+list's intake and «Konfiguration zuordnen», `stock_acquisition`, `stock_condition`,
+`sales_contracts` and `sales_offers` in the one stock row menu on the Stock list and the stock
+detail (KAN-571), `sales_offers` for the valuation detail's and grid's «Offerte aus dieser Bewertung erstellen» (KAN-569), `number_ranges` for the Number ranges screen's edit (KAN-207), `reference_lists` — the PRD's Platform
 Administration › Reference data, the row «Reference lists» split from «Canonical taxonomy,
 provider catalogue» by KAN-514 (Anto, 2026-10-31, option A: any role reads, as the open
 `GET /v1/reference-data` does; platform staff alone write) — for the Reference data screen's
@@ -220,10 +222,15 @@ rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonica
 It refuses a suspended or deactivated user (401), authorises the target dealership from the
 home dealership plus `dealership_membership` rows, never the token's `memberships` claim (403),
 and writes the `session` row the guard checks (a switch keeps the row and its `sid`). Auth &
-Identity risk 4 puts such checks where every minting path passes. **Open, not settled here
-(KAN-254):** the ADR-028 terminal path (`WORKSHOP_TERMINAL_AUTH_DESIGN.md`) is designed to call
-`create_access_token` directly with fixed `{TECHNICIAN}` roles, which `_mint_session` cannot
-mint — how it gets the status check needs an ADR. `get_current_principal` still does not check
+Identity risk 4 puts such checks where every minting path passes. **Not built — the workshop
+terminal is to mint through it too** (ADR-110, Anto 2026-11-02, KAN-254; KAN-230 builds it,
+`WORKSHOP_TERMINAL_AUTH_DESIGN.md`): a technician on their own phone signs in like office
+staff, with their own roles; a shared workshop device calls `_mint_session` with the realm
+`terminal` (the office's is `staff`), which runs the same status, access-window and membership
+checks, writes a `session` row with a 15-minute idle window (KAN-508) and mints
+`roles={TECHNICIAN}`, `is_dealer_manager=False` and the device's Betrieb as the only membership,
+never the person's office roles. No second minting path and no direct `create_access_token`
+call. `get_current_principal` still does not check
 `status`; what ends a deactivated user's session is the `session` row the status change revokes
 (FR-A-10) — a token without `sid` is not covered.
 
@@ -325,7 +332,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   language: `invoice.footer.carried_over` (not the default) and `offer.footer.carried_over` /
   `contract.footer.carried_over` as its **default** offer and contract footer, so the offers and
   contracts it prints keep the footer they printed before (a language or Betrieb without one gets
-  the seed default). Sales prints the offer's intro and footer and the contract's footer.
+  the seed default). An unprintable carried-over footer — braces that are no token, or any
+  `{{`/`}}` in one nobody saved since the carry-over — is removed by `7d3e9b2c4a18` in that language
+  (an edited one passed `validate_body` and stays), with a `KAN-519 REPORT` line per row — printing falls back to the seed footer and the Betrieb retypes its own
+  (Anto, 2026-11-03, KAN-519 option C). Sales prints the offer's intro and footer and the contract's footer.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. **Built (KAN-207):** `number_range` (`app/platform/models/number_range.py`,
   migration `2b478e186431`), one row per Betrieb per document type (eleven, the PRD's table; customer
@@ -401,7 +411,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `/administration/locations` (list + one screen per site) on `app/platform/api/locations.py`:
   `/v1/dealerships/{id}/locations` list/create/read/PATCH — **no delete**; `isActive: false`
   deactivates, refused for the Betrieb's last active location (409 `last_active_location`, judged
-  under the dealership row lock). A new Betrieb gets its first location from its registered seat
+  under the dealership row lock; `tests/test_platform_location_last_active_race.py` races two
+  deactivations on two connections, KAN-519). A new Betrieb gets its first location from its registered seat
   (`create_dealership` → `location.new_first_location`; the migration backfilled one per Betrieb
   without). `code` is unique per Betrieb and fixed once saved (422 `location_code_immutable`; a
   row saved without one gets it once); a location is referenced by id only. `location_types` (JSON
@@ -467,9 +478,19 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   deactivated user who holds no credential (deactivated while invited, or after a staff MFA/
   credential reset) comes back as `invited`, not `active`, and the manager resends the
   invitation; any other edit of a deactivated user stays 409. The one exception to "only by
-  accepting" is `scripts/seed_staging_demo.py`, which activates its demo user on the row (nobody
-  to mail), audited with reason `seed_staging_demo` — the same bootstrap exception as its
-  password. A module that fails during a hand-over is answered, not raised: `failed` on the
+  accepting" is `scripts/seed_staging_demo.py`'s **local** path (`DMS_ENVIRONMENT` development,
+  local or test), which activates its password demo user on the row (nobody to mail), audited with
+  reason `seed_staging_demo` — the same bootstrap exception as its password; its `create` audit rows
+  are system writes too (KAN-345, Anto 2026-11-03, option A: `create_dealership`/`create_user` take
+  `actor_id=None` with a `system_reason`, from `scripts/` only), the rows themselves stamped with the
+  manager afterwards (KAN-318); any other
+  environment but `staging` is refused (exit 1, nothing written). **Staging has no shared login**
+  (KAN-551, ADR-113, the identAPI test agreement's §3/§8): there the seed invites the first dealer manager (`DMS_STAGING_FIRST_MANAGER_EMAIL`; an existing holder
+  of the address is never re-invited or reset), switches the demo Betrieb's `mfa_enforced` on — and
+  back on, audited, on any deploy that finds it off — and `scripts/retire_staging_shared_demo_user.py`
+  (run with `--commit` by the start command) deactivates the earlier shared
+  `demo@nexotec-staging.example` once a personal manager has signed in with (or enrolled) a second factor, as a
+  system write handing its records to the queues; README › Staging sign-in is the runbook. A module that fails during a hand-over is answered, not raised: `failed` on the
   deactivation's and the transfer's response names the group with a stable `reason` (the
   module's own refusal code, or `module_failed`) and a message that is never an exception's
   text; the records stay with the user for the retry. The 422 of an incomplete step carries
@@ -518,7 +539,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `test_notify_call_sites_use_registered_codes.py`). Its events: the declaration **and** a
   platform migration inserting the rows, in the PR that raises them. `security` is locked (immediate, in-app and push); `in_app` cannot be switched
   off while a family delivers (422 `in_app_is_the_record`); `digest` holds rows (`delivered_at`
-  NULL) until the daily `platform.notifications.digest`; `platform.notifications.purge` drops rows
+  NULL) until the daily `platform.notifications.digest`, which publishes one
+  `platform.notification_digest.released` per user filed under no Betrieb (`tenant_id` null — a digest
+  may span sister Betriebe; KAN-519, Anto 2026-11-03, option A); `platform.notifications.purge` drops rows
   past 90 days and subscriptions whose session ran out. The **security family hangs on
   `auth_events.record`** (`services/security_alerts.py::on_auth_event`): new-device login
   (`details.newDevice`: the user agent matches none of the user's earlier sessions, and there was
@@ -632,7 +655,7 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   **nothing else in the schema may grow a password-shaped column**
   (`test_no_password_credential_storage.py`, inverted as D-A-07 ruled). Nobody sets another
   person's password (FR-AU-10): only an invitation or a reset token does, single-use, stored as
-  SHA-256 (`auth_tokens.py`); the seed script is the one bootstrap exception.
+  SHA-256 (`auth_tokens.py`); the seed script's local path is the one bootstrap exception.
 - **Password policy** (`password_policy.py`): ≥ 12 characters, no composition rules, the
   dealership's names, the user's names and the e-mail local part refused, Have I Been Pwned
   range check at set-time that **fails open and flags** (`credential.breach_check_pending`,
@@ -681,8 +704,11 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   factor strips the session that removed it and ends the user's other sessions; platform staff's
   MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
   event like one reached through wrong passwords. Platform staff's `reset-mfa` recovery (KAN-202) removes every factor and always
-  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 2.7.1, the
-  version the `cryptography<46` pin installs; the shape checks it lacks sit in `mfa.py`, and the **key policy** refuses at registration a key
+  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 3.0.1 on
+  `cryptography` 49, KAN-386; the registration options offer, and the library accepts, the nine algorithms 2.7.1
+  offered (`mfa.PASSKEY_ALGORITHMS` — 3.x's own default is EdDSA, ES256 and RS256 only); the shape checks written for 2.7.1 stay in `mfa.py`, and a builtin exception the library
+  lets out at **registration** is a malformed answer, 422 `passkey_not_verified` — 3.0.1 still raises them on a
+  hand-crafted `packed`/`fido-u2f`/`tpm` statement or COSE key; and the **key policy** refuses at registration a key
   whose type does not match its algorithm family, an RSA key under 2048 bits (SP 800-131A), with an
   even modulus, past 16384 bits or with an exponent past 64 bits, an Ed25519 encoding that is not a
   canonical point on the curve (RFC 8032 §5.1.3), and a credential id past 1023 bytes (the spec's
@@ -697,7 +723,8 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   Gmail mailbox — Anto's own account today, an app password kept as a Render secret; STARTTLS
   with a verifying context). Delivery is
   not fire-and-forget: a failure is a `mail_delivery_failed` auth event and an ERROR line. Texts
-  in DE/FR/IT/EN from the user's `uiLanguage` preference (`mail_texts.py`). Tests override
+  in DE/FR/IT/EN in the user's UI language — the `uiLanguage` preference, else the home Betrieb's
+  correspondence language (KAN-104 1 B; `user_preference.ui_language_of`, `mail_texts.py`). Tests override
   `get_mailer` with the `mailbox` fixture.
 - **Auth events** (`auth_event`, FR-AU-21): every login outcome, lock, token, factor and
   session change, readable by the manager at `GET /v1/dealerships/{id}/auth-events`
@@ -718,19 +745,35 @@ from a logo, a stylesheet or anything else — connects nowhere (no SSRF from a 
   (provider, external account id and label, scopes, `secret_ref` — a secrets-manager reference,
   never a token, never returned — status, linked/last-used/revoked stamps, a closed revoke reason),
   written and read only by `app/platform/services/connected_account.py` (nightly reconciliation
-  reads its actor ids); `tests/architecture/test_connected_account_is_never_an_identity.py`
+  reads its actor ids and whether a revoked grant still holds a reference); `tests/architecture/test_connected_account_is_never_an_identity.py`
   keeps the identity and session layer from naming it. The user lists and revokes their own
   (`GET /v1/me/connected-accounts`, `DELETE …/connected-accounts/{account_id}` with If-Match on the
   grant's version), the manager a user's (`GET /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
   `DELETE …/connected-accounts/{account_id}`, If-Match likewise, capability `connected_accounts`; the manager's read is provider, scopes and status only —
   never the address or the usage stamps), deactivation revokes every one (FR-AU-24). A revoke keeps
-  the row, records `connected_account_revoked` and an audit row; **after the commit** the caller
-  runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
-  undoes the revoke or the deactivation) — **none is registered**: linking ships with the Outlook
-  integration, so no row exists yet and a revoke ends the grant in Nexotec only, keeping the
-  reference so the secret can still be removed. **Open (KAN-412):** the seam is not in
-  `platform.public` (the revoker gets the ORM row) and a provider's refusal is not retried or
-  reconciled — both before the Outlook integration registers the first revoker.
+  the row, records `connected_account_revoked` and an audit row, and publishes
+  `platform.connected_account.revoked` (ids and closed codes — never the reference) in the same
+  transaction, on every path: the user's DELETE, the manager's DELETE, deactivation's revoke-all.
+  **Ending the grant at the provider is a consumer (KAN-412, ADR-118):**
+  `platform.connected_account_provider_revocation` runs the provider's revoker, registered through
+  `platform.public.register_grant_revoker(provider, revoker)`; the revoker receives a
+  `RevokedGrant` — plain data (`connected_account_id`, `provider`, `external_account_id`,
+  `secret_ref`, the last kept out of `repr`), never the row — must end the grant and drop the
+  secret, succeed again on a grant already ended (delivery is at-least-once) and raise on a
+  refusal. On success platform records the end by dropping the row's `secret_ref` (version
+  moved, audit `connected_account_provider_ended`); a refusal makes the consumer raise, so the
+  outbox redelivers on its backoff and dead-letters after five attempts — about 30 seconds in all,
+  so a longer provider outage dead-letters the revocation (an alert; the row keeps its reference;
+  a manual replay re-runs it; KAN-559 decides a longer path). No revoker registered for the provider: the consumer
+  records nothing (WARNING) — the grant is ended in Nexotec only. Nightly reconciliation's
+  StateCheck `user_connected_account.revoked_grant_secret_still_held` reports a revoked grant
+  still holding a reference 24 hours after the revoke, **whatever its provider** — a missing
+  registration is a finding, not a silence. **The registration belongs in the worker's composition
+  root** (`app/worker.py`, beside `register_handlers`): the registry is per process and the consumer
+  runs only in the worker, so a revoker registered at web-app startup alone is never called. A
+  revoker's exception message lands in `outbox_message.last_error` and the dead-letter log: it must
+  never carry token material. **None is registered yet**: linking ships with the Outlook
+  integration, so no row exists and no integration module registers through the door yet.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
   clear lockout, revoke sessions, grant manager flag). **Built by KAN-202, one door (Anto,
   2026-10-22):** `POST /v1/platform/users/{id}/recovery/{reissue-invitation|reset-mfa|clear-lockout|

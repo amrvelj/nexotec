@@ -13,8 +13,8 @@ What it proves:
    - `_OWN_COMMIT_WRITES` — a cross-context write that commits its own
      transaction (the convention the code calls "Pattern B");
    - `_SHARED_TRANSACTION_EXCEPTIONS` — a write that joins the caller's
-     transaction (ADR-047's forbidden shape). One entry, the tracked debt,
-     see below;
+     transaction (ADR-047's forbidden shape), tracked as debt. Empty since
+     KAN-185, see below;
    - `_RULED_SHARED_TRANSACTIONS` — the same shape, ruled a permanent
      exception by ADR (ADR-109: number allocation, KAN-207);
    - `_READS` — reviewed as reading only.
@@ -48,17 +48,15 @@ What it proves:
    Every package under app/ is one of the twelve contexts or declared
    wiring (`core`, `api`).
 
-The one known debt, tracked here, not ruled — decided by Anto on 2026-10-07
-(KAN-90, exit criterion 1): `app.sales.public.repoint_customer_transactions`, called by
-`app.customer.services.customer._repoint_transactions` inside the customer
-merge, does NOT commit; its docstring says it "joins the caller's
-transaction". The caller's own comment already calls this "tracked
-residual coupling ... replace with a `customer.merged` event that sales
-consumes idempotently". It is recorded here rather than fixed because the
-table it touches is retired for new business writes (ADR-050:
-`_refuse_retired_write()` refuses every create/update/complete/cancel), so
-the debt is bounded to legacy rows touched by a merge; the replacement is
-KAN-185.
+The one debt this test tracked — decided by Anto on 2026-10-07 (KAN-90,
+exit criterion 1) — is paid (KAN-185; Anto, 2026-10-31, option A):
+`app.sales.public.repoint_customer_transactions`, called inside the
+customer merge's own transaction, is gone. The merge publishes
+`customer.merged` and Sales' consumer `sales.customer_merged` moves the
+duplicate's legacy transactions, offers, contracts and deals in its own
+transaction. `_SHARED_TRANSACTION_EXCEPTIONS` is empty, and
+`test_no_shared_transaction_debt_remains` keeps it so: a new entry is a new
+debt, Anto's call by name.
 
 Two more found while building KAN-90 were fixed rather than recorded
 (Anto, 2026-10-07): the retired `complete_transaction`'s unreachable body,
@@ -176,17 +174,11 @@ _OWN_COMMIT_WRITES = {
         "app.customer.services.customer.repoint_vehicle_party",
         "vehicle: merge flow",
     ),
-    # Trade-in and the vehicle 360 allocate a customer to a vehicle
-    # (FR-V-05, ADR-064).
+    # The vehicle 360 allocates a customer to a vehicle (FR-V-05, ADR-064);
+    # since KAN-189 the trade-in allocates no party.
     "app.customer.public.allocate_vehicle_party": (
         "app.customer.services.customer.allocate_vehicle_party",
-        "sales: trade-in; vehicle: allocate endpoint",
-    ),
-    # The customer merge re-points offers and contracts (WP-8 PR-7),
-    # after the merge itself has committed.
-    "app.sales.public.repoint_customer_sales_records": (
-        "app.sales.services.customer_merge.repoint_customer_sales_records",
-        "customer: merge flow",
+        "vehicle: allocate endpoint",
     ),
     # A confirmation consumes its trade-in valuation, and reverts it as
     # the compensating action (KAN-101, ADR-074).
@@ -207,8 +199,7 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
         (
             "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session "
-            "(KAN-257); sales: trade-in, on its own session (KAN-328); valuation: create, on its own session "
-            "(KAN-328)"
+            "(KAN-257); since KAN-189 neither the trade-in nor a valuation creates a record"
         ),
     ),
     # Sales' Save-and-copy gives a copied offer a configuration of its own
@@ -241,14 +232,11 @@ _OWN_COMMIT_WRITES = {
     ),
 }
 
-# ADR-047's forbidden shape, known and tracked. Anto, 2026-10-07 (KAN-90):
-# recorded, not fixed here — see the module docstring. KAN-185 replaces it.
-_SHARED_TRANSACTION_EXCEPTIONS = {
-    "app.sales.public.repoint_customer_transactions": (
-        "customer: _repoint_transactions inside the merge transaction; legacy table retired by ADR-050; "
-        "to be replaced by a customer.merged event consumed by sales (KAN-185)"
-    ),
-}
+# ADR-047's forbidden shape, known and tracked as debt. The one entry Anto
+# recorded on 2026-10-07 (KAN-90) was paid by KAN-185 (the customer merge's
+# legacy-transaction re-point became the `customer.merged` consumer
+# `sales.customer_merged`). Empty; a new entry is a new debt, by name.
+_SHARED_TRANSACTION_EXCEPTIONS: dict[str, str] = {}
 
 # ADR-047's forbidden shape, RULED a permanent exception by ADR — not debt.
 # ADR-109 (Anto, 2026-10-31, KAN-207 option 2: "numbering central … it should
@@ -272,6 +260,8 @@ _READS = {
     "app.customer.public.get_customer_or_404",
     "app.customer.public.has_any_basis_for_group",
     "app.customer.public.has_usable_domicile_address",
+    # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.
+    "app.customer.public.resolve_live_customer_id",
     "app.customer.public.list_vehicle_party_holders",
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
@@ -281,6 +271,8 @@ _READS = {
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_item_vehicle",
     "app.inventory.public.get_stock_items_for_vehicles",
+    # KAN-270: vehicle's daily purge asks which configurations a stock item holds; a SELECT only.
+    "app.inventory.public.referenced_configuration_ids",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
@@ -288,6 +280,8 @@ _READS = {
     # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
     # advisor) — the user row and their memberships, a SELECT only.
     "app.platform.public.get_active_user_acting_in",
+    # KAN-104 item 5: a document without a customer language prints in the Betrieb's default; a SELECT only.
+    "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
@@ -308,12 +302,36 @@ _READS = {
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
     # session of its own (tests/test_inventory_reservation_sweep.py).
     "app.sales.public.get_contract_statuses",
+    # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
+    # bought now (delivery is unordered); a SELECT only.
+    "app.inventory.public.is_stock_item_purchased",
+    # KAN-572: the customer context's trade-in purchase consumer re-reads the
+    # purchase Stock holds now (delivery is unordered); a SELECT only.
+    "app.inventory.public.standing_purchase_date",
+    # KAN-572: the customer context's trade-in storno consumer asks whether a
+    # later purchase overtook the storno (delivery is unordered); a SELECT only.
+    "app.inventory.public.purchase_booked_after",
+    # KAN-146: «Einkauf stornieren» asks whether a contract on the car requested
+    # its invoice, on a session of its own (tests/test_inventory_purchase_storno.py).
+    "app.sales.public.contract_with_invoice_requested_for_stock_item",
+    # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
+    "app.sales.public.get_trade_in_seller",
+    # KAN-270: vehicle's daily purge asks which configurations an offer or contract holds; a SELECT only.
+    "app.sales.public.referenced_configuration_ids",
     # KAN-115: valuation asks which valuations a signed contract carries.
     "app.sales.public.valuations_carried_by_signed_contracts",
+    # KAN-520: «Verwendung aufheben» asks which valuations a pending contract carries.
+    "app.sales.public.valuations_carried_by_pending_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
+    # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
+    "app.valuation.public.list_valid_valuations_for_vin",
+    # KAN-270: vehicle's daily purge asks which configurations a valuation holds; a SELECT only.
+    "app.valuation.public.referenced_configuration_ids",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
+    # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.
+    "app.vehicle.public.get_configuration_labels",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
     "app.vehicle.public.get_vehicle_or_404",
@@ -703,10 +721,12 @@ def test_cross_context_public_modules_are_imported_by_name() -> None:
     )
 
 
-def test_the_known_shared_transaction_is_still_the_only_one() -> None:
-    """Exit criterion 3: the debt is named, not silently exempt."""
+def test_no_shared_transaction_debt_remains() -> None:
+    """KAN-90's exit criterion 3 named the one debt; KAN-185 paid it. No
+    cross-context write joins its caller's transaction as tracked debt: a
+    new one is named here by Anto's decision, never silently exempt."""
 
-    assert set(_SHARED_TRANSACTION_EXCEPTIONS) == {"app.sales.public.repoint_customer_transactions"}
+    assert _SHARED_TRANSACTION_EXCEPTIONS == {}
 
 
 def test_the_ruled_shared_transaction_is_number_allocation_alone() -> None:

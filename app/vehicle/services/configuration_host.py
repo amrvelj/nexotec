@@ -40,6 +40,7 @@ from app.vehicle.services.configuration import (
     get_configuration_or_404,
 )
 from app.vehicle.services.host_configuration import (
+    ConfigurationLabel,
     ConfigurationPriceLine,
     HostConfiguration,
 )
@@ -49,6 +50,28 @@ def configuration_label(config: VehicleConfiguration) -> str:
     parts = [config.brand_display_name, config.model_group_name, config.variant_name]
     label = " ".join(p for p in parts if p)
     return (label or config.catalogue_variant_label or "—")[:200]
+
+
+def get_configuration_labels(
+    db: Session, tenant_by_configuration: dict[uuid.UUID, uuid.UUID]
+) -> dict[uuid.UUID, ConfigurationLabel]:
+    """KAN-534 — the current label of each configuration named, read only in
+    the Betrieb its host says it belongs to (`configuration id -> tenant id`):
+    a configuration of another Betrieb is absent, as is an id naming nothing.
+    The caller passes the tenant its own host row carries — the same trust
+    model as `get_configuration_for_host(tenant_id=…)`; the function never
+    answers across Betriebe on its own. One SELECT, read only."""
+
+    if not tenant_by_configuration:
+        return {}
+    rows = db.scalars(
+        select(VehicleConfiguration).where(VehicleConfiguration.id.in_(list(tenant_by_configuration)))
+    ).all()
+    return {
+        row.id: ConfigurationLabel(tenant_id=row.tenant_id, label=configuration_label(row))
+        for row in rows
+        if tenant_by_configuration.get(row.id) == row.tenant_id
+    }
 
 
 def _price_lines(config: VehicleConfiguration) -> list[ConfigurationPriceLine]:

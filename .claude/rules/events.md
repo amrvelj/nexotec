@@ -63,9 +63,13 @@ claim checked against the code). Fix this file in the same PR as any change to w
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84;
-  `customer.advisor_labels`, KAN-403; `sales.owner_labels`, KAN-404) is not
+  `customer.advisor_labels`, KAN-403; `sales.owner_labels`, KAN-404; `inventory.configuration_labels`, KAN-534) is not
   a repair: the label is a copy, refreshed on purpose, and its age is a gauge
-  (`dms.label.age_seconds`, alert threshold in README's alarm table).
+  (`dms.label.age_seconds`, alert threshold in README's alarm table). A label may also follow
+  its owner's event — `vehicle.vehicle_mdm.summary_changed` →
+  `customer.vehicle_party_labels_on_summary_changed` (KAN-186) — whose consumer re-reads the label
+  through the owner's `public` rather than trusting the payload (delivery is unordered); the
+  nightly job stays as the backstop.
 - **A repair the nightly run makes (ADR-047: "a failure after commit is repaired by the nightly
   reconciliation job") is a daily job of the owning context with its own record, never part of
   reconciliation** — finding and fixing stay apart (Anto, 2026-10-08, KAN-122; ADR-047
@@ -74,5 +78,14 @@ claim checked against the code). Fix this file in the same PR as any change to w
   `.claude/rules/inventory.md`) and the expiry job's retry of a hand-over a module refused
   (`platform.user_expiry`, KAN-200, 30 days; the Sales and Customers StateChecks name the record
   meanwhile).
+- **A context learns that another holds its record from the holder's own fact, never inside the
+  holder's transaction** (KAN-270, ADR-047, rule 2): Vehicle stamps `vehicle_configuration.first_taken_at`
+  from `sales.offer.configuration_attached`, `sales.contract.configuration_attached`,
+  `inventory.stock_item.added`, `inventory.stock_item.configuration_attached` and `valuation.created`
+  (each carrying `configurationId` when the host row has one; five consumers
+  `vehicle.configuration_taken_by_*`). Its daily job `vehicle.configurations.purge_unattached`
+  (registered last; retention, not a repair) asks the hosts' read-only
+  `referenced_configuration_ids` as a safety net before it deletes a configuration no host ever
+  took, 30 days after it was created (`.claude/rules/vehicle.md`).
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

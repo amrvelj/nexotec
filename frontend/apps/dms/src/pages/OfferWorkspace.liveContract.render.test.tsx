@@ -172,6 +172,28 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
   })
 
+  // KAN-570 — the stock number in the vehicle container only opens the car,
+  // so it stays live too; the container's writes stay locked.
+  it('the stock number still opens the car while the vehicle container stays read-only', async () => {
+    const user = userEvent.setup()
+    const backend = install(
+      offer({
+        liveContractId: 'k7', liveContractNumber: 'V-000007', vehicleSource: 'stock', stockItemId: 's1',
+        stockItemLabel: 'S-000042', vehicleLabel: 'VW Golf',
+      } as Partial<SalesOfferRead>),
+    )
+    renderWorkspace()
+
+    const stockNumber = await screen.findByRole('button', {
+      name: i18n.t('offerWorkspace.vehicle.stockNumber', { stockNumber: 'S-000042' }),
+    })
+    expect(stockNumber).toBeEnabled()
+    await user.click(stockNumber)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items\/s1/, 'GET').length).toBeGreaterThan(0))
+    expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
+  })
+
   // KAN-501 — the line items moved under the pricing container's own
   // fieldset: with a frozen snapshot they render, and none of them writes.
   it('the factory options and accessories stay read-only, and nothing is saved', async () => {

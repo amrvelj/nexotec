@@ -39,3 +39,19 @@ class StockItemGroupPage(CamelModel):
     next_cursor: str | None
     total: int
     total_is_estimate: bool
+
+
+class GroupStockDealershipRead(CamelModel):
+    """KAN-565: one Betrieb of the caller's group, as the group stock
+    listing's «Betrieb» filter offers it — the id the listing's
+    `dealershipId` / `dealershipIdNot` take and the label it shows."""
+
+    id: uuid.UUID
+    label: str
+
+
+class GroupStockDealershipList(CamelModel):
+    """The whole roster in one response: a group has a handful of Betriebe,
+    never a page's worth."""
+
+    items: list[GroupStockDealershipRead]

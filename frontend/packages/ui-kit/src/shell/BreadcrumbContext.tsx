@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect } from "react";
 
-const BreadcrumbContext = createContext<(segments: string[]) => void>(() => {});
+/** One breadcrumb segment: its text, and — for a segment that names a screen
+ * (a list, the dashboard) — where it leads (KAN-104 item 1, FR-UI-07). The
+ * last segment, the screen the user is on, is never a link. */
+export type BreadcrumbSegment = string | { label: string; href?: string };
+
+const BreadcrumbContext = createContext<(segments: BreadcrumbSegment[]) => void>(() => {});
 
 export const BreadcrumbProvider = BreadcrumbContext.Provider;
 
@@ -19,7 +24,7 @@ export const BreadcrumbProvider = BreadcrumbContext.Provider;
  * don't allow — the caller can't conditionally call a hook based on
  * whether it's embedded.
  */
-export function useSetBreadcrumb(segments: string[] | null): void {
+export function useSetBreadcrumb(segments: BreadcrumbSegment[] | null): void {
   const setBreadcrumb = useContext(BreadcrumbContext);
   const key = segments === null ? null : JSON.stringify(segments);
   useEffect(() => {

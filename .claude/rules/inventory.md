@@ -26,7 +26,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **ADR-103 — purchase booking puts a car on stock** (Anto, 2026-10-25, KAN-446): the chain is
   configuration → pipeline → purchase → contract → invoice. `POST …/stock-items/{id}/purchase`
   on a pipeline item needs the VIN (`RecordPurchaseRequest.vin`; 422 `purchase_requires_vin`
-  without it) and promotes the item before the purchase facts are written, in one transaction,
+  without it) — except a stornoed car, which kept its VIN and record (KAN-146, below) — and promotes the item before the purchase facts are written, in one transaction,
   so `inventory.stock_item.purchased` is published at once; on an item in stock a `vin` that is
   not the item's is 422 `purchase_vin_mismatch`. **A pipeline item is bought with its
   configuration's VIN** (KAN-510; Anto, 2026-11-01, option B then A): when the configuration
@@ -34,15 +34,29 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   spelling (`services/stock_item.py::configuration_vin_differs`, the create's and
   «Konfiguration zuordnen»'s rule), before vehicle-mdm or the item is touched; a configuration
   without one (a factory order) takes the typed VIN, an item without a configuration is unchanged.
-  `RecordPurchaseDialog` prefills it, and on a pipeline car the Betrieb took in itself the refusal
-  offers «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle.md, Host /
-  mode matrix). Not on a pipeline car a contract created (`pipelineRef` «contract:…»): its
-  configuration is the signed one, so a wrong VIN there cannot be corrected on screen until Anto
-  rules (KAN-510): the booking refuses the real VIN, so the car is either booked under the wrong one
-  or never reaches stock (and cannot be invoiced); `PATCH /v1/configurations/{id}` still accepts the
-  correction. A pipeline item is never bought without its
+  `RecordPurchaseDialog` prefills it, and on a car no contract reserves the refusal offers
+  «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle.md, Host / mode
+  matrix; Anto, 2026-11-02, KAN-510 option A: every stock car, pipeline or in stock, trade-ins
+  included). A reserved car — a signed manual configuration's pipeline item — gets «Vertrag
+  bearbeiten» on its configuration card instead, disabled with the reason: its contract is signed and
+  frozen, so a wrong VIN there is corrected only after that contract is cancelled. A pipeline item is never bought without its
   VIN, so FR-I-02b's «purchase booked first, VIN later» order no longer exists. Offer and
   contract stay possible at every phase; invoicing stays gated on the purchase.
+  **A create never puts a car on stock** (ADR-116, KAN-554; Anto, 2026-11-05, option A): every
+  `POST /v1/inventory/stock-items` lands as `pipeline`, a `vin` sent with it included — stored,
+  checked against the configuration's (`configuration_vin_differs`) and the VINs the Betrieb holds
+  (409 `vin_already_in_stock`), and **nothing written to vehicle-mdm** (a car not yet bought has
+  no record, ADR-045). Its purchase booking may leave `vin` out (the item's is used) or repeat it;
+  another is 422 `purchase_vin_mismatch`. Promotion leaves the item itself out of its uniqueness
+  check, and the record it creates names the booking user (KAN-243). Tests that need a car in
+  stock without a purchase use `tests/stock_support.py` (create, then promote). **While it was
+  never bought, its configuration's VIN wins** (KAN-575; Anto, 2026-11-07, option A): once the
+  configuration's VIN is corrected («Konfiguration bearbeiten», KAN-510) or a factory order's
+  configuration gets one, the booking — with no `vin`, or with the configuration's — books the car
+  under the configuration's VIN, corrects the item's in promotion's savepoint (`correct_vin`; a VIN
+  another item holds is 409 `vin_already_in_stock`) and audits `vin_corrected_at_purchase` (before
+  and after `vin`, reason `configuration_vin_wins`); any third VIN is 422
+  `configuration_vin_differs`. A stornoed car (it kept its record) is not corrected this way.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
@@ -56,7 +70,14 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
   invoicing and valuation fields are absent from it; `listPrice` is deliberately present. In the
   UI, group stock is a scope switch (`ScopeSwitchMenu`); the dealership is a column, not
-  sortable (it lives on platform's table). A dealership filter is not built (KAN-104). Which
+  sortable (it lives on platform's table), and **the filter** (KAN-565): `dealershipId` /
+  `dealershipIdNot` on `GET /v1/inventory/groups/{mine|id}/stock-items` (repeatable) narrow the
+  group's own roster only — an id outside it matches nothing, an empty page, never a 403/404 for
+  the id; `GET /v1/inventory/groups/mine/dealerships` is the options read (the same roster, the
+  same gate, 404 otherwise). `GroupStockGrid` offers «Betrieb ist / ist nicht» in its own
+  views-and-filters control (views saved under `inventory.stock.group`), the predicate in the URL
+  beside `?scope=group`; a scope switch drops the filters either way (the two grids filter on
+  different fields). Which
   Betriebe are in the group, and their labels, is platform's answer
   (`platform.public.list_group_read_dealerships`, KAN-121, ADR-107): Stock never joins platform's
   tables.
@@ -71,10 +92,69 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `stock_reservation` (KAN-376; `tests/test_inventory_write_capabilities.py`), so widening one
   row opens no other write. Details in `.claude/rules/platform.md`.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
-  `inventory.stock_item.purchased` (published once, by `mark_purchased_if_ready`; the legacy
+  `inventory.stock_item.purchased` (published once per booking, by `mark_purchased_if_ready` —
+  twice for a car bought, stornoed and bought again (KAN-146); the legacy
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
-  per stock item and never queries Stock synchronously for it. Reservation does not need the
+  per stock item and never queries Stock synchronously for it on the invoicing path (ADR-052
+  addendum 2026-11-06, KAN-146: Sales' storno consumer re-reads it asynchronously, `sales.md`). Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
+  The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
+  `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
+  `originRole` (read back from `pipeline_ref`, `stock_item.pipeline_origin`), which the customer
+  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
+- **A stock item's configuration label follows the configuration within a day** (KAN-534, rule 2):
+  `configuration_label` and `configuration_label_refreshed_at` are written when a configuration is
+  attached or a pipeline item created, and re-read nightly by `inventory.configuration_labels`
+  (`services/configuration_label.py`, after `sales.owner_labels`) through
+  `vehicle.public.get_configuration_labels` — the other label jobs' rules: `version` not bumped, a
+  current label only restamped, a configuration naming nothing or another Betrieb left alone, each
+  batch `FOR NO KEY UPDATE SKIP LOCKED`; gauge `dms.label.age_seconds{label="inventory.configuration"}`.
+  Since KAN-556 the same job renames the car too (next bullet) and counts a row as current only
+  when both `configuration_label` and `vehicle_label` equal the configuration's label.
+- **A configured car is named by its configuration** (ADR-117 (2), KAN-556; Anto's ruling on
+  KAN-546, 2026-11-03): on an item with a configuration, `vehicle_label` (the «Fahrzeug» column,
+  the detail title, the marketplace's make/model, the offer's working label) **is** the
+  configuration's label — written at create (the endpoint's `vehicleLabel` is optional and
+  ignored; the FR-I-02/02b consumers name the item by the label the contract carried, their
+  configuration copy), at «Konfiguration zuordnen» (audited, `vehicleLabel` in before/after) and
+  by the nightly `inventory.configuration_labels` refresh. A PATCH may resend the name unchanged,
+  never another (422 `vehicle_label_follows_configuration`); the stock detail shows it read-only
+  with a hint. An item without a configuration keeps its own, editable text. Inventory-chain
+  migration `80667c6fddf8` named every configured item by Stock's own `configuration_label` copy
+  (never reading the vehicle context's table); on staging, which runs no worker (ADR-081), a copy
+  that was stale then stays stale, as `configuration_label` itself does there. The ADR-115 offer
+  banner listing «Bezeichnung» waits for that banner (KAN-553).
+- **A purchase is booked once and reversed by «Einkauf stornieren»** (KAN-146, FR-I-05; Anto,
+  2026-11-05). Booking posts the purchase price to the Wagenbuch as an automatic `einstandspreis`
+  (`services/ledger.py::post_purchase_entries`, key `purchase:<uuid7>`, dated the purchase date's
+  start in Switzerland) and audits `purchase_booked`; `einstandspreis` is automatic-only since (no
+  hand booking), and a hand booking may not use a `purchase:`/`storno:` key (422
+  `source_ref_reserved`). A second booking is 409 `purchase_already_booked`. `POST
+  …/stock-items/{id}/purchase/storno` (`stock_acquisition`, If-Match, Idempotency-Key, a required
+  `reason` ≤ 500) appends one counter-entry per automatic purchase entry not yet reversed (negated,
+  key `storno:<its key>`), clears the purchase facts and `is_invoiceable`, returns the car to
+  `pipeline` (`in_stock_at` cleared) **keeping its VIN and `vehicle_id`** — so it still blocks the
+  VIN and is booked again without a new one (`record_purchase` restocks it without promoting; another
+  VIN is 422 `purchase_vin_mismatch`) — audits `purchase_storno` with the reason and publishes
+  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`; since KAN-572 additively
+  `returnedToCustomer`, the cancelled `purchaseDate` and a trade-in's `originContractId`/`originRole`),
+  all in one transaction. **A trade-in may go back to its customer** (KAN-572; Anto, 2026-11-07,
+  option C): `returnedToCustomer: true` on the storno (optional, default false; 422
+  `storno_return_not_trade_in` on any other car), audited with it; the customer context then reopens
+  that customer as owner and keeper (`customer.md`). The dialog asks only on a trade-in's car.
+  A reserved car may be stornoed; the reservation stays. Refused: no booked purchase (409
+  `purchase_not_booked`), left stock (409 `purchase_storno_left_stock`), or a contract on the car
+  that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, read
+  through `sales.public.contract_with_invoice_requested_for_stock_item` on a session of its own).
+  The storno reverses every `einstandspreis` entry not yet reversed — a hand-booked one from before
+  KAN-146 included — keyed `storno:<the entry's id>`. The stock detail's purchase card carries the
+  action (`PurchaseStornoDialog`), and so does the one stock row menu (KAN-571, below). **Built as the
+  safe default, open with Anto on KAN-146:** «Rechnung angefordert» counting as invoiced (Finance
+  issues none yet); a published car staying published (the feed keeps sending it, though
+  `compute_blocking_conditions` would refuse to publish a pipeline car); `einstandspreis` closed to
+  hand booking with `purchase:`/`storno:` keys reserved; the days in stock restarting at the next
+  booking. A storno and «Rechnung anfordern» can still race (each reads the other's side without a
+  shared lock); Sales' reconciliation reports the result (`sales.md`).
 - **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
   `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
   Details in `.claude/rules/valuation.md`.
@@ -103,7 +183,11 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   KAN-513).
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
-  `trade_in`; additive, KAN-144). A directly added item carries neither.
+  `trade_in`; additive, KAN-144). A directly added item carries neither. It carries
+  `configurationId` whenever the item has one, and «Konfiguration zuordnen» publishes
+  `inventory.stock_item.configuration_attached` (`stockNumber`, `configurationId`), so Vehicle keeps a
+  configuration a stock item took for good (KAN-270; `inventory.public.referenced_configuration_ids`
+  is Vehicle's read-only safety net — every stock item counts, whatever its lifecycle).
 - **A manual configuration's pipeline item is created reserved for its contract** (K-12,
   FR-I-11; KAN-158), in the consumer transaction that creates it; a trade-in's is not. Stock
   releases it on `sales.contract.cancelled` (consumer `inventory.sales_contract_cancelled`,
@@ -164,18 +248,29 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   promoting a second one is 409 `vin_already_in_stock` with the holder's `stockItemId` and
   `stockNumber`, checked before vehicle-mdm is touched; the index refuses a racing writer with the
   same 409. A direct create with a VIN upper-cases it and strips whitespace, then validates it
-  as vehicle-mdm does (422 otherwise), and resolves `vehicle_id` from vehicle-mdm by that VIN —
-  a client `vehicleId` is ignored (Anto, 2026-10-12, KAN-244), and without a VIN it is refused,
-  422 `vehicle_id_requires_vin` (Anto, 2026-10-12, KAN-324); promotion normalises its VIN the
-  same way before anything else. Create and promotion resolve the
-  VIN through `services/vehicle_resolution.py` on a session of their own, so vehicle-mdm's commit
+  as vehicle-mdm does (422 otherwise); a client `vehicleId` is ignored (Anto, 2026-10-12,
+  KAN-244) — the item's `vehicle_id` is resolved from the VIN at purchase booking since KAN-554 —
+  and without a VIN it is refused, 422 `vehicle_id_requires_vin` (Anto, 2026-10-12, KAN-324);
+  promotion normalises its VIN the same way before anything else. Promotion resolves the
+  VIN through `services/vehicle_resolution.py` on a session of its own, so vehicle-mdm's commit
   or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
   has never seen takes the winner's record and carries on — then is stocked or refused
   `vin_already_in_stock` (KAN-257; promotion runs at purchase booking, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
-  history; a storno'd car (`storno_pending`, which nothing sets yet — no storno flow exists,
-  KAN-146) would still block its VIN. The same car may be in pipeline twice (pipeline
-  items carry no VIN until promotion). The legacy transaction import follows the same rule: a car
+  history; a stornoed car (KAN-146, below) is back in pipeline with its VIN and still blocks it
+  (`storno_pending` is still set by nothing). The same car may be in pipeline twice (a pipeline
+  item a contract's confirmation creates carries no VIN until promotion; one created with its VIN
+  (KAN-554) or stornoed keeps its own and blocks it, as above). The legacy transaction import follows the same rule: a car
   the old system shows sold and later traded back in gets a second item, the sold one is never
   reopened, and a row for a car live Stock holds or has sold is reported
   (`vehicle_known_to_live_stock`), never applied — history is imported before a dealership starts
   to work (Anto, 2026-10-08; KAN-256).
+- **One stock row menu** (KAN-571, ADR-061; PRD-Stock FR-I-07): `components/stockRowMenu.tsx::buildStockRowMenu`
+  is the one definition the Stock list's ⋯ menu and the stock detail's header (primary «Vertrag
+  erstellen», alternative «Offerte erstellen», overflow) render from — Einkauf erfassen · Zustand ändern
+  · Konfiguration zuordnen/bearbeiten · Vertrag/Offerte erstellen · Einkauf stornieren. Both purchase
+  actions are always listed, the one that does not apply disabled with its reason (Anto, 2026-11-07, 2a
+  option A); a role's unusable action is hidden (KAN-430); a car that left stock, or a configuration a
+  contract's reservation freezes, is disabled with its reason. «Zustand ändern» is
+  `ChangeConditionDialog` (`POST …/condition`, `stock_condition`, If-Match). The list opens the car with
+  the action in the router state (`stockOpenState`); the detail runs it once and drops the state.
+  `StockRowMenu.render.test.tsx` compares the two menus item by item.

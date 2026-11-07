@@ -3,7 +3,9 @@ linter's contract allows `app.<other-context>` to import
 `app.valuation.public`, never `app.valuation.models` /
 `app.valuation.services` / `app.valuation.api` directly.
 
-`get_valuation_or_404`/`list_valid_valuations_for_vehicle` are read
+`get_valuation_or_404`/`list_valid_valuations_for_vehicle`/
+`list_valid_valuations_for_vin` (KAN-189: a trade-in car not in the
+register is matched by its VIN) are read
 surfaces for Sales's trade-in container (PR-5: "an existing valid
 valuation is offered before a new one is made") and for inventory, which
 copies the pointer onto a trade-in's pipeline stock item (KAN-101).
@@ -12,6 +14,10 @@ copies the pointer onto a trade-in's pipeline stock item (KAN-101).
 `revert_valuation_use` as its compensating action — Pattern B (ADR-047),
 each with its own commit — both called by Sales's `confirm_contract`
 (KAN-101), never by anyone reaching into app.valuation.services directly.
+
+`referenced_configuration_ids` (KAN-270) is vehicle's read for its daily purge of
+configurations no host ever took: which of the ids it names a valuation
+holds. A SELECT only.
 """
 
 import uuid
@@ -19,11 +25,13 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.valuation.models.valuation import Valuation, ValuationSource
+from app.valuation.services.configuration_reference import referenced_configuration_ids
 from app.valuation.services.valuation import consume_for_contract as _consume_for_contract
 from app.valuation.services.valuation import (
     derive_status,
     get_valuation_or_404,
     list_valid_valuations_for_vehicle,
+    list_valid_valuations_for_vin,
 )
 from app.valuation.services.valuation import revert_use as _revert_use
 
@@ -53,5 +61,7 @@ __all__ = [
     "derive_status",
     "get_valuation_or_404",
     "list_valid_valuations_for_vehicle",
+    "list_valid_valuations_for_vin",
+    "referenced_configuration_ids",
     "revert_valuation_use",
 ]

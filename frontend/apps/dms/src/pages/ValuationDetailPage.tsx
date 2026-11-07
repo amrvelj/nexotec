@@ -9,6 +9,9 @@ import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { ValuationRevertUseDialog } from '../components/ValuationRevertUseDialog'
 import { useCanWrite } from '../auth/useCanWrite'
+import { useAuth } from '../auth/AuthContext'
+import { useCreateOfferFromValuation } from '../hooks/useCreateOfferFromValuation'
+import { CreateOfferFromValuationAlert } from '../components/CreateOfferFromValuationAlert'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -54,6 +57,12 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   // KAN-253 — «Verwendung aufheben», the dealer manager's correction.
   const canRevertUse = useCanWrite('valuation_use_reversal')
   const [revertUseOpen, setRevertUseOpen] = useState(false)
+  // KAN-569 — «Offerte aus dieser Bewertung erstellen»: hidden without the
+  // right to write offers (KAN-430), disabled with its reason without the
+  // Betrieb's `sales` module (KAN-377).
+  const canWriteOffers = useCanWrite('sales_offers')
+  const salesEntitled = useAuth().entitlements.includes('sales')
+  const createOffer = useCreateOfferFromValuation()
 
   const valuationQuery = useQuery({
     queryKey: ['valuation', id],
@@ -61,7 +70,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
     enabled: Boolean(id),
   })
 
-  useSetBreadcrumb(embedded ? null : [t('shell.nav.valuations'), valuationQuery.data?.valuationNumber ?? id])
+  useSetBreadcrumb(embedded ? null : [{ label: t('shell.nav.valuations'), href: '/valuations' }, valuationQuery.data?.valuationNumber ?? id])
 
   // KAN-273 (ADR-035): a refused stamp says so; the retry carries its key.
   const markUsed = async () => {
@@ -108,6 +117,9 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
     onRevertUse: canRevertUse ? () => setRevertUseOpen(true) : undefined,
     onOpenCustomer: valuation.customerId ? () => openCustomerOverlay(valuation.customerId!) : undefined,
     onOpenVehicle: valuation.vehicleId ? () => navigate(`/vehicles/${valuation.vehicleId}`) : undefined,
+    createOffer: canWriteOffers
+      ? { onClick: () => void createOffer.run(valuation), salesEntitled }
+      : undefined,
   })
 
   const deductionsTotal = (valuation.deductions ?? []).reduce((sum, d) => sum + Number(d.amount), 0)
@@ -126,8 +138,11 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
           </>
         }
         primaryAction={menu.primary}
+        alternativeAction={menu.alternative}
         overflowActions={menu.overflow}
       />
+
+      {createOffer.error && <CreateOfferFromValuationAlert error={createOffer.error} onDismiss={createOffer.dismiss} />}
 
       <ValuationRevertUseDialog
         opened={revertUseOpen}

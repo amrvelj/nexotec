@@ -243,19 +243,36 @@ def test_a_misspelt_plate_is_refused_before_anything_is_written(db_session, engi
     assert refused.value.details == {"reason": "plate_invalid"}
 
 
-def test_a_second_request_with_the_same_plate_records_it_once(db_session, engine):
+def test_a_second_request_is_refused_and_a_repeated_event_records_the_plate_once(db_session, engine):
+    """KAN-539 (Anto, 2026-11-03, option A): the request happens once per
+    contract, so a second one is refused before a second event exists. The
+    consumer stays idempotent by content all the same: delivery is
+    at-least-once, and the same handover delivered under another message
+    id (a republished row) records the plate once."""
+
     dealership, contract, item = _invoiceable_contract(db_session, engine)
     group = dealership.dealer_group_id
-    for _ in range(2):
+    request_invoice(
+        db_session, contract=contract, actor_id=uuid.uuid4(), group_id=group,
+        plate=HandoverPlate(plate="ZH 123456", canton="ZH"), session_factory=_session_factory(engine),
+    )
+    with pytest.raises(ConflictError) as refused:
         request_invoice(
             db_session, contract=contract, actor_id=uuid.uuid4(), group_id=group,
             plate=HandoverPlate(plate="ZH 123456", canton="ZH"), session_factory=_session_factory(engine),
         )
-    messages = db_session.scalars(
-        select(OutboxMessage).where(OutboxMessage.event_type == "sales.contract.invoice_requested")
-    ).all()
-    assert len(messages) == 2
-    for message in messages:
+    assert refused.value.details["reason"] == "invoice_already_requested"
+    db_session.rollback()
+
+    first = _invoice_message(db_session, contract)
+    republished = OutboxMessage(
+        event_type=first.event_type, event_version=first.event_version, occurred_at=first.occurred_at,
+        tenant_id=first.tenant_id, producer=first.producer, aggregate_type=first.aggregate_type,
+        aggregate_id=first.aggregate_id, correlation_id=first.correlation_id, payload=dict(first.payload),
+    )
+    db_session.add(republished)
+    db_session.commit()
+    for message in (first, republished):
         assert _deliver(db_session, message) is True
 
     assert db_session.scalar(

@@ -123,9 +123,17 @@ second local combobox.
 - Grids (UI/UX Core Principles): every column sortable server-side; column order, visibility,
   width and pinning configurable and persisted per user; a three-dots row menu on every row;
   cursor-based lazy loading; maximum information density; Shift + wheel scrolls horizontally.
-- The dashboard is the landing page (FR-UI-07) and should be the breadcrumb root — not built:
-  breadcrumbs start at the nav group and are not links (KAN-104). Account chrome lives only in
-  the sidebar footer; the top bar carries the breadcrumb.
+- **The dashboard is the landing page and the breadcrumb's root** (FR-UI-07; KAN-104): the shell
+  passes `topbar.breadcrumbRoot` (`shell.nav.dashboard`, `/`) and its router `Link`, and the kit's
+  `Topbar` puts it first on every screen as a link — drawn as the dashboard icon alone, the label its
+  accessible name and tooltip, so the page's own segments keep their room (KAN-301's narrow
+  column) — and names the dashboard once on the dashboard itself. A page's
+  segment that names a screen is a `{ label, href }` (`BreadcrumbSegment`) and renders as a link —
+  the list segment on the customer, vehicle, stock, valuation, offer and contract details, the
+  customer and valuation create screens, the offer workspace and a location's detail; a nav
+  group or a section without a screen of its own (Stammdaten, Verwaltung, Mein Konto) and the
+  current screen stay text. Account chrome lives only in the
+  sidebar footer; the top bar carries the breadcrumb.
 - **ADR-076 — every CHF amount reads `CHF 12'500.00`, inputs included** (KAN-168): a CHF input
   is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare
   `NumberInput` or `<input type="number">`; `no-bare-money-number-input.test.ts` names every
@@ -177,8 +185,16 @@ second local combobox.
   to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.
 - A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`; one missing only from
   the active locale falls back to English (`fallbackLng: 'en'`), never German —
-  `localeKeyParity.test.ts` keeps that from shipping. No hardcoded user-visible string,
+  `localeKeyParity.test.ts` keeps that from shipping. Ruled so by Anto (2026-11-03, KAN-104
+  decision 2 A): no marker when English has the text. No hardcoded user-visible string,
   including labels in dialogs and wizards.
+- **The one exception: the four language endonyms** (Anto, 2026-11-03, KAN-343 option A). The
+  reference-data screen's language columns and fields and a customer's correspondence language
+  (create, detail, list filter and export, History tab) name each language in itself for every
+  user — «Deutsch», «Français», «Italiano», «English» — from the one list
+  `i18n/languageEndonyms.ts`; `architecture/language-endonyms-one-list.test.ts` refuses the
+  literals anywhere else in `apps/dms/src`. The UI-language picker (Mein Konto, Users) and the
+  per-language editors (Übersetzungen, Standardtexte) still translate the names.
 - **The platform's published UI strings override the bundles at runtime** (KAN-209, FR-A-30…32):
   `i18n/runtimeTranslations.ts`, started by `main.tsx`, fetches `GET /v1/i18n/{language}` for the
   start language (and English) beside its bundle; the first paint waits for both, at most
@@ -213,8 +229,17 @@ second local combobox.
   no slash, pair, parenthesis or point-médian form in the bundles.
 - Canonical reference data is translated by us; provider option text is stored and rendered
   **as delivered**, never translated (ADR-044).
-- New users should default to the dealership's language — not built: `useUiPreferences.ts`
-  hard-defaults `uiLanguage` to `'de'` (KAN-104).
+- **A new user starts in the home Betrieb's correspondence language** (Anto, 2026-11-03, KAN-104
+  decision 1 B): `GET /v1/me/preferences/ui` for a user who never saved the scope answers
+  `{"uiLanguage": <the Betrieb's default_correspondence_language>}` with `updatedAt: null` (and a
+  stored `ui` row without `uiLanguage` gets it added on read) — a starting value the server does
+  not store; the browser's mirror keeps it for the next first frame, and the first save of any
+  `ui` field (a language switch, the sidebar, density) stores it with the rest, as the user's own
+  from then on. This applies to every user who never saved the `ui` scope, existing ones
+  included. The platform mail texts and the push title follow the same rule
+  (`user_preference.ui_language_of`). Only the starting value is shared: the user's UI language
+  and a customer's correspondence language stay separate fields and controls.
+  `useUiPreferences.ts` keeps `'de'` as the offline fallback.
 
 ## Tests and evidence
 

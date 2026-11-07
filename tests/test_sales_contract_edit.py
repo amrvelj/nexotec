@@ -191,7 +191,7 @@ def test_a_contract_takes_accessories_and_option_changes_through_its_own_line_it
 def _valuation(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID, vin: str, final_offer: Decimal):
     return create_valuation(
         db_session, tenant_id=dealership_id, group_id=group_id,
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=final_offer),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=final_offer),
         actor_id=uuid.uuid4(),
     )
 

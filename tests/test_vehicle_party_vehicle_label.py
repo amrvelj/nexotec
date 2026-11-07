@@ -20,15 +20,18 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app import worker
 from app.core.auth import AccessRole
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
+from app.core.outbox_model import OutboxMessage
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.customer import refresh_vehicle_party_labels, repoint_vehicle_party
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.schemas.catalogue import BrandUpdate
+from app.vehicle.services.catalogue_admin import update_brand
 from tests.test_customer_vehicle import _bearer, _create_customer, _create_dealer, _create_vehicle, _token
 
 
@@ -156,6 +159,32 @@ def test_the_vehicles_tab_reads_the_stored_label_until_the_nightly_refresh(clien
 
     listed = _list(client, dealer_id, customer["id"])[0]["vehicle"]
     assert (listed["make"], listed["model"], listed["trim"]) == ("Volkswagen", "Golf", "2.0 TSI GTI")
+
+
+def test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning(client, db_session):
+    """KAN-560 (Anto, 2026-11-05, option B; ADR-119): a brand rename is a rare
+    staff correction. It publishes no `vehicle.vehicle_mdm.summary_changed`
+    (one per car of the brand would flood the outbox), so the Vehicles tab
+    keeps the old make until the nightly `customer.vehicle_party_labels`
+    refresh, which shows the new one."""
+
+    dealer_id, customer, vehicle = _setup(client)
+    _link(client, dealer_id, customer["id"], vehicle["id"])
+    variant = _variant(db_session)
+    _match(db_session, vehicle["id"], variant)
+    refresh_vehicle_party_labels(db_session)
+    assert _list(client, dealer_id, customer["id"])[0]["vehicle"]["make"] == "Volkswagen"
+    events_before = db_session.scalar(select(func.count()).select_from(OutboxMessage))
+
+    brand = db_session.get(Brand, db_session.get(ModelGroup, variant.model_group_id).brand_id)
+    update_brand(db_session, brand=brand, data=BrandUpdate(display_name="VW"), actor_id=uuid.uuid4())
+
+    assert db_session.scalar(select(func.count()).select_from(OutboxMessage)) == events_before
+    assert _list(client, dealer_id, customer["id"])[0]["vehicle"]["make"] == "Volkswagen"
+
+    assert refresh_vehicle_party_labels(db_session) == 1
+
+    assert _list(client, dealer_id, customer["id"])[0]["vehicle"]["make"] == "VW"
 
 
 def test_refresh_moves_updated_at_only_where_the_label_changed(client, db_session):

@@ -7,7 +7,6 @@ import type {
   CustomerType,
   EmailType,
   Gender,
-  Language,
   LegalForm,
   PaymentTerms,
   PhoneType,
@@ -15,12 +14,9 @@ import type {
   Salutation,
 } from './api/types'
 
-export const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'en', label: 'English' },
-]
+// The correspondence language is named in itself for every user (KAN-343):
+// one list, shared with the reference-data screen.
+export { LANGUAGE_OPTIONS } from './i18n/languageEndonyms'
 
 export const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'individual', label: 'Individual' },
@@ -82,15 +78,6 @@ export const SALUTATION_OPTIONS: { value: Salutation; label: string }[] = [
   { value: 'neutral', label: 'Neutral' },
 ]
 
-export const LEGAL_FORM_OPTIONS: { value: LegalForm; label: string }[] = [
-  { value: 'ag', label: 'AG' },
-  { value: 'gmbh', label: 'GmbH' },
-  { value: 'einzelfirma', label: 'Einzelfirma' },
-  { value: 'verein', label: 'Verein' },
-  { value: 'genossenschaft', label: 'Genossenschaft' },
-  { value: 'weitere', label: 'Weitere' },
-]
-
 // D-21 (ruled 2026-09-07) — email / phone / post / whatsapp. `message`
 // (legacy SMS, no clean target) is retained on the backend enum so old
 // rows load, but is never offered as a choice.
@@ -136,15 +123,6 @@ export function translatedLifecycleOptions(t: Translate): { value: CustomerLifec
   ]
 }
 
-export function translatedLanguageOptions(t: Translate): { value: Language; label: string }[] {
-  return [
-    { value: 'de', label: t('customerEnums.language.de') },
-    { value: 'fr', label: t('customerEnums.language.fr') },
-    { value: 'it', label: t('customerEnums.language.it') },
-    { value: 'en', label: t('customerEnums.language.en') },
-  ]
-}
-
 export function translatedLifecycleLabel(t: Translate, status: CustomerLifecycleStatus): string {
   return t(`customerEnums.lifecycleStatus.${status}`)
 }
@@ -184,12 +162,22 @@ export function translatedSourceOptions(t: Translate): { value: CustomerSource; 
   ]
 }
 
+// KAN-104 item 4: the six legal-form codes, labelled in the UI language
+// (customerEnums.legalForm.*). SA, Sàrl and Sagl are the French/Italian
+// names of AG and GmbH, not separate forms (.claude/rules/customer.md).
+const LEGAL_FORM_VALUES: LegalForm[] = ['ag', 'gmbh', 'einzelfirma', 'verein', 'genossenschaft', 'weitere']
+
+export function translatedLegalFormOptions(t: Translate): { value: LegalForm; label: string }[] {
+  return LEGAL_FORM_VALUES.map((value) => ({ value, label: t(`customerEnums.legalForm.${value}`) }))
+}
+
+export function translatedLegalFormLabel(t: Translate, value: LegalForm): string {
+  return t(`customerEnums.legalForm.${value}`)
+}
+
 // Single-value label helpers, same shape as translatedLifecycleLabel /
 // translatedCustomerTypeLabel above — for a grid cell that renders one
-// stored enum value rather than a full option list (KAN-51). legalForm has
-// no locale bundle (AG / GmbH / Einzelfirma read the same in all four
-// languages — the customer detail screen renders LEGAL_FORM_OPTIONS
-// directly for the same reason), so it uses that constant, not `t`.
+// stored enum value rather than a full option list (KAN-51).
 export function translatedSalutationLabel(t: Translate, value: Salutation): string {
   return t(`customerEnums.salutation.${value}`)
 }
@@ -200,10 +188,6 @@ export function translatedPreferredChannelLabel(t: Translate, value: PreferredCh
 
 export function translatedSourceLabel(t: Translate, value: CustomerSource): string {
   return t(`customerEnums.source.${value}`)
-}
-
-export function legalFormLabel(value: LegalForm): string {
-  return LEGAL_FORM_OPTIONS.find((o) => o.value === value)?.label ?? value
 }
 
 // FR-17 / FR-18 stored fields (KAN-50). `gender` is segmentation-only and

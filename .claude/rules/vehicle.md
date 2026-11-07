@@ -125,6 +125,32 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   refuses any read of `VehiclePlate` or `VehiclePlateConflict` outside `plate.py` /
   `plate_read_guard.py`, except the uses it names that hand out no plate (the model registry,
   the FR-V-12 merge, reconciliation).
+- **A changed label is an event** (KAN-186, Anto option A, ADR-119): `services/vehicle_mdm.py::update_vehicle_mdm`
+  publishes `vehicle.vehicle_mdm.summary_changed` in its own transaction whenever a field
+  `vehicle.public.VehicleSummary` carries changes (VIN, vehicle number, make/model/trim from the
+  catalogue match, model year from the first registration) — and only then: a Stammnummer, a
+  status or a first registration in the same year publishes nothing, a refused write nothing.
+  `tenant_id` is null (vehicle-mdm is global); the payload is `vehicleId`, `version`,
+  `changedFields` and the whole `summary`. Any new writer of a summary field calls
+  `publish_summary_changed_if_changed` with the summary read before its write. **Ruled
+  exception:** a brand rename (`catalogue_admin.update_brand`, platform staff, rare) changes the
+  make of every car of the brand and publishes nothing — the customer's Vehicles tab shows the new
+  make the next morning, by the nightly `customer.vehicle_party_labels` refresh (Anto, 2026-11-05,
+  KAN-560 option B: no rename event, no per-car flood; pinned by
+  `test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning`). No production
+  code writes a vehicle-mdm record's `catalogue_variant_id` after creation yet. The FR-V-12 merge changes no summary field
+  of either record; its party re-point relabels through `customer.public.repoint_vehicle_party`.
+- **Every identity PATCH is audited** (KAN-561): `update_vehicle_mdm` writes an `update` audit row (the
+  actor, the changed fields before and after under their camelCase names; none for a PATCH that changes
+  nothing; `tenant_id` null — vehicle-mdm is global). `"vin": null` or `"vehicleStatus": null` is a 422;
+  a duplicate VIN or Stammnummer is a 409 that names that field (`details.vin` / `details.stammnummer`),
+  and any other integrity error is not reported as a duplicate.
+- **Any Betrieb may end a recorded accessory; every end is audited** (Anto, 2026-11-03, KAN-427
+  option B: the car is shared). `DELETE /v1/vehicle-mdm/{id}/accessories/{id}` sets `validTo` to
+  today in Switzerland (`plate.swiss_today`, never the UTC day) and writes an `accessory_ended` audit
+  row (actor, the row before and after — its `recordingTenantId` included) under the ending Betrieb and,
+  when another Betrieb recorded it, once more under that one (Anto, 2026-11-04, KAN-427 option A: both
+  see it); the row is never deleted (FR-V-13), and an accessory already ended is left as it is.
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway
@@ -217,6 +243,34 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 
 - **ADR-068** — a configuration is a first-class entity with its own ID, referenced by an
   offer, a stock item, a valuation or a vehicle. No list screen, no nav entry.
+- **A configuration no host ever took is deleted 30 days after it was created; one a host took
+  is kept for good, released or not** (KAN-270; Anto, 2026-11-03, option A, then C).
+  `vehicle_configuration.first_taken_at` is stamped — never moved, never cleared — by vehicle's
+  consumers `vehicle.configuration_taken_by_*` (`app/vehicle/consumers.py`) of the hosts' own
+  facts, each carrying `configurationId`: `sales.offer.configuration_attached` /
+  `sales.contract.configuration_attached` (published whenever an offer or contract starts holding a
+  configuration id — Path B, the trade-in valuation, a copied offer, a contract from its offer;
+  `slot` `vehicle` | `trade_in`), `inventory.stock_item.added`,
+  `inventory.stock_item.configuration_attached` («Konfiguration zuordnen») and `valuation.created`.
+  The daily job `vehicle.configurations.purge_unattached` (`app/vehicle/daily_jobs.py`,
+  `services/configuration_retention.py`; registered last) walks every unstamped configuration in
+  batches, asks Sales, Stock and Valuation through their read-only `referenced_configuration_ids` which
+  they name now, counts one whose `vehicle_id` links a car in the register as the vehicle record's
+  (held for good, whether or not another host ever took it — Anto, 2026-11-05, KAN-567 option A),
+  stamps every held one (the safety net for a fact not consumed yet, and for every configuration
+  held before KAN-270), and deletes one past 30 days that nothing holds — with its options, an audit
+  row (`delete`, reason `never_taken_purged`, never the VIN or mileage) and
+  `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…` — and
+  blanks the personal values its earlier audit rows copied (`vin`, `stammnummer`, `licencePlate`,
+  `mileageKm`, `notes`, `vehicleId` — and the snake_case spellings rows written before KAN-346 used —
+  → `[redacted]`, the key kept; one `redact` row naming rows and
+  keys) through `app.core.audit.redact_audit_values`, the log's one sanctioned rewrite (ADR-121,
+  KAN-564; Anto, 2026-11-07); the discard of a host's failed copy (KAN-188) does the same. A
+  configuration a host took is never deleted, so its history stays whole (FR-C-11). One a
+  host let go before KAN-270 left no trace and goes like a never-taken one. Residual race (the
+  service's docstring): one past 30 days that a host attaches in the moment the job runs is deleted
+  under it, and the host's reconciliation reports the dangling reference. A copy (FR-C-11) is a new
+  configuration, unstamped until its host takes it.
 - **ADR-069** — the configurator is provider-backed (reverses PRD-Sales v2 S-D05). Manual
   configuration stays as the off-catalogue path: grey imports, oldtimers, pre-1982 vehicles,
   anything auto-i-dat does not cover.
@@ -233,15 +287,21 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 - **Host / mode matrix** (PRD v1.4; the pending contract added by KAN-67 and ADR-083 —
   PRD-Configurator's matrix not yet amended): Stock → add to pipeline: both (`build` factory order, `record` bought
   in) · Stock → «Konfiguration zuordnen» on an item without one: both, `record` first, its VIN
-  prefilled (KAN-463) · Stock → «Konfiguration bearbeiten» on a **pipeline** item with one that no contract created (the configuration
-  card, and the purchase booking's `configuration_vin_differs` refusal; not on a car in stock nor on a contract's pipeline car — open with Anto, KAN-510): the configuration's own
-  mode only, its PATCH the only write — Stock writes nothing of it (KAN-510) · Offer and pending contract → new configuration: `build` only · Offer and pending
+  prefilled (KAN-463) · Stock → «Konfiguration bearbeiten» on **every** stock item with one, in the pipeline or in stock, that
+  no contract reserves (Anto, 2026-11-02, KAN-510 option A; the configuration card, and the purchase
+  booking's `configuration_vin_differs` refusal): the configuration's own mode only, its PATCH the only
+  write — Stock writes nothing of it. A reserved item shows «Vertrag bearbeiten» instead, disabled with
+  the reason: a contract reserves a car only once signed, and a signed contract is frozen (ADR-083), so
+  it is cancelled first. The configuration PATCH does not check its host on the server; and a car in
+  stock whose configuration's VIN is edited then differs from the stock item's (KAN-544) · Offer and pending contract → new configuration: `build` only · Offer and pending
   contract → trade-in: `record`, via the valuation path · Valuation → new valuation: `record`
   only. The configuration entity
   supports both modes; the host decides which is reachable. Never bake a mode switch into the
   offer overlay. Each host enforces it at its API (`configuration_mode_not_allowed`, 422) and
   the overlay takes `allowedModes`; hosts read a configuration only through
-  `vehicle.public.get_configuration_for_host` (KAN-10); a host that copies itself (Sales'
+  `vehicle.public.get_configuration_for_host` (KAN-10) — and Stock's nightly label refresh
+  through `vehicle.public.get_configuration_labels`, labels only, each read in the Betrieb the
+  stock item names (KAN-534); a host that copies itself (Sales'
   Save-and-copy) gets its own copy through `copy_configuration_for_host`, undone by
   `discard_configuration_copy` (FR-C-11, KAN-188).
 - **The configurator is a Sales-module surface** (KAN-198, D-A-04): every route of

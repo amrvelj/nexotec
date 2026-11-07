@@ -28,7 +28,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.schemas.line_item import LineItemFactoryOptionPatch, LineItemsReplaceRequest
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import create_contract
-from app.sales.services.customer_merge import repoint_customer_sales_records
+from app.sales.services.customer_merge import repoint_merged_customer_records
 from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, update_offer
 from tests.test_sales_lifecycle_reservation import _dealership
@@ -130,7 +130,8 @@ def test_two_concurrent_creations_from_one_offer_make_one_contract(db_session, e
 
 
 def test_a_customer_merge_during_a_contract_creation_does_not_deadlock(db_session, engine):
-    """The merge used to write sales_deal before sales_offer in one flush;
+    """The merge's Sales side (since KAN-185 the customer.merged consumer) used
+    to write sales_deal before sales_offer in one flush;
     with create_contract holding the offer and about to write the deal, the
     two waited on each other until Postgres aborted one (KAN-147 review)."""
 
@@ -142,7 +143,9 @@ def test_a_customer_merge_during_a_contract_creation_does_not_deadlock(db_sessio
     def merge():
         session = factory()
         try:
-            repoint_customer_sales_records(session, duplicate_id=customer_id, target_id=target_id)
+            # KAN-185: the `sales.customer_merged` consumer's work, committed as consume_once does.
+            repoint_merged_customer_records(session, duplicate_id=customer_id, target_id=target_id)
+            session.commit()
         except BaseException as exc:  # noqa: BLE001 — asserted below, never swallowed
             errors.append(exc)
         finally:
@@ -183,7 +186,8 @@ def test_a_contract_copies_the_offer_as_committed_not_as_its_caller_loaded_it(db
         offer = session.get(SalesOffer, offer_id)
         assert offer.customer_id == customer_id
         session.commit()  # the caller's read is over; its object is now stale
-        repoint_customer_sales_records(merge_session, duplicate_id=customer_id, target_id=target_id)
+        repoint_merged_customer_records(merge_session, duplicate_id=customer_id, target_id=target_id)
+        merge_session.commit()
 
         contract = create_contract(session, tenant_id=tenant_id, offer=offer, actor_id=uuid.uuid4())
     finally:

@@ -1,9 +1,7 @@
 """Vehicle merge (WP-5 PR-6, FR-V-12) — one-way, audit-logged, no unmerge.
-Same shape as the customer merge (app.sales.services.transaction.
-repoint_customer_transactions is that merge's own cross-context repoint
-call), but this time WITH the re-pointing that one is still missing —
-plates, accessories, odometer readings, custody events, and party links
-all move to the survivor.
+Same shape as the customer merge, WITH the re-pointing: plates,
+accessories, odometer readings, custody events, and party links all move to
+the survivor.
 """
 
 import uuid

@@ -435,15 +435,29 @@ def test_contract_document_refuses_a_contract_with_no_vehicle_or_no_price(db_ses
     ) == 0
 
 
-def test_document_correspondence_language_defaults_when_customer_has_none(db_session):
+def test_document_without_a_customer_language_prints_in_the_betriebs_default_never_german(db_session):
+    """KAN-104 item 5 (Anto, 2026-11-03, decision 3 A): an offer or contract
+    whose customer has no correspondence language prints in the Betrieb's own
+    default for customers (Customers FR-13), not in a silent German."""
+
     dealership = _make_dealership(db_session)
+    dealership.default_correspondence_language = SwissLanguage.IT
+    db_session.commit()
     offer = _bare_offer(tenant_id=dealership.id, customer_language=None)
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
 
-    document = generate_offer_document(db_session, offer=offer, actor_id=None)
-    assert document.correspondence_language == "de"
+    assert generate_offer_document(db_session, offer=offer, actor_id=None).correspondence_language == "it"
+
+    contract = _bare_contract(
+        tenant_id=offer.tenant_id, offer_id=offer.id, offer_number=offer.offer_number, customer_language=None
+    )
+    db_session.add(contract)
+    db_session.commit()
+    db_session.refresh(contract)
+
+    assert generate_contract_document(db_session, contract=contract, actor_id=None).correspondence_language == "it"
 
 
 def test_document_correspondence_language_follows_the_customer_never_the_actor(db_session):

@@ -40,3 +40,26 @@ def get_contract_statuses(
         ).all()
         statuses.update({row.id: row.status for row in rows})
     return statuses
+
+
+def contract_with_invoice_requested_for_stock_item(
+    db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID
+) -> str | None:
+    """KAN-146: the number of a contract of `tenant_id` on this stock car,
+    not cancelled, whose invoice was requested («Rechnung anfordern»), else
+    None. Stock refuses to storno such a car's purchase: the hand-off to
+    Finance already happened, so for the business the car is invoiced (Finance
+    does not issue invoices yet, WP-9). A SELECT only; Stock calls it on a
+    session of its own (ADR-047)."""
+
+    return db.scalar(
+        select(SalesContract.contract_number)
+        .where(
+            SalesContract.tenant_id == tenant_id,
+            SalesContract.stock_item_id == stock_item_id,
+            SalesContract.invoice_requested_at.is_not(None),
+            SalesContract.status != ContractStatus.CANCELLED,
+        )
+        .order_by(SalesContract.invoice_requested_at)
+        .limit(1)
+    )

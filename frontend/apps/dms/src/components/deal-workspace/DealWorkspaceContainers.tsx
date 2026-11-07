@@ -15,6 +15,8 @@ import { ConfiguratorOverlay } from '../configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../configurator/hostCommitError'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { LockedWhile } from './LockedWhile'
+import { StockNumberLink } from './StockNumberLink'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { customerName } from '../../utils/customer'
 import { formatCurrencyChf } from '../../utils/format'
@@ -194,8 +196,19 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
 }
 
 /** Fahrzeug — FR-S-05 Path A (stock search) or Path B (the configurator,
- * `build` mode only, PRD v1.4: a used car being sold comes from stock). */
-export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType, deal, patch }: DealContainerProps<D>) {
+ * `build` mode only, PRD v1.4: a used car being sold comes from stock).
+ * A stock car shows its stock number beside it (KAN-570), opening the stock
+ * detail through the host's `onOpenStockItem`. `readOnly` disables every
+ * write in it (the configuration card's edit, the stock search, the
+ * configurator) under a disabled fieldset, while the stock number, which only
+ * opens the car, stays outside it and live (KAN-501, KAN-570). */
+export function DealVehicleContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  patch,
+  onOpenStockItem,
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; readOnly?: boolean }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const overlay = useOverlay()
@@ -231,6 +244,9 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
       ),
     })
 
+  const stockNumber =
+    deal.stockItemId && deal.stockItemLabel ? <StockNumberLink stockNumber={deal.stockItemLabel} onOpen={onOpenStockItem} /> : null
+
   return (
     <OverviewCard
       title={t('offerWorkspace.containers.vehicle')}
@@ -239,38 +255,48 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
       {deal.configurationId ? (
         <Stack gap={4} data-testid="offer-vehicle-configured">
           <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
-          <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          <LockedWhile readOnly={readOnly}>
+            <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          </LockedWhile>
+          {stockNumber}
         </Stack>
       ) : deal.vehicleLabel ? (
-        <Text fw={600}>{deal.vehicleLabel}</Text>
+        <Group gap="sm" align="baseline" wrap="wrap">
+          <Text fw={600}>{deal.vehicleLabel}</Text>
+          {stockNumber}
+        </Group>
       ) : vehicleMode === 'search' ? (
-        <Picker
-          rows={(vehicleSearch.data?.items ?? []).map(
-            (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
-          )}
-          query={vehicleQuery}
-          onQueryChange={setVehicleQuery}
-          onSelect={(row) =>
-            void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
-              .then(() => setVehicleMode('idle'))
-              .catch(reportedByHost)
-          }
-          loading={vehicleSearch.isFetching}
-          placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
-          emptyLabel={t('common.noMatches')}
-        />
+        <LockedWhile readOnly={readOnly}>
+          <Picker
+            rows={(vehicleSearch.data?.items ?? []).map(
+              (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
+            )}
+            query={vehicleQuery}
+            onQueryChange={setVehicleQuery}
+            onSelect={(row) =>
+              void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
+                .then(() => setVehicleMode('idle'))
+                .catch(reportedByHost)
+            }
+            loading={vehicleSearch.isFetching}
+            placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
+            emptyLabel={t('common.noMatches')}
+          />
+        </LockedWhile>
       ) : (
-        <Stack gap="xs">
-          <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
-          <Group gap="xs">
-            <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
-              {t('offerWorkspace.vehicle.search')}
-            </Button>
-            <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
-              {t('offerWorkspace.vehicle.configure')}
-            </Button>
-          </Group>
-        </Stack>
+        <LockedWhile readOnly={readOnly}>
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
+            <Group gap="xs">
+              <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
+                {t('offerWorkspace.vehicle.search')}
+              </Button>
+              <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
+                {t('offerWorkspace.vehicle.configure')}
+              </Button>
+            </Group>
+          </Stack>
+        </LockedWhile>
       )}
     </OverviewCard>
   )
@@ -408,11 +434,12 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     if (updated) tradeInKey.renew()
   }
 
-  // KAN-382 — since KAN-365 a trade-in on a deal that still points at a
-  // merged customer is refused 409 `customer_merged`. The seller cannot fix
-  // it by retrying: the deal's customer must become the one it was merged
-  // into, so the message says that and names the survivor when the API
-  // names one. Any other failure keeps the generic save error.
+  // KAN-382 — a trade-in on a deal that still pointed at a merged customer
+  // was refused 409 `customer_merged` (KAN-365). Since KAN-189 the trade-in
+  // allocates no party, so this server never sends it; the branch stays for
+  // an instance still on the older code during a rolling deploy, and reads
+  // the survivor when the API names one. Any other failure keeps the generic
+  // save error.
   const tradeInRefusalMessage = async (err: unknown): Promise<string> => {
     const live = liveContractRefusal(t, err)
     if (live) return live
@@ -436,7 +463,7 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
 
   return (
     <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={<RequirementBadge requirement="optional" />}>
-      {deal.tradeInVehicleId || deal.tradeInConfigurationId ? (
+      {deal.tradeInVehicleId || deal.tradeInConfigurationId || deal.tradeInVin ? (
         <Stack gap={4}>
           <Text fw={600}>{deal.tradeInLabel}</Text>
           {deal.tradeInConfigurationId && <HostConfigurationCard configurationId={deal.tradeInConfigurationId} />}

@@ -21,8 +21,13 @@ from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
 from app.inventory.models.stock_item import StockItem
-from app.inventory.schemas.group_listing import StockItemGroupPage, StockItemGroupRead
-from app.inventory.services.group_listing import list_group_stock_items
+from app.inventory.schemas.group_listing import (
+    GroupStockDealershipList,
+    GroupStockDealershipRead,
+    StockItemGroupPage,
+    StockItemGroupRead,
+)
+from app.inventory.services.group_listing import list_group_stock_dealerships, list_group_stock_items
 from app.platform.public import DealershipRef
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -48,6 +53,21 @@ def _group_page_params(
         cursor=decode_sort_cursor(cursor) if cursor else None,
         sort_fields=parse_sort(sort, allowed=STOCK_ITEM_SORT_FIELDS) or _DEFAULT_GROUP_STOCK_SORT,
     )
+
+
+# KAN-565 (ADR-055 «the dealership as a filter»): «Betrieb ist» / «ist nicht»
+# on the group listing. Repeatable; an id outside the caller's group matches
+# nothing (an empty page, never a 403/404 for the id).
+_DEALERSHIP_IDS = Query(
+    default=None,
+    alias="dealershipId",
+    description="Only these Betriebe of the group (repeatable). An id outside the group matches nothing.",
+)
+_DEALERSHIP_IDS_NOT = Query(
+    default=None,
+    alias="dealershipIdNot",
+    description="Every Betrieb of the group but these (repeatable).",
+)
 
 
 def _is_authorized(principal: Principal) -> bool:
@@ -88,13 +108,32 @@ def list_my_group_stock(
     db: Session = Depends(get_db),
     q: str | None = None,
     params: SortPageParams = Depends(_group_page_params),
+    dealership_ids: list[uuid.UUID] | None = _DEALERSHIP_IDS,
+    dealership_ids_not: list[uuid.UUID] | None = _DEALERSHIP_IDS_NOT,
 ):
     return _to_page(
         *list_group_stock_items(
             db, principal_group_id=principal.group_id, requested_group_id=principal.group_id,
             is_authorized=lambda: _is_authorized(principal), q=q, params=params,
+            dealership_ids=dealership_ids, dealership_ids_not=dealership_ids_not,
         )
     )
+
+
+@router.get("/inventory/groups/mine/dealerships", response_model=GroupStockDealershipList)
+def list_my_group_stock_dealerships(
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """KAN-565: the Betriebe the group stock listing's «Betrieb» filter
+    offers — the same roster and the same gate as the listing (404 for a
+    caller it refuses, or while the group's read is off)."""
+
+    refs = list_group_stock_dealerships(
+        db, principal_group_id=principal.group_id, requested_group_id=principal.group_id,
+        is_authorized=lambda: _is_authorized(principal),
+    )
+    return GroupStockDealershipList(items=[GroupStockDealershipRead(id=ref.id, label=ref.label) for ref in refs])
 
 
 @router.get("/inventory/groups/{group_id}/stock-items", response_model=StockItemGroupPage)
@@ -104,10 +143,13 @@ def list_group_stock(
     db: Session = Depends(get_db),
     q: str | None = None,
     params: SortPageParams = Depends(_group_page_params),
+    dealership_ids: list[uuid.UUID] | None = _DEALERSHIP_IDS,
+    dealership_ids_not: list[uuid.UUID] | None = _DEALERSHIP_IDS_NOT,
 ):
     return _to_page(
         *list_group_stock_items(
             db, principal_group_id=principal.group_id, requested_group_id=group_id,
             is_authorized=lambda: _is_authorized(principal), q=q, params=params,
+            dealership_ids=dealership_ids, dealership_ids_not=dealership_ids_not,
         )
     )

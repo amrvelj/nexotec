@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -7,18 +7,25 @@ import {
   ColumnConfigPanel,
   DataGrid,
   OverviewShellRegion,
+  ViewsAndFilters,
   defaultColumnLayout,
+  offeredPredicates,
   type ColumnRegistryEntry,
+  type FilterPredicate,
+  type SavedView,
   type SortSpec,
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../../hooks/useGridPreferences'
+import { useSavedViews } from '../../hooks/useSavedViews'
+import { useViewsAndFiltersLabels } from '../../hooks/useViewsAndFiltersLabels'
+import { applyGroupStockFilters, buildGroupStockFilterFields } from '../../stockOptions'
 import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
 import { api } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
 import { serializeSort } from '../../utils/sortParam'
-import type { StockItemGroupPage } from '../../api/types'
+import type { GroupStockDealershipList, StockItemGroupPage } from '../../api/types'
 import { useActionBarLabels } from '../../hooks/useActionBarLabels'
 import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
@@ -30,6 +37,10 @@ interface GroupStockGridProps {
   onQueryChange: (query: string) => void
   sort: SortSpec[]
   onSortChange: (sort: SortSpec[]) => void
+  /** The URL's `filters`, as stored — this grid narrows them to what it
+   * offers (ADR-102) before it sends or shows any. */
+  filters: FilterPredicate[]
+  onFiltersChange: (filters: FilterPredicate[]) => void
 }
 
 /** A stable grid key: renaming it discards every user's layout. Column
@@ -41,7 +52,11 @@ const GROUP_GRID_KEY = 'inventory.stock.group'
 /**
  * § ADR-055 — "a different artefact, dressed differently, not a greyed-
  * out version of your own grid." Simpler chrome than the own-stock grid:
- * no saved views and no filters. KAN-357: it does have the action bar's
+ * one filter, the Betrieb (KAN-565: ADR-055's «the dealership as a
+ * filter» — «ist» / «ist nicht», the options the group's roster from
+ * `/inventory/groups/mine/dealerships`), in the one views-and-filters
+ * control (ADR-058) with views saved under this grid's own key; its
+ * predicates live in the URL beside `?scope=group` (ADR-056). KAN-357: it does have the action bar's
  * Columns control (FR-UI-02, the right cluster "identical in all nine
  * modules"), so every column of the group projection can be put on screen
  * (ADR-060) — its layout persisted per user under its own grid key. Its
@@ -51,7 +66,15 @@ const GROUP_GRID_KEY = 'inventory.stock.group'
  * Core Principles; KAN-152) — the group roster can be the whole group's
  * stock, so it is never loaded into one response or filtered here.
  */
-export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onSortChange }: GroupStockGridProps) {
+export function GroupStockGrid({
+  query,
+  debouncedQuery,
+  onQueryChange,
+  sort,
+  onSortChange,
+  filters,
+  onFiltersChange,
+}: GroupStockGridProps) {
   const { t, i18n } = useTranslation()
   const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
@@ -59,14 +82,31 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
   // Only the column layout is read from here; the sort is the URL's.
   const gridPrefs = useGridPreferences(GROUP_GRID_KEY, { sort: [] })
 
+  const savedViews = useSavedViews(GROUP_GRID_KEY)
+  const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
+
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
+  // KAN-565: the Betriebe the filter offers — the listing's own roster.
+  const dealershipsQuery = useQuery({
+    queryKey: ['stock-items', 'group', 'dealerships'],
+    queryFn: () => api.get<GroupStockDealershipList>('/inventory/groups/mine/dealerships'),
+  })
+  const filterFields = useMemo(
+    () => buildGroupStockFilterFields(t, dealershipsQuery.data?.items ?? []),
+    [t, dealershipsQuery.data]
+  )
+  // ADR-102: a predicate from the URL or a saved view this grid does not
+  // offer is neither sent nor shown.
+  const predicates = useMemo(() => offeredPredicates(filters, filterFields), [filters, filterFields])
+
   const groupQuery = useInfiniteQuery({
-    queryKey: ['stock-items', 'group', debouncedQuery, sortParam],
+    queryKey: ['stock-items', 'group', debouncedQuery, sortParam, predicates],
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {
       const params = new URLSearchParams()
       if (debouncedQuery) params.set('q', debouncedQuery)
       if (sortParam) params.set('sort', sortParam)
+      applyGroupStockFilters(params, predicates)
       params.set('limit', '50')
       if (pageParam) params.set('cursor', pageParam)
       return api.get<StockItemGroupPage>(`/inventory/groups/mine/stock-items?${params.toString()}`)
@@ -99,6 +139,16 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
   )
   const columnPanelLabels = useColumnPanelLabels()
   const actionBarLabels = useActionBarLabels()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const currentViewName =
+    (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('stockList.allGroupStockView')
+
+  const applyView = (view: SavedView) => {
+    setAppliedViewId(view.id)
+    if (view.snapshot.sort) onSortChange(view.snapshot.sort)
+    if (view.snapshot.columnLayout) gridPrefs.setColumnLayout(view.snapshot.columnLayout)
+    onFiltersChange(view.snapshot.filters ?? [])
+  }
 
   return (
     <OverviewShellRegion
@@ -113,6 +163,30 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
           onDensityChange={setDensity}
           onRefresh={() => groupQuery.refetch()}
           refreshing={groupQuery.isRefetching}
+          filterSlot={
+            <ViewsAndFilters
+              labels={viewsAndFiltersLabels}
+              currentViewName={currentViewName}
+              views={savedViews.views}
+              onApplyView={applyView}
+              onSaveCurrentAsView={(name) =>
+                savedViews.saveView(name, { sort, columnLayout: gridPrefs.columnLayout ?? undefined, filters: predicates })
+              }
+              onDeleteView={savedViews.deleteView}
+              onSetDefaultView={savedViews.setDefaultView}
+              fields={filterFields}
+              narrowPredicates={(stored) => offeredPredicates(stored, filterFields)}
+              predicates={predicates}
+              onPredicatesChange={(next) => {
+                onFiltersChange(next)
+                setAppliedViewId(null)
+              }}
+              onResetFilters={() => {
+                onFiltersChange([])
+                setAppliedViewId(null)
+              }}
+            />
+          }
           columnsSlot={
             <ColumnConfigPanel
               registry={columnRegistry}
@@ -140,7 +214,7 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
         onRetry={() => groupQuery.refetch()}
         total={total}
         totalIsEstimate={totalIsEstimate}
-        isFiltered={debouncedQuery.length > 0}
+        isFiltered={debouncedQuery.length > 0 || predicates.length > 0}
         columnLayout={columnLayout}
         onColumnLayoutChange={gridPrefs.setColumnLayout}
         labels={dataGridLabels}

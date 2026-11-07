@@ -1,7 +1,8 @@
 """The two platform e-mails (FR-AU-13/14/15, KAN-196) in the four first-class
-languages (DE, FR, IT, EN). Picked by the user's UI language preference; a
-user who never set one reads German, the default UI language — the same
-rule the SPA applies. No link carries anything but the single-use token."""
+languages (DE, FR, IT, EN). Picked by the user's UI language — their stored
+preference, else their home Betrieb's correspondence language (KAN-104,
+Anto 2026-11-03, 1 B; `user_preference.ui_language_of`) — the same rule the
+SPA applies. No link carries anything but the single-use token."""
 
 import dataclasses
 

@@ -6,7 +6,6 @@ import { useOverlay } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import { ConfiguratorOverlay } from '../../components/configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../../components/configurator/hostCommitError'
-import { configurationLabel } from '../../components/configurator/configurationLabel'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { ConfigurationRead, StockItemCreateRequest, StockItemRead } from '../../api/types'
 
@@ -32,8 +31,9 @@ export function AddToPipelineButton() {
   const idempotency = useIdempotencyKey()
 
   const addToPipeline = async (configuration: ConfigurationRead) => {
+    // ADR-117 (2), KAN-556: no vehicleLabel — the server names the car by
+    // its configuration's label and keeps that name in step with it.
     const body: StockItemCreateRequest = {
-      vehicleLabel: configurationLabel(configuration),
       condition: configuration.mode === 'build' ? 'new' : 'used',
       configurationId: configuration.id,
       firstRegistrationDate: configuration.firstRegistrationDate,

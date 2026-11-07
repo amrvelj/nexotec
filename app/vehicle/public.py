@@ -22,6 +22,7 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
 from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
 from app.vehicle.services.host_configuration import (
+    ConfigurationLabel,
     ConfigurationModeNotAllowedError,
     ConfigurationPriceLine,
     HostConfiguration,
@@ -227,6 +228,19 @@ def get_configuration_for_host(
     return _get(db, tenant_id=tenant_id, configuration_id=configuration_id)
 
 
+def get_configuration_labels(
+    db: Session, tenant_by_configuration: dict[uuid.UUID, uuid.UUID]
+) -> dict[uuid.UUID, ConfigurationLabel]:
+    """KAN-534 — each configuration's current label, for Stock's nightly
+    refresh of `stock_item.configuration_label` (rule 2), read only in the
+    Betrieb each host row names (configuration id -> tenant id). A read;
+    deferred import as above."""
+
+    from app.vehicle.services.configuration_host import get_configuration_labels as _labels
+
+    return _labels(db, tenant_by_configuration)
+
+
 def copy_configuration_for_host(
     db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID, actor_id: uuid.UUID | None
 ) -> HostConfiguration:
@@ -266,6 +280,7 @@ __all__ = [
     "CONFIGURATION_MODE_BUILD",
     "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "ConfigurationLabel",
     "ConfigurationModeNotAllowedError",
     "ConfigurationPriceLine",
     "CustodyEventType",
@@ -283,6 +298,7 @@ __all__ = [
     "create_or_get_vehicle_mdm",
     "discard_configuration_copy",
     "get_configuration_for_host",
+    "get_configuration_labels",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",

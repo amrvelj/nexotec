@@ -248,6 +248,7 @@
       "configuration_already_linked": "Diesem Fahrzeug ist bereits eine Konfiguration zugeordnet. Bitte die Seite neu laden.",
       "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug.",
       "configuration_held_by_stock_item": "Diese Konfiguration gehört bereits zum Fahrzeug {{stockNumber}} im Bestand. Jedes Fahrzeug hat seine eigene Konfiguration.",
+      "vehicle_label_follows_configuration": "Der Name dieses Fahrzeugs ist der seiner Konfiguration und folgt ihr. Ändern Sie die Konfiguration.",
       "ui_translation_blank": "Ein UI-Text darf nicht leer sein.",
       "ui_translation_placeholders_changed": "Der Text muss die Platzhalter des ausgelieferten Textes behalten.",
       "bank_account_used_by_location": "Ein Standort verwendet dieses Konto als abweichende Bankverbindung. Entfernen Sie die Abweichung zuerst beim Standort.",
@@ -288,6 +289,7 @@
       "standard_text_seed_language_missing": "Diese Vorlage gibt es in dieser Sprache nicht.",
       "standard_text_seed_not_shipped": "Nexotec liefert für diese Vorlage keinen Text mit; es gibt nichts wiederherzustellen.",
       "logo_too_many_pixels": "Dieses PNG hat {{width, number}} × {{height, number}} px – mehr als {{max, number}} Megapixel. So viele braucht kein Logo: Eine ganze A4-Seite hat bei 300 dpi knapp 9 Megapixel, und jedes Dokument mit dem Logo müsste sie alle laden. Verkleinern Sie das Bild oder laden Sie ein SVG hoch.",
+      "pending_contract_carries_it": "Ein offener Vertrag führt diese Bewertung als Eintausch; seine Bestätigung würde sie verwenden. Stornieren Sie zuerst diesen Vertrag.",
       "signed_contract_carries_it": "Ein unterzeichneter Vertrag führt diese Bewertung als Eintausch, daher bleibt sie verwendet.",
       "stamp_too_recent": "Diese Bewertung wurde vor weniger als einer Stunde als verwendet markiert; die Bestätigung ihres Vertrags läuft vielleicht noch. Bitte später erneut versuchen.",
       "valuation_not_used": "Diese Bewertung ist nicht als verwendet markiert.",
@@ -300,6 +302,7 @@
       "plate_move_before_start": "Die Zuordnung auf dem anderen Fahrzeug beginnt am selben Tag oder später – bitte ein späteres «Gültig ab» wählen.",
       "plate_validity_invalid": "Eine Zuordnung kann nicht vor ihrem Beginn enden.",
       "plate_wechselschild_not_possible": "Ein Wechselschild verbindet genau zwei Fahrzeuge – dieses Kontrollschild ist bereits auf zwei Fahrzeugen.",
+      "invoice_already_requested": "Die Rechnung für diesen Vertrag wurde bereits am {{date}} angefordert.",
       "invoice_plate_vehicle_unknown": "Für das Fahrzeug dieses Vertrags gibt es keinen Fahrzeugdatensatz, auf dem ein Kontrollschild erfasst werden kann. Fordern Sie die Rechnung ohne Kontrollschild an und erfassen Sie es danach beim Fahrzeug.",
       "number_pattern_invalid": "Das Muster ist ungültig: genau ein {counter:N} (N von 1 bis 9), höchstens einmal {year} und {location_code}, sonst nur Buchstaben, Ziffern und - / . _",
       "number_pattern_too_long": "Eine Nummer nach diesem Muster wäre länger als 16 Zeichen.",
@@ -311,7 +314,15 @@
       "number_range_reason_required": "Eine Änderung an einem eingefrorenen Nummernkreis braucht eine Begründung.",
       "number_range_exhausted": "Der Nummernkreis hat keine Nummer mehr frei für die Stellen seines Zählers. Bitte wenden Sie sich an den Support.",
       "number_location_code_missing": "Dieser Nummernkreis druckt den Standortcode, und das Dokument nennt keinen Standort mit Code.",
-      "number_range_counter_too_short": "Der Zähler dieses Musters hat zu wenige Stellen für die nächste Nummer des Nummernkreises. Wählen Sie mehr Stellen für {counter:N}."
+      "number_range_counter_too_short": "Der Zähler dieses Musters hat zu wenige Stellen für die nächste Nummer des Nummernkreises. Wählen Sie mehr Stellen für {counter:N}.",
+      "purchase_already_booked": "Der Einkauf dieses Fahrzeugs ist bereits erfasst. Stornieren Sie ihn, bevor Sie ihn neu erfassen.",
+      "purchase_not_booked": "Für dieses Fahrzeug ist kein Einkauf erfasst, der storniert werden könnte.",
+      "purchase_storno_left_stock": "Dieses Fahrzeug hat den Bestand bereits verlassen. Sein Einkauf kann nicht mehr storniert werden.",
+      "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
+      "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
+      "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen.",
+      "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
+      "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -397,12 +408,6 @@
       "merged": "Zusammengeführt",
       "do_not_contact": "Nicht kontaktieren"
     },
-    "language": {
-      "de": "Deutsch",
-      "fr": "Französisch",
-      "it": "Italienisch",
-      "en": "Englisch"
-    },
     "salutation": {
       "herr": "Herr",
       "frau": "Frau",
@@ -464,6 +469,14 @@
       "counter": "Schalter",
       "web": "Web",
       "phone": "Telefon"
+    },
+    "legalForm": {
+      "ag": "AG",
+      "gmbh": "GmbH",
+      "einzelfirma": "Einzelfirma",
+      "verein": "Verein",
+      "genossenschaft": "Genossenschaft",
+      "weitere": "Weitere"
     }
   },
   "customersList": {
@@ -1082,6 +1095,7 @@
     "loadError": "Bestand konnte nicht geladen werden.",
     "groupLoadError": "Gruppenbestand konnte nicht geladen werden.",
     "allStockView": "Alle Fahrzeuge",
+    "allGroupStockView": "Alle Fahrzeuge der Gruppe",
     "columns": {
       "stockNumber": "Lagernr.",
       "vehicle": "Fahrzeug",
@@ -1162,6 +1176,7 @@
     "identity": {
       "title": "Fahrzeug",
       "vehicleLabel": "Bezeichnung",
+      "vehicleLabelFollowsConfiguration": "Die Bezeichnung folgt der Konfiguration des Fahrzeugs.",
       "vehicleId": "Fahrzeug-ID"
     },
     "errors": {
@@ -1190,7 +1205,20 @@
       "isInvoiceable": "Fakturierbar",
       "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
       "notRecorded": "Noch kein Einkauf erfasst.",
-      "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab."
+      "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab.",
+      "storno": {
+        "button": "Einkauf stornieren",
+        "title": "Einkauf stornieren",
+        "body": "Der Einkauf von {{stockNumber}} wird rückgängig gemacht: Der Einstandspreis wird im Wagenbuch gegengebucht, das Fahrzeug geht mit seiner VIN zurück in die Pipeline und ist erst nach einem neuen Einkauf wieder fakturierbar. Eine Reservation bleibt bestehen.",
+        "reasonLabel": "Grund",
+        "reasonRequired": "Bitte geben Sie einen Grund an.",
+        "submit": "Einkauf stornieren",
+        "cancel": "Abbrechen",
+        "failed": "Der Einkauf konnte nicht storniert werden.",
+        "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
+        "returnedToCustomer": "Das Fahrzeug geht an den Kunden zurück",
+        "returnedToCustomerHint": "Der Kunde, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
+      }
     },
     "wagenbuch": {
       "result": "Ergebnis",
@@ -1287,7 +1315,23 @@
       "missing": "Diesem Fahrzeug ist keine Konfiguration zugeordnet. Ohne sie fehlen die technischen Daten.",
       "attach": "Konfiguration zuordnen",
       "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen.",
-      "edit": "Konfiguration bearbeiten"
+      "edit": "Konfiguration bearbeiten",
+      "editContract": "Vertrag bearbeiten",
+      "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist."
+    },
+    "rowMenu": {
+      "changeCondition": "Zustand ändern",
+      "purchaseAlreadyBooked": "Der Einkauf ist bereits erfasst.",
+      "purchaseNotBooked": "Noch kein Einkauf erfasst.",
+      "creatingDeal": "Wird gerade erstellt …"
+    },
+    "condition": {
+      "title": "Zustand ändern",
+      "body": "Neuer Zustand für {{stockNumber}}:",
+      "label": "Zustand",
+      "submit": "Speichern",
+      "cancel": "Abbrechen",
+      "failed": "Der Zustand konnte nicht geändert werden."
     }
   },
   "salesList": {
@@ -1305,7 +1349,8 @@
       "status": "Status",
       "margin": "Marge",
       "changed": "Geändert",
-      "owner": "Verantwortlich"
+      "owner": "Verantwortlich",
+      "stockNumber": "Lagernummer"
     },
     "chips": {
       "all": "Alle",
@@ -1404,6 +1449,7 @@
       "requestInvoice": "Rechnung anfordern",
       "requestInvoiceDisabledNotConfirmed": "Erst nach der Bestätigung des Vertrags möglich.",
       "requestInvoiceDisabledNotPurchased": "Das Fahrzeug ist noch nicht eingekauft – die Rechnung kann angefordert werden, sobald der Einkauf im Bestand erfasst ist.",
+      "requestInvoiceDisabledAlreadyRequested": "Die Rechnung wurde bereits am {{date}} angefordert.",
       "requestInvoiceDisabledLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert."
     },
     "requestInvoice": {
@@ -1462,7 +1508,8 @@
       "configure": "Konfigurieren",
       "searchPlaceholder": "Lagernummer, VIN, Kontrollschild …",
       "configured": "Konfiguriert",
-      "attachError": "Die Konfiguration konnte nicht übernommen werden."
+      "attachError": "Die Konfiguration konnte nicht übernommen werden.",
+      "stockNumber": "Lagernummer {{stockNumber}}"
     },
     "pricing": {
       "emptyHint": "Der Preisaufbau beginnt beim Fahrzeug — wählen Sie zuerst eines aus.",
@@ -1606,7 +1653,10 @@
     "errors": {
       "failedToLoad": "Bewertung konnte nicht geladen werden.",
       "somethingWentWrong": "Etwas ist schiefgelaufen.",
-      "markUsedFailed": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen."
+      "markUsedFailed": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen.",
+      "createOfferFailed": "Die Offerte konnte nicht erstellt werden.",
+      "createOfferTradeInFailed": "Die Offerte {{offerNumber}} wurde erstellt, aber die Bewertung konnte nicht als Eintausch übernommen werden: {{reason}}",
+      "openCreatedOffer": "Offerte öffnen"
     },
     "actions": {
       "revalue": "Neu bewerten",
@@ -1618,7 +1668,12 @@
       "revertUse": "Verwendung aufheben",
       "revertUseNotUsed": "Nur für eine als verwendet markierte Bewertung.",
       "revertUseSignedContract": "Nicht möglich: Ein unterschriebener Vertrag enthält diese Bewertung als Eintausch.",
-      "revertUseTooRecent": "Erst eine Stunde nach der Markierung möglich: Die Bestätigung des Vertrags läuft vielleicht noch."
+      "revertUseTooRecent": "Erst eine Stunde nach der Markierung möglich: Die Bestätigung des Vertrags läuft vielleicht noch.",
+      "createOffer": "Offerte aus dieser Bewertung erstellen",
+      "createOfferExpired": "Nicht möglich: Die Bewertung ist abgelaufen. Bitte zuerst neu bewerten.",
+      "createOfferUsed": "Nicht möglich: Die Bewertung ist bereits als verwendet markiert.",
+      "createOfferNoSales": "Nicht möglich: Dieser Betrieb hat das Modul Verkauf nicht.",
+      "createOfferNoVin": "Nicht möglich: Die Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
     },
     "expiredBanner": {
       "title": "Bewertung abgelaufen",
@@ -1789,13 +1844,14 @@
     "missingTip": "Diese Zeile kann nicht gespeichert werden, solange eine Sprache fehlt.",
     "missingTipReadOnly": "In dieser Zeile fehlt eine Sprache.",
     "readOnly": "Nexotec pflegt diese Listen für alle Betriebe. Sie sehen sie hier, ändern können Sie sie nicht.",
+    "maintainedBy": "Gepflegt von Nexotec",
     "columns": {
       "code": "Code",
       "status": "Status"
     },
     "forbidden": {
-      "title": "Nur für platform_admin",
-      "body": "Diese Daten dürfen nur von einem platform_admin bearbeitet werden. Wenden Sie sich an Ihre Administration."
+      "title": "Kein Zugriff",
+      "body": "Ihre Rolle darf diese Listen nicht öffnen. Wenden Sie sich an Ihre Administration."
     },
     "list": {
       "title": "Referenzliste {{code}}",

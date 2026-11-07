@@ -30,16 +30,19 @@ from app.core.consumer import Handler
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
-from app.inventory.schemas.purchase import RecordPurchaseRequest
+from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.publishing import publish, unpublish
-from app.inventory.services.purchase import record_purchase
+from app.inventory.services.purchase import record_purchase, storno_purchase
 from app.sales.models.contract import SalesContract
+from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.services.contract import cancel_contract, request_invoice
 from app.sales.services.invoice_handover import HandoverPlate
+from app.sales.services.stock_item_purchase import record_stock_item_purchased
 from app.vehicle.models.plate import VehiclePlate
 from app.worker import register_handlers
 from tests.test_inventory_marketplace_transmission import (
@@ -49,6 +52,7 @@ from tests.test_inventory_marketplace_transmission import (
     _make_ready_item,
     _register_fake,
 )
+from tests.test_kan189_trade_in_without_register import _bought_trade_in, _customer_consumes
 from tests.test_sales_manual_configuration_link import (
     _confirmed_manual_contract,
     _dealership,
@@ -170,6 +174,95 @@ def _stock_item_purchased(db_session, engine, monkeypatch):
     return message, replicas
 
 
+def _stock_item_storno(db_session, engine, monkeypatch):
+    """KAN-146 — Stock stornos a purchase Sales holds: Sales deletes its
+    replica once (the measure counts the replica rows that are gone)."""
+
+    contract = _confirmed_manual_contract(db_session, engine, _dealership(db_session))
+    item = _stock_creates_the_pipeline_item(db_session, contract)
+    promote_to_vehicle_mdm(db_session, item=item, vin="WVGZZZE2ZNP000012")
+    record_purchase(
+        db_session, item=item,
+        data=RecordPurchaseRequest(
+            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    purchased = _message(db_session, "inventory.stock_item.purchased", item.id)
+    record_stock_item_purchased(
+        db_session, tenant_id=item.tenant_id, stock_item_id=item.id, event_id=purchased.id,
+        stock_item_label=item.stock_number, recorded_at=purchased.occurred_at,
+    )
+    db_session.commit()
+    storno_purchase(db_session, item=item, data=PurchaseStornoRequest(reason="Lieferung storniert"), actor_id=None)
+    message = _message(db_session, "inventory.stock_item.storno", item.id)
+
+    def removed_replicas(db: Session) -> int:
+        return 1 - db.scalar(
+            select(func.count()).select_from(SalesStockItemPurchase).where(SalesStockItemPurchase.stock_item_id == item.id)
+        )
+
+    return message, removed_replicas
+
+
+def _trade_in_purchased(db_session, engine, monkeypatch):
+    """KAN-189 — Stock books a trade-in's purchase: the customer context
+    records the contract's customer as former owner and keeper, once."""
+
+    _contract, _item, message = _bought_trade_in(db_session, engine)
+    db_session.commit()
+
+    def parties(db: Session) -> int:  # the owner row; its keeper twin is written with it
+        return db.scalar(
+            select(func.count()).select_from(VehicleParty).where(VehicleParty.role == VehiclePartyRole.OWNER)
+        )
+
+    return message, parties
+
+
+def _trade_in_storno(db_session, engine, monkeypatch):
+    """KAN-572 — a bought trade-in's purchase is stornoed and the car went
+    back to its customer: the customer context reopens that customer as
+    owner and keeper, once."""
+
+    _contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    db_session.refresh(item)
+    storno_purchase(
+        db_session, item=item,
+        data=PurchaseStornoRequest(reason="Kunde behält das Fahrzeug", returned_to_customer=True), actor_id=None,
+    )
+    message = _message(db_session, "inventory.stock_item.storno", item.id)
+
+    def reopened(db: Session) -> int:  # the owner row; its keeper twin is reopened with it
+        return db.scalar(
+            select(func.count()).select_from(VehicleParty).where(
+                VehicleParty.role == VehiclePartyRole.OWNER, VehicleParty.effective_to.is_(None)
+            )
+        )
+
+    return message, reopened
+
+
+def _customer_merged(db_session, engine, monkeypatch):
+    """KAN-185 — a customer merge: Sales moves the duplicate's offer to the
+    survivor once (the measure counts the offers on the survivor)."""
+
+    from tests.test_sales_customer_merged_consumer import _customer, _merge, _offer
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _customer(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
+    _offer(db_session, tenant_id, group_id, duplicate.id)
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    def offers_on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(SalesOffer).where(SalesOffer.customer_id == survivor.id))
+
+    return message, offers_on_survivor
+
+
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
     """KAN-523 — «Rechnung anfordern» with the plate the car leaves with, from
     the real producer: vehicle-mdm records it on the sold car, once."""
@@ -191,6 +284,36 @@ def _invoice_requested_with_plate(db_session, engine, monkeypatch):
         return db.scalar(select(func.count()).select_from(VehiclePlate).where(VehiclePlate.vehicle_id == vehicle_id))
 
     return message, plates
+
+
+def _vehicle_summary_changed(db_session, engine, monkeypatch):
+    """KAN-186 — a VIN correction on vehicle-mdm, from the real producer: the
+    customer's party row naming the car takes the corrected VIN, once."""
+
+    from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+    from app.customer.services.customer import allocate_vehicle_party
+    from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
+    from app.vehicle.services.vehicle_mdm import SUMMARY_CHANGED_EVENT, create_vehicle_mdm, update_vehicle_mdm
+    from tests.test_sales_lifecycle_reservation import _customer
+
+    group_id = uuid.uuid4()
+    vehicle = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000186", catalogue_variant_id=None)
+    allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=_customer(db_session, group_id).id,
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+    )
+    corrected = "WVWZZZ1KZAW000187"
+    update_vehicle_mdm(db_session, vehicle=vehicle, data=VehicleMdmUpdate(vin=corrected), actor_id=None)
+    message = _message(db_session, SUMMARY_CHANGED_EVENT, vehicle.id)
+
+    def relabelled(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(VehicleParty)
+            .where(VehicleParty.vehicle_id == vehicle.id, VehicleParty.vehicle_vin == corrected)
+        )
+
+    return message, relabelled
 
 
 def _published_item(db_session, monkeypatch):
@@ -298,16 +421,149 @@ def _digest_released(db_session, engine, monkeypatch):
     return _message(db_session, notifications.DIGEST_RELEASED_EVENT, user.id), lambda db: len(sent)
 
 
+def _connected_account_revoked(db_session, engine, monkeypatch):
+    """KAN-412 — a revoked connected account, from the real producer: the
+    provider's registered revoker ends the grant there once, and the end is
+    recorded once (the reference dropped, an audit row)."""
+
+    from app.core.audit_model import AuditEvent
+    from app.platform.models.connected_account import (
+        ConnectedAccountProvider,
+        ConnectedAccountStatus,
+        UserConnectedAccount,
+    )
+    from app.platform.models.user import User, UserRole, UserStatus
+    from app.platform.services import connected_account
+
+    dealership = _dealership(db_session)
+    user = User(
+        tenant_id=dealership.id, first_name="Ada", last_name="Grant", email=f"grant-{uuid.uuid4().hex[:8]}@example.ch",
+        role=UserRole.SALES, access_roles=[], is_dealer_manager=False, status=UserStatus.ACTIVE,
+        auth_identity_id=str(uuid.uuid4()),
+    )
+    db_session.add(user)
+    db_session.flush()
+    account = UserConnectedAccount(
+        user_id=user.id, provider=ConnectedAccountProvider.MICROSOFT_365, external_account_id=str(uuid.uuid4()),
+        scopes=["Mail.Send"], secret_ref=f"infisical://connected-accounts/{uuid.uuid4()}",
+        status=ConnectedAccountStatus.ACTIVE, linked_at=dt.datetime.now(dt.UTC),
+    )
+    db_session.add(account)
+    db_session.flush()
+    connected_account.revoke(db_session, account=account, user=user, actor_id=user.id, reason=connected_account.REASON_USER)
+    db_session.commit()
+    ended: list = []
+    monkeypatch.setitem(connected_account._REVOKERS, ConnectedAccountProvider.MICROSOFT_365, ended.append)
+
+    def ends_recorded(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(AuditEvent.entity_id == user.id, AuditEvent.action == "connected_account_provider_ended")
+        )
+
+    return _message(db_session, connected_account.REVOKED_EVENT, account.id), ends_recorded
+def _configuration_taken(event_type: str, take) -> Fixture:
+    """KAN-270 — a host takes a configuration, from the real producer:
+    vehicle stamps it taken, once (`first_taken_at`, never moved)."""
+
+    def fixture(db_session, engine, monkeypatch):
+        from app.vehicle.models.configuration import VehicleConfiguration
+        from tests.test_configurator_hosts import _dealership as _hosts_dealership
+
+        configuration_id, aggregate_id = take(db_session, _hosts_dealership(db_session))
+
+        def stamped(db: Session) -> int:
+            return db.scalar(
+                select(func.count())
+                .select_from(VehicleConfiguration)
+                .where(VehicleConfiguration.id == configuration_id, VehicleConfiguration.first_taken_at.is_not(None))
+            )
+
+        return _message(db_session, event_type, aggregate_id), stamped
+
+    return fixture
+
+
+def _offer_takes(db_session, dealership):
+    from app.sales.schemas.offer import OfferUpdate
+    from app.sales.services.offer import create_offer, update_offer
+    from tests.test_configurator_hosts import _build_configuration
+
+    config = _build_configuration(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    update_offer(db_session, offer=offer, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
+    return config.id, offer.id
+
+
+def _contract_takes(db_session, dealership):
+    from app.sales.schemas.contract import ContractUpdate
+    from app.sales.services.contract import update_contract
+    from tests.test_configurator_hosts import _build_configuration
+    from tests.test_sales_contract_edit import _customer_born_contract
+
+    config = _build_configuration(db_session, dealership.id)
+    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    update_contract(
+        db_session, contract=contract, group_id=uuid.uuid4(), data=ContractUpdate(configuration_id=config.id), actor_id=None
+    )
+    return config.id, contract.id
+
+
+def _stock_item_added_takes(db_session, dealership):
+    from tests.test_configurator_hosts import _record_configuration
+    from tests.test_vehicle_configuration_retention import _pipeline_item
+
+    config = _record_configuration(db_session, dealership.id)
+    return config.id, _pipeline_item(db_session, dealership.id, config.id).id
+
+
+def _stock_item_attach_takes(db_session, dealership):
+    from app.inventory.services.stock_item import attach_configuration
+    from tests.test_configurator_hosts import _record_configuration
+    from tests.test_vehicle_configuration_retention import _pipeline_item
+
+    config = _record_configuration(db_session, dealership.id)
+    item = _pipeline_item(db_session, dealership.id, None)
+    attach_configuration(db_session, item=item, configuration_id=config.id, actor_id=uuid.uuid4())
+    return config.id, item.id
+
+
+def _valuation_takes(db_session, dealership):
+    from tests.test_configurator_hosts import _record_configuration
+    from tests.test_vehicle_configuration_retention import _valuation
+
+    config = _record_configuration(db_session, dealership.id)
+    return config.id, _valuation(db_session, dealership.id, config.id).id
+
+
 _FIXTURES: dict[str, Fixture] = {
+    "platform.connected_account_provider_revocation": _connected_account_revoked,
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
     "sales.stock_item_added": _stock_item_added,
     "sales.stock_item_purchased": _stock_item_purchased,
+    "sales.stock_item_storno": _stock_item_storno,
+    "customer.trade_in_purchased": _trade_in_purchased,
+    "customer.trade_in_storno": _trade_in_storno,
+    "sales.customer_merged": _customer_merged,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,
     "platform.web_push_on_digest": _digest_released,
     "vehicle.plate_on_invoice_requested": _invoice_requested_with_plate,
+    "customer.vehicle_party_labels_on_summary_changed": _vehicle_summary_changed,
+    "vehicle.configuration_taken_by_offer": _configuration_taken("sales.offer.configuration_attached", _offer_takes),
+    "vehicle.configuration_taken_by_contract": _configuration_taken(
+        "sales.contract.configuration_attached", _contract_takes
+    ),
+    "vehicle.configuration_taken_by_added_stock_item": _configuration_taken(
+        "inventory.stock_item.added", _stock_item_added_takes
+    ),
+    "vehicle.configuration_taken_by_stock_item": _configuration_taken(
+        "inventory.stock_item.configuration_attached", _stock_item_attach_takes
+    ),
+    "vehicle.configuration_taken_by_valuation": _configuration_taken("valuation.created", _valuation_takes),
 }
 
 

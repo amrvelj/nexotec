@@ -14,7 +14,7 @@ import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 export function CustomerCreatePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers'), t('customerCreate.title')])
+  useSetBreadcrumb([t('shell.nav.masterData'), { label: t('shell.nav.customers'), href: '/customers' }, t('customerCreate.title')])
 
   return (
     <CustomerCreateDialog

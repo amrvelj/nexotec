@@ -99,6 +99,8 @@ class ContractRead(CamelModel):
     owner_label: str | None = None
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
+    # KAN-570: the stock car's number (KAN-157's copy; null without one).
+    stock_item_label: str | None = None
     vehicle_label: str | None
     configuration_id: uuid.UUID | None = None
     configuration_label: str | None = None
@@ -131,6 +133,8 @@ class ContractRead(CamelModel):
     reservation_id: uuid.UUID | None
     signed_at: dt.datetime | None
     delivery_date: dt.date | None
+    # KAN-539 — when «Rechnung anfordern» was done; set once, never cleared.
+    invoice_requested_at: dt.datetime | None
     is_invoiceable: bool
     # KAN-147 — migrated from the legacy `transaction` table (ADR-050): the
     # old system invoiced it, so it can be neither invoiced nor cancelled.
