@@ -377,34 +377,24 @@ export function DataGrid<T>({
                           <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}>
                             {isActions && rowActions ? (
                               <RowMenu groups={rowActions(row.original)} ariaLabel={L.rowActionsLabel} />
-                            ) : density === "default" && meta?.secondary ? (
-                              // § Composite cells: at `default` density the
-                              // second fact sits on the SAME line as the
-                              // first — only `comfortable` stacks them, and
-                              // `compact` drops the secondary line entirely.
+                            ) : density !== "comfortable" && meta?.secondary ? (
+                              // § Composite cells (UI/UX Specification, revised
+                              // 2026-08-16; FR-UI-03): at `compact` and
+                              // `default` the second fact sits on the SAME
+                              // line as the first, as «Primary · secondary»
+                              // in meta type — never dropped (KAN-577; before,
+                              // `compact` dropped it). Only `comfortable`
+                              // stacks them.
                               // The primary is the column's fact and keeps
-                              // priority (KAN-573): it takes its own width up
-                              // to the whole cell and never shrinks while the
-                              // secondary has width left; the secondary
-                              // shrinks to an ellipsis — down to nothing —
-                              // before a single character of the primary is
-                              // cut. Before, the secondary refused to shrink,
-                              // so a 17-character VIN reduced the stock grid's
-                              // vehicle name to «V…».
-                              <div
-                                data-composite="inline"
-                                style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}
-                              >
-                                <span data-composite-part="primary" style={INLINE_COMPOSITE_PRIMARY_STYLE}>
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </span>
-                                <span
-                                  data-composite-part="secondary"
-                                  style={INLINE_COMPOSITE_SECONDARY_STYLE}
-                                >
-                                  {meta.secondary(row.original)}
-                                </span>
-                              </div>
+                              // priority (KAN-573; Anto, 2026-11-07, option A):
+                              // it takes its own width up to the whole cell and
+                              // never shrinks while the secondary has width
+                              // left; the secondary — its «·» included —
+                              // shrinks to an ellipsis, down to nothing, before
+                              // a single character of the primary is cut.
+                              <InlineComposite secondary={meta.secondary(row.original)}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </InlineComposite>
                             ) : (
                               <>
                                 <div style={{ fontSize: 14, color: slate[9] }}>
@@ -731,6 +721,25 @@ function SelectRowCheckbox({ checked, label, onChange }: { checked: boolean; lab
   // `.dg-row-link` — see Row's own comment. `stopPropagation` is a
   // defensive backstop, not what makes this clickable.
   return <input type="checkbox" checked={checked} onChange={onChange} aria-label={label} onClick={(e) => e.stopPropagation()} />;
+}
+
+/** § Composite cells, one line (`compact`, `default`): «Primary · secondary».
+ * A row without a secondary fact shows the primary alone, with no stray «·». */
+function InlineComposite({ children, secondary }: { children: ReactNode; secondary: ReactNode }) {
+  const hasSecondary = secondary !== null && secondary !== undefined && secondary !== "" && secondary !== false;
+  return (
+    <div data-composite="inline" style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}>
+      <span data-composite-part="primary" style={INLINE_COMPOSITE_PRIMARY_STYLE}>
+        {children}
+      </span>
+      {hasSecondary && (
+        <span data-composite-part="secondary" style={INLINE_COMPOSITE_SECONDARY_STYLE}>
+          {"· "}
+          {secondary}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function Cell({

@@ -19,8 +19,8 @@ vi.mock("@tanstack/react-virtual", () => ({
   },
 }));
 
-// KAN-573 — § Composite cells: at `default` density the primary and the
-// secondary share one line. The primary is the column's fact: it must keep
+// KAN-573 — § Composite cells: at `default` (and, since KAN-577, `compact`)
+// density the primary and the secondary share one line. The primary is the column's fact: it must keep
 // its width while the secondary still has any, so the secondary shrinks to
 // an ellipsis first. Before the fix the secondary had `flex-shrink: 0`, and
 // a 17-character VIN cut the stock grid's vehicle name to «V…».
@@ -40,15 +40,15 @@ const columns: GridColumnDef<Car>[] = [
     id: "vehicle",
     header: "Véhicule",
     cell: ({ row }) => row.original.name,
-    meta: { secondary: (row) => row.vin },
+    meta: { secondary: (row) => row.vin || null },
   },
 ];
 
-function grid(density: Density) {
+function grid(density: Density, rows: Car[] = [{ id: "a", name: "Volkswagen Golf 1.5 eTSI Style", vin: "WVWZZZCDZMW055401" }]) {
   return (
     <DataGrid<Car>
       columns={columns}
-      rows={[{ id: "a", name: "Volkswagen Golf 1.5 eTSI Style", vin: "WVWZZZCDZMW055401" }]}
+      rows={rows}
       getRowId={(r) => r.id}
       sort={[]}
       onSortChange={() => {}}
@@ -66,11 +66,13 @@ function grid(density: Density) {
   );
 }
 
-describe("DataGrid composite cell at default density (KAN-573)", () => {
-  it("keeps the primary whole and lets the secondary shrink first", () => {
-    render(grid("default"));
+const VIN = /WVWZZZCDZMW055401/;
+
+describe("DataGrid composite cell on one line (KAN-573, KAN-577)", () => {
+  it.each(["default", "compact"] as const)("at %s: keeps the primary whole and lets the secondary shrink first", (density) => {
+    render(grid(density));
     const primary = screen.getByText("Volkswagen Golf 1.5 eTSI Style");
-    const secondary = screen.getByText("WVWZZZCDZMW055401");
+    const secondary = screen.getByText(VIN);
     expect(primary.dataset.compositePart).toBe("primary");
     expect(secondary.dataset.compositePart).toBe("secondary");
     // one line, both facts
@@ -89,15 +91,27 @@ describe("DataGrid composite cell at default density (KAN-573)", () => {
     expect(secondary.style.textOverflow).toBe("ellipsis");
   });
 
-  it("leaves comfortable (stacked) and compact (no secondary) as they are", () => {
-    const { container, unmount } = render(grid("comfortable"));
-    // stacked: two block lines, not the one-line composite
+  // KAN-577 — UI/UX Specification § Composite cells / FR-UI-03: compact
+  // and default inline «Primary · secondary»; the secondary is never
+  // dropped. Before, compact rendered no secondary at all.
+  it.each(["default", "compact"] as const)("at %s: reads «Primary · secondary», the «·» shrinking with the secondary", (density) => {
+    render(grid(density));
+    const secondary = screen.getByText(VIN);
+    expect(secondary.textContent).toBe("· WVWZZZCDZMW055401");
+    expect(secondary.dataset.compositePart).toBe("secondary");
+  });
+
+  it("a row without a secondary fact shows the primary alone, with no stray «·»", () => {
+    const { container } = render(grid("compact", [{ id: "b", name: "Fiat 500", vin: "" }]));
+    expect(screen.getByText("Fiat 500").dataset.compositePart).toBe("primary");
+    expect(container.querySelector('[data-composite-part="secondary"]')).toBeNull();
+    expect(container.textContent).not.toContain("·");
+  });
+
+  it("stacks at comfortable, as before", () => {
+    const { container } = render(grid("comfortable"));
     expect(container.querySelector('[data-composite="inline"]')).toBeNull();
     expect(screen.getByText("Volkswagen Golf 1.5 eTSI Style").tagName).toBe("DIV");
     expect(screen.getByText("WVWZZZCDZMW055401").tagName).toBe("DIV");
-    unmount();
-    render(grid("compact"));
-    expect(screen.getByText("Volkswagen Golf 1.5 eTSI Style")).toBeTruthy();
-    expect(screen.queryByText("WVWZZZCDZMW055401")).toBeNull();
   });
 });

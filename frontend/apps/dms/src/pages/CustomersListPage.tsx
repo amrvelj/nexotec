@@ -241,7 +241,7 @@ export function CustomersListPage() {
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
         // § Composite cells (FR-17 as amended 2026-09-07) — name carries
         // locality as its secondary: inline at `default` density, stacked
-        // at `comfortable`, gone at `compact`. The `contact` column below
+        // at `comfortable`, inline again at `compact` (KAN-577). The `contact` column below
         // is the other composite cell; both use `meta.secondary`, the one
         // mechanism DataGrid already implements.
         meta: {
