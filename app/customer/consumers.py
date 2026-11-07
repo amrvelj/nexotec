@@ -130,9 +130,10 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
 
     The contract's customer is Sales' fact, read through `app.sales.public`,
     and followed through a merge to its survivor, as the purchase consumer
-    does. A storno that arrives before its purchase (unordered after a failed
-    delivery) finds nothing to reopen; the purchase, when it arrives, no
-    longer stands in Stock and records nothing (its own re-read). Flushes
+    does. Both consumers judge by Stock's state when they run, so a storno
+    consumed before its purchase (a failed delivery, a backlog) finds nothing
+    to reopen and the purchase consumed after it records nothing — the
+    residual customer.md states. Flushes
     only; consume_once commits."""
 
     payload = message.payload or {}
@@ -147,9 +148,9 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
     if not payload.get("vehicleId"):
         logger.warning("Trade-in storno %s carries no vehicleId; no holder reopened.", message.id)
         return
-    # Delivery is unordered after a failed delivery (and a dead letter may be
-    # replayed much later): a storno may arrive after the car was bought
-    # again — and that booking may itself have been stornoed since. Stock is
+    # A storno may be consumed long after it happened (a failed delivery, a
+    # dead letter replayed, a backlog): the car may have been bought again
+    # since — and that booking may itself have been stornoed. Stock is
     # asked whether a purchase was booked after this storno; if so the storno
     # is stale and says nothing about who holds the car now.
     if purchase_booked_after(

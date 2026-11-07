@@ -22,7 +22,7 @@ from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.customer.models.vehicle_party import VehiclePartyRole
-from app.customer.services.customer import allocate_vehicle_party, list_customer_vehicles
+from app.customer.services.customer import allocate_vehicle_party, delete_customer_vehicle, list_customer_vehicles
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -262,6 +262,76 @@ def test_a_late_returned_storno_never_closes_a_holder_allocated_after_it(db_sess
     # The keeper role had no newer holder: the trade-in customer is its keeper again.
     keepers_now = [p for p in _parties(db_session) if p.role == VehiclePartyRole.KEEPER and p.effective_to is None]
     assert [p.customer_id for p in keepers_now] == [contract.customer_id]
+
+
+def _owners_now(db_session):
+    return [p for p in _parties(db_session) if p.role == VehiclePartyRole.OWNER and p.effective_to is None]
+
+
+def _keepers_now(db_session):
+    return [p for p in _parties(db_session) if p.role == VehiclePartyRole.KEEPER and p.effective_to is None]
+
+
+def test_a_backdated_allocation_made_after_the_storno_still_counts_as_newer(db_session, engine):
+    """The allocation is recorded after the storno although its start is
+    backdated before it: recorded later is what makes it the newer fact."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    storno = _storno(db_session, item, returned=True)
+    group_id = contract_group_id(db_session, contract)
+    backdated = allocate_vehicle_party(
+        db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        effective_from=storno.occurred_at - dt.timedelta(days=3),
+    )
+
+    _customer_consumes_storno(db_session, storno)
+
+    assert [p.id for p in _owners_now(db_session)] == [backdated.id]
+
+
+def test_a_holder_linked_and_disconnected_after_the_storno_keeps_the_role_untouched(db_session, engine):
+    """A customer linked as owner after the storno and disconnected again is a
+    newer fact too, though no longer open: in order, that allocation would
+    have closed the reopened row, so the late storno leaves the owner role
+    alone (and still reopens the keeper)."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    storno = _storno(db_session, item, returned=True)
+    group_id = contract_group_id(db_session, contract)
+    linked = allocate_vehicle_party(
+        db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+    )
+    delete_customer_vehicle(db_session, party=linked, actor_id=uuid.uuid4(), group_id=group_id)
+
+    _customer_consumes_storno(db_session, storno)
+
+    assert _owners_now(db_session) == []
+    assert [p.customer_id for p in _keepers_now(db_session)] == [contract.customer_id]
+
+
+def test_a_future_holder_recorded_before_the_storno_is_never_ended_before_it_begins(db_session, engine):
+    """An owner recorded before the storno to start in 30 days: closing it now
+    would end it before it began, so the owner role is left as it is."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    group_id = contract_group_id(db_session, contract)
+    future = allocate_vehicle_party(
+        db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        effective_from=dt.datetime.now(dt.UTC) + dt.timedelta(days=30),
+    )
+
+    _customer_consumes_storno(db_session, _storno(db_session, item, returned=True))
+
+    db_session.refresh(future)
+    assert future.effective_to is None
+    assert contract.customer_id not in {p.customer_id for p in _owners_now(db_session)}
+    assert [p.customer_id for p in _keepers_now(db_session)] == [contract.customer_id]
 
 
 def test_a_redelivered_storno_reopens_once(db_session, engine):

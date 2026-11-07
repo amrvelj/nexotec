@@ -3419,9 +3419,13 @@ def reopen_former_holder_after_storno(
     the purchase closed it there, at the purchase date's start or at the
     booking. A role the customer holds now is left alone (a redelivery, or a
     later allocation), and so is a role with no such row (a purchase this
-    context never recorded). A reopen goes through the close rule like every
-    other (KAN-148): every other open holder of the role in the group is
-    closed, under the allocation's locks and order — advisory, then the
+    context never recorded). A role is left alone too when a row of it was
+    recorded after the storno (open or already ended — a newer fact) or a
+    holder of it starts after the storno. Not caught: an older row reopened
+    by a PATCH after the storno (API only) is closed by a late storno — the
+    accepted residual in customer.md. Otherwise a reopen goes through the
+    close rule like every other (KAN-148): every other open holder of the role
+    in the group is closed, under the allocation's locks and order — advisory, then the
     customer row (`customer_merged` refused, KAN-365), then party rows. The
     copy a merge kept (`merged_into_customer_id`) is never reopened.
 
@@ -3465,11 +3469,26 @@ def reopen_former_holder_after_storno(
         ).first()
         if party is None:
             continue
+        # A row of this role in the group recorded after the storno — open or
+        # already ended (a customer linked and disconnected since) — is a
+        # newer fact than this storno: a late delivery must not overwrite it,
+        # so the role is left as it is. A holder recorded before the storno but
+        # starting after it (a future start) is left too: closing it would end
+        # it before it began.
+        newer_row = db.scalar(
+            select(VehicleParty.id)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.role == role,
+                Customer.group_id == group_id,
+                VehicleParty.id != party.id,
+                VehicleParty.created_at > closed_until,
+            )
+            .limit(1)
+        )
         others = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id, excluding=party.id)
-        # A holder recorded (or starting) after the storno is a newer fact
-        # than this storno — a late delivery must never overwrite it. The
-        # role is left as it is; an older holder is closed, as any reopen does.
-        if any(other.created_at > closed_until or other.effective_from > closed_until for other in others):
+        if newer_row is not None or any(other.effective_from > closed_until for other in others):
             continue
         for other in others:
             _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)

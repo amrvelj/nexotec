@@ -117,13 +117,13 @@ describe("DataGrid — a column is never narrower than its heading (KAN-578)", (
     render(
       <MantineProvider theme={testTheme}>
         {grid({
-        rowActions: () => ({}),
-        selection: {
-          selectedIds: new Set<string>(),
-          onSelectionChange: () => {},
-          selectAllLabel: "Tout sélectionner",
-          selectRowLabel: (row) => `Sélectionner ${row.id}`,
-        },
+          rowActions: () => ({}),
+          selection: {
+            selectedIds: new Set<string>(),
+            onSelectionChange: () => {},
+            selectAllLabel: "Tout sélectionner",
+            selectRowLabel: (row) => `Sélectionner ${row.id}`,
+          },
         })}
       </MantineProvider>,
     );

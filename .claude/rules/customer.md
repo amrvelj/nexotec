@@ -167,14 +167,18 @@ weekly. -->
   nothing; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
   purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
   `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
-  stornoed in turn — reopens nobody. **Accepted residual**
+  stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
+  recorded after the storno (open or already ended) or a holder of it starts after the storno.
+  **Accepted residual**
   (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
   whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
   backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
   *unflagged* storno records no handover unless the car is bought again, a returned storno consumed
   after a later booking reopens nobody (so the period the customer held the car again is not
-  recorded), and with a re-booking the history ends at the purchase consumed, not always the first.
-  A late returned storno never closes a holder recorded or starting after it (the newer fact wins).
+  recorded), with a re-booking the history ends at the purchase consumed, not always the first, and
+  an older row reopened by a PATCH after the storno (API only; the SPA sends none) is closed by a late
+  returned storno. *Anto ruled A on the narrower «failed delivery only» description; this wider
+  statement awaits his confirmation.*
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and
