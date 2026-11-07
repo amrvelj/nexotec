@@ -42,8 +42,7 @@ as any change to what it states. -->
   `platform.public.list_group_read_dealerships` called only by Stock's group listing (KAN-121),
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
-  write committing its own transaction except the one allow-listed entry, the KAN-185 debt
-  (tracked, not ruled), and number allocation (`platform.public.allocate_number`, ruled by ADR-109,
+  write committing its own transaction except number allocation (`platform.public.allocate_number`, ruled by ADR-109,
   KAN-207); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
   is the one exception ruled by ADR (ADR-091, KAN-106) and the three other scripts that reach two
   contexts' internals are recorded by name (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional

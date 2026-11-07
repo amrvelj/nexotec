@@ -253,16 +253,3 @@ def cancel_transaction(
     db.commit()
     db.refresh(transaction)
     return transaction
-
-
-def repoint_customer_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
-    """Called from app.customer's merge flow via app.sales.public — sales
-    stays the sole writer of Transaction.customer_id (one writer per fact)
-    even though the merge decision itself belongs to customer. Does not
-    commit: joins the caller's transaction, same as before the restructure.
-    """
-
-    rows = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id)).all())
-    for txn in rows:
-        txn.customer_id = target_id
-    return len(rows)

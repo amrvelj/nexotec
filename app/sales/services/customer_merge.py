@@ -1,16 +1,23 @@
-"""Customer-merge repointing for sales_offer/sales_contract (WP-8 PR-7).
+"""Sales' side of a customer merge (KAN-185, ADR-047; Anto, 2026-10-31,
+option A).
 
-A merge must repoint the NEW tables too, not just the retired
-`transaction` table repoint_customer_transactions already handles.
-Pattern B (ADR-047, own commit) — mirrors
-app.customer.services.customer.repoint_vehicle_party exactly, called
-AFTER the customer side has already committed its own repointing, never
-joining that transaction. A failure here is repaired by nightly
-reconciliation, not by rolling back the merge — the correct trade per
-ADR-047, not an oversight.
+The customer context merges and publishes `customer.merged` in its own
+transaction; it writes nothing of Sales'. Sales' consumer
+(`sales.customer_merged`, `app/sales/consumers.py`) moves everything Sales
+holds for the duplicate — the retired legacy `transaction` rows (ADR-050:
+retired for business writes, but a merge still moves them), offers,
+contracts and deals — to the survivor, in its own transaction with its
+processed-event row. The outbox retries it until it succeeds; no shared
+cross-context transaction remains (CLAUDE.md rule 12), and nothing waits for
+the nightly report.
+
+Before KAN-185 the legacy rows moved inside the merge's own transaction (the
+tracked ADR-047 debt) and offers/contracts/deals in an own-commit call after
+it, left to nightly reconciliation when it failed.
 """
 
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,9 +25,31 @@ from sqlalchemy.orm import Session
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import SalesOffer
+from app.sales.models.transaction import Transaction
 
 
-def repoint_customer_sales_records(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
+@dataclass(frozen=True)
+class MergeRepointCounts:
+    transactions: int
+    offers: int
+    contracts: int
+    deals: int
+
+
+def repoint_merged_customer_records(
+    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID
+) -> MergeRepointCounts:
+    """Re-points every Sales row naming `duplicate_id` at `target_id`.
+
+    Flushes only; the consumer's `consume_once` commits it together with the
+    processed-event row. A second run finds nothing left to move.
+    """
+
+    transactions = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id)).all())
+    for txn in transactions:
+        txn.customer_id = target_id
+    db.flush()
+
     # Row locks in the order every other Sales writer takes them — offer,
     # then contract, then deal (create_contract locks the offer before it
     # writes the deal, KAN-147). One flush would let the unit of work write
@@ -39,6 +68,8 @@ def repoint_customer_sales_records(db: Session, *, duplicate_id: uuid.UUID, targ
     deals = list(db.scalars(select(SalesDeal).where(SalesDeal.customer_id == duplicate_id)).all())
     for deal in deals:
         deal.customer_id = target_id
+    db.flush()
 
-    db.commit()
-    return len(offers) + len(contracts)
+    return MergeRepointCounts(
+        transactions=len(transactions), offers=len(offers), contracts=len(contracts), deals=len(deals)
+    )

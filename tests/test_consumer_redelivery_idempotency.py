@@ -38,6 +38,7 @@ from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.publishing import publish, unpublish
 from app.inventory.services.purchase import record_purchase, storno_purchase
 from app.sales.models.contract import SalesContract
+from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.services.contract import cancel_contract, request_invoice
 from app.sales.services.invoice_handover import HandoverPlate
@@ -218,6 +219,24 @@ def _trade_in_purchased(db_session, engine, monkeypatch):
         )
 
     return message, parties
+
+
+def _customer_merged(db_session, engine, monkeypatch):
+    """KAN-185 — a customer merge: Sales moves the duplicate's offer to the
+    survivor once (the measure counts the offers on the survivor)."""
+
+    from tests.test_sales_customer_merged_consumer import _customer, _merge, _offer
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _customer(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
+    _offer(db_session, tenant_id, group_id, duplicate.id)
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    def offers_on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(SalesOffer).where(SalesOffer.customer_id == survivor.id))
+
+    return message, offers_on_survivor
 
 
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
@@ -502,6 +521,7 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.stock_item_purchased": _stock_item_purchased,
     "sales.stock_item_storno": _stock_item_storno,
     "customer.trade_in_purchased": _trade_in_purchased,
+    "sales.customer_merged": _customer_merged,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,
