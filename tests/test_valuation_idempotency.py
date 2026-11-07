@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from app.core.outbox_model import OutboxMessage
 from app.valuation.models.valuation import Valuation
 from tests.test_valuation import _contract_carrying, _sales_principal
+from tests.vin_support import unique_vin
 
 
 def _headers(token: str, key: str | None = None, **extra: str) -> dict[str, str]:
@@ -51,7 +52,7 @@ def _twice(client, path: str, token: str, body: dict | None, **extra: str):
 
 def _valuation(client, token: str, final_offer: str = "8000.00") -> dict:
     response = client.post(
-        "/v1/valuations", json={"finalOffer": final_offer, "source": "manual"}, headers=_headers(token)
+        "/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": final_offer, "source": "manual"}, headers=_headers(token)
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -63,17 +64,17 @@ def _valuation(client, token: str, final_offer: str = "8000.00") -> dict:
 def test_create_valuation_twice_under_one_key_makes_one_valuation(client, db_session):
     token, tenant_id = _sales_principal()
 
-    _twice(client, "/v1/valuations", token, {"finalOffer": "12000.00", "source": "manual"})
+    _twice(client, "/v1/valuations", token, {"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "12000.00", "source": "manual"})
 
     assert _count(db_session, Valuation, Valuation.tenant_id == tenant_id) == 1
 
 
 def test_create_valuation_with_a_reused_key_and_another_body_is_a_409(client, db_session):
     token, tenant_id = _sales_principal()
-    key, _ = _twice(client, "/v1/valuations", token, {"finalOffer": "12000.00", "source": "manual"})
+    key, _ = _twice(client, "/v1/valuations", token, {"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "12000.00", "source": "manual"})
 
     response = client.post(
-        "/v1/valuations", json={"finalOffer": "11500.00", "source": "manual"}, headers=_headers(token, key)
+        "/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "11500.00", "source": "manual"}, headers=_headers(token, key)
     )
 
     _assert_key_conflict(response, key)

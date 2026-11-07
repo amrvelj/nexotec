@@ -54,7 +54,12 @@ def _configuration_of_a_known_car(client, db_session, tenant_id: uuid.UUID) -> d
 def _post_valuation(client, tenant_id: uuid.UUID, configuration_id: str, **fields):
     return client.post(
         "/v1/valuations",
-        json={"configurationId": configuration_id, "finalOffer": "18000.00", "source": "manual", **fields},
+        # KAN-574: a valuation names its car; these configurations carry no
+        # make or model of their own, so the request names them.
+        json={
+            "configurationId": configuration_id, "vehicleMake": "VW", "vehicleModel": "Golf",
+            "finalOffer": "18000.00", "source": "manual", **fields,
+        },
         headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
     )
 
@@ -101,8 +106,11 @@ def test_a_vin_beside_a_configuration_without_one_is_stored_and_links_no_car(cli
 def test_a_configuration_linked_to_a_car_without_a_stored_vin_refuses_any_vin(client, db_session):
     """A configuration that links a car names it even with its VIN missing
     (no writer leaves that shape today; the guard does not rely on it): any
-    VIN sent beside it is refused, its own included, and with none sent the
-    valuation takes the configuration's car and no VIN."""
+    VIN sent beside it is refused, its own included. With none sent the
+    valuation used to take the configuration's car and no VIN; since KAN-574
+    (Anto, 2026-11-07, option A) a valuation names its car by its VIN, so
+    that is refused too (`valuation_names_no_car`) — the configuration's VIN
+    is repaired first."""
 
     tenant_id = uuid.uuid4()
     configuration = _configuration_of_a_known_car(client, db_session, tenant_id)
@@ -116,9 +124,10 @@ def test_a_configuration_linked_to_a_car_without_a_stored_vin_refuses_any_vin(cl
         assert refused.json()["error"]["details"]["reason"] == "vin_differs_from_configuration"
     assert _valuation_count(db_session) == 0
 
-    accepted = _post_valuation(client, tenant_id, configuration["id"])
-    assert accepted.status_code == 201, accepted.text
-    assert (accepted.json()["vehicleVin"], accepted.json()["vehicleId"]) == (None, configuration["vehicleId"])
+    refused = _post_valuation(client, tenant_id, configuration["id"])
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"] == {"reason": "valuation_names_no_car", "fields": ["vin"]}
+    assert _valuation_count(db_session) == 0
 
 
 def test_the_configurations_own_vin_in_any_spelling_is_accepted(client, db_session):

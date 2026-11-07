@@ -89,7 +89,7 @@ def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
     vin = "WVWZZZ1KZAW654321"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.AUTO_I_DAT, final_offer=Decimal(15350)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.AUTO_I_DAT, final_offer=Decimal(15350)),
         actor_id=uuid.uuid4(),
     )
 
@@ -109,7 +109,7 @@ def test_trade_in_purchase_price_is_seller_adjustable_independently(db_session):
     vin = "WVWZZZ1KZAW111111"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(12000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(12000)),
         actor_id=uuid.uuid4(),
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
@@ -130,7 +130,7 @@ def test_attach_trade_in_valuation_explicit(db_session):
     vin = "WVWZZZ1KZAW222222"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
         actor_id=uuid.uuid4(),
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
@@ -141,7 +141,7 @@ def test_attach_trade_in_valuation_explicit(db_session):
     # A second, explicitly attached valuation overrides the auto-attached one.
     second = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9500)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9500)),
         actor_id=uuid.uuid4(),
     )
     offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=second.id, actor_id=uuid.uuid4())
@@ -156,7 +156,7 @@ def test_attaching_a_valuation_to_an_offer_that_left_draft_is_refused(db_session
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
         actor_id=uuid.uuid4(),
     )
     offer = cancel_offer(
@@ -220,7 +220,7 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
 
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(17950)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(17950)),
         actor_id=uuid.uuid4(),
     )
     offer = set_trade_in(

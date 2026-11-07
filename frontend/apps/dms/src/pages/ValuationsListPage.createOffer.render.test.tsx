@@ -30,7 +30,7 @@ vi.mock('@tanstack/react-virtual', () => ({
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000001', status: 'valid', source: 'manual', hasSignedContract: false,
   customerId: null, customerLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
-  vehicleVin: null, finalOffer: '12000.00', deductions: [], version: 2, validFrom: '2026-10-01',
+  vehicleVin: 'WVWZZZ1KZAW569001', finalOffer: '12000.00', deductions: [], version: 2, validFrom: '2026-10-01',
   validUntil: '2026-12-31', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
 } as unknown as ValuationRead
 

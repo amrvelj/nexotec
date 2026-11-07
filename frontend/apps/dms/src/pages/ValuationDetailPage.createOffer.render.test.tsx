@@ -19,7 +19,7 @@ import { ValuationDetailPage } from './ValuationDetailPage'
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000042', status: 'valid', source: 'manual', hasSignedContract: false,
   customerId: 'cust-1', customerLabel: 'Anna Muster', vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf',
-  vehicleTrim: null, vehicleVin: null, usedAt: null, finalOffer: '12000.00', deductions: [], version: 3,
+  vehicleTrim: null, vehicleVin: 'WVWZZZ1KZAW569001', usedAt: null, finalOffer: '12000.00', deductions: [], version: 3,
   validFrom: '2026-10-01', validUntil: '2026-12-31', vehicleFirstRegistration: null,
   createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
 } as unknown as ValuationRead

@@ -54,6 +54,7 @@ from app.vehicle.services.configuration import create_configuration
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
+from tests.vin_support import unique_vin
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -678,7 +679,7 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     trade_in_vehicle_id = _create_vehicle_mdm(db_session)
     valuation = create_valuation(
         db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
     )
     db_session.commit()
     held_item = _stock_item(db_session, dealer_id)
@@ -776,7 +777,7 @@ def _stock_item_row(client, db_session, dealer_id):
 def _valuation_row(client, db_session, dealer_id):
     valuation = create_valuation(
         db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
     )
     db_session.commit()
     return valuation_reconciliation, Valuation, valuation.id
@@ -894,7 +895,7 @@ def _configuration(db_session, dealer_id):
 def _valuation_of(db_session, dealer_id):
     valuation = create_valuation(
         db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
-        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
     )
     db_session.commit()
     return valuation.id

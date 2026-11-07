@@ -10689,7 +10689,15 @@ export interface components {
             /** Error Type */
             type: string;
         };
-        /** ValuationCreate */
+        /**
+         * ValuationCreate
+         * @description KAN-574 (Anto, 2026-11-07, option A): a valuation names its car. `vin`
+         *     (or a pre-1981 chassis number), `vehicleMake` and `vehicleModel` are
+         *     required — taken from the configuration when `configurationId` is sent
+         *     (which must then carry a VIN), typed otherwise; a missing one is 422
+         *     `valuation_names_no_car` with the missing `fields`. The fields stay
+         *     optional in the schema because a configuration supplies them.
+         */
         ValuationCreate: {
             /** Configurationid */
             configurationId?: string | null;

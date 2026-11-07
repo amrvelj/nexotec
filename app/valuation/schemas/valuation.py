@@ -23,8 +23,15 @@ class DeductionInput(CamelModel):
 
 
 class ValuationCreate(CamelModel):
-    # Vehicle — all optional; a valuation may be created with no vehicle
-    # in the register at all (confirmed live). Providing `vin` resolves
+    """KAN-574 (Anto, 2026-11-07, option A): a valuation names its car. `vin`
+    (or a pre-1981 chassis number), `vehicleMake` and `vehicleModel` are
+    required — taken from the configuration when `configurationId` is sent
+    (which must then carry a VIN), typed otherwise; a missing one is 422
+    `valuation_names_no_car` with the missing `fields`. The fields stay
+    optional in the schema because a configuration supplies them."""
+
+    # Vehicle — the car need not be in the register (confirmed live), but it
+    # is named (KAN-574, above). Providing `vin` resolves
     # or creates the real vehicle-mdm record in the same step (FR-V's own
     # "one step, not two"). Normalised and validated as Stock's VIN is
     # (KAN-331, FR-V-15): one spelling, one vehicle-mdm record. KAN-353: for a

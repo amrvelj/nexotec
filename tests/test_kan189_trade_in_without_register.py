@@ -56,7 +56,7 @@ def test_a_vin_only_valuation_is_found_by_its_vin_normalised(db_session):
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW189001", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW189001", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
         actor_id=uuid.uuid4(),
     )
 
@@ -71,7 +71,7 @@ def test_a_row_stored_before_the_create_normalised_its_vin_is_found_too(db_sessi
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW189002", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW189002", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
         actor_id=uuid.uuid4(),
     )
     db_session.execute(
@@ -88,7 +88,7 @@ def test_a_draft_or_expired_valuation_is_not_offered_by_vin(db_session):
     tenant_id = uuid.uuid4()
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf",
             vin="WVWZZZ1KZAW189003", source=ValuationSource.MANUAL, final_offer=Decimal(9000), is_draft=True
         ),
         actor_id=uuid.uuid4(),
@@ -101,7 +101,7 @@ def test_the_vin_only_valuation_is_auto_attached_and_the_container_reads_complet
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW189004", source=ValuationSource.MANUAL, final_offer=Decimal(11000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW189004", source=ValuationSource.MANUAL, final_offer=Decimal(11000)),
         actor_id=uuid.uuid4(),
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
@@ -153,7 +153,7 @@ def test_confirmation_makes_a_vin_only_trade_in_a_pipeline_item_with_its_valuati
     group_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=dealership.id, group_id=group_id,
-        data=ValuationCreate(vin="WVWZZZ1KZAW189005", source=ValuationSource.MANUAL, final_offer=Decimal(7000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW189005", source=ValuationSource.MANUAL, final_offer=Decimal(7000)),
         actor_id=uuid.uuid4(),
     )
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())

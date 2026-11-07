@@ -45,8 +45,18 @@ file in the same PR as any change to what it states. -->
   or the VIN as the label when it has no make or model (the confirmation publishes the label and
   Stock names the pipeline item by it) (`sales/services/trade_in.py::_attach`, KAN-569) — so
   `has_trade_in` holds and the confirmation takes the car into the pipeline; a deal that already
-  names its car keeps it, and a valuation with no VIN, or a pre-1981 chassis number in it, still
-  brings only its value (decision with Anto).
+  names its car keeps it. **A trade-in is a car** (KAN-574; Anto, 2026-11-07, option A): a
+  valuation that would bring none to a deal naming none — no configuration and no VIN (a row from
+  before the rule below), or a pre-1981 chassis number a trade-in cannot take (KAN-535) — is 422
+  `trade_in_valuation_names_no_car` at attach, nothing written; «Offerte aus dieser Bewertung
+  erstellen» is disabled for it with the reason (`createOfferNoVin`). A deal that names its car
+  takes such a valuation's value.
+- **A valuation names its car** (KAN-574; Anto, 2026-11-07, option A): `POST /v1/valuations` needs
+  a VIN (or a pre-1981 chassis number, KAN-353), a make and a model — each from the configuration
+  when `configurationId` is sent, typed otherwise (a VIN typed beside a configuration without one
+  is stored, KAN-449) — else 422 `valuation_names_no_car` with the missing `fields`, judged after
+  the chassis-number rule; `ValuationCreateDialog` marks the three required and holds its submit
+  until they are filled. Rows written before keep what they had.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.

@@ -3,6 +3,9 @@ import { buildValuationRowMenu } from './valuationRowMenu'
 
 const t = (key: string, options?: Record<string, unknown>) => (options ? `${key}:${JSON.stringify(options)}` : key)
 
+// KAN-574: a valuation names its car; the KAN-569 cases are about status and module.
+const NAMED_VIN = 'WVWZZZ1KZAW569001'
+
 describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
   it('never has a "Bearbeiten" action anywhere — a valuation is immutable once created', () => {
     const menu = buildValuationRowMenu(
@@ -143,7 +146,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       const onClick = vi.fn()
       const menu = buildValuationRowMenu(
         t,
-        { status, hasSignedContract: false, customerId: null, vehicleId: null },
+        { status, hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: NAMED_VIN },
         { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick, salesEntitled } }
       )
       expect(menu.alternative?.label).toBe('valuationDetail.actions.createOffer')
@@ -152,6 +155,24 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       expect(menu.overflow.createFrom).toEqual([menu.alternative])
       menu.alternative!.onClick()
       expect(onClick).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it.each([
+    ['no VIN and no configuration', { vehicleVin: null, configurationId: null }, 'valuationDetail.actions.createOfferNoVin'],
+    ['a pre-1981 chassis number', { vehicleVin: '1302412345', configurationId: null }, 'valuationDetail.actions.createOfferNoVin'],
+    ['a VIN', { vehicleVin: NAMED_VIN, configurationId: null }, null],
+    ['a configuration', { vehicleVin: null, configurationId: 'cfg-1' }, null],
+  ] as const)(
+    'KAN-574: a valuation with %s — «create offer» %s',
+    (_label, car, expectedReason) => {
+      const entry = buildValuationRowMenu(
+        t,
+        { status: 'valid', hasSignedContract: false, customerId: null, vehicleId: null, ...car },
+        { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick: vi.fn(), salesEntitled: true } }
+      ).alternative!
+      expect(entry.disabled).toBe(expectedReason !== null)
+      expect(entry.disabledReason).toBe(expectedReason ?? undefined)
     }
   )
 

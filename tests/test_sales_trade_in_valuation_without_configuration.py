@@ -14,6 +14,9 @@ into the pipeline. Now the valuation's stored VIN, the record it linked
 import uuid
 from decimal import Decimal
 
+import pytest
+
+from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -32,18 +35,27 @@ VIN = "WVWZZZ1KZAW569001"
 
 
 def _valuation(db_session, tenant_id, group_id, *, vin: str | None = VIN, named: bool = True):
-    return create_valuation(
+    """A valuation of the trade-in car. `vin=None` or `named=False` stand for
+    a row written before KAN-574 (Anto, 2026-11-07) made VIN, make and model
+    required: the valuation is created named, then the row is set as such an
+    older row stands."""
+
+    valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=group_id,
         data=ValuationCreate(
-            vin=vin,
-            vehicle_make="VW" if named else None,
-            vehicle_model="Golf" if named else None,
-            vehicle_trim="1.5 TSI Life" if named else None,
-            source="manual",
+            vin=VIN, vehicle_make="VW", vehicle_model="Golf", vehicle_trim="1.5 TSI Life", source="manual",
             final_offer=Decimal("12000.00"),
         ),
         actor_id=uuid.uuid4(),
     )
+    if vin != VIN or not named:
+        valuation.vehicle_vin = vin
+        if vin is None:
+            valuation.vehicle_id = None
+        if not named:
+            valuation.vehicle_make = valuation.vehicle_model = valuation.vehicle_trim = None
+        db_session.commit()
+    return valuation
 
 
 def test_a_valuation_without_a_configuration_brings_its_car_to_a_deal_without_one(db_session):
@@ -80,20 +92,44 @@ def test_a_deal_that_already_names_its_trade_in_car_keeps_it(db_session):
     assert offer.trade_in_value == Decimal("12000.00")
 
 
-def test_a_valuation_without_a_vin_brings_no_car(db_session):
-    """Unchanged: a valuation naming no car gives the value only (KAN-569
-    follow-up ticket asks Anto whether such an attach should be refused)."""
+def test_an_older_valuation_without_a_vin_is_refused_as_a_trade_in(db_session):
+    """KAN-574 (Anto, 2026-11-07, option A): a trade-in is a car. A valuation
+    written before VIN became required, attached to a deal naming no car,
+    would lower the price with nothing to take in — refused, nothing written."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     valuation = _valuation(db_session, dealership.id, group_id, vin=None)
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    version = offer.version
+
+    with pytest.raises(UnprocessableEntityError) as refused:
+        attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    assert refused.value.details == {"reason": "trade_in_valuation_names_no_car", "valuationId": str(valuation.id)}
+    db_session.rollback()
+    db_session.refresh(offer)
+    assert offer.trade_in_valuation_id is None and offer.trade_in_value is None
+    assert offer.version == version
+
+
+def test_an_older_valuation_without_a_vin_still_values_a_car_the_deal_names(db_session):
+    """The deal names its trade-in car already (a VIN trade-in): the
+    valuation brings only its value, and that is fine — there is a car."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = set_trade_in(
+        db_session, deal=offer, group_id=group_id, vin="TMBJJ7NE0L0574001", plate=None, canton=None,
+        vehicle_label="Skoda Octavia Combi", customer_id=None, actor_id=uuid.uuid4(),
+    )
+    valuation = _valuation(db_session, dealership.id, group_id, vin=None)
 
     offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
 
-    assert offer.trade_in_vin is None
-    assert offer.trade_in_label is None
-    assert not has_trade_in(offer)
+    assert offer.trade_in_vin == "TMBJJ7NE0L0574001"
+    assert offer.trade_in_value == Decimal("12000.00")
 
 
 def test_its_contract_takes_the_car_into_the_pipeline_on_confirmation(db_session, engine):
@@ -158,18 +194,17 @@ def test_a_valuation_with_a_vin_but_no_make_or_model_is_named_by_its_vin(db_sess
     assert message.payload["tradeIn"]["vehicleLabel"] == VIN
 
 
-def test_a_chassis_number_stored_on_the_valuation_brings_no_car(db_session):
-    """A trade-in takes only a VIN (`NormalisedVin`); a pre-1981 chassis
-    number a valuation stored (KAN-353) brings its value only, as before."""
+def test_a_chassis_number_stored_on_the_valuation_is_refused_as_a_trade_in(db_session):
+    """A trade-in takes only a VIN (`NormalisedVin`; KAN-535 is open), so a
+    valuation carrying a pre-1981 chassis number brings no car a trade-in can
+    take — refused on a deal naming none (KAN-574)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    valuation = _valuation(db_session, dealership.id, group_id, vin=None)
-    valuation.vehicle_vin = "1302412345"  # as a chassis number is stored; ValuationCreate's own rule aside
-    db_session.commit()
+    valuation = _valuation(db_session, dealership.id, group_id, vin="1302412345")
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
 
-    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+    with pytest.raises(UnprocessableEntityError) as refused:
+        attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
 
-    assert offer.trade_in_vin is None
-    assert not has_trade_in(offer)
+    assert refused.value.details["reason"] == "trade_in_valuation_names_no_car"

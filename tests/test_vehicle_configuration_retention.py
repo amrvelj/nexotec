@@ -44,6 +44,7 @@ from app.vehicle.services.configuration_retention import purge_unattached_config
 from app.worker import register_daily_jobs
 from tests.test_configurator_hosts import _build_configuration, _dealership, _record_configuration
 from tests.test_sales_contract_edit import _customer_born_contract
+from tests.vin_support import unique_vin
 
 # event type -> the consumer app.worker registers for it
 CONSUMERS = {
@@ -120,7 +121,12 @@ def _purge_audits(db: Session, configuration_id: uuid.UUID) -> list[AuditEvent]:
 def _valuation(db: Session, tenant_id: uuid.UUID, configuration_id: uuid.UUID) -> Valuation:
     return create_valuation(
         db, tenant_id=tenant_id, group_id=uuid.uuid4(), actor_id=uuid.uuid4(),
-        data=ValuationCreate(configuration_id=configuration_id, source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+        # KAN-574: a valuation names its car; this record configuration has no
+        # VIN, so the seller types one beside it (KAN-449 option A).
+        data=ValuationCreate(
+            configuration_id=configuration_id, vin=unique_vin(), source=ValuationSource.MANUAL,
+            final_offer=Decimal("2500.00"),
+        ),
     )
 
 

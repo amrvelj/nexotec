@@ -25,11 +25,11 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.validators import is_valid_vin, normalise_vin
 from app.customer.public import get_customer_or_404
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
-from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
+from app.sales.services.priced_deal import DealT, PricedDeal, has_trade_in, lock_editable, project, require_editable
 from app.valuation.public import list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
 from app.vehicle.public import match_vehicle
 
@@ -142,6 +142,16 @@ def attach_trade_in_valuation(
     require_editable(db, deal)
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
+    # KAN-574 (Anto, 2026-11-07, option A): a trade-in is a car. A valuation
+    # that would bring none to a deal naming none — no configuration, no VIN
+    # (written before VIN, make and model became required), or a pre-1981
+    # chassis number a trade-in cannot take (KAN-535) — would lower the price
+    # with nothing to take in, so it is refused before anything is written.
+    if not has_trade_in(deal) and valuation.configuration_id is None and not is_valid_vin(valuation.vehicle_vin):
+        raise UnprocessableEntityError(
+            f"Valuation {valuation.valuation_number} names no car a trade-in can take: it has no VIN.",
+            details={"reason": "trade_in_valuation_names_no_car", "valuationId": str(valuation.id)},
+        )
     _attach(db, deal, valuation)
     deal.updated_by = actor_id
     deal.version += 1

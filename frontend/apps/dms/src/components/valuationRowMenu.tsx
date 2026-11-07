@@ -1,6 +1,7 @@
 import { Car, CheckCircle, Handshake, RefreshCw, Undo2, User } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { ValuationRead } from '../api/types'
+import { normalisedVin } from '../utils/vin'
 
 /** KAN-253 — the server's `CONFIRMATION_GRACE`: a stamp younger than this may
  * be a confirmation still signing its contract, so it is not cleared (409
@@ -66,7 +67,7 @@ export interface ValuationRowMenu {
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
   valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract'> &
-    Partial<Pick<ValuationRead, 'usedAt'>>,
+    Partial<Pick<ValuationRead, 'usedAt' | 'configurationId' | 'vehicleVin'>>,
   actions: ValuationRowMenuActions
 ): ValuationRowMenu {
   const markUsedDisabledReason =
@@ -90,7 +91,13 @@ export function buildValuationRowMenu(
       ? t('valuationDetail.actions.createOfferExpired')
       : valuation.status === 'used'
         ? t('valuationDetail.actions.createOfferUsed')
-        : undefined
+        : // KAN-574 (Anto, 2026-11-07): a trade-in is a car. A valuation
+          // written before VIN became required, or carrying a pre-1981
+          // chassis number (KAN-535), brings none — the API refuses it
+          // (`trade_in_valuation_names_no_car`), so the action says why first.
+          !valuation.configurationId && normalisedVin(valuation.vehicleVin ?? '') === null
+          ? t('valuationDetail.actions.createOfferNoVin')
+          : undefined
   const createOffer: RowMenuAction | undefined = actions.createOffer && {
     label: t('valuationDetail.actions.createOffer'),
     icon: <Handshake size={16} />,
