@@ -124,8 +124,8 @@ def test_a_repeated_lookup_duplicates_neither_variants_nor_tenant_content(db_ses
 
 def test_a_lookup_persists_the_variant_base_price_the_adapter_already_returns(db_session):
     """C-A: `VariantMasterData.base_price` (LetzterNP) was being dropped —
-    the adapter returns it, nothing persisted it. `base_price_year` /
-    `price_is_net` stay NULL until C-0 wires FahrzeugePreise / NettoPreis."""
+    the adapter returns it, nothing persisted it. KAN-547: the price's year
+    and its net flag arrive with the variant and are stored beside it."""
 
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -136,7 +136,7 @@ def test_a_lookup_persists_the_variant_base_price_the_adapter_already_returns(db
     priced = [v for v in db_session.query(ModelVariant).all() if v.base_price is not None]
     assert len(priced) == 3
     assert {str(v.base_price) for v in priced} == {"28900.00", "42500.00", "54900.00"}
-    assert all(v.base_price_year is None and v.price_is_net is None for v in priced)
+    assert {(v.base_price_year, v.price_is_net) for v in priced} == {(2021, False), (2023, False)}
 
 
 def test_a_lookup_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session):
@@ -627,6 +627,7 @@ def test_the_sync_records_each_variants_raw_provider_codes(db_session):
         ("auto_i_dat_mock", "1", "body_style", "5"),
         ("auto_i_dat_mock", "1", "drivetrain", "1"),
         ("auto_i_dat_mock", "1", "transmission", "M"),
+        ("auto_i_dat_mock", "1", "consumption_norm", "4"),  # KAN-547: the spec block's coded fields too
     }
 
 

@@ -15,6 +15,7 @@ from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
+from app.integration.models.caption import IntegrationProviderCaption
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
@@ -126,6 +127,7 @@ __all__ = [
     "IntegrationEntitlement",
     "IntegrationNotification",
     "IntegrationProvider",
+    "IntegrationProviderCaption",
     "IntegrationSecretRef",
     "InventoryCancelledContract",
     "LegalBasis",

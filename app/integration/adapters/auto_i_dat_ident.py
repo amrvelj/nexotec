@@ -33,16 +33,23 @@ who is working, so the adapter is built with the acting user — read through
 signed-in user has no token and is refused as a configuration error before
 anything is sent.
 
-What this adapter does **not** do yet: identification, browse, options,
-valuation and the VIN rung are KAN-547, KAN-548, KAN-211, KAN-552 and KAN-549.
-Every ``ProviderAdapter`` method they own raises
-``ProviderOperationNotBuiltError`` (a ``ProviderConfigurationError``: nothing
-sent, nothing logged, the breaker untouched) naming its ticket — an explicit
-"not built", never a silent empty answer.
-What it does today: ``fetch_code_captions`` (the access check of *Test
-connection*) and the six entitlement probes
-(``services/entitlement_probes.py``), each a single documented identAPI call
-with an input taken from auto-i's own public documentation examples.
+**Built here** (KAN-488, KAN-547, KAN-548): ``fetch_code_captions`` /
+``fetch_captions`` (the access check of *Test connection*, and the code
+vocabulary in four languages), the six entitlement probes
+(``services/entitlement_probes.py``), identification by Stammnummer, plate,
+Typenschein and Werkscode (Vehicle Build / Vehicle Catalog), one variant by
+FzKey, the Typenschein + Neupreis match (Vehicle Match), and the catalogue
+browse operations (brands, model groups, one page of variants, facet values).
+Every body is read by ``identapi_parse.py``; no code is interpreted here.
+**Not built yet**: options, colours, tyres and images (KAN-211), valuation
+and forecast (KAN-552), the VIN rung (KAN-549). Those ``ProviderAdapter``
+methods raise ``ProviderOperationNotBuiltError`` (a
+``ProviderConfigurationError``: nothing sent, nothing logged, the breaker
+untouched) naming their ticket — an explicit "not built", never a silent
+empty answer. The SOAP-era list methods the Protocol still carries until
+KAN-550 (``list_vehicle_kinds``, ``list_brands``, …) are not built on this
+adapter either: the identAPI-shaped ``list_catalogue_*`` / ``search_catalogue_variants``
+replace them.
 """
 
 from __future__ import annotations
@@ -56,6 +63,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
+from app.integration.adapters import identapi_parse as parse
 from app.integration.adapters.autoi_oauth import (
     AutoiOAuthClient,
     EnrolledUser,
@@ -67,6 +75,10 @@ from app.integration.adapters.autoi_oauth import (
 from app.integration.adapters.base import (
     BestMatchResult,
     BrandData,
+    BuiltVehicleData,
+    CaptionData,
+    CatalogueBrandData,
+    CatalogueModelGroupData,
     CodeMapEntryData,
     ForecastResult,
     ModelGroupData,
@@ -81,6 +93,7 @@ from app.integration.adapters.base import (
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
+    VariantSearchPage,
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
@@ -107,6 +120,8 @@ CLIENT_ID_CONFIG_KEY = "clientId"
 # auto-i's own statistics (KAN-486).
 OP_CAPTION_CODE = "caption_code"
 OP_VEHICLECATALOG = "vehiclecatalog"
+OP_VEHICLEBUILD = "vehiclebuild"
+OP_VEHICLEMATCH = "vehiclematch"
 OP_VEHICLEOPTION_CATALOG = "vehicleoption_catalog"
 OP_RESIDUALVALUE = "residualvalue"
 OP_VINREQUEST = "vinrequest"
@@ -125,6 +140,13 @@ PROBE_MODEL_YEAR_RESIDUAL = 2024
 PROBE_TYPE_APPROVAL_TYRES = "1AA157"
 PROBE_TYPE_APPROVAL_ENERGY = "1MG788"
 PROBE_VIN = "WVWZZZAUZGP532394"
+
+# The identAPI's page size — fixed by the provider ("Max Page size is 10").
+# Every search asks for exactly one page of it (ADR-112 (4)).
+PROVIDER_PAGE_SIZE = 10
+
+# json:api query parameters as a list of pairs: `exfilter` repeats.
+_Params = Sequence[tuple[str, str]]
 
 
 class _Unauthorized(ProviderRejectedError):
@@ -217,7 +239,7 @@ class AutoIDatIdentAdapter:
         operation: str,
         method: str,
         path: str,
-        params: Mapping[str, str | int | bool] | None = None,
+        params: Mapping[str, str | int | bool] | _Params | None = None,
         *,
         empty_on_404: bool = False,
         _retry_auth: bool = True,
@@ -248,14 +270,23 @@ class AutoIDatIdentAdapter:
             return self._request(operation, method, path, params, empty_on_404=empty_on_404, _retry_auth=False)
 
     def _send(
-        self, operation: str, method: str, url: str, params: Mapping[str, str | int | bool] | None, headers: dict[str, str]
+        self,
+        operation: str,
+        method: str,
+        url: str,
+        params: Mapping[str, str | int | bool] | _Params | None,
+        headers: dict[str, str],
     ) -> httpx.Response:
         """The one place `self._http` is used. A transport failure or a 5xx
         is a `ProviderTransportError` (what `call_with_retry` retries); any
         other answer is returned for `_accept` to judge, unretried."""
 
         try:
-            response = self._http.request(method, url, params=dict(params) if params else None, headers=headers)
+            query: list[tuple[str, str | int | float | bool | None]] | None = None
+            if params:
+                pairs = params.items() if isinstance(params, Mapping) else params
+                query = [(key, str(value)) for key, value in pairs]
+            response = self._http.request(method, url, params=query, headers=headers)
         except Exception as exc:
             raise transport_error(f"{operation}: the request to the identAPI failed ({type(exc).__name__}).", exc) from exc
         if response.status_code >= 500:
@@ -320,13 +351,226 @@ class AutoIDatIdentAdapter:
     def probe_energielabel(self) -> dict[str, Any]:
         return self._request(OP_ENERGYLABEL_INFO, "GET", f"/energylabel/info/typeapproval/{PROBE_TYPE_APPROVAL_ENERGY}", empty_on_404=True)
 
+    # -- identification (KAN-547) --------------------------------------------------
+
+    def fetch_captions(self, lang: str) -> list[CaptionData]:
+        return parse.parse_captions(self.fetch_code_captions(lang))
+
+    def _vehicle_build(self, identifier_type: str, identifier: str) -> list[BuiltVehicleData]:
+        """`GET /vehiclebuild/{type}/{id}?needAutoiKeyIfExists`: the registered
+        vehicle(s) and, where the provider resolved one, the catalogue variant
+        each belongs to — one answer, one row in the call log. A 404 and an
+        empty `data` both read as "nothing registered under this identifier"."""
+
+        body = self._request(
+            OP_VEHICLEBUILD,
+            "GET",
+            f"/vehiclebuild/{identifier_type}/{identifier}",
+            [("needAutoiKeyIfExists", "true")],
+            empty_on_404=True,
+        )
+        return parse.parse_built_vehicles(body)
+
+    def identify_by_vrn(self, stammnummer: str) -> list[BuiltVehicleData]:
+        return self._vehicle_build("vrn", stammnummer)
+
+    def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
+        return self._vehicle_build("licenseplate", plate)
+
+    def _vehicle_catalog(self, identifier_type: str, identifier: str) -> list[VariantMasterData]:
+        """`GET /vehiclecatalog/{type}/{id}` — the first provider page (10)
+        of catalogue variants; no further page is ever fetched (ADR-112 (4))."""
+
+        body = self._request(
+            OP_VEHICLECATALOG,
+            "GET",
+            f"/vehiclecatalog/{identifier_type}/{identifier}",
+            [("page[size]", str(PROVIDER_PAGE_SIZE)), ("page[number]", "1")],
+            empty_on_404=True,
+        )
+        return parse.parse_variants(body)
+
+    def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
+        return self._vehicle_catalog("typeapproval", type_approval_number)
+
+    def find_variants_by_werkscode(self, werkscode: str) -> list[VariantMasterData]:
+        return self._vehicle_catalog("factorycode", werkscode)
+
+    def fetch_variant(self, fz_key: str) -> VariantMasterData | None:
+        variants = self._vehicle_catalog("autoi", fz_key)
+        return next((v for v in variants if v.fz_key == fz_key), variants[0] if variants else None)
+
+    def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
+        """The Protocol's single-variant read (`catalogue_sync.sync_catalogue_variant`,
+        KAN-211): `fetch_variant`, with a missing key raised as the sync expects."""
+
+        variant = self.fetch_variant(fz_key)
+        if variant is None:
+            raise KeyError(f"The identAPI knows no catalogue variant with FzKey {fz_key!r}.")
+        return variant
+
+    def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
+        """The list price per model year travels with the variant
+        (`catalogPrices`): one request, filtered locally."""
+
+        prices = self.fetch_vehicle_master_data(fz_key).catalogue_prices
+        return [p for p in prices if year is None or p.year == year]
+
+    def fetch_type_approvals(self, fz_key: str) -> list[str]:
+        return list(self.fetch_vehicle_master_data(fz_key).type_approval_numbers)
+
+    def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
+        """The SOAP-shaped plate answer the identification waterfall reads
+        until KAN-547's second PR rewires it to `identify_by_plate`: one
+        record per built vehicle that carries a Typenschein and a Stammnummer
+        (what the plate-lookup cache stores)."""
+
+        records: list[PlateInfoData] = []
+        for vehicle in self.identify_by_plate(plate):
+            if vehicle.type_approval_number is None or vehicle.stammnummer is None:
+                continue
+            records.append(
+                PlateInfoData(
+                    vehicle_kind_code=vehicle.vehicle_kind_code,
+                    brand_name=vehicle.brand_name,
+                    model_description=vehicle.model_description,
+                    production_from=vehicle.production_from,
+                    production_to=vehicle.production_to,
+                    type_approval_number=vehicle.type_approval_number,
+                    first_registration_date=vehicle.first_registration_date,
+                    stammnummer=vehicle.stammnummer,
+                )
+            )
+        return records
+
+    def find_best_match(
+        self,
+        *,
+        typ_sch_nr: str,
+        neupreis: int,
+        modell_bez: str | None = None,
+        eurotax_code: str | None = None,
+        getriebe: str | None = None,
+        tueren: int | None = None,
+    ) -> BestMatchResult:
+        """`GET /vehiclematch/typeapproval/{nr}/{newPriceCatalog}` (FR-C-02
+        step 5). The provider's `matchCode` is 1 for an exact match and 2 for
+        the best of several — the two codes the configuration records; a
+        match the provider could not make (`None`, or no vehicle in the
+        answer) is raised as `KeyError`, which the waterfall reads as "no
+        best match", exactly as the mock does."""
+
+        params: list[tuple[str, str]] = []
+        if modell_bez:
+            params.append(("version", modell_bez))
+        if eurotax_code:
+            params.append(("eurotaxCode", eurotax_code))
+        if getriebe:
+            params.append(("gearbox", getriebe))
+        if tueren is not None:
+            params.append(("doors", str(tueren)))
+        body = self._request(
+            OP_VEHICLEMATCH, "GET", f"/vehiclematch/typeapproval/{typ_sch_nr}/{int(neupreis)}", params, empty_on_404=True
+        )
+        items = parse.data_items(body)
+        match = items[0] if items else None
+        matched = match.get("vehicle") if match else None
+        vehicle = parse.parse_variant(matched) if isinstance(matched, dict) else None
+        code = match.get("matchCode") if match else None
+        if vehicle is None or not isinstance(code, int) or isinstance(code, bool) or code not in (1, 2):
+            raise KeyError(f"The identAPI found no match for Typenschein {typ_sch_nr!r} at {int(neupreis)}.")
+        return BestMatchResult(vehicle=vehicle, match_code=code)
+
+    # -- catalogue browse (KAN-548) -------------------------------------------------
+
+    @staticmethod
+    def _vehicle_type_segment(vehicle_kind_code: str) -> str:
+        segment = parse.VEHICLE_TYPE_SEGMENTS.get(vehicle_kind_code)
+        if segment is None:
+            raise ProviderRequestError(
+                f"{vehicle_kind_code!r} is not an identAPI vehicle type (01 passenger, 02 utility, 03 moto)."
+            )
+        return segment
+
+    def list_catalogue_brands(self, *, vehicle_kind_code: str) -> list[CatalogueBrandData]:
+        segment = self._vehicle_type_segment(vehicle_kind_code)
+        return parse.parse_brands(self._request(OP_VEHICLECATALOG, "GET", f"/vehiclecatalog/brand/{segment}"))
+
+    def list_catalogue_model_groups(
+        self, *, vehicle_kind_code: str, brand: str, in_production: bool | None = None
+    ) -> list[CatalogueModelGroupData]:
+        segment = self._vehicle_type_segment(vehicle_kind_code)
+        params: list[tuple[str, str]] = []
+        if in_production:
+            params.append(("onlyInProduction", "true"))
+        return parse.parse_model_groups(
+            self._request(OP_VEHICLECATALOG, "GET", f"/vehiclecatalog/modelgroup/{segment}/{brand}", params)
+        )
+
+    def _scoped_catalog_query(
+        self, *, vehicle_kind_code: str, brand: str | None, model_group_key: str | None
+    ) -> tuple[str, list[tuple[str, str]]]:
+        """The path and the scope parameters of a catalogue query. **Never
+        unscoped**: a query with neither a brand nor a model group would walk
+        the catalogue, which the licence forbids (ADR-112 (4)) — refused here,
+        before anything is sent, as a request error."""
+
+        if model_group_key:
+            return f"/vehiclecatalog/modelgroup/{model_group_key}", [("filter[type]", vehicle_kind_code)]
+        if brand:
+            return "/vehiclecatalog", [("filter[type]", vehicle_kind_code), ("filter[brand]", brand)]
+        raise ProviderRequestError(
+            "A catalogue query needs a brand or a model group: the identAPI is never asked for its whole catalogue "
+            "(ADR-112 (4), KAN-485)."
+        )
+
+    def search_catalogue_variants(
+        self,
+        *,
+        vehicle_kind_code: str,
+        brand: str | None = None,
+        model_group_key: str | None = None,
+        exfilters: Sequence[str] = (),
+        sort: str | None = None,
+        page_number: int = 1,
+    ) -> VariantSearchPage:
+        if page_number < 1:
+            raise ProviderRequestError("page_number starts at 1.")
+        path, params = self._scoped_catalog_query(
+            vehicle_kind_code=vehicle_kind_code, brand=brand, model_group_key=model_group_key
+        )
+        params.extend(("exfilter", expression) for expression in exfilters if expression)
+        if sort:
+            params.append(("sort", sort))
+        params.extend(
+            [("includeCount", "true"), ("page[size]", str(PROVIDER_PAGE_SIZE)), ("page[number]", str(page_number))]
+        )
+        body = self._request(OP_VEHICLECATALOG, "GET", path, params, empty_on_404=True)
+        return VariantSearchPage(
+            items=parse.parse_variants(body),
+            page_number=page_number,
+            page_size=PROVIDER_PAGE_SIZE,
+            total=parse.total_count(body),
+        )
+
+    def facet_values(
+        self, *, field: str, vehicle_kind_code: str, brand: str, model_group_key: str | None = None
+    ) -> list[str]:
+        if not brand:
+            raise ProviderRequestError("Facet values are read for a brand at least (ADR-112 (4)).")
+        path, params = self._scoped_catalog_query(
+            vehicle_kind_code=vehicle_kind_code, brand=brand, model_group_key=model_group_key
+        )
+        params.append(("fields", f"{field} distinct"))
+        body = self._request(OP_VEHICLECATALOG, "GET", path, params, empty_on_404=True)
+        return parse.parse_distinct_values(body, field)
+
     # -- ProviderAdapter methods other tickets build ------------------------------
 
     def get_system_watermark(self) -> SystemWatermark:
-        _not_built("KAN-547", "The catalogue watermark")
-
-    def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
-        _not_built("KAN-547", "Variant master data")
+        # The identAPI has no `System` watermark; its access check is the
+        # caption call (`entitlement_probes.access_check`).
+        _not_built("KAN-550", "The catalogue watermark")
 
     def fetch_options(self, fz_key: str, *, model_year: int) -> list[VariantOptionData]:
         _not_built("KAN-211", "The option list")
@@ -348,11 +592,15 @@ class AutoIDatIdentAdapter:
     def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:
         _not_built("KAN-552", "The residual-value forecast")
 
+    # The SOAP-shaped browse methods: superseded by `list_catalogue_brands`,
+    # `list_catalogue_model_groups`, `search_catalogue_variants` and
+    # `facet_values`; they leave the Protocol with KAN-550.
+
     def list_vehicle_kinds(self) -> list[VehicleKindData]:
-        _not_built("KAN-548", "Catalogue browse")
+        _not_built("KAN-550", "The SOAP-shaped vehicle-kind list")
 
     def list_brands(self, *, fz_art: str) -> list[BrandData]:
-        _not_built("KAN-548", "Catalogue browse")
+        _not_built("KAN-550", "The SOAP-shaped brand list")
 
     def list_model_groups(
         self,
@@ -366,7 +614,7 @@ class AutoIDatIdentAdapter:
         prod_von: int | None = None,
         prod_bis: int | None = None,
     ) -> list[ModelGroupData]:
-        _not_built("KAN-548", "Catalogue browse")
+        _not_built("KAN-550", "The SOAP-shaped model-group list")
 
     def list_model_groups_short(
         self,
@@ -378,13 +626,10 @@ class AutoIDatIdentAdapter:
         page: int | None = None,
         per_page: int | None = None,
     ) -> list[ModelGroupShortData]:
-        _not_built("KAN-548", "Catalogue browse")
+        _not_built("KAN-550", "The SOAP-shaped short model-group list")
 
     def search_vehicles(self, criteria: dict[str, str | int | Sequence[str | int]]) -> list[VariantMasterData]:
-        _not_built("KAN-548", "The variant search")
-
-    def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
-        _not_built("KAN-547", "New prices per model year")
+        _not_built("KAN-550", "The SOAP-shaped variant search")
 
     def fetch_grouped_values(
         self,
@@ -396,30 +641,12 @@ class AutoIDatIdentAdapter:
         typ_sch_nr: str | None = None,
         gruppiert: str,
     ) -> list[str]:
-        _not_built("KAN-548", "Facet values")
-
-    def fetch_type_approvals(self, fz_key: str) -> list[str]:
-        _not_built("KAN-547", "Type approvals of a variant")
-
-    def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
-        _not_built("KAN-547", "Plate identification")
-
-    def find_best_match(
-        self,
-        *,
-        typ_sch_nr: str,
-        neupreis: int,
-        modell_bez: str | None = None,
-        eurotax_code: str | None = None,
-        getriebe: str | None = None,
-        tueren: int | None = None,
-    ) -> BestMatchResult:
-        _not_built("KAN-547", "The best-match identification")
+        _not_built("KAN-550", "The SOAP-shaped grouped values")
 
     def fetch_type_approval_data(
         self, typ_sch_nr: str, *, getriebe: str | None = None, gaenge: int | None = None
     ) -> TypeApprovalDataResult:
-        _not_built("KAN-547", "Type-approval data")
+        _not_built("KAN-550", "Type-approval data")
 
     def fetch_option_package_contents(self, opt_key: int) -> list[OptionPackageContentData]:
         _not_built("KAN-211", "Option package contents")
@@ -433,7 +660,8 @@ class AutoIDatIdentAdapter:
     def fetch_codes(
         self, *, code_groups: list[str] | None = None, active_only: bool = False
     ) -> list[CodeMapEntryData]:
-        _not_built("KAN-547", "The code map")
+        # Superseded: the identAPI's vocabulary is `fetch_captions` (ADR-111 (3)).
+        _not_built("KAN-550", "The CodeGrpNr code list")
 
 
 def _json_api_title(response: httpx.Response) -> str:

@@ -217,9 +217,29 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `images`/`packages` are features over `ausstattung`; the plate rung's entitlement is
   `ident_basis`. «Test connection» = discovery (cached a day) + token + `GET /caption/code?lang=de`
   + the six probes, with the clicking user as the actor; a login refused under the probes charges
-  the breaker once, stops them, and leaves the remaining options' rows as they were. Identification, browse, details, VIN and valuation on the
-  identAPI are KAN-547/548/211/549/552; the SOAP adapter (`auto_i_dat_soap.py`, legacy code
-  `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550/KAN-547.
+  the breaker once, stops them, and leaves the remaining options' rows as they were. **Built on the
+  identAPI adapter (KAN-547 PR 1):** `identify_by_vrn` / `identify_by_plate` (`GET /vehiclebuild/{vrn|licenseplate}/…?needAutoiKeyIfExists`,
+  one `vehiclebuild` row; a Wechselschild is several `BuiltVehicleData`), `find_variants_by_type_approval` /
+  `find_variants_by_werkscode` / `fetch_variant` (`GET /vehiclecatalog/{typeapproval|factorycode|autoi}/…`,
+  the first provider page of 10, never a second — `vehiclecatalog`), `find_best_match`
+  (`GET /vehiclematch/typeapproval/{nr}/{newPriceCatalog}` — `vehiclematch`; `matchCode` 1 exact, 2 best of
+  several, anything else "no match"), `fetch_captions`, and KAN-548's browse operations
+  (`list_catalogue_brands`, `list_catalogue_model_groups`, `search_catalogue_variants` — one page, `includeCount`,
+  refused in code without a brand or model-group scope —, `facet_values` = `fields=<field> distinct`). Bodies are
+  read by `adapters/identapi_parse.py`, which interprets no code: `0` is *unknown* (NULL), a null `productionEnd`
+  is *in production*, a Stammnummer loses its dots and a plate its spaces. Not built: options, colours, tyres,
+  images (KAN-211), valuation (KAN-552), the VIN rung (KAN-549); the SOAP adapter (`auto_i_dat_soap.py`, legacy
+  code `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550 — the mock also answers the
+  identAPI-shaped operations from its fixtures (invented spec blocks included), so demos and tests run on it.
+- **Provider captions are vocabulary, global, fetched on «Test connection» only** (ADR-111 (3); KAN-547, Anto
+  2026-11-07: no scheduled refresh — a background job has no user to enrol). `integration_provider_caption`
+  (`app/integration/models/caption.py`, migration `3f1c9a7e2b54`; in the integration registry, not vehicle,
+  because the one action that fetches them runs there): one row per (provider, caption group, list
+  `passenger|utility|moto|global`, code) with `label_de/fr/it/en`; the German body of the access check is
+  stored, then French, Italian and English are three more `caption_code` rows in one block, each committed as it
+  lands; a failure there leaves the connection `connected`. Other contexts read them through
+  `integration.public.get_captions` / `caption_languages_fetched` as plain data — to show a provider's wording
+  beside an unmapped code, never to fill a reference list (ADR-044).
 - Catalogue browse makes **no** live provider call (architecture test).
 - Provider text (option names, colour names) is stored and rendered **as delivered**, never
   translated (ADR-044); only our canonical reference data is translated.
@@ -407,11 +427,21 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
   drivetrain (groups 012 and 022 are Hinten/Vorne/Allrad). The seeded code map (migration
   `7c4e9a2b6d13`, asserted in `tests/test_provider_code_map_seed.py`) maps 112 →
-  `engine_cycle`. **The sync does not read that row yet (KAN-447):** `catalogue_sync.py` resolves
-  `Antrieb` under `drivetrain` for every vehicle kind and never writes `engine_cycle`. Routing
-  by vehicle kind waits for a staging account — whether the provider selects the code group by
-  `FzArt` or `FzArtExtern` is unknown (a SOAP question that dies with the SOAP adapter, KAN-550;
-  the identAPI's captions are per vehicle type, KAN-547); never route it on a guess.
+  `engine_cycle`. **The sync routes it by the raw vehicle kind (KAN-547, closing KAN-447):** the identAPI's
+  `type` is unambiguous, so `catalogue_sync._raw_codes` reads a motorcycle's (`03`; the mock's `3`) `drive` as
+  `engine_cycle` and leaves its `drivetrain` NULL, and every other kind's as `drivetrain` with no `engine_cycle`.
+  The seeded map needs no re-key: the identAPI's codes are auto-i's own (body 1/3/4/5/6, fuel 1…16, drive 1/2/5
+  and 2/4/9, gearbox 1/2/5/6, consumption norm 3/4, type 01/02/03) — Anto, 2026-11-07, KAN-547 decision 1.
+  **The spec block's reference fields are code-mapped too** (`_CODED_FIELDS`: `vehicle_class` ← `category`,
+  `emission_standard` ← `euronorm`, `consumption_norm` ← `consumptionNorm`, `valuation_classification` — no
+  identAPI counterpart, always NULL from it); `category` 1–6 has no seeded rows and the `vehicle_class` list holds
+  homologation classes (M1, N1, …), so every category is a mapping gap until the list question is settled
+  (follow-up ticket). **A lookup stores the whole block** (`_FILLABLE_MASTER_FIELDS` = the spec block, fill-if-NULL
+  on a revisit, KAN-83), the list price per model year (`vehicle_variant_price`, `source = provider`, a held year
+  never replaced), the `modelGroupKey` as a `ProviderEntityRef` of the model group (`entity_type model_group`), and
+  the identAPI's A–G label as **this Swiss year's** `ModelVariantEnergyRating` with `source = auto_i_dat` — never
+  over a row already held for the year, a BFE row included (ADR-042 amended by ruling: Anto, 2026-11-07, KAN-547
+  decision 4). Two block fields the identAPI does not carry stay NULL: `system_kw`, `valuation_classification`.
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
   code; never a numeric CodeGrpNr (`resolve_provider_code` refuses one; migration

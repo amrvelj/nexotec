@@ -45,7 +45,7 @@ import uuid
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, NoReturn, Protocol
 from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
@@ -68,6 +68,10 @@ from app.integration.adapters.auto_i_dat_parse import (
 from app.integration.adapters.base import (
     BestMatchResult,
     BrandData,
+    BuiltVehicleData,
+    CaptionData,
+    CatalogueBrandData,
+    CatalogueModelGroupData,
     CodeMapEntryData,
     ForecastResult,
     ModelGroupData,
@@ -82,6 +86,7 @@ from app.integration.adapters.base import (
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
+    VariantSearchPage,
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
@@ -723,6 +728,58 @@ class AutoIDatSoapAdapter:
             )
             for row in result.rows
         ]
+
+    # -- the identAPI-shaped operations (KAN-547, KAN-548) -----------------
+    #
+    # Protocol compliance only: the SOAP service has no Vehicle Build, no
+    # captions and no paged catalogue; `auto_i_dat` resolves to the identAPI
+    # adapter (ADR-111) and this module leaves with KAN-550.
+
+    def _not_on_soap(self, what: str) -> NoReturn:
+        raise ProviderConfigurationError(f"{what} exists on the identAPI only (ADR-111); the SOAP adapter is retired by KAN-550.")
+
+    def identify_by_vrn(self, stammnummer: str) -> list[BuiltVehicleData]:
+        self._not_on_soap("Identification by Stammnummer")
+
+    def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
+        self._not_on_soap("Vehicle Build by plate")
+
+    def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
+        self._not_on_soap("The paged Typenschein lookup")
+
+    def find_variants_by_werkscode(self, werkscode: str) -> list[VariantMasterData]:
+        self._not_on_soap("The paged Werkscode lookup")
+
+    def fetch_variant(self, fz_key: str) -> VariantMasterData | None:
+        self._not_on_soap("The identAPI variant read")
+
+    def fetch_captions(self, lang: str) -> list[CaptionData]:
+        self._not_on_soap("Captions")
+
+    def list_catalogue_brands(self, *, vehicle_kind_code: str) -> list[CatalogueBrandData]:
+        self._not_on_soap("The identAPI brand list")
+
+    def list_catalogue_model_groups(
+        self, *, vehicle_kind_code: str, brand: str, in_production: bool | None = None
+    ) -> list[CatalogueModelGroupData]:
+        self._not_on_soap("The identAPI model-group list")
+
+    def search_catalogue_variants(
+        self,
+        *,
+        vehicle_kind_code: str,
+        brand: str | None = None,
+        model_group_key: str | None = None,
+        exfilters: Sequence[str] = (),
+        sort: str | None = None,
+        page_number: int = 1,
+    ) -> VariantSearchPage:
+        self._not_on_soap("The paged catalogue search")
+
+    def facet_values(
+        self, *, field: str, vehicle_kind_code: str, brand: str, model_group_key: str | None = None
+    ) -> list[str]:
+        self._not_on_soap("Facet values")
 
     # -- valuation / forecast -----------------------------------------
     #

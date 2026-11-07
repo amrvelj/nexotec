@@ -23,6 +23,10 @@ from app.core.base import utcnow
 from app.integration.adapters.base import (
     BestMatchResult,
     BrandData,
+    BuiltVehicleData,
+    CaptionData,
+    CatalogueBrandData,
+    CatalogueModelGroupData,
     CodeMapEntryData,
     ForecastResult,
     ModelGroupData,
@@ -37,6 +41,7 @@ from app.integration.adapters.base import (
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
+    VariantSearchPage,
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
@@ -62,6 +67,13 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         base_price=Decimal("28900.00"),
         werkscode="ALF14TB",
         type_approval_numbers=["1AB234"],
+        # KAN-547: the spec block the identAPI carries, invented figures.
+        model_type_name="Alfa Romeo Giulietta 1.4 TB Progression", trim_name="Progression",
+        displacement_ccm=1368, cylinders=4, gears=6, ps=120, kw=88, doors=5, seats=5,
+        weight_empty_kg=1355, weight_total_kg=1850, consumption_mixed=Decimal("5.6"), consumption_norm_code="4",
+        co2_gkm=129, tank_capacity_l=60, production_from=201903, production_to=202112, base_price_year=2021,
+        price_is_net=False, energy_label="C",
+        catalogue_prices=[VehiclePriceData(year=2019, price=28900), VehiclePriceData(year=2021, price=29400)],
     ),
     "FZ100002": VariantMasterData(
         fz_key="FZ100002",
@@ -79,6 +91,12 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         base_price=Decimal("42500.00"),
         werkscode="VW20TSI",
         type_approval_numbers=["2CD456"],
+        model_type_name="Volkswagen Golf GTI 2.0 TSI DSG", trim_name="GTI",
+        displacement_ccm=1984, cylinders=4, gears=7, ps=245, kw=180, doors=5, seats=5,
+        weight_empty_kg=1463, weight_total_kg=1960, consumption_mixed=Decimal("7.1"), consumption_norm_code="4",
+        co2_gkm=162, tank_capacity_l=50, production_from=202101, base_price_year=2023, price_is_net=False,
+        energy_label="E",
+        catalogue_prices=[VehiclePriceData(year=2021, price=41900), VehiclePriceData(year=2023, price=42500)],
     ),
     "FZ100003": VariantMasterData(
         fz_key="FZ100003",
@@ -96,6 +114,12 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         base_price=Decimal("54900.00"),
         werkscode="BMW320D",
         type_approval_numbers=["3EF789"],
+        model_type_name="BMW 320d xDrive Touring M Sport", trim_name="M Sport",
+        displacement_ccm=1995, cylinders=4, gears=8, ps=190, kw=140, doors=5, seats=5,
+        weight_empty_kg=1745, weight_total_kg=2290, towing_capacity_kg=1800, consumption_mixed=Decimal("5.3"),
+        consumption_norm_code="4", co2_gkm=139, tank_capacity_l=59, production_from=202003, base_price_year=2023,
+        price_is_net=False, energy_label="B",
+        catalogue_prices=[VehiclePriceData(year=2020, price=53900), VehiclePriceData(year=2023, price=54900)],
     ),
 }
 
@@ -377,6 +401,46 @@ def _model_groups(
 _Method = TypeVar("_Method", bound=Callable[..., Any])
 
 
+# KAN-547 — the identAPI's caption groups as the mock speaks them: the codes
+# the demo variants carry, with invented wording (KAN-491). `kind` is the
+# list a caption sits in; `global` holds a code every vehicle type shares.
+_CAPTIONS: list[CaptionData] = [
+    CaptionData(group="type", kind="global", code="01", label="Demo-Personenwagen", label_short="PW"),
+    CaptionData(group="type", kind="global", code="02", label="Demo-Nutzfahrzeug", label_short="NF"),
+    CaptionData(group="type", kind="global", code="03", label="Demo-Motorrad", label_short="MR"),
+    CaptionData(group="fuel", kind="passenger", code="3", label="Demo-Diesel", label_short="D"),
+    CaptionData(group="fuel", kind="passenger", code="4", label="Demo-Diesel Filter", label_short="DF"),
+    CaptionData(group="body", kind="passenger", code="4", label="Demo-Van", label_short=None),
+    CaptionData(group="body", kind="passenger", code="5", label="Demo-Kombi", label_short=None),
+    CaptionData(group="drive", kind="passenger", code="1", label="Demo-Heck", label_short=None),
+    CaptionData(group="drive", kind="passenger", code="2", label="Demo-Front", label_short=None),
+    CaptionData(group="gearbox", kind="passenger", code="A", label="Demo-Automat", label_short="A"),
+    CaptionData(group="gearbox", kind="passenger", code="M", label="Demo-Handschaltung", label_short="M"),
+]
+
+
+def _built_vehicle(record: PlateInfoData, *, plate: str | None) -> BuiltVehicleData:
+    """A mock plate record as the identAPI's Vehicle Build row: the variant
+    is the demo variant whose Typenscheine carry the record's number."""
+
+    variant = next((m for m in _MASTER_DATA.values() if record.type_approval_number in m.type_approval_numbers), None)
+    return BuiltVehicleData(
+        fz_key=variant.fz_key if variant else None,
+        vin=None,
+        stammnummer=record.stammnummer,
+        plate=plate,
+        first_registration_date=record.first_registration_date,
+        type_approval_number=record.type_approval_number,
+        model_year=record.first_registration_date.year if record.first_registration_date else None,
+        vehicle_kind_code=record.vehicle_kind_code,
+        brand_name=record.brand_name,
+        model_description=record.model_description,
+        production_from=record.production_from,
+        production_to=record.production_to,
+        variant=variant,
+    )
+
+
 def _request(datenname: str) -> Callable[[_Method], _Method]:
     """Each mock method is one request under the real adapter's Datenname,
     so a dev or staging call log reads like a real one (KAN-486)."""
@@ -574,6 +638,124 @@ class MockAutoIDatAdapter:
             return list(_CODES)
         wanted = set(code_groups)
         return [c for c in _CODES if c.code_group_nr in wanted]
+
+    # -- the identAPI-shaped operations (KAN-547, KAN-548), over the same
+    # fixtures, so the demo provider answers the identification waterfall and
+    # the browse screen like the real one. Operation names are the identAPI's.
+
+    @_request("vehiclebuild")
+    def identify_by_vrn(self, stammnummer: str) -> list[BuiltVehicleData]:
+        return [
+            _built_vehicle(record, plate=plate)
+            for plate, records in _PLATES.items()
+            for record in records
+            if record.stammnummer == stammnummer
+        ]
+
+    @_request("vehiclebuild")
+    def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
+        return [_built_vehicle(record, plate=plate) for record in _PLATES.get(plate, [])]
+
+    @_request("vehiclecatalog")
+    def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
+        return [m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers]
+
+    @_request("vehiclecatalog")
+    def find_variants_by_werkscode(self, werkscode: str) -> list[VariantMasterData]:
+        return [m for m in _MASTER_DATA.values() if m.werkscode == werkscode]
+
+    @_request("vehiclecatalog")
+    def fetch_variant(self, fz_key: str) -> VariantMasterData | None:
+        return _MASTER_DATA.get(fz_key)
+
+    @_request("caption_code")
+    def fetch_captions(self, lang: str) -> list[CaptionData]:
+        suffix = "" if lang == "de" else f" ({lang})"
+        return [
+            CaptionData(
+                group=c.group, kind=c.kind, code=c.code,
+                label=f"{c.label}{suffix}" if c.label else None, label_short=c.label_short,
+            )
+            for c in _CAPTIONS
+        ]
+
+    @_request("vehiclecatalog")
+    def list_catalogue_brands(self, *, vehicle_kind_code: str) -> list[CatalogueBrandData]:
+        brands: dict[str, CatalogueBrandData] = {}
+        for master in _MASTER_DATA.values():
+            if master.vehicle_kind_code.lstrip("0") != vehicle_kind_code.lstrip("0"):
+                continue
+            brand = brands.setdefault(
+                master.brand_display_name,
+                CatalogueBrandData(name=master.brand_display_name, brand_nr=master.brand_code, models=[]),
+            )
+            if master.model_group_name not in brand.models:
+                brand.models.append(master.model_group_name)
+        return list(brands.values())
+
+    @_request("vehiclecatalog")
+    def list_catalogue_model_groups(
+        self, *, vehicle_kind_code: str, brand: str, in_production: bool | None = None
+    ) -> list[CatalogueModelGroupData]:
+        groups: list[CatalogueModelGroupData] = []
+        for master in _MASTER_DATA.values():
+            if master.brand_display_name.lower() != brand.lower():
+                continue
+            if in_production and master.model_year_to is not None:
+                continue
+            group = _MODEL_GROUPS[master.brand_code]
+            groups.append(
+                CatalogueModelGroupData(
+                    model_group_key=str(group.model_group_key), description=group.name_de,
+                    model_search=group.short_name, production_year_from=group.production_from,
+                    production_year_to=group.production_to,
+                )
+            )
+        return groups
+
+    @_request("vehiclecatalog")
+    def search_catalogue_variants(
+        self,
+        *,
+        vehicle_kind_code: str,
+        brand: str | None = None,
+        model_group_key: str | None = None,
+        exfilters: Sequence[str] = (),
+        sort: str | None = None,
+        page_number: int = 1,
+    ) -> VariantSearchPage:
+        if not brand and not model_group_key:
+            raise KeyError("A catalogue query needs a brand or a model group (ADR-112 (4)).")
+        matches = [
+            m
+            for m in _MASTER_DATA.values()
+            if (brand is None or m.brand_display_name.lower() == brand.lower())
+            and (model_group_key is None or str(_MODEL_GROUPS[m.brand_code].model_group_key) == model_group_key)
+        ]
+        page_size = 10
+        start = (page_number - 1) * page_size
+        return VariantSearchPage(
+            items=matches[start : start + page_size], page_number=page_number, page_size=page_size, total=len(matches)
+        )
+
+    @_request("vehiclecatalog")
+    def facet_values(
+        self, *, field: str, vehicle_kind_code: str, brand: str, model_group_key: str | None = None
+    ) -> list[str]:
+        attribute = {
+            "fuel": "fuel_type_code", "body": "body_style_code", "drive": "drivetrain_code",
+            "gearbox": "transmission_code", "type": "vehicle_kind_code",
+        }.get(field)
+        if attribute is None:
+            return []
+        values: list[str] = []
+        for m in _MASTER_DATA.values():
+            if m.brand_display_name.lower() != brand.lower():
+                continue
+            value = getattr(m, attribute)
+            if value is not None and value not in values:
+                values.append(value)
+        return values
 
     @_request("Fahrzeuge")
     def fetch_valuation(
