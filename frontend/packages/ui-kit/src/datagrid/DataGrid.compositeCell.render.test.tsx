@@ -96,9 +96,12 @@ describe("DataGrid composite cell on one line (KAN-573, KAN-577)", () => {
   // dropped. Before, compact rendered no secondary at all.
   it.each(["default", "compact"] as const)("at %s: reads «Primary · secondary», the «·» shrinking with the secondary", (density) => {
     render(grid(density));
-    const secondary = screen.getByText(VIN);
+    const secondary = screen.getByText("WVWZZZCDZMW055401");
     expect(secondary.textContent).toBe("· WVWZZZCDZMW055401");
     expect(secondary.dataset.compositePart).toBe("secondary");
+    // the dot is hidden from assistive technology; the fact itself is not
+    const dot = secondary.querySelector('[aria-hidden="true"]');
+    expect(dot?.textContent).toBe("· ");
   });
 
   it("a row without a secondary fact shows the primary alone, with no stray «·»", () => {

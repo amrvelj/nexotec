@@ -734,7 +734,8 @@ function InlineComposite({ children, secondary }: { children: ReactNode; seconda
       </span>
       {hasSecondary && (
         <span data-composite-part="secondary" style={INLINE_COMPOSITE_SECONDARY_STYLE}>
-          {"· "}
+          {/* The «·» is presentation: a screen reader reads the two facts, not the dot. */}
+          <span aria-hidden="true">{"· "}</span>
           {secondary}
         </span>
       )}

@@ -208,7 +208,10 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     expect(screen.getAllByText('K-1001').length).toBeGreaterThan(0)
   }, 60000) // toggles every column twice (96 renders at 48 columns) — CI's runners need real headroom here, not just local-machine timing
 
-  it('the composite Contact cell shows mobile and email, stacks at comfortable, drops the secondary at compact', async () => {
+  // KAN-577 (Anto, 2026-11-07, option A; UI/UX Specification § Composite
+  // cells, FR-UI-03): compact inlines the secondary as default does — it is
+  // never dropped. This test pinned the old drop until then.
+  it('the composite Contact cell shows mobile and email, stacks at comfortable, inlines both at compact', async () => {
     route([customer({ id: 'c1', phoneMobile: '+41 79 111 22 33', email: 'anna@bay.ch' })])
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
 
@@ -223,7 +226,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
 
     await cycleDensity() // comfortable -> compact
     expect(screen.getByText('+41 79 111 22 33')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByText('anna@bay.ch')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('anna@bay.ch').dataset.compositePart).toBe('secondary'))
   })
 
   it('a customer with no mobile renders the Contact cell as just the email — no stray separator', async () => {
