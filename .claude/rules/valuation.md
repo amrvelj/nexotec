@@ -48,7 +48,7 @@ file in the same PR as any change to what it states. -->
   names its car keeps it. **A trade-in is a car** (KAN-574; Anto, 2026-11-07, option A): older
   valuations without a VIN (rows from before the rule below) are refused as trade-ins — 422
   `trade_in_valuation_names_no_car` at attach, nothing written, whatever the deal already names and
-  configured or not — and «Offerte aus dieser Bewertung erstellen» is disabled for them with the
+  configured or not, and never offered by `set_trade_in`'s FR-S-08 auto-attach — and «Offerte aus dieser Bewertung erstellen» is disabled for them with the
   reason (`createOfferNoVin`). **Open with Anto on KAN-574:** a pre-1981 chassis number is refused
   the same way (a trade-in takes a VIN until KAN-535); a deal that held such a valuation before the
   rule keeps it (copy, contract and confirmation do not re-check).

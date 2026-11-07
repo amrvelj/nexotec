@@ -6,7 +6,7 @@ import i18n from '../i18n'
  * KAN-574 (Anto, 2026-11-07, option A): a valuation names its car — the
  * dialog's VIN, make and model are required. A test whose subject is not the
  * car fills whichever of them is still empty and editable (a configuration
- * fills them read-only), so the submit is enabled.
+ * fills the VIN read-only and prefills make and model), so the submit is enabled.
  */
 export async function nameValuationCar(
   user: ReturnType<typeof userEvent.setup>,

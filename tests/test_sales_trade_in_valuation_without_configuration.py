@@ -155,6 +155,9 @@ def test_an_older_valuation_with_a_configuration_but_no_vin_is_refused(db_sessio
         attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
 
     assert refused.value.details["reason"] == "trade_in_valuation_names_no_car"
+    db_session.rollback()
+    db_session.refresh(offer)
+    assert offer.trade_in_valuation_id is None and offer.trade_in_value is None
 
 
 def test_its_contract_takes_the_car_into_the_pipeline_on_confirmation(db_session, engine):
@@ -222,7 +225,7 @@ def test_a_valuation_with_a_vin_but_no_make_or_model_is_named_by_its_vin(db_sess
 def test_a_chassis_number_stored_on_the_valuation_is_refused_as_a_trade_in(db_session):
     """A trade-in takes only a VIN (`NormalisedVin`; KAN-535 is open), so a
     valuation carrying a pre-1981 chassis number brings no car a trade-in can
-    take — refused on a deal naming none (KAN-574)."""
+    take — refused as a trade-in (KAN-574; open with Anto on KAN-574)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
