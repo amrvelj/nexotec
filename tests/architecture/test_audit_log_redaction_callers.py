@@ -11,15 +11,18 @@ module in `app/` and `scripts/` but `app/core/audit.py`:
   only from the allow-listed modules below; every listed module still calls
   them. A new caller is an ADR line plus an entry here.
 - No SQL or ORM statement updates or deletes audit rows: `update(AuditEvent)`,
-  `delete(AuditEvent)`, `query(AuditEvent)….update()/.delete()`,
+  `delete(AuditEvent)`, an `.update()`/`.delete()` called on a chain built from
+  `query(AuditEvent)` (on one line or several),
   `AuditEvent.__table__.update()/.delete()`, or `UPDATE`/`DELETE FROM` on
   `audit_event`, quoted or not.
 - Nothing assigns to an object's `before` or `after` attribute (`x.after = …`,
-  `setattr(x, "after", …)`) — the way an audit row's payload is changed.
+  `setattr(x, "after", …)`) or marks one modified (`flag_modified(x, "after")`,
+  the step an in-place change of the payload needs) — the ways an audit row's
+  payload is changed.
 
-Not guarded, because it cannot be told apart statically from a legitimate
-delete: `db.delete(row)` where `row` happens to be an audit row. Review is the
-guard there.
+Not guarded, because they cannot be told apart statically from legitimate
+code: `db.delete(row)` where `row` happens to be an audit row, and a query
+stored in a variable before `.delete()`. Review is the guard there.
 """
 
 import ast
@@ -76,6 +79,33 @@ def _called_names(tree: ast.AST) -> set[str]:
     return names
 
 
+def _chain_has_audit_query(node: ast.AST) -> bool:
+    """Whether a call chain (`a(...).b(...).c`) was built from `query(AuditEvent)`."""
+
+    while True:
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else None
+            if name == "query" and any(isinstance(arg, ast.Name) and arg.id == "AuditEvent" for arg in node.args):
+                return True
+            node = func
+        elif isinstance(node, ast.Attribute):
+            node = node.value
+        else:
+            return False
+
+
+def _orm_writes(tree: ast.AST) -> list[int]:
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in {"update", "delete"}
+        and _chain_has_audit_query(node.func.value)
+    ]
+
+
 def _payload_writes(tree: ast.AST) -> list[int]:
     lines = []
     for node in ast.walk(tree):
@@ -87,7 +117,7 @@ def _payload_writes(tree: ast.AST) -> list[int]:
         elif (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
-            and node.func.id == "setattr"
+            and node.func.id in {"setattr", "flag_modified"}
             and len(node.args) >= 2
             and isinstance(node.args[1], ast.Constant)
             and node.args[1].value in _PAYLOAD_ATTRIBUTES
@@ -129,6 +159,16 @@ def test_no_raw_update_or_delete_of_audit_rows():
     assert offenders == [], offenders
 
 
+def test_no_orm_update_or_delete_on_an_audit_query():
+    offenders = []
+    for path, rel in _python_files():
+        if rel == "app/core/audit.py":
+            continue
+        for line in _orm_writes(ast.parse(path.read_text(encoding="utf-8"))):
+            offenders.append(f"{rel}:{line}")
+    assert offenders == [], offenders
+
+
 def test_nothing_assigns_to_a_before_or_after_attribute():
     offenders = []
     for path, rel in _python_files():
@@ -158,6 +198,10 @@ def test_the_guard_sees_an_aliased_import_and_a_payload_write():
         "row.after = {}\n"
         "event.before += {}\n"
         "setattr(row, 'after', {})\n"
+        "flag_modified(row, 'before')\n"
+        "(\n    db.query(AuditEvent)\n    .filter(x)\n    .delete()\n)\n"
     )
     assert "redact_audit_values" in _called_names(tree)
-    assert _payload_writes(tree) == [2, 3, 4]
+    assert _payload_writes(tree) == [2, 3, 4, 5]
+    assert len(_orm_writes(tree)) == 1
+    assert _orm_writes(ast.parse("db.query(Customer).filter(x).delete()")) == []

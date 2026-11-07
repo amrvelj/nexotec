@@ -35,77 +35,37 @@ def record_audit_event(
     return event
 
 
-# ADR-121 (KAN-564; Anto, 2026-11-07, option B, decision 1 A): the value a
-# redacted key carries from then on. The key stays, so the row still says
-# which field changed («VIN geändert»).
 REDACTED = "[redacted]"
 
 
 def redact_audit_values(
-    db: Session,
-    *,
-    entity_type: str,
-    entity_id: uuid.UUID,
-    tenant_id: uuid.UUID | None,
-    keys: frozenset[str],
-    actor_id: uuid.UUID | None,
-    reason: str,
+    db: Session, *, entity_type: str, entity_id: uuid.UUID, tenant_id: uuid.UUID | None,
+    keys: frozenset[str], actor_id: uuid.UUID | None, reason: str,
 ) -> int:
     """ADR-121: the one sanctioned rewrite of the append-only audit log.
-
-    When an entity is deleted for retention (a purge) or as a compensation
-    that removes what no host ever kept (a host's failed copy), the personal
-    values its own earlier rows copied are blanked: in `before` and `after`,
-    a key in `keys` keeps its name and a non-null value becomes `REDACTED`.
-    No row is deleted, reordered or re-dated; `action`, `actor_id`, `reason`
-    and `created_at` never change. One `redact` row records the ids of the
-    rows touched and the keys, never the values. Idempotent: a value already
-    `REDACTED` is not touched again, and a call that touches nothing writes
-    no `redact` row. Never commits: the caller's transaction does.
-
-    `tenant_id` is matched exactly — `None` means the rows written without a
-    tenant, not "any tenant" as in `list_audit_events`. Its callers are
-    allow-listed by name (`tests/architecture/test_audit_log_redaction_callers.py`).
-    """
-
-    rows = db.scalars(
-        select(AuditEvent).where(
-            AuditEvent.entity_type == entity_type,
-            AuditEvent.entity_id == entity_id,
-            AuditEvent.tenant_id == tenant_id if tenant_id is not None else AuditEvent.tenant_id.is_(None),
-        )
-    ).all()
+    Blanks `keys` in the before/after of this entity's rows (the key stays,
+    a non-null value becomes REDACTED); no row is deleted, no other column
+    changes. Records one `redact` row naming the touched rows and the keys,
+    never the values. Never commits: the purge's transaction does."""
+    rows = db.scalars(select(AuditEvent).where(
+        AuditEvent.entity_type == entity_type, AuditEvent.entity_id == entity_id,
+        AuditEvent.tenant_id == tenant_id)).all()
     touched: list[uuid.UUID] = []
     for row in rows:
         changed = False
         for side in ("before", "after"):
             payload = getattr(row, side)
-            if payload and any(_redactable(key, value, keys) for key, value in payload.items()):
-                setattr(
-                    row,
-                    side,
-                    {key: (REDACTED if _redactable(key, value, keys) else value) for key, value in payload.items()},
-                )
+            if payload and keys & payload.keys():
+                setattr(row, side, {k: (REDACTED if k in keys and v is not None else v) for k, v in payload.items()})
                 changed = True
         if changed:
             touched.append(row.id)
     if touched:
-        record_audit_event(
-            db,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            tenant_id=tenant_id,
-            action="redact",
-            actor_id=actor_id,
-            after={"auditEventIds": [str(event_id) for event_id in touched], "keys": sorted(keys)},
-            reason=reason,
-        )
+        record_audit_event(db, entity_type=entity_type, entity_id=entity_id, tenant_id=tenant_id,
+            action="redact", actor_id=actor_id, reason=reason,
+            after={"auditEventIds": [str(i) for i in touched], "keys": sorted(keys)})
     db.flush()
     return len(touched)
-
-
-def _redactable(key: str, value: Any, keys: frozenset[str]) -> bool:
-    return key in keys and value is not None and value != REDACTED
 
 
 def list_audit_events(

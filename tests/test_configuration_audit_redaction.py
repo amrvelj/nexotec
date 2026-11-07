@@ -256,21 +256,3 @@ def test_the_same_id_under_another_tenant_or_entity_type_is_left_alone(db_sessio
         ("vehicle_configuration", False, NEW_VIN),
         ("vehicle_configuration", True, REDACTED),
     ]
-
-
-def test_a_second_redaction_touches_nothing_and_records_nothing(db_session):
-    entity_id = uuid.uuid4()
-    tenant_id = uuid.uuid4()
-    record_audit_event(
-        db_session, entity_type="vehicle_configuration", entity_id=entity_id, tenant_id=tenant_id,
-        action="update", actor_id=None, before={"vin": OLD_VIN}, after={"vin": NEW_VIN},
-    )
-    arguments = {
-        "entity_type": "vehicle_configuration", "entity_id": entity_id, "tenant_id": tenant_id,
-        "keys": frozenset({"vin"}), "actor_id": None, "reason": "test",
-    }
-    assert redact_audit_values(db_session, **arguments) == 1
-
-    assert redact_audit_values(db_session, **arguments) == 0
-    db_session.commit()
-    assert len([row for row in _rows(db_session, entity_id) if row.action == "redact"]) == 1

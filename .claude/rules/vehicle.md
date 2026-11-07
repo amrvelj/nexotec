@@ -232,7 +232,8 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   row (`delete`, reason `never_taken_purged`, never the VIN or mileage) and
   `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…` — and
   blanks the personal values its earlier audit rows copied (`vin`, `stammnummer`, `licencePlate`,
-  `mileageKm`, `notes`, `vehicleId` → `[redacted]`, the key kept; one `redact` row naming rows and
+  `mileageKm`, `notes`, `vehicleId` — and the snake_case spellings rows written before KAN-346 used —
+  → `[redacted]`, the key kept; one `redact` row naming rows and
   keys) through `app.core.audit.redact_audit_values`, the log's one sanctioned rewrite (ADR-121,
   KAN-564; Anto, 2026-11-07); the discard of a host's failed copy (KAN-188) does the same. A
   configuration a host took is never deleted, so its history stays whole (FR-C-11). One a

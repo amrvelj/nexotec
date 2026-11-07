@@ -101,12 +101,17 @@ def _discarded(db: Session, configuration_id: uuid.UUID) -> int:
 
 
 def _purge_audits(db: Session, configuration_id: uuid.UUID) -> list[AuditEvent]:
+    """The purge's own `delete` row. Since ADR-121 (KAN-564) the purge also
+    writes a `redact` row with the same reason; its own tests are in
+    tests/test_configuration_audit_redaction.py."""
+
     return list(
         db.scalars(
             select(AuditEvent).where(
                 AuditEvent.entity_type == "vehicle_configuration",
                 AuditEvent.entity_id == configuration_id,
                 AuditEvent.reason == "never_taken_purged",
+                AuditEvent.action == "delete",
             )
         )
     )
