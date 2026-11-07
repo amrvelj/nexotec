@@ -3420,7 +3420,8 @@ def reopen_former_holder_after_storno(
     booking. A role the customer holds now is left alone (a redelivery, or a
     later allocation), and so is a role with no such row (a purchase this
     context never recorded). A role is left alone too when a row of it was
-    recorded after the storno (open or already ended — a newer fact) or a
+    recorded after the storno holding the role then (open now or ended since
+    — a newer fact; a history row recorded later does not count) or a
     holder of it starts after the storno. Not caught: an older row reopened
     by a PATCH after the storno (API only) is closed by a late storno — the
     accepted residual in customer.md. Otherwise a reopen goes through the
@@ -3469,9 +3470,9 @@ def reopen_former_holder_after_storno(
         ).first()
         if party is None:
             continue
-        # A row of this role in the group recorded after the storno — open or
-        # already ended (a customer linked and disconnected since) — is a
-        # newer fact than this storno: a late delivery must not overwrite it,
+        # A row of this role in the group recorded after the storno that held
+        # the role then — open now or ended since (a customer linked and
+        # disconnected since) — is a newer fact than this storno: a late delivery must not overwrite it,
         # so the role is left as it is. A holder recorded before the storno but
         # starting after it (a future start) is left too: closing it would end
         # it before it began.
@@ -3484,6 +3485,10 @@ def reopen_former_holder_after_storno(
                 Customer.group_id == group_id,
                 VehicleParty.id != party.id,
                 VehicleParty.created_at > closed_until,
+                # …and held the role when it was written: a history row
+                # (ended before it was recorded) closes nobody (KAN-370), so
+                # it overwrites nothing and does not stop the reopen.
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > VehicleParty.created_at),
             )
             .limit(1)
         )

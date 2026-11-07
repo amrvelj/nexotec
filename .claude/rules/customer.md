@@ -168,12 +168,18 @@ weekly. -->
   purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
   `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
   stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
-  recorded after the storno (open or already ended) or a holder of it starts after the storno.
+  recorded after the storno that held the role then (open now or ended since; a history row recorded
+  later does not count), or a holder of it starts after the storno — then, even for a storno consumed
+  promptly and in order, the returned customer does not get that role back and the role has no current
+  holder until the future holder starts (never ended before it began; KAN-583 is the same question
+  for allocations).
   **Accepted residual**
   (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
   whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
   backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
-  *unflagged* storno records no handover unless the car is bought again, a returned storno consumed
+  *unflagged* storno records no handover unless the car is bought again — after a *returned* storno
+  the customer who got the car back is then recorded nowhere (in order, they would be its current
+  owner and keeper) —, a returned storno consumed
   after a later booking reopens nobody (so the period the customer held the car again is not
   recorded), with a re-booking the history ends at the purchase consumed, not always the first, and
   an older row reopened by a PATCH after the storno (API only; the SPA sends none) is closed by a late

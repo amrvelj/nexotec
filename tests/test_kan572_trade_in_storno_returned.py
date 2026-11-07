@@ -22,7 +22,13 @@ from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.customer.models.vehicle_party import VehiclePartyRole
-from app.customer.services.customer import allocate_vehicle_party, delete_customer_vehicle, list_customer_vehicles
+from app.customer.schemas.customer import CustomerVehicleCreate
+from app.customer.services.customer import (
+    allocate_vehicle_party,
+    create_customer_vehicle,
+    delete_customer_vehicle,
+    list_customer_vehicles,
+)
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -331,6 +337,30 @@ def test_a_future_holder_recorded_before_the_storno_is_never_ended_before_it_beg
     db_session.refresh(future)
     assert future.effective_to is None
     assert contract.customer_id not in {p.customer_id for p in _owners_now(db_session)}
+    assert [p.customer_id for p in _keepers_now(db_session)] == [contract.customer_id]
+
+
+def test_a_history_row_recorded_after_the_storno_does_not_stop_the_reopen(db_session, engine):
+    """Review finding (2026-11-07, fifth round): a row recorded after the
+    storno that was already history when it was written (2015–2018, another
+    customer) closes nobody (KAN-370), so it overwrites nothing: in order the
+    reopen stands, and late it stands too."""
+
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    storno = _storno(db_session, item, returned=True)
+    group_id = contract_group_id(db_session, contract)
+    create_customer_vehicle(
+        db_session, customer=_customer(db_session, group_id), actor_id=uuid.uuid4(),
+        data=CustomerVehicleCreate(
+            vehicle_id=item.vehicle_id, role=VehiclePartyRole.OWNER,
+            effective_from=dt.datetime(2015, 1, 1, tzinfo=dt.UTC), effective_to=dt.datetime(2018, 1, 1, tzinfo=dt.UTC),
+        ),
+    )
+
+    _customer_consumes_storno(db_session, storno)
+
+    assert [p.customer_id for p in _owners_now(db_session)] == [contract.customer_id]
     assert [p.customer_id for p in _keepers_now(db_session)] == [contract.customer_id]
 
 
