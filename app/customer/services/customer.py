@@ -1333,25 +1333,6 @@ def _repoint_earlier_merges(
     return [merged.id for merged in earlier]
 
 
-def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
-    # Sales owns Transaction (one writer per fact) — customer only knows the
-    # duplicate/target IDs from its own merge flow, so the actual row
-    # mutation happens inside app.sales, reached through its public surface.
-    # This is still a direct in-transaction cross-context write, same as
-    # before the restructure; it's tracked residual coupling PR-4/PR-5 must
-    # replace with a `customer.merged` event that sales consumes idempotently.
-    #
-    # Import is deferred to call time (not module top-level): sales's own
-    # transaction service imports app.customer.public at top level to
-    # validate customer_id on transaction create, so a top-level import here
-    # would be a circular import. Both edges are still visible to
-    # import-linter either way — it walks the whole AST, not just the
-    # top-level imports.
-    from app.sales.public import repoint_customer_transactions
-
-    return repoint_customer_transactions(db, duplicate_id=duplicate_id, target_id=target_id)
-
-
 def _repoint_contacts(
     db: Session, model: type, unique_fields: tuple[str, ...], *, duplicate_id: uuid.UUID, target_id: uuid.UUID
 ) -> tuple[int, int]:
@@ -1448,8 +1429,8 @@ def merge_customer(
 ) -> Customer:
     """Merges `customer` (the duplicate) into the survivor (FR-09).
 
-    Re-points vehicle-party rows, transactions, phones, emails and external
-    IDs at the survivor in the same transaction as the flag flip — a merge
+    Re-points vehicle-party rows, phones, emails and external IDs at the
+    survivor in the same transaction as the flag flip — a merge
     that only sets the flag silently orphans the survivor's 360 view from
     everything the duplicate used to carry, which the PRD's own Risks
     section calls "worse than no merge... a correctness bug, not an
@@ -1486,7 +1467,6 @@ def merge_customer(
     parties_repointed, parties_kept_closed = _repoint_vehicle_parties(
         db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
     )
-    transactions_repointed = _repoint_transactions(db, duplicate_id=customer.id, target_id=target.id)
     phones_repointed, phones_dropped = _repoint_contacts(
         db, CustomerPhone, ("phone_e164",), duplicate_id=customer.id, target_id=target.id
     )
@@ -1528,7 +1508,6 @@ def merge_customer(
             # KAN-177: the overlapping rows are kept, closed and marked, not dropped.
             "vehiclePartiesKeptClosed": len(parties_kept_closed),
             "vehiclePartiesKeptClosedIds": [str(party_id) for party_id in parties_kept_closed],
-            "transactionsRepointed": transactions_repointed,
             "phonesRepointed": phones_repointed,
             "phonesDropped": phones_dropped,
             "emailsRepointed": emails_repointed,
@@ -1543,6 +1522,9 @@ def merge_customer(
             "earlierMergesRepointedIds": [str(customer_id) for customer_id in earlier_merges_repointed],
         },
     )
+    # KAN-185 (ADR-047) — Sales moves its records of the duplicate (legacy
+    # transactions, offers, contracts, deals) from this event, in its own
+    # transaction (`sales.customer_merged`); the merge writes nothing of Sales'.
     publish_event(
         db,
         OutboxEvent(
@@ -1571,17 +1553,6 @@ def merge_customer(
             details={"reason": "merge_conflict_on_survivor"},
         ) from exc
     db.refresh(customer)
-
-    # WP-8 PR-7 — Pattern B (ADR-047, own commit), called AFTER the merge
-    # above has already committed, never joining that transaction (unlike
-    # _repoint_transactions above, which predates this rule being written
-    # down for Transaction — that one is left as-is since the table it
-    # touches is itself retired, ADR-050). A failure here is repaired by
-    # nightly reconciliation, not by rolling back the merge.
-    from app.sales.public import repoint_customer_sales_records
-
-    repoint_customer_sales_records(db, duplicate_id=customer.id, target_id=target.id)
-
     return customer
 
 
@@ -3704,10 +3675,7 @@ def repoint_vehicle_party(db: Session, *, duplicate_vehicle_id: uuid.UUID, survi
     — customer stays the sole writer of VehicleParty.vehicle_id even though
     the merge decision belongs to vehicle. ADR-047: a write spanning two
     contexts is a call with a compensating action, never a shared
-    transaction — unlike app.sales.services.transaction.
-    repoint_customer_transactions (which joins the caller's transaction and
-    predates this rule being written down), this function commits its OWN
-    transaction and is called AFTER the vehicle side has already committed
+    transaction — this function commits its OWN transaction and is called AFTER the vehicle side has already committed
     its own repointing. A failure here is repaired by the nightly
     reconciliation job, not by rolling back the vehicle merge — the correct
     trade per ADR-047, not an oversight.

@@ -20,6 +20,7 @@ from app.customer.services.customer import (
     oldest_vehicle_party_label_age_seconds,
     refresh_vehicle_party_labels,
     repoint_vehicle_party,
+    resolve_live_customer_id,
     set_credit_block,
 )
 from app.customer.services.legal_basis import has_any_basis_for_group
@@ -47,5 +48,6 @@ __all__ = [
     "refresh_advisor_labels",
     "refresh_vehicle_party_labels",
     "repoint_vehicle_party",
+    "resolve_live_customer_id",
     "set_credit_block",
 ]

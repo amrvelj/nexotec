@@ -9,10 +9,14 @@ specifically.
 import uuid
 
 from sqlalchemy import func as sa_func
+from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.auth import AccessRole, create_access_token
+from app.core.consumer import consume_once
+from app.core.outbox_model import OutboxMessage
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.sales.consumers import handle_customer_merged_message
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
@@ -387,6 +391,25 @@ def test_merge_keeps_overlapping_vehicle_party_closed_and_marked_merged(client, 
     assert [item["mergedIntoCustomerId"] for item in survivor_rows] == [None, None]
 
 
+def _sales_consumes_the_merge(engine, duplicate_id: str) -> None:
+    """KAN-185: Sales moves its records from `customer.merged`, in its own
+    transaction — delivered here as the worker would."""
+
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    session = factory()
+    try:
+        message = session.scalars(
+            select(OutboxMessage).where(
+                OutboxMessage.event_type == "customer.merged", OutboxMessage.aggregate_id == uuid.UUID(duplicate_id)
+            )
+        ).one()
+        assert consume_once(
+            session, message=message, consumer_name="sales.customer_merged", handler=handle_customer_merged_message
+        )
+    finally:
+        session.close()
+
+
 # --- transactions ----------------------------------------------------------------
 
 
@@ -399,6 +422,7 @@ def test_merge_repoints_transactions(client, engine):
     txn = _create_transaction(engine, dealer_id, user, duplicate, vehicle)
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
+    _sales_consumes_the_merge(engine, duplicate["id"])
 
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.get(f"/v1/transactions/{txn['id']}", headers=_bearer(token))
@@ -409,11 +433,10 @@ def test_merge_repoints_transactions(client, engine):
 # --- sales_offer / sales_contract (WP-8 PR-7) -------------------------------------
 
 
-def test_merge_repoints_sales_offers(client):
+def test_merge_repoints_sales_offers(client, engine):
     """A merge must repoint the NEW tables too, not just the retired
-    `transaction` table repoint_customer_transactions already handled
-    (app.sales.public.repoint_customer_sales_records, wired into
-    merge_customer)."""
+    `transaction` table — since KAN-185 through the `customer.merged`
+    consumer `sales.customer_merged`."""
 
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id)
@@ -428,6 +451,7 @@ def test_merge_repoints_sales_offers(client):
     )
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
+    _sales_consumes_the_merge(engine, duplicate["id"])
 
     refetched = client.get(f"/v1/sales/offers/{offer['id']}", headers=_bearer(token))
     assert refetched.json()["customerId"] == survivor["id"]
@@ -522,5 +546,7 @@ def test_merge_audit_log_reports_repoint_counts(client, engine):
     log = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=_bearer(token))
     assert log.status_code == 200, log.text
     merge_event = next(item for item in log.json()["items"] if item["action"] == "merge")
-    assert merge_event["after"]["transactionsRepointed"] == 1
+    # KAN-185: Sales moves its own records from customer.merged, so the
+    # customer's merge audit no longer counts legacy transactions.
+    assert "transactionsRepointed" not in merge_event["after"]
     assert merge_event["after"]["phonesRepointed"] == 1
