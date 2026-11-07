@@ -53,14 +53,19 @@ def redact_audit_values(
 ) -> int:
     """ADR-121: the one sanctioned rewrite of the append-only audit log.
 
-    When a retention purge deletes an entity, the personal values its own
-    earlier rows copied are blanked: in `before` and `after`, a key in `keys`
-    keeps its name and a non-null value becomes `REDACTED`. No row is
-    deleted, reordered or re-dated; `action`, `actor_id`, `reason` and
-    `created_at` never change. One `redact` row records the ids of the rows
-    touched and the keys, never the values. Never commits: the purge's
-    transaction does. Its callers are allow-listed by name
-    (`tests/architecture/test_audit_log_redaction_callers.py`).
+    When an entity is deleted for retention (a purge) or as a compensation
+    that removes what no host ever kept (a host's failed copy), the personal
+    values its own earlier rows copied are blanked: in `before` and `after`,
+    a key in `keys` keeps its name and a non-null value becomes `REDACTED`.
+    No row is deleted, reordered or re-dated; `action`, `actor_id`, `reason`
+    and `created_at` never change. One `redact` row records the ids of the
+    rows touched and the keys, never the values. Idempotent: a value already
+    `REDACTED` is not touched again, and a call that touches nothing writes
+    no `redact` row. Never commits: the caller's transaction does.
+
+    `tenant_id` is matched exactly — `None` means the rows written without a
+    tenant, not "any tenant" as in `list_audit_events`. Its callers are
+    allow-listed by name (`tests/architecture/test_audit_log_redaction_callers.py`).
     """
 
     rows = db.scalars(
@@ -75,11 +80,11 @@ def redact_audit_values(
         changed = False
         for side in ("before", "after"):
             payload = getattr(row, side)
-            if payload and any(key in keys and value is not None for key, value in payload.items()):
+            if payload and any(_redactable(key, value, keys) for key, value in payload.items()):
                 setattr(
                     row,
                     side,
-                    {key: (REDACTED if key in keys and value is not None else value) for key, value in payload.items()},
+                    {key: (REDACTED if _redactable(key, value, keys) else value) for key, value in payload.items()},
                 )
                 changed = True
         if changed:
@@ -97,6 +102,10 @@ def redact_audit_values(
         )
     db.flush()
     return len(touched)
+
+
+def _redactable(key: str, value: Any, keys: frozenset[str]) -> bool:
+    return key in keys and value is not None and value != REDACTED
 
 
 def list_audit_events(

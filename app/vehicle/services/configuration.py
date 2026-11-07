@@ -108,7 +108,22 @@ _PATCHABLE_NULLABLE_FIELDS = (
 # (the 30-day purge, the discard of a host's failed copy), these are blanked
 # in its own earlier rows; a configuration a host took is never deleted, so
 # its full history stays as evidence (FR-C-11).
-PERSONAL_AUDIT_KEYS = frozenset({"vin", "stammnummer", "licencePlate", "mileageKm", "notes", "vehicleId"})
+# Both spellings: before KAN-346 (2026-10-17) the update rows wrote the
+# snake_case field names (`licence_plate`, `mileage_km`), and those rows
+# still exist.
+PERSONAL_AUDIT_KEYS = frozenset(
+    {
+        "vin",
+        "stammnummer",
+        "notes",
+        "licencePlate",
+        "licence_plate",
+        "mileageKm",
+        "mileage_km",
+        "vehicleId",
+        "vehicle_id",
+    }
+)
 
 
 def redact_personal_audit_values(
@@ -593,7 +608,8 @@ def discard_configuration_copy(
     removes a configuration `copy_configuration` made for a host whose own
     write then failed, so no host ever stored its id. Never for a
     configuration a host references; its options and their feature links
-    go with it (`delete-orphan`). Commits its own transaction."""
+    go with it (`delete-orphan`). The personal values its own audit rows
+    copied are blanked first (ADR-121, KAN-564). Commits its own transaction."""
 
     record_audit_event(
         db,

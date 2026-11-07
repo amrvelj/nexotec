@@ -2,18 +2,24 @@
 append-only with exactly one sanctioned rewrite.
 
 `app.core.audit.redact_audit_values` blanks named personal keys in an
-entity's own rows when a retention purge deletes that entity. Nothing else
-may change an audit row:
+entity's own rows when that entity is deleted for retention (or as a
+compensation removing what no host kept). What this test guards, over every
+module in `app/` and `scripts/` but `app/core/audit.py`:
 
-- `redact_audit_values` is called only from the allow-listed modules below
-  (today: the vehicle context's wrapper for a deleted configuration), and
-  that wrapper only from the two deletions ADR-121 names — the 30-day purge
-  and the discard of a host's failed copy. A new caller is an ADR line plus
-  an entry here, never a quiet import.
-- No code in `app/` or `scripts/` issues an SQL `UPDATE` or `DELETE` on
-  `AuditEvent` / `audit_event`, nor assigns to an audit row's `before`,
-  `after`, `action`, `actor_id`, `reason` or `created_at` outside
-  `app/core/audit.py`.
+- `redact_audit_values` and the vehicle context's wrapper
+  `redact_personal_audit_values` are imported (under any alias) and called
+  only from the allow-listed modules below; every listed module still calls
+  them. A new caller is an ADR line plus an entry here.
+- No SQL or ORM statement updates or deletes audit rows: `update(AuditEvent)`,
+  `delete(AuditEvent)`, `query(AuditEvent)….update()/.delete()`,
+  `AuditEvent.__table__.update()/.delete()`, or `UPDATE`/`DELETE FROM` on
+  `audit_event`, quoted or not.
+- Nothing assigns to an object's `before` or `after` attribute (`x.after = …`,
+  `setattr(x, "after", …)`) — the way an audit row's payload is changed.
+
+Not guarded, because it cannot be told apart statically from a legitimate
+delete: `db.delete(row)` where `row` happens to be an audit row. Review is the
+guard there.
 """
 
 import ast
@@ -36,8 +42,13 @@ _ALLOWED_CALLERS: dict[str, set[str]] = {
 }
 
 _RAW_WRITE = re.compile(
-    r"(update|delete)\(\s*AuditEvent\b|\b(UPDATE|DELETE\s+FROM)\s+audit_event\b", re.IGNORECASE
+    r"(update|delete)\(\s*AuditEvent\b"
+    r"|query\(\s*AuditEvent\s*\)[^\n]*\.(update|delete)\("
+    r"|AuditEvent\.__table__\.(update|delete)\("
+    r"|\b(UPDATE|DELETE\s+FROM)\s+[\"`]?audit_event\b",
+    re.IGNORECASE,
 )
+_PAYLOAD_ATTRIBUTES = {"before", "after"}
 
 
 def _python_files():
@@ -49,6 +60,9 @@ def _python_files():
 
 
 def _called_names(tree: ast.AST) -> set[str]:
+    """Names called, and names imported (under any alias, `as` resolved to
+    the imported name) — an aliased import is a use of the original."""
+
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -57,7 +71,32 @@ def _called_names(tree: ast.AST) -> set[str]:
                 names.add(func.id)
             elif isinstance(func, ast.Attribute):
                 names.add(func.attr)
+        elif isinstance(node, ast.ImportFrom):
+            names.update(alias.name for alias in node.names)
     return names
+
+
+def _payload_writes(tree: ast.AST) -> list[int]:
+    lines = []
+    for node in ast.walk(tree):
+        targets: list[ast.expr] = []
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            targets = [node.target]
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "setattr"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value in _PAYLOAD_ATTRIBUTES
+        ):
+            lines.append(node.lineno)
+        for target in targets:
+            if isinstance(target, ast.Attribute) and target.attr in _PAYLOAD_ATTRIBUTES:
+                lines.append(node.lineno)
+    return lines
 
 
 def test_only_the_allow_listed_modules_call_the_redaction():
@@ -82,7 +121,21 @@ def test_every_allow_listed_caller_still_calls_it():
 
 
 def test_no_raw_update_or_delete_of_audit_rows():
-    offenders = [rel for path, rel in _python_files() if _RAW_WRITE.search(path.read_text(encoding="utf-8"))]
+    offenders = [
+        rel
+        for path, rel in _python_files()
+        if rel != "app/core/audit.py" and _RAW_WRITE.search(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == [], offenders
+
+
+def test_nothing_assigns_to_a_before_or_after_attribute():
+    offenders = []
+    for path, rel in _python_files():
+        if rel == "app/core/audit.py":
+            continue
+        for line in _payload_writes(ast.parse(path.read_text(encoding="utf-8"))):
+            offenders.append(f"{rel}:{line}")
     assert offenders == [], offenders
 
 
@@ -92,4 +145,19 @@ def test_the_guard_sees_a_raw_update():
     assert _RAW_WRITE.search("db.execute(update(AuditEvent).where(...))")
     assert _RAW_WRITE.search('db.execute(text("UPDATE audit_event SET after = NULL"))')
     assert _RAW_WRITE.search("delete(AuditEvent)")
+    assert _RAW_WRITE.search("db.query(AuditEvent).filter(x).update({...})")
+    assert _RAW_WRITE.search("db.query(AuditEvent).delete()")
+    assert _RAW_WRITE.search("db.execute(AuditEvent.__table__.update().values(after=None))")
+    assert _RAW_WRITE.search('db.execute(text(\'DELETE FROM "audit_event"\'))')
     assert not _RAW_WRITE.search("record_audit_event(db, ...)")
+
+
+def test_the_guard_sees_an_aliased_import_and_a_payload_write():
+    tree = ast.parse(
+        "from app.core.audit import redact_audit_values as scrub\n"
+        "row.after = {}\n"
+        "event.before += {}\n"
+        "setattr(row, 'after', {})\n"
+    )
+    assert "redact_audit_values" in _called_names(tree)
+    assert _payload_writes(tree) == [2, 3, 4]

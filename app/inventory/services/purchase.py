@@ -90,6 +90,11 @@ def record_purchase(
         item.lifecycle_status = LifecycleStatus.IN_STOCK
         item.in_stock_at = utcnow()
     elif item.lifecycle_status == LifecycleStatus.PIPELINE:
+        if item.vin is None and data.vin is None:
+            raise UnprocessableEntityError(
+                f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
+                details={"reason": "purchase_requires_vin", "stockItemId": str(item.id)},
+            )
         # KAN-510 (Anto, 2026-11-01): the configuration is the car's
         # technical data (KAN-463), so a VIN that is not its own would put
         # another car on stock under it — refused as the create and
@@ -126,11 +131,7 @@ def record_purchase(
             vin = configuration_vin
         else:
             vin = item.vin
-        if vin is None:
-            raise UnprocessableEntityError(
-                f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
-                details={"reason": "purchase_requires_vin", "stockItemId": str(item.id)},
-            )
+        assert vin is not None  # one of the request's, the configuration's or the item's (refused above)
         if configuration_vin_differs(configuration_vin, vin):
             raise configuration_vin_differs_error(field="vin")
         vin_before = item.vin

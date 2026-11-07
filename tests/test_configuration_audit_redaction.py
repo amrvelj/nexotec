@@ -196,3 +196,81 @@ def test_a_young_configuration_is_not_purged_and_keeps_its_values(db_session):
     rows = _rows(db_session, configuration_id)
     assert _update_row(rows).after["vin"] == NEW_VIN
     assert not [row for row in rows if row.action == "redact"]
+
+
+def test_rows_written_before_kan_346_with_snake_case_keys_are_redacted_too(db_session):
+    """Before KAN-346 (2026-10-17) the update rows wrote the field names as
+    stored (`licence_plate`, `mileage_km`); those rows exist and their
+    configurations are the ones now crossing 30 days."""
+
+    dealership = _dealership(db_session)
+    configuration_id = _edited(db_session, dealership.id)
+    record_audit_event(
+        db_session, entity_type="vehicle_configuration", entity_id=configuration_id, tenant_id=dealership.id,
+        action="update", actor_id=None,
+        before={"licence_plate": "ZH 111111", "mileage_km": 1000, "vehicle_id": str(uuid.uuid4())},
+        after={"licence_plate": "ZH 222222", "mileage_km": 2000, "vehicle_id": None},
+    )
+    db_session.commit()
+    _age(db_session, configuration_id, days=31)
+
+    run_daily_unattached_configuration_purge(db_session)
+
+    text = repr([(row.before, row.after) for row in _rows(db_session, configuration_id)])
+    for value in ("ZH 111111", "ZH 222222", "1000", "2000"):
+        assert value not in text, value
+    legacy = next(row for row in _rows(db_session, configuration_id) if row.before and "licence_plate" in row.before)
+    assert legacy.before == {"licence_plate": REDACTED, "mileage_km": REDACTED, "vehicle_id": REDACTED}
+    assert legacy.after == {"licence_plate": REDACTED, "mileage_km": REDACTED, "vehicle_id": None}
+
+
+def test_the_same_id_under_another_tenant_or_entity_type_is_left_alone(db_session):
+    entity_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    for entity_type, tenant in (
+        ("vehicle_configuration", tenant_id),
+        ("vehicle_configuration", uuid.uuid4()),
+        ("vehicle_configuration", None),
+        ("stock_item", tenant_id),
+    ):
+        record_audit_event(
+            db_session, entity_type=entity_type, entity_id=entity_id, tenant_id=tenant,
+            action="update", actor_id=None, before=None, after={"vin": NEW_VIN},
+        )
+
+    touched = redact_audit_values(
+        db_session, entity_type="vehicle_configuration", entity_id=entity_id, tenant_id=tenant_id,
+        keys=frozenset({"vin"}), actor_id=None, reason="test",
+    )
+    db_session.commit()
+    db_session.expire_all()
+
+    assert touched == 1
+    rows = db_session.scalars(select(AuditEvent).where(AuditEvent.entity_id == entity_id, AuditEvent.action == "update"))
+    kept = sorted(
+        (row.entity_type, row.tenant_id == tenant_id, row.after["vin"]) for row in rows
+    )
+    assert kept == [
+        ("stock_item", True, NEW_VIN),
+        ("vehicle_configuration", False, NEW_VIN),
+        ("vehicle_configuration", False, NEW_VIN),
+        ("vehicle_configuration", True, REDACTED),
+    ]
+
+
+def test_a_second_redaction_touches_nothing_and_records_nothing(db_session):
+    entity_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    record_audit_event(
+        db_session, entity_type="vehicle_configuration", entity_id=entity_id, tenant_id=tenant_id,
+        action="update", actor_id=None, before={"vin": OLD_VIN}, after={"vin": NEW_VIN},
+    )
+    arguments = {
+        "entity_type": "vehicle_configuration", "entity_id": entity_id, "tenant_id": tenant_id,
+        "keys": frozenset({"vin"}), "actor_id": None, "reason": "test",
+    }
+    assert redact_audit_values(db_session, **arguments) == 1
+
+    assert redact_audit_values(db_session, **arguments) == 0
+    db_session.commit()
+    assert len([row for row in _rows(db_session, entity_id) if row.action == "redact"]) == 1

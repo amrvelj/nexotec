@@ -19,9 +19,14 @@ The ruling, as built:
 - **Never taken: deleted 30 days after it was created**, by the daily job
   `vehicle.configurations.purge_unattached` (`app/vehicle/daily_jobs.py`),
   with its options and their feature links, an audit row (`delete`, reason
-  `never_taken_purged`, never the VIN or mileage — the audit log is
-  append-only) and `vehicle.configuration.discarded` (KAN-188's event, same
-  payload), in vehicle's own transaction, one commit per batch.
+  `never_taken_purged`, never the VIN or mileage) and
+  `vehicle.configuration.discarded` (KAN-188's event, same payload), in
+  vehicle's own transaction, one commit per batch. The personal values its
+  earlier audit rows copied (VIN, Stammnummer, plate, mileage, notes, the
+  vehicle link) are blanked in the same transaction — the audit log's one
+  sanctioned rewrite (ADR-121, KAN-564; Anto, 2026-11-07). No environment
+  ran this purge on real data before (staging runs no worker; not live), so
+  no configuration was deleted without it.
 
 **How vehicle learns it** without reading the hosts' tables (rule 2) or
 writing inside their transactions (ADR-047): each host publishes a past-tense
@@ -212,8 +217,8 @@ def _delete(db: Session, ids: list[uuid.UUID]) -> int:
             action="delete",
             actor_id=None,
             # What the configuration was, never what it held: no VIN, no
-            # mileage, no plate — the audit log is append-only, so a copy
-            # here would outlive the purge it records.
+            # mileage, no plate — a copy here would outlive the purge it
+            # records (its earlier rows are redacted below, ADR-121).
             before={
                 "source": configuration.source.value,
                 "mode": configuration.mode.value,

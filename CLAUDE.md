@@ -164,7 +164,7 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
   threshold (`pagination.py`)
 - The error taxonomy (`errors.py`) — 400/401/403/404/409/422, one body shape · `CamelModel`,
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`; its one
-  sanctioned rewrite, a retention purge blanking the deleted entity's personal values, is ADR-121)
+  sanctioned rewrite, blanking a deleted entity's personal values in its own rows, is ADR-121)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
   `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099); D-A-22 moved `dealership.tax_id` off it to a plain `uid`
