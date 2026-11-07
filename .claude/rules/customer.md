@@ -168,8 +168,8 @@ weekly. -->
   purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
   `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
   stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
-  recorded after the storno that held the role then (open now or ended since; a history row recorded
-  later does not count), or a holder of it starts after the storno — then, even for a storno consumed
+  recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
+  recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
   promptly and in order, the returned customer does not get that role back and the role has no current
   holder until the future holder starts (never ended before it began; KAN-583 is the same question
   for allocations).
@@ -182,8 +182,9 @@ weekly. -->
   owner and keeper) —, a returned storno consumed
   after a later booking reopens nobody (so the period the customer held the car again is not
   recorded), with a re-booking the history ends at the purchase consumed, not always the first, and
-  an older row reopened by a PATCH after the storno (API only; the SPA sends none) is closed by a late
-  returned storno. *Anto ruled A on the narrower «failed delivery only» description; this wider
+  two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
+  is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
+  before its own recording reads as history, so a late returned storno reopens over it. *Anto ruled A on the narrower «failed delivery only» description; this wider
   statement awaits his confirmation.*
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end

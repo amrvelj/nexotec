@@ -3391,11 +3391,13 @@ def reopen_former_holder_after_storno(
     booking. A role the customer holds now is left alone (a redelivery, or a
     later allocation), and so is a role with no such row (a purchase this
     context never recorded). A role is left alone too when a row of it was
-    recorded after the storno holding the role then (open now or ended since
-    — a newer fact; a history row recorded later does not count) or a
-    holder of it starts after the storno. Not caught: an older row reopened
-    by a PATCH after the storno (API only) is closed by a late storno — the
-    accepted residual in customer.md. Otherwise a reopen goes through the
+    recorded after the storno and, as it stands now, is open or ends after
+    it was recorded (a newer fact; a history row recorded later does not
+    count), or a holder of it starts after the storno. Not caught (API only,
+    the accepted residual in customer.md): an older row reopened by a PATCH
+    after the storno is closed by a late storno, and a row recorded after the
+    storno whose end a PATCH moved back before its own recording reads as
+    history, so a late storno reopens over it. Otherwise a reopen goes through the
     close rule like every other (KAN-148): every other open holder of the role
     in the group is closed, under the allocation's locks and order — advisory, then the
     customer row (`customer_merged` refused, KAN-365), then party rows. The
@@ -3441,10 +3443,11 @@ def reopen_former_holder_after_storno(
         ).first()
         if party is None:
             continue
-        # A row of this role in the group recorded after the storno that held
-        # the role then — open now or ended since (a customer linked and
-        # disconnected since) — is a newer fact than this storno: a late delivery must not overwrite it,
-        # so the role is left as it is. A holder recorded before the storno but
+        # A row of this role in the group recorded after the storno that, as
+        # it stands now, is open or ends after it was recorded (a customer
+        # linked since, or linked and disconnected since) is a newer fact than
+        # this storno: a late delivery must not overwrite it, so the role is
+        # left as it is. A holder recorded before the storno but
         # starting after it (a future start) is left too: closing it would end
         # it before it began.
         newer_row = db.scalar(
@@ -3456,9 +3459,9 @@ def reopen_former_holder_after_storno(
                 Customer.group_id == group_id,
                 VehicleParty.id != party.id,
                 VehicleParty.created_at > closed_until,
-                # …and held the role when it was written: a history row
-                # (ended before it was recorded) closes nobody (KAN-370), so
-                # it overwrites nothing and does not stop the reopen.
+                # …and, as it stands now, open or ending after it was
+                # recorded: a history row (ended before it was recorded)
+                # closes nobody (KAN-370), so it does not stop the reopen.
                 or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > VehicleParty.created_at),
             )
             .limit(1)
