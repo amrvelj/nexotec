@@ -73,7 +73,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.vehicle.models.configuration import VehicleConfiguration, VehicleConfigurationOption
-from app.vehicle.services.configuration import _ENTITY_TYPE, _publish
+from app.vehicle.services.configuration import _ENTITY_TYPE, _publish, redact_personal_audit_values
 
 RETENTION = dt.timedelta(days=30)
 BATCH_SIZE = 200
@@ -221,6 +221,10 @@ def _delete(db: Session, ids: list[uuid.UUID]) -> int:
             },
             reason=PURGE_REASON,
         )
+        # ADR-121 (KAN-564): its earlier rows copied the VIN, plate, mileage
+        # and notes (update, VIN repair); the purge blanks them there too, so
+        # nothing personal outlives the configuration.
+        redact_personal_audit_values(db, configuration=configuration, actor_id=None, reason=PURGE_REASON)
         _publish(db, configuration, DISCARDED_EVENT)
         db.delete(configuration)
     db.flush()

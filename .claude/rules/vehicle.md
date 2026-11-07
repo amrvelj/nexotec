@@ -230,7 +230,12 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   stamps every held one (the safety net for a fact not consumed yet, and for every configuration
   held before KAN-270), and deletes one past 30 days that nothing holds — with its options, an audit
   row (`delete`, reason `never_taken_purged`, never the VIN or mileage) and
-  `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…`. One a
+  `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…` — and
+  blanks the personal values its earlier audit rows copied (`vin`, `stammnummer`, `licencePlate`,
+  `mileageKm`, `notes`, `vehicleId` → `[redacted]`, the key kept; one `redact` row naming rows and
+  keys) through `app.core.audit.redact_audit_values`, the log's one sanctioned rewrite (ADR-121,
+  KAN-564; Anto, 2026-11-07); the discard of a host's failed copy (KAN-188) does the same. A
+  configuration a host took is never deleted, so its history stays whole (FR-C-11). One a
   host let go before KAN-270 left no trace and goes like a never-taken one. Residual race (the
   service's docstring): one past 30 days that a host attaches in the moment the job runs is deleted
   under it, and the host's reconciliation reports the dangling reference. A copy (FR-C-11) is a new
