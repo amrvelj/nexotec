@@ -540,10 +540,11 @@ def test_a_refused_login_while_probing_leaves_every_entitlement_row_untouched(db
     assert updated.status == ConnectionStatus.CONNECTED
     assert _entitlements(db_session, s.connection) == before
     # Probing stopped at the first refused login: one refresh, not one per
-    # option, and the breaker untouched (review F1).
+    # option; the refusal is charged once, as a refused login is anywhere,
+    # never booked as a success (review F1, N4).
     assert len(s.fake.token_requests()) == logins_before + 1
     assert resilience.is_circuit_open(s.connection.id) is False
-    assert resilience._circuit_for(s.connection.id).failure_count == 0
+    assert resilience._circuit_for(s.connection.id).failure_count == 1
 
 
 def test_the_providers_answer_to_a_bad_request_never_charges_the_breaker(db_session, monkeypatch):
@@ -700,3 +701,32 @@ def test_a_401_invalidates_only_that_users_token(db_session, monkeypatch):
     assert len(s.fake.token_requests()) == 3
     gateway.test_connection(db_session, connection=s.connection, actor_id=other.id)
     assert len(s.fake.token_requests()) == 3  # Bob's token was never dropped
+
+
+def test_a_404_on_a_probe_reads_as_granted(db_session, monkeypatch):
+    """The rule's "200/404 = granted" (review N3): a lookup that finds nothing
+    is still a lookup the licence allowed."""
+
+    fake = FakeAutoi(api_status={PROBE_PATHS["pneu"]: 404})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert _entitlements(db_session, s.connection)["pneu"] is True
+
+
+def test_a_403_outside_a_probe_never_charges_the_breaker(db_session, monkeypatch):
+    """Review N1: a 403 is the provider saying "not this option", coherently;
+    six of them in a row must not open the breaker for the options the licence
+    does cover."""
+
+    fake = FakeAutoi(api_status={"/caption/code": 403})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    for _ in range(resilience._FAILURE_THRESHOLD + 1):
+        updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "403" in (updated.last_error or "")
+    assert resilience._circuit_for(s.connection.id).failure_count == 0

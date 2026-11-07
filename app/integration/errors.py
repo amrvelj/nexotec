@@ -79,8 +79,8 @@ class ProviderRequestError(ProviderGatewayError):
     422 on the identAPI, with a json:api error body; KAN-488). The licence
     allowed the call and the credentials were accepted, so it says nothing
     about entitlement — an entitlement probe leaves its row untouched. The
-    message carries the provider's `title`/`detail`, which describe our
-    request, never a credential.
+    message carries the status and the provider's bounded `title`, never its
+    free-text `detail` and never a credential.
     """
 
 

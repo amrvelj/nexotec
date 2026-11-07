@@ -207,16 +207,17 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   endpoint. A call with no signed-in user, no `clientId` or no secret is a
   `ProviderConfigurationError` — the dealer's to fix: the breaker is never charged and no row is
   invented for a request that was not sent (what was sent before it stopped, the discovery read,
-  keeps its row). A 400/422 is the provider's answer to our request, logged `ERROR` on its row and
-  never charged to the breaker either; only a transport failure, a 5xx or a refused login charges it. The provider row (migration `6b98739fe743`) is
+  keeps its row). A 400/422 and a 403 are the provider's coherent answers (our request, our
+  licence), logged `ERROR` on their row and never charged to the breaker — one un-entitled option
+  must not switch off the others; a transport failure, a 5xx and a refused login charge it. The provider row (migration `6b98739fe743`) is
   `auth_type oauth2_user_enrollment`, slots `[client_secret]`, config `[clientId]`,
   `capability_codes [ident_basis, ausstattung, bewertung, vin, pneu, energielabel]`: the identAPI's
   licence options, each probed by one documented call on «Test connection» (inputs are auto-i's
   own documentation examples; 403 = not granted, 200/404 = granted, anything else leaves the row).
   `images`/`packages` are features over `ausstattung`; the plate rung's entitlement is
   `ident_basis`. «Test connection» = discovery (cached a day) + token + `GET /caption/code?lang=de`
-  + the six probes, with the clicking user as the actor; a login refused under the probes stops
-  them and leaves every row as it was. Identification, browse, details, VIN and valuation on the
+  + the six probes, with the clicking user as the actor; a login refused under the probes charges
+  the breaker once, stops them, and leaves the remaining options' rows as they were. Identification, browse, details, VIN and valuation on the
   identAPI are KAN-547/548/211/549/552; the SOAP adapter (`auto_i_dat_soap.py`, legacy code
   `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550/KAN-547.
 - Catalogue browse makes **no** live provider call (architecture test).

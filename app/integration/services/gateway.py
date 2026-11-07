@@ -42,6 +42,8 @@ from app.integration.adapters.base import ProviderAdapter
 from app.integration.errors import (
     ProviderConfigurationError,
     ProviderGatewayError,
+    ProviderNotEntitledError,
+    ProviderRejectedError,
     ProviderRequestError,
     ProviderTimeoutError,
     ProviderTransportError,
@@ -173,8 +175,8 @@ def resolve_adapter(
 
     A real provider call must never use this — `call_capability` is the
     only place a call that actually reaches the provider is allowed to
-    happen, precisely so every such call is logged and every failure
-    counted toward that connection's circuit breaker. Resolving an
+    happen, precisely so every such call is logged and every provider
+    failure counted toward that connection's circuit breaker. Resolving an
     adapter here to then quietly do I/O with it would defeat both.
     """
 
@@ -350,10 +352,11 @@ def _record_failed_call(
     capture_raw_payload: Callable[[], str | None] | None,
     meter: metering.CallMeter,
 ) -> None:
-    """Charges the breaker — once per block, whatever it sent — and, when
-    the block metered no request of its own (KAN-486), writes the block's
+    """Charges the breaker — once per block, whatever it sent, unless the
+    failure is the provider's coherent answer to our request (below) — and,
+    when the block metered no request of its own (KAN-486), writes the block's
     one log row: `TIMEOUT` for a transport timeout (KAN-108), `ERROR` for
-    every other failure; both count toward the breaker alike.
+    every other failure.
 
     A block that did meter requests already has a row for each. When the
     newest of them still reads `SUCCESS`, the failure came after its answer
@@ -362,12 +365,15 @@ def _record_failed_call(
     that row is marked as the failure, so the log never shows a failed,
     breaker-charged call as a success. No extra row: nothing more was sent."""
 
-    # KAN-488: a 400/422 on the identAPI (`ProviderRequestError`) is the
-    # provider's coherent answer to our request — an unknown key, a malformed
-    # filter — not a failure of the provider. The request's row reads ERROR
-    # (it was refused), but five such answers must not take the connection
-    # offline: a user typing a wrong Stammnummer five times is not an outage.
-    if not isinstance(exc, ProviderRequestError):
+    # KAN-488: a 400/422 (`ProviderRequestError`: an unknown key, a malformed
+    # filter) and a 403 (`ProviderNotEntitledError`: the licence lacks this
+    # option) are the provider's coherent answers to our request, not a
+    # failure of the provider. The request's row reads ERROR (it was refused),
+    # but five such answers must not take the connection offline: a user
+    # typing a wrong Stammnummer five times is not an outage, and one
+    # un-entitled option must not switch off the others (the rule the probes
+    # already live by). A refused login, a transport failure and a 5xx charge.
+    if not isinstance(exc, (ProviderRequestError, ProviderNotEntitledError)):
         resilience.record_failure(connection.id)
     if meter.requests:
         log = meter.last_log
@@ -456,8 +462,9 @@ def test_connection(
     if provider.category == "marketplace":
         raise ConflictError(f"Connection testing is not available for {provider.display_name}.")
 
-    # KAN-488: the identAPI's access check is the token request plus
-    # `GET /caption/code` (two metered rows: `oauth_token`, `caption_code`);
+    # KAN-488: the identAPI's access check is the login plus
+    # `GET /caption/code` (metered rows `oauth_discovery` on a cold cache,
+    # `oauth_token`, `caption_code`);
     # every other vehicle-data adapter keeps the `System` watermark. The
     # actor is the user the token is requested for (auto-i's User Enrollment
     # Grant) — a test with no actor fails as a configuration error.
@@ -502,7 +509,7 @@ def _probe_entitlements(
     the per-connection breaker would otherwise defeat — one un-entitled
     capability must not take the connection's other capabilities offline.
     (Within `test_connection` alone the breaker could not accumulate anyway,
-    since each click's successful `System` call resets it; the rule matters
+    since each click's successful access check resets it; the rule matters
     for a probe run outside that reset.)
 
     Anything other than a refusal (maintenance, transport, a bug) leaves the
@@ -522,23 +529,25 @@ def _probe_entitlements(
                 purpose=f"entitlement_probe:{probe.capability_code}",
             ) as adapter:
                 granted = entitlement_probes.run_probe(probe, adapter)
+        except ProviderRejectedError:
+            # KAN-488: the login was refused under the probes (the access check
+            # had passed). The block charged the breaker once, as a refused
+            # login does anywhere; nothing is known about the remaining
+            # options, and retrying the login once per option would open the
+            # breaker for a connection whose card reads connected — so probing
+            # stops here and the remaining rows stay as they were.
+            logger.warning(
+                "entitlement probing stopped on connection %s: the login was refused at %s; "
+                "the remaining options are left unchanged",
+                connection.id, probe.capability_code, exc_info=True,
+            )
+            break
         except Exception:
             logger.warning(
                 "entitlement probe for %s failed on connection %s; entitlement left unchanged",
                 probe.capability_code, connection.id, exc_info=True,
             )
             continue
-        if granted is None:
-            # KAN-488: the login was refused under the probes (the access check
-            # had passed). Nothing is known about the remaining options, and
-            # retrying the login once per option would open the breaker for a
-            # connection whose card reads connected — so probing stops here.
-            logger.warning(
-                "entitlement probing stopped on connection %s: the login was refused at %s; "
-                "the remaining options are left unchanged",
-                connection.id, probe.capability_code,
-            )
-            break
         connection_service.record_probed_entitlement(
             db, connection_id=connection.id, capability_code=probe.capability_code, granted=granted
         )

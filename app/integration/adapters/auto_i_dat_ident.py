@@ -15,7 +15,7 @@ status becomes
        ``ProviderRejectedError``
 403    ``ProviderNotEntitledError`` — the licence does not cover the
        operation (the entitlement probes read this as ``granted = False``)
-400    ``ProviderRequestError`` with the json:api ``title``/``detail``
+400    ``ProviderRequestError`` with the json:api ``title``
 422    ``ProviderRequestError`` — syntactically fine, not processable
 5xx    ``ProviderTransportError`` (retried once, then raised)
 timeout ``ProviderTimeoutError`` (``CallStatus.TIMEOUT`` in the log)
@@ -309,22 +309,16 @@ class AutoIDatIdentAdapter:
         return self._request(OP_VEHICLEOPTION_CATALOG, "GET", f"/vehicleoption/catalog/autoi/{PROBE_FZ_KEY_OPTIONS}", empty_on_404=True)
 
     def probe_bewertung(self) -> dict[str, Any]:
-        return self._request(
-            OP_RESIDUALVALUE, "GET", f"/residualvalue/{PROBE_FZ_KEY_RESIDUAL}/{PROBE_MODEL_YEAR_RESIDUAL}"
-        , empty_on_404=True)
+        return self._request(OP_RESIDUALVALUE, "GET", f"/residualvalue/{PROBE_FZ_KEY_RESIDUAL}/{PROBE_MODEL_YEAR_RESIDUAL}", empty_on_404=True)
 
     def probe_vin(self) -> dict[str, Any]:
         return self._request(OP_VINREQUEST, "GET", f"/vinrequest/{PROBE_VIN}", empty_on_404=True)
 
     def probe_pneu(self) -> dict[str, Any]:
-        return self._request(
-            OP_TYRESANDRIMS_TYPEAPPROVAL, "GET", f"/tyresandrims/typeapproval/{PROBE_TYPE_APPROVAL_TYRES}"
-        , empty_on_404=True)
+        return self._request(OP_TYRESANDRIMS_TYPEAPPROVAL, "GET", f"/tyresandrims/typeapproval/{PROBE_TYPE_APPROVAL_TYRES}", empty_on_404=True)
 
     def probe_energielabel(self) -> dict[str, Any]:
-        return self._request(
-            OP_ENERGYLABEL_INFO, "GET", f"/energylabel/info/typeapproval/{PROBE_TYPE_APPROVAL_ENERGY}"
-        , empty_on_404=True)
+        return self._request(OP_ENERGYLABEL_INFO, "GET", f"/energylabel/info/typeapproval/{PROBE_TYPE_APPROVAL_ENERGY}", empty_on_404=True)
 
     # -- ProviderAdapter methods other tickets build ------------------------------
 
