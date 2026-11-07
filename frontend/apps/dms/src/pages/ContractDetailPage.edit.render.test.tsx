@@ -9,6 +9,7 @@ import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
+import { nameValuationCar } from '../test/nameValuationCar'
 
 // KAN-67 (ADR-083) — a contract born from a customer (KAN-58) used to be a
 // dead end: no vehicle, no price, nothing to add them with. While pending it
@@ -499,6 +500,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
     const valuationDialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
     await user.type(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')
+    await nameValuationCar(user, valuationDialog)
     await user.click(within(valuationDialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
 
     await waitFor(() => expect(backend.callsTo(/\/trade-in\/valuation$/, 'POST')).toHaveLength(1))

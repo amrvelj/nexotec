@@ -45,7 +45,11 @@ def test_create_stock_item_without_vin_starts_pipeline(db_session):
     assert item.vehicle_id is None
 
 
-def test_create_stock_item_with_vin_starts_in_stock(db_session):
+def test_create_stock_item_with_vin_lands_in_pipeline_carrying_it(db_session):
+    """KAN-554 (ADR-116; Anto, 2026-11-05, option A): a VIN on create never
+    puts the car in stock — purchase booking does (ADR-103). The VIN is
+    stored; the vehicle is not resolved, and a client's vehicleId is not kept."""
+
     tenant_id = uuid.uuid4()
     item = create_stock_item(
         db_session,
@@ -58,7 +62,10 @@ def test_create_stock_item_with_vin_starts_in_stock(db_session):
         ),
         actor_id=uuid.uuid4(),
     )
-    assert item.lifecycle_status == LifecycleStatus.IN_STOCK
+    assert item.lifecycle_status == LifecycleStatus.PIPELINE
+    assert item.in_stock_at is None
+    assert item.vin == "WVWUWDJ62012T0KD3"
+    assert item.vehicle_id is None
 
 
 def test_stock_number_allocation_is_per_tenant_and_gapless_on_reuse(db_session):

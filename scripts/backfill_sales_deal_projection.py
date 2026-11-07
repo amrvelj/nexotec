@@ -12,6 +12,11 @@ through the production writer, `upsert_deal_projection`, from its live
 entity. Nothing else is written and nothing is published: the row is a
 projection of facts already true.
 
+KAN-570 (Anto, 2026-11-05, option A): the row gained `stock_item_label`, the
+stock number its live entity carries (KAN-157). The checks compare it, so
+every row written before the column — empty there, numbered on its offer or
+contract — is one this script re-projects; run it once after the migration.
+
 MANDATORY DRY RUN. The default writes nothing: the real path runs in one
 transaction that is rolled back, and the report says what a real run would
 change. Re-run with --commit after reading it, the convention of
@@ -85,7 +90,7 @@ def reproject(db: Session, *, commit: bool) -> tuple[list[Reprojected], list[uui
 
 def render(done: list[Reprojected], remaining: list[uuid.UUID], *, committed: bool) -> str:
     mode = "COMMITTED" if committed else "DRY RUN — nothing written"
-    lines = [f"KAN-408/KAN-409 Sales deal-row re-projection ({mode})", "", f"re-projected: {len(done)}"]
+    lines = [f"KAN-408/KAN-409/KAN-570 Sales deal-row re-projection ({mode})", "", f"re-projected: {len(done)}"]
     lines += [f"  deal {r.deal_id} (tenant {r.tenant_id}): {r.before} -> {r.after}" for r in done]
     lines += ["", f"STILL DIFFERING: {len(remaining)}"]
     lines += [f"  deal {deal_id}" for deal_id in remaining]

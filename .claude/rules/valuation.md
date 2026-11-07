@@ -34,7 +34,31 @@ file in the same PR as any change to what it states. -->
   current; older ones stay readable and are never edited or deleted (only the `used_at` stamp
   changes). «Neu bewerten» creates a new row whose `supersedesValuationId` names the old one;
   no read marks the old row superseded yet. A manual
-  figure is **marked manual everywhere it renders**.
+  figure is **marked manual everywhere it renders**. «Neu bewerten» is the detail's primary; its
+  alternative, also in the grid's row menu (`valuationRowMenu.tsx`, ADR-061), is «Offerte aus
+  dieser Bewertung erstellen» (KAN-569; Anto 2026-11-05, 1A/2A): a draft offer, the valuation's
+  customer when it has one (none otherwise), the valuation attached as trade-in, then the
+  workspace — a draft valuation allowed, an expired or used one disabled with the reason, hidden
+  without the `sales_offers` write; a refused later step keeps the screen, names the offer made,
+  and a retry continues that offer. A valuation made **without a configuration** brings its car
+  to a deal that names no trade-in car yet — its stored VIN, linked record and «Make Model Trim»,
+  or the VIN as the label when it has no make or model (the confirmation publishes the label and
+  Stock names the pipeline item by it) (`sales/services/trade_in.py::_attach`, KAN-569) — so
+  `has_trade_in` holds and the confirmation takes the car into the pipeline; a deal that already
+  names its car keeps it. **A trade-in is a car** (KAN-574; Anto, 2026-11-07, option A): older
+  valuations without a VIN (rows from before the rule below) are refused as trade-ins — 422
+  `trade_in_valuation_names_no_car` at attach, nothing written, whatever the deal already names and
+  configured or not, and never offered by `set_trade_in`'s FR-S-08 auto-attach — and «Offerte aus dieser Bewertung erstellen» is disabled for them with the
+  reason (`createOfferNoVin`). **Open with Anto on KAN-574:** a pre-1981 chassis number is refused
+  the same way (a trade-in takes a VIN until KAN-535); a deal that held such a valuation before the
+  rule keeps it (copy, contract and confirmation do not re-check).
+- **A valuation names its car** (KAN-574; Anto, 2026-11-07, option A): `POST /v1/valuations` needs
+  a VIN (or a pre-1981 chassis number, KAN-353), a make and a model — each defaulted from the
+  configuration when `configurationId` is sent (a field sent wins, ADR-070), typed otherwise — else
+  422 `valuation_names_no_car` with the missing `fields`, judged after the chassis-number rule. A
+  VIN typed beside a configuration without one is stored (KAN-449 option A) — **open with Anto on
+  KAN-574** (the ruling asked the configuration to carry it); `ValuationCreateDialog` marks the three required and holds its submit
+  until they are filled. Rows written before keep what they had.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.

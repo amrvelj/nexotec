@@ -89,7 +89,7 @@ def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
     vin = "WVWZZZ1KZAW654321"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.AUTO_I_DAT, final_offer=Decimal(15350)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.AUTO_I_DAT, final_offer=Decimal(15350)),
         actor_id=uuid.uuid4(),
     )
 
@@ -104,12 +104,44 @@ def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
     assert updated.trade_in_purchase_price == Decimal(15350)
 
 
+def test_set_trade_in_does_not_auto_attach_a_valuation_without_a_vin(db_session):
+    """KAN-574 (Anto, 2026-11-07, option A): older valuations without a VIN
+    are refused as trade-ins — the FR-S-08 auto-attach too. A row linked to
+    the typed car's record but holding no VIN (the shape a configuration
+    linked to a car without a stored VIN wrote before KAN-574) is not
+    offered: the car is saved, nothing is attached."""
+
+    from app.vehicle.public import create_or_get_vehicle_mdm
+
+    tenant_id = uuid.uuid4()
+    vin = "WVWZZZ1KZAW574077"
+    vehicle, _ = create_or_get_vehicle_mdm(db_session, vin=vin, actor_id=uuid.uuid4())
+    db_session.commit()
+    valuation = create_valuation(
+        db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        actor_id=uuid.uuid4(),
+    )
+    assert valuation.vehicle_id == vehicle.id
+    valuation.vehicle_vin = None  # the row as an older one stands
+    db_session.commit()
+
+    offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
+    updated = set_trade_in(
+        db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
+        vehicle_label="VW Golf", customer_id=None, actor_id=uuid.uuid4(),
+    )
+
+    assert updated.trade_in_vin == vin and updated.trade_in_vehicle_id == vehicle.id
+    assert updated.trade_in_valuation_id is None and updated.trade_in_value is None
+
+
 def test_trade_in_purchase_price_is_seller_adjustable_independently(db_session):
     tenant_id = uuid.uuid4()
     vin = "WVWZZZ1KZAW111111"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(12000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(12000)),
         actor_id=uuid.uuid4(),
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
@@ -130,7 +162,7 @@ def test_attach_trade_in_valuation_explicit(db_session):
     vin = "WVWZZZ1KZAW222222"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
         actor_id=uuid.uuid4(),
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
@@ -141,7 +173,7 @@ def test_attach_trade_in_valuation_explicit(db_session):
     # A second, explicitly attached valuation overrides the auto-attached one.
     second = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9500)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9500)),
         actor_id=uuid.uuid4(),
     )
     offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=second.id, actor_id=uuid.uuid4())
@@ -156,7 +188,7 @@ def test_attaching_a_valuation_to_an_offer_that_left_draft_is_refused(db_session
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
         actor_id=uuid.uuid4(),
     )
     offer = cancel_offer(
@@ -220,7 +252,7 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
 
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(17950)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(17950)),
         actor_id=uuid.uuid4(),
     )
     offer = set_trade_in(

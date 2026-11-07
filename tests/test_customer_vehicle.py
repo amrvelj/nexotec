@@ -9,9 +9,9 @@ from sqlalchemy import event
 from app.core.auth import AccessRole, create_access_token
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership
 from tests.dealership_support import valid_uid
+from tests.stock_support import create_in_stock_item
 from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
@@ -567,7 +567,7 @@ def test_listing_vehicles_does_not_go_n_plus_1(client, engine, db_session):
     # A real, matched, group-read-enabled stock item — forces
     # get_stock_items_for_vehicles's second (StockItem) query to actually
     # run, not just short-circuit on group_read_enabled being off.
-    create_stock_item(
+    create_in_stock_item(
         db_session,
         tenant_id=uuid.UUID(dealer_id),
         data=StockItemCreate(
@@ -642,7 +642,7 @@ def test_a_vehicle_in_the_groups_own_stock_links_to_its_stock_item(client, db_se
     client.post(
         f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
     )
-    stock_item = create_stock_item(
+    stock_item = create_in_stock_item(
         db_session,
         tenant_id=uuid.UUID(dealer_id),
         data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),
@@ -667,7 +667,7 @@ def test_a_betrieb_without_the_sales_module_gets_no_stock_link(client, db_sessio
     client.post(
         f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(licensed)
     )
-    create_stock_item(
+    create_in_stock_item(
         db_session,
         tenant_id=uuid.UUID(dealer_id),
         data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),
@@ -703,7 +703,7 @@ def test_no_stock_link_when_group_read_is_not_enabled(client, db_session):
     client.post(
         f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
     )
-    create_stock_item(
+    create_in_stock_item(
         db_session,
         tenant_id=uuid.UUID(dealer_id),
         data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),

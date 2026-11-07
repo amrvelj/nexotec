@@ -119,12 +119,15 @@ const REASON_KEYS: Record<string, string> = {
       'standard_text_template_id_required',
       'standard_text_template_whatsapp_only',
       'too_many_images',
+      // KAN-574 — a valuation names its car; a trade-in is a car.
+      'trade_in_valuation_names_no_car',
       'ui_translation_blank',
       'ui_translation_placeholders_changed',
       'unknown_fields',
       'unrecognised_identifier',
       'use_deactivate_endpoint',
       'valuation_expired',
+      'valuation_names_no_car',
       // KAN-253 — «Verwendung aufheben».
       'valuation_not_used',
       'vehicle_label_follows_configuration',

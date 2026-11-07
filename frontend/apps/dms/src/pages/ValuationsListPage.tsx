@@ -22,6 +22,9 @@ import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { ValuationRevertUseDialog } from '../components/ValuationRevertUseDialog'
 import { useCanWrite } from '../auth/useCanWrite'
+import { useAuth } from '../auth/AuthContext'
+import { useCreateOfferFromValuation } from '../hooks/useCreateOfferFromValuation'
+import { CreateOfferFromValuationAlert } from '../components/CreateOfferFromValuationAlert'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
@@ -74,6 +77,11 @@ export function ValuationsListPage() {
   // KAN-253 — «Verwendung aufheben», the dealer manager's correction.
   const canRevertUse = useCanWrite('valuation_use_reversal')
   const [revertUseOf, setRevertUseOf] = useState<ValuationRead | null>(null)
+  // KAN-569 — the row menu's «Offerte aus dieser Bewertung erstellen», the
+  // detail's alternative (ADR-061: one definition, buildValuationRowMenu).
+  const canWriteOffers = useCanWrite('sales_offers')
+  const salesEntitled = useAuth().entitlements.includes('sales')
+  const createOffer = useCreateOfferFromValuation()
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
@@ -244,6 +252,7 @@ export function ValuationsListPage() {
           {actionError}
         </Alert>
       )}
+      {createOffer.error && <CreateOfferFromValuationAlert error={createOffer.error} onDismiss={createOffer.dismiss} />}
 
       <Group gap="xs">
         {(['all', 'valid', 'expiring_soon', 'expired', 'unattached', 'mine'] as Chip[]).map((c) => (
@@ -347,6 +356,9 @@ export function ValuationsListPage() {
               onRevalue: () => navigate(`/valuations/new?supersedes=${row.id}`),
               onMarkUsed: () => void markUsed(row),
               onRevertUse: canRevertUse ? () => setRevertUseOf(row) : undefined,
+              createOffer: canWriteOffers
+                ? { onClick: () => void createOffer.run(row), salesEntitled }
+                : undefined,
             })
             return { navigate: [{ label: t('valuationsList.rowActions.open'), icon: <ExternalLink size={16} />, onClick: () => navigate(rowHref(row)) }], ...menu.overflow }
           }}

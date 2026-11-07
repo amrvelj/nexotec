@@ -320,7 +320,9 @@
       "purchase_storno_left_stock": "Ce véhicule a déjà quitté le stock. Son achat ne peut plus être annulé.",
       "purchase_storno_invoice_requested": "La facture du contrat {{contractNumber}} a déjà été demandée. L'achat ne peut plus être annulé.",
       "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation.",
-      "storno_return_not_trade_in": "Seul un véhicule de reprise peut retourner au client."
+      "storno_return_not_trade_in": "Seul un véhicule de reprise peut retourner au client.",
+      "valuation_names_no_car": "Une évaluation nomme son véhicule : le VIN, la marque et le modèle sont obligatoires.",
+      "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1347,7 +1349,8 @@
       "status": "Statut",
       "margin": "Marge",
       "changed": "Modifié",
-      "owner": "Responsable"
+      "owner": "Responsable",
+      "stockNumber": "N° de stock"
     },
     "chips": {
       "all": "Tous",
@@ -1505,7 +1508,8 @@
       "configure": "Configurer",
       "searchPlaceholder": "Numéro de stock, VIN, plaque …",
       "configured": "Configuré",
-      "attachError": "La configuration n'a pas pu être reprise."
+      "attachError": "La configuration n'a pas pu être reprise.",
+      "stockNumber": "N° de stock {{stockNumber}}"
     },
     "pricing": {
       "emptyHint": "La structure de prix commence par le véhicule — choisissez-en un d'abord.",
@@ -1649,7 +1653,10 @@
     "errors": {
       "failedToLoad": "L’évaluation n’a pas pu être chargée.",
       "somethingWentWrong": "Une erreur est survenue.",
-      "markUsedFailed": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer."
+      "markUsedFailed": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer.",
+      "createOfferFailed": "L’offre n’a pas pu être créée.",
+      "createOfferTradeInFailed": "L’offre {{offerNumber}} a été créée, mais l’évaluation n’a pas pu être reprise comme véhicule de reprise : {{reason}}",
+      "openCreatedOffer": "Ouvrir l’offre"
     },
     "actions": {
       "revalue": "Réévaluer",
@@ -1661,7 +1668,12 @@
       "revertUse": "Annuler l'utilisation",
       "revertUseNotUsed": "Uniquement pour une évaluation marquée comme utilisée.",
       "revertUseSignedContract": "Impossible : un contrat signé contient cette évaluation comme reprise.",
-      "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours."
+      "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours.",
+      "createOffer": "Créer une offre à partir de cette évaluation",
+      "createOfferExpired": "Impossible : l’évaluation a expiré. Veuillez d’abord réévaluer.",
+      "createOfferUsed": "Impossible : l’évaluation est déjà marquée comme utilisée.",
+      "createOfferNoSales": "Impossible : cette entreprise ne dispose pas du module Vente.",
+      "createOfferNoVin": "Impossible : l’évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
     },
     "expiredBanner": {
       "title": "Évaluation expirée",

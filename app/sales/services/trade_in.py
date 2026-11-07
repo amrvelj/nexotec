@@ -25,8 +25,8 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.core.errors import ConflictError
-from app.core.validators import normalise_vin
+from app.core.errors import ConflictError, UnprocessableEntityError
+from app.core.validators import is_valid_vin, normalise_vin
 from app.customer.public import get_customer_or_404
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
@@ -103,12 +103,18 @@ def set_trade_in(
     # made" — auto-attach the newest valid one; a caller with multiple
     # candidates chooses via attach_trade_in_valuation instead of relying on
     # this default. By the linked record when there is one, else by the VIN
-    # (a car not yet in the register, KAN-189).
-    existing = (
-        list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=car.vehicle_id)
-        if car.vehicle_id is not None
-        else []
-    ) or list_valid_valuations_for_vin(db, tenant_id=deal.tenant_id, vin=car.vin)
+    # (a car not yet in the register, KAN-189). Only a valuation with a VIN is
+    # offered (KAN-574: older valuations without one are refused as
+    # trade-ins); none found attaches nothing, the save goes on.
+    existing = [
+        valuation
+        for valuation in (
+            list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=car.vehicle_id)
+            if car.vehicle_id is not None
+            else []
+        ) or list_valid_valuations_for_vin(db, tenant_id=deal.tenant_id, vin=car.vin)
+        if is_valid_vin(_normalised(valuation.vehicle_vin))
+    ]
     if existing:
         _attach(db, deal, existing[0])
 
@@ -142,6 +148,17 @@ def attach_trade_in_valuation(
     require_editable(db, deal)
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
+    # KAN-574 (Anto, 2026-11-07, option A): a trade-in is a car, and older
+    # valuations without a VIN (written before VIN, make and model became
+    # required) are refused as trade-ins — whatever the deal already names and
+    # whether or not the valuation has a configuration — before anything is
+    # written. A pre-1981 chassis number is refused the same way: a trade-in
+    # takes a VIN until KAN-535 (open with Anto on KAN-574).
+    if not is_valid_vin(_normalised(valuation.vehicle_vin)):
+        raise UnprocessableEntityError(
+            f"Valuation {valuation.valuation_number} names no car a trade-in can take: it has no VIN.",
+            details={"reason": "trade_in_valuation_names_no_car", "valuationId": str(valuation.id)},
+        )
     _attach(db, deal, valuation)
     deal.updated_by = actor_id
     deal.version += 1
@@ -170,13 +187,45 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
         deal.trade_in_configuration_label_refreshed_at = utcnow()
         if deal.trade_in_vehicle_id is None:
             deal.trade_in_label = valuation.configuration_label or deal.trade_in_label
-            deal.trade_in_vin = valuation.vehicle_vin
+            deal.trade_in_vin = _normalised(valuation.vehicle_vin)
             deal.trade_in_vehicle_id = valuation.vehicle_id
+    elif deal.trade_in_vehicle_id is None and not deal.trade_in_vin and is_valid_vin(_normalised(valuation.vehicle_vin)):
+        # KAN-569: a valuation made without a configuration names its car by
+        # the VIN it stored (and the record it linked, KAN-189). Attached to a
+        # deal with no trade-in car yet — «Offerte aus dieser Bewertung
+        # erstellen» — that car becomes the trade-in, as a VIN trade-in
+        # (`set_trade_in`) would make it: without it the deal carried the
+        # valuation's value but no car, `has_trade_in` was false, and the
+        # confirmation took no car into the pipeline. A deal that already
+        # names its trade-in car keeps it. Every caller has already refused a
+        # valuation without a VIN (KAN-574); the check stays so this branch
+        # never copies a chassis number (KAN-353), which a VIN trade-in cannot
+        # take (`NormalisedVin`). The label is never empty — the
+        # confirmation publishes it and Stock names the pipeline item by it —
+        # so a valuation without make or model is named by its VIN.
+        deal.trade_in_vin = _normalised(valuation.vehicle_vin)
+        deal.trade_in_vehicle_id = valuation.vehicle_id
+        deal.trade_in_label = _valuation_vehicle_label(valuation) or deal.trade_in_label or deal.trade_in_vin
     deal.trade_in_value = valuation.final_offer
     # Seller-adjustable afterward (S-D04) — defaults to the valuation's own
     # figure, not force-kept in sync with it.
     if deal.trade_in_purchase_price is None:
         deal.trade_in_purchase_price = valuation.final_offer
+
+
+def _normalised(vin: str | None) -> str | None:
+    """A valuation's stored VIN in the one spelling (a row written before
+    KAN-331 may hold another), so server and screen judge it alike."""
+
+    return normalise_vin(vin) if vin else None
+
+
+def _valuation_vehicle_label(valuation) -> str | None:
+    """«Make Model Trim» as the valuation recorded them, or None."""
+
+    parts = [part.strip() for part in (valuation.vehicle_make, valuation.vehicle_model, valuation.vehicle_trim) if part]
+    label = " ".join(part for part in parts if part)
+    return label[:200] or None
 
 
 def _recompute_payable(deal: PricedDeal) -> None:

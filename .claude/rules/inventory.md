@@ -42,6 +42,21 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   frozen, so a wrong VIN there is corrected only after that contract is cancelled. A pipeline item is never bought without its
   VIN, so FR-I-02b's «purchase booked first, VIN later» order no longer exists. Offer and
   contract stay possible at every phase; invoicing stays gated on the purchase.
+  **A create never puts a car on stock** (ADR-116, KAN-554; Anto, 2026-11-05, option A): every
+  `POST /v1/inventory/stock-items` lands as `pipeline`, a `vin` sent with it included — stored,
+  checked against the configuration's (`configuration_vin_differs`) and the VINs the Betrieb holds
+  (409 `vin_already_in_stock`), and **nothing written to vehicle-mdm** (a car not yet bought has
+  no record, ADR-045). Its purchase booking may leave `vin` out (the item's is used) or repeat it;
+  another is 422 `purchase_vin_mismatch`. Promotion leaves the item itself out of its uniqueness
+  check, and the record it creates names the booking user (KAN-243). Tests that need a car in
+  stock without a purchase use `tests/stock_support.py` (create, then promote). **While it was
+  never bought, its configuration's VIN wins** (KAN-575; Anto, 2026-11-07, option A): once the
+  configuration's VIN is corrected («Konfiguration bearbeiten», KAN-510) or a factory order's
+  configuration gets one, the booking — with no `vin`, or with the configuration's — books the car
+  under the configuration's VIN, corrects the item's in promotion's savepoint (`correct_vin`; a VIN
+  another item holds is 409 `vin_already_in_stock`) and audits `vin_corrected_at_purchase` (before
+  and after `vin`, reason `configuration_vin_wins`); any third VIN is 422
+  `configuration_vin_differs`. A stornoed car (it kept its record) is not corrected this way.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
@@ -233,17 +248,18 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   promoting a second one is 409 `vin_already_in_stock` with the holder's `stockItemId` and
   `stockNumber`, checked before vehicle-mdm is touched; the index refuses a racing writer with the
   same 409. A direct create with a VIN upper-cases it and strips whitespace, then validates it
-  as vehicle-mdm does (422 otherwise), and resolves `vehicle_id` from vehicle-mdm by that VIN —
-  a client `vehicleId` is ignored (Anto, 2026-10-12, KAN-244), and without a VIN it is refused,
-  422 `vehicle_id_requires_vin` (Anto, 2026-10-12, KAN-324); promotion normalises its VIN the
-  same way before anything else. Create and promotion resolve the
-  VIN through `services/vehicle_resolution.py` on a session of their own, so vehicle-mdm's commit
+  as vehicle-mdm does (422 otherwise); a client `vehicleId` is ignored (Anto, 2026-10-12,
+  KAN-244) — the item's `vehicle_id` is resolved from the VIN at purchase booking since KAN-554 —
+  and without a VIN it is refused, 422 `vehicle_id_requires_vin` (Anto, 2026-10-12, KAN-324);
+  promotion normalises its VIN the same way before anything else. Promotion resolves the
+  VIN through `services/vehicle_resolution.py` on a session of its own, so vehicle-mdm's commit
   or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
   has never seen takes the winner's record and carries on — then is stocked or refused
   `vin_already_in_stock` (KAN-257; promotion runs at purchase booking, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
   history; a stornoed car (KAN-146, below) is back in pipeline with its VIN and still blocks it
   (`storno_pending` is still set by nothing). The same car may be in pipeline twice (a pipeline
-  item carries no VIN until promotion; a stornoed one keeps its own and blocks it, as above). The legacy transaction import follows the same rule: a car
+  item a contract's confirmation creates carries no VIN until promotion; one created with its VIN
+  (KAN-554) or stornoed keeps its own and blocks it, as above). The legacy transaction import follows the same rule: a car
   the old system shows sold and later traded back in gets a second item, the sold one is never
   reopened, and a row for a car live Stock holds or has sold is reported
   (`vehicle_known_to_live_stock`), never applied — history is imported before a dealership starts

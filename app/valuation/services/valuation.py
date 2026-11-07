@@ -157,23 +157,43 @@ def create_valuation(
     # creates or links a vehicle-mdm record, not even the one a configuration
     # links.
     stored_vin = data.vin if data.vin is not None or configuration is None else _normalised_or_none(configuration.vin)
+
+    def _from_configuration(value, attribute: str):
+        if value is not None or configuration is None:
+            return value
+        return getattr(configuration, attribute)
+
     require_vin_or_pre_1981_chassis_number(
         stored_vin,
         data.vehicle_first_registration
         if data.vehicle_first_registration is not None or configuration is None
         else configuration.first_registration_date,
     )
+    # KAN-574 (Anto, 2026-11-07, option A): a valuation names its car — VIN,
+    # make and model are required, each defaulted from the configuration when
+    # it has one (a field sent wins, ADR-070) and typed otherwise. A VIN typed
+    # beside a configuration without one is stored (KAN-449 option A; open
+    # with Anto on KAN-574). A pre-1981 chassis number counts as
+    # the VIN (KAN-353, judged just above). Without them a
+    # trade-in would lower a deal's price for a car nobody can take in.
+    vehicle_make = _from_configuration(data.vehicle_make, "brand_display_name")
+    vehicle_model = _from_configuration(data.vehicle_model, "model_group_name")
+    missing = [
+        field
+        for field, value in (("vin", stored_vin), ("vehicleMake", vehicle_make), ("vehicleModel", vehicle_model))
+        if value is None or not str(value).strip()
+    ]
+    if missing:
+        raise UnprocessableEntityError(
+            "A valuation names its car: VIN, make and model are required (from its configuration, or typed).",
+            details={"reason": "valuation_names_no_car", "fields": missing},
+        )
     vehicle_id = None
     if not is_chassis_number(stored_vin):
         if configuration is not None:
             vehicle_id = configuration.vehicle_id
         elif data.vin:
             vehicle_id = _linked_vehicle_id(db, vin=data.vin, group_id=group_id)
-
-    def _from_configuration(value, attribute: str):
-        if value is not None or configuration is None:
-            return value
-        return getattr(configuration, attribute)
 
     customer_label = None
     if data.customer_id is not None:
@@ -187,8 +207,8 @@ def create_valuation(
         tenant_id=tenant_id,
         valuation_number=allocate_valuation_number(db, tenant_id),
         vehicle_id=vehicle_id,
-        vehicle_make=_from_configuration(data.vehicle_make, "brand_display_name"),
-        vehicle_model=_from_configuration(data.vehicle_model, "model_group_name"),
+        vehicle_make=vehicle_make,
+        vehicle_model=vehicle_model,
         vehicle_trim=_from_configuration(data.vehicle_trim, "variant_name"),
         vehicle_plate=_from_configuration(data.vehicle_plate, "licence_plate"),
         vehicle_vin=stored_vin,

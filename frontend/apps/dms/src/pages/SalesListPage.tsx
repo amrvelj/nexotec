@@ -168,6 +168,14 @@ export function SalesListPage() {
         cell: ({ row }) => row.original.vehicleLabel ?? '—',
       },
       {
+        // KAN-570: the stock car's number (the live entity's KAN-157 copy) —
+        // optional, hidden by default (ADR-060: a stored field is a column).
+        id: 'stockItemLabel',
+        header: t('salesList.columns.stockNumber'),
+        cell: ({ row }) => row.original.stockItemLabel ?? '—',
+        meta: { sortField: 'stockItemLabel', mono: true, defaultVisible: false },
+      },
+      {
         id: 'grossPrice',
         header: t('salesList.columns.grossPrice'),
         cell: ({ row }) =>

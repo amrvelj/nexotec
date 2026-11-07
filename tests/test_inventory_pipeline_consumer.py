@@ -25,6 +25,7 @@ from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockIte
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.pipeline import handle_sales_contract_confirmed, promote_to_vehicle_mdm
 from app.inventory.services.stock_item import create_stock_item
+from tests.stock_support import create_in_stock_item
 
 _CONSUMER_NAME = "inventory.sales_contract_confirmed"
 
@@ -204,7 +205,7 @@ def test_promote_to_vehicle_mdm_is_idempotent_and_does_not_emit_twice(db_session
 
 def test_promote_requires_pipeline_lifecycle(db_session):
     tenant_id = uuid.uuid4()
-    item = create_stock_item(
+    item = create_in_stock_item(
         db_session,
         tenant_id=tenant_id,
         data=StockItemCreate(

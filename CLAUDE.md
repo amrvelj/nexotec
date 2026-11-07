@@ -163,7 +163,7 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
   (`concurrency.py`) · POST idempotency keys (`idempotency.py`) · cursor pagination with count
   threshold (`pagination.py`)
 - The error taxonomy (`errors.py`) — 400/401/403/404/409/422, one body shape · `CamelModel`,
-  camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`)
+  camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`; one rewrite: ADR-121)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
   `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099); D-A-22 moved `dealership.tax_id` off it to a plain `uid`

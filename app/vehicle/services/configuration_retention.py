@@ -19,9 +19,14 @@ The ruling, as built:
 - **Never taken: deleted 30 days after it was created**, by the daily job
   `vehicle.configurations.purge_unattached` (`app/vehicle/daily_jobs.py`),
   with its options and their feature links, an audit row (`delete`, reason
-  `never_taken_purged`, never the VIN or mileage — the audit log is
-  append-only) and `vehicle.configuration.discarded` (KAN-188's event, same
-  payload), in vehicle's own transaction, one commit per batch.
+  `never_taken_purged`, never the VIN or mileage) and
+  `vehicle.configuration.discarded` (KAN-188's event, same payload), in
+  vehicle's own transaction, one commit per batch. The personal values its
+  earlier audit rows copied (VIN, Stammnummer, plate, mileage, notes, the
+  vehicle link) are blanked in the same transaction — the audit log's one
+  sanctioned rewrite (ADR-121, KAN-564; Anto, 2026-11-07). No environment
+  ran this purge on real data before (staging runs no worker; not live), so
+  no configuration was deleted without it.
 
 **How vehicle learns it** without reading the hosts' tables (rule 2) or
 writing inside their transactions (ADR-047): each host publishes a past-tense
@@ -39,6 +44,15 @@ behind or the consumer is retrying) and every configuration a host held
 before these facts were published — the first run after the release stamps
 them all. A configuration a host took and let go before the release left no
 trace and is purged like a never-taken one (nothing was live yet).
+
+**A configuration linked to a known car counts as taken** (Anto, 2026-11-05,
+KAN-567 option A; ADR-120): the vehicle register is one of a configuration's
+hosts (ADR-068), so one whose VIN linked it to a car (`vehicle_id`) is stamped
+and kept for good, even when no offer, contract, stock car or valuation took
+it — nothing is deleted on a doubtful reading. The accepted cost: an orphaned
+`record`-mode configuration of a known car (a failed or lost save) is never
+cleaned up. A later rule that drops the link from the held set could no
+longer tell these stamps from a real host's, so it would need its own marker.
 
 **Residual race, accepted:** a configuration past 30 days that a host
 attaches in the very moment the job runs — the host read it before the job
@@ -64,7 +78,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.vehicle.models.configuration import VehicleConfiguration, VehicleConfigurationOption
-from app.vehicle.services.configuration import _ENTITY_TYPE, _publish
+from app.vehicle.services.configuration import _ENTITY_TYPE, _publish, redact_personal_audit_values
 
 RETENTION = dt.timedelta(days=30)
 BATCH_SIZE = 200
@@ -172,6 +186,7 @@ def purge_unattached_configurations(
         # first read and the lock is seen (the module docstring's race is
         # what is left).
         ids = [row.id for row in batch]
+        # KAN-567 (option A): a link to a car in the register holds it.
         held = {row.id for row in batch if row.vehicle_id is not None}
         held |= {config.id for config in locked if config.vehicle_id is not None}
         for held_by in held_by_hosts:
@@ -202,8 +217,8 @@ def _delete(db: Session, ids: list[uuid.UUID]) -> int:
             action="delete",
             actor_id=None,
             # What the configuration was, never what it held: no VIN, no
-            # mileage, no plate — the audit log is append-only, so a copy
-            # here would outlive the purge it records.
+            # mileage, no plate — a copy here would outlive the purge it
+            # records (its earlier rows are redacted below, ADR-121).
             before={
                 "source": configuration.source.value,
                 "mode": configuration.mode.value,
@@ -211,6 +226,10 @@ def _delete(db: Session, ids: list[uuid.UUID]) -> int:
             },
             reason=PURGE_REASON,
         )
+        # ADR-121 (KAN-564): its earlier rows copied the VIN, plate, mileage
+        # and notes (update, VIN repair); the purge blanks them there too, so
+        # nothing personal outlives the configuration.
+        redact_personal_audit_values(db, configuration=configuration, actor_id=None, reason=PURGE_REASON)
         _publish(db, configuration, DISCARDED_EVENT)
         db.delete(configuration)
     db.flush()

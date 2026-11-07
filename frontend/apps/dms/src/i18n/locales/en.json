@@ -320,7 +320,9 @@
       "purchase_storno_left_stock": "This vehicle has already left stock. Its purchase can no longer be cancelled.",
       "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
       "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
-      "storno_return_not_trade_in": "Only a trade-in can go back to its customer."
+      "storno_return_not_trade_in": "Only a trade-in can go back to its customer.",
+      "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
+      "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1347,7 +1349,8 @@
       "status": "Status",
       "margin": "Margin",
       "changed": "Changed",
-      "owner": "Responsible"
+      "owner": "Responsible",
+      "stockNumber": "Stock number"
     },
     "chips": {
       "all": "All",
@@ -1505,7 +1508,8 @@
       "configure": "Configure",
       "searchPlaceholder": "Stock number, VIN, plate …",
       "configured": "Configured",
-      "attachError": "The configuration could not be attached."
+      "attachError": "The configuration could not be attached.",
+      "stockNumber": "Stock number {{stockNumber}}"
     },
     "pricing": {
       "emptyHint": "Pricing starts with the vehicle — choose one first.",
@@ -1649,7 +1653,10 @@
     "errors": {
       "failedToLoad": "The valuation could not be loaded.",
       "somethingWentWrong": "Something went wrong.",
-      "markUsedFailed": "The valuation could not be marked as used. Please try again."
+      "markUsedFailed": "The valuation could not be marked as used. Please try again.",
+      "createOfferFailed": "The offer could not be created.",
+      "createOfferTradeInFailed": "Offer {{offerNumber}} was created, but the valuation could not be taken over as its trade-in: {{reason}}",
+      "openCreatedOffer": "Open offer"
     },
     "actions": {
       "revalue": "Revalue",
@@ -1661,7 +1668,12 @@
       "revertUse": "Clear use",
       "revertUseNotUsed": "Only for a valuation marked as used.",
       "revertUseSignedContract": "Not possible: a signed contract carries this valuation as its trade-in.",
-      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress."
+      "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress.",
+      "createOffer": "Create offer from this valuation",
+      "createOfferExpired": "Not possible: the valuation has expired. Revalue it first.",
+      "createOfferUsed": "Not possible: the valuation is already marked as used.",
+      "createOfferNoSales": "Not possible: this business does not have the Sales module.",
+      "createOfferNoVin": "Not possible: the valuation names no car with a VIN that can be taken in trade."
     },
     "expiredBanner": {
       "title": "Valuation expired",

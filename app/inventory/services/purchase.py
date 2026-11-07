@@ -92,7 +92,7 @@ def record_purchase(
         item.lifecycle_status = LifecycleStatus.IN_STOCK
         item.in_stock_at = utcnow()
     elif item.lifecycle_status == LifecycleStatus.PIPELINE:
-        if data.vin is None:
+        if item.vin is None and data.vin is None:
             raise UnprocessableEntityError(
                 f"Stock item {item.id} is a pipeline item: its purchase needs the car's VIN.",
                 details={"reason": "purchase_requires_vin", "stockItemId": str(item.id)},
@@ -102,15 +102,54 @@ def record_purchase(
         # another car on stock under it — refused as the create and
         # «Konfiguration zuordnen» refuse it, before vehicle-mdm or the item
         # is touched. A configuration without a VIN (a factory order) takes
-        # the typed one. The VIN is corrected in the configuration itself
-        # («Konfiguration bearbeiten»), never by this booking.
+        # the typed one.
+        configuration_vin = None
         if item.configuration_id is not None:
-            configuration = get_configuration_for_host(
+            configuration_vin = get_configuration_for_host(
                 db, tenant_id=item.tenant_id, configuration_id=item.configuration_id
+            ).vin
+        # KAN-554 (ADR-116): a pipeline item created with its VIN is bought
+        # under that VIN — the request may repeat it or leave it out, never
+        # name another car. KAN-575 (Anto, 2026-11-07, option A): except that
+        # while it was never bought, its configuration's VIN wins — the VIN
+        # corrected there («Konfiguration bearbeiten», KAN-510) or given to a
+        # factory order later — and the booking corrects the item's, audited
+        # (`vin_corrected_at_purchase`). Before, the two refusals below met
+        # and the car could not be bought at all.
+        corrects_item_vin = (
+            item.vin is not None
+            and configuration_vin is not None
+            and configuration_vin_differs(configuration_vin, item.vin)
+        )
+        if item.vin is not None and data.vin is not None and data.vin != item.vin and not corrects_item_vin:
+            raise UnprocessableEntityError(
+                f"Stock item {item.id} carries VIN {item.vin}, not {data.vin}.",
+                details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
             )
-            if configuration_vin_differs(configuration.vin, data.vin):
-                raise configuration_vin_differs_error(field="vin")
-        item = promote_and_flush(db, item=item, vin=data.vin)
+        vin: str | None
+        if data.vin is not None:
+            vin = data.vin
+        elif corrects_item_vin:
+            vin = configuration_vin
+        else:
+            vin = item.vin
+        assert vin is not None  # one of the request's, the configuration's or the item's (refused above)
+        if configuration_vin_differs(configuration_vin, vin):
+            raise configuration_vin_differs_error(field="vin")
+        vin_before = item.vin
+        item = promote_and_flush(db, item=item, vin=vin, actor_id=actor_id, correct_vin=corrects_item_vin)
+        if corrects_item_vin:
+            record_audit_event(
+                db,
+                entity_type="stock_item",
+                entity_id=item.id,
+                tenant_id=item.tenant_id,
+                action="vin_corrected_at_purchase",
+                actor_id=actor_id,
+                before={"vin": vin_before},
+                after={"vin": item.vin},
+                reason="configuration_vin_wins",
+            )
     elif data.vin is not None and data.vin != item.vin:
         raise UnprocessableEntityError(
             f"Stock item {item.id} carries VIN {item.vin}, not {data.vin}.",

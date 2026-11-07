@@ -35,6 +35,39 @@ def record_audit_event(
     return event
 
 
+REDACTED = "[redacted]"
+
+
+def redact_audit_values(
+    db: Session, *, entity_type: str, entity_id: uuid.UUID, tenant_id: uuid.UUID | None,
+    keys: frozenset[str], actor_id: uuid.UUID | None, reason: str,
+) -> int:
+    """ADR-121: the one sanctioned rewrite of the append-only audit log.
+    Blanks `keys` in the before/after of this entity's rows (the key stays,
+    a non-null value becomes REDACTED); no row is deleted, no other column
+    changes. Records one `redact` row naming the touched rows and the keys,
+    never the values. Never commits: the purge's transaction does."""
+    rows = db.scalars(select(AuditEvent).where(
+        AuditEvent.entity_type == entity_type, AuditEvent.entity_id == entity_id,
+        AuditEvent.tenant_id == tenant_id)).all()
+    touched: list[uuid.UUID] = []
+    for row in rows:
+        changed = False
+        for side in ("before", "after"):
+            payload = getattr(row, side)
+            if payload and keys & payload.keys():
+                setattr(row, side, {k: (REDACTED if k in keys and v is not None else v) for k, v in payload.items()})
+                changed = True
+        if changed:
+            touched.append(row.id)
+    if touched:
+        record_audit_event(db, entity_type=entity_type, entity_id=entity_id, tenant_id=tenant_id,
+            action="redact", actor_id=actor_id, reason=reason,
+            after={"auditEventIds": [str(i) for i in touched], "keys": sorted(keys)})
+    db.flush()
+    return len(touched)
+
+
 def list_audit_events(
     db: Session, *, entity_type: str, entity_id: uuid.UUID, tenant_id: uuid.UUID | None
 ) -> list[AuditEvent]:

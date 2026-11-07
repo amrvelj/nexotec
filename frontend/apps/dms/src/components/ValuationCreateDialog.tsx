@@ -192,7 +192,9 @@ export function ValuationCreateDialog({
         submitLabel={t('valuationCreate.submit')}
         cancelLabel={t('common.cancel')}
         submitting={submitting}
-        submitDisabled={finalOffer === ''}
+        // KAN-574 (Anto, 2026-11-07, option A): a valuation names its car —
+        // VIN (or a pre-1981 chassis number), make and model are required.
+        submitDisabled={finalOffer === '' || !vin.trim() || !make.trim() || !model.trim()}
       >
         <Stack gap="md">
           {/* Confirmed live, verbatim. */}
@@ -209,6 +211,7 @@ export function ValuationCreateDialog({
                   ? hint(t('valuationCreate.vin'), t('valuationCreate.vinFromConfigurationHint'))
                   : { label: t('valuationCreate.vin') })}
                 value={vin}
+                required
                 readOnly={vinFromConfiguration}
                 onChange={(e) => {
                   setVin(e.currentTarget.value.toUpperCase())
@@ -228,8 +231,8 @@ export function ValuationCreateDialog({
               <NumberInput label={t('valuationCreate.mileage')} value={mileage} onChange={(v) => setMileage(v === '' ? '' : Number(v))} />
             </Group>
             <Group grow>
-              <TextInput label={t('valuationCreate.make')} value={make} onChange={(e) => setMake(e.currentTarget.value)} />
-              <TextInput label={t('valuationCreate.model')} value={model} onChange={(e) => setModel(e.currentTarget.value)} />
+              <TextInput label={t('valuationCreate.make')} required value={make} onChange={(e) => setMake(e.currentTarget.value)} />
+              <TextInput label={t('valuationCreate.model')} required value={model} onChange={(e) => setModel(e.currentTarget.value)} />
               <TextInput label={t('valuationCreate.trim')} value={trim} onChange={(e) => setTrim(e.currentTarget.value)} />
             </Group>
             <TextInput label={t('valuationCreate.plate')} value={plate} onChange={(e) => setPlate(e.currentTarget.value)} />

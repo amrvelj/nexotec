@@ -96,6 +96,8 @@ class OfferRead(CamelModel):
     owner_label: str | None = None
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
+    # KAN-570: the stock car's number (KAN-157's copy; null without one).
+    stock_item_label: str | None = None
     vehicle_label: str | None
     configuration_id: uuid.UUID | None = None
     configuration_label: str | None = None
