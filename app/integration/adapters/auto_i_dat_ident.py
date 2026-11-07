@@ -96,7 +96,6 @@ from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
 from app.integration.services.metering import provider_request
 from app.integration.services.resilience import call_with_retry
-from app.platform.public import get_active_user_acting_in
 
 BASE_URL = "https://api.ident.autoi.ch"
 CLIENT_ID_CONFIG_KEY = "clientId"
@@ -484,6 +483,13 @@ def enrolled_user_for(db: Session, connection: IntegrationConnection, actor_id: 
     the one door into the platform context. `None` when there is no actor
     (a job with no user) or the actor does not act in the connection's
     Betrieb — the adapter then refuses the call before it is sent."""
+
+    # Imported here, not at module scope: `app.integration` imports this
+    # adapter on load, and an eager import would make every import of the
+    # integration package load `app.platform.public` too (the architecture
+    # test that proves the submodule fallback in a fresh interpreter
+    # noticed). The door stays the same: `platform.public`, nothing else.
+    from app.platform.public import get_active_user_acting_in
 
     if actor_id is None or connection.tenant_id is None:
         return None
