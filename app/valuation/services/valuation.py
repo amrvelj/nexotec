@@ -170,9 +170,10 @@ def create_valuation(
         else configuration.first_registration_date,
     )
     # KAN-574 (Anto, 2026-11-07, option A): a valuation names its car — VIN,
-    # make and model are required, each taken from the configuration when it
-    # has one and typed otherwise (a VIN typed beside a configuration without
-    # one is stored, KAN-449 option A). A pre-1981 chassis number counts as
+    # make and model are required, each defaulted from the configuration when
+    # it has one (a field sent wins, ADR-070) and typed otherwise. A VIN typed
+    # beside a configuration without one is stored (KAN-449 option A; built as
+    # the safe default, open with Anto on KAN-574). A pre-1981 chassis number counts as
     # the VIN (KAN-353, judged just above). Without them a
     # trade-in would lower a deal's price for a car nobody can take in.
     vehicle_make = _from_configuration(data.vehicle_make, "brand_display_name")

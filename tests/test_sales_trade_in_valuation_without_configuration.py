@@ -273,3 +273,19 @@ def test_the_contract_route_refuses_a_valuation_that_names_no_car(client, db_ses
     _assert_refused(response, valuation)
     db_session.expire_all()
     assert db_session.get(SalesContract, contract.id).trade_in_valuation_id is None
+
+
+def test_a_valuation_vin_stored_unnormalised_still_brings_its_car(db_session):
+    """A valuation VIN stored before KAN-331 normalised it may still be lower
+    case: the attach judges and stores it normalised, never refusing it as
+    naming no car."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, vin=VIN.lower())
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    assert offer.trade_in_vin == VIN
+    assert has_trade_in(offer)

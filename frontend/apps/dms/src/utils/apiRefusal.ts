@@ -125,9 +125,9 @@ const REASON_KEYS: Record<string, string> = {
       'ui_translation_placeholders_changed',
       'unknown_fields',
       'unrecognised_identifier',
-      'valuation_names_no_car',
       'use_deactivate_endpoint',
       'valuation_expired',
+      'valuation_names_no_car',
       // KAN-253 — «Verwendung aufheben».
       'valuation_not_used',
       'vehicle_label_follows_configuration',

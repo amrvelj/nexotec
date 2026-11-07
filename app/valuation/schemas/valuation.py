@@ -25,9 +25,9 @@ class DeductionInput(CamelModel):
 class ValuationCreate(CamelModel):
     """KAN-574 (Anto, 2026-11-07, option A): a valuation names its car. `vin`
     (or a pre-1981 chassis number), `vehicleMake` and `vehicleModel` are
-    required — each taken from the configuration when `configurationId` is
-    sent, typed otherwise (a VIN typed beside a configuration that has none is
-    stored, KAN-449); a missing one is 422
+    required — each defaulted from the configuration when `configurationId`
+    is sent (a field sent wins), typed otherwise (a VIN typed beside a
+    configuration that has none is stored, KAN-449); a missing one is 422
     `valuation_names_no_car` with the missing `fields`. The fields stay
     optional in the schema because a configuration supplies them."""
 

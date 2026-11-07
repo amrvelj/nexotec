@@ -47,15 +47,19 @@ file in the same PR as any change to what it states. -->
   `has_trade_in` holds and the confirmation takes the car into the pipeline; a deal that already
   names its car keeps it. **A trade-in is a car** (KAN-574; Anto, 2026-11-07, option A): a
   valuation that would bring none to a deal naming none — no configuration and no VIN (a row from
-  before the rule below), or a pre-1981 chassis number a trade-in cannot take (KAN-535) — is 422
-  `trade_in_valuation_names_no_car` at attach, nothing written; «Offerte aus dieser Bewertung
-  erstellen» is disabled for it with the reason (`createOfferNoVin`). A deal that names its car
-  takes such a valuation's value.
+  before the rule below) — is 422 `trade_in_valuation_names_no_car` at attach, nothing written;
+  «Offerte aus dieser Bewertung erstellen» is disabled for it with the reason (`createOfferNoVin`).
+  **Built as the safe default, open with Anto on KAN-574:** a typed pre-1981 chassis number is
+  refused the same way (a trade-in takes a VIN until KAN-535; one a configuration carries is
+  copied by `_attach`); a deal that names its car, or a valuation whose configuration brings one,
+  takes an older VIN-less valuation's value; a deal that held one before the rule keeps it (copy,
+  contract and confirmation do not re-check).
 - **A valuation names its car** (KAN-574; Anto, 2026-11-07, option A): `POST /v1/valuations` needs
-  a VIN (or a pre-1981 chassis number, KAN-353), a make and a model — each from the configuration
-  when `configurationId` is sent, typed otherwise (a VIN typed beside a configuration without one
-  is stored, KAN-449) — else 422 `valuation_names_no_car` with the missing `fields`, judged after
-  the chassis-number rule; `ValuationCreateDialog` marks the three required and holds its submit
+  a VIN (or a pre-1981 chassis number, KAN-353), a make and a model — each defaulted from the
+  configuration when `configurationId` is sent (a field sent wins, ADR-070), typed otherwise — else
+  422 `valuation_names_no_car` with the missing `fields`, judged after the chassis-number rule. A
+  VIN typed beside a configuration without one is stored (KAN-449 option A) — **built as the safe
+  default, open with Anto on KAN-574** (the ruling asked the configuration to carry it); `ValuationCreateDialog` marks the three required and holds its submit
   until they are filled. Rows written before keep what they had.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
