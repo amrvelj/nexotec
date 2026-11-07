@@ -156,8 +156,9 @@ def test_a_malformed_valuation_vin_is_422_and_writes_nothing(client, db_session,
     assert db_session.scalar(select(func.count()).select_from(Valuation)) == 0
 
 
-def test_a_valuation_without_a_vin_still_creates_no_vehicle(client, db_session):
-    """The VIN stays optional: a valuation needs no vehicle in the register."""
+def test_a_valuation_of_a_car_not_in_the_register_creates_no_vehicle(client, db_session):
+    """A valuation needs no vehicle in the register: its VIN (required since
+    KAN-574) is stored and creates no vehicle-mdm record (KAN-189)."""
 
     response = client.post(
         "/v1/valuations",

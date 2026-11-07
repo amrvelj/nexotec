@@ -321,7 +321,7 @@
       "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
       "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
       "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
-      "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug (keine VIN) und kann nicht als Eintausch dienen. Bitte neu bewerten, mit VIN."
+      "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1656,7 +1656,7 @@
       "createOfferExpired": "Nicht möglich: Die Bewertung ist abgelaufen. Bitte zuerst neu bewerten.",
       "createOfferUsed": "Nicht möglich: Die Bewertung ist bereits als verwendet markiert.",
       "createOfferNoSales": "Nicht möglich: Dieser Betrieb hat das Modul Verkauf nicht.",
-      "createOfferNoVin": "Nicht möglich: Die Bewertung hat keine VIN, also kein Eintauschfahrzeug. Bitte neu bewerten, mit VIN."
+      "createOfferNoVin": "Nicht möglich: Die Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
     },
     "expiredBanner": {
       "title": "Bewertung abgelaufen",

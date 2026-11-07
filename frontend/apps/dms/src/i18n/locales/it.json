@@ -321,7 +321,7 @@
       "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
       "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
       "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
-      "trade_in_valuation_names_no_car": "Questa valutazione non indica alcun veicolo (nessun VIN) e non può servire da permuta. Rivalutare con il VIN."
+      "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1656,7 +1656,7 @@
       "createOfferExpired": "Non possibile: la valutazione è scaduta. Rivalutare prima.",
       "createOfferUsed": "Non possibile: la valutazione è già segnata come utilizzata.",
       "createOfferNoSales": "Non possibile: questa azienda non dispone del modulo Vendita.",
-      "createOfferNoVin": "Non possibile: la valutazione non ha un VIN, quindi nessun veicolo in permuta. Rivalutare con il VIN."
+      "createOfferNoVin": "Non possibile: la valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
     "expiredBanner": {
       "title": "Valutazione scaduta",

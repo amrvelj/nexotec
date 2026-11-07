@@ -321,7 +321,7 @@
       "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
       "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
       "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
-      "trade_in_valuation_names_no_car": "This valuation names no car (no VIN) and cannot be a trade-in. Please revalue it with the VIN."
+      "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1656,7 +1656,7 @@
       "createOfferExpired": "Not possible: the valuation has expired. Revalue it first.",
       "createOfferUsed": "Not possible: the valuation is already marked as used.",
       "createOfferNoSales": "Not possible: this business does not have the Sales module.",
-      "createOfferNoVin": "Not possible: the valuation has no VIN, so no trade-in car. Please revalue it with the VIN."
+      "createOfferNoVin": "Not possible: the valuation names no car with a VIN that can be taken in trade."
     },
     "expiredBanner": {
       "title": "Valuation expired",

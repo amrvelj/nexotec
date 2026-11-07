@@ -16,10 +16,13 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
+from app.sales.models.contract import SalesContract
+from app.sales.models.offer import SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import create_contract
 from app.sales.services.offer import create_offer, update_offer
@@ -208,3 +211,65 @@ def test_a_chassis_number_stored_on_the_valuation_is_refused_as_a_trade_in(db_se
         attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
 
     assert refused.value.details["reason"] == "trade_in_valuation_names_no_car"
+
+
+# --- over HTTP: both attach routes answer the refusal (KAN-574) ---------------
+
+
+def _headers(tenant_id, group_id, version: int) -> dict[str, str]:
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=group_id, roles=frozenset({AccessRole.SALES}),
+    )
+    return {"Authorization": f"Bearer {token}", "If-Match": str(version)}
+
+
+def _assert_refused(response, valuation) -> None:
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"] == {
+        "reason": "trade_in_valuation_names_no_car", "valuationId": str(valuation.id),
+    }
+
+
+def test_the_offer_route_refuses_a_valuation_that_names_no_car(client, db_session):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, vin=None)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    response = client.post(
+        f"/v1/sales/offers/{offer.id}/trade-in/valuation", json={"valuationId": str(valuation.id)},
+        headers=_headers(dealership.id, group_id, offer.version),
+    )
+
+    _assert_refused(response, valuation)
+    db_session.expire_all()
+    assert db_session.get(SalesOffer, offer.id).trade_in_valuation_id is None
+
+
+def test_the_contract_route_refuses_a_valuation_that_names_no_car(client, db_session):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, vin=None)
+    item = create_in_stock_item(
+        db_session, tenant_id=dealership.id,
+        data=StockItemCreate(vehicle_label="Skoda Octavia 2.0 TDI", condition=StockItemCondition.USED, vin="TMBJJ7NE0L0574005"),
+    )
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = update_offer(
+        db_session, offer=offer, group_id=group_id,
+        data=OfferUpdate(
+            customer_id=_customer(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
+            vehicle_label=item.vehicle_label,
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+
+    response = client.post(
+        f"/v1/sales/contracts/{contract.id}/trade-in/valuation", json={"valuationId": str(valuation.id)},
+        headers=_headers(dealership.id, group_id, contract.version),
+    )
+
+    _assert_refused(response, valuation)
+    db_session.expire_all()
+    assert db_session.get(SalesContract, contract.id).trade_in_valuation_id is None

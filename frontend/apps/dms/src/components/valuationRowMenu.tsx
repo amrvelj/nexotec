@@ -66,8 +66,8 @@ export interface ValuationRowMenu {
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
-  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract'> &
-    Partial<Pick<ValuationRead, 'usedAt' | 'configurationId' | 'vehicleVin'>>,
+  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract' | 'vehicleVin'> &
+    Partial<Pick<ValuationRead, 'usedAt' | 'configurationId'>>,
   actions: ValuationRowMenuActions
 ): ValuationRowMenu {
   const markUsedDisabledReason =

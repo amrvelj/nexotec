@@ -147,7 +147,7 @@ def attach_trade_in_valuation(
     # (written before VIN, make and model became required), or a pre-1981
     # chassis number a trade-in cannot take (KAN-535) — would lower the price
     # with nothing to take in, so it is refused before anything is written.
-    if not has_trade_in(deal) and valuation.configuration_id is None and not is_valid_vin(valuation.vehicle_vin):
+    if not has_trade_in(deal) and valuation.configuration_id is None and not is_valid_vin(_normalised(valuation.vehicle_vin)):
         raise UnprocessableEntityError(
             f"Valuation {valuation.valuation_number} names no car a trade-in can take: it has no VIN.",
             details={"reason": "trade_in_valuation_names_no_car", "valuationId": str(valuation.id)},
@@ -182,7 +182,7 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
             deal.trade_in_label = valuation.configuration_label or deal.trade_in_label
             deal.trade_in_vin = valuation.vehicle_vin
             deal.trade_in_vehicle_id = valuation.vehicle_id
-    elif deal.trade_in_vehicle_id is None and not deal.trade_in_vin and is_valid_vin(valuation.vehicle_vin):
+    elif deal.trade_in_vehicle_id is None and not deal.trade_in_vin and is_valid_vin(_normalised(valuation.vehicle_vin)):
         # KAN-569: a valuation made without a configuration names its car by
         # the VIN it stored (and the record it linked, KAN-189). Attached to a
         # deal with no trade-in car yet — «Offerte aus dieser Bewertung
@@ -195,14 +195,21 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
         # valuation (KAN-353) brings no car. The label is never empty — the
         # confirmation publishes it and Stock names the pipeline item by it —
         # so a valuation without make or model is named by its VIN.
-        deal.trade_in_vin = valuation.vehicle_vin
+        deal.trade_in_vin = _normalised(valuation.vehicle_vin)
         deal.trade_in_vehicle_id = valuation.vehicle_id
-        deal.trade_in_label = _valuation_vehicle_label(valuation) or deal.trade_in_label or valuation.vehicle_vin
+        deal.trade_in_label = _valuation_vehicle_label(valuation) or deal.trade_in_label or deal.trade_in_vin
     deal.trade_in_value = valuation.final_offer
     # Seller-adjustable afterward (S-D04) — defaults to the valuation's own
     # figure, not force-kept in sync with it.
     if deal.trade_in_purchase_price is None:
         deal.trade_in_purchase_price = valuation.final_offer
+
+
+def _normalised(vin: str | None) -> str | None:
+    """A valuation's stored VIN in the one spelling (a row written before
+    KAN-338 may hold another), so server and screen judge it alike."""
+
+    return normalise_vin(vin) if vin else None
 
 
 def _valuation_vehicle_label(valuation) -> str | None:
