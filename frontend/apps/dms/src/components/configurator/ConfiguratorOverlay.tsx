@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import {
   Alert,
   Button,
@@ -304,9 +304,6 @@ export function ConfiguratorOverlay({
 
   const refLabels = useReferenceLabels()
   const codedValues = useCodedFieldValues()
-  // A provider configuration's coded values, shown read-only — the same
-  // shared lookup the summary card reads (KAN-260).
-  const codedLabels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
 
   const startFromVariant = (variant: CatalogueVariantRead) => {
     const d = draftFromVariant(variant)
@@ -352,14 +349,21 @@ export function ConfiguratorOverlay({
     setPhase('configure')
   }
 
-  const setSpecField = (key: keyof VehicleSpecBlockRead, value: number | string | null) => {
+  // KAN-335 — stable setters: the memoised spec groups and coded selects
+  // below re-render only when their own values change.
+  const setSpecField = useCallback((key: keyof VehicleSpecBlockRead, value: number | string | null) => {
     setDraft((prev) => {
       if (!prev) return prev
       const overridden = new Set(prev.overridden)
       if (prev.source === 'provider') overridden.add(key as string)
       return { ...prev, spec: { ...prev.spec, [key]: value === '' ? null : value }, overridden }
     })
-  }
+  }, [])
+
+  // `allowDeselect={false}`: a pick never comes back null.
+  const setCodedField = useCallback((key: CodedFieldKey, value: string) => {
+    setDraft((prev) => (prev ? { ...prev, coded: { ...prev.coded, [key]: value } } : prev))
+  }, [])
 
   // KAN-43 (C-E) — the catalogue's own options/colours/tyres/images for
   // this variant. Never fetched for a manual configuration (no variant to
@@ -423,73 +427,16 @@ export function ConfiguratorOverlay({
     })
   }
 
-  // A list that failed to load marks its codes `⚠`, as does a code missing
-  // from its loaded list — never the raw code as if it were a label. Until
-  // the lists arrive, the code stands in.
-  const refLabel = (listCode: string, code: string) => {
-    if (!refLabels.data) return code
-    const label = refLabels.data[listCode]?.find((r) => r.valueCode === code)?.label
-    return label ?? `⚠ ${code}`
-  }
-  const optionGroupLabel = (code: string) => refLabel('option_group', code)
-  const equipmentFeatureLabel = (code: string) => refLabel('equipment_feature', code)
+  // The rules behind these labels and flags are the pure functions at the
+  // foot of this file (KAN-335), shared by the memoised fields and save().
+  const optionGroupLabel = (code: string) => refLabelOf(refLabels.data, 'option_group', code)
+  const equipmentFeatureLabel = (code: string) => refLabelOf(refLabels.data, 'equipment_feature', code)
   // A picker offers active values only — the full list is for labelling
   // what is already stored.
   const equipmentFeatureOptions = (refLabels.data?.equipment_feature ?? [])
     .filter((r) => r.active)
     .map((r) => ({ value: r.valueCode, label: r.label }))
-  // KAN-239 — a spec reference field offers its list's active values; a
-  // stored value retired since stays visible, disabled (the KAN-96 pattern).
-  const specRefOptions = (listCode: string, current: string | null) => {
-    const rows = refLabels.data?.[listCode] ?? []
-    const data: { value: string; label: string; disabled?: boolean }[] = rows
-      .filter((r) => r.active)
-      .map((r) => ({ value: r.valueCode, label: r.label }))
-    if (current != null && !data.some((d) => d.value === current)) {
-      data.push({ value: current, label: refLabel(listCode, current), disabled: true })
-    }
-    return data
-  }
-  // KAN-245 — the API refuses a save that carries a spec reference value
-  // that is not active (R5: one sent back unchanged included). A manual
-  // configuration sends its whole spec block; a provider one only the
-  // fields the advisor overrode. A list that failed to load flags nothing.
-  const specRefWillBeSent = (d: Draft, key: string) => d.source === 'manual' || d.overridden.has(key)
-  const specRefRetired = (listCode: string, current: string | null) => {
-    const rows = refLabels.data?.[listCode]
-    if (current == null || rows == null) return false
-    return !rows.some((r) => r.valueCode === current && r.active)
-  }
-
-  // KAN-96 — a coded field offers the active values of its list, the same
-  // set the API accepts. A stored value outside that set (retired by the
-  // admin, or never on the list) stays visible as its code, disabled and
-  // flagged with a field error, because the API refuses a save that carries
-  // it (Anto, 2026-10-07). `⚠ <code>` is kept for the other case, an active
-  // value with no label in this language. A list that failed to load says
-  // so on its field and flags nothing — the API remains the authority.
   const codedLabelField = LABEL_FIELD[resolveLanguage(i18n.language)]
-  const codedOptions = (listCode: string, current: string | null) => {
-    const data: { value: string; label: string; disabled?: boolean }[] = [...(codedValues.data?.[listCode] ?? [])]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((r) => ({
-        value: r.valueCode,
-        label: r[codedLabelField].trim() !== '' ? r[codedLabelField] : `⚠ ${r.valueCode}`,
-      }))
-    if (current != null && !data.some((d) => d.value === current)) {
-      data.push({ value: current, label: current, disabled: true })
-    }
-    return data
-  }
-  const codedValueRetired = (listCode: string, current: string | null) => {
-    const rows = codedValues.data?.[listCode]
-    if (current == null || rows == null) return false
-    return !rows.some((r) => r.valueCode === current)
-  }
-  const codedFieldError = (listCode: string, current: string | null) => {
-    if (codedValues.data?.[listCode] === null) return t('configurator.spec.listUnavailable')
-    return codedValueRetired(listCode, current) ? t('configurator.spec.retired') : undefined
-  }
 
   const save = async () => {
     if (!draft) return
@@ -505,10 +452,14 @@ export function ConfiguratorOverlay({
     }
     const retired = [
       ...(draft.source === 'manual'
-        ? CODED_FIELDS.filter((f) => codedValueRetired(f.listCode, draft.coded[f.key])).map((f) => t(f.labelKey))
+        ? CODED_FIELDS.filter((f) => codedValueRetiredOf(codedValues.data, f.listCode, draft.coded[f.key])).map((f) =>
+            t(f.labelKey),
+          )
         : []),
       ...SPEC_REF_FIELDS.filter(
-        (f) => specRefWillBeSent(draft, f.key as string) && specRefRetired(f.listCode!, (draft.spec[f.key] as string) ?? null),
+        (f) =>
+          specRefWillBeSent(draft.source, draft.overridden, f.key as string) &&
+          specRefRetiredOf(refLabels.data, f.listCode!, (draft.spec[f.key] as string) ?? null),
       ).map((f) => t(specFieldLabelKey(f.key as string))),
     ]
     if (retired.length > 0) {
@@ -873,127 +824,31 @@ export function ConfiguratorOverlay({
               </Text>
               <Group grow align="flex-start" wrap="wrap">
                 {CODED_FIELDS.map((f) => (
-                  <Select
+                  <CodedSelect
                     key={f.key}
-                    label={t(f.labelKey)}
-                    data={codedOptions(f.listCode, draft.coded[f.key])}
+                    field={f}
                     value={draft.coded[f.key]}
-                    onChange={(v) =>
-                      // `allowDeselect={false}`: a pick never comes back null
-                      setDraft((prev) => (prev && v != null ? { ...prev, coded: { ...prev.coded, [f.key]: v } } : prev))
-                    }
-                    error={codedFieldError(f.listCode, draft.coded[f.key])}
-                    // Anto, 2026-10-12 — all five are required on a manual
-                    // configuration and none can be cleared (the API answers
-                    // an explicit null with 422 `coded_field_required`): a
-                    // field can be changed, never emptied.
-                    required
-                    clearable={false}
-                    allowDeselect={false}
-                    w={200}
+                    codedValues={codedValues.data}
+                    labelField={codedLabelField}
+                    onPick={setCodedField}
                   />
                 ))}
               </Group>
             </Stack>
           )}
 
-          {draft.source === 'provider' && (
-            <Stack gap="xs">
-              <Text fw={600} size="sm">
-                {t('configurator.spec.groups.vehicleType')}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {t('configurator.spec.codedLocked')}
-              </Text>
-              <Group grow align="flex-start" wrap="wrap">
-                {CODED_FIELDS.map((f) => {
-                  const code = draft.coded[f.key]
-                  return (
-                    // Anto, 2026-10-12 — a provider configuration's coded
-                    // fields are the catalogue's: shown, never editable (the
-                    // API refuses a change, `coded_field_locked`). FR-C-16's
-                    // re-sync is the one way they change.
-                    <TextInput
-                      key={f.key}
-                      label={t(f.labelKey)}
-                      value={code != null ? codedLabels.label(f.listCode, code) : '—'}
-                      readOnly
-                      variant="filled"
-                      w={200}
-                    />
-                  )
-                })}
-              </Group>
-            </Stack>
-          )}
+          {draft.source === 'provider' && <ProviderCodedFields coded={draft.coded} />}
 
           {SPEC_FIELD_GROUPS.map((group) => (
-            <Stack key={group.titleKey} gap="xs">
-              <Text fw={600} size="sm">
-                {t(group.titleKey)}
-              </Text>
-              <Group grow align="flex-start" wrap="wrap">
-                {group.fields.map((f) => {
-                  const label = t(specFieldLabelKey(f.key as string))
-                  const marked = draft.overridden.has(f.key as string)
-                  const value = (draft.spec[f.key] ?? '') as string | number
-                  const withMark = marked ? `${label} • ${t('configurator.spec.overridden')}` : label
-                  if (f.kind === 'ref') {
-                    return (
-                      <Select
-                        key={f.key as string}
-                        label={withMark}
-                        data={specRefOptions(f.listCode!, (draft.spec[f.key] as string) ?? null)}
-                        value={(draft.spec[f.key] as string) ?? null}
-                        onChange={(v) => setSpecField(f.key, v)}
-                        error={
-                          refLabels.data?.[f.listCode!] === null
-                            ? t('configurator.spec.listUnavailable')
-                            : specRefWillBeSent(draft, f.key as string) &&
-                                specRefRetired(f.listCode!, (draft.spec[f.key] as string) ?? null)
-                              ? t('configurator.spec.retired')
-                              : undefined
-                        }
-                        clearable
-                        w={200}
-                      />
-                    )
-                  }
-                  if (f.kind === 'text') {
-                    return (
-                      <TextInput
-                        key={f.key as string}
-                        label={withMark}
-                        value={value as string}
-                        onChange={(e) => setSpecField(f.key, e.currentTarget.value)}
-                        w={200}
-                      />
-                    )
-                  }
-                  if (f.kind === 'chf') {
-                    return (
-                      <ChfInput
-                        key={f.key as string}
-                        label={withMark}
-                        value={value === '' ? '' : Number(value)}
-                        onChange={(v) => setSpecField(f.key, v === '' ? null : Number(v))}
-                        w={200}
-                      />
-                    )
-                  }
-                  return (
-                    <NumberInput
-                      key={f.key as string}
-                      label={withMark}
-                      value={value === '' ? '' : Number(value)}
-                      onChange={(v) => setSpecField(f.key, v === '' ? null : Number(v))}
-                      decimalScale={f.kind === 'decimal' ? 1 : 0}
-                      w={200}
-                    />
-                  )
-                })}
-              </Group>
-            </Stack>
+            <SpecFieldGroup
+              key={group.titleKey}
+              group={group}
+              spec={draft.spec}
+              overridden={draft.overridden}
+              source={draft.source}
+              refLabels={refLabels.data}
+              onSpecChange={setSpecField}
+            />
           ))}
         </Stack>
       )}
@@ -1055,6 +910,269 @@ export function ConfiguratorOverlay({
       />
     </Stack>
   )
+}
+
+// --- memoised fields (KAN-335) -------------------------------------
+//
+// The draft lives in one state, so every keystroke re-renders the overlay.
+// The spec groups and the coded fields are memoised so that a keystroke
+// re-renders only the group it lands in, and a coded pick only its own
+// select (`ConfiguratorOverlay.renderCount.render.test.tsx`). What is shown,
+// validated and saved is unchanged.
+
+type RefLabelRows = Record<string, { valueCode: string; label: string; active: boolean }[] | null>
+type CodedValueRows = Record<string, ReferenceValueRead[] | null>
+type LabelField = (typeof LABEL_FIELD)[keyof typeof LABEL_FIELD]
+type SpecFieldGroupDef = (typeof SPEC_FIELD_GROUPS)[number]
+type CodedFieldDef = (typeof CODED_FIELDS)[number]
+
+interface SpecFieldGroupProps {
+  group: SpecFieldGroupDef
+  spec: VehicleSpecBlockRead
+  overridden: Set<string>
+  source: Draft['source']
+  refLabels: RefLabelRows | undefined
+  onSpecChange: (key: keyof VehicleSpecBlockRead, value: number | string | null) => void
+}
+
+/** Equal when nothing this group shows changed: its own fields' values and
+ * override marks, the lists it labels from, the setter. Another group's
+ * keystroke leaves all of these as they were. */
+function specFieldGroupPropsEqual(prev: SpecFieldGroupProps, next: SpecFieldGroupProps): boolean {
+  if (
+    prev.group !== next.group ||
+    prev.source !== next.source ||
+    prev.refLabels !== next.refLabels ||
+    prev.onSpecChange !== next.onSpecChange
+  ) {
+    return false
+  }
+  return prev.group.fields.every(
+    (f) =>
+      prev.spec[f.key] === next.spec[f.key] &&
+      prev.overridden.has(f.key as string) === next.overridden.has(f.key as string),
+  )
+}
+
+const SpecFieldGroup = memo(function SpecFieldGroup({
+  group,
+  spec,
+  overridden,
+  source,
+  refLabels,
+  onSpecChange,
+}: SpecFieldGroupProps) {
+  const { t } = useTranslation()
+  return (
+    <Stack gap="xs">
+      <Text fw={600} size="sm">
+        {t(group.titleKey)}
+      </Text>
+      <Group grow align="flex-start" wrap="wrap">
+        {group.fields.map((f) => {
+          const label = t(specFieldLabelKey(f.key as string))
+          const marked = overridden.has(f.key as string)
+          const value = (spec[f.key] ?? '') as string | number
+          const withMark = marked ? `${label} • ${t('configurator.spec.overridden')}` : label
+          if (f.kind === 'ref') {
+            const current = (spec[f.key] as string) ?? null
+            return (
+              <Select
+                key={f.key as string}
+                label={withMark}
+                data={specRefOptionsOf(refLabels, f.listCode!, current)}
+                value={current}
+                onChange={(v) => onSpecChange(f.key, v)}
+                error={
+                  refLabels?.[f.listCode!] === null
+                    ? t('configurator.spec.listUnavailable')
+                    : specRefWillBeSent(source, overridden, f.key as string) &&
+                        specRefRetiredOf(refLabels, f.listCode!, current)
+                      ? t('configurator.spec.retired')
+                      : undefined
+                }
+                clearable
+                w={200}
+              />
+            )
+          }
+          if (f.kind === 'text') {
+            return (
+              <TextInput
+                key={f.key as string}
+                label={withMark}
+                value={value as string}
+                onChange={(e) => onSpecChange(f.key, e.currentTarget.value)}
+                w={200}
+              />
+            )
+          }
+          if (f.kind === 'chf') {
+            return (
+              <ChfInput
+                key={f.key as string}
+                label={withMark}
+                value={value === '' ? '' : Number(value)}
+                onChange={(v) => onSpecChange(f.key, v === '' ? null : Number(v))}
+                w={200}
+              />
+            )
+          }
+          return (
+            <NumberInput
+              key={f.key as string}
+              label={withMark}
+              value={value === '' ? '' : Number(value)}
+              onChange={(v) => onSpecChange(f.key, v === '' ? null : Number(v))}
+              decimalScale={f.kind === 'decimal' ? 1 : 0}
+              w={200}
+            />
+          )
+        })}
+      </Group>
+    </Stack>
+  )
+}, specFieldGroupPropsEqual)
+
+interface CodedSelectProps {
+  field: CodedFieldDef
+  value: string | null
+  codedValues: CodedValueRows | undefined
+  labelField: LabelField
+  onPick: (key: CodedFieldKey, value: string) => void
+}
+
+/** KAN-96 — one of a manual configuration's five coded fields. */
+const CodedSelect = memo(function CodedSelect({ field, value, codedValues, labelField, onPick }: CodedSelectProps) {
+  const { t } = useTranslation()
+  const error =
+    codedValues?.[field.listCode] === null
+      ? t('configurator.spec.listUnavailable')
+      : codedValueRetiredOf(codedValues, field.listCode, value)
+        ? t('configurator.spec.retired')
+        : undefined
+  return (
+    <Select
+      label={t(field.labelKey)}
+      data={codedOptionsOf(codedValues, labelField, field.listCode, value)}
+      value={value}
+      onChange={(v) => {
+        if (v != null) onPick(field.key, v)
+      }}
+      error={error}
+      // Anto, 2026-10-12 — all five are required on a manual
+      // configuration and none can be cleared (the API answers
+      // an explicit null with 422 `coded_field_required`): a
+      // field can be changed, never emptied.
+      required
+      clearable={false}
+      allowDeselect={false}
+      w={200}
+    />
+  )
+})
+
+/** A provider configuration's coded values, shown read-only — the same
+ * shared lookup the summary card reads (KAN-260). Anto, 2026-10-12: they are
+ * the catalogue's, never editable (the API refuses a change,
+ * `coded_field_locked`); FR-C-16's re-sync is the one way they change. */
+const ProviderCodedFields = memo(function ProviderCodedFields({ coded }: { coded: CodedValues }) {
+  const { t } = useTranslation()
+  const codedLabels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
+  return (
+    <Stack gap="xs">
+      <Text fw={600} size="sm">
+        {t('configurator.spec.groups.vehicleType')}
+      </Text>
+      <Text size="xs" c="dimmed">
+        {t('configurator.spec.codedLocked')}
+      </Text>
+      <Group grow align="flex-start" wrap="wrap">
+        {CODED_FIELDS.map((f) => {
+          const code = coded[f.key]
+          return (
+            <TextInput
+              key={f.key}
+              label={t(f.labelKey)}
+              value={code != null ? codedLabels.label(f.listCode, code) : '—'}
+              readOnly
+              variant="filled"
+              w={200}
+            />
+          )
+        })}
+      </Group>
+    </Stack>
+  )
+})
+
+// --- field rules (pure; KAN-335) -------------------------------------
+
+/** A list that failed to load marks its codes `⚠`, as does a code missing
+ * from its loaded list — never the raw code as if it were a label. Until
+ * the lists arrive, the code stands in. */
+function refLabelOf(refLabels: RefLabelRows | undefined, listCode: string, code: string): string {
+  if (!refLabels) return code
+  const label = refLabels[listCode]?.find((r) => r.valueCode === code)?.label
+  return label ?? `⚠ ${code}`
+}
+
+/** KAN-239 — a spec reference field offers its list's active values; a
+ * stored value retired since stays visible, disabled (the KAN-96 pattern). */
+function specRefOptionsOf(refLabels: RefLabelRows | undefined, listCode: string, current: string | null) {
+  const rows = refLabels?.[listCode] ?? []
+  const data: { value: string; label: string; disabled?: boolean }[] = rows
+    .filter((r) => r.active)
+    .map((r) => ({ value: r.valueCode, label: r.label }))
+  if (current != null && !data.some((d) => d.value === current)) {
+    data.push({ value: current, label: refLabelOf(refLabels, listCode, current), disabled: true })
+  }
+  return data
+}
+
+/** KAN-245 — the API refuses a save that carries a spec reference value
+ * that is not active (R5: one sent back unchanged included). A manual
+ * configuration sends its whole spec block; a provider one only the fields
+ * the advisor overrode. A list that failed to load flags nothing. */
+function specRefWillBeSent(source: Draft['source'], overridden: Set<string>, key: string): boolean {
+  return source === 'manual' || overridden.has(key)
+}
+
+function specRefRetiredOf(refLabels: RefLabelRows | undefined, listCode: string, current: string | null): boolean {
+  const rows = refLabels?.[listCode]
+  if (current == null || rows == null) return false
+  return !rows.some((r) => r.valueCode === current && r.active)
+}
+
+/** KAN-96 — a coded field offers the active values of its list, the same
+ * set the API accepts. A stored value outside that set (retired by the
+ * admin, or never on the list) stays visible as its code, disabled and
+ * flagged with a field error, because the API refuses a save that carries
+ * it (Anto, 2026-10-07). `⚠ <code>` is kept for the other case, an active
+ * value with no label in this language. A list that failed to load says so
+ * on its field and flags nothing — the API remains the authority. */
+function codedOptionsOf(
+  codedValues: CodedValueRows | undefined,
+  labelField: LabelField,
+  listCode: string,
+  current: string | null,
+) {
+  const data: { value: string; label: string; disabled?: boolean }[] = [...(codedValues?.[listCode] ?? [])]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((r) => ({
+      value: r.valueCode,
+      label: r[labelField].trim() !== '' ? r[labelField] : `⚠ ${r.valueCode}`,
+    }))
+  if (current != null && !data.some((d) => d.value === current)) {
+    data.push({ value: current, label: current, disabled: true })
+  }
+  return data
+}
+
+function codedValueRetiredOf(codedValues: CodedValueRows | undefined, listCode: string, current: string | null): boolean {
+  const rows = codedValues?.[listCode]
+  if (current == null || rows == null) return false
+  return !rows.some((r) => r.valueCode === current)
 }
 
 // --- helpers --------------------------------------------------------
