@@ -188,8 +188,8 @@ weekly. -->
   consumed when, and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
-  before its own recording reads as history, so a late returned storno reopens over it. *Anto ruled A on the narrower «failed delivery only» description; this wider
-  statement awaits his confirmation.*
+  before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
+  after first ruling A on a narrower «failed delivery only» description.*
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and
