@@ -32,20 +32,21 @@ _ENTITY_TYPE = "integration_connection"
 # Three vocabularies meet at `integration_entitlement.capability_code`, and
 # they are different layers:
 #
-#   sheet line  One of the eight counters on an auto-i-dat account's monthly
-#               usage statistics (fahrzeuge, optionen, kontrollschild, pneu,
-#               bewertung, vin, vin_ident_db, ins_tc), seeded as the provider's
-#               `capability_codes` by migration 49be490e2077. Entitlement rows
-#               are keyed by these. None of the specification PDFs says which
-#               Datenname bumps which counter, and only `fahrzeuge` is written
-#               today (the probe in `gateway.test_connection`); a line with no
+#   sheet line  One of the identAPI's licence options (ident_basis,
+#               ausstattung, bewertung, vin, pneu, energielabel), seeded as the
+#               provider's `capability_codes` by migration 6b98739fe743
+#               (KAN-488; they replaced the eight SOAP account-sheet counters
+#               of 49be490e2077). Entitlement rows are keyed by these; each is
+#               probed by its own identAPI call on "Test connection"
+#               (`entitlement_probes.py`: 403 = not granted); a line with no
 #               row reads as "granted".
 #   feature     A name a screen asks about through `tenant_has_capability`.
 #               Derived on each ask: `valuation` follows the sheet line
-#               `bewertung` (FEATURE_SHEET_LINES); `vin_decode` follows the
-#               health of the tenant's `dat` connection (below). `vin_decode`
-#               is NOT the sheet lines `vin` / `vin_ident_db` — those count VIN
-#               calls billed on the auto-i-dat sheet, this asks whether the
+#               `bewertung`, `packages` and `images` follow `ausstattung`
+#               (FEATURE_SHEET_LINES); `vin_decode` follows the health of the
+#               tenant's `dat` connection (below, until KAN-549). `vin_decode`
+#               is NOT the licence option `vin` — that one says whether the
+#               identAPI account may send VIN queries, this asks whether the
 #               tenant can decode a VIN at all; its row is a display cache.
 #   call label  What `call_capability(capability=...)` names a block by:
 #               `vehicle_data` (catalogue_sync's and identification's umbrella
@@ -58,11 +59,13 @@ _ENTITY_TYPE = "integration_connection"
 # tests/architecture/test_capability_codes_are_in_the_vocabulary.py fails when
 # a consumer reads a code that is in none of the first two layers.
 
-# A feature whose entitlement is exactly one sheet line: `valuation` is the
-# Bewertung webservice, and `Bew` is that webservice's counter. `packages`,
-# `images` and `forecast` are absent because the specification supports no
-# such mapping (see catalogue_entitlements.py).
-FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung"}
+# A feature whose entitlement is exactly one licence option.
+# KAN-488: the identAPI's licence options replace the sheet lines (migration
+# 6b98739fe743): `ident_basis`, `ausstattung`, `bewertung`, `vin`, `pneu`,
+# `energielabel`. The features screens ask about keep their names and follow
+# the option that licenses them: option lists, packages and images are all
+# the `ausstattung` option (there is no separate image or package licence).
+FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung", "packages": "ausstattung", "images": "ausstattung"}
 
 # KAN-36 — vin_decode is never hand-declared: it's derived from the health
 # of the tenant's own `dat` connection (the DAT sub-account auto-i-dat
@@ -432,6 +435,10 @@ def remove_secret(
         db, entity_type="integration_secret_ref", entity_id=existing.id, tenant_id=connection.tenant_id,
         action="delete_secret", actor_id=actor_id, reason=f"slot={slot.value}",
     )
+    # KAN-488: a removed credential is a credential change like a rotation —
+    # `rotated_at` is what the identAPI adapter keys its cached tokens by, so a
+    # token obtained with the removed secret stops being used at once.
+    connection.rotated_at = utcnow()
     db.delete(existing)
     db.commit()
 

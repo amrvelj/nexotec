@@ -344,7 +344,7 @@ def test_a_plate_lookup_the_account_is_not_entitled_to_is_never_made(db_session)
     connection = db_session.scalar(select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id))
     db_session.add(
         IntegrationEntitlement(
-            connection_id=connection.id, capability_code="kontrollschild", granted=False,
+            connection_id=connection.id, capability_code="ident_basis", granted=False,
             source=EntitlementSource.DECLARED, checked_at=utcnow(),
         )
     )

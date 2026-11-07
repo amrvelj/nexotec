@@ -1,7 +1,7 @@
 """Every capability code a consumer reads must be in the entitlement vocabulary (KAN-38 / KAN-36).
 
-`integration_entitlement.capability_code` is keyed by the eight lines of an auto-i-dat account sheet, seeded onto
-the provider rows by migration 49be490e2077. Screens ask about *features* ("valuation", "vin_decode") instead;
+`integration_entitlement.capability_code` is keyed by the identAPI's licence options, seeded onto the provider
+rows by migration 6b98739fe743 (KAN-488; before that, the eight lines of a SOAP account sheet, 49be490e2077). Screens ask about *features* ("valuation", "vin_decode") instead;
 `services/connections.py` describes the three layers.
 
 `catalogue_entitlements.py` kept reading `images` / `packages` / `valuation` / `forecast` after that migration
@@ -34,22 +34,23 @@ _CAPABILITY_URL = re.compile(r"/integrations/capabilities/([A-Za-z0-9_]+)")
 # (`connections.compute_vin_decode_entitlement`); it is deliberately not the sheet lines `vin` / `vin_ident_db`.
 DERIVED = {"vin_decode"}
 
-# Read although no sheet line entitles them (`catalogue_entitlements`' docstring says why). Any other code that is
-# not a sheet line, a derived code or a mapped feature fails the tests below.
-KNOWN_UNMAPPED = {"images", "packages"}
+# KAN-488: `images` and `packages` became features over the `ausstattung` option (connections.FEATURE_SHEET_LINES);
+# nothing is read outside the vocabulary any more.
+KNOWN_UNMAPPED: set[str] = set()
 
 
 def _sheet_lines() -> set[str]:
-    """The eight counters as seeded onto `auto_i_dat` / `auto_i_dat_mock`. Tests build the schema with
-    `create_all`, so — like the canonical-list tests — the vocabulary is read from the migration by path.
+    """The identAPI's six licence options as seeded onto `auto_i_dat` / `auto_i_dat_mock` (KAN-488). Tests
+    build the schema with `create_all`, so — like the canonical-list tests — the vocabulary is read from the
+    migration by path.
     """
 
-    (path,) = (_VERSIONS / "integration").glob("49be490e2077_*.py")
-    spec = importlib.util.spec_from_file_location("kan36_account_shape", path)
+    (path,) = (_VERSIONS / "integration").glob("6b98739fe743_*.py")
+    spec = importlib.util.spec_from_file_location("kan488_identapi_provider_row", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return set(module._AUTO_I_DAT_CAPABILITY_CODES)
+    return set(module._IDENTAPI_CAPABILITY_CODES)
 
 
 def _row_codes() -> set[str]:
@@ -111,7 +112,7 @@ def test_every_code_the_backend_reads_or_writes_is_in_the_vocabulary():
     found = _codes_used_by_the_backend()
     # The scanner must see the forms it claims to (a module constant, a probe's first argument) — otherwise a
     # broken scan would pass by finding nothing.
-    assert {"fahrzeuge", "vin_decode"} <= {code for _, _, _, code in found}
+    assert {"ident_basis", "vin_decode"} <= {code for _, _, _, code in found}
 
     strays = [
         f"{path}:{line} {callee}() uses {code!r}"

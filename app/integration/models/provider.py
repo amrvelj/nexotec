@@ -19,13 +19,13 @@ class IntegrationProvider(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base)
     category: Mapped[str] = mapped_column(String(32), nullable=False)  # vehicle_data | marketplace | ...
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     auth_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    # e.g. ["password", "aes_key"] for auto-i-dat — the two-secrets-per-
-    # account requirement (Integrations & API Credentials v0.1) is data,
-    # not code, so a future provider needing three slots is a catalogue
-    # row, never a schema change.
+    # e.g. ["client_secret"] for auto-i-dat's identAPI, ["password"] for
+    # AutoScout24 — the slots an account needs are data, not code
+    # (Integrations & API Credentials v0.1), so a provider needing three
+    # slots is a catalogue row, never a schema change.
     required_secret_slots: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     # The non-secret counterpart to required_secret_slots (KAN-36) — e.g.
-    # ["username", "benutzerNr", "benutzerInfo"] for auto-i-dat. Without
+    # ["clientId"] for auto-i-dat's identAPI (KAN-488). Without
     # this, a provider-specific required config field (an account number,
     # a project label) has no way to be validated at connection-creation
     # time or rendered as a form field in the dealer's own "Connect"

@@ -188,7 +188,7 @@ def test_connection(
 
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
-    connection = gateway.test_connection(db, connection=connection)
+    connection = gateway.test_connection(db, connection=connection, actor_id=principal.user_id)
     return _connection_read(db, connection)
 
 

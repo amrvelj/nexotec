@@ -9,17 +9,12 @@ without cause" bias (the same reasoning behind "no provider contract keeps
 a fully usable module"). A row saying `granted=False` is respected
 immediately — no code change needed here.
 
-**`images` and `packages` can only be triggered by a hand-inserted row.**
-They are feature names (`app.integration.services.connections` describes the
-layers) and no line on an auto-i-dat account sheet entitles either: there is
-no image counter, and `Opt` is by name the `Optionen` counter — whether it
-also covers option packages is documented nowhere. The only per-account
-permissions the specification names are on `Bilder`'s `BildTyp`/`BildArt`
-parameters and `Optionen`'s `Einstellungen` parameter, and `AutoIDatSoapAdapter`
-sends neither. Nothing writes a row for either code and no API declares one.
-They stay because FR-C-06 specifies the degradation and the frontend renders
-it; what would make them live is per-capability degradation in the gateway
-(KAN-38 exit criterion 3).
+**`images` and `packages` follow one identAPI licence option, `ausstattung`**
+(KAN-488): the identAPI licenses equipment data — options with prices,
+package contents, images — as one option, probed on "Test connection" with
+`GET /vehicleoption/catalog/autoi/{fzKey}` (a 403 writes `granted = False`).
+The two feature names stay because FR-C-06 specifies the degradation and the
+frontend renders it; both read the same row.
 
 Valuation is not a catalogue concern: the screens that need it ask
 `tenant_has_capability("valuation")`, which follows the `bewertung` sheet line.
@@ -42,6 +37,9 @@ from app.integration.public import get_entitlement
 from app.vehicle.models.catalogue import VariantOption, VariantOptionRelation
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.services.catalogue_sync import find_enabled_vehicle_data_connection
+
+# The identAPI licence option that covers option lists, packages and images (KAN-488).
+_AUSSTATTUNG = "ausstattung"
 
 
 @dataclass(frozen=True)
@@ -150,8 +148,10 @@ def get_catalogue_entitlements(db: Session, *, tenant_id: uuid.UUID) -> Catalogu
     connection, _provider_code = found
     return CatalogueEntitlements(
         has_connection=True,
-        images=_is_granted(db, connection_id=connection.id, capability_code="images"),
-        packages=_is_granted(db, connection_id=connection.id, capability_code="packages"),
+        # KAN-488: options, packages and images are one identAPI licence
+        # option, `ausstattung`, probed on "Test connection" (403 = absent).
+        images=_is_granted(db, connection_id=connection.id, capability_code=_AUSSTATTUNG),
+        packages=_is_granted(db, connection_id=connection.id, capability_code=_AUSSTATTUNG),
     )
 
 

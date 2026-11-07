@@ -38,6 +38,7 @@ from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
 from xml.etree import ElementTree as ET
 
+from app.integration import errors as _errors
 from app.integration.errors import ProviderGatewayError
 
 
@@ -51,7 +52,7 @@ class AutoIDatResponseError(ProviderGatewayError):
     """
 
 
-class ProviderRejectedError(AutoIDatResponseError):
+class ProviderRejectedError(AutoIDatResponseError, _errors.ProviderRejectedError):
     """The provider returned an empty string — per *Webservice Fahrzeuge*
     p4 that means an invalid ``Benutzername`` / ``Passwort`` / ``Sprache``
     / ``Datenname``. Never a transient condition; a retry would not help.

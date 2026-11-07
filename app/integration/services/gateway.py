@@ -39,7 +39,15 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
-from app.integration.errors import ProviderGatewayError, ProviderTimeoutError, ProviderTransportError
+from app.integration.errors import (
+    ProviderConfigurationError,
+    ProviderGatewayError,
+    ProviderNotEntitledError,
+    ProviderRejectedError,
+    ProviderRequestError,
+    ProviderTimeoutError,
+    ProviderTransportError,
+)
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus, IntegrationConnection
@@ -167,8 +175,8 @@ def resolve_adapter(
 
     A real provider call must never use this — `call_capability` is the
     only place a call that actually reaches the provider is allowed to
-    happen, precisely so every such call is logged and every failure
-    counted toward that connection's circuit breaker. Resolving an
+    happen, precisely so every such call is logged and every provider
+    failure counted toward that connection's circuit breaker. Resolving an
     adapter here to then quietly do I/O with it would defeat both.
     """
 
@@ -297,6 +305,19 @@ def call_capability(
                 raise
             try:
                 yield adapter
+            except ProviderConfigurationError:
+                # KAN-488: the identAPI adapter resolves its credential and
+                # builds its token inside the block (lazily, on the first
+                # request), so a missing `clientId` or `client_secret`, or a
+                # call with nobody to enrol, surfaces here rather than in the
+                # factory. Same rule as there: the dealer's to fix, so the
+                # breaker is never charged and no row is invented for a request
+                # that was not sent. What the adapter did send before it
+                # stopped (the discovery read) keeps the row it wrote, and the
+                # audit rows it recorded (a secret resolution) are committed.
+                _bound_lock_wait(gateway_db)
+                gateway_db.commit()
+                raise
             except Exception as exc:
                 _record_failed_call(
                     gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
@@ -331,10 +352,11 @@ def _record_failed_call(
     capture_raw_payload: Callable[[], str | None] | None,
     meter: metering.CallMeter,
 ) -> None:
-    """Charges the breaker — once per block, whatever it sent — and, when
-    the block metered no request of its own (KAN-486), writes the block's
+    """Charges the breaker — once per block, whatever it sent, unless the
+    failure is the provider's coherent answer to our request (below) — and,
+    when the block metered no request of its own (KAN-486), writes the block's
     one log row: `TIMEOUT` for a transport timeout (KAN-108), `ERROR` for
-    every other failure; both count toward the breaker alike.
+    every other failure.
 
     A block that did meter requests already has a row for each. When the
     newest of them still reads `SUCCESS`, the failure came after its answer
@@ -343,7 +365,16 @@ def _record_failed_call(
     that row is marked as the failure, so the log never shows a failed,
     breaker-charged call as a success. No extra row: nothing more was sent."""
 
-    resilience.record_failure(connection.id)
+    # KAN-488: a 400/422 (`ProviderRequestError`: an unknown key, a malformed
+    # filter) and a 403 (`ProviderNotEntitledError`: the licence lacks this
+    # option) are the provider's coherent answers to our request, not a
+    # failure of the provider. The request's row reads ERROR (it was refused),
+    # but five such answers must not take the connection offline: a user
+    # typing a wrong Stammnummer five times is not an outage, and one
+    # un-entitled option must not switch off the others (the rule the probes
+    # already live by). A refused login, a transport failure and a 5xx charge.
+    if not isinstance(exc, (ProviderRequestError, ProviderNotEntitledError)):
+        resilience.record_failure(connection.id)
     if meter.requests:
         log = meter.last_log
         if log is not None and log.status == CallStatus.SUCCESS:
@@ -388,10 +419,14 @@ def _maybe_capture_payload(
         db.commit()
 
 
-def test_connection(db: Session, *, connection: IntegrationConnection) -> IntegrationConnection:
-    """The dealer-facing "Test connection" action (PR-7's own UI) — a
-    lightweight probe: fetch the system watermark, which every provider
-    account can read regardless of its other entitlements. Updates
+def test_connection(
+    db: Session, *, connection: IntegrationConnection, actor_id: uuid.UUID | None = None
+) -> IntegrationConnection:
+    """The dealer-facing "Test connection" action (PR-7's own UI) — an
+    access check every account of the provider can pass whatever its other
+    entitlements (`entitlement_probes.access_check`: for the identAPI the
+    login plus `GET /caption/code`, for the SOAP-shaped mock the `System`
+    watermark), then the entitlement probes. Updates
     status/last_verified_at/last_error directly.
 
     Any `ProviderGatewayError` — a refusal, a rejected login, a maintenance
@@ -407,14 +442,14 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     resolved: nothing is logged, the breaker is not charged, and a healthy
     connection is not marked `ERROR` for a call that never happened.
 
-    KAN-38 PR 2b: once the watermark call has succeeded, also probes the
+    KAN-38 PR 2b: once the access check has succeeded, also probes the
     capabilities `services/entitlement_probes.py` can probe honestly and
     records each result as an `integration_entitlement` row. The ordering is
-    load-bearing — a probe's rejection is only attributable to the
-    capability because `System` has just accepted the same credentials — so
-    a connection that fails here is never probed. Each probe is a real,
-    logged, potentially billed provider call: one click is now two calls
-    for `auto_i_dat`, not one.
+    load-bearing — a probe's refusal is only attributable to the capability
+    because the access check has just accepted the same credentials — so a
+    connection that fails here is never probed. Each probe is a real,
+    logged, potentially billed provider call: for the identAPI one click is
+    the login, the caption call and six probes (KAN-488).
 
     KAN-80 (Anto, option A): testing the `dat` connection also refreshes the
     tenant's cached `vin_decode` entitlement row, healthy or not — the one
@@ -427,10 +462,19 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     if provider.category == "marketplace":
         raise ConflictError(f"Connection testing is not available for {provider.display_name}.")
 
+    # KAN-488: the identAPI's access check is the login plus
+    # `GET /caption/code` (metered rows `oauth_discovery` on a cold cache,
+    # `oauth_token`, `caption_code`);
+    # every other vehicle-data adapter keeps the `System` watermark. The
+    # actor is the user the token is requested for (auto-i's User Enrollment
+    # Grant) — a test with no actor fails as a configuration error.
+    check = entitlement_probes.access_check(provider.provider_code)
     healthy = False
     try:
-        with call_capability(db, connection=connection, capability="system_watermark") as adapter:
-            adapter.get_system_watermark()
+        with call_capability(
+            db, connection=connection, capability="system_watermark", actor_id=actor_id, purpose="test_connection"
+        ) as adapter:
+            check(adapter)
     except ProviderGatewayError as exc:
         # Traceback only when there is a chained foreign cause worth reading —
         # `last_error` carries our own wording, the log carries what it hides.
@@ -446,7 +490,7 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
         healthy = True
     db.commit()
     if healthy:
-        _probe_entitlements(db, connection=connection)
+        _probe_entitlements(db, connection=connection, actor_id=actor_id)
     # A platform-scoped connection (no tenant) entitles no one's VIN decode.
     if provider.provider_code == connection_service.VIN_DECODE_PROVIDER_CODE and connection.tenant_id is not None:
         connection_service.compute_vin_decode_entitlement(db, tenant_id=connection.tenant_id)
@@ -454,7 +498,9 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     return connection
 
 
-def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> None:
+def _probe_entitlements(
+    db: Session, *, connection: IntegrationConnection, actor_id: uuid.UUID | None = None
+) -> None:
     """A refusal is caught *inside* the `call_capability` block, so the
     block succeeds and the connection's circuit breaker is not charged; the
     refused request itself is logged as `ERROR` under its Datenname
@@ -463,7 +509,7 @@ def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> No
     the per-connection breaker would otherwise defeat — one un-entitled
     capability must not take the connection's other capabilities offline.
     (Within `test_connection` alone the breaker could not accumulate anyway,
-    since each click's successful `System` call resets it; the rule matters
+    since each click's successful access check resets it; the rule matters
     for a probe run outside that reset.)
 
     Anything other than a refusal (maintenance, transport, a bug) leaves the
@@ -479,9 +525,23 @@ def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> No
                 db,
                 connection=connection,
                 capability=probe.capability_code,
+                actor_id=actor_id,
                 purpose=f"entitlement_probe:{probe.capability_code}",
             ) as adapter:
                 granted = entitlement_probes.run_probe(probe, adapter)
+        except ProviderRejectedError:
+            # KAN-488: the login was refused under the probes (the access check
+            # had passed). The block charged the breaker once, as a refused
+            # login does anywhere; nothing is known about the remaining
+            # options, and retrying the login once per option would open the
+            # breaker for a connection whose card reads connected — so probing
+            # stops here and the remaining rows stay as they were.
+            logger.warning(
+                "entitlement probing stopped on connection %s: the login was refused at %s; "
+                "the remaining options are left unchanged",
+                connection.id, probe.capability_code, exc_info=True,
+            )
+            break
         except Exception:
             logger.warning(
                 "entitlement probe for %s failed on connection %s; entitlement left unchanged",

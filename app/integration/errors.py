@@ -50,3 +50,45 @@ class ProviderConfigurationError(ProviderGatewayError):
     `wsdlUrl`, a credential that cannot be read. Something the dealer manager
     can fix, as opposed to a provider that is down.
     """
+
+
+class ProviderRejectedError(ProviderGatewayError):
+    """The provider understood the request and said no to the caller's
+    credentials or to the call itself — a wrong client secret, a refused
+    login, an empty SOAP answer (KAN-488). Never transient: a retry with the
+    same input would not help. The SOAP parser's own `ProviderRejectedError`
+    is a subclass of this one, so one `except` covers both transports.
+    """
+
+
+class ProviderNotEntitledError(ProviderGatewayError):
+    """The provider answered 403 (KAN-488): the account is valid but the
+    licence does not include this operation. `gateway.test_connection`'s
+    probes read it as `granted = False` for the capability the operation
+    represents; a caller outside a probe treats it like any other refusal.
+    `operation` is the provider's own name for what was asked.
+    """
+
+    def __init__(self, operation: str, message: str | None = None) -> None:
+        self.operation = operation
+        super().__init__(message or f"{operation}: the account is not entitled to this operation (HTTP 403).")
+
+
+class ProviderRequestError(ProviderGatewayError):
+    """The provider refused the request as malformed or unprocessable (400 or
+    422 on the identAPI, with a json:api error body; KAN-488). The licence
+    allowed the call and the credentials were accepted, so it says nothing
+    about entitlement — an entitlement probe leaves its row untouched. The
+    message carries the status and the provider's bounded `title`, never its
+    free-text `detail` and never a credential.
+    """
+
+
+class ProviderOperationNotBuiltError(ProviderConfigurationError):
+    """An operation the adapter does not implement yet — the identAPI's
+    identification, browse, details, VIN and valuation methods until their
+    tickets land (KAN-488). A `ProviderConfigurationError`, so the gateway
+    neither logs a call that was never sent nor charges the circuit breaker
+    (five plate lookups must not take a connection offline); the message names
+    the ticket.
+    """

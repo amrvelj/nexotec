@@ -85,18 +85,23 @@ def test_a_declared_denial_is_respected(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    _deny(db_session, connection.id, "packages")
+    # KAN-488: options, packages and images are one identAPI licence option.
+    _deny(db_session, connection.id, "bewertung")
+    entitlements = catalogue_entitlements.get_catalogue_entitlements(db_session, tenant_id=tenant_id)
+    assert entitlements.packages is True  # degradation is per capability, never wholesale
+    assert entitlements.images is True
 
+    _deny(db_session, connection.id, "ausstattung")
     entitlements = catalogue_entitlements.get_catalogue_entitlements(db_session, tenant_id=tenant_id)
     assert entitlements.packages is False
-    assert entitlements.images is True  # degradation is per capability, never wholesale
+    assert entitlements.images is False
 
 
 def test_specification_flattens_option_groups_without_packages_entitlement(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    _deny(db_session, connection.id, "packages")
+    _deny(db_session, connection.id, "ausstattung")
 
     look_up_demo_variants(db_session, tenant_id)
     master = MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100002")
@@ -112,7 +117,7 @@ def test_specification_hides_images_without_images_entitlement(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    _deny(db_session, connection.id, "images")
+    _deny(db_session, connection.id, "ausstattung")
 
     look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
@@ -169,7 +174,7 @@ def test_specification_omits_option_relations_without_packages_entitlement(db_se
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    _deny(db_session, connection.id, "packages")
+    _deny(db_session, connection.id, "ausstattung")
 
     look_up_demo_variants(db_session, tenant_id)
     golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
@@ -337,7 +342,7 @@ def test_capability_check_endpoint_respects_a_declared_denial(client, db_session
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    _deny(db_session, connection.id, "packages")
+    _deny(db_session, connection.id, "ausstattung")
     token = _token(tenant_id)
 
     response = client.get("/v1/integrations/capabilities/packages", headers=_bearer(token))

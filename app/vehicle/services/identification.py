@@ -92,6 +92,9 @@ _CANTONS = frozenset(
 )
 
 _PLATE_CALL_LABEL = "kontrollschild"
+# KAN-488: plate identification is the identAPI's basis option (`/vehiclebuild/licenseplate/…`,
+# KAN-547); the entitlement row it is refused on is `ident_basis`, not the SOAP sheet line.
+_PLATE_ENTITLEMENT = "ident_basis"
 _BEST_MATCH_CALL_LABEL = "vehicle_data"
 
 
@@ -413,7 +416,7 @@ def _lookup_plate(
     if found is None:
         return [], [IdentificationNote.NO_PROVIDER_CONNECTION]
     connection, _provider_code = found
-    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=_PLATE_CALL_LABEL)
+    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=_PLATE_ENTITLEMENT)
     if entitlement is not None and not entitlement.granted:
         return [], [IdentificationNote.PLATE_LOOKUP_NOT_ENTITLED]
 

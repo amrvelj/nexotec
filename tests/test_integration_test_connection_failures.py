@@ -2,209 +2,127 @@
 
 The route's own docstring promises it: "a dependency being down degrades this
 one connection's own status, it never raises past this endpoint as a 500."
-`gateway.test_connection` only caught `ProviderGatewayError`, and none of the
-failures a REAL adapter raises were one — an empty response (which is what a
-wrong Benutzername/Passwort looks like, the first thing a dealer configuring a
-real account hits), a maintenance window, a transport error, a WSDL that will
-not load, an open circuit. The mock adapter never raises any of them, so the
-hole stayed hidden behind a test that only exercised `UnknownProviderError`.
+`gateway.test_connection` only catches `ProviderGatewayError`, so every way the
+real adapter can fail has to end as one of those — and the dealer has to be
+able to read what happened in `lastError`.
 
-So these tests drive the REAL `AutoIDatSoapAdapter` against a fake `Suchen`
-and assert on what the dealer sees — the connection's own row and the HTTP
-status — not on which exception class the adapter happens to raise.
+KAN-488: the real adapter is the identAPI's (`adapters/auto_i_dat_ident.py`):
+OAuth 2.0 discovery and User Enrollment Grant against `www.autoi.ch`, json:api
+calls against `api.ident.autoi.ch`. These tests drive it against the fake hosts
+in `tests/identapi_support.py` and assert on what the dealer sees — the
+connection's own row and the HTTP status — not on which exception class the
+adapter happens to raise. The SOAP adapter's own failure tests live with its
+unit tests until KAN-550 removes it.
 """
 
-import sys
-import types
 import uuid
 from collections.abc import Callable
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.auth import create_access_token
-from app.integration.adapters import auto_i_dat_soap
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
-from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter
+from app.integration.adapters.autoi_oauth import OAUTH_DISCOVERY_OPERATION, OAUTH_TOKEN_OPERATION
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
-from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus, IntegrationConnection
+from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.integration.services import gateway, resilience
 from app.main import app as fastapi_app
-from tests.test_integration_soap_adapter import _AES_KEY, FakeSecretsBackend, FakeSoapClient
+from tests import identapi_support as fx
+from tests.identapi_support import FakeAutoi
 from tests.token_support import dealer_group_of
-
-_PASSWORD = "s3cret"
-
-
-# --- the fake provider -----------------------------------------------------------------
-
-
-class _EmptyStringClient:
-    """`Suchen` -> "". Webservice Fahrzeuge p4: an empty string means an
-    invalid Benutzername / Passwort / Sprache / Datenname."""
-
-    def Suchen(self, **kwargs):
-        return ""
-
-
-class _RaisingClient:
-    def __init__(self, exc: Exception) -> None:
-        self._exc = exc
-        self.calls = 0
-
-    def Suchen(self, **kwargs):
-        self.calls += 1
-        raise self._exc
-
-
-_MAINTENANCE_XML = (
-    "<AutoiSystem><Info><Status>1</Status><StatusMsg>Webservice ist offline (Wartung)</StatusMsg></Info></AutoiSystem>"
-)
-
-
-# --- arranging a connection that speaks through the real adapter -------------------------
-
-
-def _provider(db_session) -> IntegrationProvider:
-    provider = IntegrationProvider(
-        provider_code="auto_i_dat",
-        category="vehicle_data",
-        display_name="auto-i-dat",
-        auth_type="soap_password_aes",
-        required_secret_slots=["password", "aes_key"],
-        capability_codes=["fahrzeuge"],
-    )
-    db_session.add(provider)
-    db_session.commit()
-    db_session.refresh(provider)
-    return provider
-
-
-def _connection(db_session, tenant_id: uuid.UUID, *, config: dict | None = None) -> IntegrationConnection:
-    return connection_service.create_connection(
-        db_session,
-        tenant_id=tenant_id,
-        data=ConnectionCreate(
-            provider_id=_provider(db_session).id,
-            display_name="auto-i-dat",
-            environment=ConnectionEnvironment.SANDBOX,
-            config=config or {},
-        ),
-        actor_id=uuid.uuid4(),
-    )
-
-
-def _serve(db_session, monkeypatch, tenant_id, soap_client, *, aes_key: str | None = None) -> IntegrationConnection:
-    """A real `AutoIDatSoapAdapter` in front of `soap_client`, with the
-    secrets manager replaced by an in-memory one."""
-
-    connection = _connection(db_session, tenant_id, config={"username": "dealer"})
-    monkeypatch.setattr(
-        auto_i_dat_soap,
-        "secrets_backend",
-        FakeSecretsBackend(
-            {
-                (connection.id, "password"): _PASSWORD,
-                (connection.id, "aes_key"): aes_key if aes_key is not None else _AES_KEY.decode("ascii"),
-            }
-        ),
-    )
-    monkeypatch.setitem(
-        gateway._ADAPTER_FACTORIES,
-        "auto_i_dat",
-        lambda db, conn, actor_id, purpose: AutoIDatSoapAdapter(
-            db=db, connection=conn, soap_client=soap_client, actor_id=actor_id, purpose=purpose
-        ),
-    )
-    return connection
-
 
 # One builder per way a real provider connection can fail, each paired with the
 # fragment the dealer must be able to read in `lastError`. Both the service-level
 # and the HTTP-level tests below run every entry, so a new failure mode added
-# here is covered at both layers.
+# here is covered at both layers. Each returns the Setup (connection + user).
 
 
-def _wrong_password(db_session, monkeypatch, tenant_id):
-    return _serve(db_session, monkeypatch, tenant_id, _EmptyStringClient())
+def _wrong_secret(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    s.secrets.values[(s.connection.id, "client_secret")] = "not-the-secret"
+    return s
 
 
-def _maintenance(db_session, monkeypatch, tenant_id):
-    return _serve(db_session, monkeypatch, tenant_id, FakeSoapClient(responses={"System": _MAINTENANCE_XML}))
+def _user_quota_exceeded(db_session, monkeypatch):
+    return fx.connected(db_session, monkeypatch, fake=FakeAutoi(token_status=400))
 
 
-def _unusable_response(db_session, monkeypatch, tenant_id):
-    return _serve(db_session, monkeypatch, tenant_id, FakeSoapClient(responses={"System": "this is not xml"}))
-
-
-def _transport_error(db_session, monkeypatch, tenant_id):
+def _authorization_server_down(db_session, monkeypatch):
     monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
-    return _serve(db_session, monkeypatch, tenant_id, _RaisingClient(ConnectionError("connection refused")))
+    return fx.connected(db_session, monkeypatch, fake=FakeAutoi(discovery_status=503))
 
 
-def _truncated_aes_key(db_session, monkeypatch, tenant_id):
-    # A dealer pasted five characters of the key: not a valid AES length.
-    return _serve(db_session, monkeypatch, tenant_id, FakeSoapClient(), aes_key="short")
+def _api_down(db_session, monkeypatch):
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    return fx.connected(db_session, monkeypatch, fake=FakeAutoi(api_status={"/caption/code": 500}))
 
 
-class _ZeepStyleTransportError(Exception):
-    """Stands in for `zeep.exceptions.TransportError`: a library error that is
-    neither an `OSError` nor anything of ours."""
+def _transport_error(db_session, monkeypatch):
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    return fx.connected(db_session, monkeypatch, fake=FakeAutoi(raise_on_api=httpx.ConnectError("connection refused")))
 
 
-def _wsdl_will_not_load(db_session, monkeypatch, tenant_id):
-    def _fails(wsdl_url, *args, **kwargs):
-        raise _ZeepStyleTransportError("Server returned HTTP status 404")
-
-    # `zeep` is imported lazily by `build_zeep_client` and is not necessarily
-    # installed where the fast lane runs — a stub module works either way.
-    stub = types.ModuleType("zeep")
-    stub.Client = _fails  # type: ignore[attr-defined]
-    stub.Transport = lambda **kwargs: None  # type: ignore[attr-defined]  # KAN-76: built before the WSDL fetch
-    monkeypatch.setitem(sys.modules, "zeep", stub)
-    # No factory override: this is the real, registered `_build_real_adapter`.
-    return _connection(db_session, tenant_id, config={"wsdlUrl": "https://wsdl.example.test/x?wsdl"})
+def _timeout(db_session, monkeypatch):
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    return fx.connected(db_session, monkeypatch, fake=FakeAutoi(raise_on_api=httpx.ReadTimeout("read timed out")))
 
 
-def _missing_password(db_session, monkeypatch, tenant_id):
-    # Created and tested before the password slot was ever set: the secrets
-    # manager has nothing to give (`FakeSecretsBackend` raises, as the real SDK does).
-    connection = _serve(db_session, monkeypatch, tenant_id, FakeSoapClient())
-    monkeypatch.setattr(auto_i_dat_soap, "secrets_backend", FakeSecretsBackend({}))
-    return connection
+def _not_entitled_to_captions(db_session, monkeypatch):
+    # The access check itself refused: a licence that covers nothing readable.
+    return fx.connected(db_session, monkeypatch, fake=FakeAutoi(api_status={"/caption/code": 403}))
 
 
-def _no_wsdl_url(db_session, monkeypatch, tenant_id):
-    # A freshly created real connection, tested before anything is filled in.
-    return _connection(db_session, tenant_id)
+def _discovery_without_basic_auth(db_session, monkeypatch):
+    fake = FakeAutoi(discovery={**fx.DISCOVERY, "token_endpoint_auth_methods_supported": ["private_key_jwt"]})
+    return fx.connected(db_session, monkeypatch, fake=fake)
 
 
-def _circuit_open(db_session, monkeypatch, tenant_id):
-    connection = _serve(db_session, monkeypatch, tenant_id, FakeSoapClient())
+def _missing_secret(db_session, monkeypatch):
+    # Created and tested before the secret was set: the secrets manager has
+    # nothing to give (`FakeSecretsBackend` raises, as the real SDK does).
+    s = fx.connected(db_session, monkeypatch)
+    s.secrets.values.clear()
+    return s
+
+
+def _missing_client_id(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    s.connection.config = {}
+    db_session.commit()
+    return s
+
+
+def _circuit_open(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
     for _ in range(resilience._FAILURE_THRESHOLD):
-        resilience.record_failure(connection.id)
-    return connection
+        resilience.record_failure(s.connection.id)
+    return s
 
 
 _SCENARIOS: dict[str, tuple[Callable, str]] = {
-    "wrong_password": (_wrong_password, "Passwort"),
-    "maintenance": (_maintenance, "Wartung"),
-    "unusable_response": (_unusable_response, "not well-formed"),
-    "transport_error": (_transport_error, "ConnectionError"),
-    "truncated_aes_key": (_truncated_aes_key, "decrypt"),
-    "wsdl_will_not_load": (_wsdl_will_not_load, "WSDL"),
-    "missing_password": (_missing_password, "'password' credential"),
-    "no_wsdl_url": (_no_wsdl_url, "wsdlUrl"),
+    "wrong_secret": (_wrong_secret, "401"),
+    "user_quota_exceeded": (_user_quota_exceeded, "user quota"),
+    "authorization_server_down": (_authorization_server_down, "HTTP 503"),
+    "api_down": (_api_down, "HTTP 500"),
+    "transport_error": (_transport_error, "ConnectError"),
+    "timeout": (_timeout, "ReadTimeout"),
+    "not_entitled_to_captions": (_not_entitled_to_captions, "403"),
+    "discovery_without_basic_auth": (_discovery_without_basic_auth, "client_secret_basic"),
+    "missing_secret": (_missing_secret, "'client_secret' credential"),
+    "missing_client_id": (_missing_client_id, "clientId"),
     "circuit_open": (_circuit_open, "Circuit breaker"),
 }
 
 
 @pytest.fixture(autouse=True)
-def _reset_circuits():
+def _reset_state():
     yield
+    fx.uninstall()
     for connection_id in list(resilience._CIRCUITS):
         resilience.reset_circuit(connection_id)
 
@@ -215,28 +133,33 @@ def _reset_circuits():
 @pytest.mark.parametrize("scenario", _SCENARIOS)
 def test_a_provider_failure_marks_the_connection_error_instead_of_raising(db_session, monkeypatch, scenario):
     build, expected = _SCENARIOS[scenario]
-    connection = build(db_session, monkeypatch, uuid.uuid4())
+    s = build(db_session, monkeypatch)
 
-    updated = gateway.test_connection(db_session, connection=connection)
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     assert updated.status == ConnectionStatus.ERROR
     assert expected in (updated.last_error or ""), updated.last_error
     assert updated.last_verified_at is None  # a failed test never stamps "verified"
 
 
-def test_a_wrong_password_is_a_failed_call_and_never_reaches_entitlement_probing(db_session, monkeypatch):
-    """Probing runs only after `System` succeeded — that ordering is what makes
-    a probe's rejection attributable to the Datenname. A rejected `System` must
-    therefore end the test with exactly one logged, failed call."""
+def test_a_wrong_secret_is_a_failed_login_and_never_reaches_entitlement_probing(db_session, monkeypatch):
+    """Probing runs only after the access check succeeded. A refused login must
+    therefore end the test with the discovery row, one logged, failed
+    `oauth_token` row and no identAPI request at all."""
 
-    connection = _wrong_password(db_session, monkeypatch, uuid.uuid4())
+    s = _wrong_secret(db_session, monkeypatch)
 
-    gateway.test_connection(db_session, connection=connection)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
-    calls = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
-    # The one request, named by its Datenname (KAN-486).
-    assert [(c.capability, c.status) for c in calls] == [("System", CallStatus.ERROR)]
-    assert connection_service.list_entitlements(db_session, connection_id=connection.id) == []
+    calls = (
+        db_session.query(IntegrationCallLog).filter_by(connection_id=s.connection.id)
+        .order_by(IntegrationCallLog.created_at, IntegrationCallLog.id).all()
+    )
+    assert [(c.capability, c.status) for c in calls] == [
+        (OAUTH_DISCOVERY_OPERATION, CallStatus.SUCCESS), (OAUTH_TOKEN_OPERATION, CallStatus.ERROR),
+    ]
+    assert s.fake.api_requests() == []
+    assert connection_service.list_entitlements(db_session, connection_id=s.connection.id) == []
 
 
 def test_last_error_never_echoes_a_foreign_exception_message(db_session, monkeypatch):
@@ -244,17 +167,17 @@ def test_last_error_never_echoes_a_foreign_exception_message(db_session, monkeyp
     message can carry a URL, a header, or a server's echo of what it was sent —
     so only the class name of a foreign exception may reach it."""
 
-    leaky = ConnectionError(f"HTTPSConnectionPool(host='dealer:{_PASSWORD}@wsdl.example.test', port=443)")
+    leaky = httpx.ConnectError(f"ConnectionPool(host='client:{fx.CLIENT_SECRET}@api.ident.autoi.ch', port=443)")
     monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
-    connection = _serve(db_session, monkeypatch, uuid.uuid4(), _RaisingClient(leaky))
+    s = fx.connected(db_session, monkeypatch, fake=FakeAutoi(raise_on_api=leaky))
 
-    updated = gateway.test_connection(db_session, connection=connection)
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     assert updated.status == ConnectionStatus.ERROR
     assert updated.last_error is not None
-    assert "ConnectionError" in updated.last_error
-    assert _PASSWORD not in updated.last_error
-    assert "wsdl.example.test" not in updated.last_error
+    assert "ConnectError" in updated.last_error
+    assert fx.CLIENT_SECRET not in updated.last_error
+    assert "api.ident.autoi.ch" not in updated.last_error
 
 
 def test_a_programmer_error_is_not_dressed_up_as_a_connection_failure(db_session, monkeypatch):
@@ -297,11 +220,11 @@ def test_a_programmer_error_is_not_dressed_up_as_a_connection_failure(db_session
 # --- through the HTTP endpoint ----------------------------------------------------------
 
 
-def _bearer(tenant_id: uuid.UUID) -> dict[str, str]:
+def _bearer(s: fx.Setup) -> dict[str, str]:
     token = create_access_token(
-        user_id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        group_id=dealer_group_of(str(tenant_id)),
+        user_id=s.user.id,
+        tenant_id=s.connection.tenant_id,
+        group_id=dealer_group_of(str(s.connection.tenant_id)),
         roles=frozenset(),
         is_dealer_manager=True,
     )
@@ -311,13 +234,12 @@ def _bearer(tenant_id: uuid.UUID) -> dict[str, str]:
 @pytest.mark.parametrize("scenario", _SCENARIOS)
 def test_the_test_endpoint_answers_200_with_an_error_status_never_500(client, db_session, monkeypatch, scenario):
     build, expected = _SCENARIOS[scenario]
-    tenant_id = uuid.uuid4()
-    connection = build(db_session, monkeypatch, tenant_id)
+    s = build(db_session, monkeypatch)
     # The shared `client` fixture re-raises server exceptions into the test;
     # this one turns an unhandled exception into the 500 a dealer would see.
     http = TestClient(fastapi_app, raise_server_exceptions=False)
 
-    response = http.post(f"/v1/integrations/connections/{connection.id}/test", headers=_bearer(tenant_id))
+    response = http.post(f"/v1/integrations/connections/{s.connection.id}/test", headers=_bearer(s))
 
     assert response.status_code == 200, response.text
     body = response.json()
@@ -327,7 +249,7 @@ def test_the_test_endpoint_answers_200_with_an_error_status_never_500(client, db
 
 def test_testing_a_marketplace_connection_is_refused_cleanly_not_a_500(client, db_session):
     """The dealer view offers "Test" on every connection card. A marketplace
-    adapter has no `System` probe, so this used to be an `AttributeError` and an
+    adapter has no access check, so this used to be an `AttributeError` and an
     HTTP 500 — and, had it been caught as a failed call, would have marked a
     healthy AutoScout24 connection `ERROR` and charged its circuit breaker for a
     call that never happened."""
@@ -355,8 +277,14 @@ def test_testing_a_marketplace_connection_is_refused_cleanly_not_a_500(client, d
         actor_id=uuid.uuid4(),
     )
     http = TestClient(fastapi_app, raise_server_exceptions=False)
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)), roles=frozenset(),
+        is_dealer_manager=True,
+    )
 
-    response = http.post(f"/v1/integrations/connections/{connection.id}/test", headers=_bearer(tenant_id))
+    response = http.post(
+        f"/v1/integrations/connections/{connection.id}/test", headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == 409, response.text
     assert "AutoScout24" in response.json()["error"]["message"]
