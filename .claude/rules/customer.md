@@ -165,8 +165,9 @@ weekly. -->
   failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
   records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
   purchase, or of one booked again under another date, writes nothing; booked again under the same
-  date, the late event is taken for the standing one — the same history, except that a date not after
-  the signature ends it at the late event's booking; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
+  date, the late event is taken for the standing one, and the history may then end at the late event's
+  booking rather than the standing one's — whenever `purchase_moment` falls back to the booking: a
+  date not after the signature or still to come; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
   purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
   `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
   stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
@@ -183,7 +184,8 @@ weekly. -->
   the customer who got the car back is then recorded nowhere (in order, they would be its current
   owner and keeper) —, a returned storno consumed
   after a later booking reopens nobody (so the period the customer held the car again is not
-  recorded), with a re-booking the history ends at the purchase consumed, not always the first, and
+  recorded), with a re-booking the history may end at either booking, depending on which event is
+  consumed when, and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
   before its own recording reads as history, so a late returned storno reopens over it. *Anto ruled A on the narrower «failed delivery only» description; this wider
