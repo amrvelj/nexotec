@@ -7,6 +7,7 @@ import { useFieldHint } from '../../hooks/useFieldHint'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { StockItemRead } from '../../api/types'
 import { apiRefusalText } from '../../utils/apiRefusal'
+import { isTradeInStockItem } from './tradeIn'
 
 interface PurchaseStornoDialogProps {
   opened: boolean
@@ -33,9 +34,6 @@ interface PurchaseStornoDialogProps {
  * as the purchase wrote it. Any other car is never asked (the API refuses it,
  * 422 `storno_return_not_trade_in`).
  */
-export function isTradeInStockItem(item: Pick<StockItemRead, 'pipelineRef'>): boolean {
-  return /^contract:[^:]+:trade_in$/.test(item.pipelineRef ?? '')
-}
 
 export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: PurchaseStornoDialogProps) {
   const { t } = useTranslation()

@@ -1,14 +1,16 @@
-import { useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader } from '@mantine/core'
-import { FileSignature, Handshake, Warehouse } from 'lucide-react'
+import { Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge, DetailHeader, DetailTabs, StockConditionBadge, StockLifecycleBadge, StockReservationBadge, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
-import { DetailsTab } from '../components/stock-detail/DetailsTab'
+import { DetailsTab, type DetailsTabAction } from '../components/stock-detail/DetailsTab'
+import { ChangeConditionDialog } from '../components/stock-detail/ChangeConditionDialog'
+import { buildStockRowMenu, readStockOpenAction, type StockOpenAction } from '../components/stockRowMenu'
 import { EvaluationTab } from '../components/stock-detail/EvaluationTab'
 import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
@@ -66,6 +68,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const canPublish = useCanWrite('marketplace_publishing')
   const canWriteStockItems = useCanWrite('stock_items')
   const canWriteConfigurations = useCanWrite('configurations')
+  const canChangeCondition = useCanWrite('stock_condition')
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
 
   const setActiveTab = (tab: string) => {
@@ -125,6 +128,10 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const navigate = useNavigate()
   const [creating, setCreating] = useState<'offer' | 'contract' | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
+  // KAN-571 — the row menu's actions: those whose dialog lives on the
+  // Details tab go there; «Zustand ändern» has its own dialog here.
+  const [detailsAction, setDetailsAction] = useState<DetailsTabAction | null>(null)
+  const [conditionOpen, setConditionOpen] = useState(false)
 
   // KAN-307 — "Offerte erstellen": a bare offer, then the same PATCH the
   // workspace's stock picker sends. A retry after a failed POST replays the
@@ -204,6 +211,36 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     void queryClient.invalidateQueries({ queryKey: ['stock-item', id, 'ledger-entries'] })
   }
 
+  const onDetails = (action: DetailsTabAction) => () => {
+    setActiveTab(DEFAULT_TAB)
+    setDetailsAction(action)
+  }
+  const runAction: Record<StockOpenAction, () => void> = {
+    createContract: () => void createContractForCar(),
+    createOffer: () => void createOfferForCar(),
+    recordPurchase: onDetails('recordPurchase'),
+    stornoPurchase: onDetails('stornoPurchase'),
+    changeCondition: () => setConditionOpen(true),
+    attachConfiguration: onDetails('attachConfiguration'),
+    editConfiguration: onDetails('editConfiguration'),
+  }
+
+  // KAN-571 — the Stock list's row menu opens the car at the action picked
+  // there (router state, never the URL). It runs once the car has loaded,
+  // exactly as the header's would, and the state is dropped at once, so a
+  // reload, Back or Forward never runs it again.
+  const location = useLocation()
+  const openAction = embedded ? null : readStockOpenAction(location.state)
+  const itemLoaded = Boolean(itemQuery.data)
+  useEffect(() => {
+    if (!openAction || !itemLoaded) return
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null })
+    runAction[openAction]()
+    // runAction is recreated on every render; the action runs once per
+    // navigation that carries it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAction, itemLoaded])
+
   const ledgerEntries = ledgerQuery.data?.items ?? []
   const tabs: DetailTab[] = [
     { id: 'details', label: t('stockDetail.tabs.details') },
@@ -223,8 +260,21 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
 
   const item = itemQuery.data
   const leftStockDate = item.leftStockAt ? formatDate(item.leftStockAt, locale) : null
-  // KAN-262 — a car that has left stock can start neither, and says why.
-  const leftStockReason = leftStockDate ? t('stockDetail.actions.leftStock', { date: leftStockDate }) : undefined
+  // KAN-262 — a car that has left stock can start neither, and says why
+  // (the builder puts the reason on every action that car no longer allows).
+  // KAN-571 — header and overflow render from the one stock row menu.
+  const rowMenu = buildStockRowMenu(
+    t,
+    item,
+    runAction,
+    {
+      canBookPurchase,
+      canChangeCondition,
+      canAttachConfiguration: canWriteStockItems && canWriteConfigurations,
+      canEditConfiguration: canWriteConfigurations,
+    },
+    leftStockDate,
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -248,20 +298,9 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
             )}
           </>
         }
-        alternativeAction={{
-          label: t('stockDetail.actions.createOffer'),
-          icon: <Handshake size={16} />,
-          onClick: () => void createOfferForCar(),
-          disabled: Boolean(leftStockReason) || creating !== null,
-          disabledReason: leftStockReason,
-        }}
-        primaryAction={{
-          label: t('stockDetail.actions.createContract'),
-          icon: <FileSignature size={16} />,
-          onClick: () => void createContractForCar(),
-          disabled: Boolean(leftStockReason) || creating !== null,
-          disabledReason: leftStockReason,
-        }}
+        alternativeAction={{ ...rowMenu.alternative, disabled: rowMenu.alternative.disabled || creating !== null }}
+        primaryAction={{ ...rowMenu.primary, disabled: rowMenu.primary.disabled || creating !== null }}
+        overflowActions={rowMenu.overflow}
       />
 
       {createError && (
@@ -283,8 +322,16 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
           canEditConfiguration={canWriteConfigurations}
           onRecordPurchase={recordPurchase}
           onPurchaseStornoed={purchaseStornoed}
+          requestedAction={detailsAction}
+          onRequestedActionHandled={() => setDetailsAction(null)}
         />
       )}
+      <ChangeConditionDialog
+        opened={conditionOpen}
+        onClose={() => setConditionOpen(false)}
+        item={item}
+        onChanged={(updated) => queryClient.setQueryData(['stock-item', id], updated)}
+      />
       {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} canPublish={canPublish} />}
       {activeTab === 'wagenbuch' && (
         <WagenbuchTab

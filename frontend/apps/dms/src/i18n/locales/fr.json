@@ -1316,6 +1316,19 @@
       "edit": "Modifier la configuration",
       "editContract": "Modifier le contrat",
       "reservedByContract": "Un contrat réserve ce véhicule. Tant qu'il le réserve, la configuration reste inchangée : elle ne peut être modifiée qu'une fois le contrat annulé."
+    },
+    "rowMenu": {
+      "changeCondition": "Modifier l'état",
+      "purchaseAlreadyBooked": "L'achat est déjà saisi.",
+      "purchaseNotBooked": "Aucun achat saisi pour l'instant."
+    },
+    "condition": {
+      "title": "Modifier l'état",
+      "body": "Nouvel état pour {{stockNumber}} :",
+      "label": "État",
+      "submit": "Enregistrer",
+      "cancel": "Annuler",
+      "failed": "L'état n'a pas pu être modifié."
     }
   },
   "salesList": {

@@ -14,6 +14,7 @@ export const GATED_CAPABILITIES = [
   'number_ranges',
   'reference_lists',
   'stock_acquisition',
+  'stock_condition',
   'stock_items',
   'ui_translations',
   'valuation_use_reversal',

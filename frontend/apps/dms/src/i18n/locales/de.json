@@ -1316,6 +1316,19 @@
       "edit": "Konfiguration bearbeiten",
       "editContract": "Vertrag bearbeiten",
       "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist."
+    },
+    "rowMenu": {
+      "changeCondition": "Zustand ändern",
+      "purchaseAlreadyBooked": "Der Einkauf ist bereits erfasst.",
+      "purchaseNotBooked": "Noch kein Einkauf erfasst."
+    },
+    "condition": {
+      "title": "Zustand ändern",
+      "body": "Neuer Zustand für {{stockNumber}}:",
+      "label": "Zustand",
+      "submit": "Speichern",
+      "cancel": "Abbrechen",
+      "failed": "Der Zustand konnte nicht geändert werden."
     }
   },
   "salesList": {

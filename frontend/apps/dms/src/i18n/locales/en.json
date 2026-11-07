@@ -1316,6 +1316,19 @@
       "edit": "Edit configuration",
       "editContract": "Edit contract",
       "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled."
+    },
+    "rowMenu": {
+      "changeCondition": "Change condition",
+      "purchaseAlreadyBooked": "The purchase is already recorded.",
+      "purchaseNotBooked": "No purchase recorded yet."
+    },
+    "condition": {
+      "title": "Change condition",
+      "body": "New condition for {{stockNumber}}:",
+      "label": "Condition",
+      "submit": "Save",
+      "cancel": "Cancel",
+      "failed": "The condition could not be changed."
     }
   },
   "salesList": {
