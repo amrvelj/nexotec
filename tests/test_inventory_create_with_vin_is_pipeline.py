@@ -187,3 +187,112 @@ def test_no_inventory_event_announces_a_car_in_stock_before_its_purchase(client,
         )
     )
     assert vin_assigned == 0
+
+
+# --- KAN-575 (Anto, 2026-11-07, option A): the configuration's VIN wins while never bought ---
+
+THIRD_VIN = "WVWZZZ1KZAW005543"
+
+
+def _set_configuration_vin(db_session, token: str, configuration_id: str, vin: str) -> None:
+    """«Konfiguration bearbeiten» corrected the VIN (or a factory order got one)."""
+
+    from app.vehicle.services import configuration as configuration_service
+    from tests.test_inventory_purchase_configuration_vin import _tenant_of
+
+    configuration = configuration_service.get_configuration_or_404(
+        db_session, tenant_id=_tenant_of(token), configuration_id=uuid.UUID(configuration_id)
+    )
+    configuration.vin = vin
+    db_session.commit()
+
+
+def _created_on_configuration(client, db_session, token: str, *, configuration_vin: str | None) -> dict:
+    configuration_id = _configuration(db_session, token, vin=configuration_vin)
+    response = client.post(
+        "/v1/inventory/stock-items",
+        json={"condition": "used", "configurationId": configuration_id, "vin": VIN},
+        headers=_auth(token),
+    )
+    assert response.status_code == 201, response.text
+    return {**response.json(), "_configurationId": configuration_id}
+
+
+def _vin_corrections(db_session, item_id: str) -> list:
+    from app.core.audit_model import AuditEvent
+
+    db_session.expire_all()
+    return list(
+        db_session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.entity_id == uuid.UUID(item_id), AuditEvent.action == "vin_corrected_at_purchase"
+            )
+        )
+    )
+
+
+def test_a_corrected_configuration_vin_wins_at_booking_and_the_correction_is_audited(client, db_session):
+    token = _token(client)
+    created = _created_on_configuration(client, db_session, token, configuration_vin=VIN)
+    _set_configuration_vin(db_session, token, created["_configurationId"], OTHER_VIN)
+
+    booked = _purchase(client, token, created)  # the dialog asks no VIN for an item carrying one
+
+    assert booked.status_code == 200, booked.text
+    assert booked.json()["lifecycleStatus"] == "in_stock"
+    assert booked.json()["vin"] == OTHER_VIN
+    vehicle = db_session.scalar(select(VehicleMdm).where(VehicleMdm.vin == OTHER_VIN))
+    assert vehicle is not None and booked.json()["vehicleId"] == str(vehicle.id)
+    [correction] = _vin_corrections(db_session, created["id"])
+    assert correction.before == {"vin": VIN}
+    assert correction.after == {"vin": OTHER_VIN}
+
+
+def test_a_factory_order_that_got_its_vin_later_is_bought_under_it(client, db_session):
+    token = _token(client)
+    created = _created_on_configuration(client, db_session, token, configuration_vin=None)
+    _set_configuration_vin(db_session, token, created["_configurationId"], OTHER_VIN)
+
+    booked = _purchase(client, token, created, vin=OTHER_VIN)
+
+    assert booked.status_code == 200, booked.text
+    assert booked.json()["vin"] == OTHER_VIN
+    assert len(_vin_corrections(db_session, created["id"])) == 1
+
+
+def test_a_third_vin_is_still_refused_as_not_the_configurations(client, db_session):
+    token = _token(client)
+    created = _created_on_configuration(client, db_session, token, configuration_vin=VIN)
+    _set_configuration_vin(db_session, token, created["_configurationId"], OTHER_VIN)
+
+    refused = _purchase(client, token, created, vin=THIRD_VIN)
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"]["reason"] == "configuration_vin_differs"
+    item = client.get(f"/v1/inventory/stock-items/{created['id']}", headers=_auth(token)).json()
+    assert item["vin"] == VIN and item["lifecycleStatus"] == "pipeline"
+    assert _vin_corrections(db_session, created["id"]) == []
+
+
+def test_without_a_correction_nothing_is_audited(client, db_session):
+    token = _token(client)
+    created = _created_on_configuration(client, db_session, token, configuration_vin=VIN)
+
+    booked = _purchase(client, token, created)
+
+    assert booked.status_code == 200, booked.text
+    assert booked.json()["vin"] == VIN
+    assert _vin_corrections(db_session, created["id"]) == []
+
+
+def test_the_corrected_vin_held_by_another_item_is_409(client, db_session):
+    token = _token(client)
+    created = _created_on_configuration(client, db_session, token, configuration_vin=VIN)
+    holder = _create(client, db_session, token, vin=OTHER_VIN)
+    _set_configuration_vin(db_session, token, created["_configurationId"], OTHER_VIN)
+
+    refused = _purchase(client, token, created)
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["details"]["stockItemId"] == holder["id"]
+    assert _vin_corrections(db_session, created["id"]) == []

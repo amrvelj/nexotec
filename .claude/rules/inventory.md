@@ -49,11 +49,14 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   no record, ADR-045). Its purchase booking may leave `vin` out (the item's is used) or repeat it;
   another is 422 `purchase_vin_mismatch`. Promotion leaves the item itself out of its uniqueness
   check, and the record it creates names the booking user (KAN-243). Tests that need a car in
-  stock without a purchase use `tests/stock_support.py` (create, then promote). **Open (decision
-  with Anto):** the item's VIN has no write path, so once its configuration's VIN is corrected
-  («Konfiguration bearbeiten», KAN-510) or a factory order's configuration gets one, the booking is
-  refused either way (`configuration_vin_differs` without a VIN, `purchase_vin_mismatch` with the
-  new one) — only an API create reaches it; the SPA's intake sends no VIN.
+  stock without a purchase use `tests/stock_support.py` (create, then promote). **While it was
+  never bought, its configuration's VIN wins** (KAN-575; Anto, 2026-11-07, option A): once the
+  configuration's VIN is corrected («Konfiguration bearbeiten», KAN-510) or a factory order's
+  configuration gets one, the booking — with no `vin`, or with the configuration's — books the car
+  under the configuration's VIN, corrects the item's in promotion's savepoint (`correct_vin`; a VIN
+  another item holds is 409 `vin_already_in_stock`) and audits `vin_corrected_at_purchase` (before
+  and after `vin`, reason `configuration_vin_wins`); any third VIN is 422
+  `configuration_vin_differs`. A stornoed car (it kept its record) is not corrected this way.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock

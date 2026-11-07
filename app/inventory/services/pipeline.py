@@ -206,6 +206,7 @@ def promote_and_flush(
     vin: str,
     catalogue_variant_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
+    correct_vin: bool = False,
 ) -> StockItem:
     """FR-V-04: VIN arrival on a pipeline item. Idempotent per stock item:
     it returns early when the item already carries a `vehicle_id` for the
@@ -234,8 +235,11 @@ def promote_and_flush(
         )
 
     # KAN-554 (ADR-116): a pipeline item created with its VIN is promoted
-    # under that VIN only — another one describes another car.
-    if item.vin is not None and item.vin != vin:
+    # under that VIN only — another one describes another car — unless the
+    # purchase booking corrects it to its configuration's (KAN-575,
+    # `correct_vin`; the booking audits it). The savepoint below writes the
+    # new VIN, so a racing holder is refused by the index as for any VIN.
+    if item.vin is not None and item.vin != vin and not correct_vin:
         raise UnprocessableEntityError(
             f"Stock item {item.id} carries VIN {item.vin}, not {vin}.",
             details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
