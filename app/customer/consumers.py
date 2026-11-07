@@ -80,7 +80,10 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
     # event may arrive after its storno (or after the car was booked again).
     # Stock's fact is re-read as it is now: only the purchase that still
     # stands is recorded — a later booking publishes its own event, and a
-    # car that went back to its customer must not show a handover.
+    # car that went back to its customer must not show a handover. Accepted
+    # residual (Anto, 2026-11-07, KAN-572 option A): after an unflagged
+    # storno that overtook this event, no handover is recorded unless the
+    # car is bought again — only ever after a failed delivery.
     standing = standing_purchase_date(db, tenant_id=message.tenant_id, stock_item_id=message.aggregate_id)
     reported = payload.get("purchaseDate")
     if standing is None or (reported is not None and standing.isoformat() != reported):

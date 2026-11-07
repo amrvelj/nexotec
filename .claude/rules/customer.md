@@ -164,7 +164,11 @@ weekly. -->
   the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
   failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
   records only a purchase that still stands (a late event of a stornoed or re-booked purchase writes
-  nothing; the standing one publishes its own).
+  nothing; the standing one publishes its own), and `customer.trade_in_storno` re-reads it too: a
+  returned storno that arrives after the car was bought again reopens nobody. **Accepted residual**
+  (Anto, 2026-11-07, KAN-572 option A): only after a failed delivery, a purchase event that arrives
+  after an *unflagged* storno records no handover if the car is never bought again (in order it would
+  stand), and with a re-booking the history ends at the second purchase instead of the first.
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and

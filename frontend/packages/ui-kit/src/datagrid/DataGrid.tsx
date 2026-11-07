@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert } from "lucide-react";
@@ -14,6 +14,10 @@ type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSPro
 
 const ACTION_COLUMN_WIDTH = 48;
 const SELECTION_COLUMN_WIDTH = 40;
+/** The narrowest an unsized column gets — unless its heading needs more. */
+const UNSIZED_MIN_WIDTH = 120;
+/** A header cell's horizontal padding (`spacing.md` on each side). */
+const HEADER_PADDING_X = 28;
 
 const NO_WRAP_ELLIPSIS: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 
@@ -202,6 +206,20 @@ export function DataGrid<T>({
 
   const tableRows = table.getRowModel().rows;
 
+  // KAN-578 (Anto, 2026-11-07, option A) — a column without a width of its
+  // own (`meta.width` or the user's) is never narrower than its heading, in
+  // whatever language: each header reports the width its label and sort
+  // indicator need, and the column's header and body cells take it as their
+  // minimum. When the columns' minimums exceed the grid, the grid scrolls
+  // sideways (Shift + wheel) instead of cutting a heading — before, every
+  // unsized column could shrink to 120 px and «KILOMETERSTAND» was clipped.
+  const [headingWidths, setHeadingWidths] = useState<Record<string, number>>({});
+  const reportHeadingWidth = useCallback((columnId: string, width: number) => {
+    setHeadingWidths((previous) => (previous[columnId] === width ? previous : { ...previous, [columnId]: width }));
+  }, []);
+  const unsizedMinWidth = (columnId: string) =>
+    Math.max(UNSIZED_MIN_WIDTH, Math.ceil((headingWidths[columnId] ?? 0) + HEADER_PADDING_X));
+
   const virtualizer = useVirtualizer({
     count: tableRows.length,
     getScrollElement: () => scrollRef.current,
@@ -321,6 +339,8 @@ export function DataGrid<T>({
                       pinned={isActions ? "right" : meta?.pinned}
                       align={meta?.align}
                       width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}
+                      minWidth={unsizedMinWidth(columnId)}
+                      onMeasureHeading={isActions ? undefined : (width) => reportHeadingWidth(columnId, width)}
                       onResize={
                         columnLayout && onColumnLayoutChange
                           ? (width) => onColumnLayoutChange(resizeColumn(columnLayout, columnId, width))
@@ -374,7 +394,7 @@ export function DataGrid<T>({
                           );
                         }
                         return (
-                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}>
+                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width} minWidth={unsizedMinWidth(cell.column.id)}>
                             {isActions && rowActions ? (
                               <RowMenu groups={rowActions(row.original)} ariaLabel={L.rowActionsLabel} />
                             ) : density !== "comfortable" && meta?.secondary ? (
@@ -493,6 +513,8 @@ function HeaderCell({
   pinned,
   align,
   width,
+  minWidth,
+  onMeasureHeading,
   onResize,
 }: {
   label: ReactNode;
@@ -502,11 +524,22 @@ function HeaderCell({
   pinned?: "left" | "right";
   align?: "left" | "right";
   width?: number;
+  /** An unsized column's minimum (KAN-578): at least its heading's width. */
+  minWidth?: number;
+  /** Reports the width the label and sort indicator need (KAN-578). */
+  onMeasureHeading?: (width: number) => void;
   /** Present only when the caller wired `columnLayout` +
    * `onColumnLayoutChange` — renders the resize handle at all only then,
    * since without it there's nowhere to persist the result. */
   onResize?: (width: number) => void;
 }) {
+  const headingRef = useRef<HTMLSpanElement>(null);
+  // Re-measured after every render (a language switch changes the label);
+  // the grid stores a width only when it changed, so this never loops.
+  useLayoutEffect(() => {
+    const heading = headingRef.current;
+    if (heading && onMeasureHeading) onMeasureHeading(heading.scrollWidth);
+  });
   const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
   const isSorted = sortIndex !== -1;
   const direction = isSorted ? sort[sortIndex].direction : null;
@@ -533,7 +566,7 @@ function HeaderCell({
         zIndex: pinned ? 3 : undefined,
         width: width ?? "1%",
         flex: width ? `0 0 ${width}px` : "1 1 0",
-        minWidth: width ?? 120,
+        minWidth: width ?? minWidth ?? UNSIZED_MIN_WIDTH,
         textAlign: align ?? "left",
         padding: `${spacing.sm} ${spacing.md}`,
         backgroundColor: slate25,
@@ -560,7 +593,7 @@ function HeaderCell({
           : undefined
       }
     >
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span ref={headingRef} data-heading-label="" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         {label}
         {sortField && (
           <>
@@ -749,12 +782,15 @@ function Cell({
   mono,
   align,
   width,
+  minWidth,
 }: {
   children: ReactNode;
   pinned?: "left" | "right";
   mono?: boolean;
   align?: "left" | "right";
   width?: number;
+  /** An unsized column's minimum (KAN-578), the same as its header's. */
+  minWidth?: number;
 }) {
   return (
     <div
@@ -766,7 +802,7 @@ function Cell({
         backgroundColor: pinned ? white : undefined,
         width: width ?? "1%",
         flex: width ? `0 0 ${width}px` : "1 1 0",
-        minWidth: width ?? 120,
+        minWidth: width ?? minWidth ?? UNSIZED_MIN_WIDTH,
         padding: `${spacing.sm} ${spacing.md}`,
         fontFamily: mono ? "ui-monospace, SF Mono, Menlo, monospace" : undefined,
         textAlign: align ?? "left",
