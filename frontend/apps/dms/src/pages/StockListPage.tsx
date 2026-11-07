@@ -41,6 +41,7 @@ import {
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
+import { STOCK_VEHICLE_COLUMN_WIDTH } from './stock/columns/stockVehicleColumn'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
 import { useCanWrite } from '../auth/useCanWrite'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
@@ -165,7 +166,7 @@ export function StockListPage() {
         id: 'vehicleLabel',
         header: t('stockList.columns.vehicle'),
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.vehicleLabel}</span>,
-        meta: { locked: true, secondary: (row) => row.vin },
+        meta: { locked: true, width: STOCK_VEHICLE_COLUMN_WIDTH, secondary: (row) => row.vin },
       },
       {
         id: 'condition',
