@@ -66,7 +66,7 @@ export interface ValuationRowMenu {
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
-  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract' | 'vehicleVin' | 'configurationId'> &
+  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract' | 'vehicleVin'> &
     Partial<Pick<ValuationRead, 'usedAt'>>,
   actions: ValuationRowMenuActions
 ): ValuationRowMenu {
@@ -92,11 +92,11 @@ export function buildValuationRowMenu(
       : valuation.status === 'used'
         ? t('valuationDetail.actions.createOfferUsed')
         : // KAN-574 (Anto, 2026-11-07): a trade-in is a car. A valuation
-          // written before VIN became required brings none; one carrying a
-          // pre-1981 chassis number is refused too (the safe default, open
+          // written before VIN became required is refused as a trade-in, and
+          // so is one carrying a pre-1981 chassis number until KAN-535 (open
           // with Anto on KAN-574) — the API refuses both
           // (`trade_in_valuation_names_no_car`), so the action says why first.
-          !valuation.configurationId && normalisedVin(valuation.vehicleVin ?? '') === null
+          normalisedVin(valuation.vehicleVin ?? '') === null
           ? t('valuationDetail.actions.createOfferNoVin')
           : undefined
   const createOffer: RowMenuAction | undefined = actions.createOffer && {

@@ -1,8 +1,9 @@
 """KAN-574 (Anto, 2026-11-07, option A): a valuation names its car.
 
 `POST /v1/valuations` needs a VIN (or, for a car first registered before
-1981, a chassis number — KAN-353), a make and a model: each taken from the
-configuration when `configurationId` is sent, typed otherwise. A missing one
+1981, a chassis number — KAN-353), a make and a model: each defaulted from
+the configuration when `configurationId` is sent (a field sent wins), typed
+otherwise. A missing one
 is 422 `valuation_names_no_car` with the missing `fields`, and nothing is
 stored. Before, a valuation could be saved with a price alone, and attached
 as a trade-in it lowered a deal's price for a car nobody could take in.

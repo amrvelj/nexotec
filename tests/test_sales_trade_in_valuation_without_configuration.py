@@ -116,9 +116,10 @@ def test_an_older_valuation_without_a_vin_is_refused_as_a_trade_in(db_session):
     assert offer.version == version
 
 
-def test_an_older_valuation_without_a_vin_still_values_a_car_the_deal_names(db_session):
-    """The deal names its trade-in car already (a VIN trade-in): the
-    valuation brings only its value, and that is fine — there is a car."""
+def test_an_older_valuation_without_a_vin_is_refused_even_where_the_deal_names_its_car(db_session):
+    """KAN-574 (Anto, 2026-11-07, option A): older valuations without a VIN
+    are refused as trade-ins — also on a deal that already names its car (a
+    VIN trade-in), which keeps its car and gets no value from it."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
@@ -129,10 +130,31 @@ def test_an_older_valuation_without_a_vin_still_values_a_car_the_deal_names(db_s
     )
     valuation = _valuation(db_session, dealership.id, group_id, vin=None)
 
-    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+    with pytest.raises(UnprocessableEntityError) as refused:
+        attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
 
+    assert refused.value.details["reason"] == "trade_in_valuation_names_no_car"
+    db_session.rollback()
+    db_session.refresh(offer)
     assert offer.trade_in_vin == "TMBJJ7NE0L0574001"
-    assert offer.trade_in_value == Decimal("12000.00")
+    assert offer.trade_in_valuation_id is None and offer.trade_in_value is None
+
+
+def test_an_older_valuation_with_a_configuration_but_no_vin_is_refused(db_session):
+    """The configuration does not save it: the ruling refuses older
+    valuations without a VIN as trade-ins, configured or not."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, vin=None)
+    valuation.configuration_id = uuid.uuid4()  # the row as an older configured one stands
+    db_session.commit()
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    with pytest.raises(UnprocessableEntityError) as refused:
+        attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    assert refused.value.details["reason"] == "trade_in_valuation_names_no_car"
 
 
 def test_its_contract_takes_the_car_into_the_pipeline_on_confirmation(db_session, engine):

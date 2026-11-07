@@ -29,7 +29,7 @@ from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.validators import is_valid_vin, normalise_vin
 from app.customer.public import get_customer_or_404
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
-from app.sales.services.priced_deal import DealT, PricedDeal, has_trade_in, lock_editable, project, require_editable
+from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
 from app.valuation.public import list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
 from app.vehicle.public import match_vehicle
 
@@ -142,15 +142,13 @@ def attach_trade_in_valuation(
     require_editable(db, deal)
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
-    # KAN-574 (Anto, 2026-11-07, option A): a trade-in is a car. A valuation
-    # that would bring none to a deal naming none — no configuration, no VIN
-    # (written before VIN, make and model became required) — would lower the
-    # price with nothing to take in, so it is refused before anything is
-    # written. Built as the safe default, open with Anto on KAN-574: a typed
-    # pre-1981 chassis number is refused too (a trade-in takes a VIN until
-    # KAN-535), while a deal that names its car, or a valuation whose
-    # configuration brings one, takes an older VIN-less valuation's value.
-    if not has_trade_in(deal) and valuation.configuration_id is None and not is_valid_vin(_normalised(valuation.vehicle_vin)):
+    # KAN-574 (Anto, 2026-11-07, option A): a trade-in is a car, and older
+    # valuations without a VIN (written before VIN, make and model became
+    # required) are refused as trade-ins — whatever the deal already names and
+    # whether or not the valuation has a configuration — before anything is
+    # written. A pre-1981 chassis number is refused the same way: a trade-in
+    # takes a VIN until KAN-535 (open with Anto on KAN-574).
+    if not is_valid_vin(_normalised(valuation.vehicle_vin)):
         raise UnprocessableEntityError(
             f"Valuation {valuation.valuation_number} names no car a trade-in can take: it has no VIN.",
             details={"reason": "trade_in_valuation_names_no_car", "valuationId": str(valuation.id)},
@@ -210,7 +208,7 @@ def _attach(db: Session, deal: PricedDeal, valuation) -> None:
 
 def _normalised(vin: str | None) -> str | None:
     """A valuation's stored VIN in the one spelling (a row written before
-    KAN-338 may hold another), so server and screen judge it alike."""
+    KAN-331 may hold another), so server and screen judge it alike."""
 
     return normalise_vin(vin) if vin else None
 

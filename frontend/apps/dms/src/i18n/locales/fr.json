@@ -320,8 +320,8 @@
       "purchase_storno_left_stock": "Ce véhicule a déjà quitté le stock. Son achat ne peut plus être annulé.",
       "purchase_storno_invoice_requested": "La facture du contrat {{contractNumber}} a déjà été demandée. L'achat ne peut plus être annulé.",
       "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation.",
-      "valuation_names_no_car": "Une évaluation nomme son véhicule : le NIV, la marque et le modèle sont obligatoires.",
-      "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un NIV qui puisse être repris."
+      "valuation_names_no_car": "Une évaluation nomme son véhicule : le VIN, la marque et le modèle sont obligatoires.",
+      "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1656,7 +1656,7 @@
       "createOfferExpired": "Impossible : l’évaluation a expiré. Veuillez d’abord réévaluer.",
       "createOfferUsed": "Impossible : l’évaluation est déjà marquée comme utilisée.",
       "createOfferNoSales": "Impossible : cette entreprise ne dispose pas du module Vente.",
-      "createOfferNoVin": "Impossible : l'évaluation ne nomme aucun véhicule avec un NIV qui puisse être repris."
+      "createOfferNoVin": "Impossible : l’évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
     },
     "expiredBanner": {
       "title": "Évaluation expirée",

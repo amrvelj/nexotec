@@ -10695,7 +10695,8 @@ export interface components {
          *     (or a pre-1981 chassis number), `vehicleMake` and `vehicleModel` are
          *     required — each defaulted from the configuration when `configurationId`
          *     is sent (a field sent wins), typed otherwise (a VIN typed beside a
-         *     configuration that has none is stored, KAN-449); a missing one is 422
+         *     configuration that has none is stored, KAN-449 option A — open with Anto on
+         *     KAN-574); a missing one is 422
          *     `valuation_names_no_car` with the missing `fields`. The fields stay
          *     optional in the schema because a configuration supplies them.
          */

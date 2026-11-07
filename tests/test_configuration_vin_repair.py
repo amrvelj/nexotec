@@ -105,8 +105,8 @@ def test_a_valuation_created_from_a_repaired_configuration_is_accepted(client, d
     run(db_session, commit=True)
 
     # The repair cleared the unrepairable VIN, so the configuration names no
-    # VIN; since KAN-574 (Anto, 2026-11-07) the valuation takes one typed
-    # beside it (KAN-449 option A) — accepted, where before the repair every
+    # VIN; since KAN-574 the valuation needs one, and takes one typed beside
+    # it (KAN-449 option A, open with Anto on KAN-574) — accepted, where before the repair every
     # valuation from this configuration was refused.
     typed = "WVWZZZ1JZ3W386255"
     accepted = _post_valuation_on(client, tenant_id, configuration["id"], vin=typed)
