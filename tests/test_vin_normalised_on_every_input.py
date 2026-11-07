@@ -23,6 +23,7 @@ from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import create_or_get_vehicle_mdm
 from tests.configuration_test_support import MANUAL_CODED_JSON, seed_manual_coded_lists
+from tests.vin_support import unique_vin
 
 VIN = "WVWZZZ1KZAW331338"
 
@@ -129,7 +130,7 @@ def test_a_malformed_trade_in_vin_is_422_and_writes_nothing(client, db_session, 
 def _post_valuation(client, tenant_id: uuid.UUID, vin: str):
     return client.post(
         "/v1/valuations",
-        json={"vin": vin, "finalOffer": "12500.00", "source": "manual"},
+        json={"vehicleMake": "VW", "vehicleModel": "Golf", "vin": vin, "finalOffer": "12500.00", "source": "manual"},
         headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
     )
 
@@ -155,12 +156,13 @@ def test_a_malformed_valuation_vin_is_422_and_writes_nothing(client, db_session,
     assert db_session.scalar(select(func.count()).select_from(Valuation)) == 0
 
 
-def test_a_valuation_without_a_vin_still_creates_no_vehicle(client, db_session):
-    """The VIN stays optional: a valuation needs no vehicle in the register."""
+def test_a_valuation_of_a_car_not_in_the_register_creates_no_vehicle(client, db_session):
+    """A valuation needs no vehicle in the register: its VIN (required since
+    KAN-574) is stored and creates no vehicle-mdm record (KAN-189)."""
 
     response = client.post(
         "/v1/valuations",
-        json={"finalOffer": Decimal("900.00").to_eng_string(), "source": "manual"},
+        json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": Decimal("900.00").to_eng_string(), "source": "manual"},
         headers=_headers(uuid.uuid4()),
     )
 
@@ -294,7 +296,7 @@ def _chassis_refused(response) -> None:
 def test_a_valuation_of_a_pre_1981_car_keeps_its_chassis_number_and_creates_no_vehicle(client, db_session):
     response = client.post(
         "/v1/valuations",
-        json={"vin": CHASSIS, "vehicleFirstRegistration": "1972-05-01", "finalOffer": "85000.00", "source": "manual"},
+        json={"vehicleMake": "VW", "vehicleModel": "Golf", "vin": CHASSIS, "vehicleFirstRegistration": "1972-05-01", "finalOffer": "85000.00", "source": "manual"},
         headers=_headers(uuid.uuid4(), **{"Idempotency-Key": str(uuid.uuid4())}),
     )
 
@@ -307,7 +309,7 @@ def test_a_valuation_of_a_pre_1981_car_keeps_its_chassis_number_and_creates_no_v
 @pytest.mark.parametrize("first_registration", [None, "1981-01-01", "1985-06-30"])
 @pytest.mark.parametrize("not_a_vin", [CHASSIS, *NOT_A_VIN])
 def test_a_valuation_chassis_number_without_a_pre_1981_registration_is_422(client, db_session, not_a_vin, first_registration):
-    body = {"vin": not_a_vin, "finalOffer": "12500.00", "source": "manual"}
+    body = {"vehicleMake": "VW", "vehicleModel": "Golf", "vin": not_a_vin, "finalOffer": "12500.00", "source": "manual"}
     if first_registration is not None:
         body["vehicleFirstRegistration"] = first_registration
 
@@ -341,7 +343,7 @@ def test_a_punctuated_chassis_number_is_refused_even_for_a_pre_1981_car(client, 
 
     valuation = client.post(
         "/v1/valuations",
-        json={"vin": punctuated, "vehicleFirstRegistration": "1972-05-01", "finalOffer": "85000.00", "source": "manual"},
+        json={"vehicleMake": "VW", "vehicleModel": "Golf", "vin": punctuated, "vehicleFirstRegistration": "1972-05-01", "finalOffer": "85000.00", "source": "manual"},
         headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
     )
     configuration = _create_configuration(client, tenant_id, vin=punctuated, firstRegistrationDate="1972-05-01")
@@ -415,7 +417,12 @@ def _record_configuration(client, tenant_id: uuid.UUID, **fields) -> dict:
 def _post_valuation_on(client, tenant_id: uuid.UUID, configuration_id: str, **fields):
     return client.post(
         "/v1/valuations",
-        json={"configurationId": configuration_id, "finalOffer": "60000.00", "source": "manual", **fields},
+        # KAN-574: a valuation names its car; these configurations carry no
+        # make or model of their own, so the request names them.
+        json={
+            "configurationId": configuration_id, "vehicleMake": "VW", "vehicleModel": "Golf",
+            "finalOffer": "60000.00", "source": "manual", **fields,
+        },
         headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
     )
 

@@ -4,13 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Loader, Stack } from '@mantine/core'
 import { Copy, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { DetailHeader, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
+import { StockNumberLink } from '../components/deal-workspace/StockNumberLink'
 import { buildDealTakeOverAction, useTakeOverDeal } from '../components/dealRowMenu'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { OfferWorkspaceContent } from './OfferWorkspacePage'
+import { StockDetailContent } from './StockDetailPage'
 import type { SalesOfferRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
 
@@ -100,6 +102,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   const navigate = useNavigate()
   const [copying, setCopying] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
+  const overlay = useOverlay()
   // KAN-266 — a copy retried after a lost response replays the first copy;
   // a successful copy renews the key (this screen stays mounted when it
   // navigates to the copy).
@@ -181,7 +184,23 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
         entityMark={<Handshake size={24} />}
         title={offer.vehicleLabel ?? t('offerDetail.untitled')}
         businessKey={offer.offerNumber}
-        badges={<></>}
+        badges={
+          // KAN-570: the stock car's number beside the car (the title), the
+          // stock detail opened as an overlay (ADR-059).
+          offer.stockItemId && offer.stockItemLabel ? (
+            <StockNumberLink
+              stockNumber={offer.stockItemLabel}
+              onOpen={() =>
+                overlay.push({
+                  key: `stock-overlay-${offer.stockItemId}`,
+                  content: <StockDetailContent stockItemId={offer.stockItemId as string} embedded />,
+                })
+              }
+            />
+          ) : (
+            <></>
+          )
+        }
         primaryAction={{
           label: t('offerDetail.actions.copy'),
           icon: <Copy size={16} />,

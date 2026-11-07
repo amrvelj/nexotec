@@ -9,6 +9,7 @@ import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
+import { nameValuationCar } from '../test/nameValuationCar'
 
 // C-F (KAN-10) exit criteria 1, 2 and 4 in the real offer host:
 // - Path B opens the configurator as an overlay (ADR-059) and the half-built
@@ -212,6 +213,7 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
     expect(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.plate'))).toHaveValue('ZH123456')
     expect(within(valuationDialog).getByTestId('configuration-summary-card')).toBeInTheDocument()
     await user.type(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')
+    await nameValuationCar(user, valuationDialog)
     await user.click(within(valuationDialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
 
     await waitFor(() => expect(attached).toEqual([{ valuationId: 'val-7' }]))

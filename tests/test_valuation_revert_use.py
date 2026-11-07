@@ -38,6 +38,7 @@ from tests.test_trade_in_valuation_reconciliation import (
     _stamped,
 )
 from tests.token_support import dealer_group_of
+from tests.vin_support import unique_vin
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -286,7 +287,7 @@ def test_a_valuation_that_is_not_used_is_refused(db_session):
 
 
 def _created(client, token: str) -> dict:
-    response = client.post("/v1/valuations", json={"finalOffer": "700.00", "source": "manual"}, headers=_bearer(token))
+    response = client.post("/v1/valuations", json={"vin": unique_vin(), "vehicleMake": "VW", "vehicleModel": "Golf", "finalOffer": "700.00", "source": "manual"}, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()
 

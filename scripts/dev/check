@@ -288,8 +288,13 @@ def main_heads():
         if subprocess.run(["tar", "-x", "-C", tmp], input=archive.stdout).returncode != 0:
             return None
         # PYTHONPATH as in lane_migrations: main's migrations import `app` (e.g. a6c2f8de41b7
-        # imports app.core.postal_codes), and the archive has no app/ of its own.
-        out = subprocess.run([os.path.join(VENV_BIN, "alembic"), "heads"], cwd=tmp, env=dict(ENV, PYTHONPATH=ROOT),
+        # imports app.core.postal_codes), and the archive has no app/ of its own. Run from the
+        # checkout with `-c` (alembic.ini's script_location is `%(here)s`-relative, so the
+        # archive's scripts are read): app.core.config finds this checkout's .env there — from the
+        # archive's folder a session whose settings live only in .env (a cloud session) cannot
+        # start the app, and the heads were never read (KAN-570).
+        out = subprocess.run([os.path.join(VENV_BIN, "alembic"), "-c", os.path.join(tmp, "alembic.ini"), "heads"],
+                             cwd=ROOT, env=dict(ENV, PYTHONPATH=ROOT),
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
         if out.returncode != 0:
             return None

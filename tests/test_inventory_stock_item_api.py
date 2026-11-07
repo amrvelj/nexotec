@@ -4,6 +4,7 @@ import uuid
 
 from app.core.auth import AccessRole, create_access_token
 from tests.configuration_test_support import stock_configuration_id
+from tests.stock_support import promote_created_item
 from tests.token_support import dealer_group_of
 
 
@@ -107,6 +108,8 @@ def test_list_stock_items_filters_by_lifecycle_status(client, db_session):
         json={"condition": "used", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     ).json()
+    # KAN-554: the create lands in pipeline; promotion puts the car in stock.
+    promote_created_item(db_session, stock_item_id=in_stock["id"])
 
     response = client.get("/v1/inventory/stock-items?lifecycle_status=in_stock", headers=_bearer(token))
     assert response.status_code == 200, response.text
@@ -147,11 +150,14 @@ def test_list_stock_items_combines_condition_with_lifecycle_status(client, db_se
         json={"condition": "new", "vin": "1HGCM82633A004352", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
     ).json()
-    client.post(
+    used_in_stock = client.post(
         "/v1/inventory/stock-items",
         json={"condition": "used", "vin": "WVWZZZ1JZXW000001", "configurationId": stock_configuration_id(db_session, token)},
         headers=_bearer(token),
-    )
+    ).json()
+    # KAN-554: a create lands in pipeline; promotion puts each car in stock.
+    promote_created_item(db_session, stock_item_id=new_in_stock["id"])
+    promote_created_item(db_session, stock_item_id=used_in_stock["id"])
 
     response = client.get("/v1/inventory/stock-items?condition=new&lifecycle_status=in_stock", headers=_bearer(token))
     assert response.status_code == 200, response.text

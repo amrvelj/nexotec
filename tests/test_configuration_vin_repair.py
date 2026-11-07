@@ -104,9 +104,14 @@ def test_a_valuation_created_from_a_repaired_configuration_is_accepted(client, d
 
     run(db_session, commit=True)
 
-    accepted = _post_valuation_on(client, tenant_id, configuration["id"])
+    # The repair cleared the unrepairable VIN, so the configuration names no
+    # VIN; since KAN-574 the valuation needs one, and takes one typed beside
+    # it (KAN-449 option A, open with Anto on KAN-574) — accepted, where before the repair every
+    # valuation from this configuration was refused.
+    typed = "WVWZZZ1JZ3W386255"
+    accepted = _post_valuation_on(client, tenant_id, configuration["id"], vin=typed)
     assert accepted.status_code == 201, accepted.text
-    assert accepted.json()["vehicleVin"] is None
+    assert accepted.json()["vehicleVin"] == typed
 
 
 def test_the_repair_leaves_valid_vins_empty_ones_and_pre_1981_cars_alone(client, db_session):

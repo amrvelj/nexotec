@@ -319,7 +319,9 @@
       "purchase_not_booked": "Per questo veicolo non è registrato alcun acquisto da stornare.",
       "purchase_storno_left_stock": "Questo veicolo ha già lasciato lo stock. Il suo acquisto non può più essere stornato.",
       "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
-      "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno."
+      "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
+      "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
+      "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1330,7 +1332,8 @@
       "status": "Stato",
       "margin": "Margine",
       "changed": "Modificato",
-      "owner": "Responsabile"
+      "owner": "Responsabile",
+      "stockNumber": "N. di magazzino"
     },
     "chips": {
       "all": "Tutti",
@@ -1488,7 +1491,8 @@
       "configure": "Configura",
       "searchPlaceholder": "Numero di magazzino, VIN, targa …",
       "configured": "Configurato",
-      "attachError": "Non è stato possibile riprendere la configurazione."
+      "attachError": "Non è stato possibile riprendere la configurazione.",
+      "stockNumber": "N. di magazzino {{stockNumber}}"
     },
     "pricing": {
       "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
@@ -1632,7 +1636,10 @@
     "errors": {
       "failedToLoad": "Impossibile caricare la valutazione.",
       "somethingWentWrong": "Qualcosa è andato storto.",
-      "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare."
+      "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare.",
+      "createOfferFailed": "Non è stato possibile creare l’offerta.",
+      "createOfferTradeInFailed": "L’offerta {{offerNumber}} è stata creata, ma la valutazione non è stata ripresa come permuta: {{reason}}",
+      "openCreatedOffer": "Apri offerta"
     },
     "actions": {
       "revalue": "Rivaluta",
@@ -1644,7 +1651,12 @@
       "revertUse": "Annulla utilizzo",
       "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
       "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta.",
-      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso."
+      "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso.",
+      "createOffer": "Crea offerta da questa valutazione",
+      "createOfferExpired": "Non possibile: la valutazione è scaduta. Rivalutare prima.",
+      "createOfferUsed": "Non possibile: la valutazione è già segnata come utilizzata.",
+      "createOfferNoSales": "Non possibile: questa azienda non dispone del modulo Vendita.",
+      "createOfferNoVin": "Non possibile: la valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
     "expiredBanner": {
       "title": "Valutazione scaduta",

@@ -132,9 +132,12 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   status or a first registration in the same year publishes nothing, a refused write nothing.
   `tenant_id` is null (vehicle-mdm is global); the payload is `vehicleId`, `version`,
   `changedFields` and the whole `summary`. Any new writer of a summary field calls
-  `publish_summary_changed_if_changed` with the summary read before its write. **Not covered:** a
-  brand rename (`catalogue_admin.update_brand`) changes the make of every car of the brand and
-  publishes nothing — the nightly label refresh catches it (KAN-560) — and no production
+  `publish_summary_changed_if_changed` with the summary read before its write. **Ruled
+  exception:** a brand rename (`catalogue_admin.update_brand`, platform staff, rare) changes the
+  make of every car of the brand and publishes nothing — the customer's Vehicles tab shows the new
+  make the next morning, by the nightly `customer.vehicle_party_labels` refresh (Anto, 2026-11-05,
+  KAN-560 option B: no rename event, no per-car flood; pinned by
+  `test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning`). No production
   code writes a vehicle-mdm record's `catalogue_variant_id` after creation yet. The FR-V-12 merge changes no summary field
   of either record; its party re-point relabels through `customer.public.repoint_vehicle_party`.
 - **Every identity PATCH is audited** (KAN-561): `update_vehicle_mdm` writes an `update` audit row (the
@@ -222,11 +225,18 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   The daily job `vehicle.configurations.purge_unattached` (`app/vehicle/daily_jobs.py`,
   `services/configuration_retention.py`; registered last) walks every unstamped configuration in
   batches, asks Sales, Stock and Valuation through their read-only `referenced_configuration_ids` which
-  they name now, counts one whose `vehicle_id` links a car in the register as the vehicle record's,
+  they name now, counts one whose `vehicle_id` links a car in the register as the vehicle record's
+  (held for good, whether or not another host ever took it — Anto, 2026-11-05, KAN-567 option A),
   stamps every held one (the safety net for a fact not consumed yet, and for every configuration
   held before KAN-270), and deletes one past 30 days that nothing holds — with its options, an audit
   row (`delete`, reason `never_taken_purged`, never the VIN or mileage) and
-  `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…`. One a
+  `vehicle.configuration.discarded` — in its own transaction, logging `purged=… stamped=…` — and
+  blanks the personal values its earlier audit rows copied (`vin`, `stammnummer`, `licencePlate`,
+  `mileageKm`, `notes`, `vehicleId` — and the snake_case spellings rows written before KAN-346 used —
+  → `[redacted]`, the key kept; one `redact` row naming rows and
+  keys) through `app.core.audit.redact_audit_values`, the log's one sanctioned rewrite (ADR-121,
+  KAN-564; Anto, 2026-11-07); the discard of a host's failed copy (KAN-188) does the same. A
+  configuration a host took is never deleted, so its history stays whole (FR-C-11). One a
   host let go before KAN-270 left no trace and goes like a never-taken one. Residual race (the
   service's docstring): one past 30 days that a host attaches in the moment the job runs is deleted
   under it, and the host's reconciliation reports the dangling reference. A copy (FR-C-11) is a new

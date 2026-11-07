@@ -161,6 +161,7 @@ def _row_differs_from(entity: _Deal) -> ColumnElement[bool]:
         SalesDeal.customer_label.is_distinct_from(entity.customer_label),
         SalesDeal.customer_locality.is_distinct_from(entity.customer_locality),
         SalesDeal.vehicle_label.is_distinct_from(entity.vehicle_label),
+        SalesDeal.stock_item_label.is_distinct_from(entity.stock_item_label),  # KAN-570
         SalesDeal.owner_user_id.is_distinct_from(entity.owner_user_id),
         SalesDeal.documents_count != documents,
     )
@@ -179,7 +180,8 @@ def deal_row_checks() -> list[StateCheck]:
     """KAN-408 (rule 10): a deal row that disagrees with its live entity."""
 
     contract_row = StateCheck(
-        label="sales_deal row differs from its contract (buyer, car, seller, number, status or documents), "
+        label="sales_deal row differs from its contract (buyer, car, stock number, seller, number, status or "
+        "documents), "
         "or names a cancelled contract whose offer is free again",
         source_model=SalesDeal,
         source_row_id_column=SalesDeal.id,
@@ -196,7 +198,8 @@ def deal_row_checks() -> list[StateCheck]:
         .exists(),
     )
     offer_row = StateCheck(
-        label="sales_deal row differs from its offer (buyer, car, seller, number, status or documents), "
+        label="sales_deal row differs from its offer (buyer, car, stock number, seller, number, status or "
+        "documents), "
         "or shows the offer while it has a live contract",
         source_model=SalesDeal,
         source_row_id_column=SalesDeal.id,

@@ -82,6 +82,10 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # KAN-570: the stock car's number, the live entity's rule-2 label
+    # (`stock_item_label`, KAN-157 — copied once, never refreshed: a stock
+    # number never changes). Indexed because the grid sorts by it (U-03).
+    stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     # KAN-200: the responsible seller of the live entity (the contract's once
     # one exists, else the offer's), so the list can show "whose" and filter
     # the unassigned queue (FR-A-37) without joining the entity tables.

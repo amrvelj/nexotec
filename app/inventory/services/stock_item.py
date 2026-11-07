@@ -23,7 +23,6 @@ from app.inventory.models.stock_item import (
     StockNumberSequence,
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
-from app.inventory.services.vehicle_resolution import resolve_vehicle_mdm_by_vin
 from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD, get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
@@ -138,17 +137,22 @@ def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_it
     return item
 
 
-def _item_in_stock_with_vin(db: Session, *, tenant_id: uuid.UUID, vin: str) -> StockItem | None:
+def _item_in_stock_with_vin(
+    db: Session, *, tenant_id: uuid.UUID, vin: str, excluding: uuid.UUID | None = None
+) -> StockItem | None:
     """KAN-111: the dealership's item holding this VIN that has not left
     stock — what `uq_stock_item_tenant_id_vin_in_stock` allows at most one
     of. An item that left stock (invoiced, FR-I-12) does not count; a
-    storno'd one still does (Anto, 2026-10-07)."""
+    storno'd one still does (Anto, 2026-10-07), and so does a pipeline item
+    created with its VIN (KAN-554). `excluding` leaves out the item being
+    promoted, which holds its own VIN already when it was created with one."""
 
-    return db.scalar(
-        select(StockItem).where(
-            StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
-        )
+    query = select(StockItem).where(
+        StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
     )
+    if excluding is not None:
+        query = query.where(StockItem.id != excluding)
+    return db.scalar(query)
 
 
 def _vin_already_in_stock(held_by: StockItem) -> ConflictError:
@@ -230,12 +234,14 @@ def _check_configuration_not_held(db: Session, *, tenant_id: uuid.UUID, configur
         )
 
 
-def _check_vin_not_in_stock(db: Session, *, tenant_id: uuid.UUID, vin: str) -> None:
+def _check_vin_not_in_stock(
+    db: Session, *, tenant_id: uuid.UUID, vin: str, excluding: uuid.UUID | None = None
+) -> None:
     """Refuse before writing, so the ordinary duplicate is a 409 with a
     reason. Two writers can still race past it; the unique index then
     refuses, and the callers map that to the same 409."""
 
-    held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=vin)
+    held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=vin, excluding=excluding)
     if held_by is not None:
         raise _vin_already_in_stock(held_by)
 
@@ -261,9 +267,11 @@ def _build_and_flush_stock_item(
     item = StockItem(
         tenant_id=tenant_id,
         stock_number=allocate_stock_number(db, tenant_id),
-        # With a VIN, create_stock_item has resolved this from vehicle-mdm
-        # (KAN-244); without one StockItemCreate refuses it (KAN-324), so a
-        # pipeline item is created with no vehicle and promotion can give it one.
+        # Every item is created without a vehicle-mdm record: a car not yet
+        # bought has none (ADR-045, ADR-103; KAN-554, Anto 2026-11-05, option
+        # A). Promotion at purchase booking gives it one. StockItemCreate
+        # refuses a vehicleId without a VIN (KAN-324) and create_stock_item
+        # drops one sent with a VIN.
         vehicle_id=data.vehicle_id,
         vin=data.vin,
         # ADR-117 (2), KAN-556: a configured car is named by its
@@ -285,11 +293,11 @@ def _build_and_flush_stock_item(
         configuration_id=data.configuration_id,
         configuration_label=configuration_label if data.configuration_id is not None else None,
         configuration_label_refreshed_at=utcnow() if data.configuration_id is not None else None,
-        # A stock item created directly (not via the pipeline/promotion
-        # path, PR-2) already has a VIN in hand — it goes straight to
-        # in_stock rather than sitting in pipeline with nothing to promote.
-        lifecycle_status=LifecycleStatus.IN_STOCK if data.vin else LifecycleStatus.PIPELINE,
-        in_stock_at=utcnow() if data.vin else None,
+        # ADR-103, ADR-116 (KAN-554): every create lands in pipeline, a VIN
+        # given with it included. Purchase booking (purchase.record_purchase)
+        # is the only path to in_stock.
+        lifecycle_status=LifecycleStatus.PIPELINE,
+        in_stock_at=None,
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -411,19 +419,16 @@ def create_stock_item(
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
     if data.configuration_id is not None:
         # KAN-509: after the VIN check, so the same car posted twice is still
-        # refused as `vin_already_in_stock`, the refusal that names it; both
-        # before vehicle-mdm is touched.
+        # refused as `vin_already_in_stock`, the refusal that names it.
         _lock_configuration(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
         _check_configuration_not_held(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
-    if data.vin is not None:
-        # KAN-244 (Anto, option C): the item's vehicle is the one its VIN
-        # resolves to, as on promotion — a client's vehicleId is ignored.
-        # Resolved on vehicle-mdm's own session, before any write of ours, so
-        # its commit (or its rollback on a lost race, KAN-257) never touches
-        # this transaction. A refusal below leaves the vehicle-mdm record in
-        # place: it is the car's global record (FR-V-15), whoever holds it.
-        vehicle = resolve_vehicle_mdm_by_vin(db, vin=data.vin, actor_id=actor_id)
-        data = data.model_copy(update={"vehicle_id": vehicle.id, "vin": vehicle.vin})
+    # KAN-554 (ADR-116; Anto, 2026-11-05, option A): a VIN given on create is
+    # stored (normalised and validated by StockItemCreate, KAN-244) on a
+    # pipeline item, and nothing is written to vehicle-mdm — a car not yet
+    # bought has no record there (ADR-045, ADR-103). Purchase booking promotes
+    # it (FR-V-04) and resolves its record then. A client's vehicleId is
+    # ignored, as since KAN-244: the record is found from the VIN, at promotion.
+    data = data.model_copy(update={"vehicle_id": None})
     try:
         item = _build_and_flush_stock_item(
             db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,

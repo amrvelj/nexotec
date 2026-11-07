@@ -79,7 +79,7 @@ def test_record_purchase_from_private_individual_computes_notional_input_tax(db_
     assert updated.notional_input_tax_applicable is True
     # 20000 * 8.10 / 108.10 = 1498.61...
     assert updated.notional_input_tax_amount == Decimal("1498.61")
-    assert updated.is_invoiceable is True  # already in_stock (VIN known) + purchase now booked
+    assert updated.is_invoiceable is True  # the booking promoted it under its VIN (KAN-554) + purchase booked
 
 
 def test_record_purchase_from_vat_registered_business_has_no_notional_input_tax(db_session):

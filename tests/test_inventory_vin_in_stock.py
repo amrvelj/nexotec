@@ -31,6 +31,7 @@ from app.platform.models.dealership import DealerGroup, Dealership, FranchiseTyp
 from app.vehicle.public import create_or_get_vehicle_mdm
 from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
+from tests.stock_support import create_in_stock_item
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
@@ -59,7 +60,8 @@ def _make_dealership(db_session) -> Dealership:
 
 
 def _in_stock(db_session, tenant_id: uuid.UUID, *, vin: str = VIN) -> StockItem:
-    return create_stock_item(
+    # KAN-554: a create lands in pipeline; promotion puts the car in stock.
+    return create_in_stock_item(
         db_session,
         tenant_id=tenant_id,
         data=StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vin=vin),
@@ -317,7 +319,7 @@ def _bearer() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_post_with_a_vin_in_stock_returns_409_with_the_reason(client, db_session):
+def test_post_with_a_vin_another_item_holds_returns_409_with_the_reason(client, db_session):
     headers = _bearer()
     body = {"vehicleLabel": "Volkswagen Golf", "condition": "used", "vin": VIN}
     body["configurationId"] = stock_configuration_id(db_session, headers)

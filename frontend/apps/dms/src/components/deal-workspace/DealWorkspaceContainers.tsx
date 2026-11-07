@@ -15,6 +15,8 @@ import { ConfiguratorOverlay } from '../configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../configurator/hostCommitError'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { LockedWhile } from './LockedWhile'
+import { StockNumberLink } from './StockNumberLink'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { customerName } from '../../utils/customer'
 import { formatCurrencyChf } from '../../utils/format'
@@ -194,8 +196,19 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
 }
 
 /** Fahrzeug — FR-S-05 Path A (stock search) or Path B (the configurator,
- * `build` mode only, PRD v1.4: a used car being sold comes from stock). */
-export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType, deal, patch }: DealContainerProps<D>) {
+ * `build` mode only, PRD v1.4: a used car being sold comes from stock).
+ * A stock car shows its stock number beside it (KAN-570), opening the stock
+ * detail through the host's `onOpenStockItem`. `readOnly` disables every
+ * write in it (the configuration card's edit, the stock search, the
+ * configurator) under a disabled fieldset, while the stock number, which only
+ * opens the car, stays outside it and live (KAN-501, KAN-570). */
+export function DealVehicleContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  patch,
+  onOpenStockItem,
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; readOnly?: boolean }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const overlay = useOverlay()
@@ -231,6 +244,9 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
       ),
     })
 
+  const stockNumber =
+    deal.stockItemId && deal.stockItemLabel ? <StockNumberLink stockNumber={deal.stockItemLabel} onOpen={onOpenStockItem} /> : null
+
   return (
     <OverviewCard
       title={t('offerWorkspace.containers.vehicle')}
@@ -239,38 +255,48 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({ ownerType,
       {deal.configurationId ? (
         <Stack gap={4} data-testid="offer-vehicle-configured">
           <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
-          <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          <LockedWhile readOnly={readOnly}>
+            <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          </LockedWhile>
+          {stockNumber}
         </Stack>
       ) : deal.vehicleLabel ? (
-        <Text fw={600}>{deal.vehicleLabel}</Text>
+        <Group gap="sm" align="baseline" wrap="wrap">
+          <Text fw={600}>{deal.vehicleLabel}</Text>
+          {stockNumber}
+        </Group>
       ) : vehicleMode === 'search' ? (
-        <Picker
-          rows={(vehicleSearch.data?.items ?? []).map(
-            (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
-          )}
-          query={vehicleQuery}
-          onQueryChange={setVehicleQuery}
-          onSelect={(row) =>
-            void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
-              .then(() => setVehicleMode('idle'))
-              .catch(reportedByHost)
-          }
-          loading={vehicleSearch.isFetching}
-          placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
-          emptyLabel={t('common.noMatches')}
-        />
+        <LockedWhile readOnly={readOnly}>
+          <Picker
+            rows={(vehicleSearch.data?.items ?? []).map(
+              (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
+            )}
+            query={vehicleQuery}
+            onQueryChange={setVehicleQuery}
+            onSelect={(row) =>
+              void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
+                .then(() => setVehicleMode('idle'))
+                .catch(reportedByHost)
+            }
+            loading={vehicleSearch.isFetching}
+            placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
+            emptyLabel={t('common.noMatches')}
+          />
+        </LockedWhile>
       ) : (
-        <Stack gap="xs">
-          <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
-          <Group gap="xs">
-            <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
-              {t('offerWorkspace.vehicle.search')}
-            </Button>
-            <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
-              {t('offerWorkspace.vehicle.configure')}
-            </Button>
-          </Group>
-        </Stack>
+        <LockedWhile readOnly={readOnly}>
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
+            <Group gap="xs">
+              <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
+                {t('offerWorkspace.vehicle.search')}
+              </Button>
+              <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
+                {t('offerWorkspace.vehicle.configure')}
+              </Button>
+            </Group>
+          </Stack>
+        </LockedWhile>
       )}
     </OverviewCard>
   )

@@ -14,6 +14,7 @@ from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from tests.configuration_test_support import seed_reference_list, stock_configuration_id
 from tests.dealership_support import valid_uid
 from tests.membership_support import create_user
+from tests.stock_support import promote_created_item
 from tests.test_catalogue_browse import _enable_browse
 from tests.token_support import dealer_group_of
 
@@ -61,6 +62,8 @@ def test_stock_excludes_a_condition_and_a_lifecycle_status(client, db_session):
     new_pipeline = create(condition="new")
     used_pipeline = create(condition="used")
     used_in_stock = create(condition="used", vin="WVWZZZ1KZAW047601")
+    # KAN-554: a create lands in pipeline; promotion puts the car in stock.
+    promote_created_item(db_session, stock_item_id=used_in_stock)
 
     assert _ids(client.get("/v1/inventory/stock-items?condition_not=used", headers=headers)) == {new_pipeline}
     assert _ids(client.get("/v1/inventory/stock-items?lifecycle_status_not=pipeline", headers=headers)) == {used_in_stock}

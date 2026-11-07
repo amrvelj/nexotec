@@ -13,8 +13,8 @@ from app.core.auth import AccessRole, Principal
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.public import get_stock_items_for_vehicles
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup
+from tests.stock_support import create_in_stock_item
 from tests.test_sales_lifecycle_reservation import _dealership
 
 
@@ -27,7 +27,7 @@ def _principal(dealership) -> Principal:
 
 
 def _in_stock(db_session, dealership, vin: str) -> uuid.UUID:
-    item = create_stock_item(
+    item = create_in_stock_item(
         db_session, tenant_id=dealership.id,
         data=StockItemCreate(vehicle_label="Seat Leon", condition=StockItemCondition.USED, vin=vin),
         actor_id=None,

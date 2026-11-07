@@ -11,7 +11,10 @@ from app.db import Base
 
 class AuditEvent(PrimaryKeyMixin, Base):
     """Append-only audit trail (spec cross-cutting #7). Rows are never
-    updated or deleted after insert.
+    deleted after insert, and never updated — with one exception (ADR-121,
+    KAN-564): a retention purge blanks the personal values of the entity it
+    deletes in that entity's own rows, through `app.core.audit.redact_audit_values`
+    alone, which leaves every other column as written and records itself.
     """
 
     __tablename__ = "audit_event"

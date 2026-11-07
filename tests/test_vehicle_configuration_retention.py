@@ -44,6 +44,7 @@ from app.vehicle.services.configuration_retention import purge_unattached_config
 from app.worker import register_daily_jobs
 from tests.test_configurator_hosts import _build_configuration, _dealership, _record_configuration
 from tests.test_sales_contract_edit import _customer_born_contract
+from tests.vin_support import unique_vin
 
 # event type -> the consumer app.worker registers for it
 CONSUMERS = {
@@ -101,12 +102,17 @@ def _discarded(db: Session, configuration_id: uuid.UUID) -> int:
 
 
 def _purge_audits(db: Session, configuration_id: uuid.UUID) -> list[AuditEvent]:
+    """The purge's own `delete` row. Since ADR-121 (KAN-564) the purge also
+    writes a `redact` row with the same reason; its own tests are in
+    tests/test_configuration_audit_redaction.py."""
+
     return list(
         db.scalars(
             select(AuditEvent).where(
                 AuditEvent.entity_type == "vehicle_configuration",
                 AuditEvent.entity_id == configuration_id,
                 AuditEvent.reason == "never_taken_purged",
+                AuditEvent.action == "delete",
             )
         )
     )
@@ -115,7 +121,12 @@ def _purge_audits(db: Session, configuration_id: uuid.UUID) -> list[AuditEvent]:
 def _valuation(db: Session, tenant_id: uuid.UUID, configuration_id: uuid.UUID) -> Valuation:
     return create_valuation(
         db, tenant_id=tenant_id, group_id=uuid.uuid4(), actor_id=uuid.uuid4(),
-        data=ValuationCreate(configuration_id=configuration_id, source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+        # KAN-574: a valuation names its car; this record configuration has no
+        # VIN, so the seller types one beside it (KAN-449 option A).
+        data=ValuationCreate(
+            configuration_id=configuration_id, vin=unique_vin(), source=ValuationSource.MANUAL,
+            final_offer=Decimal("2500.00"),
+        ),
     )
 
 
@@ -398,6 +409,10 @@ def _held_by_valuation(db, dealership):
 
 
 def _linked_to_a_vehicle(db, dealership):
+    """KAN-567 (Anto, 2026-11-05, option A): a configuration whose VIN linked
+    it to a car in the register is held by that record for good — no offer,
+    contract, stock car or valuation needs to take it."""
+
     config = _record_configuration(db, dealership.id)
     config.vehicle_id = uuid.uuid4()  # a VIN that resolved to a car in the register (ADR-070)
     db.commit()
@@ -424,6 +439,26 @@ def test_a_held_but_unstamped_configuration_is_stamped_and_survives(db_session, 
 
     kept = _config(db_session, configuration_id)
     assert kept is not None and kept.first_taken_at is not None
+    assert _discarded(db_session, configuration_id) == 0
+
+
+def test_a_configuration_only_a_known_car_links_is_kept_for_good(db_session):
+    """KAN-567 (Anto, 2026-11-05, option A; ADR-120): no offer, contract,
+    stock car or valuation ever takes it — the car in the register holds it,
+    and every later run keeps it, the stamp unchanged."""
+
+    dealership = _dealership(db_session)
+    configuration_id = _linked_to_a_vehicle(db_session, dealership)
+    _age(db_session, configuration_id, days=31)
+    run_daily_unattached_configuration_purge(db_session)
+    stamped_at = _config(db_session, configuration_id).first_taken_at
+    assert stamped_at is not None
+
+    _age(db_session, configuration_id, days=400)
+    run_daily_unattached_configuration_purge(db_session)
+
+    kept = _config(db_session, configuration_id)
+    assert kept is not None and kept.first_taken_at == stamped_at
     assert _discarded(db_session, configuration_id) == 0
 
 

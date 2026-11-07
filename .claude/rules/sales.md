@@ -68,7 +68,16 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   in `inventory.public.get_stock_item_pricing` that the snapshot freeze reads anyway; cleared
   with `stock_item_id` (`deal_editing`); a contract from an offer and a copied offer take the
   offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py`
-  (dry run unless `--commit`) fills the rows written before.
+  (dry run unless `--commit`) fills the rows written before. **It is on screen** (KAN-570; Anto,
+  2026-11-05, option A): `OfferRead`/`ContractRead.stockItemLabel` (additive); «Lagernummer S-…»
+  beside the car (`StockNumberLink`) in the vehicle container of the offer workspace and the pending
+  contract, and in the header of the sent offer and of a contract past editing, opening the stock
+  detail as an overlay (ADR-059); and on the deal row, `sales_deal.stock_item_label` (Sales-chain
+  migration `e7a3c5d1b9f4`, indexed), written by `upsert_deal_projection` from the live entity,
+  compared by the deal-row StateChecks, filled for older rows by
+  `scripts/backfill_sales_deal_projection.py` (dry run unless `--commit`; **run once per
+  environment after the deploy**) — the Sales grid's optional «Lagernummer» column, hidden by
+  default, sortable (`sort=stockItemLabel`).
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
   legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back", KAN-146) is
   consumed as `sales.stock_item_storno`: it deletes the replica row (locked first, as the purchase
@@ -146,8 +155,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   renders read-only (disabled fieldsets over every write control, «Offerte generieren» disabled with
   the reason) under a banner naming the contract with «Vertrag öffnen», and every container
   words a save refused `offer_has_contract` in that banner's sentence. What only shows stays live
-  (KAN-501): the customer and pricing containers take `readOnly` themselves, so the selected
-  customer's overlay and «zum Lagerfahrzeug» still open.
+  (KAN-501): the customer, vehicle and pricing containers take `readOnly` themselves
+  (`components/deal-workspace/LockedWhile.tsx` around their writes), so the selected customer's
+  overlay, the stock number (KAN-570) and «zum Lagerfahrzeug» still open.
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;
@@ -155,7 +165,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   cancelled contract stays on the customer's contracts and the offer's history. A contract
   without an offer keeps its own row, cancelled or not. Generating a document re-projects the
   row, so its document count moves with it. Nightly reconciliation reports a row whose number,
-  status, buyer, locality, car, seller or document count differs from its live entity, or whose
+  status, buyer, locality, car, stock number (KAN-570), seller or document count differs from its live entity, or whose
   shape is wrong (two StateChecks, rule 10); `scripts/backfill_sales_deal_projection.py` (dry run
   unless `--commit`) re-projects the rows written before KAN-408/KAN-409.
 - **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`

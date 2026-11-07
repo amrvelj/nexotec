@@ -34,7 +34,7 @@ from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.audit import record_audit_event
+from app.core.audit import record_audit_event, redact_audit_values
 from app.core.base import utcnow
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
@@ -100,6 +100,47 @@ _PATCHABLE_NULLABLE_FIELDS = (
     "model_group_name",
     "variant_name",
 )
+
+
+# ADR-121 (KAN-564; Anto, 2026-11-07): the personal values a configuration's
+# audit rows copy — the update rows' old and new values, the VIN repair's and
+# the create's vehicle link. When the configuration is deleted for retention
+# (the 30-day purge, the discard of a host's failed copy), these are blanked
+# in its own earlier rows; a configuration a host took is never deleted, so
+# its full history stays as evidence (FR-C-11).
+# Both spellings: before KAN-346 (2026-10-17) the update rows wrote the
+# snake_case field names (`licence_plate`, `mileage_km`), and those rows
+# still exist.
+PERSONAL_AUDIT_KEYS = frozenset(
+    {
+        "vin",
+        "stammnummer",
+        "notes",
+        "licencePlate",
+        "licence_plate",
+        "mileageKm",
+        "mileage_km",
+        "vehicleId",
+        "vehicle_id",
+    }
+)
+
+
+def redact_personal_audit_values(
+    db: Session, *, configuration: VehicleConfiguration, actor_id: uuid.UUID | None, reason: str
+) -> int:
+    """Blank the personal values in this configuration's own audit rows
+    before it is deleted (ADR-121). Never commits."""
+
+    return redact_audit_values(
+        db,
+        entity_type=_ENTITY_TYPE,
+        entity_id=configuration.id,
+        tenant_id=configuration.tenant_id,
+        keys=PERSONAL_AUDIT_KEYS,
+        actor_id=actor_id,
+        reason=reason,
+    )
 
 
 def _audit_value(value: Any) -> Any:
@@ -567,7 +608,8 @@ def discard_configuration_copy(
     removes a configuration `copy_configuration` made for a host whose own
     write then failed, so no host ever stored its id. Never for a
     configuration a host references; its options and their feature links
-    go with it (`delete-orphan`). Commits its own transaction."""
+    go with it (`delete-orphan`). The personal values its own audit rows
+    copied are blanked first (ADR-121, KAN-564). Commits its own transaction."""
 
     record_audit_event(
         db,
@@ -578,6 +620,9 @@ def discard_configuration_copy(
         actor_id=actor_id,
         reason="host_copy_compensated",
     )
+    # ADR-121 (KAN-564, decision 2 A): one rule for every deletion of a
+    # configuration — a copy can carry its source's VIN.
+    redact_personal_audit_values(db, configuration=configuration, actor_id=actor_id, reason="host_copy_compensated")
     _publish(db, configuration, "vehicle.configuration.discarded")
     db.delete(configuration)
     db.commit()

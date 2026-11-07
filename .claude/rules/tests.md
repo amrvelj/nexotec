@@ -63,7 +63,8 @@ as any change to what it states. -->
   with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428), and
   every mapped model registered by `app/model_registry.py` alone (KAN-187), and no tracked file
   carrying a real provider account value nor the mock carrying a specification example (KAN-491),
-  and no MCP SDK import, server or tool declaration, manifest or dependency at all (KAN-490, identAPI §3), and every query parameter camelCase but the frozen list of legacy snake_case names, each
+  and the audit log's one rewrite, `redact_audit_values`, called only by its allow-listed
+  modules and no raw UPDATE/DELETE of `audit_event` (ADR-121, KAN-564), and no MCP SDK import, server or tool declaration, manifest or dependency at all (KAN-490, identAPI §3), and every query parameter camelCase but the frozen list of legacy snake_case names, each
   tied to its endpoint (KAN-477).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
