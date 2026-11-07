@@ -225,3 +225,31 @@ def list_ledger_entries(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uui
             .order_by(StockItemLedger.occurred_at.desc(), StockItemLedger.created_at.desc())
         ).all()
     )
+
+
+def purchase_booked_after(
+    db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID, after: dt.datetime
+) -> bool:
+    """KAN-572: whether this Betrieb booked a purchase of the stock item after
+    `after` — an automatic `einstandspreis` entry keyed `purchase:` (one per
+    booking, KAN-146), written later. The customer context's
+    `customer.trade_in_storno` asks it with the storno event's `occurred_at`:
+    delivery is unordered after a failed delivery, and a storno that a later
+    booking overtook — whether that booking still stands or was stornoed in
+    turn — is stale and must not reopen the customer as holder. A SELECT only;
+    an item of another dealership, or none, is False."""
+
+    return (
+        db.scalar(
+            select(StockItemLedger.id)
+            .where(
+                StockItemLedger.tenant_id == tenant_id,
+                StockItemLedger.stock_item_id == stock_item_id,
+                StockItemLedger.is_auto.is_(True),
+                StockItemLedger.source_ref.startswith(PURCHASE_SOURCE_REF_PREFIX, autoescape=True),
+                StockItemLedger.created_at > after,
+            )
+            .limit(1)
+        )
+        is not None
+    )

@@ -41,6 +41,8 @@ import {
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
+import { STOCK_VEHICLE_COLUMN_WIDTH } from './stock/columns/stockVehicleColumn'
+import { buildStockRowMenu, stockOpenState, type StockOpenAction } from '../components/stockRowMenu'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
 import { useCanWrite } from '../auth/useCanWrite'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
@@ -165,7 +167,7 @@ export function StockListPage() {
         id: 'vehicleLabel',
         header: t('stockList.columns.vehicle'),
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.vehicleLabel}</span>,
-        meta: { locked: true, secondary: (row) => row.vin },
+        meta: { locked: true, width: STOCK_VEHICLE_COLUMN_WIDTH, secondary: (row) => row.vin },
       },
       {
         id: 'condition',
@@ -349,6 +351,10 @@ export function StockListPage() {
   // that may write neither is not offered it.
   const canWriteStockItems = useCanWrite('stock_items')
   const canWriteConfigurations = useCanWrite('configurations')
+  const canBookPurchase = useCanWrite('stock_acquisition')
+  const canChangeCondition = useCanWrite('stock_condition')
+  const canCreateContract = useCanWrite('sales_contracts')
+  const canCreateOffer = useCanWrite('sales_offers')
   const canAddVehicle = canWriteStockItems && canWriteConfigurations
 
   const applyView = (view: SavedView) => {
@@ -473,15 +479,46 @@ export function StockListPage() {
               </Button>
             ),
           }}
-          rowActions={(row) => ({
-            navigate: [
+          rowActions={(row) => {
+            // KAN-571 / ADR-061 — the SAME builder the stock detail's header
+            // uses, so list and detail cannot drift apart. Every action needs
+            // the detail's own state (its dialogs, the configurator, the deal
+            // it starts), so the car opens right there at the action picked.
+            const openAt = (action: StockOpenAction) => () =>
+              navigate(`/stock/${row.id}`, { state: stockOpenState(action) })
+            const menu = buildStockRowMenu(
+              t,
+              row,
               {
-                label: t('stockList.rowActions.open'),
-                icon: <ExternalLink size={16} />,
-                onClick: () => navigate(`/stock/${row.id}`),
+                createContract: openAt('createContract'),
+                createOffer: openAt('createOffer'),
+                recordPurchase: openAt('recordPurchase'),
+                stornoPurchase: openAt('stornoPurchase'),
+                changeCondition: openAt('changeCondition'),
+                attachConfiguration: openAt('attachConfiguration'),
+                editConfiguration: openAt('editConfiguration'),
               },
-            ],
-          })}
+              {
+                canCreateContract,
+                canCreateOffer,
+                canBookPurchase,
+                canChangeCondition,
+                canAttachConfiguration: canWriteStockItems && canWriteConfigurations,
+                canEditConfiguration: canWriteConfigurations,
+              },
+              row.leftStockAt ? formatDate(row.leftStockAt, locale) : null,
+            )
+            return {
+              navigate: [
+                {
+                  label: t('stockList.rowActions.open'),
+                  icon: <ExternalLink size={16} />,
+                  onClick: () => navigate(`/stock/${row.id}`),
+                },
+              ],
+              ...menu.overflow,
+            }
+          }}
         />
       </OverviewShellRegion>
       )}

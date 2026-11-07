@@ -136,14 +136,19 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `pipeline` (`in_stock_at` cleared) **keeping its VIN and `vehicle_id`** — so it still blocks the
   VIN and is booked again without a new one (`record_purchase` restocks it without promoting; another
   VIN is 422 `purchase_vin_mismatch`) — audits `purchase_storno` with the reason and publishes
-  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`), all in one transaction.
+  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`; since KAN-572 additively
+  `returnedToCustomer`, the cancelled `purchaseDate` and a trade-in's `originContractId`/`originRole`),
+  all in one transaction. **A trade-in may go back to its customer** (KAN-572; Anto, 2026-11-07,
+  option C): `returnedToCustomer: true` on the storno (optional, default false; 422
+  `storno_return_not_trade_in` on any other car), audited with it; the customer context then reopens
+  that customer as owner and keeper (`customer.md`). The dialog asks only on a trade-in's car.
   A reserved car may be stornoed; the reservation stays. Refused: no booked purchase (409
   `purchase_not_booked`), left stock (409 `purchase_storno_left_stock`), or a contract on the car
   that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, read
   through `sales.public.contract_with_invoice_requested_for_stock_item` on a session of its own).
   The storno reverses every `einstandspreis` entry not yet reversed — a hand-booked one from before
   KAN-146 included — keyed `storno:<the entry's id>`. The stock detail's purchase card carries the
-  action (`PurchaseStornoDialog`); the stock grid has no row menu yet (KAN-571). **Built as the
+  action (`PurchaseStornoDialog`), and so does the one stock row menu (KAN-571, below). **Built as the
   safe default, open with Anto on KAN-146:** «Rechnung angefordert» counting as invoiced (Finance
   issues none yet); a published car staying published (the feed keeps sending it, though
   `compute_blocking_conditions` would refuse to publish a pipeline car); `einstandspreis` closed to
@@ -259,3 +264,13 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   reopened, and a row for a car live Stock holds or has sold is reported
   (`vehicle_known_to_live_stock`), never applied — history is imported before a dealership starts
   to work (Anto, 2026-10-08; KAN-256).
+- **One stock row menu** (KAN-571, ADR-061; PRD-Stock FR-I-07): `components/stockRowMenu.tsx::buildStockRowMenu`
+  is the one definition the Stock list's ⋯ menu and the stock detail's header (primary «Vertrag
+  erstellen», alternative «Offerte erstellen», overflow) render from — Einkauf erfassen · Zustand ändern
+  · Konfiguration zuordnen/bearbeiten · Vertrag/Offerte erstellen · Einkauf stornieren. Both purchase
+  actions are always listed, the one that does not apply disabled with its reason (Anto, 2026-11-07, 2a
+  option A); a role's unusable action is hidden (KAN-430); a car that left stock, or a configuration a
+  contract's reservation freezes, is disabled with its reason. «Zustand ändern» is
+  `ChangeConditionDialog` (`POST …/condition`, `stock_condition`, If-Match). The list opens the car with
+  the action in the router state (`stockOpenState`); the detail runs it once and drops the state.
+  `StockRowMenu.render.test.tsx` compares the two menus item by item.

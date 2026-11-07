@@ -202,7 +202,9 @@ ADR-061) — the action only, never what the role may read (a salesperson sees t
 texts and photos read-only; the kit's `MediaGallery` has `readOnly`). The names a screen asks
 about are `src/auth/gatedCapabilities.ts` (today `stock_acquisition` and
 `marketplace_publishing` on the stock detail, `stock_items` + `configurations` for the Stock
-list's intake and «Konfiguration zuordnen», `sales_offers` for the valuation detail's and grid's «Offerte aus dieser Bewertung erstellen» (KAN-569), `number_ranges` for the Number ranges screen's edit (KAN-207), `reference_lists` — the PRD's Platform
+list's intake and «Konfiguration zuordnen», `stock_acquisition`, `stock_condition`,
+`sales_contracts` and `sales_offers` in the one stock row menu on the Stock list and the stock
+detail (KAN-571), `sales_offers` for the valuation detail's and grid's «Offerte aus dieser Bewertung erstellen» (KAN-569), `number_ranges` for the Number ranges screen's edit (KAN-207), `reference_lists` — the PRD's Platform
 Administration › Reference data, the row «Reference lists» split from «Canonical taxonomy,
 provider catalogue» by KAN-514 (Anto, 2026-10-31, option A: any role reads, as the open
 `GET /v1/reference-data` does; platform staff alone write) — for the Reference data screen's

@@ -320,6 +320,7 @@
       "purchase_storno_left_stock": "This vehicle has already left stock. Its purchase can no longer be cancelled.",
       "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
       "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
+      "storno_return_not_trade_in": "Only a trade-in can go back to its customer.",
       "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
       "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade."
     },
@@ -1214,7 +1215,9 @@
         "submit": "Cancel purchase",
         "cancel": "Back",
         "failed": "The purchase could not be cancelled.",
-        "leftStock": "Not possible: the vehicle has left stock."
+        "leftStock": "Not possible: the vehicle has left stock.",
+        "returnedToCustomer": "The car goes back to the customer",
+        "returnedToCustomerHint": "The customer who traded it in becomes its owner and keeper again. Unticked, their vehicle history stays as the purchase recorded it."
       }
     },
     "wagenbuch": {
@@ -1315,6 +1318,20 @@
       "edit": "Edit configuration",
       "editContract": "Edit contract",
       "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled."
+    },
+    "rowMenu": {
+      "changeCondition": "Change condition",
+      "purchaseAlreadyBooked": "The purchase is already recorded.",
+      "purchaseNotBooked": "No purchase recorded yet.",
+      "creatingDeal": "Being created …"
+    },
+    "condition": {
+      "title": "Change condition",
+      "body": "New condition for {{stockNumber}}:",
+      "label": "Condition",
+      "submit": "Save",
+      "cancel": "Cancel",
+      "failed": "The condition could not be changed."
     }
   },
   "salesList": {

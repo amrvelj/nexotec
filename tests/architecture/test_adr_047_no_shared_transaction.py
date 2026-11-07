@@ -305,6 +305,12 @@ _READS = {
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
+    # KAN-572: the customer context's trade-in purchase consumer re-reads the
+    # purchase Stock holds now (delivery is unordered); a SELECT only.
+    "app.inventory.public.standing_purchase_date",
+    # KAN-572: the customer context's trade-in storno consumer asks whether a
+    # later purchase overtook the storno (delivery is unordered); a SELECT only.
+    "app.inventory.public.purchase_booked_after",
     # KAN-146: «Einkauf stornieren» asks whether a contract on the car requested
     # its invoice, on a session of its own (tests/test_inventory_purchase_storno.py).
     "app.sales.public.contract_with_invoice_requested_for_stock_item",

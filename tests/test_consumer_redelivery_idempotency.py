@@ -52,7 +52,7 @@ from tests.test_inventory_marketplace_transmission import (
     _make_ready_item,
     _register_fake,
 )
-from tests.test_kan189_trade_in_without_register import _bought_trade_in
+from tests.test_kan189_trade_in_without_register import _bought_trade_in, _customer_consumes
 from tests.test_sales_manual_configuration_link import (
     _confirmed_manual_contract,
     _dealership,
@@ -219,6 +219,30 @@ def _trade_in_purchased(db_session, engine, monkeypatch):
         )
 
     return message, parties
+
+
+def _trade_in_storno(db_session, engine, monkeypatch):
+    """KAN-572 — a bought trade-in's purchase is stornoed and the car went
+    back to its customer: the customer context reopens that customer as
+    owner and keeper, once."""
+
+    _contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    db_session.refresh(item)
+    storno_purchase(
+        db_session, item=item,
+        data=PurchaseStornoRequest(reason="Kunde behält das Fahrzeug", returned_to_customer=True), actor_id=None,
+    )
+    message = _message(db_session, "inventory.stock_item.storno", item.id)
+
+    def reopened(db: Session) -> int:  # the owner row; its keeper twin is reopened with it
+        return db.scalar(
+            select(func.count()).select_from(VehicleParty).where(
+                VehicleParty.role == VehiclePartyRole.OWNER, VehicleParty.effective_to.is_(None)
+            )
+        )
+
+    return message, reopened
 
 
 def _customer_merged(db_session, engine, monkeypatch):
@@ -521,6 +545,7 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.stock_item_purchased": _stock_item_purchased,
     "sales.stock_item_storno": _stock_item_storno,
     "customer.trade_in_purchased": _trade_in_purchased,
+    "customer.trade_in_storno": _trade_in_storno,
     "sales.customer_merged": _customer_merged,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,

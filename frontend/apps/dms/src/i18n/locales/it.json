@@ -320,6 +320,7 @@
       "purchase_storno_left_stock": "Questo veicolo ha già lasciato lo stock. Il suo acquisto non può più essere stornato.",
       "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
       "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
+      "storno_return_not_trade_in": "Solo un veicolo in permuta può tornare al cliente.",
       "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
       "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
     },
@@ -1214,7 +1215,9 @@
         "submit": "Stornare l'acquisto",
         "cancel": "Annulla",
         "failed": "Non è stato possibile stornare l'acquisto.",
-        "leftStock": "Non possibile: il veicolo ha lasciato lo stock."
+        "leftStock": "Non possibile: il veicolo ha lasciato lo stock.",
+        "returnedToCustomer": "Il veicolo torna al cliente",
+        "returnedToCustomerHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
       }
     },
     "wagenbuch": {
@@ -1315,6 +1318,20 @@
       "edit": "Modifica configurazione",
       "editContract": "Modifica contratto",
       "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto."
+    },
+    "rowMenu": {
+      "changeCondition": "Modifica stato",
+      "purchaseAlreadyBooked": "L'acquisto è già registrato.",
+      "purchaseNotBooked": "Nessun acquisto ancora registrato.",
+      "creatingDeal": "Creazione in corso …"
+    },
+    "condition": {
+      "title": "Modifica stato",
+      "body": "Nuovo stato per {{stockNumber}}:",
+      "label": "Stato",
+      "submit": "Salva",
+      "cancel": "Annulla",
+      "failed": "Non è stato possibile modificare lo stato."
     }
   },
   "salesList": {

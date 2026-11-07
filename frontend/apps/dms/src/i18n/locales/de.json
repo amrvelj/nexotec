@@ -320,6 +320,7 @@
       "purchase_storno_left_stock": "Dieses Fahrzeug hat den Bestand bereits verlassen. Sein Einkauf kann nicht mehr storniert werden.",
       "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
       "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
+      "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen.",
       "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
       "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
     },
@@ -1214,7 +1215,9 @@
         "submit": "Einkauf stornieren",
         "cancel": "Abbrechen",
         "failed": "Der Einkauf konnte nicht storniert werden.",
-        "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen."
+        "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
+        "returnedToCustomer": "Das Fahrzeug geht an den Kunden zurück",
+        "returnedToCustomerHint": "Der Kunde, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
       }
     },
     "wagenbuch": {
@@ -1315,6 +1318,20 @@
       "edit": "Konfiguration bearbeiten",
       "editContract": "Vertrag bearbeiten",
       "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist."
+    },
+    "rowMenu": {
+      "changeCondition": "Zustand ändern",
+      "purchaseAlreadyBooked": "Der Einkauf ist bereits erfasst.",
+      "purchaseNotBooked": "Noch kein Einkauf erfasst.",
+      "creatingDeal": "Wird gerade erstellt …"
+    },
+    "condition": {
+      "title": "Zustand ändern",
+      "body": "Neuer Zustand für {{stockNumber}}:",
+      "label": "Zustand",
+      "submit": "Speichern",
+      "cancel": "Abbrechen",
+      "failed": "Der Zustand konnte nicht geändert werden."
     }
   },
   "salesList": {

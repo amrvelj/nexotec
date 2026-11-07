@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert } from "lucide-react";
@@ -14,6 +14,32 @@ type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSPro
 
 const ACTION_COLUMN_WIDTH = 48;
 const SELECTION_COLUMN_WIDTH = 40;
+/** The narrowest an unsized column gets — unless its heading needs more. */
+const UNSIZED_MIN_WIDTH = 120;
+/** A header cell's horizontal padding (`spacing.md` on each side). */
+const HEADER_PADDING_X = 28;
+
+const NO_WRAP_ELLIPSIS: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+
+/** § Composite cells, `default` density, one line: the primary keeps its
+ * content width (capped at the cell) and does not shrink (KAN-573). */
+const INLINE_COMPOSITE_PRIMARY_STYLE: CSSProperties = {
+  ...NO_WRAP_ELLIPSIS,
+  fontSize: 14,
+  color: slate[9],
+  flex: "0 0 auto",
+  maxWidth: "100%",
+};
+
+/** …and the secondary takes what is left, shrinking to an ellipsis (to
+ * zero width if need be) before the primary gives up anything. */
+const INLINE_COMPOSITE_SECONDARY_STYLE: CSSProperties = {
+  ...NO_WRAP_ELLIPSIS,
+  fontSize: 12,
+  color: slate[5],
+  flex: "0 1 auto",
+  minWidth: 0,
+};
 
 export interface DataGridSelectionProps<T = unknown> {
   selectedIds: Set<string>;
@@ -180,6 +206,31 @@ export function DataGrid<T>({
 
   const tableRows = table.getRowModel().rows;
 
+  // KAN-578 (Anto, 2026-11-07, option A) — a column without a width of its
+  // own (`meta.width` or the user's) is never narrower than its heading, in
+  // whatever language: each header reports the width its label and sort
+  // indicator need, and the column's header and body cells take it as their
+  // minimum. When the columns' minimums exceed the grid, the grid scrolls
+  // sideways (Shift + wheel) instead of cutting a heading — before, every
+  // unsized column could shrink to 120 px and «KILOMETERSTAND» was clipped.
+  const [headingWidths, setHeadingWidths] = useState<Record<string, number>>({});
+  const reportHeadingWidth = useCallback((columnId: string, width: number) => {
+    setHeadingWidths((previous) => (previous[columnId] === width ? previous : { ...previous, [columnId]: width }));
+  }, []);
+  const unsizedMinWidth = (columnId: string) =>
+    Math.max(UNSIZED_MIN_WIDTH, Math.ceil((headingWidths[columnId] ?? 0) + HEADER_PADDING_X));
+  // The table is at least as wide as its columns' minimums together, so the
+  // header and every body row (each `width: 100%` of it) span the whole
+  // scrollable width: scrolled sideways, a row's divider, hover and selection
+  // background and its link still reach the last column.
+  const tableMinWidth = allColumns.reduce((sum, column) => {
+    const id = String(column.id);
+    if (id === "__actions") return sum + ACTION_COLUMN_WIDTH;
+    if (id === "__select") return sum + SELECTION_COLUMN_WIDTH;
+    const ownWidth = (column.meta as GridColumnDef<T>["meta"])?.width;
+    return sum + (ownWidth ?? unsizedMinWidth(id));
+  }, 0);
+
   const virtualizer = useVirtualizer({
     count: tableRows.length,
     getScrollElement: () => scrollRef.current,
@@ -268,7 +319,7 @@ export function DataGrid<T>({
             children anyway) — a div grid with ARIA table roles keeps the
             same semantics/accessibility without that conflict, the
             standard pattern for a virtualized table. */}
-        <div role="table" aria-rowcount={total ?? rows.length} style={{ width: "100%" }}>
+        <div role="table" aria-rowcount={total ?? rows.length} style={{ width: "100%", minWidth: tableMinWidth }}>
           <div role="rowgroup" style={{ position: "sticky", top: 0, zIndex: 2 }}>
             {table.getHeaderGroups().map((headerGroup) => (
               <div role="row" key={headerGroup.id} style={{ display: "flex" }}>
@@ -299,6 +350,8 @@ export function DataGrid<T>({
                       pinned={isActions ? "right" : meta?.pinned}
                       align={meta?.align}
                       width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}
+                      minWidth={unsizedMinWidth(columnId)}
+                      onMeasureHeading={isActions ? undefined : (width) => reportHeadingWidth(columnId, width)}
                       onResize={
                         columnLayout && onColumnLayoutChange
                           ? (width) => onColumnLayoutChange(resizeColumn(columnLayout, columnId, width))
@@ -352,39 +405,27 @@ export function DataGrid<T>({
                           );
                         }
                         return (
-                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}>
+                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width} minWidth={unsizedMinWidth(cell.column.id)}>
                             {isActions && rowActions ? (
                               <RowMenu groups={rowActions(row.original)} ariaLabel={L.rowActionsLabel} />
-                            ) : density === "default" && meta?.secondary ? (
-                              // § Composite cells: at `default` density the
-                              // second fact sits on the SAME line as the
-                              // first — only `comfortable` stacks them, and
-                              // `compact` drops the secondary line entirely.
-                              <div style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}>
-                                <span
-                                  style={{
-                                    fontSize: 14,
-                                    color: slate[9],
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: 12,
-                                    color: slate[5],
-                                    flexShrink: 0,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {meta.secondary(row.original)}
-                                </span>
-                              </div>
+                            ) : density !== "comfortable" && meta?.secondary ? (
+                              // § Composite cells (UI/UX Specification, revised
+                              // 2026-08-16; FR-UI-03): at `compact` and
+                              // `default` the second fact sits on the SAME
+                              // line as the first, as «Primary · secondary»
+                              // in meta type — never dropped (KAN-577; before,
+                              // `compact` dropped it). Only `comfortable`
+                              // stacks them.
+                              // The primary is the column's fact and keeps
+                              // priority (KAN-573; Anto, 2026-11-07, option A):
+                              // it takes its own width up to the whole cell and
+                              // never shrinks while the secondary has width
+                              // left; the secondary — its «·» included —
+                              // shrinks to an ellipsis, down to nothing, before
+                              // a single character of the primary is cut.
+                              <InlineComposite secondary={meta.secondary(row.original)}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </InlineComposite>
                             ) : (
                               <>
                                 <div style={{ fontSize: 14, color: slate[9] }}>
@@ -483,6 +524,8 @@ function HeaderCell({
   pinned,
   align,
   width,
+  minWidth,
+  onMeasureHeading,
   onResize,
 }: {
   label: ReactNode;
@@ -492,12 +535,28 @@ function HeaderCell({
   pinned?: "left" | "right";
   align?: "left" | "right";
   width?: number;
+  /** An unsized column's minimum (KAN-578): at least its heading's width. */
+  minWidth?: number;
+  /** Reports the width the label and sort indicator need (KAN-578). */
+  onMeasureHeading?: (width: number) => void;
   /** Present only when the caller wired `columnLayout` +
    * `onColumnLayoutChange` — renders the resize handle at all only then,
    * since without it there's nowhere to persist the result. */
   onResize?: (width: number) => void;
 }) {
+  const headingRef = useRef<HTMLSpanElement>(null);
   const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
+  // Measured when what the heading shows changes — its label (a language
+  // switch), the sort indicator and its ordinal — never on a scroll; the grid
+  // stores a width only when it changed, so this never loops.
+  const ordinal = sort.length > 1 && sortIndex !== -1 ? sortIndex + 1 : 0;
+  useLayoutEffect(() => {
+    const heading = headingRef.current;
+    if (heading && onMeasureHeading) onMeasureHeading(heading.scrollWidth);
+    // onMeasureHeading is a new closure on every grid render; the width it
+    // reports depends only on what the heading shows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label, sortIndex, ordinal]);
   const isSorted = sortIndex !== -1;
   const direction = isSorted ? sort[sortIndex].direction : null;
 
@@ -523,7 +582,7 @@ function HeaderCell({
         zIndex: pinned ? 3 : undefined,
         width: width ?? "1%",
         flex: width ? `0 0 ${width}px` : "1 1 0",
-        minWidth: width ?? 120,
+        minWidth: width ?? minWidth ?? UNSIZED_MIN_WIDTH,
         textAlign: align ?? "left",
         padding: `${spacing.sm} ${spacing.md}`,
         backgroundColor: slate25,
@@ -550,7 +609,7 @@ function HeaderCell({
           : undefined
       }
     >
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span ref={headingRef} data-heading-label="" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         {label}
         {sortField && (
           <>
@@ -713,18 +772,41 @@ function SelectRowCheckbox({ checked, label, onChange }: { checked: boolean; lab
   return <input type="checkbox" checked={checked} onChange={onChange} aria-label={label} onClick={(e) => e.stopPropagation()} />;
 }
 
+/** § Composite cells, one line (`compact`, `default`): «Primary · secondary».
+ * A row without a secondary fact shows the primary alone, with no stray «·». */
+function InlineComposite({ children, secondary }: { children: ReactNode; secondary: ReactNode }) {
+  const hasSecondary = secondary !== null && secondary !== undefined && secondary !== "" && secondary !== false;
+  return (
+    <div data-composite="inline" style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}>
+      <span data-composite-part="primary" style={INLINE_COMPOSITE_PRIMARY_STYLE}>
+        {children}
+      </span>
+      {hasSecondary && (
+        <span data-composite-part="secondary" style={INLINE_COMPOSITE_SECONDARY_STYLE}>
+          {/* The «·» is presentation: a screen reader reads the two facts, not the dot. */}
+          <span aria-hidden="true">{"· "}</span>
+          {secondary}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Cell({
   children,
   pinned,
   mono,
   align,
   width,
+  minWidth,
 }: {
   children: ReactNode;
   pinned?: "left" | "right";
   mono?: boolean;
   align?: "left" | "right";
   width?: number;
+  /** An unsized column's minimum (KAN-578), the same as its header's. */
+  minWidth?: number;
 }) {
   return (
     <div
@@ -736,7 +818,7 @@ function Cell({
         backgroundColor: pinned ? white : undefined,
         width: width ?? "1%",
         flex: width ? `0 0 ${width}px` : "1 1 0",
-        minWidth: width ?? 120,
+        minWidth: width ?? minWidth ?? UNSIZED_MIN_WIDTH,
         padding: `${spacing.sm} ${spacing.md}`,
         fontFamily: mono ? "ui-monospace, SF Mono, Menlo, monospace" : undefined,
         textAlign: align ?? "left",

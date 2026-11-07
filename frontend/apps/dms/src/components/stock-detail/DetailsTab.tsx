@@ -1,16 +1,21 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Button, Group, Text } from '@mantine/core'
 import { FieldLabel, InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
+import { api } from '../../api/client'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { AttachConfigurationButton } from './AttachConfigurationButton'
+import { useAttachConfiguration } from './useAttachConfiguration'
 import { PurchaseStornoDialog } from './PurchaseStornoDialog'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import { useStockConfigurationEditor } from './useStockConfigurationEditor'
 import type { ConfigurationRead, StockItemRead } from '../../api/types'
+
+export type DetailsTabAction = 'recordPurchase' | 'stornoPurchase' | 'attachConfiguration' | 'editConfiguration'
 
 interface DetailsTabProps {
   item: StockItemRead
@@ -33,6 +38,13 @@ interface DetailsTabProps {
    * purchase. Offered beside a booked purchase to the same role that books it
    * (`canRecordPurchase`). */
   onPurchaseStornoed?: (updated: StockItemRead) => void
+  /** KAN-571: an action the stock row menu asked for (the header's overflow,
+   * or the Stock list through the router state) whose dialog or configurator
+   * lives on this tab. It runs once; `onRequestedActionHandled` clears it. An
+   * action this car or role does not allow (a hand-made router state) is
+   * dropped, as the menu would never offer it. */
+  requestedAction?: DetailsTabAction | null
+  onRequestedActionHandled?: () => void
   onRecordPurchase: (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -62,6 +74,8 @@ export function DetailsTab({
   canAttachConfiguration = true,
   canEditConfiguration = true,
   onPurchaseStornoed,
+  requestedAction = null,
+  onRequestedActionHandled,
   onRecordPurchase,
 }: DetailsTabProps) {
   const { t } = useTranslation()
@@ -84,6 +98,34 @@ export function DetailsTab({
   const onStock = (item.lifecycleStatus === 'pipeline' || item.lifecycleStatus === 'in_stock') && item.leftStockAt == null
   const mayEditConfiguration = canEditConfiguration && onStock && !reservedByContract
   const reservedReasonId = useId()
+  const queryClient = useQueryClient()
+  const attachConfiguration = useAttachConfiguration(item)
+
+  // KAN-571 — the row menu's actions that open this tab's own dialogs.
+  useEffect(() => {
+    if (!requestedAction) return
+    onRequestedActionHandled?.()
+    const booked = item.purchasePrice != null
+    const onStockNow = item.leftStockAt == null
+    if (requestedAction === 'recordPurchase' && canRecordPurchase && !booked && onStockNow) {
+      setPurchaseDialogOpen(true)
+    } else if (requestedAction === 'stornoPurchase' && canRecordPurchase && onPurchaseStornoed && booked && onStockNow) {
+      setStornoDialogOpen(true)
+    } else if (requestedAction === 'attachConfiguration' && canAttachConfiguration && !item.configurationId) {
+      attachConfiguration()
+    } else if (requestedAction === 'editConfiguration' && mayEditConfiguration && item.configurationId) {
+      const configurationId = item.configurationId
+      void queryClient
+        .fetchQuery({
+          queryKey: ['configuration', configurationId],
+          queryFn: () => api.get<ConfigurationRead>(`/configurations/${configurationId}`),
+        })
+        .then((configuration) => editConfiguration(configuration))
+        .catch(() => undefined) // the card says the configuration could not be read
+    }
+    // Runs once per request; the handlers are recreated on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedAction])
 
   // KAN-510 — from the purchase dialog's VIN refusal: the dialog steps aside
   // (a modal would hold the focus the configurator needs) and comes back,

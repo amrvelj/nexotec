@@ -154,6 +154,42 @@ weekly. -->
   a customer merged since is followed to its survivor. Same locks and `customer_merged` refusal
   as an allocation. The step lives in the customer context (Anto's ruling 1 A), so no write
   spans two contexts (rule 12).
+- **A stornoed trade-in that went back to its customer reopens them** (KAN-572; Anto, 2026-11-07,
+  option C): `customer.trade_in_storno` consumes `inventory.stock_item.storno` and, only when it says
+  `returnedToCustomer`, `reopen_former_holder_after_storno` reopens the owner and keeper rows the
+  purchase closed — the same rows (`effectiveTo` back to open), this customer's latest of the role
+  closed between the contract's signature and the storno — audited `vehicle_party_update` with reason
+  `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
+  open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
+  the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
+  failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
+  records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
+  purchase, or of one booked again under another date, writes nothing; booked again under the same
+  date, the late event is taken for the standing one, and the history may then end at the late event's
+  booking instead — whenever `purchase_moment` falls back to the booking for it: a date not after the
+  signature, or still to come when it was booked; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
+  purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
+  `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
+  stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
+  recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
+  recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
+  promptly and in order, the returned customer does not get that role back and the role has no current
+  holder until the future holder starts (never ended before it began; KAN-583 is the same question
+  for allocations).
+  **Accepted residual**
+  (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
+  whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
+  backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
+  *unflagged* storno records no handover unless the car is bought again — after a *returned* storno
+  the customer who got the car back is then recorded nowhere (in order, they would be its current
+  owner and keeper) —, a returned storno consumed
+  after a later booking reopens nobody (so the period the customer held the car again is not
+  recorded), with a re-booking the history may end at either purchase, depending on which event is
+  consumed when, and
+  two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
+  is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
+  before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
+  after first ruling A on a narrower «failed delivery only» description.*
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody, but takes the allocation's locks and

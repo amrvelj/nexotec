@@ -48,6 +48,15 @@ class PurchaseStornoRequest(CamelModel):
     required, never empty."""
 
     reason: str = Field(min_length=1, max_length=500)
+    returned_to_customer: bool = Field(
+        default=False,
+        description=(
+            "KAN-572 (Anto, 2026-11-07, option C): the trade-in went back to the customer who traded it in, so "
+            "the customer context reopens that customer as the car's owner and keeper. Only a trade-in's car "
+            "(422 `storno_return_not_trade_in` otherwise); false — the default — leaves the customer's history "
+            "as the purchase wrote it: the customer did hand the car over."
+        ),
+    )
 
     @field_validator("reason")
     @classmethod

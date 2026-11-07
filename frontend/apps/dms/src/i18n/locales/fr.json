@@ -320,6 +320,7 @@
       "purchase_storno_left_stock": "Ce véhicule a déjà quitté le stock. Son achat ne peut plus être annulé.",
       "purchase_storno_invoice_requested": "La facture du contrat {{contractNumber}} a déjà été demandée. L'achat ne peut plus être annulé.",
       "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation.",
+      "storno_return_not_trade_in": "Seul un véhicule de reprise peut retourner au client.",
       "valuation_names_no_car": "Une évaluation nomme son véhicule : le VIN, la marque et le modèle sont obligatoires.",
       "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
     },
@@ -1214,7 +1215,9 @@
         "submit": "Annuler l'achat",
         "cancel": "Retour",
         "failed": "L'achat n'a pas pu être annulé.",
-        "leftStock": "Impossible : le véhicule a quitté le stock."
+        "leftStock": "Impossible : le véhicule a quitté le stock.",
+        "returnedToCustomer": "Le véhicule retourne au client",
+        "returnedToCustomerHint": "Le client qui l'a donné en reprise redevient propriétaire et détenteur. Sans coche, son historique reste tel que l'achat l'a enregistré."
       }
     },
     "wagenbuch": {
@@ -1315,6 +1318,20 @@
       "edit": "Modifier la configuration",
       "editContract": "Modifier le contrat",
       "reservedByContract": "Un contrat réserve ce véhicule. Tant qu'il le réserve, la configuration reste inchangée : elle ne peut être modifiée qu'une fois le contrat annulé."
+    },
+    "rowMenu": {
+      "changeCondition": "Modifier l'état",
+      "purchaseAlreadyBooked": "L'achat est déjà saisi.",
+      "purchaseNotBooked": "Aucun achat saisi pour l'instant.",
+      "creatingDeal": "Création en cours …"
+    },
+    "condition": {
+      "title": "Modifier l'état",
+      "body": "Nouvel état pour {{stockNumber}} :",
+      "label": "État",
+      "submit": "Enregistrer",
+      "cancel": "Annuler",
+      "failed": "L'état n'a pas pu être modifié."
     }
   },
   "salesList": {
