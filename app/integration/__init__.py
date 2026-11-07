@@ -31,6 +31,10 @@ outside this package.
 # does NOT import zeep eagerly: auto_i_dat_soap.py's own build_zeep_client
 # imports it lazily, inside the function body, so this import costs
 # nothing extra for tests/local dev that never construct a real adapter.
+# KAN-488 (ADR-111): the identAPI adapter is what `auto_i_dat` resolves to.
+# Imported AFTER the SOAP module so its registration wins; the SOAP adapter
+# stays importable (its tests build it directly) until KAN-550 removes it.
+from app.integration.adapters import auto_i_dat_ident as _auto_i_dat_ident  # noqa: F401
 from app.integration.adapters import auto_i_dat_soap as _auto_i_dat_soap  # noqa: F401
 
 # KAN-27 — same reasoning, for the AutoScout24 marketplace-transmission

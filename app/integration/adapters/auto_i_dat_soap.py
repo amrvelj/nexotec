@@ -148,6 +148,7 @@ class SoapClient(Protocol):
 # provider changed in place keeps being used; a changed `wsdlUrl` or a rotated
 # credential rebuilds at once (`_build_real_adapter`'s cache key).
 _WSDL_CACHE_SECONDS = 3600.0
+LEGACY_PROVIDER_CODE = "auto_i_dat_soap"
 
 
 @dataclass(frozen=True)
@@ -879,7 +880,11 @@ def _register() -> None:
     # but nothing in adapters/ should import gateway.py at module scope.
     from app.integration.services.gateway import register_adapter_factory
 
-    register_adapter_factory("auto_i_dat", _build_real_adapter)
+    # KAN-488 (ADR-111): `auto_i_dat` resolves to the identAPI adapter
+    # (`auto_i_dat_ident.py`). No provider row carries this legacy code; the
+    # SOAP adapter stays registered under it, and buildable by its own tests,
+    # until KAN-550 removes the module.
+    register_adapter_factory(LEGACY_PROVIDER_CODE, _build_real_adapter)
 
 
 _register()

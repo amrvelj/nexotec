@@ -36,15 +36,14 @@ import { apiRefusalText } from '../utils/apiRefusal'
  */
 /**
  * The account-identifier shown on a connected provider's card. auto-i-dat
- * (KAN-36) carries `benutzerNr`/`benutzerInfo` — a dealer can hold several
- * auto-i-dat accounts, distinguished only by these two fields, so they take
- * priority over the plain `username` every other provider falls back to.
+ * (KAN-488, ADR-111) is an OAuth 2.0 client: its `clientId` is the identifier
+ * (never the secret, which `config` never carries). Every other provider
+ * falls back to its plain `username`. The SOAP-era `benutzerNr · benutzerInfo`
+ * (KAN-36) is gone with the SOAP account shape.
  */
 function accountIdentifier(connection: IntegrationConnectionRead): string {
-  const { benutzerNr, benutzerInfo, username } = connection.config
-  if (benutzerNr != null && typeof benutzerInfo === 'string') {
-    return `${benutzerNr} · ${benutzerInfo}`
-  }
+  const { clientId, username } = connection.config
+  if (typeof clientId === 'string' && clientId !== '') return clientId
   return typeof username === 'string' ? username : '—'
 }
 
@@ -240,9 +239,11 @@ function ConnectDialog({
       <Stack gap="sm">
         {error && <Text size="sm" c="red">{error}</Text>}
         <Select
-          // KAN-489 — the auto-i-dat test access is a Sandbox connection: the
-          // reminder of what its agreement allows. The gateway refuses it on
-          // the production server (services/gateway.py).
+          // KAN-489 / KAN-488 — the auto-i-dat test access is a Sandbox
+          // connection: the reminder of what its agreement allows (the service
+          // account's client id and secret, never the personal token, test
+          // environments only). The gateway refuses it on the production server
+          // (services/gateway.py).
           {...hint(
             t('integrationsList.fields.environment'),
             provider.providerCode === AUTO_I_DAT_PROVIDER_CODE ? t('integrationsList.connectModal.testAccessHint') : undefined,

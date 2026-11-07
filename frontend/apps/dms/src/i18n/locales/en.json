@@ -1722,7 +1722,7 @@
     },
     "connectModal": {
       "title": "Connect {{provider}}",
-      "testAccessHint": "Sandbox is your test access: only with a service account, never with the personal token, and only in test environments. On the production server Nexotec refuses it."
+      "testAccessHint": "Sandbox is your test access: only with the auto-i-dat service account (client ID and client secret), never with the personal token, and only in test environments. On the production server Nexotec refuses it."
     },
     "usageModal": {
       "title": "Usage — {{name}}",
@@ -1774,7 +1774,8 @@
       "username": "Username",
       "benutzerNr": "Account number (BenutzerNr)",
       "benutzerInfo": "Account label (BenutzerInfo)",
-      "accountNumber": "DAT account number"
+      "accountNumber": "DAT account number",
+      "clientId": "Client ID"
     }
   },
   "referenceData": {

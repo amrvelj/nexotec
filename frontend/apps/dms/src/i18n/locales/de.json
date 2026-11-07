@@ -1722,7 +1722,7 @@
     },
     "connectModal": {
       "title": "{{provider}} verbinden",
-      "testAccessHint": "Sandbox ist Ihr Testzugang: nur mit einem Service-Account, nie mit dem persönlichen Token, und nur in Testumgebungen. Auf dem Produktionsserver lehnt Nexotec ihn ab."
+      "testAccessHint": "Sandbox ist Ihr Testzugang: nur mit dem Service-Account von auto-i-dat (Client-ID und Client-Secret), nie mit dem persönlichen Token, und nur in Testumgebungen. Auf dem Produktionsserver lehnt Nexotec ihn ab."
     },
     "usageModal": {
       "title": "Nutzung — {{name}}",
@@ -1774,7 +1774,8 @@
       "username": "Benutzername",
       "benutzerNr": "Kontonummer (BenutzerNr)",
       "benutzerInfo": "Kontobezeichnung (BenutzerInfo)",
-      "accountNumber": "DAT-Kontonummer"
+      "accountNumber": "DAT-Kontonummer",
+      "clientId": "Client-ID"
     }
   },
   "referenceData": {

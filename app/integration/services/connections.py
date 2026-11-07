@@ -32,13 +32,13 @@ _ENTITY_TYPE = "integration_connection"
 # Three vocabularies meet at `integration_entitlement.capability_code`, and
 # they are different layers:
 #
-#   sheet line  One of the eight counters on an auto-i-dat account's monthly
-#               usage statistics (fahrzeuge, optionen, kontrollschild, pneu,
-#               bewertung, vin, vin_ident_db, ins_tc), seeded as the provider's
-#               `capability_codes` by migration 49be490e2077. Entitlement rows
-#               are keyed by these. None of the specification PDFs says which
-#               Datenname bumps which counter, and only `fahrzeuge` is written
-#               today (the probe in `gateway.test_connection`); a line with no
+#   sheet line  One of the identAPI's licence options (ident_basis,
+#               ausstattung, bewertung, vin, pneu, energielabel), seeded as the
+#               provider's `capability_codes` by migration 6b98739fe743
+#               (KAN-488; they replaced the eight SOAP account-sheet counters
+#               of 49be490e2077). Entitlement rows are keyed by these; each is
+#               probed by its own identAPI call on "Test connection"
+#               (`entitlement_probes.py`: 403 = not granted); a line with no
 #               row reads as "granted".
 #   feature     A name a screen asks about through `tenant_has_capability`.
 #               Derived on each ask: `valuation` follows the sheet line
@@ -62,7 +62,12 @@ _ENTITY_TYPE = "integration_connection"
 # Bewertung webservice, and `Bew` is that webservice's counter. `packages`,
 # `images` and `forecast` are absent because the specification supports no
 # such mapping (see catalogue_entitlements.py).
-FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung"}
+# KAN-488: the identAPI's licence options replace the sheet lines (migration
+# 6b98739fe743): `ident_basis`, `ausstattung`, `bewertung`, `vin`, `pneu`,
+# `energielabel`. The features screens ask about keep their names and follow
+# the option that licenses them: option lists, packages and images are all
+# the `ausstattung` option (there is no separate image or package licence).
+FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung", "packages": "ausstattung", "images": "ausstattung"}
 
 # KAN-36 — vin_decode is never hand-declared: it's derived from the health
 # of the tenant's own `dat` connection (the DAT sub-account auto-i-dat

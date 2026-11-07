@@ -50,3 +50,35 @@ class ProviderConfigurationError(ProviderGatewayError):
     `wsdlUrl`, a credential that cannot be read. Something the dealer manager
     can fix, as opposed to a provider that is down.
     """
+
+
+class ProviderRejectedError(ProviderGatewayError):
+    """The provider understood the request and said no to the caller's
+    credentials or to the call itself — a wrong client secret, a refused
+    login, an empty SOAP answer (KAN-488). Never transient: a retry with the
+    same input would not help. The SOAP parser's own `ProviderRejectedError`
+    is a subclass of this one, so one `except` covers both transports.
+    """
+
+
+class ProviderNotEntitledError(ProviderGatewayError):
+    """The provider answered 403 (KAN-488): the account is valid but the
+    licence does not include this operation. `gateway.test_connection`'s
+    probes read it as `granted = False` for the capability the operation
+    represents; a caller outside a probe treats it like any other refusal.
+    `operation` is the provider's own name for what was asked.
+    """
+
+    def __init__(self, operation: str, message: str | None = None) -> None:
+        self.operation = operation
+        super().__init__(message or f"{operation}: the account is not entitled to this operation (HTTP 403).")
+
+
+class ProviderRequestError(ProviderGatewayError):
+    """The provider refused the request as malformed or unprocessable (400 or
+    422 on the identAPI, with a json:api error body; KAN-488). The licence
+    allowed the call and the credentials were accepted, so it says nothing
+    about entitlement — an entitlement probe leaves its row untouched. The
+    message carries the provider's `title`/`detail`, which describe our
+    request, never a credential.
+    """

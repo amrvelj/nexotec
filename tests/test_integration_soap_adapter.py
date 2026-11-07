@@ -50,7 +50,8 @@ _IV = b"fedcba9876543210"
 
 def _make_provider(db_session, **overrides) -> IntegrationProvider:
     defaults = {
-        "provider_code": "auto_i_dat",
+        # KAN-488: `auto_i_dat` is the identAPI adapter; the SOAP adapter answers to its legacy code until KAN-550.
+        "provider_code": auto_i_dat_soap.LEGACY_PROVIDER_CODE,
         "category": "vehicle_data",
         "display_name": "auto-i-dat",
         "auth_type": "soap_password_aes",
@@ -546,8 +547,8 @@ def test_fahrzeuge_entitlement_probe_reads_an_empty_fahrzeugarten_response_as_re
 
     provider = _make_provider(db_session)
     connection = _make_connection(db_session, provider)
-    probe = entitlement_probes.probes_for("auto_i_dat")[0]
-    assert probe.capability_code == "fahrzeuge"
+    probe = entitlement_probes.probes_for("auto_i_dat_mock")[0]  # the SOAP-shaped probe (KAN-488)
+    assert probe.capability_code == "ident_basis"  # KAN-488: the identAPI vocabulary, probed through the mock's FahrzeugArten
 
     granted_soap = FakeSoapClient()
     granted = _adapter(db_session, connection, soap_client=granted_soap, monkeypatch=monkeypatch)

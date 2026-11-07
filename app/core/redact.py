@@ -22,7 +22,12 @@ an ordinary log line, not just `tax_id`.
 REDACTED_PLACEHOLDER = "***redacted***"
 
 SECRET_FIELDS = frozenset(
-    {"tax_id", "password", "aes_key", "client_secret", "refresh_token", "certificate", "secret_value"}
+    {
+        "tax_id", "password", "aes_key", "client_secret", "refresh_token", "certificate", "secret_value",
+        # KAN-488: an OAuth access token and the header it travels in are
+        # credentials in flight; a log line carrying either is redacted.
+        "access_token", "authorization", "Authorization",
+    }
 )
 
 

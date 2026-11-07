@@ -1,0 +1,495 @@
+"""KAN-488 — the identAPI foundation: OAuth 2.0 (discovery + User Enrollment
+Grant), the httpx transport, Test connection with the six option probes.
+
+Everything runs the real, registered `auto_i_dat` adapter against a fake
+authorization server and identAPI over `httpx.MockTransport`
+(`tests/identapi_support.py`); no network, no real value. The exit criteria
+the ticket names are each a test here: a wrong secret ends as `error` with
+no API call (2); the token is reused across calls, refreshed once on 401 and
+invalidated by a rotation (3); no secret or token reaches a log line (4);
+every request goes through `_request` (architecture test, 5).
+"""
+
+import json
+import logging
+import uuid
+
+import pytest
+
+from app.core.auth import create_access_token
+from app.core.observability import JSONLogFormatter
+from app.core.redact import SECRET_FIELDS
+from app.integration.adapters import auto_i_dat_ident, autoi_oauth
+from app.integration.adapters.auto_i_dat_ident import OP_CAPTION_CODE
+from app.integration.adapters.autoi_oauth import OAUTH_TOKEN_OPERATION
+from app.integration.models.call_log import CallStatus, IntegrationCallLog
+from app.integration.models.connection import ConnectionStatus
+from app.integration.models.entitlement import EntitlementSource
+from app.integration.models.secret_ref import SecretSlot
+from app.integration.services import connections as connection_service
+from app.integration.services import gateway, resilience
+from tests import identapi_support as fx
+from tests.identapi_support import PROBE_OPERATIONS, PROBE_PATHS, FakeAutoi
+from tests.token_support import dealer_group_of
+
+
+@pytest.fixture(autouse=True)
+def _fresh_adapter_state():
+    yield
+    fx.uninstall()
+    for connection_id in list(resilience._CIRCUITS):
+        resilience.reset_circuit(connection_id)
+
+
+def _rows(db_session, connection, operation: str | None = None) -> list[IntegrationCallLog]:
+    query = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id)
+    if operation is not None:
+        query = query.filter_by(capability=operation)
+    return query.order_by(IntegrationCallLog.created_at, IntegrationCallLog.id).all()
+
+
+def _entitlements(db_session, connection) -> dict[str, bool]:
+    return {
+        row.capability_code: row.granted
+        for row in connection_service.list_entitlements(db_session, connection_id=connection.id)
+    }
+
+
+# --- the registered adapter ------------------------------------------------------------
+
+
+def test_the_identapi_adapter_is_what_auto_i_dat_resolves_to():
+    assert gateway._ADAPTER_FACTORIES["auto_i_dat"] is auto_i_dat_ident._build_ident_adapter
+
+
+# --- Test connection: token, caption, six probes ----------------------------------------
+
+
+def test_test_connection_logs_in_reads_the_captions_and_probes_every_option(db_session, monkeypatch):
+    fake = FakeAutoi(api_status={PROBE_PATHS["vin"]: 403, PROBE_PATHS["bewertung"]: 403})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert updated.last_error is None
+    assert updated.last_verified_at is not None
+
+    # One login for the whole test: the token is reused by the caption call
+    # and all six probes (exit criterion 3).
+    token_rows = _rows(db_session, s.connection, OAUTH_TOKEN_OPERATION)
+    assert [(r.status, r.cost_units) for r in token_rows] == [(CallStatus.SUCCESS, 0)]
+    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.SUCCESS]
+    assert len(s.fake.token_requests()) == 1
+
+    # Every probe is one request, named by its identAPI operation (KAN-486).
+    for code, operation in PROBE_OPERATIONS.items():
+        rows = _rows(db_session, s.connection, operation)
+        expected = CallStatus.ERROR if code in ("vin", "bewertung") else CallStatus.SUCCESS
+        assert [r.status for r in rows] == [expected], (code, rows)
+    assert {r.path for r in s.fake.api_requests()} == {"/caption/code", *PROBE_PATHS.values()}
+
+    # Six rows, probed, 403 = not granted (exit criterion 1's shape).
+    rows = connection_service.list_entitlements(db_session, connection_id=s.connection.id)
+    assert {r.source for r in rows} == {EntitlementSource.PROBED}
+    assert _entitlements(db_session, s.connection) == {
+        "ident_basis": True, "ausstattung": True, "bewertung": False, "vin": False, "pneu": True, "energielabel": True,
+    }
+
+
+def test_the_enrollment_grant_names_the_acting_user_and_the_scope(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    (token_request,) = s.fake.token_requests()
+    assert token_request.form == {
+        "grant_type": "user_enrollment",
+        "scope": "ident",
+        "user_id": str(s.user.id),
+        "email": s.user.email,
+        "first_name": s.user.first_name,
+        "last_name": s.user.last_name,
+    }
+    assert token_request.headers["content-type"] == "application/x-www-form-urlencoded"
+    assert token_request.headers["accept-language"] == "de-CH"
+    assert token_request.headers["authorization"].startswith("Basic ")
+    # Discovery was read first and never hard-coded: the token went where the
+    # metadata said.
+    assert s.fake.seen[0].path == "/.well-known/oauth-authorization-server"
+    # The API calls carry the issued Bearer token and nothing else of the login.
+    for request in s.fake.api_requests():
+        assert request.headers["authorization"] == f"Bearer {s.fake.tokens_issued[0]}"
+
+
+def test_the_client_secret_is_resolved_once_per_token_request_and_audited(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert s.secrets.resolutions == 1
+    from app.core.audit import AuditEvent
+
+    resolutions = (
+        db_session.query(AuditEvent)
+        .filter_by(entity_type="integration_secret_ref", entity_id=s.connection.id, action="secret_resolved")
+        .all()
+    )
+    assert len(resolutions) == 1
+    assert resolutions[0].actor_id == s.user.id
+    assert "slot=client_secret" in (resolutions[0].reason or "")
+
+
+# --- exit criterion 2: a wrong secret ----------------------------------------------------
+
+
+def test_a_wrong_client_secret_ends_as_error_naming_the_token_endpoint_and_makes_no_api_call(
+    db_session, monkeypatch
+):
+    s = fx.connected(db_session, monkeypatch)
+    s.secrets.values[(s.connection.id, "client_secret")] = "not-the-secret"
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert updated.last_verified_at is None
+    assert updated.last_error is not None
+    assert "token endpoint" in updated.last_error and "401" in updated.last_error
+    assert "invalid_client" in updated.last_error
+    assert "not-the-secret" not in updated.last_error
+    assert s.fake.api_requests() == []
+    # The one request, logged as the failed login it was, at no cost.
+    assert [(r.capability, r.status, r.cost_units) for r in _rows(db_session, s.connection)] == [
+        (OAUTH_TOKEN_OPERATION, CallStatus.ERROR, 0)
+    ]
+    assert connection_service.list_entitlements(db_session, connection_id=s.connection.id) == []
+
+
+def test_a_user_quota_exceeded_answer_is_named_as_such(db_session, monkeypatch):
+    fake = FakeAutoi(token_status=400)
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "user quota" in (updated.last_error or "")
+
+
+def test_a_missing_client_secret_is_the_dealers_to_fix_not_a_provider_failure(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    s.secrets.values.clear()
+    charged: list[uuid.UUID] = []
+    monkeypatch.setattr(resilience, "record_failure", charged.append)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "'client_secret' credential" in (updated.last_error or "")
+    assert s.fake.token_requests() == []
+    # Nothing reached the provider: no row, no breaker charge (as `wsdlUrl` was).
+    assert _rows(db_session, s.connection) == []
+    assert charged == []
+
+
+def test_a_missing_client_id_is_refused_before_any_request(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    s.connection.config = {}
+    db_session.commit()
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "clientId" in (updated.last_error or "")
+    assert s.fake.seen == []
+
+
+# --- exit criterion 3: token lifetime ------------------------------------------------------
+
+
+def test_the_token_is_reused_across_calls_within_its_lifetime(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    # Two tests: fourteen API requests, one login.
+    assert len(s.fake.api_requests()) == 14
+    assert len(s.fake.token_requests()) == 1
+    assert len(_rows(db_session, s.connection, OAUTH_TOKEN_OPERATION)) == 1
+    assert s.secrets.resolutions == 1
+
+
+def test_an_expired_token_is_requested_again(db_session, monkeypatch):
+    fake = FakeAutoi(expires_in=30)  # under the 60 s safety margin: expired on arrival
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    # Every one of the seven API calls had to log in first.
+    assert len(s.fake.token_requests()) == 7
+
+
+def test_a_401_from_the_api_refreshes_the_token_once_and_logs_both_attempts(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    s.fake.expire_tokens_once = True
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert len(s.fake.token_requests()) == 2
+    # The refused caption request and the one that followed with a fresh token.
+    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [
+        CallStatus.SUCCESS, CallStatus.ERROR, CallStatus.SUCCESS,
+    ]
+
+
+def test_a_second_401_is_a_rejection_not_an_endless_refresh(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    # The API now refuses every token, whatever the authorization server issues.
+    s.fake.tokens_issued.clear()
+    monkeypatch.setattr(s.fake, "tokens_issued", _NeverContains())
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "twice" in (updated.last_error or "") and "401" in (updated.last_error or "")
+    # First test's login + exactly one refresh in the second.
+    assert len(s.fake.token_requests()) == 2
+
+
+class _NeverContains(list):
+    def __contains__(self, item) -> bool:
+        return False
+
+    def append(self, item) -> None:  # the fake still records what it issued
+        super().append(item)
+
+    def __getitem__(self, index):
+        return super().__getitem__(index)
+
+
+def test_rotating_the_secret_invalidates_the_cached_token(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    connection_service.set_secret(
+        db_session, connection=s.connection, slot=SecretSlot.CLIENT_SECRET, value=fx.CLIENT_SECRET,
+        actor_id=s.user.id, secrets_backend_module=s.secrets,
+    )
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert len(s.fake.token_requests()) == 2
+
+
+def test_each_user_gets_their_own_token(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    other = fx.make_user(db_session, tenant_id=s.connection.tenant_id, email="bob.tester@example.test", first_name="Bob")
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=other.id)
+
+    assert [r.form["user_id"] for r in s.fake.token_requests()] == [str(s.user.id), str(other.id)]
+
+
+def test_a_call_with_no_signed_in_user_is_refused_before_anything_is_sent(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=None)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "signed-in user" in (updated.last_error or "")
+    assert s.fake.seen == []
+
+
+def test_a_user_who_does_not_act_in_the_betrieb_has_no_token(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    stranger = fx.make_user(db_session, tenant_id=uuid.uuid4(), email="eve.elsewhere@example.test", first_name="Eve")
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=stranger.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert s.fake.seen == []
+
+
+# --- discovery -----------------------------------------------------------------------------
+
+
+def test_discovery_without_client_secret_basic_is_a_configuration_error(db_session, monkeypatch):
+    fake = FakeAutoi(discovery={**fx.DISCOVERY, "token_endpoint_auth_methods_supported": ["private_key_jwt"]})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "client_secret_basic" in (updated.last_error or "")
+    assert s.fake.token_requests() == []
+
+
+def test_discovery_is_read_once_and_cached(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    other = fx.make_user(db_session, tenant_id=s.connection.tenant_id, email="bob.tester@example.test", first_name="Bob")
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=other.id)
+
+    assert len([r for r in s.fake.seen if r.path == "/.well-known/oauth-authorization-server"]) == 1
+
+
+def test_an_unreachable_authorization_server_is_a_transport_failure(db_session, monkeypatch):
+    fake = FakeAutoi(discovery_status=503)
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "HTTP 503" in (updated.last_error or "")
+
+
+# --- the probes' verdicts ------------------------------------------------------------------
+
+
+def test_a_422_on_a_probe_leaves_the_entitlement_row_untouched(db_session, monkeypatch):
+    fake = FakeAutoi(api_status={PROBE_PATHS["pneu"]: 422})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+    connection_service.record_probed_entitlement(db_session, connection_id=s.connection.id, capability_code="pneu", granted=False)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert _entitlements(db_session, s.connection)["pneu"] is False  # the earlier verdict, not flipped
+    (row,) = _rows(db_session, s.connection, PROBE_OPERATIONS["pneu"])
+    assert row.status == CallStatus.ERROR
+
+
+def test_a_5xx_on_a_probe_is_retried_once_then_leaves_the_row_untouched(db_session, monkeypatch):
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    fake = FakeAutoi(api_status={PROBE_PATHS["energielabel"]: 503})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert "energielabel" not in _entitlements(db_session, s.connection)
+    assert [r.status for r in _rows(db_session, s.connection, PROBE_OPERATIONS["energielabel"])] == [
+        CallStatus.ERROR, CallStatus.ERROR,
+    ]
+
+
+def test_a_transient_5xx_recovers_on_the_retry(db_session, monkeypatch):
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    fake = FakeAutoi(api_fail_once={"/caption/code": 502})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.CONNECTED
+    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.ERROR, CallStatus.SUCCESS]
+
+
+def test_a_4xx_is_never_retried(db_session, monkeypatch):
+    fake = FakeAutoi(api_status={PROBE_PATHS["vin"]: 403})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert len([r for r in s.fake.api_requests() if r.path == PROBE_PATHS["vin"]]) == 1
+
+
+def test_a_timeout_is_logged_as_timeout(db_session, monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    fake = FakeAutoi(raise_on_api=httpx.ReadTimeout("read timed out"))
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert updated.status == ConnectionStatus.ERROR
+    assert "ReadTimeout" in (updated.last_error or "")
+    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.TIMEOUT, CallStatus.TIMEOUT]
+
+
+def test_a_refused_probe_is_never_charged_to_the_circuit_breaker(db_session, monkeypatch):
+    fake = FakeAutoi(api_status={path: 403 for path in PROBE_PATHS.values()})
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+    charged: list[uuid.UUID] = []
+    monkeypatch.setattr(resilience, "record_failure", charged.append)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert charged == []
+    assert set(_entitlements(db_session, s.connection).values()) == {False}
+
+
+# --- exit criterion 4: nothing secret in a log line ----------------------------------------
+
+
+def test_the_token_and_the_authorization_header_are_redacted_field_names():
+    assert {"access_token", "authorization", "Authorization", "client_secret"} <= SECRET_FIELDS
+    record = logging.LogRecord(
+        name="app.integration", level=logging.INFO, pathname=__file__, lineno=1, msg="token", args=(), exc_info=None
+    )
+    record.access_token = "tok-should-never-appear"  # type: ignore[attr-defined]
+    record.Authorization = "Bearer tok-should-never-appear"  # type: ignore[attr-defined]
+    payload = json.loads(JSONLogFormatter().format(record))
+    assert payload["access_token"] == "***redacted***"
+    assert payload["Authorization"] == "***redacted***"
+
+
+def test_no_log_line_or_last_error_carries_the_secret_or_a_token(db_session, monkeypatch, caplog):
+    s = fx.connected(db_session, monkeypatch)
+    with caplog.at_level(logging.DEBUG):
+        gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+        s.fake.tokens_issued.clear()
+        monkeypatch.setattr(s.fake, "tokens_issued", _NeverContains())
+        updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    text = caplog.text + (updated.last_error or "")
+    assert fx.CLIENT_SECRET not in text
+    for token in s.fake.tokens_issued:
+        assert token not in text
+    assert "tok-" not in text
+
+
+# --- the token cache is process memory, never a row --------------------------------------------
+
+
+def test_the_token_lives_only_in_process_memory(db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    (token,) = s.fake.tokens_issued
+    cached = list(autoi_oauth._token_cache.values())
+    assert [t.value for t in cached] == [token]
+    # Nothing in the database knows it.
+    db_session.expire_all()
+    for table in ("integration_call_log", "integration_connection", "integration_secret_ref", "audit_event"):
+        from sqlalchemy import text
+
+        rows = db_session.execute(text(f"SELECT * FROM {table}")).mappings().all()
+        assert token not in json.dumps([dict(r) for r in rows], default=str)
+
+
+# --- through the HTTP endpoint: the actor is the signed-in user --------------------------------
+
+
+def test_the_test_endpoint_enrols_the_signed_in_user(client, db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch)
+    token = create_access_token(
+        user_id=s.user.id, tenant_id=s.connection.tenant_id, group_id=dealer_group_of(str(s.connection.tenant_id)),
+        roles=frozenset(), is_dealer_manager=True,
+    )
+
+    response = client.post(
+        f"/v1/integrations/connections/{s.connection.id}/test", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "connected"
+    assert {e["capabilityCode"] for e in body["entitlements"]} == set(fx.CAPABILITY_CODES)
+    (token_request,) = s.fake.token_requests()
+    assert token_request.form["user_id"] == str(s.user.id)

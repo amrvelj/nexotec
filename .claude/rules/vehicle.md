@@ -161,6 +161,33 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   never in the app database), entitlements, call log and retention. The auto-i-dat adapters
   live in `integration` beside the registry. The **catalogue mirror** (variants, options,
   colours, tyres) is `vehicle`'s job, calling `integration.public.call_capability`.
+- **auto-i-dat is the identAPI** (ADR-111; KAN-488): `auto_i_dat` resolves to
+  `adapters/auto_i_dat_ident.py`, a REST / json:api transport over `httpx` on
+  `https://api.ident.autoi.ch`, with one choke point `_request` (one call-log row per attempt
+  under the operation's own name — `caption_code`, `vehiclecatalog`, …; a timeout or 5xx retried
+  once, a 4xx never; 401 → the token is dropped and requested once more, 403 →
+  `ProviderNotEntitledError`, 400/422 → `ProviderRequestError`). **Login** is
+  `adapters/autoi_oauth.py`: metadata discovery from `https://www.autoi.ch/.well-known/oauth-authorization-server`
+  (cached ≤ 24 h, never hard-coded) and auto-i's **User Enrollment Grant** (their instruction of
+  2026-11-07; ADR-111 as amended): `grant_type=user_enrollment`, `scope=ident`, HTTP Basic with the
+  service account's client id (`config.clientId`) and client secret (slot `client_secret`), naming
+  the **acting Nexotec user** (`user_id`, `email`, `first_name`, `last_name`, read through
+  `platform.public.get_active_user_acting_in`) — auto-i registers each user on first use. The
+  Bearer token (1200 s) is cached in process **per connection and per user**, keyed by the
+  connection's `version` and `rotated_at` (an edit or a rotation drops it), never persisted,
+  never logged (`access_token` / `Authorization` are redacted field names); a token request is one
+  `oauth_token` row at `cost_units = 0`, the secret resolved and audited once per token request. A
+  call with no signed-in user, no `clientId` or no secret is a `ProviderConfigurationError` —
+  unlogged, uncharged, the dealer's to fix. The provider row (migration `6b98739fe743`) is
+  `auth_type oauth2_user_enrollment`, slots `[client_secret]`, config `[clientId]`,
+  `capability_codes [ident_basis, ausstattung, bewertung, vin, pneu, energielabel]`: the identAPI's
+  licence options, each probed by one documented call on «Test connection» (inputs are auto-i's
+  own documentation examples; 403 = not granted, 200/404 = granted, anything else leaves the row).
+  `images`/`packages` are features over `ausstattung`; the plate rung's entitlement is
+  `ident_basis`. «Test connection» = token + `GET /caption/code?lang=de` + the six probes, with
+  the clicking user as the actor. Identification, browse, details, VIN and valuation on the
+  identAPI are KAN-547/548/211/549/552; the SOAP adapter (`auto_i_dat_soap.py`, legacy code
+  `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550/KAN-547.
 - Catalogue browse makes **no** live provider call (architecture test).
 - Provider text (option names, colour names) is stored and rendered **as delivered**, never
   translated (ADR-044); only our canonical reference data is translated.
@@ -180,8 +207,11 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `pyproject.toml` or a frontend `package.json` that its `ALLOWED_MCP_DEPENDENCIES` does not
   name with a reason (empty: Anto's ruling by name). The repository's own Claude Code tooling
   (`.claude/`) is not the application.
-- Everything provider-backed has run against the **mock only**: no staging auto-i-dat account
-  exists yet. Say so in any claim about real provider behaviour.
+- What has run against the **real** auto-i service account (2026-11-07, from a cloud session,
+  outside the app): metadata discovery, one User Enrollment token request and one
+  `GET /caption/code?lang=de` (200, 23 code groups). Everything else provider-backed has run
+  against the mock or a fake `httpx` transport only. Say so in any claim about real provider
+  behaviour.
 
 ## Configurator (ADR-068 … ADR-072)
 
@@ -284,19 +314,20 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   (Anto: a connection auto-i-dat switches off shows as failing; the dealer renews with
   auto-i-dat).
 - **No MCP for provider data** (§3; KAN-490).
-- **The test licence covers the identAPI only**: `auto_i_dat_soap.py` speaks the SOAP
-  webservices, which it does not cover — the identAPI adapter is KAN-488 — and VIN queries are
-  not in it (KAN-81 stays blocked).
+- **The test licence covers the identAPI only**, and the identAPI is the one provider since
+  KAN-488 (ADR-111; the login and transport paragraph above). The service account runs as a
+  `sandbox` connection on local and staging only (ADR-113). VIN queries are not in the licence
+  (§8): the `vin` option is probed and its `granted = False` row is what keeps the VIN rung
+  (KAN-549) from ever calling it.
 
 ## auto-i-dat facts that are easy to get wrong
 
-- **VIN decode is DAT-backed.** It needs a second, independent DAT sub-account, modelled as its
-  own `dat` provider/connection — never folded into the `auto_i_dat` connection (they rotate
-  independently). `vin_decode` is a **derived** entitlement
-  (`app/integration/services/connections.py::compute_vin_decode_entitlement`), never
-  hand-declared. The webservice call itself is **not implemented**:
-  `AutoIDatSoapAdapter.decode_vin` raises `NotImplementedError` until auto-i-dat supplies the
-  specification — a procurement step, not an engineering one (KAN-81).
+- **VIN decode is an identAPI licence option** (`vin`, `GET /vinrequest/{input}`; ADR-113
+  retires the DAT sub-account model). Until KAN-549 builds that rung, the SOAP-era derivation
+  stands in the code: `vin_decode` is derived from a healthy `dat` connection
+  (`app/integration/services/connections.py::compute_vin_decode_entitlement`), the `dat`
+  provider row still exists, and no adapter decodes a VIN. KAN-549 replaces the derivation with
+  the probed `vin` row and removes `dat`.
 - **Typenschein** — `vehicle_type_approval` is many-to-many with `vehicle_model_variant`;
   `type_approval_number` is indexed, not unique. Use `find_model_variants_by_type_approval`
   for the reverse lookup. A variant mirrored before KAN-42 has no links; identification's best
@@ -323,10 +354,11 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   shows whether it happens.
 - **Keep the provider's full image URL** (`ImageRef.image_url`); the provider returns a
   directly fetchable URL per image — no proxy, no base-URL reconstruction.
-- Stammnummer resolves only against our own data (vehicle-mdm, then the plate-lookup cache);
-  auto-i-dat accepts no Stammnummer search. The catalogue sync links each variant to its
-  Typenscheine (`vehicle_model_variant_type_approval`, model `VariantTypeApproval`,
-  KAN-42).
+- Stammnummer resolves today only against our own data (vehicle-mdm, then the plate-lookup
+  cache). «auto-i-dat accepts no Stammnummer search» was a SOAP-era reading and is withdrawn
+  (ADR-111): the identAPI identifies by `vrn` (= Stammnummer); the live rung is KAN-547. The
+  catalogue sync links each variant to its Typenscheine
+  (`vehicle_model_variant_type_approval`, model `VariantTypeApproval`, KAN-42).
 
 ## Catalogue administration
 

@@ -39,7 +39,12 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
-from app.integration.errors import ProviderGatewayError, ProviderTimeoutError, ProviderTransportError
+from app.integration.errors import (
+    ProviderConfigurationError,
+    ProviderGatewayError,
+    ProviderTimeoutError,
+    ProviderTransportError,
+)
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus, IntegrationConnection
@@ -297,6 +302,19 @@ def call_capability(
                 raise
             try:
                 yield adapter
+            except ProviderConfigurationError as exc:
+                # KAN-488: the identAPI adapter resolves its credential and
+                # builds its token inside the block (lazily, on the first
+                # request), so a missing `clientId` or `client_secret` surfaces
+                # here rather than in the factory. Same rule as there: the
+                # dealer's to fix, never reached the provider — unlogged and
+                # uncharged, as long as nothing was sent.
+                if meter.requests:
+                    _record_failed_call(
+                        gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at, correlation_id=correlation_id, capture_raw_payload=capture_raw_payload,
+                        meter=meter,
+                    )
+                raise
             except Exception as exc:
                 _record_failed_call(
                     gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
@@ -388,7 +406,9 @@ def _maybe_capture_payload(
         db.commit()
 
 
-def test_connection(db: Session, *, connection: IntegrationConnection) -> IntegrationConnection:
+def test_connection(
+    db: Session, *, connection: IntegrationConnection, actor_id: uuid.UUID | None = None
+) -> IntegrationConnection:
     """The dealer-facing "Test connection" action (PR-7's own UI) — a
     lightweight probe: fetch the system watermark, which every provider
     account can read regardless of its other entitlements. Updates
@@ -427,10 +447,18 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     if provider.category == "marketplace":
         raise ConflictError(f"Connection testing is not available for {provider.display_name}.")
 
+    # KAN-488: the identAPI's access check is the token request plus
+    # `GET /caption/code` (two metered rows: `oauth_token`, `caption_code`);
+    # every other vehicle-data adapter keeps the `System` watermark. The
+    # actor is the user the token is requested for (auto-i's User Enrollment
+    # Grant) — a test with no actor fails as a configuration error.
+    check = entitlement_probes.access_check(provider.provider_code)
     healthy = False
     try:
-        with call_capability(db, connection=connection, capability="system_watermark") as adapter:
-            adapter.get_system_watermark()
+        with call_capability(
+            db, connection=connection, capability="system_watermark", actor_id=actor_id, purpose="test_connection"
+        ) as adapter:
+            check(adapter)
     except ProviderGatewayError as exc:
         # Traceback only when there is a chained foreign cause worth reading —
         # `last_error` carries our own wording, the log carries what it hides.
@@ -446,7 +474,7 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
         healthy = True
     db.commit()
     if healthy:
-        _probe_entitlements(db, connection=connection)
+        _probe_entitlements(db, connection=connection, actor_id=actor_id)
     # A platform-scoped connection (no tenant) entitles no one's VIN decode.
     if provider.provider_code == connection_service.VIN_DECODE_PROVIDER_CODE and connection.tenant_id is not None:
         connection_service.compute_vin_decode_entitlement(db, tenant_id=connection.tenant_id)
@@ -454,7 +482,9 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     return connection
 
 
-def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> None:
+def _probe_entitlements(
+    db: Session, *, connection: IntegrationConnection, actor_id: uuid.UUID | None = None
+) -> None:
     """A refusal is caught *inside* the `call_capability` block, so the
     block succeeds and the connection's circuit breaker is not charged; the
     refused request itself is logged as `ERROR` under its Datenname
@@ -479,6 +509,7 @@ def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> No
                 db,
                 connection=connection,
                 capability=probe.capability_code,
+                actor_id=actor_id,
                 purpose=f"entitlement_probe:{probe.capability_code}",
             ) as adapter:
                 granted = entitlement_probes.run_probe(probe, adapter)

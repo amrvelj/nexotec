@@ -1,10 +1,11 @@
 """Configurator C-0 / KAN-38 PR 2b: entitlement probing.
 
-`gateway.test_connection` probes `fahrzeuge` after `System` succeeds and
-records the result as an `integration_entitlement` row. The protocol has no
-"not entitled" signal (Webservice Fahrzeuge p4), so what is tested here is
-the *inference* and the discipline around it — never that the inference is
-right about a real account, which needs the staging account.
+`gateway.test_connection` probes the mock's one capability (`ident_basis`
+since KAN-488 — the identAPI vocabulary) after the access check succeeds and
+records the result as an `integration_entitlement` row. The mock still speaks
+the SOAP shapes, whose protocol has no "not entitled" signal, so what is
+tested here is the *inference* and the discipline around it; the identAPI's
+own 403 verdicts are `test_integration_identapi_foundation.py`.
 """
 
 import uuid
@@ -32,7 +33,7 @@ def _make_provider(db_session, **overrides) -> IntegrationProvider:
         "display_name": "auto-i-dat (mock)",
         "auth_type": "none",
         "required_secret_slots": [],
-        "capability_codes": ["fahrzeuge"],
+        "capability_codes": ["ident_basis", "ausstattung"],
     }
     defaults.update(overrides)
     provider = IntegrationProvider(**defaults)
@@ -87,8 +88,8 @@ def _serve(monkeypatch, adapter, provider_code: str = _MOCK_PROVIDER_CODE) -> No
     monkeypatch.setitem(gateway._ADAPTER_FACTORIES, provider_code, lambda db, connection, actor_id, purpose: adapter)
 
 
-def _fahrzeuge(db_session, connection):
-    return connection_service.get_entitlement(db_session, connection_id=connection.id, capability_code="fahrzeuge")
+def _ident_basis(db_session, connection):
+    return connection_service.get_entitlement(db_session, connection_id=connection.id, capability_code="ident_basis")
 
 
 def _calls(db_session, connection, capability):
@@ -114,14 +115,14 @@ def test_run_probe_reads_only_a_rejection_as_not_granted():
 # --- through gateway.test_connection ----------------------------------------------
 
 
-def test_test_connection_records_fahrzeuge_granted_for_an_entitled_account(db_session):
+def test_test_connection_records_ident_basis_granted_for_an_entitled_account(db_session):
     connection = _make_connection(db_session, _make_provider(db_session))
-    assert _fahrzeuge(db_session, connection) is None
+    assert _ident_basis(db_session, connection) is None
 
     updated = gateway.test_connection(db_session, connection=connection)
 
     assert updated.status == ConnectionStatus.CONNECTED
-    row = _fahrzeuge(db_session, connection)
+    row = _ident_basis(db_session, connection)
     assert row is not None
     assert row.granted is True
     assert row.source == EntitlementSource.PROBED
@@ -134,7 +135,7 @@ def test_a_refusal_records_not_granted_but_the_connection_itself_stays_healthy(d
 
     updated = gateway.test_connection(db_session, connection=connection)
 
-    row = _fahrzeuge(db_session, connection)
+    row = _ident_basis(db_session, connection)
     assert row is not None
     assert row.granted is False
     # `System` answered, so the connection is fine; one un-entitled
@@ -142,7 +143,7 @@ def test_a_refusal_records_not_granted_but_the_connection_itself_stays_healthy(d
     assert updated.status == ConnectionStatus.CONNECTED
     assert updated.last_error is None
     # ... nor switch off any other capability.
-    assert connection_service.get_entitlement(db_session, connection_id=connection.id, capability_code="optionen") is None
+    assert connection_service.get_entitlement(db_session, connection_id=connection.id, capability_code="ausstattung") is None
 
 
 def test_a_refusal_is_never_charged_to_the_connections_circuit_breaker(db_session, monkeypatch):
@@ -177,7 +178,7 @@ def test_a_later_grant_flips_the_same_row_rather_than_adding_one(db_session, mon
 
     _serve(monkeypatch, _RefusingAdapter())
     gateway.test_connection(db_session, connection=connection)
-    refused = _fahrzeuge(db_session, connection)
+    refused = _ident_basis(db_session, connection)
     assert refused is not None and refused.granted is False
     first_checked_at = refused.checked_at
 
@@ -186,7 +187,7 @@ def test_a_later_grant_flips_the_same_row_rather_than_adding_one(db_session, mon
 
     rows = [
         e for e in connection_service.list_entitlements(db_session, connection_id=connection.id)
-        if e.capability_code == "fahrzeuge"
+        if e.capability_code == "ident_basis"
     ]
     assert len(rows) == 1
     assert rows[0].granted is True
@@ -199,19 +200,19 @@ def test_a_transient_probe_failure_leaves_the_entitlement_exactly_as_it_was(db_s
 
     # Never probed: an outage must not invent a row...
     gateway.test_connection(db_session, connection=connection)
-    assert _fahrzeuge(db_session, connection) is None
+    assert _ident_basis(db_session, connection) is None
 
     # ...and an existing verdict must not be flipped by one either.
     connection_service.record_probed_entitlement(
-        db_session, connection_id=connection.id, capability_code="fahrzeuge", granted=False
+        db_session, connection_id=connection.id, capability_code="ident_basis", granted=False
     )
-    before = _fahrzeuge(db_session, connection)
+    before = _ident_basis(db_session, connection)
     assert before is not None
     checked_at = before.checked_at
 
     updated = gateway.test_connection(db_session, connection=connection)
 
-    after = _fahrzeuge(db_session, connection)
+    after = _ident_basis(db_session, connection)
     assert after is not None
     assert (after.granted, after.checked_at) == (False, checked_at)
     # The probe failing never fails "Test connection" — `System` was fine.
@@ -234,7 +235,7 @@ def test_a_connection_that_fails_the_watermark_check_is_never_probed(db_session,
     assert updated.status == ConnectionStatus.ERROR
     assert adapter.probed is False
     assert _calls(db_session, connection, "FahrzeugArten") == []
-    assert _fahrzeuge(db_session, connection) is None
+    assert _ident_basis(db_session, connection) is None
 
 
 def test_a_provider_with_no_registered_probes_gets_no_entitlement_rows(db_session, monkeypatch):
