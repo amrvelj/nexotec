@@ -43,8 +43,10 @@ and only where every gearbox the provider lists agrees on the class. Data a
 load stored is kept indefinitely (KAN-487). Two opens of the same car by
 the same Betrieb are serialised by a transaction-scoped advisory lock on
 (Betrieb, variant), taken per detail on the request's own connection and
-released by that detail's commit, so two tabs send one set; other Betriebe
-and other rows are never blocked, and no request holds a second connection.
+released by that detail's commit, so two tabs send one set; another Betrieb's open of the same car waits only
+where both write the same shared row (a new mapping gap, a price year), and
+the load itself holds no connection besides the request's own (the gateway's
+brief session aside, KAN-90).
 """
 
 from __future__ import annotations
@@ -268,8 +270,16 @@ def _load_colours(
         # nothing to load, said so in the state, not a 500 and not a charge.
         raise _NothingToLoad(VARIANT_UNKNOWN_AT_PROVIDER) from exc
     # The same request carries the master data: a revisit fills what is still
-    # NULL and records the raw codes (KAN-83), never overwriting a value.
-    upsert_model_variant(db, provider_code=provider_code, master=answer.master)
+    # NULL and records the raw codes (KAN-83), never overwriting a value. In a
+    # savepoint, as `store_seen_variants` does: the shared rows it touches (a
+    # price year, this year's label, a raw code) may be written by another
+    # Betrieb's open at the same moment — the winner's row stands, this
+    # Betrieb's colours still load.
+    try:
+        with db.begin_nested():
+            upsert_model_variant(db, provider_code=provider_code, master=answer.master)
+    except IntegrityError:
+        logger.info("master data of FzKey %s was visited concurrently; the other visit's rows stand", fz_key)
     kind = answer.master.vehicle_kind_code
     existing = {
         row.colour_code: row
@@ -578,6 +588,8 @@ _LOADERS: Final[dict[CatalogueDetail, _Loader]] = {
 # gives up and leaves the rest to that open (the provider's own timeout is
 # 10 s per attempt, one retry).
 LOCK_WAIT: Final = "25s"
+# Postgres: `lock_not_available`, what `lock_timeout` raises.
+_LOCK_NOT_AVAILABLE: Final = "55P03"
 
 
 def _lock_keys(tenant_id: uuid.UUID, variant_id: uuid.UUID) -> tuple[int, int]:
@@ -597,8 +609,11 @@ def _lock_for_detail(db: Session, *, tenant_id: uuid.UUID, variant_id: uuid.UUID
     commit, so a request never holds a second pooled connection and a stuck
     provider never pins one. Bounded by `LOCK_WAIT`: `False` means another
     open of the same car still holds it after that long; the caller leaves
-    the remaining details to that open. The SQLite lane has no advisory
-    locks and never counts as verification."""
+    the remaining details to that open. `SET LOCAL lock_timeout` bounds
+    every lock wait of the detail's transaction, a row lock inside the
+    gateway block included — a wait past it is that detail's failure, never
+    a hang. The SQLite lane has no advisory locks and never counts as
+    verification."""
 
     if db.get_bind().dialect.name != "postgresql":
         return True
@@ -607,8 +622,10 @@ def _lock_for_detail(db: Session, *, tenant_id: uuid.UUID, variant_id: uuid.UUID
         db.execute(text(f"SET LOCAL lock_timeout = '{LOCK_WAIT}'"))
         db.execute(text("SELECT pg_advisory_xact_lock(:a, :b)"), {"a": first, "b": second})
     except OperationalError as exc:
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) != _LOCK_NOT_AVAILABLE:
+            raise  # a dropped connection or a statement timeout is not "someone holds the lock"
         db.rollback()
-        logger.info("catalogue details of variant %s: another open holds the lock (%s)", variant_id, type(exc).__name__)
+        logger.info("catalogue details of variant %s: another open holds the lock past %s", variant_id, LOCK_WAIT)
         return False
     return True
 

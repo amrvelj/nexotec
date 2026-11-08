@@ -177,13 +177,32 @@ def test_the_first_open_fetches_and_stores_every_detail_with_one_request_each(db
         ("S", "A", f"https://images.example.test/{fix.DEMO_FZ_KEY}/01-thumb.jpg"),
     ]
 
-    # ADR-042 / Anto 2026-11-08: the label is shared, stored for its year, source auto_i_dat
+    # ADR-042 / Anto 2026-11-08: the label endpoint's class is shared, stored for ITS
+    # year (2025), source auto_i_dat — beside the 2026 row the variant's own letter wrote
     rating = db_session.scalar(
         select(ModelVariantEnergyRating).where(
-            ModelVariantEnergyRating.model_variant_id == variant.id, ModelVariantEnergyRating.rating_year == 2026
+            ModelVariantEnergyRating.model_variant_id == variant.id, ModelVariantEnergyRating.rating_year == 2025
         )
     )
     assert (rating.energy_efficiency_category, rating.source) == ("b", "auto_i_dat")
+
+
+def test_an_official_bfe_label_for_the_year_is_left_alone(db_session, monkeypatch):
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    db_session.add(
+        ModelVariantEnergyRating(model_variant_id=variant.id, rating_year=2025, energy_efficiency_category="a", source="bfe")
+    )
+    db_session.commit()
+
+    result = _open(db_session, s, variant)
+
+    assert _states(result)["energy_label"] == "present"
+    rating = db_session.scalar(
+        select(ModelVariantEnergyRating).where(
+            ModelVariantEnergyRating.model_variant_id == variant.id, ModelVariantEnergyRating.rating_year == 2025
+        )
+    )
+    assert (rating.energy_efficiency_category, rating.source) == ("a", "bfe")
 
 
 def test_the_second_open_sends_nothing(db_session, monkeypatch):
@@ -590,6 +609,96 @@ def test_a_refused_detail_is_asked_again_once_a_later_probe_records_the_option_a
 
     assert [r.path for r in s.fake.api_requests()[seen:]] == [fix.OPTIONS_PATH]
     assert _states(result)["options"] == "present"
+
+
+def test_an_open_that_cannot_get_the_lock_in_time_asks_nothing_and_still_answers(db_session, engine, monkeypatch):
+    """The second open waits `LOCK_WAIT` for the first; past it, it leaves the
+    rest to the holder — every state as read, no request, no error."""
+
+    from sqlalchemy import text
+
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    monkeypatch.setattr(catalogue_details, "LOCK_WAIT", "1s")
+    first, second = catalogue_details._lock_keys(s.connection.tenant_id, variant.id)
+    holder = engine.connect()
+    holder.execute(text("SELECT pg_advisory_xact_lock(:a, :b)"), {"a": first, "b": second})
+    try:
+        result = _open(db_session, s, variant)
+    finally:
+        holder.rollback()
+        holder.close()
+
+    assert set(_states(result).values()) == {"not_loaded"}
+    assert s.fake.api_requests() == []
+    # the session is usable again: the next open loads
+    assert set(_states(_open(db_session, s, variant)).values()) == {"present"}
+
+
+def test_two_betriebe_opening_the_same_car_at_once_both_load_when_they_write_the_same_shared_rows(
+    db_session, engine, monkeypatch
+):
+    """A new mapping gap, a price year and this year's label are shared rows
+    two Betriebe's opens write at the same moment; the loser re-reads the
+    winner's row instead of failing (round-3 review). Made deterministic: the
+    second Betrieb's rows are inserted by another connection just before the
+    first one's flush."""
+
+    from sqlalchemy import event, text
+    from sqlalchemy.orm import Session
+
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    gap_key = ("auto_i_dat", "01", "option_group", "Komfort")
+
+    def rival_writes(session, flush_context, instances):
+        """Before the first flush that carries the gap row, the other Betrieb's
+        open has already written it (and the 2025 label row)."""
+
+        pending = [o for o in session.new if type(o).__name__ in ("MappingGap", "ModelVariantEnergyRating")]
+        if not pending or fired:
+            return
+        fired.append(True)  # once; removing the listener inside its own dispatch is not allowed
+        with engine.connect() as rival:
+            rival.execute(
+                text(
+                    "INSERT INTO vehicle_mapping_gap (id, provider, vehicle_kind, code_group, provider_code, occurrences, "
+                    "resolved, first_seen_at, last_seen_at, created_at, updated_at) VALUES (gen_random_uuid(), :p, :k, :g, "
+                    ":c, 1, false, now(), now(), now(), now()) ON CONFLICT DO NOTHING"
+                ),
+                dict(zip("pkgc", gap_key)),
+            )
+            rival.execute(
+                text(
+                    "INSERT INTO vehicle_model_variant_energy_rating (id, model_variant_id, rating_year, "
+                    "energy_efficiency_category, source, created_at, updated_at) VALUES (gen_random_uuid(), :v, 2025, 'b', "
+                    "'auto_i_dat', now(), now()) ON CONFLICT DO NOTHING"
+                ),
+                {"v": variant.id},
+            )
+            rival.commit()
+
+    fired: list[bool] = []
+    event.listen(Session, "before_flush", rival_writes)
+    try:
+        result = _open(db_session, s, variant)
+    finally:
+        event.remove(Session, "before_flush", rival_writes)
+    assert fired, "the rival never wrote: the probe did not exercise the race"
+
+    assert set(_states(result).values()) == {"present"}
+    gaps = db_session.scalars(select(MappingGap).where(MappingGap.provider_code == "Komfort")).all()
+    assert len(gaps) == 1 and gaps[0].occurrences >= 2
+    assert db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=2025).count() == 1
+
+
+def test_neu_laden_on_a_variant_without_a_key_at_the_provider_records_nothing(db_session, monkeypatch):
+    s, _ = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    foreign = see_demo_variant(db_session, DEMO_FZ_KEYS[0])
+
+    result = catalogue_details.reload_details(db_session, tenant_id=s.connection.tenant_id, variant=foreign, actor_id=s.user.id)
+
+    assert set(_states(result).values()) == {"not_loaded"}
+    assert s.fake.api_requests() == []
+    assert list_audit_events(db_session, entity_type="vehicle_variant_details", entity_id=foreign.id, tenant_id=None) == []
 
 
 def test_two_tabs_retrying_an_unavailable_detail_send_one_request(db_session, engine, monkeypatch):

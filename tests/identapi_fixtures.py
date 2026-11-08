@@ -327,5 +327,8 @@ def detail_bodies(*, options: list[dict[str, Any]] | None = None) -> dict[str, d
         OPTIONS_PATH: options_page(items, page=1, total=len(items), has_next=False),
         IMAGES_PATH: images_body(),
         TYRES_PATH: tyres_body(),
-        ENERGY_LABEL_PATH: energy_label_body(),
+        # 2025: a year the variant row itself (`energylabel: "B"`, stored as THIS
+        # year by the master-data visit) does not write, so a test sees the
+        # label endpoint's own row.
+        ENERGY_LABEL_PATH: energy_label_body(year=2025),
     }

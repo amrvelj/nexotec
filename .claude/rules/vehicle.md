@@ -463,8 +463,11 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   in one answer is one row, texts are cut to their columns, an over-long image URL is left out). A transaction-scoped
   advisory lock on (Betrieb, variant), taken per detail on the request's own connection (`pg_advisory_xact_lock`,
   `lock_timeout` 25 s — past it the second open leaves the rest to the first) and released by that detail's commit,
-  serialises two opens of the same car by the same Betrieb so two tabs send one set; no shared row is locked, no
-  request holds a second pooled connection. The specification's `details.*.note` says why a state is what it is
+  serialises two opens of the same car by the same Betrieb so two tabs send one set; the load holds no connection
+  besides the request's own (the gateway's brief session aside); another Betrieb's open of the same car waits only
+  where both write the same shared row — a new mapping gap, a price year, this year's label — and the loser's unique
+  violation is answered by re-reading the winner's row (`_record_mapping_gap`, the colours request's master-data
+  visit in a savepoint, the energy-rating insert), never a 500. The specification's `details.*.note` says why a state is what it is
   (the failure's class, `entitlement_absent`, `variant_unknown_at_provider`, `energy_label_ambiguous`). The configurator's specification query neither refetches on window
   focus nor retries (a state, not an error). No automatic refresh of any kind: `POST /v1/catalogue/variants/{id}/details/reload`
   («Neu laden» on the stock car's technical data, dealer manager or platform staff, audited as
@@ -481,7 +484,8 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   and shown, never enforced (ADR-072), and the year they stand for (the one asked, or the current Swiss year for a
   car still built).
   `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule and lists the five detail
-  loaders and `load_on_open` as queries no loop may call. The
+  operations of the adapter, `load_on_open`, `reload_details` and `get_catalogue_specification` as queries no
+  loop may call. The
   bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and the platform's
   catalogue-sync status board that read it are gone (KAN-497; Anto, 2026-10-31, option A —
   vehicle-chain migration `e4b7c2a91d36` drops the table).
