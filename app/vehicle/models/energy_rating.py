@@ -1,6 +1,9 @@
 """BFE energy/emission ratings (WP-5 PR-8, ADR-042). Sourced from the
-Bundesamt für Energie, not auto-i-dat — a rare case of catalogue data that
-genuinely is ours to import, since it's official Swiss public data.
+Bundesamt für Energie — a rare case of catalogue data that genuinely is ours
+to import, since it's official Swiss public data. Since KAN-547 (Anto,
+2026-11-07) a lookup may also store the identAPI's current label as this
+year's row with `source = auto_i_dat`, filling an absence only; the BFE import
+takes such a row over (value and `source`).
 
 The load-bearing design point: energy_efficiency_category is stored WITH
 the year it applied to, never as a flat property of the variant. The A–G

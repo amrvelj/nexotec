@@ -89,8 +89,9 @@ class VariantMasterData:
     # The identAPI's current A–G label (no year on the wire); `app.vehicle`
     # decides how it is stored (ADR-042).
     energy_label: str | None = None
-    # The provider's model-group key (`modelGroupKey`), kept as a
-    # `ProviderEntityRef` by the sync so browse can scope a page to it.
+    # The provider's model-group key (`modelGroupKey`). Not stored by the
+    # sync (our `ModelGroup` is one row per model name, the provider's are
+    # per generation); KAN-548 scopes a browse page by it in the URL.
     model_group_key: str | None = None
     # `catalogPrices` — the list price per model year.
     catalogue_prices: list["VehiclePriceData"] = field(default_factory=list)

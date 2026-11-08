@@ -240,7 +240,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   stored and committed, then French, Italian and English are three more `caption_code` rows in one block, each
   language committed as it lands (a failure loses only the languages after it); a failure there leaves the
   connection `connected`. Two concurrent tests of two Betriebe meet on the shared table in a savepoint, never a 500. Other contexts read them through
-  `integration.public.get_captions` / `caption_languages_fetched` as plain data — to show a provider's wording
+  `integration.public.get_captions` as plain data — to show a provider's wording
   beside an unmapped code, never to fill a reference list (ADR-044).
 - Catalogue browse makes **no** live provider call (architecture test).
 - Provider text (option names, colour names) is stored and rendered **as delivered**, never
@@ -429,12 +429,14 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
   drivetrain (groups 012 and 022 are Hinten/Vorne/Allrad). The seeded code map (migration
   `7c4e9a2b6d13`, asserted in `tests/test_provider_code_map_seed.py`) maps 112 →
-  `engine_cycle`. **The sync routes it by the raw vehicle kind (KAN-547, closing KAN-447):** the identAPI's
+  `engine_cycle`. **The sync routes it by the resolved vehicle kind (KAN-547, closing KAN-447):** the identAPI's
   `type` is unambiguous, so `catalogue_sync._raw_codes` reads a motorcycle's `drive` as `engine_cycle` and leaves
   its `drivetrain` NULL, and every other kind's as `drivetrain` with no `engine_cycle` — routed on the **resolved**
   `vehicle_kind` (`motorcycle`), never a raw code; while the kind is itself a gap, `drive` is recorded as `drivetrain`,
-  as before, and moves once the kind resolves to a motorcycle and the variant is visited again. A row without a
-  `type` resolves no code and files no gap (the vocabulary is per kind).
+  as before, and moves once the kind resolves to a motorcycle and the variant is visited again — the `drivetrain`
+  gap that visit filed stays open in the queue (resolving it would map a stroke count into the drivetrain list, R-C-5's
+  hazard; unreachable for `auto_i_dat`, whose three kinds are seeded). A row without a `type` resolves no code and
+  files no gap (the vocabulary is per kind); its raw codes are kept under kind `""` and a warning names the FzKey.
   The seeded map needs no re-key: the identAPI's codes are auto-i's own (body 1/3/4/5/6, fuel 1…16, drive 1/2/5
   and 2/4/9, gearbox 1/2/5/6, consumption norm 3/4, type 01/02/03) — Anto, 2026-11-07, KAN-547 decision 1.
   **The spec block's reference fields are code-mapped too** (`_CODED_FIELDS`: `vehicle_class` ← `category`,
@@ -443,8 +445,7 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   homologation classes (M1, N1, …), so every category is a mapping gap until the list question is settled
   (follow-up ticket). **A lookup stores the whole block** (`_FILLABLE_MASTER_FIELDS` = the spec block, fill-if-NULL
   on a revisit, KAN-83), the list price per model year (`vehicle_variant_price`, `source = provider`, a held year
-  never replaced), the `modelGroupKey` as a `ProviderEntityRef` of the model group (`entity_type model_group`), and
-  the identAPI's A–G label as **this Swiss year's** `ModelVariantEnergyRating` with `source = auto_i_dat` — never
+  never replaced), and the identAPI's A–G label as **this Swiss year's** `ModelVariantEnergyRating` with `source = auto_i_dat` — never
   over a row already held for the year, a BFE row included, and only for a letter the `energy_efficiency_category`
   list carries (ADR-042 amended by ruling: Anto, 2026-11-07, KAN-547 decision 4; a later BFE import rewrites such a
   row's value **and** its `source`). Two block fields the identAPI does not carry stay NULL: `system_kw`,

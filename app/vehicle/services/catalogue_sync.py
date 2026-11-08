@@ -325,6 +325,10 @@ def _resolve_kind(db: Session, *, provider_code: str, master: VariantMasterData)
 def _resolve_codes(db: Session, *, provider_code: str, master: VariantMasterData) -> dict[str, str | None]:
     """Every coded field's canonical value (or None, with its gap written)."""
 
+    if not master.vehicle_kind_code:
+        logger.warning(
+            "variant %s arrived without a vehicle kind: its coded fields stay NULL and file no gap", master.fz_key
+        )
     canonical_kind = _resolve_kind(db, provider_code=provider_code, master=master)
     resolved: dict[str, str | None] = {"vehicle_kind": canonical_kind}
     for code_group, raw_code in _raw_codes(master, canonical_kind=canonical_kind).items():

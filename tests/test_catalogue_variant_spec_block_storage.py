@@ -1,6 +1,6 @@
 """KAN-547 exit criterion 3, storage side: every variant a lookup returns is
 upserted with the **full** specification block (ADR-071), its list prices
-per model year, its Typenscheine, its FzKey and model-group refs, and the
+per model year, its Typenscheine, its FzKey ref, and the
 identAPI's energy label as this year's rating (ADR-042, Anto 2026-11-07).
 A provider variant has no NULL in the fields the fixture supplies; the coded
 fields resolve through the seeded code map (`7c4e9a2b6d13`), whose codes are
@@ -186,3 +186,49 @@ def test_the_bfe_import_takes_over_a_row_the_provider_label_filled(db_session):
 
     (rating,) = db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == variant.id)).all()
     assert (rating.energy_efficiency_category, rating.source) == ("a", "bfe")
+
+
+def test_an_unmapped_kinds_drive_is_a_drivetrain_until_the_kind_resolves_to_a_motorcycle(db_session):
+    """Routing reads the resolved kind, never a raw code: with no map row for
+    the kind, `drive` is recorded as `drivetrain` (as before KAN-547); once the
+    kind maps to a motorcycle and the variant is visited again, the raw code
+    moves to `engine_cycle` and resolves there."""
+
+    from app.vehicle.models.provider import ProviderCodeMap
+
+    provider = "x_test_provider"
+    item = fix.catalog_variant(fzkey="03911555", type="03", drive="4")
+    master = parse.parse_variant(item)
+    assert master is not None
+    variant = catalogue_sync.upsert_model_variant(db_session, provider_code=provider, master=master)
+    db_session.commit()
+
+    raw = {r.code_group: r.provider_code for r in db_session.scalars(select(VariantProviderCode).where(VariantProviderCode.model_variant_id == variant.id))}
+    assert raw["drivetrain"] == "4" and "engine_cycle" not in raw
+    assert variant.vehicle_kind is None and variant.drivetrain is None and variant.engine_cycle is None
+
+    db_session.add_all([
+        ProviderCodeMap(provider=provider, vehicle_kind="03", code_group="vehicle_kind", provider_code="03", canonical_list_code="vehicle_kind", canonical_value_code="motorcycle"),
+        ProviderCodeMap(provider=provider, vehicle_kind="03", code_group="engine_cycle", provider_code="4", canonical_list_code="engine_cycle", canonical_value_code="four_stroke"),
+    ])
+    db_session.commit()
+    revisited = catalogue_sync.upsert_model_variant(db_session, provider_code=provider, master=master)
+    db_session.commit()
+    db_session.refresh(revisited)
+
+    raw = {r.code_group: r.provider_code for r in db_session.scalars(select(VariantProviderCode).where(VariantProviderCode.model_variant_id == variant.id))}
+    assert raw["engine_cycle"] == "4" and "drivetrain" not in raw
+    assert (revisited.vehicle_kind, revisited.engine_cycle, revisited.drivetrain) == ("motorcycle", "four_stroke", None)
+
+
+def test_the_energy_label_is_stored_only_as_a_code_the_reference_list_carries(db_session):
+    _seed_migration()._seed(db_session.connection())
+    _seed_reference_list(db_session, "energy_efficiency_category", ("a", "c"))  # no `b`
+    db_session.commit()
+
+    variant = _upsert(db_session, fix.catalog_variant(energylabel="B"))
+    assert db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == variant.id)).all() == []
+
+    again = _upsert(db_session, fix.catalog_variant(fzkey="01911556", energylabel="C"))
+    (rating,) = db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == again.id)).all()
+    assert rating.energy_efficiency_category == "c"
