@@ -82,7 +82,9 @@ def test_test_connection_logs_in_reads_the_captions_and_probes_every_option(db_s
     assert [(r.status, r.cost_units) for r in _rows(db_session, s.connection, OAUTH_DISCOVERY_OPERATION)] == [
         (CallStatus.SUCCESS, 0)
     ]
-    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.SUCCESS]
+    # KAN-547: the access check's German captions, then French, Italian and
+    # English — four `caption_code` rows, the vocabulary stored in four languages.
+    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.SUCCESS] * 4
     assert len(s.fake.token_requests()) == 1
 
     # Every probe is one request, named by its identAPI operation (KAN-486).
@@ -225,7 +227,7 @@ def test_the_token_is_reused_across_calls_within_its_lifetime(db_session, monkey
     gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     # Two tests: fourteen API requests, one login.
-    assert len(s.fake.api_requests()) == 14
+    assert len(s.fake.api_requests()) == 20  # two tests: caption + 3 languages + 6 probes each (KAN-547)
     assert len(s.fake.token_requests()) == 1
     assert len(_rows(db_session, s.connection, OAUTH_TOKEN_OPERATION)) == 1
     assert s.secrets.resolutions == 1
@@ -237,8 +239,8 @@ def test_an_expired_token_is_requested_again(db_session, monkeypatch):
 
     gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
-    # Every one of the seven API calls had to log in first.
-    assert len(s.fake.token_requests()) == 7
+    # Every one of the ten API calls had to log in first.
+    assert len(s.fake.token_requests()) == 10  # one per request: the token expires on arrival
 
 
 def test_a_401_from_the_api_refreshes_the_token_once_and_logs_both_attempts(db_session, monkeypatch):
@@ -252,7 +254,9 @@ def test_a_401_from_the_api_refreshes_the_token_once_and_logs_both_attempts(db_s
     assert len(s.fake.token_requests()) == 2
     # The refused caption request and the one that followed with a fresh token.
     assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [
-        CallStatus.SUCCESS, CallStatus.ERROR, CallStatus.SUCCESS,
+        *([CallStatus.SUCCESS] * 4),  # the first test: the access check, then three more languages (KAN-547)
+        CallStatus.ERROR, CallStatus.SUCCESS,  # the refused caption request and its retry with a fresh token
+        *([CallStatus.SUCCESS] * 3),
     ]
 
 
@@ -398,7 +402,9 @@ def test_a_transient_5xx_recovers_on_the_retry(db_session, monkeypatch):
     updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     assert updated.status == ConnectionStatus.CONNECTED
-    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [CallStatus.ERROR, CallStatus.SUCCESS]
+    assert [r.status for r in _rows(db_session, s.connection, OP_CAPTION_CODE)] == [
+        CallStatus.ERROR, CallStatus.SUCCESS, *([CallStatus.SUCCESS] * 3)  # the retry, then three more languages
+    ]
 
 
 def test_a_4xx_is_never_retried(db_session, monkeypatch):
@@ -593,19 +599,19 @@ def test_last_error_carries_the_providers_title_but_never_its_prose(db_session, 
 
 
 def test_a_not_built_operation_is_neither_logged_nor_charged(db_session, monkeypatch):
-    """Finding 2: identification's plate rung reaches `lookup_plate`, which the
-    identAPI adapter does not implement until KAN-547. Five such calls must not
-    open the connection's circuit breaker nor invent call-log rows."""
+    """Finding 2: a caller reaching an operation the identAPI adapter does not
+    implement yet (the option list, KAN-211) five times must not open the
+    connection's circuit breaker nor invent call-log rows."""
 
     from app.integration.errors import ProviderGatewayError
     from app.integration.services.gateway import call_capability
 
     s = fx.connected(db_session, monkeypatch)
     for _ in range(resilience._FAILURE_THRESHOLD):
-        with pytest.raises(ProviderGatewayError, match="KAN-547"), call_capability(
-            db_session, connection=s.connection, capability="kontrollschild", actor_id=s.user.id
+        with pytest.raises(ProviderGatewayError, match="KAN-211"), call_capability(
+            db_session, connection=s.connection, capability="vehicle_data", actor_id=s.user.id
         ) as adapter:
-            adapter.lookup_plate("ZH 123456")
+            adapter.fetch_options("152567", model_year=2024)
 
     assert _rows(db_session, s.connection) == []
     assert resilience.is_circuit_open(s.connection.id) is False
@@ -670,7 +676,7 @@ def test_removing_the_secret_drops_the_cached_token(db_session, monkeypatch):
 
     assert updated.status == ConnectionStatus.ERROR
     assert "'client_secret' credential" in (updated.last_error or "")
-    assert len(s.fake.api_requests()) == 7  # only the first test's calls
+    assert len(s.fake.api_requests()) == 10  # only the first test's calls
 
 
 def test_a_connection_without_a_betrieb_says_so(db_session, monkeypatch):

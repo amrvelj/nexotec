@@ -69,6 +69,7 @@ class SeenRequest:
     path: str
     headers: dict[str, str]
     form: dict[str, str]
+    query: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -87,6 +88,10 @@ class FakeAutoi:
     expires_in: int = 1200
     api_status: dict[str, int] = field(default_factory=dict)
     api_fail_once: dict[str, int] = field(default_factory=dict)
+    # KAN-547: a scripted 200 body per path (json:api `data` + `meta`),
+    # for the identification and browse operations; a path not listed
+    # answers the empty body below.
+    api_bodies: dict[str, dict] = field(default_factory=dict)
     expire_tokens_once: bool = False
     raise_on_api: Exception | None = None
     seen: list[SeenRequest] = field(default_factory=list)
@@ -100,6 +105,9 @@ class FakeAutoi:
     def api_requests(self) -> list[SeenRequest]:
         return [r for r in self.seen if r.host == "api.ident.autoi.ch"]
 
+    def api_requests_to(self, path: str) -> list[SeenRequest]:
+        return [r for r in self.api_requests() if r.path == path]
+
     # -- the transport --------------------------------------------------------------
 
     def transport(self) -> httpx.MockTransport:
@@ -111,7 +119,10 @@ class FakeAutoi:
     def handle(self, request: httpx.Request) -> httpx.Response:
         form = {k: v[0] for k, v in parse_qs(request.content.decode("utf-8")).items()} if request.content else {}
         self.seen.append(
-            SeenRequest(request.method, request.url.host, request.url.path, dict(request.headers), form)
+            SeenRequest(
+                request.method, request.url.host, request.url.path, dict(request.headers), form,
+                list(request.url.params.multi_items()),
+            )
         )
         if request.url.host == "www.autoi.ch":
             return self._authorization_server(request, form)
@@ -152,6 +163,9 @@ class FakeAutoi:
             return _json_api_error(status, "Transient")
         status = self.api_status.get(path, 200)
         if status == 200:
+            body = self.api_bodies.get(path)
+            if body is not None:
+                return httpx.Response(200, json=body)
             return httpx.Response(
                 200, json={"data": [], "links": {"self": str(request.url)}, "meta": {"totalCount": 0, "dataIsEmpty": True}}
             )

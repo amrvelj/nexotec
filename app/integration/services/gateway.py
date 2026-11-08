@@ -51,6 +51,7 @@ from app.integration.errors import (
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus, IntegrationConnection
+from app.integration.services import captions as captions_service
 from app.integration.services import connections as connection_service
 from app.integration.services import entitlement_probes, metering, resilience
 from app.integration.services import providers as provider_service
@@ -470,11 +471,12 @@ def test_connection(
     # Grant) — a test with no actor fails as a configuration error.
     check = entitlement_probes.access_check(provider.provider_code)
     healthy = False
+    access_answer: object = None
     try:
         with call_capability(
             db, connection=connection, capability="system_watermark", actor_id=actor_id, purpose="test_connection"
         ) as adapter:
-            check(adapter)
+            access_answer = check(adapter)
     except ProviderGatewayError as exc:
         # Traceback only when there is a chained foreign cause worth reading —
         # `last_error` carries our own wording, the log carries what it hides.
@@ -490,12 +492,66 @@ def test_connection(
         healthy = True
     db.commit()
     if healthy:
+        _store_captions(
+            db, connection=connection, provider_code=provider.provider_code, actor_id=actor_id,
+            access_answer=access_answer,
+        )
         _probe_entitlements(db, connection=connection, actor_id=actor_id)
     # A platform-scoped connection (no tenant) entitles no one's VIN decode.
     if provider.provider_code == connection_service.VIN_DECODE_PROVIDER_CODE and connection.tenant_id is not None:
         connection_service.compute_vin_decode_entitlement(db, tenant_id=connection.tenant_id)
     db.refresh(connection)
     return connection
+
+
+def _store_captions(
+    db: Session,
+    *,
+    connection: IntegrationConnection,
+    provider_code: str,
+    actor_id: uuid.UUID | None,
+    access_answer: object,
+) -> None:
+    """KAN-547 (ADR-111 (3)): the provider's code vocabulary in the four
+    languages, stored globally (`services/captions.py`) on every successful
+    «Test connection» — the German captions the access check just read
+    (its json:api body, read once more here rather than requested again),
+    then French, Italian and English in one block of three `caption_code`
+    rows. The one place captions are refreshed: a background job has no user
+    to enrol (ADR-111 as amended), and Anto wants no scheduled refresh
+    (2026-11-07). A failure here is logged and leaves the stored vocabulary
+    as it was; the test itself has passed and stays `connected`, and the
+    entitlement probes still run. An adapter without captions (the mock
+    speaks them; the SOAP shim does not) stores nothing."""
+
+    # Imported here: the parser is the identAPI adapter's, and the gateway
+    # names adapters only through their factories.
+    from app.integration.adapters import identapi_parse
+
+    if provider_code not in _ADAPTER_FACTORIES:
+        return
+    try:
+        if isinstance(access_answer, dict):
+            captions_service.store_captions(
+                db, provider_code=provider_code, lang="de", captions=identapi_parse.parse_captions(access_answer)
+            )
+            db.commit()  # the German vocabulary is kept whatever the other languages do
+            remaining = tuple(lang for lang in captions_service.CAPTION_LANGUAGES if lang != "de")
+        else:
+            remaining = captions_service.CAPTION_LANGUAGES
+        with call_capability(
+            db, connection=connection, capability="caption_code", actor_id=actor_id, purpose="captions"
+        ) as adapter:
+            fetch = getattr(adapter, "fetch_captions", None)
+            if fetch is None:
+                db.rollback()
+                return
+            for lang in remaining:
+                captions_service.store_captions(db, provider_code=provider_code, lang=lang, captions=fetch(lang))
+                db.commit()  # each language kept as it lands; a later failure loses only the rest
+    except ProviderGatewayError:
+        logger.warning("captions could not be refreshed for connection %s", connection.id, exc_info=True)
+        db.rollback()
 
 
 def _probe_entitlements(

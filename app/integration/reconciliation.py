@@ -14,6 +14,7 @@ from app.core.audit_model import AuditEvent
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
+from app.integration.models.caption import IntegrationProviderCaption
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
@@ -34,6 +35,7 @@ ACTOR_TABLES = (
     IntegrationCallLog,
     IntegrationCallPayload,
     IntegrationNotification,
+    IntegrationProviderCaption,  # KAN-547: written by Test connection, never by a user — null actors
 )
 
 

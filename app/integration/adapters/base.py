@@ -43,6 +43,133 @@ class VariantMasterData:
     werkscode: str | None = None
     type_approval_numbers: list[str] = field(default_factory=list)
 
+    # -- KAN-547: the full specification block (ADR-071), as the identAPI's
+    # `VehicleCatalogData` delivers it. Every field is optional: the SOAP
+    # parser and the mock fill what they know, and a `0` the provider means
+    # as "unknown" is already `None` here (the adapter's one normalisation,
+    # not an interpretation). Attribute names equal the spec-block column
+    # names on `ModelVariant`, so `catalogue_sync` copies them by name.
+    model_type_name: str | None = None  # `description` — the long name
+    trim_name: str | None = None  # `edition`
+    displacement_ccm: int | None = None
+    cylinders: int | None = None
+    gears: int | None = None
+    ps: int | None = None
+    kw: int | None = None
+    total_ps: int | None = None
+    total_kw: int | None = None
+    system_kw: int | None = None  # no identAPI counterpart: always None from the identAPI
+    doors: int | None = None
+    seats: int | None = None
+    weight_empty_kg: int | None = None
+    weight_total_kg: int | None = None
+    payload_kg: int | None = None
+    towing_capacity_kg: int | None = None
+    wheelbase_mm: int | None = None
+    consumption_mixed: Decimal | None = None
+    consumption_urban: Decimal | None = None
+    consumption_extra_urban: Decimal | None = None
+    co2_gkm: int | None = None
+    energy_consumption_kwh: Decimal | None = None
+    battery_capacity_kwh: Decimal | None = None
+    range_km: int | None = None
+    tank_capacity_l: int | None = None
+    importcode: str | None = None
+    model_year: int | None = None
+    production_from: int | None = None  # YYYYMM
+    production_to: int | None = None  # YYYYMM; None = still in production
+    base_price_year: int | None = None
+    price_is_net: bool | None = None
+    # Raw provider codes of the spec block's reference fields — resolved by
+    # `app.vehicle` through the code map, never here (the reading rule).
+    vehicle_class_code: str | None = None  # `category`
+    emission_standard_code: str | None = None  # `euronorm`
+    consumption_norm_code: str | None = None  # `consumptionNorm`
+    valuation_classification_code: str | None = None  # `Einstufung`: no identAPI counterpart, always None there
+    # The identAPI's current A–G label (no year on the wire); `app.vehicle`
+    # decides how it is stored (ADR-042).
+    energy_label: str | None = None
+    # The provider's model-group key (`modelGroupKey`). Not stored by the
+    # sync (our `ModelGroup` is one row per model name, the provider's are
+    # per generation); KAN-548 scopes a browse page by it in the URL.
+    model_group_key: str | None = None
+    # `catalogPrices` — the list price per model year.
+    catalogue_prices: list["VehiclePriceData"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BuiltVehicleData:
+    """One registered vehicle as the identAPI's Vehicle Build resource
+    describes it (`GET /vehiclebuild/{vrn|licenseplate|…}/{id}`,
+    `VehicleSpecificationData`, KAN-547). A plate lookup returns one of these
+    per vehicle on a Wechselschild; `variant` is the catalogue variant the
+    provider resolved it to (`needAutoiKeyIfExists`: `None` when it found
+    none). Personal data (VIN, Stammnummer, plate) travels here and only
+    here; the caller decides what it stores (the plate-lookup cache)."""
+
+    fz_key: str | None
+    vin: str | None
+    stammnummer: str | None
+    plate: str | None
+    first_registration_date: dt.date | None
+    type_approval_number: str | None
+    model_year: int | None
+    vehicle_kind_code: str
+    brand_name: str
+    model_description: str
+    production_from: int | None  # year
+    production_to: int | None  # year
+    variant: VariantMasterData | None
+
+
+@dataclass(frozen=True)
+class CaptionData:
+    """One caption of `GET /caption/code?lang=` (KAN-547): `group` is the
+    provider's caption group (`fuel`, `body`, `drive`, …), `kind` the list it
+    sits in (`passenger` / `utility` / `moto` / `global`), as delivered."""
+
+    group: str
+    kind: str
+    code: str
+    label: str | None
+    label_short: str | None
+
+
+@dataclass(frozen=True)
+class CatalogueBrandData:
+    """`GET /vehiclecatalog/brand/{vehicleType}` — one brand with its model
+    names (KAN-548). Not stored: the browse screen's drill-down reads it live
+    (ADR-112)."""
+
+    name: str
+    brand_nr: str | None
+    models: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class CatalogueModelGroupData:
+    """`GET /vehiclecatalog/modelgroup/{vehicleType}/{brand}` — one model
+    group (KAN-548). `production_year_to` is `None` while in production
+    (the wire's `0000`)."""
+
+    model_group_key: str
+    description: str
+    model_search: str | None
+    production_year_from: int | None
+    production_year_to: int | None
+
+
+@dataclass(frozen=True)
+class VariantSearchPage:
+    """One provider page of a catalogue query (KAN-548, ADR-112 (4)): the
+    variants on it, the page number asked for, the provider's page size, and
+    `total` from `includeCount` (None when the provider did not count)."""
+
+    items: list[VariantMasterData]
+    page_number: int
+    page_size: int
+    total: int | None
+
 
 @dataclass(frozen=True)
 class VariantOptionData:
@@ -403,3 +530,68 @@ class ProviderAdapter(Protocol):
     def fetch_codes(
         self, *, code_groups: list[str] | None = None, active_only: bool = False
     ) -> list[CodeMapEntryData]: ...
+
+    # -- the identAPI's identification and browse operations (KAN-547, KAN-548) --
+    # Each is one provider request. None of them walks pages: a search
+    # returns the one page it was asked for (ADR-112 (4)).
+
+    def identify_by_vrn(self, stammnummer: str) -> list[BuiltVehicleData]:
+        """`GET /vehiclebuild/vrn/{stammnummer}?needAutoiKeyIfExists` — the
+        registered vehicle(s) with the catalogue variant each resolves to."""
+        ...
+
+    def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
+        """`GET /vehiclebuild/licenseplate/{plate}?needAutoiKeyIfExists` —
+        several records for a Wechselschild; the caller shows a picker."""
+        ...
+
+    def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
+        """`GET /vehiclecatalog/typeapproval/{nr}` — the first page (10) of
+        catalogue variants homologated under the Typenschein."""
+        ...
+
+    def find_variants_by_werkscode(self, werkscode: str) -> list[VariantMasterData]:
+        """`GET /vehiclecatalog/factorycode/{code}` — the first page (10)."""
+        ...
+
+    def fetch_variant(self, fz_key: str) -> VariantMasterData | None:
+        """`GET /vehiclecatalog/autoi/{fzKey}` — one variant with its full
+        spec block, or `None` when the key names nothing."""
+        ...
+
+    def fetch_captions(self, lang: str) -> list[CaptionData]:
+        """`GET /caption/code?lang=` — every caption group in one language."""
+        ...
+
+    def list_catalogue_brands(self, *, vehicle_kind_code: str) -> list[CatalogueBrandData]:
+        """`GET /vehiclecatalog/brand/{vehicleType}` for the raw kind code
+        (`01` → passenger, `02` → utility, `03` → moto)."""
+        ...
+
+    def list_catalogue_model_groups(
+        self, *, vehicle_kind_code: str, brand: str, in_production: bool | None = None
+    ) -> list[CatalogueModelGroupData]:
+        """`GET /vehiclecatalog/modelgroup/{vehicleType}/{brand}`."""
+        ...
+
+    def search_catalogue_variants(
+        self,
+        *,
+        vehicle_kind_code: str,
+        brand: str | None = None,
+        model_group_key: str | None = None,
+        exfilters: Sequence[str] = (),
+        sort: str | None = None,
+        page_number: int = 1,
+    ) -> VariantSearchPage:
+        """One page of `GET /vehiclecatalog…` with `includeCount`. Scoped to
+        a brand or a model group at least — an unscoped query is refused
+        before anything is sent (the anti-scraping guard, ADR-112 (4))."""
+        ...
+
+    def facet_values(
+        self, *, field: str, vehicle_kind_code: str, brand: str, model_group_key: str | None = None
+    ) -> list[str]:
+        """`fields=<field> distinct` on the same scope — the values that
+        exist for the brand or model group in view."""
+        ...

@@ -37,10 +37,23 @@ C-D) are what the identification waterfall in
 cached entitlement row is written only by integration's own "Test
 connection" (`compute_vin_decode_entitlement`, KAN-80) — ADR-047 keeps
 that write out of another context's transaction.
+
+KAN-547 / KAN-548: `BuiltVehicleData`, `VariantSearchPage` and the catalogue
+browse shapes are the identAPI operations' return vocabulary;
+`get_captions` reads the provider caption store
+(`services/captions.py`, written by "Test connection") as plain data —
+`app.vehicle` shows a provider's wording beside an unmapped code, never
+copies it. `ProviderNotEntitledError` and `ProviderTimeoutError` are
+exported so the identification waterfall can tell «not in the contract»
+from «unavailable» without importing the errors module.
 """
 
 from app.integration.adapters.base import (
     BestMatchResult,
+    BuiltVehicleData,
+    CaptionData,
+    CatalogueBrandData,
+    CatalogueModelGroupData,
     ForecastResult,
     PlateInfoData,
     ProviderAdapter,
@@ -50,7 +63,9 @@ from app.integration.adapters.base import (
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
+    VariantSearchPage,
     VariantTyreSpecData,
+    VehiclePriceData,
 )
 from app.integration.adapters.marketplace_base import (
     MarketplaceAdapter,
@@ -59,9 +74,10 @@ from app.integration.adapters.marketplace_base import (
     MarketplaceTransmissionError,
     TransmissionResult,
 )
-from app.integration.errors import ProviderGatewayError
+from app.integration.errors import ProviderGatewayError, ProviderNotEntitledError, ProviderTimeoutError
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.services.captions import ProviderCaption, get_captions
 from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
@@ -77,6 +93,10 @@ from app.integration.services.resilience import CircuitOpenError
 
 __all__ = [
     "BestMatchResult",
+    "BuiltVehicleData",
+    "CaptionData",
+    "CatalogueBrandData",
+    "CatalogueModelGroupData",
     "CircuitOpenError",
     "ConnectionDisabledError",
     "ConnectionStatus",
@@ -89,7 +109,10 @@ __all__ = [
     "MarketplaceTransmissionError",
     "PlateInfoData",
     "ProviderAdapter",
+    "ProviderCaption",
     "ProviderGatewayError",
+    "ProviderNotEntitledError",
+    "ProviderTimeoutError",
     "SystemWatermark",
     "TransmissionResult",
     "UnknownProviderError",
@@ -98,8 +121,11 @@ __all__ = [
     "VariantImageData",
     "VariantMasterData",
     "VariantOptionData",
+    "VariantSearchPage",
     "VariantTyreSpecData",
+    "VehiclePriceData",
     "call_capability",
+    "get_captions",
     "get_enabled_connection",
     "get_entitlement",
     "resolve_adapter",
