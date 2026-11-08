@@ -78,6 +78,7 @@ class DetailStateSpec:
 
     state: str
     loaded_at: dt.datetime | None = None
+    note: str | None = None
 
 
 NOT_LOADED = DetailStateSpec(state="notLoaded")
@@ -193,7 +194,7 @@ def _detail_states(db: Session, *, tenant_id: uuid.UUID, model_variant_id: uuid.
         row = rows.get(detail)
         if row is None:
             return NOT_LOADED
-        return DetailStateSpec(state=_API_STATE[row.state.value], loaded_at=row.loaded_at)
+        return DetailStateSpec(state=_API_STATE[row.state.value], loaded_at=row.loaded_at, note=row.error)
 
     return DetailStatesSpec(
         options=spec(CatalogueDetail.OPTIONS),

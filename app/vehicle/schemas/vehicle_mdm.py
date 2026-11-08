@@ -225,10 +225,16 @@ class CatalogueDetailStateRead(CamelModel):
     `present`: loaded (possibly empty) · `notInContract`: the licence does
     not include it (the screen says so, FR-C-06) · `unavailable`: the
     provider could not be reached, asked again on the next open ·
-    `notLoaded`: never asked (no connection, or no key at the provider)."""
+    `notLoaded`: never asked (no connection, or no key at the provider).
+    `note` says why a state is what it is where that matters: the failure's
+    class name on `unavailable` / `notInContract`, `entitlement_absent` when
+    the probe decided, and on `present` the provider's coherent "nothing" —
+    `variant_unknown_at_provider`, `ProviderRequestError` (a 400/422) or
+    `energy_label_ambiguous` — which looks like a clean empty load otherwise."""
 
     state: CatalogueDetailState
     loaded_at: dt.datetime | None = None
+    note: str | None = None
 
 
 class CatalogueDetailStatesRead(CamelModel):

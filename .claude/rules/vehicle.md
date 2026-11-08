@@ -460,9 +460,12 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   again only once a later probe records the option as granted) · `unavailable` (timeout, 5xx, open breaker; asked
   again on the next open) · no row = never asked (no connection, or no key at this provider). A refused or failed
   detail never discards the car or the others (KAN-212); what a provider sends is stored defensively (a key repeated
-  in one answer is one row, texts are cut to their columns, an over-long image URL is left out). An advisory lock
-  on (Betrieb, variant), on a connection of its own, serialises two opens of the same car by the same Betrieb so two
-  tabs send one set; no shared row is locked. The configurator's specification query neither refetches on window
+  in one answer is one row, texts are cut to their columns, an over-long image URL is left out). A transaction-scoped
+  advisory lock on (Betrieb, variant), taken per detail on the request's own connection (`pg_advisory_xact_lock`,
+  `lock_timeout` 25 s — past it the second open leaves the rest to the first) and released by that detail's commit,
+  serialises two opens of the same car by the same Betrieb so two tabs send one set; no shared row is locked, no
+  request holds a second pooled connection. The specification's `details.*.note` says why a state is what it is
+  (the failure's class, `entitlement_absent`, `variant_unknown_at_provider`, `energy_label_ambiguous`). The configurator's specification query neither refetches on window
   focus nor retries (a state, not an error). No automatic refresh of any kind: `POST /v1/catalogue/variants/{id}/details/reload`
   («Neu laden» on the stock car's technical data, dealer manager or platform staff, audited as
   `vehicle_variant_details.reload`) is the one refresh, one fresh request per detail replacing the Betrieb's rows.
@@ -471,7 +474,9 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   (one per gearbox) agree on the class — a disagreement stores nothing and is noted; the state stays per Betrieb.
   Options carry the manufacturer's code (`manufacturer_code`, the identAPI's `optionCode`) beside auto-i's key
   (`option_code`), their `group` resolved through the code map like every coded field (a miss is a gap and a flat
-  list; the demo provider's identity rows come from `scripts/seed_demo_provider_code_map.py`), their relations
+  list; the raw code stays on the row — `option_group_code` — and the admin's resolve fills every Betrieb's options
+  at once, `apply_resolved_code_to_option_groups`; the demo provider's identity rows come from
+  `scripts/seed_demo_provider_code_map.py`), their relations
   (`contains` / `excludes` / `price_in_combination_with` — the last only where the provider names a price) stored
   and shown, never enforced (ADR-072), and the year they stand for (the one asked, or the current Swiss year for a
   car still built).

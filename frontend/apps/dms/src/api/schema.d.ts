@@ -523,8 +523,8 @@ export interface paths {
          *     stock car's technical data, nowhere else, and audited. Platform staff may
          *     run it too (D-A-24's write posture). The variant is global, so a wrong id
          *     is a 404 for everyone; the details written are the caller's tenant's. No
-         *     `If-Match`: the variant row is not what changes (its `version` stays),
-         *     the tenant's detail rows are, and they carry no version.
+         *     `If-Match`: what changes is the tenant's detail rows, which carry no version;
+         *     the shared variant row is only ever filled where it is NULL (KAN-83).
          */
         post: operations["reload_variant_details_v1_catalogue_variants__model_variant_id__details_reload_post"];
         delete?: never;
@@ -4810,10 +4810,17 @@ export interface components {
          *     not include it (the screen says so, FR-C-06) · `unavailable`: the
          *     provider could not be reached, asked again on the next open ·
          *     `notLoaded`: never asked (no connection, or no key at the provider).
+         *     `note` says why a state is what it is where that matters: the failure's
+         *     class name on `unavailable` / `notInContract`, `entitlement_absent` when
+         *     the probe decided, and on `present` the provider's coherent "nothing" —
+         *     `variant_unknown_at_provider`, `ProviderRequestError` (a 400/422) or
+         *     `energy_label_ambiguous` — which looks like a clean empty load otherwise.
          */
         CatalogueDetailStateRead: {
             /** Loadedat */
             loadedAt?: string | null;
+            /** Note */
+            note?: string | null;
             /**
              * State
              * @enum {string}

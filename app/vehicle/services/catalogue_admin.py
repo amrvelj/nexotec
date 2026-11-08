@@ -18,6 +18,7 @@ from app.vehicle.models.provider import MappingGap
 from app.vehicle.schemas.catalogue import BrandCreate, BrandUpdate
 from app.vehicle.services.catalogue_sync import (
     apply_resolved_code_to_colours_and_tyres,
+    apply_resolved_code_to_option_groups,
     apply_resolved_code_to_options,
     fill_variants_for_resolved_code,
 )
@@ -142,6 +143,11 @@ def resolve_gap(
         db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
         provider_code=gap.provider_code, value_code=canonical_value_code,
     )
+    # KAN-211: and the options (every tenant's) whose raw group code it was.
+    option_groups_filled = apply_resolved_code_to_option_groups(
+        db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
+        provider_code=gap.provider_code, value_code=canonical_value_code,
+    )
     record_audit_event(
         db, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None, action="resolve", actor_id=actor_id,
         after={
@@ -149,7 +155,7 @@ def resolve_gap(
             "canonicalListCode": canonical_list_code, "canonicalValueCode": canonical_value_code,
             "variantsFilled": len(filled_variant_ids),
             "optionsFilled": options_filled,
-            "coloursAndTyresFilled": colours_and_tyres_filled,
+            "coloursAndTyresFilled": colours_and_tyres_filled, "optionGroupsFilled": option_groups_filled,
             "configurationsFilled": configurations_filled,
         },
     )

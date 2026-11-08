@@ -374,8 +374,8 @@ def reload_variant_details(
     stock car's technical data, nowhere else, and audited. Platform staff may
     run it too (D-A-24's write posture). The variant is global, so a wrong id
     is a 404 for everyone; the details written are the caller's tenant's. No
-    `If-Match`: the variant row is not what changes (its `version` stays),
-    the tenant's detail rows are, and they carry no version.
+    `If-Match`: what changes is the tenant's detail rows, which carry no version;
+    the shared variant row is only ever filled where it is NULL (KAN-83).
     """
 
     if not (principal.is_dealer_manager or AccessRole.PLATFORM_ADMIN in principal.roles):

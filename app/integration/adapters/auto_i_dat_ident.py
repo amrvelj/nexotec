@@ -41,8 +41,9 @@ Typenschein and Werkscode (Vehicle Build / Vehicle Catalog), one variant by
 FzKey, the Typenschein + Neupreis match (Vehicle Match), and the catalogue
 browse operations (brands, model groups, one page of variants, facet values).
 Every body is read by ``identapi_parse.py``; no code is interpreted here.
-**Not built yet**: options, colours, tyres and images (KAN-211), valuation
-and forecast (KAN-552), the VIN rung (KAN-549). Those ``ProviderAdapter``
+The details — the variant with its colours, options, tyres, images, the
+energy label — are KAN-211's (ADR-123). **Not built yet**: valuation and
+forecast (KAN-552), the VIN rung (KAN-549). Those ``ProviderAdapter``
 methods raise ``ProviderOperationNotBuiltError`` (a
 ``ProviderConfigurationError``: nothing sent, nothing logged, the breaker
 untouched) naming their ticket — an explicit "not built", never a silent
@@ -752,13 +753,13 @@ class AutoIDatIdentAdapter:
         _not_built("KAN-550", "Type-approval data")
 
     def fetch_option_package_contents(self, opt_key: int) -> list[OptionPackageContentData]:
-        _not_built("KAN-211", "Option package contents")
+        _not_built("KAN-550", "The SOAP-shaped option package contents")
 
     def fetch_option_exclusions(self, fz_key: str, *, year: int, opt_key: int) -> list[int]:
-        _not_built("KAN-211", "Option exclusions")
+        _not_built("KAN-550", "The SOAP-shaped option exclusions")
 
     def fetch_option_conditions(self, fz_key: str, *, year: int, opt_key: int) -> list[OptionConditionData]:
-        _not_built("KAN-211", "Option conditions")
+        _not_built("KAN-550", "The SOAP-shaped option conditions")
 
     def fetch_codes(
         self, *, code_groups: list[str] | None = None, active_only: bool = False

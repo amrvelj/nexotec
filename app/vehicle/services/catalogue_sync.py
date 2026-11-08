@@ -620,6 +620,36 @@ def apply_resolved_code_to_options(
     return len(blocked)
 
 
+def apply_resolved_code_to_option_groups(
+    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str
+) -> int:
+    """KAN-211: fills `option_group` on every option, in every tenant, whose raw
+    `option_group_code` is exactly this one and whose group is still NULL — the
+    rows a just-resolved `option_group` gap had left flat (KAN-75's rule, for
+    options). Any other code group fills nothing. Returns how many rows."""
+
+    if code_group != "option_group":
+        return 0
+    variants_of_kind = select(VariantProviderCode.model_variant_id).where(
+        VariantProviderCode.provider == provider,
+        VariantProviderCode.code_group == "vehicle_kind",
+        VariantProviderCode.provider_code == vehicle_kind,
+    )
+    filled = db.scalars(
+        update(VariantOption)
+        .where(
+            VariantOption.option_group_code == provider_code,
+            VariantOption.option_group.is_(None),
+            VariantOption.model_variant_id.in_(variants_of_kind),
+        )
+        .values(option_group=value_code)
+        .returning(VariantOption.id)
+        .execution_options(synchronize_session="fetch")
+    ).all()
+    db.flush()
+    return len(filled)
+
+
 def apply_resolved_code_to_colours_and_tyres(
     db: Session,
     *,

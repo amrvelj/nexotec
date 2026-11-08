@@ -223,4 +223,6 @@ def test_every_gap_the_catalogue_sync_records_carries_a_semantic_code_group(db_s
     groups = {gap.code_group for gap in db_session.scalars(select(MappingGap))}
     assert groups, "the mock sync with an empty code map must record gaps"
     assert not any(group.isdigit() for group in groups)
-    assert groups <= {*catalogue_sync._CODED_FIELDS, "equipment_feature", *catalogue_sync.COLOUR_AND_TYRE_CODE_GROUPS}
+    assert groups <= {
+        *catalogue_sync._CODED_FIELDS, "equipment_feature", "option_group", *catalogue_sync.COLOUR_AND_TYRE_CODE_GROUPS
+    }

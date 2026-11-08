@@ -487,6 +487,73 @@ def test_a_key_repeated_in_one_answer_is_one_row(db_session, monkeypatch):
     assert db_session.query(VariantOptionRelation).filter_by(**where).count() == 1
 
 
+def test_provider_texts_are_cut_to_their_columns_and_an_over_long_image_url_is_left_out(db_session, monkeypatch):
+    long = "x" * 700
+    bodies = fix.detail_bodies(options=[fix.option("4001", optionCode=long, group=long)])
+    bodies[fix.VARIANT_PATH] = fix.body([fix.catalog_variant(colorOptionsData=[{"colorOptionCode": "C" + long, "colorType": 1, "colorDescription": long, "colorPrice": 0}])])
+    images = fix.images_body()["data"]
+    images[0]["url"] = "https://images.example.test/" + long
+    bodies[fix.IMAGES_PATH] = fix.body(images)
+    tyres = fix.tyres_body()
+    tyres["data"]["values"][0]["remark"] = long
+    bodies[fix.TYRES_PATH] = tyres
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies))
+
+    result = _open(db_session, s, variant)
+
+    assert set(_states(result).values()) == {"present"}
+    where = {"tenant_id": s.connection.tenant_id, "model_variant_id": variant.id}
+    (option,) = db_session.query(VariantOption).filter_by(**where).all()
+    assert len(option.manufacturer_code) == 64 and len(option.option_group_code) == 32
+    (colour,) = db_session.query(ColourCache).filter_by(**where).all()
+    assert len(colour.colour_code) == 64 and len(colour.description) == 160
+    assert db_session.query(ImageRef).filter_by(**where).count() == 2  # the over-long URL is left out, not cut
+    assert max(len(t.remark or "") for t in db_session.query(TyreSpecCache).filter_by(**where)) == 160
+
+
+def test_a_resolved_option_group_gap_fills_the_options_it_left_flat_at_once(db_session, monkeypatch):
+    """KAN-75's rule for options (review round 2): the raw group code stays on
+    the row, and the admin's resolve reaches every Betrieb's options."""
+
+    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.vehicle.services import catalogue_admin
+
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    ref_list = db_session.scalar(select(ReferenceList).where(ReferenceList.list_code == "option_group"))
+    if ref_list is None:
+        ref_list = ReferenceList(list_code="option_group")
+        db_session.add(ref_list)
+        db_session.flush()
+    if not db_session.scalar(select(ReferenceValue).where(ReferenceValue.list_id == ref_list.id, ReferenceValue.value_code == "comfort")):
+        db_session.add(ReferenceValue(list_id=ref_list.id, value_code="comfort", label_de="Komfort", label_fr="Confort", label_it="Comfort", label_en="Comfort"))
+    db_session.commit()
+    _open(db_session, s, variant)
+    option = db_session.query(VariantOption).filter_by(model_variant_id=variant.id, option_code="1001").one()
+    assert option.option_group is None and option.option_group_code == "Komfort"
+    gap = db_session.scalar(select(MappingGap).where(MappingGap.code_group == "option_group", MappingGap.provider_code == "Komfort"))
+
+    catalogue_admin.resolve_gap(db_session, gap=gap, canonical_list_code="option_group", canonical_value_code="comfort", actor_id=s.user.id)
+    db_session.commit()
+
+    db_session.refresh(option)
+    assert option.option_group == "comfort"
+
+
+def test_the_states_note_says_why(db_session, monkeypatch):
+    bodies = fix.detail_bodies()
+    bodies[fix.VARIANT_PATH] = fix.body([])
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies, api_status={fix.OPTIONS_PATH: 403}))
+    _open(db_session, s, variant)
+
+    spec = catalogue_entitlements.get_catalogue_specification(
+        db_session, tenant_id=s.connection.tenant_id, model_variant_id=variant.id, load_on_open=False
+    )
+
+    assert (spec.details.colours.state, spec.details.colours.note) == ("present", catalogue_details.VARIANT_UNKNOWN_AT_PROVIDER)
+    assert (spec.details.options.state, spec.details.options.note) == ("notInContract", "ProviderNotEntitledError")
+    assert (spec.details.images.state, spec.details.images.note) == ("present", None)
+
+
 def test_an_energy_label_whose_gearboxes_disagree_is_not_stored_and_said_so(db_session, monkeypatch):
     bodies = fix.detail_bodies()
     # 2025: a manual B and an automatic C — nothing stored for 2025. (2026 is
@@ -657,6 +724,7 @@ def test_the_specification_read_loads_the_details_once_and_reports_their_states(
     assert body["details"]["tyreSpecs"] == {
         "state": "notInContract",
         "loadedAt": body["details"]["tyreSpecs"]["loadedAt"],
+        "note": catalogue_details.ENTITLEMENT_ABSENT,
     }
     assert body["tyreSpecs"] == []
     assert second.json()["details"] == body["details"]

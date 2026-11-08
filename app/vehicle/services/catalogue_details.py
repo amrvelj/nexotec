@@ -41,20 +41,22 @@ data stored once for every Betrieb as that year's rating with
 `source = auto_i_dat`, filling an absence only (ADR-042; Anto, 2026-11-08),
 and only where every gearbox the provider lists agrees on the class. Data a
 load stored is kept indefinitely (KAN-487). Two opens of the same car by
-the same Betrieb are serialised by an advisory lock on (Betrieb, variant),
-so two tabs send one set; other Betriebe and other rows are never blocked.
+the same Betrieb are serialised by a transaction-scoped advisory lock on
+(Betrieb, variant), taken per detail on the request's own connection and
+released by that detail's commit, so two tabs send one set; other Betriebe
+and other rows are never blocked, and no request holds a second connection.
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
 
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -345,8 +347,10 @@ def _load_options(
         if code in rows:
             continue  # one row per key; the first listed wins
         # `group` is a coded field like every other (FR-C-10): resolved
-        # through the code map, a miss is a mapping gap and a flat list until
-        # the admin maps it — never the provider's text stored as a code.
+        # through the code map; a miss is a mapping gap and a flat list, and
+        # the raw code stays on the row so the resolve fills it at once
+        # (`apply_resolved_code_to_option_groups`) — never the provider's text
+        # stored as a code.
         option_group = resolve_colour_or_tyre_code(
             db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_OPTION_GROUP,
             raw_code=_fit(option.option_group, 32),
@@ -359,6 +363,7 @@ def _load_options(
             db.add(row)
         row.description = option.description
         row.option_group = option_group
+        row.option_group_code = _fit(option.option_group, 32)
         row.price = option.price
         row.is_included = option.is_included
         row.is_package = option.is_package
@@ -538,13 +543,21 @@ def _load_energy_label(
         )
         if held is not None:
             continue
-        db.add(
-            ModelVariantEnergyRating(
-                model_variant_id=variant.id, rating_year=year, energy_efficiency_category=next(iter(codes)),
-                source=_ENERGY_LABEL_SOURCE,
-            )
-        )
-        db.flush()
+        # The table is shared by every Betrieb: two opens of the same car at
+        # once may both find the year absent; the second insert loses on the
+        # unique key and the first one's row stands (`store_seen_variants`'s
+        # own pattern).
+        try:
+            with db.begin_nested():
+                db.add(
+                    ModelVariantEnergyRating(
+                        model_variant_id=variant.id, rating_year=year, energy_efficiency_category=next(iter(codes)),
+                        source=_ENERGY_LABEL_SOURCE,
+                    )
+                )
+                db.flush()
+        except IntegrityError:
+            pass
     if ambiguous:
         raise _LoadedWithNote(ENERGY_LABEL_AMBIGUOUS)
 
@@ -561,10 +574,15 @@ _LOADERS: Final[dict[CatalogueDetail, _Loader]] = {
 
 # -- the lock: one open at a time per (Betrieb, variant) ------------------------------------
 
+# How long a second open waits for the first one's current detail before it
+# gives up and leaves the rest to that open (the provider's own timeout is
+# 10 s per attempt, one retry).
+LOCK_WAIT: Final = "25s"
+
 
 def _lock_keys(tenant_id: uuid.UUID, variant_id: uuid.UUID) -> tuple[int, int]:
-    """Two signed 32-bit keys for `pg_advisory_lock(int, int)`, from the two
-    ids' low words."""
+    """Two signed 32-bit keys for `pg_advisory_xact_lock(int, int)`, from the
+    two ids' low words. A collision only serialises two opens."""
 
     def key(value: uuid.UUID) -> int:
         number = value.int & 0xFFFFFFFF
@@ -573,29 +591,26 @@ def _lock_keys(tenant_id: uuid.UUID, variant_id: uuid.UUID) -> tuple[int, int]:
     return key(tenant_id), key(variant_id)
 
 
-@contextmanager
-def _open_lock(db: Session, *, tenant_id: uuid.UUID, variant_id: uuid.UUID) -> Iterator[None]:
-    """A session-level advisory lock on (Betrieb, variant) for the length of
-    the load, taken on a connection of its own: the caller's session commits
-    after every detail and may come back from the pool on another physical
-    connection, where a session-level lock would neither be held nor
-    released. It blocks nothing but a second open of the same car by the
-    same Betrieb — no row of a shared table is locked (ADR-013 needs no
-    serialisation across Betriebe). The SQLite lane has no advisory locks
-    and never counts as verification."""
+def _lock_for_detail(db: Session, *, tenant_id: uuid.UUID, variant_id: uuid.UUID) -> bool:
+    """Takes the (Betrieb, variant) advisory lock for the transaction of one
+    detail — on the session's own connection, released by that detail's
+    commit, so a request never holds a second pooled connection and a stuck
+    provider never pins one. Bounded by `LOCK_WAIT`: `False` means another
+    open of the same car still holds it after that long; the caller leaves
+    the remaining details to that open. The SQLite lane has no advisory
+    locks and never counts as verification."""
 
-    engine = db.get_bind().engine
-    if engine.dialect.name != "postgresql":
-        yield
-        return
+    if db.get_bind().dialect.name != "postgresql":
+        return True
     first, second = _lock_keys(tenant_id, variant_id)
-    with engine.connect() as lock_connection:
-        lock_connection.execute(text("SELECT pg_advisory_lock(:a, :b)"), {"a": first, "b": second})
-        try:
-            yield
-        finally:
-            lock_connection.execute(text("SELECT pg_advisory_unlock(:a, :b)"), {"a": first, "b": second})
-            lock_connection.commit()
+    try:
+        db.execute(text(f"SET LOCAL lock_timeout = '{LOCK_WAIT}'"))
+        db.execute(text("SELECT pg_advisory_xact_lock(:a, :b)"), {"a": first, "b": second})
+    except OperationalError as exc:
+        db.rollback()
+        logger.info("catalogue details of variant %s: another open holds the lock (%s)", variant_id, type(exc).__name__)
+        return False
+    return True
 
 
 # -- the two entry points -------------------------------------------------------------
@@ -646,17 +661,23 @@ def load_on_open(
         return states
     if not _wanted(db, connection=connection, states=states, force=force):
         return states
-    with _open_lock(db, tenant_id=tenant_id, variant_id=variant.id):
+    rows = states.rows
+    for detail in _wanted(db, connection=connection, states=states, force=force):
+        if not _lock_for_detail(db, tenant_id=tenant_id, variant_id=variant.id):
+            break
         # Judged again under the lock: the open that held it before us may
-        # have decided these states.
+        # have decided this detail (read from the database, not the
+        # identity map — `detail_states` populates existing rows).
         states = detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id)
         rows = states.rows
-        for detail in _wanted(db, connection=connection, states=states, force=force):
-            _load_one(
-                db, tenant_id=tenant_id, connection=connection, provider_code=provider_code, variant=variant,
-                fz_key=fz_key, detail=detail, actor_id=actor_id, purpose=purpose, rows=rows,
-            )
+        if detail not in _wanted(db, connection=connection, states=states, force=force):
             db.commit()
+            continue
+        _load_one(
+            db, tenant_id=tenant_id, connection=connection, provider_code=provider_code, variant=variant,
+            fz_key=fz_key, detail=detail, actor_id=actor_id, purpose=purpose, rows=rows,
+        )
+        db.commit()
     return DetailStates(rows=rows)
 
 
@@ -732,10 +753,12 @@ def reload_details(
     this Betrieb's stored rows, recorded in the audit log with the actor
     before the first request leaves — the record says a reload was asked for
     and by whom, whatever each detail then ends in (its state says that).
-    Nowhere else does anything refresh a detail. Without a connection there
-    is nothing to reload and nothing is recorded."""
+    Nowhere else does anything refresh a detail. Without a connection, or for
+    a variant with no key at the provider, there is nothing to reload and
+    nothing is recorded."""
 
-    if find_enabled_vehicle_data_connection(db, tenant_id=tenant_id) is None:
+    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
+    if found is None or provider_key_of(db, variant=variant, provider_code=found[1]) is None:
         return detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id)
     before = {
         detail.value: (row.state.value, row.loaded_at.isoformat())

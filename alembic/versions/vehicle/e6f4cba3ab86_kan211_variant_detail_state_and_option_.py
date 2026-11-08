@@ -9,6 +9,8 @@
   identAPI's `optionCode`), beside auto-i's key in `option_code` — what the advisor
   searches by (Anto, 2026-11-08). NULL on rows stored before this release; the next
   «Neu laden» fills it.
+- `vehicle_variant_option.option_group_code`: the provider's raw group code, kept so a
+  resolved mapping gap fills `option_group` on the rows it left NULL (KAN-75's pattern).
 
 No data step. The downgrade drops both; the detail states are a cache of what was
 asked and are rebuilt on the next open.
@@ -75,6 +77,15 @@ def upgrade() -> None:
     op.add_column(
         "vehicle_variant_option",
         sa.Column(
+            "option_group_code",
+            sa.String(length=32),
+            nullable=True,
+            comment="KAN-211: the provider's raw option group code; option_group is what it resolves to.",
+        ),
+    )
+    op.add_column(
+        "vehicle_variant_option",
+        sa.Column(
             "manufacturer_code",
             sa.String(length=64),
             nullable=True,
@@ -85,6 +96,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("vehicle_variant_option", "manufacturer_code")
+    op.drop_column("vehicle_variant_option", "option_group_code")
     op.drop_index(op.f("ix_vehicle_variant_detail_state_tenant_id"), table_name="vehicle_variant_detail_state")
     op.drop_index(op.f("ix_vehicle_variant_detail_state_model_variant_id"), table_name="vehicle_variant_detail_state")
     op.drop_table("vehicle_variant_detail_state")

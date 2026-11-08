@@ -91,6 +91,7 @@ _PAGED_QUERIES = {
     "fetch_energy_label",
     "load_on_open",
     "reload_details",
+    "get_catalogue_specification",  # the read that loads on open: a loop over it is a loop over cars
 }
 _LOOPS = (ast.For, ast.AsyncFor, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 # The one loop allowed by name (ADR-112 (4), KAN-548): `compute_facets` asks one

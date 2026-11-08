@@ -117,13 +117,23 @@ def test_specification_flattens_option_groups_without_packages_entitlement(db_se
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
 
+    from scripts.seed_demo_provider_code_map import seed_demo_option_groups
+
     # Loaded while the licence option was held, then the option goes (a
     # re-probe on «Test connection»): the stored options stay, flattened.
-    # Since KAN-211 a Betrieb without `ausstattung` loads no options at all.
+    # Since KAN-211 a Betrieb without `ausstattung` loads no options at all,
+    # and groups go through the code map — the demo's identity rows first.
+    seed_demo_option_groups(db_session)
     look_up_demo_variants(db_session, tenant_id)
-    _deny(db_session, connection.id, "ausstattung")
     master = MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100002")
     variant = catalogue_sync.upsert_model_variant(db_session, provider_code="auto_i_dat_mock", master=master)
+    granted = catalogue_entitlements.get_catalogue_specification(
+        db_session, tenant_id=tenant_id, model_variant_id=variant.id
+    )
+    assert granted.packages_available is True
+    assert {o.option_group for o in granted.options} >= {"comfort", "exterior"}  # grouped while the option is held
+
+    _deny(db_session, connection.id, "ausstattung")
 
     spec = catalogue_entitlements.get_catalogue_specification(
         db_session, tenant_id=tenant_id, model_variant_id=variant.id

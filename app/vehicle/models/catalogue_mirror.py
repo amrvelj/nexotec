@@ -174,6 +174,9 @@ class VariantDetailState(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Bas
     # When the state was last decided: the load that stored the rows, or the
     # refusal or failure that stopped it.
     loaded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
-    # The failure's class name (never its message: a provider's text can echo
-    # what it was sent), for the manager's eye. NULL when `present`.
+    # Why the state is what it is, for the screen and the manager's eye: the
+    # failure's class name (never its message: a provider's text can echo
+    # what it was sent), `entitlement_absent` when the probe decided, and on
+    # `present` the provider's coherent "nothing" (`variant_unknown_at_provider`,
+    # a 400/422's class, `energy_label_ambiguous`). NULL for a clean load.
     error: Mapped[str | None] = mapped_column(String(80), nullable=True)

@@ -191,6 +191,14 @@ class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     # and not a FK (reference data is platform-owned). Drives the
     # option-section grouping (FR-C-06). Was a free string before C-A.
     option_group: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # KAN-211 — the provider's raw group code (the identAPI's `group`), kept
+    # so a resolved mapping gap fills `option_group` on every row it left
+    # NULL at once (KAN-75's pattern; `apply_resolved_code_to_option_groups`).
+    option_group_code: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        comment="KAN-211: the provider's raw option group code; option_group is what it resolves to.",
+    )
     price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # C-A — what C-E (KAN-43) needs. All nullable/defaulted so the existing
     # `catalogue_sync` option upsert keeps working unchanged; C-E teaches
