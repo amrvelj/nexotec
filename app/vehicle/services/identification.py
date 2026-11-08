@@ -1,4 +1,5 @@
-"""Identify a vehicle from one input — the FR-C-02 waterfall (C-D / KAN-42).
+"""Identify a vehicle from one input — the FR-C-02 waterfall (C-D / KAN-42;
+live on the identAPI since KAN-547, ADR-111, ADR-114).
 
 The advisor types one thing; `classify_identifier` decides from the string
 whether it is a VIN, a Kontrollschild, a Stammnummer, a Typenschein or a
@@ -7,41 +8,43 @@ of the waterfall, in the order the counter uses it:
 
 1. **VIN** — our own `vehicle-mdm` first (`matching.match_vehicle`, reused,
    never paralleled). A hit is decisive and offers this tenant's newest
-   configuration of that car for reuse. A miss goes to the provider VIN
-   decode when the tenant is entitled (`vin_decode`, KAN-36). Not entitled,
-   or the decode is unavailable or misses → fall through: the VIN is kept
-   as observed data and the advisor continues with a plate, a Typenschein
-   or browse — exactly the pre-correction behaviour (exit criterion 6).
-   **The decode call itself is not implemented**: the auto-i-dat VIN
-   webservice specification does not exist in our document set (KAN-81),
-   so `AutoIDatSoapAdapter.decode_vin` raises `NotImplementedError` and
-   this module treats that as "unavailable", never as an error.
-2. **Kontrollschild** — `KontrollschildInfo`, a live billed call, behind
-   the plate-lookup cache (`plate_lookup_cache`, TTL stated there). One
-   record continues at the Typenschein rung with that record's Typenschein.
-   Several records are returned **for the picker, never chosen here** —
-   several distinct Stammnummern are a legitimate Wechselschild (or one
-   plate on a car and a motorcycle); one Stammnummer reported with two
-   different Typenscheine is a genuine conflict and is raised as a
+   configuration of that car for reuse. A miss falls through: the `vin`
+   licence option is not in the test licence (ADR-113, §8) and the rung
+   itself is KAN-549; the VIN is kept as observed data.
+2. **Kontrollschild** — the provider first (ADR-114: the counter wants the
+   current registration, never vehicle-mdm's plate register), behind the
+   per-tenant plate-lookup cache (`plate_lookup_cache`, 30 days): the
+   identAPI's Vehicle Build answer names the registered vehicle(s) **and**
+   the catalogue variant each resolves to, so one registered car is one
+   candidate without a second call. Several records are **for the picker,
+   never chosen here** — distinct Stammnummern are a legitimate
+   Wechselschild (an informational notice, ADR-114); one Stammnummer under
+   two Typenscheine is a genuine conflict and a
    `vehicle.plate_lookup.conflicted` data-quality event (ADR-039).
-3. **Stammnummer** — our own data only: `vehicle-mdm`, then the
-   plate-lookup cache. auto-i-dat accepts no Stammnummer search.
-4. **Typenschein** — `find_model_variants_by_type_approval` over the
-   catalogue mirror. 1..n variants; more than one is always a picker.
-5. **Best match** (`propose_best_match`) — `FahrzeugeMatch` with a
-   Typenschein plus a Neupreis. Its answer is a **proposal**: this module
-   never creates or changes a configuration from it. The advisor confirms
-   in the overlay, and only then is a configuration created with
-   `catalogueMatchStatus = best_match_confirmed` (MatchCode 2) or
-   `matched` (MatchCode 1).
-6. **Werkscode** — the mirror's `werkscode` column.
+3. **Stammnummer** — `vehicle-mdm`, then the identAPI's Vehicle Build by
+   `vrn` (live — «auto-i-dat accepts no Stammnummer search» was a SOAP-era
+   reading, withdrawn by ADR-111), then the plate-lookup cache as the
+   fallback when the provider found nothing or could not be asked.
+4. **Typenschein** — the identAPI's Vehicle Catalog by `typeapproval` (one
+   provider page of 10), merged with the variants already stored for the
+   number (`find_model_variants_by_type_approval`). 1..n variants; more
+   than one is always a picker.
+5. **Best match** (`propose_best_match`) — Vehicle Match by Typenschein plus
+   a Neupreis. Its answer is a **proposal**: this module never creates or
+   changes a configuration from it. The advisor confirms in the overlay,
+   and only then is a configuration created with
+   `catalogueMatchStatus = best_match_confirmed` (match code 2) or
+   `matched` (match code 1).
+6. **Werkscode** — the identAPI's Vehicle Catalog by `factorycode`, merged
+   with the stored variants carrying the code.
 
-The Typenschein and Werkscode rungs read the **mirror**, not the provider:
-a lookup the mirror can answer is not worth a billed round trip. Only the
-plate lookup and the best match are live calls. Since KAN-485 (2026-10-29)
-nothing fills the mirror in bulk: it holds only what single lookups stored
-— a best match's master data, and rows written before the ruling — so on a
-fresh database these two rungs find nothing.
+Every variant a lookup returns is stored through the catalogue's own
+`upsert_model_variant` (master data only, ADR-075; fill-if-NULL on a
+revisit, KAN-83): the stored rows are a cache of what was seen, never the
+source. A provider's refusal of the licence option reads as a
+`provider_not_entitled` note, a failure or timeout as `provider_unavailable`
+(the plate rung keeps its KAN-42 note names) — hints on screen, never
+errors; the rung then falls through to what we hold ourselves.
 
 Nothing in this module writes `vehicle-mdm` (ADR-070).
 """
@@ -53,15 +56,20 @@ import logging
 import re
 import uuid
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.integration.public import (
+    BuiltVehicleData,
     PlateInfoData,
     ProviderGatewayError,
+    ProviderNotEntitledError,
+    VariantMasterData,
     call_capability,
     get_entitlement,
     vin_decode_granted,
@@ -92,9 +100,12 @@ _CANTONS = frozenset(
 )
 
 _PLATE_CALL_LABEL = "kontrollschild"
-# KAN-488: plate identification is the identAPI's basis option (`/vehiclebuild/licenseplate/…`,
-# KAN-547); the entitlement row it is refused on is `ident_basis`, not the SOAP sheet line.
-_PLATE_ENTITLEMENT = "ident_basis"
+_STAMMNUMMER_CALL_LABEL = "stammnummer"
+_TYPENSCHEIN_CALL_LABEL = "typenschein"
+_WERKSCODE_CALL_LABEL = "werkscode"
+# Every identification rung is the identAPI's basis option (KAN-488): the
+# entitlement row a refusal is read from is `ident_basis`.
+_IDENT_ENTITLEMENT = "ident_basis"
 _BEST_MATCH_CALL_LABEL = "vehicle_data"
 
 
@@ -138,6 +149,10 @@ class IdentificationNote(str, enum.Enum):
     PLATE_LOOKUP_FAILED = "plate_lookup_failed"
     PLATE_CACHE_HIT = "plate_cache_hit"
     PLATE_NOT_FOUND = "plate_not_found"
+    # KAN-547: the Stammnummer, Typenschein and Werkscode rungs are live; the
+    # provider's refusal of the option, and a failure or timeout, are said.
+    PROVIDER_NOT_ENTITLED = "provider_not_entitled"
+    PROVIDER_UNAVAILABLE = "provider_unavailable"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -146,6 +161,7 @@ class VariantCandidate:
     brand_display_name: str | None
     model_group_name: str | None
     variant_name: str
+    trim_name: str | None
     model_year_from: int
     model_year_to: int | None
     ps: int | None
@@ -166,7 +182,9 @@ class PlateRecord:
     production_to: int | None
     type_approval_number: str
     first_registration_date: dt.date | None
-    stammnummer: str
+    # None when the account may not see it (the identAPI's `vrn` "depends on
+    # user group definition"): the car is still offered, by its Typenschein.
+    stammnummer: str | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -274,6 +292,7 @@ def _candidate(db: Session, variant: ModelVariant, *, first_registration_date: d
         brand_display_name=variant.brand_display_name,
         model_group_name=variant.model_group_name,
         variant_name=variant.name,
+        trim_name=variant.trim_name,
         model_year_from=variant.model_year_from,
         model_year_to=variant.model_year_to,
         ps=variant.ps,
@@ -340,19 +359,124 @@ def _existing_vehicle_result(
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class _ProviderAnswer:
+    """One rung's provider call: `value` when the call was made and answered,
+    else `None` with the note that says why (no connection, not entitled,
+    unavailable)."""
+
+    value: Any
+    provider_code: str | None
+    notes: list[IdentificationNote]
+
+    @property
+    def answered(self) -> bool:
+        return self.value is not None
+
+
+def _ask_provider(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    label: str,
+    purpose: str,
+    call,
+    not_entitled_note: IdentificationNote = IdentificationNote.PROVIDER_NOT_ENTITLED,
+    failed_note: IdentificationNote = IdentificationNote.PROVIDER_UNAVAILABLE,
+) -> _ProviderAnswer:
+    """One identAPI operation on the tenant's connection. A rung that cannot
+    be asked (no connection, the option not granted) or that fails (a
+    transport error, a timeout, a refused call) falls through with a note,
+    never an error — the counter keeps working on what we hold."""
+
+    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
+    if found is None:
+        return _ProviderAnswer(None, None, [IdentificationNote.NO_PROVIDER_CONNECTION])
+    connection, provider_code = found
+    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=_IDENT_ENTITLEMENT)
+    if entitlement is not None and not entitlement.granted:
+        return _ProviderAnswer(None, provider_code, [not_entitled_note])
+    try:
+        with call_capability(db, connection=connection, capability=label, actor_id=actor_id, purpose=purpose) as adapter:
+            value = call(adapter)
+    except ProviderNotEntitledError:
+        return _ProviderAnswer(None, provider_code, [not_entitled_note])
+    except (ProviderGatewayError, KeyError):
+        logger.warning("%s lookup failed", label, exc_info=True)
+        return _ProviderAnswer(None, provider_code, [failed_note])
+    return _ProviderAnswer(value, provider_code, [])
+
+
+def _store_variants(db: Session, *, provider_code: str, masters: list[VariantMasterData]) -> list[ModelVariant]:
+    """Every variant a lookup returned, through the catalogue's own upsert
+    (master data only, ADR-075; fill-if-NULL, KAN-83), committed — the stored
+    rows are a cache of what was seen, so a later lookup finds them too.
+
+    Each upsert runs in a savepoint: two Betriebe can make the first lookup of
+    one variant (or one new brand) at the same moment, and the loser's unique
+    violation is answered by re-reading the row the winner wrote — a lookup
+    never fails because another dealer typed the same plate first."""
+
+    variants: list[ModelVariant] = []
+    for master in masters:
+        try:
+            with db.begin_nested():
+                variant = upsert_model_variant(db, provider_code=provider_code, master=master)
+        except IntegrityError:
+            logger.info("variant %s was stored concurrently; re-reading", master.fz_key)
+            variant = upsert_model_variant(db, provider_code=provider_code, master=master)
+        variants.append(variant)
+    if variants:
+        db.commit()
+    return variants
+
+
+def _merge_candidates(
+    db: Session, *, live: list[ModelVariant], stored: list[ModelVariant], first_registration_date: dt.date | None
+) -> list[VariantCandidate]:
+    seen: set[uuid.UUID] = set()
+    candidates: list[VariantCandidate] = []
+    for variant in [*live, *stored]:
+        if variant.id in seen:
+            continue
+        seen.add(variant.id)
+        candidates.append(_candidate(db, variant, first_registration_date=first_registration_date))
+    return candidates
+
+
 def _typenschein_result(
     db: Session,
     *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     kind: IdentifierKind,
     match_method: ConfigurationMatchMethod,
     type_approval_number: str,
     observed: ObservedIdentity,
     notes: list[IdentificationNote],
+    prefer_stored: bool = False,
 ) -> IdentificationResult:
-    variants = [
-        _candidate(db, v, first_registration_date=observed.first_registration_date)
-        for v in find_model_variants_by_type_approval(db, type_approval_number)
-    ]
+    """Step 4: the live Typenschein lookup (one provider page), merged with
+    what is stored for the number. 1..n variants; several are a picker.
+    `prefer_stored` (a plate-cache hit): the stored variants answer without
+    a call, and the provider is asked only when none are stored — a repeated
+    plate within 30 days makes no call (KAN-42 exit criterion 5)."""
+
+    stored = find_model_variants_by_type_approval(db, type_approval_number)
+    live: list[ModelVariant] = []
+    provider_notes: list[IdentificationNote] = []
+    if not (prefer_stored and stored):
+        answer = _ask_provider(
+            db, tenant_id=tenant_id, actor_id=actor_id, label=_TYPENSCHEIN_CALL_LABEL, purpose="identify_typenschein",
+            call=lambda adapter: adapter.find_variants_by_type_approval(type_approval_number),
+        )
+        provider_notes = answer.notes
+        if answer.answered and answer.provider_code is not None:
+            live = _store_variants(db, provider_code=answer.provider_code, masters=list(answer.value))
+            if live:
+                stored = find_model_variants_by_type_approval(db, type_approval_number)
+    variants = _merge_candidates(db, live=live, stored=stored, first_registration_date=observed.first_registration_date)
     return IdentificationResult(
         kind=kind,
         match_method=match_method,
@@ -360,7 +484,7 @@ def _typenschein_result(
         observed=dataclasses.replace(observed, type_approval_number=type_approval_number),
         variants=variants,
         best_match_available=len(variants) != 1,
-        notes=notes,
+        notes=[*notes, *provider_notes],
     )
 
 
@@ -388,64 +512,52 @@ def _identify_vin(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | No
 
 
 def _attempt_vin_decode(db: Session, *, tenant_id: uuid.UUID) -> IdentificationNote:
-    """The entitled provider decode. Every path out of here falls through.
-
-    **Not called today.** The decode webservice has no specification
-    (KAN-81) and `AutoIDatSoapAdapter.decode_vin` raises
-    `NotImplementedError`. Calling it through `call_capability` would log an
-    error and charge the connection's circuit breaker on every VIN an
-    advisor types — and that breaker is per connection, so enough VINs
-    would block the plate lookup too. So it is not made. When the
-    specification arrives: implement the adapter, call it here through
-    `call_capability`, and treat a resolved decode exactly like a
-    `Fahrzeuge` resolution. The waterfall around it needs no change."""
+    """The entitled provider decode — KAN-549 builds it on `GET /vinrequest`
+    behind the `vin` option, which the test licence does not grant (§8,
+    ADR-113). Until then an entitled tenant falls through like an unentitled
+    one, and nothing is sent."""
 
     if find_enabled_vehicle_data_connection(db, tenant_id=tenant_id) is None:
         return IdentificationNote.NO_PROVIDER_CONNECTION
     return IdentificationNote.VIN_DECODE_UNAVAILABLE
 
 
-def _lookup_plate(
-    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None, plate: str
-) -> tuple[list[PlateInfoData], list[IdentificationNote]]:
-    cached = plate_lookup_cache.cached_records_for_plate(db, tenant_id=tenant_id, plate=plate)
-    if cached is not None:
-        return cached, [IdentificationNote.PLATE_CACHE_HIT]
-
-    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
-    if found is None:
-        return [], [IdentificationNote.NO_PROVIDER_CONNECTION]
-    connection, _provider_code = found
-    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=_PLATE_ENTITLEMENT)
-    if entitlement is not None and not entitlement.granted:
-        return [], [IdentificationNote.PLATE_LOOKUP_NOT_ENTITLED]
-
-    try:
-        with call_capability(
-            db, connection=connection, capability=_PLATE_CALL_LABEL, actor_id=actor_id, purpose="identify_plate"
-        ) as adapter:
-            records = adapter.lookup_plate(plate)
-    except (ProviderGatewayError, KeyError):
-        logger.warning("Plate lookup failed", exc_info=True)
-        return [], [IdentificationNote.PLATE_LOOKUP_FAILED]
-
-    if records:
-        plate_lookup_cache.store_records_for_plate(db, tenant_id=tenant_id, plate=plate, records=records)
-        db.commit()
-    return records, []
+# -- registered vehicles (plate, Stammnummer) ----------------------------------------
 
 
-def _is_conflict(records: list[PlateInfoData]) -> bool:
+def _cacheable(vehicle: BuiltVehicleData) -> PlateInfoData | None:
+    """What the plate-lookup cache stores of a Vehicle Build record: plate →
+    Typenschein + Stammnummer (+ first registration). A record the account
+    may not see whole (the spec: `vrn` "depends on user group definition")
+    cannot be cached and is left out."""
+
+    if vehicle.type_approval_number is None or vehicle.stammnummer is None:
+        return None
+    return PlateInfoData(
+        vehicle_kind_code=vehicle.vehicle_kind_code,
+        brand_name=vehicle.brand_name,
+        model_description=vehicle.model_description,
+        production_from=vehicle.production_from,
+        production_to=vehicle.production_to,
+        type_approval_number=vehicle.type_approval_number,
+        first_registration_date=vehicle.first_registration_date,
+        stammnummer=vehicle.stammnummer,
+    )
+
+
+def _is_conflict(records: list[PlateRecord]) -> bool:
     """One Stammnummer reported with two different Typenscheine. Distinct
-    Stammnummern are distinct cars legitimately sharing a plate."""
+    Stammnummern are distinct cars legitimately sharing a plate; a record
+    without a Stammnummer can contradict nothing."""
 
     by_stammnummer: dict[str, set[str]] = {}
     for record in records:
-        by_stammnummer.setdefault(record.stammnummer, set()).add(record.type_approval_number)
+        if record.stammnummer is not None:
+            by_stammnummer.setdefault(record.stammnummer, set()).add(record.type_approval_number)
     return any(len(types) > 1 for types in by_stammnummer.values())
 
 
-def _publish_plate_conflict(db: Session, *, tenant_id: uuid.UUID, plate: str, records: list[PlateInfoData]) -> None:
+def _publish_plate_conflict(db: Session, *, tenant_id: uuid.UUID, plate: str, records: list[PlateRecord]) -> None:
     publish(
         db,
         OutboxEvent(
@@ -465,106 +577,272 @@ def _publish_plate_conflict(db: Session, *, tenant_id: uuid.UUID, plate: str, re
     db.commit()
 
 
-def _identify_plate(
-    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None, plate: str
+def _picker_result(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    kind: IdentifierKind,
+    match_method: ConfigurationMatchMethod,
+    observed: ObservedIdentity,
+    rows: list[PlateRecord],
+    notes: list[IdentificationNote],
+    conflict_plate: str | None,
 ) -> IdentificationResult:
-    observed = ObservedIdentity(licence_plate=plate)
-    records, notes = _lookup_plate(db, tenant_id=tenant_id, actor_id=actor_id, plate=plate)
-    if not records:
-        if not notes:
-            notes = [IdentificationNote.PLATE_NOT_FOUND]
-        return IdentificationResult(
-            kind=IdentifierKind.KONTROLLSCHILD,
-            match_method=ConfigurationMatchMethod.KONTROLLSCHILD,
-            outcome=IdentificationOutcome.NONE,
-            observed=observed,
-            notes=notes,
-        )
+    """Several registered cars are the picker, never a choice: a Wechselschild
+    is legitimate, a conflict is said and reported once per provider answer
+    (never again from the cache)."""
+
+    conflict = _is_conflict(rows)
+    if conflict and conflict_plate is not None and IdentificationNote.PLATE_CACHE_HIT not in notes:
+        _publish_plate_conflict(db, tenant_id=tenant_id, plate=conflict_plate, records=rows)
+    return IdentificationResult(
+        kind=kind,
+        match_method=match_method,
+        outcome=IdentificationOutcome.PLATE_RECORDS,
+        observed=observed,
+        plate_records=rows,
+        plate_records_interchangeable=not conflict,
+        plate_records_conflict=conflict,
+        notes=notes,
+    )
+
+
+def _records_result(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    kind: IdentifierKind,
+    match_method: ConfigurationMatchMethod,
+    observed: ObservedIdentity,
+    records: list[PlateInfoData],
+    notes: list[IdentificationNote],
+    conflict_plate: str | None,
+) -> IdentificationResult:
+    """A cached answer: several records are the picker; one record continues
+    at its Typenschein from the stored variants (no call). The cache keeps the
+    Typenschein, not the FzKey the live answer named — where several stored
+    variants share the Typenschein the advisor chooses (best match offered)
+    rather than the cache guessing which one the provider meant."""
 
     if len(records) > 1:
-        conflict = _is_conflict(records)
-        # Raised once per provider answer, not again on every cache hit.
-        if conflict and IdentificationNote.PLATE_CACHE_HIT not in notes:
-            _publish_plate_conflict(db, tenant_id=tenant_id, plate=plate, records=records)
-        return IdentificationResult(
-            kind=IdentifierKind.KONTROLLSCHILD,
-            match_method=ConfigurationMatchMethod.KONTROLLSCHILD,
-            outcome=IdentificationOutcome.PLATE_RECORDS,
-            observed=observed,
-            plate_records=[_plate_record(r) for r in records],
-            plate_records_interchangeable=not conflict,
-            plate_records_conflict=conflict,
-            notes=notes,
+        return _picker_result(
+            db, tenant_id=tenant_id, kind=kind, match_method=match_method, observed=observed,
+            rows=[_plate_record(r) for r in records], notes=notes, conflict_plate=conflict_plate,
         )
-
     (record,) = records
     return _typenschein_result(
-        db,
-        kind=IdentifierKind.KONTROLLSCHILD,
-        match_method=ConfigurationMatchMethod.KONTROLLSCHILD,
+        db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=match_method,
         type_approval_number=record.type_approval_number,
         observed=dataclasses.replace(
             observed, stammnummer=record.stammnummer, first_registration_date=record.first_registration_date
         ),
         notes=notes,
+        prefer_stored=IdentificationNote.PLATE_CACHE_HIT in notes,
     )
 
 
-def _identify_stammnummer(db: Session, *, tenant_id: uuid.UUID, stammnummer: str) -> IdentificationResult:
+def _picker_row(vehicle: BuiltVehicleData) -> PlateRecord | None:
+    """A registered car the picker can offer: it needs a Typenschein to
+    continue at; the Stammnummer may be withheld from this account."""
+
+    if vehicle.type_approval_number is None:
+        return None
+    return PlateRecord(
+        vehicle_kind_code=vehicle.vehicle_kind_code,
+        brand_name=vehicle.brand_name,
+        model_description=vehicle.model_description,
+        production_from=vehicle.production_from,
+        production_to=vehicle.production_to,
+        type_approval_number=vehicle.type_approval_number,
+        first_registration_date=vehicle.first_registration_date,
+        stammnummer=vehicle.stammnummer,
+    )
+
+
+def _cache_plate_answer(
+    db: Session, *, tenant_id: uuid.UUID, plate: str | None, vehicles: list[BuiltVehicleData]
+) -> None:
+    """A plate answer fills the 30-day cache — whole or not at all: a record
+    the account may not see whole cannot be stored (`_cacheable`), and an
+    answer stored in part would later read as the complete truth about the
+    plate (one car where there were two). A Stammnummer answer never fills
+    it: it proves nothing about what else is registered on that plate, and
+    would store a plate the advisor never typed (R-2)."""
+
+    if plate is None:
+        return
+    records = [_cacheable(v) for v in vehicles]
+    if not records or any(r is None for r in records):
+        logger.info("plate %s: answer not cached — %d of %d records incomplete", plate, sum(r is None for r in records), len(records))
+        return
+    plate_lookup_cache.store_records_for_plate(db, tenant_id=tenant_id, plate=plate, records=[r for r in records if r is not None])
+    db.commit()
+
+
+def _built_vehicles_result(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    kind: IdentifierKind,
+    match_method: ConfigurationMatchMethod,
+    observed: ObservedIdentity,
+    vehicles: list[BuiltVehicleData],
+    provider_code: str,
+    plate: str | None,
+) -> IdentificationResult:
+    """A Vehicle Build answer: the variants it carries are stored; one
+    registered car with its variant is one candidate (no second call); one
+    without goes on at its Typenschein; several are the picker — every car
+    the answer names a Typenschein for, whether or not its Stammnummer is
+    shown, and never one chosen for the advisor. `plate` is the plate the
+    advisor typed (a plate lookup), None otherwise."""
+
+    masters = [v.variant for v in vehicles if v.variant is not None]
+    variants = _store_variants(db, provider_code=provider_code, masters=masters)  # in `masters` order
+    by_fz_key = {master.fz_key: variant for master, variant in zip(masters, variants, strict=True)}
+    _cache_plate_answer(db, tenant_id=tenant_id, plate=plate, vehicles=vehicles)
+
+    if len(vehicles) == 1:
+        (vehicle,) = vehicles
+        # The registered car's own identity, the VIN included: it is the
+        # same fact the VIN rung would have started from, so a configuration
+        # taken from a plate or Stammnummer carries it.
+        observed = dataclasses.replace(
+            observed,
+            stammnummer=vehicle.stammnummer or observed.stammnummer,
+            type_approval_number=vehicle.type_approval_number or observed.type_approval_number,
+            first_registration_date=vehicle.first_registration_date or observed.first_registration_date,
+            vin=observed.vin or vehicle.vin,
+        )
+        if vehicle.variant is not None and vehicle.variant.fz_key in by_fz_key:
+            return IdentificationResult(
+                kind=kind,
+                match_method=match_method,
+                outcome=IdentificationOutcome.VARIANTS,
+                observed=observed,
+                variants=[
+                    _candidate(db, by_fz_key[vehicle.variant.fz_key], first_registration_date=observed.first_registration_date)
+                ],
+                best_match_available=False,
+            )
+        if vehicle.type_approval_number is not None:
+            return _typenschein_result(
+                db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=match_method,
+                type_approval_number=vehicle.type_approval_number, observed=observed, notes=[],
+            )
+        return IdentificationResult(kind=kind, match_method=match_method, outcome=IdentificationOutcome.NONE, observed=observed)
+
+    rows = [r for r in (_picker_row(v) for v in vehicles) if r is not None]
+    if len(rows) < len(vehicles):
+        logger.info("%d of %d registered cars carry no Typenschein and cannot be offered", len(vehicles) - len(rows), len(vehicles))
+    if not rows:
+        return IdentificationResult(kind=kind, match_method=match_method, outcome=IdentificationOutcome.NONE, observed=observed)
+    return _picker_result(
+        db, tenant_id=tenant_id, kind=kind, match_method=match_method, observed=observed,
+        rows=rows, notes=[], conflict_plate=plate,
+    )
+
+
+def _identify_plate(
+    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None, plate: str
+) -> IdentificationResult:
+    """Step 2 (ADR-114): the provider first, behind the 30-day cache; a cached
+    answer makes no call and continues at its Typenschein (live)."""
+
+    kind, method = IdentifierKind.KONTROLLSCHILD, ConfigurationMatchMethod.KONTROLLSCHILD
+    observed = ObservedIdentity(licence_plate=plate)
+    cached = plate_lookup_cache.cached_records_for_plate(db, tenant_id=tenant_id, plate=plate)
+    if cached is not None:
+        return _records_result(
+            db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=method, observed=observed,
+            records=cached, notes=[IdentificationNote.PLATE_CACHE_HIT], conflict_plate=plate,
+        )
+
+    answer = _ask_provider(
+        db, tenant_id=tenant_id, actor_id=actor_id, label=_PLATE_CALL_LABEL, purpose="identify_plate",
+        call=lambda adapter: adapter.identify_by_plate(plate),
+        not_entitled_note=IdentificationNote.PLATE_LOOKUP_NOT_ENTITLED, failed_note=IdentificationNote.PLATE_LOOKUP_FAILED,
+    )
+    vehicles: list[BuiltVehicleData] = list(answer.value) if answer.answered else []
+    if not vehicles:
+        return IdentificationResult(
+            kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed,
+            notes=answer.notes or [IdentificationNote.PLATE_NOT_FOUND],
+        )
+    assert answer.provider_code is not None
+    return _built_vehicles_result(
+        db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=method, observed=observed,
+        vehicles=vehicles, provider_code=answer.provider_code, plate=plate,
+    )
+
+
+def _identify_stammnummer(
+    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None, stammnummer: str
+) -> IdentificationResult:
+    """Step 3: vehicle-mdm, then the live `vrn` lookup, then the plate-lookup
+    cache as the fallback."""
+
+    kind, method = IdentifierKind.STAMMNUMMER, ConfigurationMatchMethod.STAMMNUMMER
     observed = ObservedIdentity(stammnummer=stammnummer)
     found = match_vehicle(db, stammnummer=stammnummer)
     if found.vehicle is not None:
         return _existing_vehicle_result(
-            db, tenant_id=tenant_id, vehicle=found.vehicle, kind=IdentifierKind.STAMMNUMMER,
-            match_method=ConfigurationMatchMethod.STAMMNUMMER, observed=observed,
+            db, tenant_id=tenant_id, vehicle=found.vehicle, kind=kind, match_method=method, observed=observed,
+        )
+
+    answer = _ask_provider(
+        db, tenant_id=tenant_id, actor_id=actor_id, label=_STAMMNUMMER_CALL_LABEL, purpose="identify_stammnummer",
+        call=lambda adapter: adapter.identify_by_vrn(stammnummer),
+    )
+    vehicles: list[BuiltVehicleData] = list(answer.value) if answer.answered else []
+    if vehicles:
+        assert answer.provider_code is not None
+        # `plate=None`: a `vrn` answer proves nothing about what else is
+        # registered on the car's plate, so it never fills the plate cache.
+        return _built_vehicles_result(
+            db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=method, observed=observed,
+            vehicles=vehicles, provider_code=answer.provider_code, plate=None,
         )
 
     cached = plate_lookup_cache.cached_records_for_stammnummer(db, tenant_id=tenant_id, stammnummer=stammnummer)
     if not cached:
         return IdentificationResult(
-            kind=IdentifierKind.STAMMNUMMER,
-            match_method=ConfigurationMatchMethod.STAMMNUMMER,
-            outcome=IdentificationOutcome.NONE,
-            observed=observed,
+            kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed, notes=answer.notes
         )
-    if len(cached) > 1:
-        # Several earlier answers name this Stammnummer: a picker, never a
-        # choice (exit criterion 2). Two Typenscheine for one Stammnummer
-        # is the same data-quality conflict as on the plate rung.
-        conflict = _is_conflict(cached)
-        return IdentificationResult(
-            kind=IdentifierKind.STAMMNUMMER,
-            match_method=ConfigurationMatchMethod.STAMMNUMMER,
-            outcome=IdentificationOutcome.PLATE_RECORDS,
-            observed=observed,
-            plate_records=[_plate_record(r) for r in cached],
-            plate_records_interchangeable=not conflict,
-            plate_records_conflict=conflict,
-            notes=[IdentificationNote.PLATE_CACHE_HIT],
-        )
-    (record,) = cached
-    return _typenschein_result(
-        db,
-        kind=IdentifierKind.STAMMNUMMER,
-        match_method=ConfigurationMatchMethod.STAMMNUMMER,
-        type_approval_number=record.type_approval_number,
-        observed=dataclasses.replace(observed, first_registration_date=record.first_registration_date),
-        notes=[IdentificationNote.PLATE_CACHE_HIT],
+    return _records_result(
+        db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=method, observed=observed,
+        records=cached, notes=[*answer.notes, IdentificationNote.PLATE_CACHE_HIT], conflict_plate=None,
     )
 
 
-def _identify_werkscode(db: Session, *, werkscode: str) -> IdentificationResult:
-    variants = list(
+def _identify_werkscode(
+    db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None, werkscode: str
+) -> IdentificationResult:
+    """Step 6: the live Werkscode lookup, merged with the stored variants
+    carrying the code."""
+
+    answer = _ask_provider(
+        db, tenant_id=tenant_id, actor_id=actor_id, label=_WERKSCODE_CALL_LABEL, purpose="identify_werkscode",
+        call=lambda adapter: adapter.find_variants_by_werkscode(werkscode),
+    )
+    live: list[ModelVariant] = []
+    if answer.answered and answer.provider_code is not None:
+        live = _store_variants(db, provider_code=answer.provider_code, masters=list(answer.value))
+    stored = list(
         db.scalars(
             select(ModelVariant).where(ModelVariant.werkscode == werkscode).order_by(ModelVariant.name, ModelVariant.id)
         ).all()
     )
+    variants = _merge_candidates(db, live=live, stored=stored, first_registration_date=None)
     return IdentificationResult(
         kind=IdentifierKind.WERKSCODE,
         match_method=ConfigurationMatchMethod.WERKSCODE,
         outcome=IdentificationOutcome.VARIANTS if variants else IdentificationOutcome.NONE,
         observed=ObservedIdentity(werkscode=werkscode),
-        variants=[_candidate(db, v, first_registration_date=None) for v in variants],
+        variants=variants,
+        notes=answer.notes,
     )
 
 
@@ -583,13 +861,13 @@ def identify(
     if kind is IdentifierKind.KONTROLLSCHILD:
         return _identify_plate(db, tenant_id=tenant_id, actor_id=actor_id, plate=value)
     if kind is IdentifierKind.STAMMNUMMER:
-        return _identify_stammnummer(db, tenant_id=tenant_id, stammnummer=value)
+        return _identify_stammnummer(db, tenant_id=tenant_id, actor_id=actor_id, stammnummer=value)
     if kind is IdentifierKind.TYPENSCHEIN:
         return _typenschein_result(
-            db, kind=kind, match_method=ConfigurationMatchMethod.TYPENSCHEIN, type_approval_number=value,
-            observed=ObservedIdentity(), notes=[],
+            db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=ConfigurationMatchMethod.TYPENSCHEIN,
+            type_approval_number=value, observed=ObservedIdentity(), notes=[],
         )
-    return _identify_werkscode(db, werkscode=value)
+    return _identify_werkscode(db, tenant_id=tenant_id, actor_id=actor_id, werkscode=value)
 
 
 def propose_best_match(

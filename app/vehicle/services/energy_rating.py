@@ -60,3 +60,25 @@ def upsert_energy_rating(
     db.add(rating)
     db.flush()
     return rating
+
+
+def energy_rating_for_configuration(
+    db: Session, *, model_variant_id: uuid.UUID | None, first_registration_year: int | None, model_year: int | None
+) -> ModelVariantEnergyRating | None:
+    """KAN-479 (Anto, option A) / KAN-547: the Energieetikette a configuration
+    shows — the catalogue variant's rating for the car's year: the first
+    registration's year, else the model year, else the newest year held (a
+    new car not yet registered). Nothing without a catalogue variant, and
+    never a guess across years when the car's year is known and unrated."""
+
+    if model_variant_id is None:
+        return None
+    year = first_registration_year or model_year
+    if year is not None:
+        return get_energy_rating_for_year(db, model_variant_id=model_variant_id, rating_year=year)
+    return db.scalar(
+        select(ModelVariantEnergyRating)
+        .where(ModelVariantEnergyRating.model_variant_id == model_variant_id)
+        .order_by(ModelVariantEnergyRating.rating_year.desc())
+        .limit(1)
+    )

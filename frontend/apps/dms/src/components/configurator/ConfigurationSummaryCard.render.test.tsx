@@ -243,4 +243,24 @@ describe('ConfigurationSummaryCard first registration date (KAN-333)', () => {
     expect(card).not.toHaveTextContent('1975-06-01')
     expect(card).not.toHaveTextContent('31.05.1975')
   })
+
+  // KAN-547 / KAN-479 (ADR-042): the Energieetikette names the year it applied
+  // to, in the technical block's «Verbrauch & Energie»; absent is «Nicht gesetzt».
+  it('shows the Energieetikette with its year in the technical block, and «not set» without one', async () => {
+    installFakeBackend(listRoutes())
+    const { unmount } = renderCard(
+      <ConfigurationSummaryCard
+        configuration={config({ ...coded, energyRating: { category: 'b', year: 2021, source: 'bfe' } })}
+        technicalDataColumns={2}
+      />,
+    )
+    const block = screen.getByTestId('configuration-technical-data')
+    await waitFor(() => expect(block).toHaveTextContent(i18n.t('configurator.spec.fields.energyLabel')))
+    expect(block).toHaveTextContent('B (2021)')
+    unmount()
+
+    renderCard(<ConfigurationSummaryCard configuration={config({ ...coded, energyRating: null })} technicalDataColumns={2} />)
+    const label = within(screen.getByTestId('configuration-technical-data')).getByText(i18n.t('configurator.spec.fields.energyLabel'))
+    expect(label.parentElement).toHaveTextContent(i18n.t('common.notSet'))
+  })
 })

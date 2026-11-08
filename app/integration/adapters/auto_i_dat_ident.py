@@ -422,10 +422,11 @@ class AutoIDatIdentAdapter:
         return list(self.fetch_vehicle_master_data(fz_key).type_approval_numbers)
 
     def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
-        """The SOAP-shaped plate answer the identification waterfall reads
-        until KAN-547's second PR rewires it to `identify_by_plate`: one
+        """The SOAP-shaped plate answer, served from `identify_by_plate`: one
         record per built vehicle that carries a Typenschein and a Stammnummer
-        (what the plate-lookup cache stores)."""
+        (what the plate-lookup cache stores). The identification waterfall
+        reads `identify_by_plate` itself since KAN-547 PR 2; this shim stays
+        for the `VehicleDataAdapter` contract (the SOAP adapter's callers)."""
 
         records: list[PlateInfoData] = []
         for vehicle in self.identify_by_plate(plate):

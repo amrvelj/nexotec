@@ -51,7 +51,10 @@ const SILENT_NOTES = new Set(['vin_decode_not_entitled'])
 
 /**
  * FR-C-02 — one input, the waterfall behind it. The advisor types one thing;
- * the backend decides what it is. Every ambiguous answer is the FR-V-06
+ * the backend decides what it is. Since KAN-547 every rung but the VIN is
+ * live on the identAPI: the button's loading state covers the round trip, and
+ * the provider's «nicht freigeschaltet» / «nicht erreichbar» come back as notes
+ * (`configurator.identify.notes.*`), rendered as hints, never as errors. Every ambiguous answer is the FR-V-06
  * picker (the Vehicles list's own `Picker`-in-an-alert, Wechselschild vs.
  * conflict titled the same way), and **nothing is ever selected for the
  * advisor** — even a single candidate is a row they pick. A best match is a
@@ -292,11 +295,12 @@ function variantRow(t: (k: string, o?: Record<string, unknown>) => string, v: Va
       ? t('configurator.identify.productionYears', { from: v.modelYearFrom, to: v.modelYearTo })
       : t('configurator.identify.inProduction', { from: v.modelYearFrom })
   const price = v.newPriceForYear ?? v.basePrice
+  // KAN-547: name, trim, production years, power, list price (FR-C-02 step 4).
   return {
     id: v.catalogueVariantId,
     identifier: years,
     label: [v.brandDisplayName, v.modelGroupName, v.variantName].filter(Boolean).join(' '),
-    sublabel: [v.ps != null ? `${v.ps} ${psUnit}` : null, price != null ? formatCurrencyChf(Number(price)) : null]
+    sublabel: [v.trimName, v.ps != null ? `${v.ps} ${psUnit}` : null, price != null ? formatCurrencyChf(Number(price)) : null]
       .filter(Boolean)
       .join(' · '),
   }

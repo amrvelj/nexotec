@@ -22,6 +22,7 @@ from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.vehicle.schemas.configuration import (
     ConfigurationCreate,
+    ConfigurationEnergyRatingRead,
     ConfigurationOptionRead,
     ConfigurationOptionsReplace,
     ConfigurationRead,
@@ -32,18 +33,34 @@ from app.vehicle.schemas.configuration import (
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
+from app.vehicle.services.energy_rating import energy_rating_for_configuration
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
 router = APIRouter(tags=["configuration"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 
 
-def _read(config) -> ConfigurationRead:
+def _energy_rating(db: Session, config) -> ConfigurationEnergyRatingRead | None:
+    rating = energy_rating_for_configuration(
+        db,
+        model_variant_id=config.catalogue_variant_id,
+        first_registration_year=config.first_registration_date.year if config.first_registration_date else None,
+        model_year=config.model_year,
+    )
+    if rating is None or rating.energy_efficiency_category is None:
+        return None
+    return ConfigurationEnergyRatingRead(
+        category=rating.energy_efficiency_category, year=rating.rating_year, source=rating.source
+    )
+
+
+def _read(config, db: Session | None = None) -> ConfigurationRead:
     row = {c.name: getattr(config, c.name) for c in config.__table__.columns}
     return ConfigurationRead.model_validate(
         {
             **row,
             "spec": VehicleSpecBlockRead.model_validate(config, from_attributes=True),
+            "energy_rating": _energy_rating(db, config) if db is not None else None,
             "options": [
                 ConfigurationOptionRead(
                     id=o.id,
@@ -73,7 +90,7 @@ def create_configuration(
     config = configuration_service.create_configuration(
         db, tenant_id=principal.tenant_id, actor_id=principal.user_id, data=body
     )
-    return _read(config)
+    return _read(config, db)
 
 
 @router.get("/configurations/{configuration_id}", response_model=ConfigurationRead)
@@ -85,7 +102,7 @@ def get_configuration(
     config = configuration_service.get_configuration_or_404(
         db, tenant_id=principal.tenant_id, configuration_id=configuration_id
     )
-    return _read(config)
+    return _read(config, db)
 
 
 @router.patch("/configurations/{configuration_id}", response_model=ConfigurationRead)
@@ -103,7 +120,7 @@ def update_configuration(
     config = configuration_service.update_configuration(
         db, configuration=config, actor_id=principal.user_id, data=body
     )
-    return _read(config)
+    return _read(config, db)
 
 
 @router.post("/configurations/{configuration_id}/copy", response_model=ConfigurationRead, status_code=201)
@@ -116,7 +133,7 @@ def copy_configuration(
         db, tenant_id=principal.tenant_id, configuration_id=configuration_id
     )
     copy = configuration_service.copy_configuration(db, source=source, actor_id=principal.user_id)
-    return _read(copy)
+    return _read(copy, db)
 
 
 @router.patch("/configurations/{configuration_id}/options", response_model=ConfigurationRead)
@@ -134,7 +151,7 @@ def replace_options(
     config = configuration_service.replace_options(
         db, configuration=config, actor_id=principal.user_id, options=body.options
     )
-    return _read(config)
+    return _read(config, db)
 
 
 # --- C-F (KAN-10) ------------------------------------------------------------
@@ -155,7 +172,7 @@ def get_vehicle_configuration(
     config = configuration_host.find_configuration_for_vehicle(
         db, tenant_id=principal.tenant_id, vehicle_id=vehicle_id
     )
-    return _read(config)
+    return _read(config, db)
 
 
 @router.get("/configurations/{configuration_id}/resync", response_model=list[ResyncFieldRead])
@@ -189,4 +206,4 @@ def apply_resync(
     )
     check_version(config.version, if_match, entity_name="VehicleConfiguration")
     config = configuration_host.apply_resync(db, configuration=config, actor_id=principal.user_id, fields=body.fields)
-    return _read(config)
+    return _read(config, db)

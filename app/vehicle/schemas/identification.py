@@ -19,6 +19,7 @@ class VariantCandidateRead(CamelModel):
     brand_display_name: str | None
     model_group_name: str | None
     variant_name: str
+    trim_name: str | None
     model_year_from: int
     model_year_to: int | None
     ps: int | None
@@ -36,7 +37,9 @@ class PlateRecordRead(CamelModel):
     production_to: int | None
     type_approval_number: str
     first_registration_date: dt.date | None
-    stammnummer: str
+    # None when the provider withholds it from this account (KAN-547); the
+    # record is picked by its Typenschein either way.
+    stammnummer: str | None
 
 
 class ExistingVehicleRead(CamelModel):

@@ -2035,13 +2035,15 @@
         "basePriceYear": "Price year",
         "vehicleKind": "Vehicle kind",
         "priceIsNet": "Price is net",
-        "drivetrain": "Drive"
+        "drivetrain": "Drive",
+        "energyLabel": "Energy label"
       },
       "retired": "No longer available — choose a current value",
       "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving.",
       "codedRequiredSaveError": "Choose before saving: {{fields}}.",
       "codedLocked": "From the catalogue — cannot be changed.",
-      "listUnavailable": "The list could not be loaded"
+      "listUnavailable": "The list could not be loaded",
+      "energyLabelValue": "{{category}} ({{year}})"
     },
     "options": {
       "noCatalogueVariant": "Catalogue options are not available for a manual configuration.",
@@ -2170,7 +2172,9 @@
         "plate_lookup_not_entitled": "Plate lookup is not enabled on this account.",
         "plate_lookup_failed": "The provider's plate lookup failed. Please try again later.",
         "plate_cache_hit": "From an earlier lookup (not billed again).",
-        "plate_not_found": "No vehicle is registered under this plate."
+        "plate_not_found": "No vehicle is registered under this plate.",
+        "provider_not_entitled": "Vehicle identification is not enabled for this account — search the catalogue or configure manually.",
+        "provider_unavailable": "The vehicle-data provider is unavailable. Known vehicles are still found; please try again later."
       }
     },
     "bestMatch": {

@@ -2035,13 +2035,15 @@
         "basePriceYear": "Preisjahr",
         "vehicleKind": "Fahrzeugart",
         "priceIsNet": "Preis netto",
-        "drivetrain": "Antriebsart"
+        "drivetrain": "Antriebsart",
+        "energyLabel": "Energieetikette"
       },
       "retired": "Nicht mehr verfügbar — bitte einen aktuellen Wert wählen",
       "retiredSaveError": "Nicht mehr verfügbar: {{fields}}. Bitte vor dem Speichern einen aktuellen Wert wählen.",
       "codedRequiredSaveError": "Bitte vor dem Speichern wählen: {{fields}}.",
       "codedLocked": "Aus dem Katalog übernommen — nicht änderbar.",
-      "listUnavailable": "Die Liste konnte nicht geladen werden"
+      "listUnavailable": "Die Liste konnte nicht geladen werden",
+      "energyLabelValue": "{{category}} ({{year}})"
     },
     "options": {
       "noCatalogueVariant": "Katalogoptionen sind für eine manuelle Konfiguration nicht verfügbar.",
@@ -2170,7 +2172,9 @@
         "plate_lookup_not_entitled": "Die Kontrollschild-Abfrage ist in diesem Konto nicht freigeschaltet.",
         "plate_lookup_failed": "Die Kontrollschild-Abfrage beim Anbieter ist fehlgeschlagen. Bitte später erneut versuchen.",
         "plate_cache_hit": "Aus einer früheren Abfrage (nicht erneut verrechnet).",
-        "plate_not_found": "Zu diesem Kontrollschild ist kein Fahrzeug registriert."
+        "plate_not_found": "Zu diesem Kontrollschild ist kein Fahrzeug registriert.",
+        "provider_not_entitled": "Die Fahrzeugabfrage ist in diesem Konto nicht freigeschaltet — im Katalog suchen oder manuell konfigurieren.",
+        "provider_unavailable": "Der Fahrzeugdaten-Anbieter ist nicht erreichbar. Bekannte Fahrzeuge werden weiterhin gefunden; bitte später erneut versuchen."
       }
     },
     "bestMatch": {

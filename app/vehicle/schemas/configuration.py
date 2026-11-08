@@ -114,6 +114,15 @@ class ConfigurationOptionsReplace(CamelModel):
     options: list[ConfigurationOptionInput]
 
 
+class ConfigurationEnergyRatingRead(CamelModel):
+    """The Energieetikette with the year it applied to (ADR-042) — the
+    catalogue variant's rating for the car's year (KAN-479 option A)."""
+
+    category: str
+    year: int
+    source: str
+
+
 class ConfigurationRead(CamelModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
@@ -148,6 +157,8 @@ class ConfigurationRead(CamelModel):
     # Populated by the API layer from the configuration's own flat spec-block
     # columns — see `configuration.py::_read`.
     spec: VehicleSpecBlockRead
+    # KAN-547 / KAN-479: read from the variant's per-year ratings, never a block field.
+    energy_rating: ConfigurationEnergyRatingRead | None = None
     overridden_fields: list[str]
     options: list[ConfigurationOptionRead]
     notes: str | None

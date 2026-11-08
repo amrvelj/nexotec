@@ -81,9 +81,9 @@ def _connected_tenant(db, *, seed: bool = True) -> uuid.UUID:
 def _plate_calls(db, tenant_id) -> int:
     return db.scalar(
         select(func.count()).select_from(IntegrationCallLog).where(
-            # KAN-486: each request is logged under its Datenname, not the
-            # block's `kontrollschild` label.
-            IntegrationCallLog.tenant_id == tenant_id, IntegrationCallLog.capability == "KontrollschildInfo"
+            # KAN-486: each request is logged under its identAPI operation
+            # (`vehiclebuild`, KAN-547), not the block's `kontrollschild` label.
+            IntegrationCallLog.tenant_id == tenant_id, IntegrationCallLog.capability == "vehiclebuild"
         )
     )
 
@@ -435,16 +435,34 @@ def test_a_stammnummer_resolves_against_mdm_first(db_session):
     assert result.existing_vehicle is not None and result.existing_vehicle.vehicle_id == vehicle.id
 
 
-def test_a_stammnummer_resolves_through_an_earlier_plate_answer_and_never_calls(db_session):
+def test_a_stammnummer_is_a_live_vrn_lookup_that_names_the_variant_in_one_call(db_session):
+    """KAN-547 (ADR-111): the identAPI identifies by `vrn`; the Vehicle Build
+    answer carries the catalogue variant, so one call is the candidate."""
+
     tenant_id = _connected_tenant(db_session)
-    svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="BE123456")
     calls = _all_calls(db_session)
 
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="777888999")
 
     assert result.outcome == IdentificationOutcome.VARIANTS
     assert [v.variant_name for v in result.variants] == ["Golf GTI 2.0 TSI DSG"]
-    assert _all_calls(db_session) == calls
+    assert result.observed.type_approval_number == "2CD456" and result.observed.licence_plate is None
+    assert _all_calls(db_session) == calls + 1
+
+
+def test_a_stammnummer_the_provider_does_not_know_falls_back_to_an_earlier_plate_answer(db_session):
+    """The plate-lookup cache stays the fallback behind the live rung."""
+
+    tenant_id = _connected_tenant(db_session)
+    svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="GE111111")  # caches Stammnummer 123123123
+    (row,) = [r for r in db_session.scalars(select(PlateLookupCacheEntry)).all() if r.type_approval_number == "1AB234"]
+    row.stammnummer = "321321321"  # a Stammnummer the mock's registry does not answer for
+    db_session.commit()
+
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="321321321")
+
+    assert result.outcome == IdentificationOutcome.VARIANTS
+    assert IdentificationNote.PLATE_CACHE_HIT in result.notes
 
 
 def test_an_unknown_stammnummer_falls_through(db_session):
@@ -475,12 +493,12 @@ def test_a_typenschein_with_one_variant_is_decisive(db_session):
     assert result.best_match_available is False
 
 
-def test_a_werkscode_resolves_against_the_mirror(db_session):
+def test_a_werkscode_is_a_live_lookup_merged_with_the_stored_variants(db_session):
     tenant_id = _connected_tenant(db_session)
     calls = _all_calls(db_session)
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="VW20TSI")
     assert [v.variant_name for v in result.variants] == ["Golf GTI 2.0 TSI DSG"]
-    assert _all_calls(db_session) == calls
+    assert _all_calls(db_session) == calls + 1
 
 
 # --- best match -----------------------------------------------------------
@@ -622,13 +640,19 @@ def test_a_picked_candidate_reads_back_as_a_full_catalogue_variant(client, db_se
 
 
 def test_a_stammnummer_with_several_cached_records_is_a_picker_never_a_choice(db_session):
-    """Exit criterion 2 on the Stammnummer rung: GE111111's answer names one
-    Stammnummer under two Typenscheine."""
+    """Exit criterion 2 on the Stammnummer rung's cache fallback: GE111111's
+    answer names one Stammnummer under two Typenscheine. The rows are moved to
+    a Stammnummer the mock's registry does not answer for, so the live rung
+    finds nothing and the cached records answer — as a picker."""
 
     tenant_id = _connected_tenant(db_session)
     svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="GE111111")
+    for row in db_session.scalars(select(PlateLookupCacheEntry)).all():
+        row.stammnummer = "321321321"
+    db_session.commit()
 
-    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="123.123.123")
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="321.321.321")
+    assert IdentificationNote.PLATE_CACHE_HIT in result.notes
 
     assert result.outcome == IdentificationOutcome.PLATE_RECORDS
     assert result.variants == []

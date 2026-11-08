@@ -36,6 +36,8 @@ const ITEM: StockItemRead = {
 
 const CONFIGURATION = configurationRead({
   exteriorColour: 'Kings Red Metallic',
+  // KAN-547 / KAN-479: the variant's rating for the car's year, with the year.
+  energyRating: { category: 'b', year: 2021, source: 'bfe' },
   spec: {
     ps: 245,
     kw: 180,
@@ -112,6 +114,8 @@ describe('Stock detail — technical data (KAN-459, PRD-Stock FR-I-07 block 2)',
     expect(within(block).queryByText('euro_6d')).not.toBeInTheDocument()
     // Colours, as delivered.
     expect(cell(block, i18n.t('configurator.colour.exterior'))).toHaveTextContent('Kings Red Metallic')
+    // KAN-547 / KAN-479 (ADR-042): the Energieetikette with the year it applied to, upper-cased.
+    expect(cell(block, i18n.t('configurator.spec.fields.energyLabel'))).toHaveTextContent('B (2021)')
   })
 
   it('renders an absent value as italic «Nicht gesetzt», never zero or blank', async () => {

@@ -41,6 +41,14 @@ const SEARCH: Record<string, VehicleSearchResult> = {
   '': { resolved: null, pickerCandidates: [], filtered: { items: FLEET, nextCursor: null, total: 3, totalIsEstimate: false } },
   'ZH 12345': { resolved: { ...FLEET[1], currentPlate: 'ZH 12345' }, pickerCandidates: [], filtered: EMPTY_PAGE },
   'AG 55555': { resolved: null, pickerCandidates: [], filtered: EMPTY_PAGE },
+  'BE 77777': {
+    resolved: null,
+    pickerCandidates: [
+      { id: FLEET[0].id, vehicleNumber: FLEET[0].vehicleNumber, vin: FLEET[0].vin, plate: 'BE 77777', plateGroupId: 'pg-77777', isConflict: false },
+      { id: FLEET[2].id, vehicleNumber: FLEET[2].vehicleNumber, vin: FLEET[2].vin, plate: 'BE 77777', plateGroupId: 'pg-77777', isConflict: false },
+    ],
+    filtered: EMPTY_PAGE,
+  },
 }
 
 function renderAt(route: string) {
@@ -81,5 +89,15 @@ describe('VehiclesListPage — an identifier resolves above a grid that stays wh
     expect(await screen.findByText(tr('vehiclesList.emptyFilteredState.title'))).toBeInTheDocument()
     for (const v of FLEET) expect(screen.queryByText(v.vin)).not.toBeInTheDocument()
     expect(screen.queryByText(tr('vehiclesList.resolved.title'))).not.toBeInTheDocument()
+  })
+})
+
+describe('VehiclesListPage — a Wechselschild is informational, never a warning (ADR-114, KAN-547)', () => {
+  it('shows the two cars of one plate in a blue picker titled as a Wechselschild', async () => {
+    renderAt('/vehicles?q=BE%2077777')
+
+    const picker = await screen.findByTestId('plate-picker-wechselschild')
+    expect(picker).toHaveTextContent(tr('vehiclesList.picker.wechselschildTitle'))
+    expect(screen.queryByTestId('plate-picker-conflict')).not.toBeInTheDocument()
   })
 })

@@ -190,11 +190,12 @@ def test_a_werkscode_lookup_and_a_variant_read_use_the_catalogue_identifier_path
 
 
 def test_the_soap_shaped_shims_the_waterfall_still_calls_are_served_from_the_identapi(db_session, monkeypatch, caplog):
-    """Until PR 2 rewires the waterfall, `identification._lookup_plate` calls
-    `lookup_plate` and the best match `find_best_match`; both are live on the
-    identAPI now. A built vehicle without a Typenschein or a Stammnummer (the
-    spec: `vrn` "depends on user group definition") cannot be cached and is
-    left out, logged."""
+    """The `VehicleDataAdapter` contract's `lookup_plate` and `find_best_match`
+    (the best match is what the waterfall still calls) are live on the
+    identAPI. In the shim a built vehicle without a Typenschein or a
+    Stammnummer (the spec: `vrn` "depends on user group definition") cannot
+    be cached and is left out, logged — the waterfall itself (PR 2) offers
+    such a car in the picker by its Typenschein and caches nothing."""
 
     fake = FakeAutoi(
         api_bodies={
