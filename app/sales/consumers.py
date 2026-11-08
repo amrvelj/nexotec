@@ -119,5 +119,5 @@ def handle_customer_merged_message(db: Session, message: OutboxMessage) -> None:
         )
         label = None
     else:
-        label = SurvivorLabel(label=resolve_customer_label(survivor), language=survivor.language.value)
+        label = SurvivorLabel(label=resolve_customer_label(survivor))
     repoint_merged_customer_records(db, duplicate_id=duplicate_id, target_id=target_id, survivor=label)

@@ -150,13 +150,13 @@ def test_an_earlier_merge_delivered_late_lands_on_the_live_survivor(db_session):
     assert db_session.scalars(select(SalesContract).where(SalesContract.customer_id.in_([x.id, d.id]))).all() == []
 
 
-def test_the_moved_rows_take_the_survivors_label_and_language(db_session):
+def test_the_moved_rows_take_the_survivors_label(db_session):
     """KAN-580: the consumer moved `customer_id` and left `customer_label` —
     the Sales list and the detail screens kept naming the duplicate, a
     customer that no longer exists as a record (rule 2: a label follows its
     owner). The survivor is read from `customer.public`, never from the
-    payload; its correspondence language moves with the label (they share
-    one refresh stamp, as `apply_customer_change` writes them)."""
+    payload. The correspondence language is left as it was until Anto rules
+    on it (KAN-580)."""
 
     tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
     survivor = _customer(db_session, group_id, tenant_id, "Survivor")
@@ -176,7 +176,8 @@ def test_the_moved_rows_take_the_survivors_label_and_language(db_session):
     moved = [db_session.get(type(row), row.id) for row in (offer, contracted_offer, contract, *deals)]
     assert [row.customer_label for row in moved] == ["Survivor Keller"] * 5
     assert all(row.customer_denorm_refreshed_at is not None for row in moved)
-    assert [row.customer_language for row in moved[:3]] == ["fr"] * 3
+    # Unruled (KAN-580): a regenerated document keeps printing in the language it had.
+    assert [row.customer_language for row in moved[:3]] == ["de"] * 3
 
 
 def test_a_survivor_renamed_after_the_merge_event_is_read_as_it_stands_now(db_session):

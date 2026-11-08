@@ -29,7 +29,7 @@ from app.sales.services.offer import create_offer, update_offer
 from app.sales.services.priced_deal import has_trade_in
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.schemas.valuation import ValuationCreate
-from app.valuation.services.valuation import create_valuation
+from app.valuation.services.valuation import create_valuation, list_valid_valuations_for_vin
 from tests.stock_support import create_in_stock_item
 from tests.test_sales_lifecycle_reservation import _customer, _dealership
 from tests.test_sales_trade_in_valuation_use import _confirm
@@ -353,16 +353,21 @@ def test_auto_attach_falls_back_to_the_vin_when_the_record_has_only_valuations_w
 
 def test_auto_attach_still_prefers_the_records_own_valuation_with_a_vin(db_session):
     """KAN-584 keeps FR-S-08's order: a valuation linked to the record and
-    carrying a VIN wins over a VIN-only one, even an older one."""
+    carrying a VIN wins over a NEWER VIN-only one (made beside a configuration
+    without a VIN, KAN-449 A, so it links no record). The VIN lookup, newest
+    first, would pick the VIN-only one: only record-first picks the linked."""
 
     from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    _valuation(db_session, dealership.id, group_id)  # VIN only, no record
     record = vehicle_mdm_service.create_vehicle_mdm(db_session, vin=VIN, catalogue_variant_id=None)
     linked = _valuation(db_session, dealership.id, group_id)
     assert linked.vehicle_id == record.id
+    vin_only = _valuation(db_session, dealership.id, group_id)
+    vin_only.vehicle_id = None
+    db_session.commit()
+    assert list_valid_valuations_for_vin(db_session, tenant_id=dealership.id, vin=VIN)[0].id == vin_only.id
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     offer = set_trade_in(

@@ -14,13 +14,14 @@ rule 12). No nightly check yet finds a Sales row still naming a merged
 customer (KAN-581).
 
 The moved offers, contracts and deal rows take the survivor's label (rule
-2's denormalised `customer_label`, with the correspondence language that
-shares its refresh stamp) in the same flush (KAN-580): before, they kept the
+2's denormalised `customer_label`) in the same flush (KAN-580): before, they kept the
 duplicate's name, so the Sales list named a customer that no longer exists
 as a record. The consumer reads the survivor through `customer.public`,
 never from the event's payload (delivery is unordered; the payload's
 survivor may be merged itself by now). `customer_locality` is left as it
-stands: no Sales path writes it yet (`offer.apply_customer_change`).
+stands: no Sales path writes it yet (`offer.apply_customer_change`; KAN-590).
+`customer_language` (which language a regenerated document prints in) is
+left as it stands too, until Anto rules whether it follows a merge (KAN-580).
 
 Before KAN-185 the legacy rows moved inside the merge's own transaction (the
 tracked ADR-047 debt) and offers/contracts/deals in an own-commit call after
@@ -46,7 +47,6 @@ class SurvivorLabel:
     from `customer.public`, never from the event."""
 
     label: str
-    language: str
 
 
 @dataclass(frozen=True)
@@ -77,8 +77,6 @@ def repoint_merged_customer_records(
             return
         row.customer_label = survivor.label
         row.customer_denorm_refreshed_at = refreshed_at
-        if isinstance(row, (SalesOffer, SalesContract)):
-            row.customer_language = survivor.language
 
     transactions = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id)).all())
     for txn in transactions:
