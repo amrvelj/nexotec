@@ -5102,6 +5102,19 @@ export interface components {
             wheelsSurcharge?: number | string | null;
         };
         /**
+         * ConfigurationEnergyRatingRead
+         * @description The Energieetikette with the year it applied to (ADR-042) — the
+         *     catalogue variant's rating for the car's year (KAN-479 option A).
+         */
+        ConfigurationEnergyRatingRead: {
+            /** Category */
+            category: string;
+            /** Source */
+            source: string;
+            /** Year */
+            year: number;
+        };
+        /**
          * ConfigurationMatchMethod
          * @description How the car was identified — **kept permanently**, because a later
          *     dispute turns on it. The overlay sends the method of the waterfall rung
@@ -5214,6 +5227,7 @@ export interface components {
             createdAt: string;
             /** Drivetrain */
             drivetrain: string | null;
+            energyRating?: components["schemas"]["ConfigurationEnergyRatingRead"] | null;
             /** Exteriorcolour */
             exteriorColour: string | null;
             /** Exteriorcoloursurcharge */
@@ -7417,7 +7431,7 @@ export interface components {
          *     dealer without the DAT sub-account sees what they saw before it existed.
          * @enum {string}
          */
-        IdentificationNote: "vin_decode_not_entitled" | "vin_decode_unavailable" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found";
+        IdentificationNote: "vin_decode_not_entitled" | "vin_decode_unavailable" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found" | "provider_not_entitled" | "provider_unavailable";
         /**
          * IdentificationOutcome
          * @description What the overlay renders next. `variants` with exactly one entry is
@@ -8918,7 +8932,7 @@ export interface components {
             /** Productionto */
             productionTo: number | null;
             /** Stammnummer */
-            stammnummer: string;
+            stammnummer: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber: string;
             /** Vehiclekindcode */
@@ -10885,6 +10899,8 @@ export interface components {
             newPriceForYear: string | null;
             /** Ps */
             ps: number | null;
+            /** Trimname */
+            trimName: string | null;
             /** Variantname */
             variantName: string;
         };

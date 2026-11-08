@@ -79,8 +79,9 @@ def cached_records_for_plate(
 def cached_records_for_stammnummer(
     db: Session, *, tenant_id: uuid.UUID, stammnummer: str, now: dt.datetime | None = None
 ) -> list[PlateInfoData]:
-    """FR-C-02 step 3: auto-i-dat accepts no Stammnummer search, so a
-    Stammnummer resolves only through an earlier plate lookup's answer."""
+    """FR-C-02 step 3's fallback (KAN-547): the live `vrn` lookup is asked
+    first; a Stammnummer the provider does not answer for still resolves
+    through an earlier plate lookup's cached answer."""
 
     rows = db.scalars(
         select(PlateLookupCacheEntry)

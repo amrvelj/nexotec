@@ -329,3 +329,23 @@ describe('IdentificationPanel — a malformed VIN is named, not dropped silently
     }
   })
 })
+
+describe('IdentificationPanel — the live rungs (KAN-547)', () => {
+  it('renders the provider\'s «not reachable» as a hint and still offers the stored variant, with its trim', async () => {
+    const user = userEvent.setup()
+    setup([
+      {
+        method: 'GET',
+        match: /^\/vehicle-identification$/,
+        handler: () => identification({ ...ONE_VARIANT, notes: ['provider_unavailable'] }),
+      },
+    ])
+
+    await identify(user, '2CD456')
+
+    expect(await screen.findByText(i18n.t('configurator.identify.notes.provider_unavailable'))).toBeInTheDocument()
+    expect(screen.queryByRole('alert', { name: i18n.t('configurator.identify.error') })).not.toBeInTheDocument()
+    // name · trim · power · list price (FR-C-02 step 4)
+    expect(screen.getByText(/GTI · 245 PS/)).toBeInTheDocument()
+  })
+})

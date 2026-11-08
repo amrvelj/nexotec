@@ -2035,13 +2035,15 @@
         "basePriceYear": "Année du prix",
         "vehicleKind": "Genre de véhicule",
         "priceIsNet": "Prix net",
-        "drivetrain": "Transmission"
+        "drivetrain": "Transmission",
+        "energyLabel": "Étiquette-énergie"
       },
       "retired": "N'est plus disponible — choisissez une valeur actuelle",
       "retiredSaveError": "N'est plus disponible : {{fields}}. Choisissez une valeur actuelle avant d'enregistrer.",
       "codedRequiredSaveError": "À choisir avant d'enregistrer : {{fields}}.",
       "codedLocked": "Repris du catalogue — non modifiable.",
-      "listUnavailable": "La liste n'a pas pu être chargée"
+      "listUnavailable": "La liste n'a pas pu être chargée",
+      "energyLabelValue": "{{category}} ({{year}})"
     },
     "options": {
       "noCatalogueVariant": "Les options catalogue ne sont pas disponibles pour une configuration manuelle.",
@@ -2170,7 +2172,9 @@
         "plate_lookup_not_entitled": "La recherche par plaque n'est pas activée pour ce compte.",
         "plate_lookup_failed": "La recherche par plaque chez le fournisseur a échoué. Réessayez plus tard.",
         "plate_cache_hit": "Issu d'une recherche antérieure (non refacturé).",
-        "plate_not_found": "Aucun véhicule n'est enregistré pour cette plaque."
+        "plate_not_found": "Aucun véhicule n'est enregistré pour cette plaque.",
+        "provider_not_entitled": "L'identification de véhicules n'est pas activée pour ce compte — chercher dans le catalogue ou configurer manuellement.",
+        "provider_unavailable": "Le fournisseur de données véhicule est indisponible. Les véhicules connus restent trouvés ; réessayer plus tard."
       }
     },
     "bestMatch": {

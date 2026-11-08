@@ -32,8 +32,10 @@ call ever being attempted.
 
 `PlateInfoData` / `BestMatchResult` and `vin_decode_granted` (KAN-42,
 C-D) are what the identification waterfall in
-`app.vehicle.services.identification` needs: the `KontrollschildInfo` and
-`FahrzeugeMatch` return shapes, and a read-only `vin_decode` check. The
+`app.vehicle.services.identification` needs: the plate-record shape the
+plate-lookup cache stores (once `KontrollschildInfo`, now what a Vehicle
+Build record reduces to) and the `vehiclematch` return shape, and a
+read-only `vin_decode` check. The
 cached entitlement row is written only by integration's own "Test
 connection" (`compute_vin_decode_entitlement`, KAN-80) — ADR-047 keeps
 that write out of another context's transaction.

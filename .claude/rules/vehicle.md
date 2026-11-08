@@ -339,13 +339,40 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `api/configuration.py` and `api/identification.py` sits behind
   `require_entitlement(ModuleCode.SALES)` at router level — 404 for a Betrieb without Sales,
   before any role check (`tests/architecture/test_sales_routers_carry_entitlement_gate.py`).
-- **Identification (FR-C-02, KAN-42)** is `services/identification.py`, one input
-  (`GET /v1/vehicle-identification`): VIN → vehicle-mdm, then the entitled provider decode
-  (not called: no specification, KAN-81 — calling the stub would trip the connection's
-  circuit breaker); plate → `KontrollschildInfo` behind the per-tenant plate-lookup cache
-  (30-day TTL, daily purge, never enumerable); Stammnummer → vehicle-mdm, then that cache;
-  Typenschein and Werkscode → the mirror. Several hits are a picker, never a choice; a
-  `FahrzeugeMatch` best match is a proposal, confirmed through `confirmedBestMatchCode`.
+- **Identification (FR-C-02, KAN-42; live on the identAPI since KAN-547)** is
+  `services/identification.py`, one input (`GET /v1/vehicle-identification`): VIN → vehicle-mdm,
+  then nothing (the `vin` option is not in the test licence, §8 / ADR-113; the rung is KAN-549);
+  Kontrollschild → the provider first (ADR-114, never vehicle-mdm's plate register) behind the
+  per-tenant plate-lookup cache (30-day TTL, daily purge, never enumerable): `identify_by_plate`'s
+  Vehicle Build answer carries the registered car **and** its catalogue variant, so one registered
+  car is one candidate without a second call (its observed identity carries the registered car's VIN,
+  Stammnummer, Typenschein and first registration — the configuration taken from it stores them),
+  several are the picker — every car the answer names a Typenschein for, whether or not the account
+  sees its Stammnummer (`vrn` "depends on user group definition"; `PlateRecordRead.stammnummer` is
+  nullable), never one chosen for the advisor (a Wechselschild informational, one Stammnummer under two
+  Typenscheine a conflict and a `vehicle.plate_lookup.conflicted` event). The cache is filled by a
+  plate lookup only, whole or not at all (an answer with a record it cannot store is not cached: a
+  part would later read as the whole truth about the plate); a `vrn` answer never fills it. A cache
+  hit answers from the stored variants and asks the provider only when none are stored, so a repeated
+  plate within 30 days makes no call — the cache keeps the Typenschein, not the FzKey the live answer
+  named, so where several stored variants share the Typenschein the cache hit is a picker with the
+  best match offered where the live answer was one candidate (remembering the FzKey is a migration,
+  Anto's call; KAN-592); Stammnummer → vehicle-mdm, then `identify_by_vrn`
+  (live), then the cache as the fallback; Typenschein → `find_variants_by_type_approval` (one page)
+  merged with the stored variants of the number; Werkscode → `find_variants_by_werkscode` merged the
+  same way. Every variant a rung returns is stored through `upsert_model_variant` (master data,
+  ADR-075; each upsert in a savepoint, a concurrent first lookup re-reads the winner's row) — the
+  stored rows are a cache of what was seen, never the source. The provider's refusal of
+  the `ident_basis` option is the note `provider_not_entitled`, a failure or timeout `provider_unavailable`
+  (the plate rung keeps KAN-42's `plate_lookup_not_entitled` / `plate_lookup_failed`), rendered as hints in
+  the configurator (`configurator.identify.notes.*`), never errors; the rung then falls through to what
+  we hold. Several hits are a picker, never a choice (name, trim, production years, power, list price);
+  the best match (`find_best_match`, Vehicle Match by Typenschein + Neupreis) is a proposal, confirmed
+  through `confirmedBestMatchCode`. The Vehicles list's FR-V-06 picker shows a Wechselschild in the same
+  informational blue (ADR-114, KAN-191 q2). A configuration's read carries `energyRating` — the variant's
+  rating for the first-registration year, else the model year, else the newest held (KAN-479 option A,
+  `energy_rating_for_configuration`), shown with its year in the shared summary card's «Verbrauch &
+  Energie» group and so on the stock DetailsTab.
 - **The five coded fields** (`vehicleKind`, `fuelType`, `bodyStyle`, `drivetrain`,
   `transmission`) are never empty by an advisor's hand (Anto, 2026-10-12, KAN-247/246): on a
   provider configuration they are locked — read-only on screen, a PATCH that changes one is 422
@@ -370,13 +397,13 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 - **Single lookups only, for every provider** (§2, §9; KAN-485, ADR-023 as amended 2026-10-29):
   no full seed, no daily delta, no `FzKeyChanged`, no daily job reaching a provider — the demo
   provider (`auto_i_dat_mock`) follows the same rule. A variant enters the catalogue only through
-  identification's best match (master data only; a plate lookup fills the plate-lookup cache, not
-  the catalogue) or `catalogue_sync.sync_catalogue_variant` (one variant with its options,
+  identification (every rung stores the variants it returns, master data only — KAN-547; a plate
+  lookup also fills the plate-lookup cache) or `catalogue_sync.sync_catalogue_variant` (one variant with its options,
   colours, tyres and images; nothing calls it yet — loading a variant's details on open is
-  KAN-211). **Consequence until KAN-211:** on a database the old seed never ran on, catalogue
-  browse and the configurator's variant picker are empty, the Typenschein and Werkscode rungs of
-  identification find nothing, and a best-matched variant has no options, colours, tyres or
-  images. `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule. The
+  KAN-211). **Consequence until KAN-211 / KAN-548:** on a database the old seed never ran on,
+  catalogue browse is empty until a lookup stored a variant (live browse is KAN-548), and a variant
+  has no options, colours, tyres or images; since KAN-547 every identification rung stores what it
+  finds. `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule. The
   bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and the platform's
   catalogue-sync status board that read it are gone (KAN-497; Anto, 2026-10-31, option A —
   vehicle-chain migration `e4b7c2a91d36` drops the table).
@@ -462,9 +489,9 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   shows whether it happens.
 - **Keep the provider's full image URL** (`ImageRef.image_url`); the provider returns a
   directly fetchable URL per image — no proxy, no base-URL reconstruction.
-- Stammnummer resolves today only against our own data (vehicle-mdm, then the plate-lookup
-  cache). «auto-i-dat accepts no Stammnummer search» was a SOAP-era reading and is withdrawn
-  (ADR-111): the identAPI identifies by `vrn` (= Stammnummer); the live rung is KAN-547. The
+- Stammnummer resolves against vehicle-mdm, then the identAPI by `vrn` (= Stammnummer), then the
+  plate-lookup cache. «auto-i-dat accepts no Stammnummer search» was a SOAP-era reading, withdrawn
+  (ADR-111) and built live by KAN-547. The
   catalogue sync links each variant to its Typenscheine
   (`vehicle_model_variant_type_approval`, model `VariantTypeApproval`, KAN-42).
 

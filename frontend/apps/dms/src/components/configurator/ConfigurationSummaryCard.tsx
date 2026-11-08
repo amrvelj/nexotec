@@ -98,14 +98,32 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
     ? [
         ...TECHNICAL_SPEC_GROUPS.map((group) => ({
           title: t(group.titleKey),
-          items: group.fields.map((f) => {
-            const value = s[f.key]
-            const absent = value == null || value === ''
-            return {
-              label: withoutUnitSuffix(t(specFieldLabelKey(f.key as string)), f.unit),
-              value: absent ? notSet : f.kind === 'ref' ? specLabels.label(f.listCode!, String(value)) : formatSpecValue(f, value),
-            }
-          }),
+          items: [
+            ...group.fields.map((f) => {
+              const value = s[f.key]
+              const absent = value == null || value === ''
+              return {
+                label: withoutUnitSuffix(t(specFieldLabelKey(f.key as string)), f.unit),
+                value: absent ? notSet : f.kind === 'ref' ? specLabels.label(f.listCode!, String(value)) : formatSpecValue(f, value),
+              }
+            }),
+            // KAN-547 / KAN-479 (Anto, option A): the Energieetikette with the
+            // year it applied to (ADR-042), read from the variant's per-year
+            // ratings — not a block field, so it sits here, not in the registry.
+            ...(group.titleKey === 'configurator.spec.groups.consumption'
+              ? [
+                  {
+                    label: t('configurator.spec.fields.energyLabel'),
+                    value: c.energyRating
+                      ? t('configurator.spec.energyLabelValue', {
+                          category: c.energyRating.category.toUpperCase(),
+                          year: c.energyRating.year,
+                        })
+                      : notSet,
+                  },
+                ]
+              : []),
+          ],
         })),
         {
           title: t('configurator.spec.groups.colours'),

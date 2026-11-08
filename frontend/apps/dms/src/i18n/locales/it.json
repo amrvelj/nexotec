@@ -2035,13 +2035,15 @@
         "basePriceYear": "Anno del prezzo",
         "vehicleKind": "Genere di veicolo",
         "priceIsNet": "Prezzo netto",
-        "drivetrain": "Trazione"
+        "drivetrain": "Trazione",
+        "energyLabel": "Etichetta energetica"
       },
       "retired": "Non più disponibile — scegli un valore attuale",
       "retiredSaveError": "Non più disponibile: {{fields}}. Scegli un valore attuale prima di salvare.",
       "codedRequiredSaveError": "Da scegliere prima di salvare: {{fields}}.",
       "codedLocked": "Ripreso dal catalogo — non modificabile.",
-      "listUnavailable": "Impossibile caricare l'elenco"
+      "listUnavailable": "Impossibile caricare l'elenco",
+      "energyLabelValue": "{{category}} ({{year}})"
     },
     "options": {
       "noCatalogueVariant": "Le opzioni di catalogo non sono disponibili per una configurazione manuale.",
@@ -2170,7 +2172,9 @@
         "plate_lookup_not_entitled": "La ricerca per targa non è abilitata per questo account.",
         "plate_lookup_failed": "La ricerca per targa presso il fornitore non è riuscita. Riprovare più tardi.",
         "plate_cache_hit": "Da una ricerca precedente (non fatturata di nuovo).",
-        "plate_not_found": "Nessun veicolo è registrato per questa targa."
+        "plate_not_found": "Nessun veicolo è registrato per questa targa.",
+        "provider_not_entitled": "L'identificazione dei veicoli non è attivata per questo conto — cercare nel catalogo o configurare manualmente.",
+        "provider_unavailable": "Il fornitore di dati veicolo non è raggiungibile. I veicoli noti vengono comunque trovati; riprovare più tardi."
       }
     },
     "bestMatch": {

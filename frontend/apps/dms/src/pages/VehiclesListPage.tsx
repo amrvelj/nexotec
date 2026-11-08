@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Badge, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { AlertTriangle, Car, Copy, ExternalLink } from 'lucide-react'
+import { AlertTriangle, Car, Copy, ExternalLink, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, Picker, SelectionBar, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
@@ -210,7 +210,15 @@ export function VehiclesListPage() {
       )}
 
       {result && result.pickerCandidates.length > 0 && (
-        <Alert icon={<AlertTriangle size={16} />} color="yellow" title={pickerTitle(t, result)}>
+        // ADR-114 (KAN-191 q2, KAN-547): a Wechselschild is legitimate and
+        // informational — blue, as in the configurator's picker; only a
+        // genuine conflict is a warning.
+        <Alert
+          icon={isWechselschild(result) ? <Info size={16} /> : <AlertTriangle size={16} />}
+          color={isWechselschild(result) ? 'blue' : 'yellow'}
+          data-testid={isWechselschild(result) ? 'plate-picker-wechselschild' : 'plate-picker-conflict'}
+          title={pickerTitle(t, result)}
+        >
           <Picker
             rows={result.pickerCandidates.map((c) => ({
               id: c.id,
@@ -318,7 +326,10 @@ function NotSet() {
   return <span style={{ fontStyle: 'italic', color: 'var(--mantine-color-gray-5)' }}>{t('common.notSet')}</span>
 }
 
+function isWechselschild(result: VehicleSearchResult): boolean {
+  return result.pickerCandidates.every((c) => !c.isConflict)
+}
+
 function pickerTitle(t: (key: string) => string, result: VehicleSearchResult): string {
-  const isWechselschild = result.pickerCandidates.every((c) => !c.isConflict)
-  return isWechselschild ? t('vehiclesList.picker.wechselschildTitle') : t('vehiclesList.picker.conflictTitle')
+  return isWechselschild(result) ? t('vehiclesList.picker.wechselschildTitle') : t('vehiclesList.picker.conflictTitle')
 }
