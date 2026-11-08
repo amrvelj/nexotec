@@ -46,6 +46,9 @@ def upgrade() -> None:
         sa.Column("fetched_at", UTCDateTime(), nullable=False),
         sa.Column("created_at", UTCDateTime(), nullable=False),
         sa.Column("updated_at", UTCDateTime(), nullable=False),
+        # TimestampMixin's actor columns: always NULL here — Test connection writes, never a user.
+        sa.Column("created_by", GUID(), nullable=True),
+        sa.Column("updated_by", GUID(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "provider", "caption_group", "kind", "code", name="uq_integration_provider_caption_natural_key"

@@ -13,7 +13,8 @@ import dataclasses
 import datetime as dt
 from collections.abc import Iterable, Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -22,6 +23,10 @@ from app.integration.models.caption import IntegrationProviderCaption
 
 CAPTION_LANGUAGES: tuple[str, ...] = ("de", "fr", "it", "en")
 _LABEL_COLUMN = {lang: f"label_{lang}" for lang in CAPTION_LANGUAGES}
+# The columns' widths; the identAPI sets no length on a caption, so a longer
+# one is cut rather than refused (a label, not a key).
+_LABEL_WIDTH = 200
+_SHORT_WIDTH = 80
 
 
 @dataclasses.dataclass(frozen=True)
@@ -45,18 +50,14 @@ def store_captions(
     db: Session, *, provider_code: str, lang: str, captions: Iterable[CaptionData], now: dt.datetime | None = None
 ) -> int:
     """Upserts one language. Returns how many rows were written or touched.
-    Flushes; the caller owns the transaction."""
+    Flushes; the caller owns the transaction. Two Betriebe may test their
+    connections at once on this shared table: a row another transaction
+    inserted meanwhile is taken over in a savepoint, never a 500."""
 
     if lang not in _LABEL_COLUMN:
         raise ValueError(f"Unsupported caption language {lang!r}; one of {CAPTION_LANGUAGES}.")
     column = _LABEL_COLUMN[lang]
     fetched_at = now or utcnow()
-    existing = {
-        (row.caption_group, row.kind, row.code): row
-        for row in db.scalars(
-            select(IntegrationProviderCaption).where(IntegrationProviderCaption.provider == provider_code)
-        )
-    }
     written = 0
     seen: set[tuple[str, str, str]] = set()
     for caption in captions:
@@ -64,21 +65,41 @@ def store_captions(
         if key in seen:
             continue
         seen.add(key)
-        row = existing.get(key)
+        row = _find(db, provider_code, caption)
         if row is None:
             row = IntegrationProviderCaption(
                 provider=provider_code, caption_group=caption.group, kind=caption.kind, code=caption.code,
                 fetched_at=fetched_at,
             )
-            db.add(row)
-            existing[key] = row
-        setattr(row, column, caption.label)
+            try:
+                with db.begin_nested():
+                    db.add(row)
+                    db.flush()
+            except IntegrityError:
+                # The concurrent winner's row: take it over.
+                db.expire_all()
+                row = _find(db, provider_code, caption)
+                if row is None:  # pragma: no cover - the constraint that just fired names this row
+                    raise
+        label = (caption.label or "")[:_LABEL_WIDTH] or None
+        setattr(row, column, label)
         if lang == "de":
-            row.label_short_de = caption.label_short
+            row.label_short_de = (caption.label_short or "")[:_SHORT_WIDTH] or None
         row.fetched_at = fetched_at
         written += 1
     db.flush()
     return written
+
+
+def _find(db: Session, provider_code: str, caption: CaptionData) -> IntegrationProviderCaption | None:
+    return db.scalar(
+        select(IntegrationProviderCaption).where(
+            IntegrationProviderCaption.provider == provider_code,
+            IntegrationProviderCaption.caption_group == caption.group,
+            IntegrationProviderCaption.kind == caption.kind,
+            IntegrationProviderCaption.code == caption.code,
+        )
+    )
 
 
 def _to_data(row: IntegrationProviderCaption) -> ProviderCaption:
@@ -106,18 +127,3 @@ def get_captions(
         IntegrationProviderCaption.kind, IntegrationProviderCaption.code, IntegrationProviderCaption.id
     )
     return [_to_data(row) for row in db.scalars(stmt)]
-
-
-def caption_languages_fetched(db: Session, *, provider_code: str) -> dict[str, dt.datetime | None]:
-    """Per language, when it was last fetched (None: never) — what a staff
-    screen shows to judge whether a vocabulary is stale."""
-
-    result: dict[str, dt.datetime | None] = {}
-    for lang, column in _LABEL_COLUMN.items():
-        result[lang] = db.scalar(
-            select(func.max(IntegrationProviderCaption.fetched_at)).where(
-                IntegrationProviderCaption.provider == provider_code,
-                getattr(IntegrationProviderCaption, column).is_not(None),
-            )
-        )
-    return result

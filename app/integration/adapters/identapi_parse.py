@@ -119,6 +119,8 @@ def _yyyymm(value: Any) -> int | None:
         return int(text)
     if re.fullmatch(r"\d{4}", text):
         return int(text) * 100 + 1
+    if re.fullmatch(r"\d{4}-\d{2}", text):  # the public spec's own `productionStart` example, `2020-08`
+        return int(text[:4]) * 100 + int(text[5:7])
     day = _date(text)
     return day.year * 100 + day.month if day is not None else None
 
@@ -192,7 +194,10 @@ def parse_variant(item: Mapping[str, Any]) -> VariantMasterData | None:
     production_from = _yyyymm(item.get("productionStart"))
     production_to = _yyyymm(item.get("productionEnd"))
     prices = _prices(item.get("catalogPrices"))
-    kind = _code(item.get("type")) or (fz_key[:2] if len(fz_key) >= 2 else "")
+    # The vehicle kind is the `type` field and nothing else: an FzKey's digits
+    # are not read for it (adapters decode nothing). A row without `type`
+    # carries no kind and its codes resolve under none (`""`).
+    kind = _code(item.get("type")) or ""
     return VariantMasterData(
         fz_key=fz_key,
         brand_code=_text(item.get("brandNr")) or "",
@@ -268,7 +273,7 @@ def parse_built_vehicle(item: Mapping[str, Any]) -> BuiltVehicleData:
         first_registration_date=_date(item.get("firstAdmissionDate")),
         type_approval_number=(_text(item.get("typeApprovalNr")) or "").upper() or None,
         model_year=_int(item.get("modelyear")),
-        vehicle_kind_code=_code(item.get("type")) or (fz_key[:2] if fz_key and len(fz_key) >= 2 else ""),
+        vehicle_kind_code=_code(item.get("type")) or "",
         brand_name=_text(item.get("brand")) or "",
         model_description=_text(item.get("description")) or _text(item.get("model")) or "",
         production_from=_year(production_from),

@@ -65,7 +65,6 @@ def test_test_connection_stores_the_captions_in_all_four_languages(db_session, m
         next(q for q in r.query if q[0] == "lang") for r in s.fake.api_requests_to("/caption/code")
     ]
     assert len(db_session.query(IntegrationCallLog).filter_by(connection_id=s.connection.id, capability=OP_CAPTION_CODE).all()) == 4
-    assert all(f is not None for f in public.caption_languages_fetched(db_session, provider_code="auto_i_dat").values())
 
 
 def test_a_second_test_refreshes_the_labels_and_duplicates_no_row(db_session, monkeypatch):
@@ -110,5 +109,12 @@ def test_a_failure_on_the_extra_languages_keeps_the_connection_connected_and_the
     assert updated.status == ConnectionStatus.CONNECTED
     rows = _captions(db_session)
     assert rows[("fuel", "passenger", "3")].label_de == "Diesel" and rows[("fuel", "passenger", "3")].label_fr is None
+    assert len(rows) == 5, "the German vocabulary is committed before the other languages are asked for"
+    # a label longer than the column is cut, not refused
+    from app.integration.adapters.base import CaptionData
+    from app.integration.services import captions as captions_service
+    captions_service.store_captions(db_session, provider_code="auto_i_dat", lang="de", captions=[CaptionData(group="body", kind="passenger", code="9", label="x" * 300, label_short=None)])
+    db_session.commit()
+    assert len(_captions(db_session)[("body", "passenger", "9")].label_de) == 200
     statuses = [r.status for r in db_session.query(IntegrationCallLog).filter_by(connection_id=s.connection.id, capability=OP_CAPTION_CODE).order_by(IntegrationCallLog.created_at, IntegrationCallLog.id).all()]
     assert statuses[0] == CallStatus.SUCCESS and CallStatus.ERROR in statuses[1:]

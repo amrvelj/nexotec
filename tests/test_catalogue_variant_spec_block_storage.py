@@ -16,7 +16,7 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from app.integration.adapters import identapi_parse as parse
-from app.vehicle.models.catalogue import ModelGroup, ModelVariant, VariantPrice
+from app.vehicle.models.catalogue import ModelVariant, VariantPrice
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.provider import MappingGap, ProviderEntityRef, VariantProviderCode
 from app.vehicle.models.spec_block import SPEC_BLOCK_FIELDS
@@ -24,6 +24,7 @@ from app.vehicle.services import catalogue_sync
 from app.vehicle.services.plate import swiss_today
 from tests import identapi_fixtures as fix
 from tests.test_provider_code_map_seed import _seed_migration
+from tests.test_vehicle_catalogue_sync import _seed_reference_list
 
 PROVIDER = "auto_i_dat"
 
@@ -44,6 +45,7 @@ _UNSUPPLIED = {
 
 def _seed_code_map(db_session) -> None:
     _seed_migration()._seed(db_session.connection())
+    _seed_reference_list(db_session, "energy_efficiency_category", ("a", "b", "c", "d", "e", "f", "g"))
     db_session.commit()
 
 
@@ -118,9 +120,7 @@ def test_list_prices_type_approvals_refs_and_the_energy_label_are_stored(db_sess
     ]
     assert sorted(catalogue_sync_type_approvals(variant)) == [fix.DEMO_TYPE_APPROVAL, "1ZZ912"]
     refs = {(r.entity_type, r.provider_key) for r in db_session.scalars(select(ProviderEntityRef).where(ProviderEntityRef.provider == PROVIDER))}
-    assert refs == {("model_variant", fix.DEMO_FZ_KEY), ("model_group", fix.DEMO_MODEL_GROUP_KEY)}
-    group = catalogue_sync.find_model_group_by_provider_key(db_session, provider_code=PROVIDER, model_group_key=fix.DEMO_MODEL_GROUP_KEY)
-    assert isinstance(group, ModelGroup) and group.id == variant.model_group_id
+    assert refs == {("model_variant", fix.DEMO_FZ_KEY)}, "the provider's model-group key is not stored (one row per model name here)"
     (rating,) = db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == variant.id)).all()
     assert (rating.rating_year, rating.energy_efficiency_category, rating.source) == (swiss_today().year, "b", "auto_i_dat")
 
@@ -157,3 +157,32 @@ def test_an_energy_rating_already_held_for_the_year_is_left_alone(db_session):
 
     ratings = db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == variant.id)).all()
     assert [(r.energy_efficiency_category, r.source) for r in ratings] == [("a", "bfe")], "the official BFE row wins"
+
+
+def test_a_label_the_reference_list_does_not_carry_and_a_row_without_a_kind_write_nothing_wrong(db_session):
+    _seed_code_map(db_session)
+
+    variant = _upsert(db_session, fix.catalog_variant(energylabel="H", type=None, fzkey="01911777"))
+
+    assert db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == variant.id)).all() == []
+    # no `type`: the kind is unknown — the FzKey's digits are never read for it — so the coded fields
+    # stay NULL and no gap is filed under an invented kind
+    assert variant.vehicle_kind is None and variant.fuel_type is None and variant.drivetrain is None and variant.engine_cycle is None
+    gaps = {(g.vehicle_kind, g.code_group) for g in db_session.scalars(select(MappingGap).where(MappingGap.provider == PROVIDER))}
+    assert not {g for g in gaps if g[0] == ""}, gaps
+
+
+def test_the_bfe_import_takes_over_a_row_the_provider_label_filled(db_session):
+    from app.vehicle.services.energy_rating import upsert_energy_rating
+
+    _seed_code_map(db_session)
+    variant = _upsert(db_session, fix.catalog_variant())
+
+    upsert_energy_rating(
+        db_session, model_variant_id=variant.id, rating_year=swiss_today().year, energy_efficiency_category="a",
+        emission_standard=None, consumption_norm=None,
+    )
+    db_session.commit()
+
+    (rating,) = db_session.scalars(select(ModelVariantEnergyRating).where(ModelVariantEnergyRating.model_variant_id == variant.id)).all()
+    assert (rating.energy_efficiency_category, rating.source) == ("a", "bfe")

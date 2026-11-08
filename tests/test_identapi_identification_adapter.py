@@ -90,6 +90,13 @@ def test_a_catalogue_row_reads_as_the_full_spec_block_with_zero_as_unknown():
     assert (variant.werkscode, variant.importcode, variant.model_group_key) == (fix.DEMO_WERKSCODE, "IMP911", fix.DEMO_MODEL_GROUP_KEY)
 
 
+def test_the_spec_examples_production_month_reads_and_an_fzkey_is_never_read_for_the_kind():
+    variant = parse.parse_variant(fix.catalog_variant(productionStart="2020-08", productionEnd="000000", type=None))
+    assert variant is not None
+    assert (variant.production_from, variant.production_to, variant.model_year_from) == (202008, None, 2020)
+    assert variant.vehicle_kind_code == "", "the kind is the `type` field; the key's digits are not decoded"
+
+
 def test_a_row_without_an_fzkey_is_no_variant_and_a_built_vehicle_keeps_its_registration():
     assert parse.parse_variant(fix.catalog_variant(fzkey=None)) is None
     built = parse.parse_built_vehicle(fix.built_vehicle(fzkey=None, productionEnd="2024-06-30T00:00:00"))
@@ -174,6 +181,41 @@ def test_a_werkscode_lookup_and_a_variant_read_use_the_catalogue_identifier_path
     assert [v.fz_key for v in by_code] == [fix.DEMO_FZ_KEY]
     assert one is not None and one.fz_key == fix.DEMO_FZ_KEY
     assert none is None
+
+    # another key in the answer is never taken for the one asked
+    fake.api_bodies["/vehiclecatalog/autoi/01999999"] = fix.body([fix.catalog_variant()])
+    assert _call(db_session, s, "vehicle_data", lambda a: a.fetch_variant("01999999")) is None
+    with pytest.raises(KeyError):
+        _call(db_session, s, "vehicle_data", lambda a: a.fetch_vehicle_master_data("01999999"))
+
+
+def test_the_soap_shaped_shims_the_waterfall_still_calls_are_served_from_the_identapi(db_session, monkeypatch, caplog):
+    """Until PR 2 rewires the waterfall, `identification._lookup_plate` calls
+    `lookup_plate` and the best match `find_best_match`; both are live on the
+    identAPI now. A built vehicle without a Typenschein or a Stammnummer (the
+    spec: `vrn` "depends on user group definition") cannot be cached and is
+    left out, logged."""
+
+    fake = FakeAutoi(
+        api_bodies={
+            "/vehiclebuild/licenseplate/ZH911001": fix.body(
+                [fix.built_vehicle(), fix.built_vehicle(vrn=None, fzkey="01911002"), fix.built_vehicle(vrn="900.911.003", typeApprovalNr=None)]
+            ),
+            f"/vehiclecatalog/autoi/{fix.DEMO_FZ_KEY}": fix.body([fix.catalog_variant()]),
+        }
+    )
+    s = fx.connected(db_session, monkeypatch, fake=fake)
+
+    with caplog.at_level("WARNING"):
+        records = _call(db_session, s, "kontrollschild", lambda a: a.lookup_plate("ZH911001"))
+    assert [(r.stammnummer, r.type_approval_number, r.brand_name) for r in records] == [("900911001", fix.DEMO_TYPE_APPROVAL, "Testmarke")]
+    assert records[0].first_registration_date == dt.date(2022, 5, 17) and records[0].production_from == 2021
+    assert sum("left out" in m for m in caplog.messages) == 2
+    assert len(fake.api_requests_to("/vehiclebuild/licenseplate/ZH911001")) == 1
+
+    prices = _call(db_session, s, "vehicle_data", lambda a: a.fetch_vehicle_prices(fix.DEMO_FZ_KEY, year=2022))
+    assert [(p.year, p.price) for p in prices] == [(2022, 57900)]
+    assert _call(db_session, s, "vehicle_data", lambda a: a.fetch_type_approvals(fix.DEMO_FZ_KEY)) == [fix.DEMO_TYPE_APPROVAL, "1ZZ912"]
 
 
 def test_a_403_is_not_entitled_and_a_timeout_is_unavailable(db_session, monkeypatch):

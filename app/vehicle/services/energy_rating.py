@@ -44,6 +44,9 @@ def upsert_energy_rating(
         existing.energy_efficiency_category = energy_efficiency_category
         existing.emission_standard = emission_standard
         existing.consumption_norm = consumption_norm
+        # KAN-547: a row the identAPI's label filled first (`source = auto_i_dat`)
+        # becomes the official one once the BFE import writes it.
+        existing.source = "bfe"
         db.flush()
         return existing
 

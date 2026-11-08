@@ -55,6 +55,7 @@ replace them.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import uuid
 from collections.abc import Callable, Hashable, Mapping, Sequence
 from typing import Any, NoReturn
@@ -111,6 +112,8 @@ from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
 from app.integration.services.metering import provider_request
 from app.integration.services.resilience import call_with_retry
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.ident.autoi.ch"
 CLIENT_ID_CONFIG_KEY = "clientId"
@@ -397,8 +400,7 @@ class AutoIDatIdentAdapter:
         return self._vehicle_catalog("factorycode", werkscode)
 
     def fetch_variant(self, fz_key: str) -> VariantMasterData | None:
-        variants = self._vehicle_catalog("autoi", fz_key)
-        return next((v for v in variants if v.fz_key == fz_key), variants[0] if variants else None)
+        return next((v for v in self._vehicle_catalog("autoi", fz_key) if v.fz_key == fz_key), None)
 
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
         """The Protocol's single-variant read (`catalogue_sync.sync_catalogue_variant`,
@@ -428,6 +430,13 @@ class AutoIDatIdentAdapter:
         records: list[PlateInfoData] = []
         for vehicle in self.identify_by_plate(plate):
             if vehicle.type_approval_number is None or vehicle.stammnummer is None:
+                # The spec says `vrn` is "only a part of the response, depends on user group
+                # definition": a record this account may not see whole cannot be cached as
+                # plate → Typenschein → Stammnummer and is left out, said so in the log.
+                logger.warning(
+                    "plate answer without Typenschein or Stammnummer left out of the SOAP-shaped records "
+                    "(fz_key=%s, type_approval=%s)", vehicle.fz_key, vehicle.type_approval_number,
+                )
                 continue
             records.append(
                 PlateInfoData(

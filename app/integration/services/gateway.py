@@ -548,7 +548,7 @@ def _store_captions(
                 return
             for lang in remaining:
                 captions_service.store_captions(db, provider_code=provider_code, lang=lang, captions=fetch(lang))
-        db.commit()
+                db.commit()  # each language kept as it lands; a later failure loses only the rest
     except ProviderGatewayError:
         logger.warning("captions could not be refreshed for connection %s", connection.id, exc_info=True)
         db.rollback()

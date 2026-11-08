@@ -52,6 +52,7 @@ from app.integration.public import (
     call_capability,
     get_enabled_connection,
 )
+from app.platform.public import get_active_reference_value_codes
 from app.vehicle.models.catalogue import (
     Brand,
     ModelGroup,
@@ -79,7 +80,6 @@ logger = logging.getLogger("app.vehicle.catalogue_sync")
 VEHICLE_DATA_PROVIDER_CODES = ("auto_i_dat", "auto_i_dat_mock")
 
 _ENTITY_TYPE_MODEL_VARIANT = "model_variant"
-_ENTITY_TYPE_MODEL_GROUP = "model_group"
 
 # The variant fields resolved through `ProviderCodeMap`, each with the
 # `VariantMasterData` attribute its raw code arrives in. A field's
@@ -101,13 +101,14 @@ _CODED_FIELDS: Final = {
     "consumption_norm": "consumption_norm_code",
     "valuation_classification": "valuation_classification_code",
 }
-# The one raw vehicle-kind code whose `drive` is a stroke count. The seeded
-# code map keys motorcycles as `03`; the mock still sends `3`.
-_MOTORCYCLE_KIND_CODES: Final = frozenset({"03", "3"})
-# The energy label the identAPI sends (A–G) is stored per year (ADR-042): the
-# canonical `energy_efficiency_category` codes are the lower-cased letters.
+# The canonical vehicle kind whose `drive` is a stroke count (R-C-5). Routing
+# reads the **resolved** kind, never a raw code (the reading rule).
+_MOTORCYCLE: Final = "motorcycle"
+# The energy label the identAPI sends is stored per year (ADR-042) under the
+# `energy_efficiency_category` reference list's own codes; a label that list
+# does not know is left out (the list is platform's; `platform.public`).
 _ENERGY_LABEL_SOURCE: Final = "auto_i_dat"
-_ENERGY_LABELS: Final = frozenset("ABCDEFG")
+_ENERGY_LABEL_LIST: Final = "energy_efficiency_category"
 # The option attribute resolved through `ProviderCodeMap` (`SuchCode`), many
 # codes per option; its raw codes are kept per option (KAN-250).
 _EQUIPMENT_FEATURE: Final = "equipment_feature"
@@ -206,7 +207,9 @@ def _upsert_model_group(db: Session, *, brand: Brand, name: str) -> ModelGroup:
 def _resolve_code(
     db: Session, *, provider_code: str, vehicle_kind_qualifier: str, code_group: str, provider_value: str | None
 ) -> str | None:
-    if provider_value is None:
+    if not provider_value or not vehicle_kind_qualifier:
+        # No code, or a row without `type`: a code read under no vehicle kind cannot be mapped
+        # (the vocabulary is per kind) and is no gap either — no value, no gap.
         return None
     canonical = resolve_provider_code(
         db, provider=provider_code, vehicle_kind=vehicle_kind_qualifier, code_group=code_group,
@@ -253,36 +256,28 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
 
     existing = find_variant_by_fz_key(db, provider_code=provider_code, fz_key=master.fz_key)
     if existing is not None:
-        _record_raw_codes(db, variant=existing, provider_code=provider_code, master=master)
-        _fill_null_fields(db, variant=existing, provider_code=provider_code, master=master)
+        canonical_kind = existing.vehicle_kind or _resolve_kind(db, provider_code=provider_code, master=master)
+        _record_raw_codes(db, variant=existing, provider_code=provider_code, master=master, canonical_kind=canonical_kind)
+        _fill_null_fields(db, variant=existing, provider_code=provider_code, master=master, canonical_kind=canonical_kind)
         _link_type_approvals(db, variant=existing, type_approval_numbers=master.type_approval_numbers)
         _store_catalogue_prices(db, variant=existing, master=master)
         _store_energy_label(db, variant=existing, master=master)
-        _record_model_group_key(
-            db, group=existing.model_group, provider_code=provider_code, model_group_key=master.model_group_key
-        )
         return existing
 
     brand = _upsert_brand(db, display_name=master.brand_display_name)
     group = _upsert_model_group(db, brand=brand, name=master.model_group_name)
-    _record_model_group_key(db, group=group, provider_code=provider_code, model_group_key=master.model_group_key)
 
     # KAN-547: the whole specification block (ADR-071) the adapter carries by
     # the column's own name — every `_FILLABLE_MASTER_FIELDS` entry — plus
     # every coded field resolved through the code map (an unresolved code is
     # left NULL and recorded as a mapping gap, never a guess).
+    resolved = _resolve_codes(db, provider_code=provider_code, master=master)
     variant = ModelVariant(
         model_group_id=group.id,
         name=master.variant_name,
         model_year_from=master.model_year_from,
         **{field_name: getattr(master, field_name) for field_name in _FILLABLE_MASTER_FIELDS},
-        **{
-            code_group: _resolve_code(
-                db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
-                code_group=code_group, provider_value=raw_code,
-            )
-            for code_group, raw_code in _raw_codes(master).items()
-        },
+        **resolved,
     )
     db.add(variant)
     db.flush()
@@ -293,62 +288,140 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
         )
     )
     db.flush()
-    _record_raw_codes(db, variant=variant, provider_code=provider_code, master=master)
+    _record_raw_codes(
+        db, variant=variant, provider_code=provider_code, master=master, canonical_kind=resolved["vehicle_kind"]
+    )
     _link_type_approvals(db, variant=variant, type_approval_numbers=master.type_approval_numbers)
     _store_catalogue_prices(db, variant=variant, master=master)
     _store_energy_label(db, variant=variant, master=master)
     return variant
 
 
-def _raw_codes(master: VariantMasterData) -> dict[str, str | None]:
-    """The raw code per coded field. One routing, by the raw vehicle kind the
-    adapter sent (never a guess, KAN-447): a motorcycle's `drive` is its
-    `engine_cycle` and it has no `drivetrain`; every other kind has a
-    `drivetrain` and no `engine_cycle`."""
+def _raw_codes(master: VariantMasterData, *, canonical_kind: str | None) -> dict[str, str | None]:
+    """The raw code per coded field, routed by the **resolved** vehicle kind
+    (never a raw code, KAN-447): a motorcycle's `drive` is its `engine_cycle`
+    and it has no `drivetrain`; every other kind has a `drivetrain` and no
+    `engine_cycle`."""
 
     codes = {code_group: getattr(master, attribute) for code_group, attribute in _CODED_FIELDS.items()}
-    if master.vehicle_kind_code in _MOTORCYCLE_KIND_CODES:
+    if canonical_kind == _MOTORCYCLE:
         codes["drivetrain"] = None
     else:
+        # A car, a light commercial — or a kind still unmapped, where `drive`
+        # is recorded as the drivetrain it is for every kind but motorcycles
+        # (as before KAN-547); resolving the kind's gap and revisiting a
+        # motorcycle moves it.
         codes["engine_cycle"] = None
     return codes
 
 
-def _record_model_group_key(
-    db: Session, *, group: ModelGroup, provider_code: str, model_group_key: str | None
-) -> None:
-    """The provider's own key of the model group (`modelGroupKey`), kept as a
-    `ProviderEntityRef` so a browse page can be scoped to it (KAN-548). One
-    key per group and provider: the first seen stays."""
-
-    if not model_group_key:
-        return
-    existing = db.scalar(
-        select(ProviderEntityRef).where(
-            ProviderEntityRef.entity_type == _ENTITY_TYPE_MODEL_GROUP,
-            ProviderEntityRef.entity_id == group.id,
-            ProviderEntityRef.provider == provider_code,
-        )
+def _resolve_kind(db: Session, *, provider_code: str, master: VariantMasterData) -> str | None:
+    return _resolve_code(
+        db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
+        code_group="vehicle_kind", provider_value=master.vehicle_kind_code,
     )
-    if existing is None:
-        db.add(
-            ProviderEntityRef(
-                entity_type=_ENTITY_TYPE_MODEL_GROUP, entity_id=group.id, provider=provider_code,
-                provider_key=model_group_key,
+
+
+def _resolve_codes(db: Session, *, provider_code: str, master: VariantMasterData) -> dict[str, str | None]:
+    """Every coded field's canonical value (or None, with its gap written)."""
+
+    canonical_kind = _resolve_kind(db, provider_code=provider_code, master=master)
+    resolved: dict[str, str | None] = {"vehicle_kind": canonical_kind}
+    for code_group, raw_code in _raw_codes(master, canonical_kind=canonical_kind).items():
+        if code_group == "vehicle_kind":
+            continue
+        resolved[code_group] = _resolve_code(
+            db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
+            code_group=code_group, provider_value=raw_code,
+        )
+    return resolved
+
+
+def _record_raw_codes(
+    db: Session, *, variant: ModelVariant, provider_code: str, master: VariantMasterData, canonical_kind: str | None
+) -> None:
+    """Keeps one `VariantProviderCode` row per coded field in step with what
+    the provider sent this time: a new code is written, a changed one
+    updated, and one the provider no longer sends removed.
+    """
+
+    rows = {
+        row.code_group: row
+        for row in db.scalars(
+            select(VariantProviderCode).where(
+                VariantProviderCode.model_variant_id == variant.id, VariantProviderCode.provider == provider_code
             )
         )
-        db.flush()
+    }
+    for code_group, raw_code in _raw_codes(master, canonical_kind=canonical_kind).items():
+        row = rows.get(code_group)
+        if raw_code is None:
+            if row is not None:
+                db.delete(row)
+        elif row is None:
+            db.add(
+                VariantProviderCode(
+                    model_variant_id=variant.id, provider=provider_code, vehicle_kind=master.vehicle_kind_code,
+                    code_group=code_group, provider_code=raw_code,
+                )
+            )
+        elif (row.vehicle_kind, row.provider_code) != (master.vehicle_kind_code, raw_code):
+            row.vehicle_kind = master.vehicle_kind_code
+            row.provider_code = raw_code
+    db.flush()
 
 
-def find_model_group_by_provider_key(db: Session, *, provider_code: str, model_group_key: str) -> ModelGroup | None:
-    ref = db.scalar(
-        select(ProviderEntityRef).where(
-            ProviderEntityRef.entity_type == _ENTITY_TYPE_MODEL_GROUP,
-            ProviderEntityRef.provider == provider_code,
-            ProviderEntityRef.provider_key == model_group_key,
+def _fill_null_fields(
+    db: Session, *, variant: ModelVariant, provider_code: str, master: VariantMasterData, canonical_kind: str | None
+) -> None:
+    """Fill-if-NULL, never overwrite (KAN-83 exit criterion 1): the variant
+    is one global row (ADR-075), and replacing a value it already holds is
+    the explicit refresh's job, not a sync side effect. A code that still
+    does not resolve leaves the field NULL and touches its gap again, as on
+    creation.
+
+    Every code is resolved first — which may write its `MappingGap` — and
+    only then is the variant written, by one conditional UPDATE: the same
+    gap-then-variant lock order as a resolve (`resolve_mapping_gap` locks
+    the gap, `apply_resolved_code_to_variants` then the variants), so the
+    two cannot deadlock; and the `IS NULL` test and the version bump happen
+    in the database, so a field a resolve filled meanwhile is kept and the
+    version moves once per actual change.
+    """
+
+    fills: dict[str, object] = {}
+    for field_name in _FILLABLE_MASTER_FIELDS:
+        value = getattr(master, field_name)
+        if getattr(variant, field_name) is None and value is not None:
+            fills[field_name] = value
+    for code_group, raw_code in _raw_codes(master, canonical_kind=canonical_kind).items():
+        if getattr(variant, code_group) is not None or raw_code is None:
+            continue
+        if code_group == "vehicle_kind":
+            canonical = canonical_kind  # resolved once by the caller, its gap bumped once
+        else:
+            canonical = _resolve_code(
+                db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
+                code_group=code_group, provider_value=raw_code,
+            )
+        if canonical is not None:
+            fills[code_group] = canonical
+    if not fills:
+        return
+
+    columns = {name: getattr(ModelVariant, name) for name in fills}
+    db.execute(
+        update(ModelVariant)
+        .where(ModelVariant.id == variant.id, or_(*(column.is_(None) for column in columns.values())))
+        .values(
+            {
+                **{name: func.coalesce(column, fills[name]) for name, column in columns.items()},
+                "version": ModelVariant.version + 1,
+            }
         )
+        .execution_options(synchronize_session=False)
     )
-    return db.get(ModelGroup, ref.entity_id) if ref is not None else None
+    db.refresh(variant)
 
 
 def _store_catalogue_prices(db: Session, *, variant: ModelVariant, master: VariantMasterData) -> None:
@@ -378,12 +451,14 @@ def _store_catalogue_prices(db: Session, *, variant: ModelVariant, master: Varia
 def _store_energy_label(db: Session, *, variant: ModelVariant, master: VariantMasterData) -> None:
     """The identAPI's current A–G label, stored as this year's rating
     (ADR-042: a label is a fact of a year, never a flat property) with
-    `source = auto_i_dat` — Anto, 2026-11-07 (KAN-547 decision 4). An official
-    BFE row for the year, or any row already held for it, is left alone: the
-    provider's label fills an absence, it never overwrites."""
+    `source = auto_i_dat` — Anto, 2026-11-07 (KAN-547 decision 4). The value
+    is the `energy_efficiency_category` list's own code for the letter; a
+    letter the list does not carry is left out. An official BFE row for the
+    year, or any row already held for it, is left alone: the provider's label
+    fills an absence, it never overwrites."""
 
-    label = (master.energy_label or "").strip().upper()
-    if label not in _ENERGY_LABELS:
+    label = (master.energy_label or "").strip().lower()
+    if not label or label not in (get_active_reference_value_codes(db, _ENERGY_LABEL_LIST) or set()):
         return
     year = swiss_today().year
     held = db.scalar(
@@ -395,91 +470,11 @@ def _store_energy_label(db: Session, *, variant: ModelVariant, master: VariantMa
         return
     db.add(
         ModelVariantEnergyRating(
-            model_variant_id=variant.id, rating_year=year, energy_efficiency_category=label.lower(),
+            model_variant_id=variant.id, rating_year=year, energy_efficiency_category=label,
             source=_ENERGY_LABEL_SOURCE,
         )
     )
     db.flush()
-
-
-def _record_raw_codes(db: Session, *, variant: ModelVariant, provider_code: str, master: VariantMasterData) -> None:
-    """Keeps one `VariantProviderCode` row per coded field in step with what
-    the provider sent this time: a new code is written, a changed one
-    updated, and one the provider no longer sends removed.
-    """
-
-    rows = {
-        row.code_group: row
-        for row in db.scalars(
-            select(VariantProviderCode).where(
-                VariantProviderCode.model_variant_id == variant.id, VariantProviderCode.provider == provider_code
-            )
-        )
-    }
-    for code_group, raw_code in _raw_codes(master).items():
-        row = rows.get(code_group)
-        if raw_code is None:
-            if row is not None:
-                db.delete(row)
-        elif row is None:
-            db.add(
-                VariantProviderCode(
-                    model_variant_id=variant.id, provider=provider_code, vehicle_kind=master.vehicle_kind_code,
-                    code_group=code_group, provider_code=raw_code,
-                )
-            )
-        elif (row.vehicle_kind, row.provider_code) != (master.vehicle_kind_code, raw_code):
-            row.vehicle_kind = master.vehicle_kind_code
-            row.provider_code = raw_code
-    db.flush()
-
-
-def _fill_null_fields(db: Session, *, variant: ModelVariant, provider_code: str, master: VariantMasterData) -> None:
-    """Fill-if-NULL, never overwrite (KAN-83 exit criterion 1): the variant
-    is one global row (ADR-075), and replacing a value it already holds is
-    the explicit refresh's job, not a sync side effect. A code that still
-    does not resolve leaves the field NULL and touches its gap again, as on
-    creation.
-
-    Every code is resolved first — which may write its `MappingGap` — and
-    only then is the variant written, by one conditional UPDATE: the same
-    gap-then-variant lock order as a resolve (`resolve_mapping_gap` locks
-    the gap, `apply_resolved_code_to_variants` then the variants), so the
-    two cannot deadlock; and the `IS NULL` test and the version bump happen
-    in the database, so a field a resolve filled meanwhile is kept and the
-    version moves once per actual change.
-    """
-
-    fills: dict[str, object] = {}
-    for field_name in _FILLABLE_MASTER_FIELDS:
-        value = getattr(master, field_name)
-        if getattr(variant, field_name) is None and value is not None:
-            fills[field_name] = value
-    for code_group, raw_code in _raw_codes(master).items():
-        if getattr(variant, code_group) is not None or raw_code is None:
-            continue
-        canonical = _resolve_code(
-            db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
-            code_group=code_group, provider_value=raw_code,
-        )
-        if canonical is not None:
-            fills[code_group] = canonical
-    if not fills:
-        return
-
-    columns = {name: getattr(ModelVariant, name) for name in fills}
-    db.execute(
-        update(ModelVariant)
-        .where(ModelVariant.id == variant.id, or_(*(column.is_(None) for column in columns.values())))
-        .values(
-            {
-                **{name: func.coalesce(column, fills[name]) for name, column in columns.items()},
-                "version": ModelVariant.version + 1,
-            }
-        )
-        .execution_options(synchronize_session=False)
-    )
-    db.refresh(variant)
 
 
 def apply_resolved_code_to_variants(
@@ -490,7 +485,7 @@ def apply_resolved_code_to_variants(
     kind, code group, code) — the variants a just-resolved mapping gap had
     been blocking (KAN-83, FR-C-10). A variant that already holds a value
     is left as it is. Code groups that are not variant fields (an equipment
-    feature, an engine cycle) fill nothing here. Returns how many were
+    feature, a colour area) fill nothing here. Returns how many were
     filled.
 
     One conditional UPDATE: the NULL test runs in the database under the

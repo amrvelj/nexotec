@@ -239,7 +239,7 @@ def test_an_expired_token_is_requested_again(db_session, monkeypatch):
 
     gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
-    # Every one of the seven API calls had to log in first.
+    # Every one of the ten API calls had to log in first.
     assert len(s.fake.token_requests()) == 10  # one per request: the token expires on arrival
 
 

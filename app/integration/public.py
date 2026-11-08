@@ -40,7 +40,7 @@ that write out of another context's transaction.
 
 KAN-547 / KAN-548: `BuiltVehicleData`, `VariantSearchPage` and the catalogue
 browse shapes are the identAPI operations' return vocabulary;
-`get_captions` / `caption_languages_fetched` read the provider caption store
+`get_captions` reads the provider caption store
 (`services/captions.py`, written by "Test connection") as plain data —
 `app.vehicle` shows a provider's wording beside an unmapped code, never
 copies it. `ProviderNotEntitledError` and `ProviderTimeoutError` are
@@ -77,7 +77,7 @@ from app.integration.adapters.marketplace_base import (
 from app.integration.errors import ProviderGatewayError, ProviderNotEntitledError, ProviderTimeoutError
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
-from app.integration.services.captions import ProviderCaption, caption_languages_fetched, get_captions
+from app.integration.services.captions import ProviderCaption, get_captions
 from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
@@ -125,7 +125,6 @@ __all__ = [
     "VariantTyreSpecData",
     "VehiclePriceData",
     "call_capability",
-    "caption_languages_fetched",
     "get_captions",
     "get_enabled_connection",
     "get_entitlement",
