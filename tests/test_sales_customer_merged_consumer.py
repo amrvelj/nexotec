@@ -148,3 +148,51 @@ def test_an_earlier_merge_delivered_late_lands_on_the_live_survivor(db_session):
     assert _customer_ids(db_session, x_offer, d_offer) == [t.id, t.id]
     assert db_session.scalars(select(SalesOffer).where(SalesOffer.customer_id.in_([x.id, d.id]))).all() == []
     assert db_session.scalars(select(SalesContract).where(SalesContract.customer_id.in_([x.id, d.id]))).all() == []
+
+
+def test_the_moved_rows_take_the_survivors_label_and_language(db_session):
+    """KAN-580: the consumer moved `customer_id` and left `customer_label` —
+    the Sales list and the detail screens kept naming the duplicate, a
+    customer that no longer exists as a record (rule 2: a label follows its
+    owner). The survivor is read from `customer.public`, never from the
+    payload; its correspondence language moves with the label (they share
+    one refresh stamp, as `apply_customer_change` writes them)."""
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _customer(db_session, group_id, tenant_id, "Survivor")
+    survivor.language = type(survivor.language)("fr")
+    db_session.commit()
+    duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
+    offer = _offer(db_session, tenant_id, group_id, duplicate.id)
+    contracted_offer = _offer(db_session, tenant_id, group_id, duplicate.id)
+    contract = create_contract(db_session, tenant_id=tenant_id, offer=contracted_offer, actor_id=uuid.uuid4())
+    deals = list(db_session.scalars(select(SalesDeal).where(SalesDeal.customer_id == duplicate.id)).all())
+    assert {row.customer_label for row in (offer, contracted_offer, contract, *deals)} == {"Duplicate Keller"}
+
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+    assert _deliver(db_session, message) is True
+
+    db_session.expire_all()
+    moved = [db_session.get(type(row), row.id) for row in (offer, contracted_offer, contract, *deals)]
+    assert [row.customer_label for row in moved] == ["Survivor Keller"] * 5
+    assert all(row.customer_denorm_refreshed_at is not None for row in moved)
+    assert [row.customer_language for row in moved[:3]] == ["fr"] * 3
+
+
+def test_a_survivor_renamed_after_the_merge_event_is_read_as_it_stands_now(db_session):
+    """KAN-580: never the payload — the label is the survivor's as the
+    consumer finds it (delivery is unordered and may be late)."""
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _customer(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
+    offer = _offer(db_session, tenant_id, group_id, duplicate.id)
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+    survivor = customer_service.get_customer_or_404(db_session, group_id, survivor.id)
+    survivor.first_name = "Renamed"
+    db_session.commit()
+
+    assert _deliver(db_session, message) is True
+
+    db_session.expire_all()
+    assert db_session.get(SalesOffer, offer.id).customer_label == "Renamed Keller"
