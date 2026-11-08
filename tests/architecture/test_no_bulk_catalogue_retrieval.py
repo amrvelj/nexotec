@@ -15,10 +15,14 @@ removed; this guard keeps them out:
   4. **The identAPI's pages are never walked** (ADR-112 (4), KAN-548): the
      provider page parameter (`page[number]`) is written in the identAPI
      adapter alone, and no catalogue query (`search_catalogue_variants`,
-     `facet_values`, `list_catalogue_brands`, `list_catalogue_model_groups`)
-     is called inside a `for`/`while` body anywhere under `app/` or
-     `scripts/` — one user request is one provider page, and a loop over
-     pages is how a mirror would be built.
+     `facet_values`, `list_catalogue_brands`, `list_catalogue_model_groups`,
+     and since KAN-211 the detail loaders and `load_on_open`) is called
+     inside a `for`/`while` body anywhere under `app/` or `scripts/` — one
+     user request is one provider page, and a loop over pages is how a
+     mirror would be built. **One ruled exception** (ADR-123, KAN-211): the
+     option list of the ONE car the user opened is followed page by page in
+     `fetch_options`, bounded by `OPTIONS_PAGE_CAP`, pinned by
+     `test_the_options_walk_is_bounded_by_the_page_cap`.
 
 Self-tests prove the scanner catches each shape.
 """

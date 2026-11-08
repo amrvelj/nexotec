@@ -453,19 +453,28 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   ADR-123; `services/catalogue_details.py`): the specification read (`GET /v1/catalogue/variants/{id}/specification`
   and `/vehicle-mdm/{id}/catalogue-specification`) asks the Betrieb's provider for every detail it has not
   stored — colours (with the variant), options, tyres, images, energy label: five requests on the first open,
-  none on the second — each detail its own `call_capability` block and savepoint ending in its own
-  `VariantDetailState`: `present` · `not_in_contract` (403, or a licence option «Test connection» recorded as
-  absent — then nothing is sent, and it is not asked again on open) · `unavailable` (timeout, 5xx, open breaker;
-  asked again on the next open) · no row = never asked (no connection, or no key at this provider). A refused or
-  failed detail never discards the car or the others (KAN-212). The variant row is locked for the load so two
-  tabs send one set. No automatic refresh of any kind: `POST /v1/catalogue/variants/{id}/details/reload`
+  none on the second — each detail its own `call_capability` block, savepoint **and commit**, ending in its own
+  `VariantDetailState`: `present` (loaded, possibly empty; also the provider's coherent "nothing": a key it no
+  longer lists, a 400/422 — `error` says which, and the detail is not asked again until «Neu laden») ·
+  `not_in_contract` (403, or a licence option «Test connection» recorded as absent — then nothing is sent; asked
+  again only once a later probe records the option as granted) · `unavailable` (timeout, 5xx, open breaker; asked
+  again on the next open) · no row = never asked (no connection, or no key at this provider). A refused or failed
+  detail never discards the car or the others (KAN-212); what a provider sends is stored defensively (a key repeated
+  in one answer is one row, texts are cut to their columns, an over-long image URL is left out). An advisory lock
+  on (Betrieb, variant), on a connection of its own, serialises two opens of the same car by the same Betrieb so two
+  tabs send one set; no shared row is locked. The configurator's specification query neither refetches on window
+  focus nor retries (a state, not an error). No automatic refresh of any kind: `POST /v1/catalogue/variants/{id}/details/reload`
   («Neu laden» on the stock car's technical data, dealer manager or platform staff, audited as
   `vehicle_variant_details.reload`) is the one refresh, one fresh request per detail replacing the Betrieb's rows.
   The energy label is stored once for every Betrieb as that year's `ModelVariantEnergyRating`
-  (`source = auto_i_dat`, filling an absence only; ADR-042 — Anto, 2026-11-08); the state stays per Betrieb.
+  (`source = auto_i_dat`, filling an absence only; ADR-042 — Anto, 2026-11-08), and only for a year whose rows
+  (one per gearbox) agree on the class — a disagreement stores nothing and is noted; the state stays per Betrieb.
   Options carry the manufacturer's code (`manufacturer_code`, the identAPI's `optionCode`) beside auto-i's key
-  (`option_code`), their relations (`contains` / `excludes` / `price_in_combination_with`) stored and shown, never
-  enforced (ADR-072), and the year they stand for (the one asked, or the current model year for a car still built).
+  (`option_code`), their `group` resolved through the code map like every coded field (a miss is a gap and a flat
+  list; the demo provider's identity rows come from `scripts/seed_demo_provider_code_map.py`), their relations
+  (`contains` / `excludes` / `price_in_combination_with` — the last only where the provider names a price) stored
+  and shown, never enforced (ADR-072), and the year they stand for (the one asked, or the current Swiss year for a
+  car still built).
   `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule and lists the five detail
   loaders and `load_on_open` as queries no loop may call. The
   bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and the platform's

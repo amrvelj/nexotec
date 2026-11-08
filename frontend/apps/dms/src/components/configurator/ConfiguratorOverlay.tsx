@@ -372,6 +372,12 @@ export function ConfiguratorOverlay({
     queryKey: ['catalogue-variant-specification', draft?.catalogueVariantId],
     queryFn: () => api.get<CatalogueSpecificationRead>(`/catalogue/variants/${draft!.catalogueVariantId}/specification`),
     enabled: draft?.catalogueVariantId != null,
+    // KAN-211 (ADR-123): opening the car is what loads its details at the
+    // provider, so this read is asked once per open — no refetch on window
+    // focus (that would re-ask an «unavailable» detail on every tab switch,
+    // a billed request) and no retry (a failure is a state, not an error).
+    refetchOnWindowFocus: false,
+    retry: false,
   })
 
   const handleOptionToggle = (option: CatalogueOptionRead) => {

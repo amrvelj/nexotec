@@ -18,6 +18,7 @@ import functools
 from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Any, TypeVar, cast
+from zoneinfo import ZoneInfo
 
 from app.core.base import utcnow
 from app.integration.adapters.base import (
@@ -458,6 +459,13 @@ def _request(datenname: str) -> Callable[[_Method], _Method]:
     return wrap
 
 
+def _swiss_year() -> int:
+    """The year in Switzerland now (the label is a fact of a Swiss year; the
+    vehicle context's `swiss_today` is behind the context boundary)."""
+
+    return dt.datetime.now(ZoneInfo("Europe/Zurich")).year
+
+
 class MockAutoIDatAdapter:
     """Realistic auto-i-dat shapes, no live call. `system_watermark_date`
     defaults to today; a test may pass another date. (The sync-age alarm
@@ -511,7 +519,7 @@ class MockAutoIDatAdapter:
         master = next((m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers), None)
         if master is None or not master.energy_label:
             return []
-        return [EnergyLabelData(energy_class=master.energy_label, calculation_year=utcnow().year)]
+        return [EnergyLabelData(energy_class=master.energy_label, calculation_year=_swiss_year())]
 
     # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) -------
 

@@ -28,7 +28,7 @@ from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
 from app.integration.services import resilience
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
-from app.vehicle.models.catalogue_mirror import CatalogueDetail, ColourCache, ImageRef, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import CatalogueDetail, ColourCache, DetailState, ImageRef, TyreSpecCache
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.provider import MappingGap
 from app.vehicle.services import catalogue_details, catalogue_entitlements, catalogue_sync
@@ -157,7 +157,13 @@ def test_the_first_open_fetches_and_stores_every_detail_with_one_request_each(db
 
     options = {o.option_code: o for o in db_session.query(VariantOption).filter_by(**where)}
     assert set(options) == {"1001", "1002"}
-    assert options["1001"].manufacturer_code == "M1001" and options["1001"].option_group == "Komfort"
+    assert options["1001"].manufacturer_code == "M1001"
+    # `group` is a coded field (FR-C-10): the provider's text is a mapping gap
+    # until the admin maps it, never stored as a canonical code.
+    assert options["1001"].option_group is None
+    assert db_session.scalar(
+        select(MappingGap).where(MappingGap.code_group == "option_group", MappingGap.provider_code == "Komfort")
+    ) is not None
     assert options["1002"].is_included is True and options["1002"].price == 0
 
     tyres = sorted((t.season, t.size, t.remark) for t in db_session.query(TyreSpecCache).filter_by(**where))
@@ -412,7 +418,146 @@ def test_neu_laden_makes_exactly_one_request_per_detail_replaces_the_rows_and_is
         db_session, entity_type="vehicle_variant_details", entity_id=variant.id, tenant_id=s.connection.tenant_id
     )
     assert [(e.action, e.actor_id, e.tenant_id) for e in events] == [("reload", s.user.id, s.connection.tenant_id)]
-    assert set(events[0].after) == {d.value for d in catalogue_details.DETAILS}
+    # recorded before the first request leaves: who asked, and the states it found
+    assert set(events[0].before) == {d.value for d in catalogue_details.DETAILS}
+
+
+def test_neu_laden_drops_an_option_with_its_raw_feature_codes(db_session, monkeypatch):
+    """A dropped option goes with its `VariantOptionProviderCode` rows (no
+    cascade on that key) — the review probe that crashed the reload."""
+
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    _open(db_session, s, variant)
+    s.fake.api_bodies[fix.OPTIONS_PATH] = fix.options_page([fix.option("1002", included=True, price=0)], page=1, total=1, has_next=False)
+
+    result = catalogue_details.reload_details(db_session, tenant_id=s.connection.tenant_id, variant=variant, actor_id=s.user.id)
+
+    assert _states(result)["options"] == "present"
+    assert {o.option_code for o in db_session.query(VariantOption).filter_by(model_variant_id=variant.id)} == {"1002"}
+
+
+# --- what a provider may send: duplicates, a vanished key, a malformed request -----------------
+
+
+def test_a_key_the_provider_no_longer_lists_is_present_with_a_note_and_never_a_500(db_session, monkeypatch):
+    bodies = fix.detail_bodies()
+    bodies[fix.VARIANT_PATH] = fix.body([])
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies))
+    charged: list = []
+    real = resilience.record_failure
+    monkeypatch.setattr(resilience, "record_failure", lambda cid: (charged.append(cid), real(cid)))
+
+    result = _open(db_session, s, variant)
+
+    colours = result.state_of(CatalogueDetail.COLOURS)
+    assert (colours.state, colours.error) == (DetailState.PRESENT, catalogue_details.VARIANT_UNKNOWN_AT_PROVIDER)
+    assert {k: v for k, v in _states(result).items() if k != "colours"} == dict.fromkeys(["options", "tyre_specs", "images", "energy_label"], "present")
+    assert charged == []
+    seen = len(s.fake.api_requests())
+    _open(db_session, s, variant)
+    assert len(s.fake.api_requests()) == seen  # not asked again on open
+
+
+def test_a_request_the_provider_refuses_as_malformed_is_present_with_the_class_and_not_re_sent(db_session, monkeypatch):
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.TYRES_PATH: 422}))
+
+    result = _open(db_session, s, variant)
+
+    tyres = result.state_of(CatalogueDetail.TYRE_SPECS)
+    assert (tyres.state, tyres.error) == (DetailState.PRESENT, "ProviderRequestError")
+    seen = len(s.fake.api_requests())
+    _open(db_session, s, variant)
+    assert len(s.fake.api_requests()) == seen
+
+
+def test_a_key_repeated_in_one_answer_is_one_row(db_session, monkeypatch):
+    bodies = fix.detail_bodies(options=[fix.option("3001"), fix.option("3001", price=999), fix.option("3002", addition=[{"optionKey": "3001", "price": 100}, {"optionKey": "3001", "price": 100}])])
+    bodies[fix.VARIANT_PATH] = fix.body([fix.catalog_variant(colorOptionsData=fix.colour_options() + fix.colour_options())])
+    bodies[fix.IMAGES_PATH] = fix.body(fix.images_body()["data"] + fix.images_body()["data"])
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies))
+
+    result = _open(db_session, s, variant)
+
+    assert set(_states(result).values()) == {"present"}
+    where = {"tenant_id": s.connection.tenant_id, "model_variant_id": variant.id}
+    options = {o.option_code: o for o in db_session.query(VariantOption).filter_by(**where)}
+    assert set(options) == {"3001", "3002"} and options["3001"].price == 500  # the first listed wins
+    assert db_session.query(ColourCache).filter_by(**where).count() == 3
+    assert db_session.query(ImageRef).filter_by(**where).count() == 3
+    assert db_session.query(VariantOptionRelation).filter_by(**where).count() == 1
+
+
+def test_an_energy_label_whose_gearboxes_disagree_is_not_stored_and_said_so(db_session, monkeypatch):
+    bodies = fix.detail_bodies()
+    # 2025: a manual B and an automatic C — nothing stored for 2025. (2026 is
+    # the catalogue row's own letter, stored by the variant request, KAN-547.)
+    bodies[fix.ENERGY_LABEL_PATH] = fix.body(
+        fix.energy_label_body(energy_class="B", year=2025)["data"] + fix.energy_label_body(energy_class="C", year=2025)["data"]
+    )
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies))
+
+    result = _open(db_session, s, variant)
+
+    label = result.state_of(CatalogueDetail.ENERGY_LABEL)
+    assert (label.state, label.error) == (DetailState.PRESENT, catalogue_details.ENERGY_LABEL_AMBIGUOUS)
+    assert db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=2025).count() == 0
+
+
+def test_a_refused_detail_is_asked_again_once_a_later_probe_records_the_option_as_granted(db_session, monkeypatch):
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.OPTIONS_PATH: 403}))
+    result = _open(db_session, s, variant)
+    assert _states(result)["options"] == "not_in_contract"
+    seen = len(s.fake.api_requests())
+
+    # a re-probe on «Test connection» records the licence option as granted, later than the refusal
+    db_session.add(
+        IntegrationEntitlement(
+            connection_id=s.connection.id, capability_code="ausstattung", granted=True,
+            source=EntitlementSource.DECLARED, checked_at=utcnow(),
+        )
+    )
+    db_session.commit()
+    s.fake.api_status.clear()
+
+    result = _open(db_session, s, variant)
+
+    assert [r.path for r in s.fake.api_requests()[seen:]] == [fix.OPTIONS_PATH]
+    assert _states(result)["options"] == "present"
+
+
+def test_two_tabs_retrying_an_unavailable_detail_send_one_request(db_session, engine, monkeypatch):
+    """The second open waits for the first's lock, then reads the states the
+    first one decided — from the database, not its identity map."""
+
+    import threading
+
+    from sqlalchemy.orm import Session
+
+    fake = FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.IMAGES_PATH: 503})
+    s, variant = _connected(db_session, monkeypatch, fake)
+    _open(db_session, s, variant)
+    fake.api_status.clear()
+    db_session.commit()
+    tenant_id, actor_id, variant_id = s.connection.tenant_id, s.user.id, variant.id
+    seen = len(fake.api_requests())
+
+    def tab(results: list) -> None:
+        with Session(bind=engine) as session:
+            v = session.get(ModelVariant, variant_id)
+            outcome = catalogue_details.load_on_open(session, tenant_id=tenant_id, variant=v, actor_id=actor_id)
+            results.append(_states(outcome))  # read while the session is open
+
+    results_a: list = []
+    results_b: list = []
+    a = threading.Thread(target=tab, args=(results_a,))
+    b = threading.Thread(target=tab, args=(results_b,))
+    a.start()
+    b.start()
+    a.join(60)
+    b.join(60)
+
+    assert [r.path for r in fake.api_requests()[seen:]] == [fix.IMAGES_PATH]
+    assert results_a[0]["images"] == "present" and results_b[0]["images"] == "present"
 
 
 # --- ADR-013: one Betrieb's details are not another's ----------------------------------------

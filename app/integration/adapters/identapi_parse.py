@@ -469,8 +469,13 @@ def parse_option(item: Mapping[str, Any]) -> VariantOptionData | None:
         if not isinstance(addition, Mapping):
             continue
         related = _text(addition.get("optionKey"))
-        if related:
-            priced_with.append(OptionPriceWithData(option_code=related, price=_money(addition.get("price"))))
+        price = _money(addition.get("price"))
+        # `action` ("Combinatorics") is undocumented beyond its name; only an
+        # addition that names a price is a `price_in_combination_with`
+        # relation we can state truthfully. The rest is left out, never
+        # filed under a type it may not be (ADR-072: shown, never enforced).
+        if related and price is not None:
+            priced_with.append(OptionPriceWithData(option_code=related, price=price))
     return VariantOptionData(
         option_code=key,
         description=description,

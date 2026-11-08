@@ -13,7 +13,8 @@ outage are **states** on a 200 answer (`notConfigured`, `notInContract`,
 Bounded by `tests/architecture/test_catalogue_browse_is_a_bounded_live_query.py`
 (one provider request per page, one per facet field) and
 `tests/architecture/test_no_bulk_catalogue_retrieval.py` (no code path walks
-the provider's pages).
+the provider's pages — the one ruled exception is the option list of the one
+car a user opened, bounded in the adapter: ADR-123, KAN-211).
 """
 
 import uuid

@@ -3,22 +3,30 @@ dimensions, images and the energy label — load **once per Betrieb, when a
 car is opened**, never on a schedule, and are refreshed only by «Neu laden»
 on a stock car's technical data (dealer manager, audited).
 
-Every detail is its own provider request, its own `call_capability` block and
-its own savepoint, and ends in its own state (`VariantDetailState`):
+Every detail is its own provider request, its own `call_capability` block,
+its own savepoint **and its own commit**, and ends in its own state
+(`VariantDetailState`):
 
 - `present` — loaded and stored, possibly with no rows (the provider has no
-  colours for most brands, FR-C-07);
+  colours for most brands, FR-C-07; a car the provider no longer knows; a
+  request it refused as malformed — `error` says which);
 - `not_in_contract` — the provider refused it (403), or «Test connection»
   recorded the licence option as absent, in which case nothing is sent;
-- `unavailable` — a timeout, a 5xx, an open breaker: retried on the next open;
+  asked again once a later probe records the option as granted;
+- `unavailable` — a timeout, a 5xx, an open breaker: asked again on the
+  next open;
 - *not loaded* — no row: this Betrieb never asked (no connection, or the
   variant has no key at its provider).
 
 A refused or failed detail never discards the car or the other details
-(KAN-212): the savepoint rolls back that detail's rows alone, the state says
-what happened, and the next open asks again only for what is `unavailable`.
-The breaker is charged per failed block as for any other call; a 403 never
-charges it (`.claude/rules/vehicle.md`, gateway decision).
+(KAN-212): each detail's rows and state are committed before the next one
+is asked, the savepoint rolls back that detail's rows alone, and the next
+open asks again only for what is `unavailable`. The breaker is charged per
+failed block as for any other call; a 403 never charges it
+(`.claude/rules/vehicle.md`, gateway decision). What a provider sends is
+stored defensively: a key repeated in one answer is one row, a text longer
+than its column is cut, an image whose URL does not fit is left out and
+said so in the log.
 
 What is asked, per first open of a car (ADR-123; the identAPI has four
 services behind these five details): the variant with its colours
@@ -30,21 +38,23 @@ the energy label (`energylabel_info`). The second open sends nothing.
 
 Storage is tenant-scoped (ADR-013) — except the energy label, public Swiss
 data stored once for every Betrieb as that year's rating with
-`source = auto_i_dat`, filling an absence only (ADR-042; Anto, 2026-11-08).
-Data a load stored is kept indefinitely (KAN-487). The variant row is locked
-for the load, so two tabs opening the same car at once send one set of
-requests, not two.
+`source = auto_i_dat`, filling an absence only (ADR-042; Anto, 2026-11-08),
+and only where every gearbox the provider lists agrees on the class. Data a
+load stored is kept indefinitely (KAN-487). Two opens of the same car by
+the same Betrieb are serialised by an advisory lock on (Betrieb, variant),
+so two tabs send one set; other Betriebe and other rows are never blocked.
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Final
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -54,6 +64,7 @@ from app.integration.public import (
     ProviderAdapter,
     ProviderGatewayError,
     ProviderNotEntitledError,
+    ProviderRequestError,
     call_capability,
     get_entitlement,
 )
@@ -68,7 +79,7 @@ from app.vehicle.models.catalogue_mirror import (
     VariantDetailState,
 )
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
-from app.vehicle.models.provider import ProviderEntityRef, VariantProviderCode
+from app.vehicle.models.provider import ProviderEntityRef, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services.catalogue_sync import (
     COLOUR_AND_TYRE_CODE_GROUPS,
     find_enabled_vehicle_data_connection,
@@ -81,6 +92,7 @@ from app.vehicle.services.plate import swiss_today
 logger = logging.getLogger("app.vehicle.catalogue_details")
 
 _COLOUR_AREA, _AXLE_POSITION, _TYRE_TYPE = COLOUR_AND_TYRE_CODE_GROUPS
+_OPTION_GROUP: Final = "option_group"
 _ENTITY_TYPE_MODEL_VARIANT: Final = "model_variant"
 _ENERGY_LABEL_SOURCE: Final = "auto_i_dat"
 _ENERGY_LABEL_LIST: Final = "energy_efficiency_category"
@@ -93,7 +105,8 @@ _RELATION_PRICED_WITH: Final = "price_in_combination_with"
 
 # The identAPI licence option each detail is covered by (KAN-488's probes):
 # a `granted = False` row for it means the provider would answer 403, so
-# nothing is sent and the detail is `not_in_contract` at once.
+# nothing is sent and the detail is `not_in_contract` at once; a later probe
+# that records it granted re-opens the detail.
 DETAIL_CAPABILITY: Final[dict[CatalogueDetail, str]] = {
     CatalogueDetail.COLOURS: "ident_basis",
     CatalogueDetail.OPTIONS: "ausstattung",
@@ -110,8 +123,28 @@ DETAILS: Final[tuple[CatalogueDetail, ...]] = (
     CatalogueDetail.IMAGES,
     CatalogueDetail.ENERGY_LABEL,
 )
-# Written as `error` when the probe, not the provider, decided the state.
-ENTITLEMENT_ABSENT: Final = "entitlement_absent"
+# `error` notes a state can carry besides an exception's class name.
+ENTITLEMENT_ABSENT: Final = "entitlement_absent"  # the probe, not the provider, decided
+VARIANT_UNKNOWN_AT_PROVIDER: Final = "variant_unknown_at_provider"  # the key is gone at the provider
+ENERGY_LABEL_AMBIGUOUS: Final = "energy_label_ambiguous"  # gearboxes disagree on the class for a year
+
+
+class _NothingToLoad(Exception):
+    """A detail the provider has nothing for — the car is no longer under its
+    key. Ends in `present` with a note, so the next open does not pay for the
+    same answer again; «Neu laden» asks afresh."""
+
+    def __init__(self, note: str) -> None:
+        self.note = note
+        super().__init__(note)
+
+
+class _LoadedWithNote(Exception):
+    """The detail loaded, with something worth saying in `error`."""
+
+    def __init__(self, note: str) -> None:
+        self.note = note
+        super().__init__(note)
 
 
 @dataclass(frozen=True)
@@ -126,9 +159,11 @@ class DetailStates:
 
 def detail_states(db: Session, *, tenant_id: uuid.UUID, model_variant_id: uuid.UUID) -> DetailStates:
     rows = db.scalars(
-        select(VariantDetailState).where(
-            VariantDetailState.tenant_id == tenant_id, VariantDetailState.model_variant_id == model_variant_id
-        )
+        select(VariantDetailState)
+        .where(VariantDetailState.tenant_id == tenant_id, VariantDetailState.model_variant_id == model_variant_id)
+        # Read from the database, not the identity map: another open may
+        # have decided a state while this one waited for the lock.
+        .execution_options(populate_existing=True)
     ).all()
     return DetailStates(rows={row.detail: row for row in rows})
 
@@ -164,6 +199,15 @@ def _raw_vehicle_kind(db: Session, *, variant: ModelVariant, provider_code: str)
     )
 
 
+def _fit(value: str | None, length: int) -> str | None:
+    """A provider text cut to its column: the screen shows what fits, never
+    a 500 for a long remark."""
+
+    if value is None:
+        return None
+    return value if len(value) <= length else value[:length]
+
+
 def _set_state(
     db: Session,
     *,
@@ -194,14 +238,15 @@ def _type_approval_number(variant: ModelVariant) -> str | None:
 def _options_model_year(variant: ModelVariant) -> int:
     """The identAPI's model year for the option list: a car still in
     production takes `0`, the provider's "currently available equipment";
-    a discontinued one its last model year."""
+    a discontinued one the calendar year its production ended (the closest
+    the catalogue row comes to its last model year)."""
 
     return variant.model_year_to or 0
 
 
 def _stored_option_year(variant: ModelVariant) -> int:
     """What the stored options stand for: the year asked, or — for the
-    provider's "currently available" answer — the current model year. Never
+    provider's "currently available" answer — the current Swiss year. Never
     the first production year of a car still built: its 2021 options are not
     today's."""
 
@@ -212,15 +257,14 @@ def _stored_option_year(variant: ModelVariant) -> int:
 
 
 def _load_colours(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    provider_code: str,
-    variant: ModelVariant,
-    fz_key: str,
-    adapter: ProviderAdapter,
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, variant: ModelVariant, fz_key: str, adapter: ProviderAdapter
 ) -> None:
-    answer = adapter.fetch_variant_with_colours(fz_key)
+    try:
+        answer = adapter.fetch_variant_with_colours(fz_key)
+    except KeyError as exc:
+        # The provider no longer lists the key (a retired catalogue row):
+        # nothing to load, said so in the state, not a 500 and not a charge.
+        raise _NothingToLoad(VARIANT_UNKNOWN_AT_PROVIDER) from exc
     # The same request carries the master data: a revisit fills what is still
     # NULL and records the raw codes (KAN-83), never overwriting a value.
     upsert_model_variant(db, provider_code=provider_code, master=answer.master)
@@ -233,22 +277,23 @@ def _load_colours(
     }
     seen: set[str] = set()
     for colour in answer.colours:
-        seen.add(colour.colour_code)
+        code = _fit(colour.colour_code, 64) or colour.colour_code
+        if code in seen:
+            continue  # one row per code (the table's key); the first listed wins
+        seen.add(code)
+        description = _fit(colour.description, 160) or code
         # KAN-75: resolved before the row is touched; an unknown code is a
         # gap and leaves `colour_type` NULL (the colour is then not offered).
         colour_type = resolve_colour_or_tyre_code(
-            db,
-            provider_code=provider_code,
-            vehicle_kind_code=kind,
-            code_group=_COLOUR_AREA,
+            db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_COLOUR_AREA,
             raw_code=colour.colour_area_code,
         )
-        row = existing.get(colour.colour_code)
+        row = existing.get(code)
         if row is None:
-            row = ColourCache(tenant_id=tenant_id, model_variant_id=variant.id, colour_code=colour.colour_code)
+            row = ColourCache(tenant_id=tenant_id, model_variant_id=variant.id, colour_code=code, description=description)
             db.add(row)
-        row.description = colour.description
-        row.colour_area_code = colour.colour_area_code
+        row.description = description
+        row.colour_area_code = _fit(colour.colour_area_code, 16)
         row.colour_type = colour_type
         row.price = colour.price
     for code, row in existing.items():
@@ -257,14 +302,22 @@ def _load_colours(
     db.flush()
 
 
+def _delete_option(db: Session, option: VariantOption) -> None:
+    """An option the provider no longer lists goes with its children: the
+    feature links and the raw `SuchCode` rows (`VariantOptionProviderCode`,
+    whose key has no cascade)."""
+
+    for link in list(option.equipment_feature_links):
+        db.delete(link)
+    for raw in db.scalars(
+        select(VariantOptionProviderCode).where(VariantOptionProviderCode.variant_option_id == option.id)
+    ):
+        db.delete(raw)
+    db.delete(option)
+
+
 def _load_options(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    provider_code: str,
-    variant: ModelVariant,
-    fz_key: str,
-    adapter: ProviderAdapter,
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, variant: ModelVariant, fz_key: str, adapter: ProviderAdapter
 ) -> None:
     options = adapter.fetch_options(fz_key, model_year=_options_model_year(variant))
     kind = _raw_vehicle_kind(db, variant=variant, provider_code=provider_code)
@@ -288,107 +341,80 @@ def _load_options(
     model_year = _stored_option_year(variant)
     rows: dict[str, VariantOption] = {}
     for option in options:
-        row = existing.get(option.option_code)
+        code = _fit(option.option_code, 64) or option.option_code
+        if code in rows:
+            continue  # one row per key; the first listed wins
+        # `group` is a coded field like every other (FR-C-10): resolved
+        # through the code map, a miss is a mapping gap and a flat list until
+        # the admin maps it — never the provider's text stored as a code.
+        option_group = resolve_colour_or_tyre_code(
+            db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_OPTION_GROUP,
+            raw_code=_fit(option.option_group, 32),
+        )
+        row = existing.get(code)
         if row is None:
-            row = VariantOption(tenant_id=tenant_id, model_variant_id=variant.id, option_code=option.option_code)
+            row = VariantOption(
+                tenant_id=tenant_id, model_variant_id=variant.id, option_code=code, description=option.description
+            )
             db.add(row)
         row.description = option.description
-        row.option_group = option.option_group
+        row.option_group = option_group
         row.price = option.price
         row.is_included = option.is_included
         row.is_package = option.is_package
         row.model_year = model_year
-        row.manufacturer_code = option.manufacturer_code
+        row.manufacturer_code = _fit(option.manufacturer_code, 64)
         db.flush()  # the id the feature and relation rows reference
         sync_option_equipment_features(
-            db,
-            tenant_id=tenant_id,
-            provider_code=provider_code,
-            vehicle_kind_code=kind,
-            variant_option=row,
-            feature_codes=option.equipment_feature_codes,
+            db, tenant_id=tenant_id, provider_code=provider_code, vehicle_kind_code=kind,
+            variant_option=row, feature_codes=option.equipment_feature_codes,
         )
-        rows[option.option_code] = row
+        rows[code] = row
     for code, row in existing.items():
         if code not in rows:
-            for link in list(row.equipment_feature_links):
-                db.delete(link)
-            db.delete(row)
+            _delete_option(db, row)
     db.flush()
     # ADR-072: stored and shown, never enforced. A relation to an option the
-    # provider did not list for this car names nothing we hold and is skipped.
+    # provider did not list for this car names nothing we hold and is skipped;
+    # one relation per (from, to, type), whatever the answer repeats.
+    written: set[tuple[uuid.UUID, uuid.UUID, str]] = set()
     for option in options:
-        from_row = rows[option.option_code]
-        for code in option.pack_option_codes:
-            _add_relation(
-                db,
-                tenant_id=tenant_id,
-                variant=variant,
-                model_year=model_year,
-                from_row=from_row,
-                to_row=rows.get(code),
-                relation_type=_RELATION_CONTAINS,
-                price=None,
-            )
-        for code in option.excluded_option_codes:
-            _add_relation(
-                db,
-                tenant_id=tenant_id,
-                variant=variant,
-                model_year=model_year,
-                from_row=from_row,
-                to_row=rows.get(code),
-                relation_type=_RELATION_EXCLUDES,
-                price=None,
-            )
+        from_row = rows.get(_fit(option.option_code, 64) or option.option_code)
+        if from_row is None:
+            continue
+        for related in option.pack_option_codes:
+            _add_relation(db, tenant_id=tenant_id, variant=variant, model_year=model_year, from_row=from_row,
+                          to_row=rows.get(related), relation_type=_RELATION_CONTAINS, price=None, written=written)
+        for related in option.excluded_option_codes:
+            _add_relation(db, tenant_id=tenant_id, variant=variant, model_year=model_year, from_row=from_row,
+                          to_row=rows.get(related), relation_type=_RELATION_EXCLUDES, price=None, written=written)
         for priced in option.priced_with:
-            _add_relation(
-                db,
-                tenant_id=tenant_id,
-                variant=variant,
-                model_year=model_year,
-                from_row=from_row,
-                to_row=rows.get(priced.option_code),
-                relation_type=_RELATION_PRICED_WITH,
-                price=priced.price,
-            )
+            _add_relation(db, tenant_id=tenant_id, variant=variant, model_year=model_year, from_row=from_row,
+                          to_row=rows.get(priced.option_code), relation_type=_RELATION_PRICED_WITH,
+                          price=priced.price, written=written)
     db.flush()
 
 
 def _add_relation(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    variant: ModelVariant,
-    model_year: int,
-    from_row: VariantOption,
-    to_row: VariantOption | None,
-    relation_type: str,
-    price,
+    db: Session, *, tenant_id: uuid.UUID, variant: ModelVariant, model_year: int, from_row: VariantOption,
+    to_row: VariantOption | None, relation_type: str, price, written: set[tuple[uuid.UUID, uuid.UUID, str]],
 ) -> None:
     if to_row is None or to_row.id == from_row.id:
         return
+    key = (from_row.id, to_row.id, relation_type)
+    if key in written:
+        return
+    written.add(key)
     db.add(
         VariantOptionRelation(
-            tenant_id=tenant_id,
-            model_variant_id=variant.id,
-            model_year=model_year,
-            from_option_id=from_row.id,
-            to_option_id=to_row.id,
-            relation_type=relation_type,
-            price_in_combination=price,
+            tenant_id=tenant_id, model_variant_id=variant.id, model_year=model_year, from_option_id=from_row.id,
+            to_option_id=to_row.id, relation_type=relation_type, price_in_combination=price,
         )
     )
 
 
 def _load_tyre_specs(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    provider_code: str,
-    variant: ModelVariant,
-    fz_key: str,
-    adapter: ProviderAdapter,
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, variant: ModelVariant, fz_key: str, adapter: ProviderAdapter
 ) -> None:
     number = _type_approval_number(variant)
     tyres = adapter.fetch_tyre_specs(type_approval_number=number) if number else []
@@ -403,37 +429,34 @@ def _load_tyre_specs(
     }
     seen: set[tuple[str | None, str | None]] = set()
     for tyre in tyres:
-        key = (tyre.axle_code, tyre.season_code)
+        key = (_fit(tyre.axle_code, 16), _fit(tyre.season_code, 16))
         if key in seen:
             # One row per axle and season (the table's key): a second
             # dimension for the same pair — another gearbox's — is not a
-            # second row here; the first one listed is kept.
+            # second row here; the first one listed is kept (KAN-596).
             continue
         seen.add(key)
         # Resolved before the row is touched: the lookup may flush, and a new
         # row must not reach the database half-filled (KAN-75's own order).
         axle = resolve_colour_or_tyre_code(
-            db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_AXLE_POSITION, raw_code=tyre.axle_code
+            db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_AXLE_POSITION, raw_code=key[0]
         )
         season = resolve_colour_or_tyre_code(
-            db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_TYRE_TYPE, raw_code=tyre.season_code
+            db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_TYRE_TYPE, raw_code=key[1]
         )
+        size = _fit(tyre.size, 32) or tyre.size
         row = existing.get(key)
         if row is None:
             row = TyreSpecCache(
-                tenant_id=tenant_id,
-                model_variant_id=variant.id,
-                axle_code=tyre.axle_code,
-                season_code=tyre.season_code,
-                size=tyre.size,
+                tenant_id=tenant_id, model_variant_id=variant.id, axle_code=key[0], season_code=key[1], size=size
             )
             db.add(row)
         row.axle = axle
         row.season = season
-        row.size = tyre.size
-        row.load_index = tyre.load_index
-        row.speed_rating = tyre.speed_rating
-        row.remark = tyre.remark
+        row.size = size
+        row.load_index = _fit(tyre.load_index, 8)
+        row.speed_rating = _fit(tyre.speed_rating, 4)
+        row.remark = _fit(tyre.remark, 160)
     for key, row in existing.items():
         if key not in seen:
             db.delete(row)
@@ -441,13 +464,7 @@ def _load_tyre_specs(
 
 
 def _load_images(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    provider_code: str,
-    variant: ModelVariant,
-    fz_key: str,
-    adapter: ProviderAdapter,
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, variant: ModelVariant, fz_key: str, adapter: ProviderAdapter
 ) -> None:
     images = adapter.fetch_images(fz_key)
     existing = {
@@ -458,13 +475,24 @@ def _load_images(
     }
     seen: set[str] = set()
     for image in images:
-        seen.add(image.image_key)
-        row = existing.get(image.image_key)
+        key = _fit(image.image_key, 160) or image.image_key
+        if key in seen:
+            continue
+        if image.image_url is not None and len(image.image_url) > 500:
+            # A cut URL is a broken picture: left out, and said so.
+            logger.warning("image %s of FzKey %s left out: its URL is longer than 500 characters", key, fz_key)
+            continue
+        seen.add(key)
+        bild_typ = _fit(image.bild_typ, 16) or "?"
+        bild_art = _fit(image.bild_art, 16) or "?"
+        row = existing.get(key)
         if row is None:
-            row = ImageRef(tenant_id=tenant_id, model_variant_id=variant.id, image_key=image.image_key)
+            row = ImageRef(
+                tenant_id=tenant_id, model_variant_id=variant.id, image_key=key, bild_typ=bild_typ, bild_art=bild_art
+            )
             db.add(row)
-        row.bild_typ = image.bild_typ
-        row.bild_art = image.bild_art
+        row.bild_typ = bild_typ
+        row.bild_art = bild_art
         row.sequence = image.sequence
         row.image_url = image.image_url
     for key, row in existing.items():
@@ -474,46 +502,51 @@ def _load_images(
 
 
 def _load_energy_label(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    provider_code: str,
-    variant: ModelVariant,
-    fz_key: str,
-    adapter: ProviderAdapter,
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, variant: ModelVariant, fz_key: str, adapter: ProviderAdapter
 ) -> None:
     """The provider's A–G class per calculation year, stored once for every
     Betrieb (ADR-042: a value as of a year) with `source = auto_i_dat`,
     filling an absence only — a BFE row, or any row already held for the
-    year, is left alone. A letter the `energy_efficiency_category` list
-    does not know is left out."""
+    year, is left alone. The provider answers one row per gearbox: a year
+    whose rows disagree on the class is not stored (the Energieetikette is a
+    legal display; a guess shared by every Betrieb is worse than none) and
+    the state says so. A letter the `energy_efficiency_category` list does
+    not know is left out."""
 
     number = _type_approval_number(variant)
     labels = adapter.fetch_energy_label(type_approval_number=number) if number else []
     if not labels:
         return
     known = get_active_reference_value_codes(db, _ENERGY_LABEL_LIST) or set()
+    by_year: dict[int, set[str]] = {}
     for label in labels:
         code = label.energy_class.strip().lower()
-        if code not in known:
+        if code in known:
+            by_year.setdefault(label.calculation_year, set()).add(code)
+    ambiguous = False
+    for year, codes in by_year.items():
+        if len(codes) != 1:
+            ambiguous = True
+            logger.info(
+                "energy label of variant %s for %d: gearboxes disagree (%s); not stored", variant.id, year, sorted(codes)
+            )
             continue
         held = db.scalar(
             select(ModelVariantEnergyRating.id).where(
-                ModelVariantEnergyRating.model_variant_id == variant.id,
-                ModelVariantEnergyRating.rating_year == label.calculation_year,
+                ModelVariantEnergyRating.model_variant_id == variant.id, ModelVariantEnergyRating.rating_year == year
             )
         )
         if held is not None:
             continue
         db.add(
             ModelVariantEnergyRating(
-                model_variant_id=variant.id,
-                rating_year=label.calculation_year,
-                energy_efficiency_category=code,
+                model_variant_id=variant.id, rating_year=year, energy_efficiency_category=next(iter(codes)),
                 source=_ENERGY_LABEL_SOURCE,
             )
         )
         db.flush()
+    if ambiguous:
+        raise _LoadedWithNote(ENERGY_LABEL_AMBIGUOUS)
 
 
 _Loader = Callable[..., None]
@@ -526,7 +559,64 @@ _LOADERS: Final[dict[CatalogueDetail, _Loader]] = {
 }
 
 
+# -- the lock: one open at a time per (Betrieb, variant) ------------------------------------
+
+
+def _lock_keys(tenant_id: uuid.UUID, variant_id: uuid.UUID) -> tuple[int, int]:
+    """Two signed 32-bit keys for `pg_advisory_lock(int, int)`, from the two
+    ids' low words."""
+
+    def key(value: uuid.UUID) -> int:
+        number = value.int & 0xFFFFFFFF
+        return number - 0x100000000 if number >= 0x80000000 else number
+
+    return key(tenant_id), key(variant_id)
+
+
+@contextmanager
+def _open_lock(db: Session, *, tenant_id: uuid.UUID, variant_id: uuid.UUID) -> Iterator[None]:
+    """A session-level advisory lock on (Betrieb, variant) for the length of
+    the load, taken on a connection of its own: the caller's session commits
+    after every detail and may come back from the pool on another physical
+    connection, where a session-level lock would neither be held nor
+    released. It blocks nothing but a second open of the same car by the
+    same Betrieb — no row of a shared table is locked (ADR-013 needs no
+    serialisation across Betriebe). The SQLite lane has no advisory locks
+    and never counts as verification."""
+
+    engine = db.get_bind().engine
+    if engine.dialect.name != "postgresql":
+        yield
+        return
+    first, second = _lock_keys(tenant_id, variant_id)
+    with engine.connect() as lock_connection:
+        lock_connection.execute(text("SELECT pg_advisory_lock(:a, :b)"), {"a": first, "b": second})
+        try:
+            yield
+        finally:
+            lock_connection.execute(text("SELECT pg_advisory_unlock(:a, :b)"), {"a": first, "b": second})
+            lock_connection.commit()
+
+
 # -- the two entry points -------------------------------------------------------------
+
+
+def _wanted(
+    db: Session, *, connection: IntegrationConnection, states: DetailStates, force: bool
+) -> list[CatalogueDetail]:
+    wanted: list[CatalogueDetail] = []
+    for detail in DETAILS:
+        row = states.state_of(detail)
+        if force or row is None or row.state == DetailState.UNAVAILABLE:
+            wanted.append(detail)
+        elif row.state == DetailState.NOT_IN_CONTRACT:
+            # Asked again once a later «Test connection» recorded the option as
+            # granted (a licence upgrade); otherwise never on open — a billed
+            # 403 per open is not a retry.
+            entitlement = get_entitlement(db, connection_id=connection.id, capability_code=DETAIL_CAPABILITY[detail])
+            if entitlement is not None and entitlement.granted and entitlement.checked_at > row.loaded_at:
+                wanted.append(detail)
+    return wanted
 
 
 def load_on_open(
@@ -540,11 +630,11 @@ def load_on_open(
 ) -> DetailStates:
     """Loads every detail this Betrieb has not stored — or, with `force`,
     every detail afresh (`reload_details`) — and returns the states. Each
-    detail is its own gateway block and savepoint; a refused or failed one
-    ends in its state and the loop goes on. Commits: the states and the rows
-    are facts about what was asked and answered, whatever the caller does
-    next. Without a connection, or for a variant unknown at the provider,
-    nothing is asked and nothing is written."""
+    detail is its own gateway block, savepoint and commit; a refused or
+    failed one ends in its state and the loop goes on. Without a connection,
+    or for a variant unknown at the provider, nothing is asked and nothing is
+    written. A failure that is no provider failure (a bug) propagates after
+    the details before it were committed."""
 
     states = detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id)
     found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
@@ -554,36 +644,19 @@ def load_on_open(
     fz_key = provider_key_of(db, variant=variant, provider_code=provider_code)
     if fz_key is None:
         return states
-    wanted = [
-        detail
-        for detail in DETAILS
-        if force or states.state_of(detail) is None or states.state_of(detail).state == DetailState.UNAVAILABLE  # type: ignore[union-attr]
-    ]
-    if not wanted:
+    if not _wanted(db, connection=connection, states=states, force=force):
         return states
-    # Serialises two opens of the same car: the second waits here, then
-    # re-reads the states and finds the first one's work (Postgres; the
-    # SQLite lane has no row locks and never counts as verification).
-    db.execute(select(ModelVariant.id).where(ModelVariant.id == variant.id).with_for_update())
-    states = detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id)
-    rows = states.rows
-    for detail in wanted:
-        row = rows.get(detail)
-        if not force and row is not None and row.state != DetailState.UNAVAILABLE:
-            continue  # loaded by the open that held the lock before us
-        _load_one(
-            db,
-            tenant_id=tenant_id,
-            connection=connection,
-            provider_code=provider_code,
-            variant=variant,
-            fz_key=fz_key,
-            detail=detail,
-            actor_id=actor_id,
-            purpose=purpose,
-            rows=rows,
-        )
-    db.commit()
+    with _open_lock(db, tenant_id=tenant_id, variant_id=variant.id):
+        # Judged again under the lock: the open that held it before us may
+        # have decided these states.
+        states = detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id)
+        rows = states.rows
+        for detail in _wanted(db, connection=connection, states=states, force=force):
+            _load_one(
+                db, tenant_id=tenant_id, connection=connection, provider_code=provider_code, variant=variant,
+                fz_key=fz_key, detail=detail, actor_id=actor_id, purpose=purpose, rows=rows,
+            )
+            db.commit()
     return DetailStates(rows=rows)
 
 
@@ -607,6 +680,7 @@ def _load_one(
     if entitlement is not None and not entitlement.granted:
         set_state(DetailState.NOT_IN_CONTRACT, ENTITLEMENT_ABSENT)
         return
+    note: str | None = None
     try:
         with (
             call_capability(
@@ -621,12 +695,25 @@ def _load_one(
             # the other details' rows are untouched (KAN-212).
             db.begin_nested(),
         ):
-            _LOADERS[detail](
-                db, tenant_id=tenant_id, provider_code=provider_code, variant=variant, fz_key=fz_key, adapter=adapter
-            )
-            set_state(DetailState.PRESENT, None)
+            try:
+                _LOADERS[detail](
+                    db, tenant_id=tenant_id, provider_code=provider_code, variant=variant, fz_key=fz_key,
+                    adapter=adapter,
+                )
+            except (_LoadedWithNote, _NothingToLoad) as exc:
+                # Caught inside the gateway block: an answer with nothing in
+                # it is the provider's coherent answer, not a failure to
+                # charge the breaker with.
+                note = exc.note
     except ProviderNotEntitledError as exc:
         set_state(DetailState.NOT_IN_CONTRACT, type(exc).__name__)
+        return
+    except ProviderRequestError as exc:
+        # The provider's coherent "no" to our request (400/422): asking again
+        # on the next open would buy the same answer; `present` with the
+        # note, until «Neu laden».
+        set_state(DetailState.PRESENT, type(exc).__name__)
+        return
     except ProviderGatewayError as exc:
         # A transport failure, an open breaker, a refused login, a connection
         # not configured for a call with nobody to enrol: asked again on the
@@ -634,22 +721,26 @@ def _load_one(
         # what it was sent.
         logger.info("catalogue detail %s of variant %s unavailable: %s", detail.value, variant.id, type(exc).__name__)
         set_state(DetailState.UNAVAILABLE, type(exc).__name__)
+        return
+    set_state(DetailState.PRESENT, note)
 
 
 def reload_details(
     db: Session, *, tenant_id: uuid.UUID, variant: ModelVariant, actor_id: uuid.UUID, reason: str | None = None
 ) -> DetailStates:
     """«Neu laden» (ticket point 4): one fresh request per detail, replacing
-    this Betrieb's stored rows, recorded in the audit log with the actor.
-    Nowhere else does anything refresh a detail."""
+    this Betrieb's stored rows, recorded in the audit log with the actor
+    before the first request leaves — the record says a reload was asked for
+    and by whom, whatever each detail then ends in (its state says that).
+    Nowhere else does anything refresh a detail. Without a connection there
+    is nothing to reload and nothing is recorded."""
 
+    if find_enabled_vehicle_data_connection(db, tenant_id=tenant_id) is None:
+        return detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id)
     before = {
         detail.value: (row.state.value, row.loaded_at.isoformat())
         for detail, row in detail_states(db, tenant_id=tenant_id, model_variant_id=variant.id).rows.items()
     }
-    states = load_on_open(
-        db, tenant_id=tenant_id, variant=variant, actor_id=actor_id, purpose="catalogue_details_reload", force=True
-    )
     record_audit_event(
         db,
         entity_type="vehicle_variant_details",
@@ -658,8 +749,10 @@ def reload_details(
         action="reload",
         actor_id=actor_id,
         before=before,
-        after={detail.value: (row.state.value, row.loaded_at.isoformat()) for detail, row in states.rows.items()},
+        after=None,
         reason=reason or "KAN-211: «Neu laden» on the stock car's technical data",
     )
     db.commit()
-    return states
+    return load_on_open(
+        db, tenant_id=tenant_id, variant=variant, actor_id=actor_id, purpose="catalogue_details_reload", force=True
+    )

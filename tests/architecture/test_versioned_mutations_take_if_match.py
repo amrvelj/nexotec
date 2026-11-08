@@ -48,6 +48,9 @@ _KAN_428 = "no If-Match by Anto's ruling (2026-11-03, KAN-428 option C): "
 
 # path -> why the POST on an existing entity takes no If-Match.
 POST_WITHOUT_IF_MATCH = {
+    "/v1/catalogue/variants/{model_variant_id}/details/reload": "KAN-211 (ADR-123), «Neu laden»: the variant row "
+    "is not what changes (its version stays); the calling Betrieb's detail rows are replaced wholesale and carry "
+    "no version — one fresh request per detail, audited",
     "/v1/dealerships/{dealership_id}/users": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35) bumps every "
     "moved offer's, contract's and customer's version, judged again under each row's lock — no single version "
