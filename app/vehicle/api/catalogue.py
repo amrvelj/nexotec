@@ -1,12 +1,19 @@
-"""Catalogue browse & facet search endpoints (C-B / KAN-40, FR-C-01) —
-`/v1/catalogue/*`, the FR-C-17 read surface for the catalogue mirror.
+"""Catalogue browse & facet search endpoints (FR-C-01) — `/v1/catalogue/*`,
+**live identAPI queries** since KAN-548 (ADR-112).
 
-Authenticated read; the catalogue rows themselves are global (same as
-`/v1/vehicle-mdm` reads). `principal.tenant_id` is passed only so the
-service can report `browseAvailable=false` for a tenant with no provider
-contract (PRD "Browse ... hidden, not broken"). **No provider call is made
-on any path here** — asserted by
-`tests/architecture/test_catalogue_browse_makes_no_provider_call.py`.
+Authenticated read on the Betrieb's own connection: the browser asks for a
+vehicle kind, a brand, a model group and a page, and the vehicle API asks
+the provider for exactly that (two hops, rule 11; the gateway runs in
+process). Every variant a page returns is stored once as master data
+(ADR-075), so `GET /catalogue/variants/{id}` and the configurator read a
+stored row. A Betrieb without a connection, a refused query and a provider
+outage are **states** on a 200 answer (`notConfigured`, `notInContract`,
+`unavailable`), never a 500 or a 503 (Anto, 2026-11-07).
+
+Bounded by `tests/architecture/test_catalogue_browse_is_a_bounded_live_query.py`
+(one provider request per page, one per facet field) and
+`tests/architecture/test_no_bulk_catalogue_retrieval.py` (no code path walks
+the provider's pages).
 """
 
 import uuid
@@ -16,19 +23,18 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
-from app.core.config import get_settings
-from app.core.errors import NotFoundError
-from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.sorting import SortField, parse_sort
+from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.db import get_db
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.schemas.catalogue import (
+    CatalogueBrandPage,
+    CatalogueBrandRead,
     CatalogueBrowseMode,
+    CatalogueBrowseState,
     CatalogueFacetsRead,
     CatalogueFacetValue,
     CatalogueModelGroupPage,
     CatalogueModelGroupRead,
-    CatalogueNumericFacet,
     CatalogueVariantPage,
     CatalogueVariantPrice,
     CatalogueVariantRead,
@@ -44,26 +50,15 @@ from app.vehicle.schemas.vehicle_mdm import (
 )
 from app.vehicle.services import catalogue_browse, catalogue_entitlements
 from app.vehicle.services.catalogue_browse import (
-    CODED_FACET_COLUMNS,
-    NUMERIC_FACET_COLUMNS,
+    CODED_FIELDS,
+    DEFAULT_VEHICLE_KIND,
+    NUMERIC_FIELDS,
+    SORT_FIELDS,
+    BrowseSort,
     VariantFilters,
 )
 
 router = APIRouter(tags=["catalogue"])
-settings = get_settings()
-
-# U-02/U-03: only columns with a supporting index are offered as sortable —
-# see alembic/versions/vehicle/<rev>_catalogue_browse_sort_indexes.py.
-CATALOGUE_VARIANT_SORT_FIELDS: dict[str, object] = {
-    "variantName": ModelVariant.name,
-    "ps": ModelVariant.ps,
-    "kw": ModelVariant.kw,
-    "displacementCcm": ModelVariant.displacement_ccm,
-    "basePrice": ModelVariant.base_price,
-    "modelYearFrom": ModelVariant.model_year_from,
-    "updatedAt": ModelVariant.updated_at,
-}
-_DEFAULT_SORT = [SortField(api_name="variantName", column=ModelVariant.name, direction="asc", nullable=False)]
 
 
 def _catalogue_filters(
@@ -71,22 +66,8 @@ def _catalogue_filters(
     bodyStyle: str | None = None,
     drivetrain: str | None = None,
     transmission: str | None = None,
-    vehicleKind: str | None = None,
     vehicleClass: str | None = None,
     emissionStandard: str | None = None,
-    engineCycle: str | None = None,
-    # KAN-476: «ist nicht» per coded field; a variant without a value for it
-    # is kept (it is not that value).
-    fuelTypeNot: str | None = None,
-    bodyStyleNot: str | None = None,
-    drivetrainNot: str | None = None,
-    transmissionNot: str | None = None,
-    vehicleKindNot: str | None = None,
-    vehicleClassNot: str | None = None,
-    emissionStandardNot: str | None = None,
-    engineCycleNot: str | None = None,
-    psMin: Decimal | None = None,
-    psMax: Decimal | None = None,
     kwMin: Decimal | None = None,
     kwMax: Decimal | None = None,
     displacementCcmMin: Decimal | None = None,
@@ -97,39 +78,54 @@ def _catalogue_filters(
     seatsMax: Decimal | None = None,
     co2GkmMin: Decimal | None = None,
     co2GkmMax: Decimal | None = None,
-    modelYearFromMin: Decimal | None = None,
-    modelYearFromMax: Decimal | None = None,
-    basePriceMin: Decimal | None = None,
-    basePriceMax: Decimal | None = None,
-    inProduction: bool | None = None,
     q: str | None = None,
 ) -> VariantFilters:
+    """The filters the identAPI applies exactly (its filterable fields): one
+    value per coded field, inclusive `…Min`/`…Max` per number. `ps`, the list
+    price and the production years are not filterable there and are not
+    offered (KAN-548); «ist nicht» (KAN-476) went with the mirror."""
+
     coded = {
-        "fuelType": fuelType, "bodyStyle": bodyStyle, "drivetrain": drivetrain,
-        "transmission": transmission, "vehicleKind": vehicleKind, "vehicleClass": vehicleClass,
-        "emissionStandard": emissionStandard, "engineCycle": engineCycle,
+        "fuelType": fuelType, "bodyStyle": bodyStyle, "drivetrain": drivetrain, "transmission": transmission,
+        "vehicleClass": vehicleClass, "emissionStandard": emissionStandard,
     }
-    coded_not = {
-        "fuelType": fuelTypeNot, "bodyStyle": bodyStyleNot, "drivetrain": drivetrainNot,
-        "transmission": transmissionNot, "vehicleKind": vehicleKindNot, "vehicleClass": vehicleClassNot,
-        "emissionStandard": emissionStandardNot, "engineCycle": engineCycleNot,
-    }
-    numeric_min = {
-        "ps": psMin, "kw": kwMin, "displacementCcm": displacementCcmMin, "doors": doorsMin,
-        "seats": seatsMin, "co2Gkm": co2GkmMin, "modelYearFrom": modelYearFromMin, "basePrice": basePriceMin,
-    }
-    numeric_max = {
-        "ps": psMax, "kw": kwMax, "displacementCcm": displacementCcmMax, "doors": doorsMax,
-        "seats": seatsMax, "co2Gkm": co2GkmMax, "modelYearFrom": modelYearFromMax, "basePrice": basePriceMax,
-    }
+    numeric_min = {"kw": kwMin, "displacementCcm": displacementCcmMin, "doors": doorsMin, "seats": seatsMin, "co2Gkm": co2GkmMin}
+    numeric_max = {"kw": kwMax, "displacementCcm": displacementCcmMax, "doors": doorsMax, "seats": seatsMax, "co2Gkm": co2GkmMax}
     return VariantFilters(
-        coded={k: v for k, v in coded.items() if v is not None and k in CODED_FACET_COLUMNS},
-        coded_not={k: v for k, v in coded_not.items() if v is not None and k in CODED_FACET_COLUMNS},
-        numeric_min={k: v for k, v in numeric_min.items() if v is not None and k in NUMERIC_FACET_COLUMNS},
-        numeric_max={k: v for k, v in numeric_max.items() if v is not None and k in NUMERIC_FACET_COLUMNS},
-        in_production=inProduction,
+        coded={k: v for k, v in coded.items() if v is not None and k in CODED_FIELDS},
+        numeric_min={k: v for k, v in numeric_min.items() if v is not None and k in NUMERIC_FIELDS},
+        numeric_max={k: v for k, v in numeric_max.items() if v is not None and k in NUMERIC_FIELDS},
         q=q,
     )
+
+
+def _parse_sort(sort: str | None) -> list[BrowseSort]:
+    """`kw:desc,doors:asc` → the provider's sort; an unknown field is 422,
+    like every grid (the sortable fields are the ones the identAPI filters)."""
+
+    if not sort:
+        return []
+    parsed: list[BrowseSort] = []
+    for part in sort.split(","):
+        name, _, direction = part.strip().partition(":")
+        if name not in SORT_FIELDS or direction not in ("", "asc", "desc"):
+            raise UnprocessableEntityError(
+                f"Unknown sort field {part.strip()!r}; sortable: {', '.join(SORT_FIELDS)}.",
+                details={"reason": "sort_field_unknown", "field": name},
+            )
+        parsed.append(BrowseSort(api_field=name, descending=direction == "desc"))
+    return parsed
+
+
+def _page(cursor: str | None) -> int:
+    """`cursor` is the provider page number since KAN-548 (the first page
+    when absent) — the name the grid's cursor paging already sends."""
+
+    if cursor is None or cursor == "":
+        return 1
+    if not cursor.isdigit() or int(cursor) < 1:
+        raise UnprocessableEntityError("cursor must be a page number from 1.", details={"reason": "cursor_invalid"})
+    return int(cursor)
 
 
 def _variant_read(variant: ModelVariant) -> CatalogueVariantRead:
@@ -161,50 +157,109 @@ def _variant_read(variant: ModelVariant) -> CatalogueVariantRead:
     )
 
 
-@router.get("/catalogue/model-groups", response_model=CatalogueModelGroupPage)
-def list_model_groups(
-    brand_id: uuid.UUID = Query(alias="brandId"),
+@router.get("/catalogue/brands", response_model=CatalogueBrandPage)
+def list_brands(
+    vehicle_kind: str = Query(default=DEFAULT_VEHICLE_KIND, alias="vehicleKind", max_length=64),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    groups = catalogue_browse.list_model_groups(db, brand_id=brand_id)
+    """Every brand the provider lists for a vehicle kind, with its model
+    names — live, one request, not stored (ADR-112)."""
+
+    result = catalogue_browse.list_brands(
+        db, tenant_id=principal.tenant_id, actor_id=principal.user_id, vehicle_kind=vehicle_kind
+    )
+    return CatalogueBrandPage(
+        items=[CatalogueBrandRead(name=b.name, brand_nr=b.brand_nr, models=list(b.models)) for b in result.items],
+        state=result.state,
+    )
+
+
+@router.get("/catalogue/model-groups", response_model=CatalogueModelGroupPage)
+def list_model_groups(
+    brand: str = Query(min_length=1, max_length=120),
+    vehicle_kind: str = Query(default=DEFAULT_VEHICLE_KIND, alias="vehicleKind", max_length=64),
+    mode: CatalogueBrowseMode = CatalogueBrowseMode.BUILD,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """The provider's model groups of a brand — live, one request. In `build`
+    mode only the groups in production (PRD `NurNeue`)."""
+
+    result = catalogue_browse.list_model_groups(
+        db, tenant_id=principal.tenant_id, actor_id=principal.user_id, vehicle_kind=vehicle_kind, brand=brand, mode=mode
+    )
     return CatalogueModelGroupPage(
-        items=[CatalogueModelGroupRead(id=g.id, brand_id=g.brand_id, name=g.name) for g in groups]
+        items=[
+            CatalogueModelGroupRead(
+                key=g.model_group_key, name=g.description, model_search=g.model_search,
+                production_year_from=g.production_year_from, production_year_to=g.production_year_to,
+            )
+            for g in result.items
+        ],
+        state=result.state,
     )
 
 
 @router.get("/catalogue/variants", response_model=CatalogueVariantPage)
 def browse_variants(
-    brand_id: uuid.UUID | None = Query(default=None, alias="brandId"),
-    model_group_id: uuid.UUID | None = Query(default=None, alias="modelGroup"),
-    mode: CatalogueBrowseMode = CatalogueBrowseMode.BUILD,
+    vehicle_kind: str = Query(default=DEFAULT_VEHICLE_KIND, alias="vehicleKind", max_length=64),
+    brand: str | None = Query(default=None, max_length=120),
+    model_group_key: str | None = Query(default=None, alias="modelGroupKey", max_length=64),
     filters: VariantFilters = Depends(_catalogue_filters),
-    sort: str | None = Query(default=None, description="e.g. 'ps:desc,variantName:asc'"),
-    limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
-    cursor: str | None = Query(default=None),
+    sort: str | None = Query(default=None, description="e.g. 'kw:desc,doors:asc'"),
+    cursor: str | None = Query(default=None, description="the provider page number; absent = page 1"),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    sort_fields = parse_sort(sort, allowed=CATALOGUE_VARIANT_SORT_FIELDS) or _DEFAULT_SORT
-    params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
-    )
-    catalogue_browse.validate_coded_exclusions(db, filters)
-    rows, next_cursor, total, total_is_estimate, browse_available = catalogue_browse.browse_variants(
+    """One provider page of variants for the drill-down and the filters —
+    exactly the page asked (ADR-112 (4)); every variant on it stored once.
+    The production-year default of the mode (PRD `NurNeue`) applies to the
+    model-group list: the identAPI's variant rows are not filterable on
+    `productionEnd`, so a page is never narrowed by it here."""
+
+    result = catalogue_browse.browse_variants(
         db,
         tenant_id=principal.tenant_id,
-        brand_id=brand_id,
-        model_group_id=model_group_id,
+        actor_id=principal.user_id,
+        vehicle_kind=vehicle_kind,
+        brand=brand,
+        model_group_key=model_group_key,
         filters=filters,
-        mode=mode,
-        params=params,
+        sort=_parse_sort(sort),
+        page=_page(cursor),
     )
     return CatalogueVariantPage(
-        items=[_variant_read(v) for v in rows],
-        next_cursor=next_cursor,
-        total=total,
-        total_is_estimate=total_is_estimate,
-        browse_available=browse_available,
+        items=[_variant_read(v) for v in result.rows],
+        next_cursor=str(result.next_page) if result.next_page is not None else None,
+        total=result.total,
+        total_is_estimate=False,
+        browse_available=result.state is CatalogueBrowseState.OK,
+        state=result.state,
+    )
+
+
+@router.get("/catalogue/facets", response_model=CatalogueFacetsRead)
+def catalogue_facets(
+    vehicle_kind: str = Query(default=DEFAULT_VEHICLE_KIND, alias="vehicleKind", max_length=64),
+    brand: str | None = Query(default=None, max_length=120),
+    model_group_key: str | None = Query(default=None, alias="modelGroupKey", max_length=64),
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """The values the provider holds per facet field in the drill-down scope
+    — one request per field, only once a brand is chosen (before that: no
+    call, nothing offered)."""
+
+    facets = catalogue_browse.compute_facets(
+        db, tenant_id=principal.tenant_id, actor_id=principal.user_id, vehicle_kind=vehicle_kind, brand=brand,
+        model_group_key=model_group_key,
+    )
+    return CatalogueFacetsRead(
+        browse_available=facets.state is CatalogueBrowseState.OK,
+        state=facets.state,
+        coded={api_field: [CatalogueFacetValue(value_code=code) for code in codes] for api_field, codes in facets.coded.items()},
+        numeric={},
     )
 
 
@@ -223,29 +278,6 @@ def get_variant(
     if variant is None:
         raise NotFoundError(f"Catalogue variant {model_variant_id} was not found.")
     return _variant_read(variant)
-
-
-@router.get("/catalogue/facets", response_model=CatalogueFacetsRead)
-def catalogue_facets(
-    brand_id: uuid.UUID | None = Query(default=None, alias="brandId"),
-    model_group_id: uuid.UUID | None = Query(default=None, alias="modelGroup"),
-    mode: CatalogueBrowseMode = CatalogueBrowseMode.BUILD,
-    principal: Principal = Depends(get_current_principal),
-    db: Session = Depends(get_db),
-):
-    facets = catalogue_browse.compute_facets(
-        db, tenant_id=principal.tenant_id, brand_id=brand_id, model_group_id=model_group_id, mode=mode
-    )
-    return CatalogueFacetsRead(
-        browse_available=facets.browse_available,
-        coded={
-            field: [CatalogueFacetValue(value_code=vc, count=n) for vc, n in values]
-            for field, values in facets.coded.items()
-        },
-        numeric={
-            field: CatalogueNumericFacet(min=low, max=high) for field, (low, high) in facets.numeric.items()
-        },
-    )
 
 
 @router.get("/catalogue/variants/{model_variant_id}/specification", response_model=CatalogueSpecificationRead)

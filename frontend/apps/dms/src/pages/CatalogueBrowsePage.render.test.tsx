@@ -16,8 +16,11 @@ function LocationProbe() {
   return <div data-testid="loc">{location.search}</div>
 }
 
-const BRAND = { id: 'brand-vw', code: 'vw', displayName: 'Volkswagen', version: 1, createdAt: '', updatedAt: '' }
-const GROUP = { id: 'group-golf', brandId: 'brand-vw', name: 'Golf' }
+// KAN-548: the drill-down is live on the provider — a brand list per vehicle
+// kind, a brand's model groups (keyed by the provider's key), one page of
+// variants once a brand is chosen; every answer carries a `state`.
+const BRAND = { name: 'Volkswagen', brandNr: '2', models: ['Golf'] }
+const GROUP = { key: 'group-golf', name: 'Golf', modelSearch: 'GOLF', productionYearFrom: 2019, productionYearTo: null }
 
 function variant(over: Record<string, unknown> = {}) {
   return {
@@ -50,28 +53,24 @@ interface Ctx {
 
 function install(over: FakeRoute[] = []): Ctx {
   const routes: FakeRoute[] = [
-    { method: 'GET', match: /\/vehicle-mdm\/brands$/, handler: () => ({ items: [BRAND], nextCursor: null }) },
+    { method: 'GET', match: /\/catalogue\/brands$/, handler: () => ({ items: [BRAND], state: 'ok' }) },
     {
       method: 'GET',
       match: /\/catalogue\/model-groups$/,
-      handler: ({ params }) => ({ items: params.get('brandId') === 'brand-vw' ? [GROUP] : [] }),
+      handler: ({ params }) => ({ items: params.get('brand') === 'Volkswagen' ? [GROUP] : [], state: 'ok' }),
     },
     {
       method: 'GET',
       match: /\/catalogue\/facets$/,
-      handler: () => ({
-        browseAvailable: true,
-        coded: { fuelType: [{ valueCode: 'petrol', count: 3 }] },
-        numeric: { ps: { min: '120', max: '320' } },
-      }),
+      handler: () => ({ browseAvailable: true, state: 'ok', coded: { fuelType: [{ valueCode: 'petrol', count: null }] }, numeric: {} }),
     },
     {
       method: 'GET',
       match: /\/catalogue\/variants$/,
       handler: ({ params }) => {
-        const narrowed = params.get('modelGroup') === 'group-golf'
+        const narrowed = params.get('modelGroupKey') === 'group-golf'
         const rows = narrowed ? [variant()] : [variant(), variant({ id: 'v2', variantName: 'Golf R' })]
-        return { items: rows, nextCursor: null, total: rows.length, totalIsEstimate: false, browseAvailable: true }
+        return { items: rows, nextCursor: null, total: rows.length, totalIsEstimate: false, browseAvailable: true, state: 'ok' }
       },
     },
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
@@ -112,28 +111,31 @@ describe('CatalogueBrowsePage — FR-C-01', () => {
     )
     await user.click(await screen.findByRole('option', { name: 'Volkswagen' }))
 
-    await waitFor(() => expect(screen.getByTestId('loc').textContent).toContain('brand=brand-vw'))
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toContain('brand=Volkswagen'))
     await waitFor(() => expect(modelGroupInput()).not.toBeDisabled())
+    // the first page is asked only now, with the brand (ADR-112 (4))
+    await waitFor(() => expect(ctx.variantRequests().length).toBe(1))
+    expect(ctx.variantRequests()[0].get('brand')).toBe('Volkswagen')
 
     await user.click(modelGroupInput())
     await user.click(await screen.findByRole('option', { name: 'Golf' }))
 
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toContain('modelGroup=group-golf'))
-    await waitFor(() => expect(ctx.variantRequests().at(-1)?.get('modelGroup')).toBe('group-golf'))
+    await waitFor(() => expect(ctx.variantRequests().at(-1)?.get('modelGroupKey')).toBe('group-golf'))
   })
 
   it('facet filter: a fuelType filter in the URL reaches /catalogue/variants', async () => {
     const ctx = install()
     const predicate = { id: 'p1', fieldId: 'fuelType', type: 'select', condition: 'is', value: 'petrol' }
     renderWithProviders(<CatalogueBrowsePage />, {
-      route: `/catalogue?filters=${encodeURIComponent(JSON.stringify([predicate]))}`,
+      route: `/catalogue?brand=Volkswagen&filters=${encodeURIComponent(JSON.stringify([predicate]))}`,
     })
     await screen.findByRole('columnheader', { name: variantHeader() })
     await waitFor(() => expect(ctx.variantRequests().length).toBeGreaterThan(0))
     expect(ctx.variantRequests().at(-1)?.get('fuelType')).toBe('petrol')
   })
 
-  it('mode → production-year: build is the default, switching to record drops the in-production filter', async () => {
+  it('mode → production-year: build is the default and narrows the model-group list; record drops it (PRD NurNeue)', async () => {
     const user = userEvent.setup()
     const ctx = install()
     renderWithProviders(
@@ -141,23 +143,26 @@ describe('CatalogueBrowsePage — FR-C-01', () => {
         <LocationProbe />
         <CatalogueBrowsePage />
       </>,
-      { route: '/catalogue' },
+      { route: '/catalogue?brand=Volkswagen' },
     )
     await screen.findByRole('columnheader', { name: variantHeader() })
+    const groupRequests = () => ctx.backend.callsTo(/\/catalogue\/model-groups$/, 'GET').map((c) => c.params)
 
-    await waitFor(() => expect(ctx.variantRequests().at(-1)?.get('mode')).toBe('build'))
+    await waitFor(() => expect(groupRequests().at(-1)?.get('mode')).toBe('build'))
+    // the identAPI's variant rows carry no filterable production end: a page is not narrowed by the mode
+    expect(ctx.variantRequests().at(-1)?.get('mode')).toBeNull()
 
     await user.click(screen.getByRole('radio', { name: i18n.t('catalogueBrowse.mode.record') }))
 
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toContain('mode=record'))
-    await waitFor(() => expect(ctx.variantRequests().at(-1)?.get('mode')).toBe('record'))
+    await waitFor(() => expect(groupRequests().at(-1)?.get('mode')).toBe('record'))
   })
 
   it('mode → production-year: a record-mode URL opens in record mode', async () => {
     const ctx = install()
-    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?mode=record' })
+    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?mode=record&brand=Volkswagen' })
     await screen.findByRole('columnheader', { name: variantHeader() })
-    await waitFor(() => expect(ctx.variantRequests().at(-1)?.get('mode')).toBe('record'))
+    await waitFor(() => expect(ctx.backend.callsTo(/\/catalogue\/model-groups$/, 'GET').at(-1)?.params.get('mode')).toBe('record'))
   })
 
   it('tabs: ?tab=mapping-gaps renders the mapping-gap queue', async () => {
@@ -195,7 +200,7 @@ describe('CatalogueBrowsePage — FR-C-01', () => {
     ])
 
     const psHeader = () => new RegExp(`^${i18n.t('catalogueBrowse.columns.ps')}$`, 'i')
-    const first = renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue' })
+    const first = renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?brand=Volkswagen' })
     expect(await screen.findByRole('columnheader', { name: psHeader() })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
@@ -206,7 +211,7 @@ describe('CatalogueBrowsePage — FR-C-01', () => {
 
     first.unmount()
     window.localStorage.clear()
-    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue' })
+    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?brand=Volkswagen' })
     await screen.findByRole('columnheader', { name: variantHeader() })
     await waitFor(() => expect(screen.queryByRole('columnheader', { name: psHeader() })).not.toBeInTheDocument())
   })

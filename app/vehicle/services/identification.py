@@ -59,7 +59,6 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
@@ -79,7 +78,11 @@ from app.vehicle.models.configuration import ConfigurationMatchMethod, VehicleCo
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import plate_lookup_cache
 from app.vehicle.services.catalogue import find_model_variants_by_type_approval
-from app.vehicle.services.catalogue_sync import find_enabled_vehicle_data_connection, upsert_model_variant
+from app.vehicle.services.catalogue_sync import (
+    find_enabled_vehicle_data_connection,
+    store_seen_variants,
+    upsert_model_variant,
+)
 from app.vehicle.services.matching import match_vehicle
 
 logger = logging.getLogger(__name__)
@@ -409,27 +412,10 @@ def _ask_provider(
 
 
 def _store_variants(db: Session, *, provider_code: str, masters: list[VariantMasterData]) -> list[ModelVariant]:
-    """Every variant a lookup returned, through the catalogue's own upsert
-    (master data only, ADR-075; fill-if-NULL, KAN-83), committed — the stored
-    rows are a cache of what was seen, so a later lookup finds them too.
+    """Every variant a rung returned, stored as master data (ADR-075) — the
+    catalogue's own `store_seen_variants`, shared with the live browse."""
 
-    Each upsert runs in a savepoint: two Betriebe can make the first lookup of
-    one variant (or one new brand) at the same moment, and the loser's unique
-    violation is answered by re-reading the row the winner wrote — a lookup
-    never fails because another dealer typed the same plate first."""
-
-    variants: list[ModelVariant] = []
-    for master in masters:
-        try:
-            with db.begin_nested():
-                variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-        except IntegrityError:
-            logger.info("variant %s was stored concurrently; re-reading", master.fz_key)
-            variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-        variants.append(variant)
-    if variants:
-        db.commit()
-    return variants
+    return store_seen_variants(db, provider_code=provider_code, masters=masters)
 
 
 def _merge_candidates(

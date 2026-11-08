@@ -198,6 +198,9 @@ export type BrandPage = Schemas['BrandPage']
 
 // Configurator C-B (KAN-40) — catalogue browse & facet search (FR-C-01)
 export type CatalogueBrowseMode = Schemas['CatalogueBrowseMode']
+export type CatalogueBrowseState = Schemas['CatalogueBrowseState']
+export type CatalogueBrandRead = Schemas['CatalogueBrandRead']
+export type CatalogueBrandPage = Schemas['CatalogueBrandPage']
 export type VehicleSpecBlockRead = Schemas['VehicleSpecBlockRead']
 export type CatalogueVariantRead = Schemas['CatalogueVariantRead']
 export type CatalogueVariantPage = Schemas['CatalogueVariantPage']

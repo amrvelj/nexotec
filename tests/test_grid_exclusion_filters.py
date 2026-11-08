@@ -7,15 +7,12 @@ value. Over HTTP, on Postgres.
 """
 
 import uuid
-from decimal import Decimal
 
 from app.core.auth import AccessRole, create_access_token
-from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
-from tests.configuration_test_support import seed_reference_list, stock_configuration_id
+from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
 from tests.membership_support import create_user
 from tests.stock_support import promote_created_item
-from tests.test_catalogue_browse import _enable_browse
 from tests.token_support import dealer_group_of
 
 ADDRESS = {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"}
@@ -147,44 +144,16 @@ def test_customers_exclude_an_advisor_keeping_the_unassigned_and_assigned_keeps_
     assert _ids(client.get("/v1/customers?assigned=true", headers=headers)) == {of_beat["id"], of_carla["id"]}
 
 
-# --- Catalogue -----------------------------------------------------------------------------------
-
-
-def test_catalogue_variants_exclude_a_coded_value_keeping_those_without_one(client, db_session):
-    tenant = uuid.uuid4()
-    _enable_browse(db_session, tenant)
-    brand = Brand(code="vw", display_name="Volkswagen")
-    db_session.add(brand)
-    db_session.flush()
-    group = ModelGroup(brand_id=brand.id, name="Golf")
-    db_session.add(group)
-    db_session.flush()
-    for name, fuel in (("Golf GTI", "petrol"), ("Golf TDI", "diesel"), ("Golf (unbekannt)", None)):
-        db_session.add(
-            ModelVariant(
-                model_group_id=group.id, name=name, model_year_from=2022, vehicle_kind="passenger_car", fuel_type=fuel,
-                base_price=Decimal("40000.00"),
-            )
-        )
-    db_session.commit()
-
-    response = client.get("/v1/catalogue/variants?mode=record&fuelTypeNot=petrol", headers=_headers(tenant))
-    assert response.status_code == 200, response.text
-    assert {v["variantName"] for v in response.json()["items"]} == {"Golf TDI", "Golf (unbekannt)"}
+# --- Catalogue: no exclusion since KAN-548 --------------------------------------------------------
+# The catalogue grid is a live identAPI query (ADR-112) and the identAPI has no «not equal»
+# operator, so «ist nicht» on the catalogue went with the mirror; the catalogue tests are
+# `tests/test_catalogue_browse.py`.
 
 
 # --- Typed: an unknown value is 422, never a filter that excludes nothing ---------------------
 
 
-def test_an_unknown_canton_or_catalogue_code_to_exclude_is_422(client, db_session):
+def test_an_unknown_canton_to_exclude_is_422(client, db_session):
     tenant = _dealership(client)
     assert client.get("/v1/customers?canton_not=XX", headers=_headers(tenant, manager=True)).status_code == 422
 
-    _enable_browse(db_session, tenant)
-    response = client.get("/v1/catalogue/variants?mode=record&fuelTypeNot=nonsense", headers=_headers(tenant))
-    assert response.status_code == 422, response.text
-    assert response.json()["error"]["details"] == {"invalid": {"fuelTypeNot": "nonsense"}}
-    # An active value of the list is accepted even where no variant carries it.
-    seed_reference_list(db_session, "fuel_type", "petrol", "diesel")
-    db_session.commit()
-    assert client.get("/v1/catalogue/variants?mode=record&fuelTypeNot=diesel", headers=_headers(tenant)).status_code == 200

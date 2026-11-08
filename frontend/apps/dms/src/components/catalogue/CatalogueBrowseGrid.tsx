@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Alert, Group, Select, Stack } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { CircleAlert, Copy, Database, Plug } from 'lucide-react'
+import { CircleAlert, Copy, Database, Plug, ShieldOff, Unplug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import {
@@ -31,14 +31,14 @@ import {
   applyCatalogueFilters,
   buildCatalogueFilterFields,
   CATALOGUE_FILTER_SCOPE,
-  FACET_LIST_CODE,
+  CATALOGUE_LABEL_LISTS,
   readLegacyCataloguePredicates,
 } from '../../catalogueOptions'
 import { fetchAllReferenceValues, LABEL_FIELD, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import type {
-  BrandPage,
-  BrandRead,
+  CatalogueBrandPage,
   CatalogueBrowseMode,
+  CatalogueBrowseState,
   CatalogueFacetsRead,
   CatalogueModelGroupPage,
   CatalogueVariantPage,
@@ -49,7 +49,22 @@ import { useActionBarLabels } from '../../hooks/useActionBarLabels'
 import { useDataGridLabels } from '../../hooks/useDataGridLabels'
 
 const GRID_KEY = 'mdm.catalogue.variants'
-const DEFAULT_SORT: SortSpec[] = [{ field: 'variantName', direction: 'asc' }]
+// The provider's own order; a column sorts server-side on the identAPI (KAN-548).
+const DEFAULT_SORT: SortSpec[] = []
+const DEFAULT_VEHICLE_KIND = 'passenger_car'
+/** The fields the identAPI sorts on (KAN-548). A stored sort on another field —
+ * the old default `variantName`, a user's `ps` or `basePrice` — is narrowed
+ * away like an unoffered predicate (ADR-102), never sent as a 422. */
+const SORTABLE_FIELDS = new Set(['kw', 'displacementCcm', 'co2Gkm', 'doors', 'seats'])
+// Provider answers are kept for the session's work on a brand: no refetch on
+// window focus and none while fresh, so a page the user already saw costs no
+// second billed request (ADR-112 (4)).
+const PROVIDER_QUERY = { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } as const
+// The drill-down's dropdowns render in place, not in Mantine's portal: the
+// configurator overlay (ADR-059) sits above the portal's popover layer, and a
+// brand is now the least the live catalogue needs (KAN-548) — a dropdown
+// hidden behind the overlay would leave the browse unusable there.
+const DROPDOWN_IN_PLACE = { withinPortal: false } as const
 
 function parseSortParam(raw: string): SortSpec[] {
   return raw
@@ -85,11 +100,12 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
  * `⚠ <code>` too — never the raw code as if it were a label. */
 function useReferenceLabels(): {
   labelFor: (listCode: string, valueCode: string) => string
+  activeValuesOf: (listCode: string) => string[]
   labelsFailed: boolean
 } {
   const { i18n } = useTranslation()
   const field = LABEL_FIELD[resolveLanguage(i18n.language)]
-  const listCodes = useMemo(() => Array.from(new Set(Object.values(FACET_LIST_CODE))), [])
+  const listCodes = useMemo(() => CATALOGUE_LABEL_LISTS, [])
 
   const results = useQuery({
     queryKey: ['catalogue-facet-labels', listCodes],
@@ -115,24 +131,17 @@ function useReferenceLabels(): {
     [results.data, field],
   )
 
+  const activeValuesOf = useCallback(
+    (listCode: string): string[] =>
+      (results.data?.[listCode] ?? []).filter((v) => v.active).map((v) => v.valueCode),
+    [results.data],
+  )
+
   return {
     labelFor,
+    activeValuesOf,
     labelsFailed: results.data ? Object.values(results.data).some((rows) => rows === null) : false,
   }
-}
-
-// The brands endpoint caps a page at 100 like every list — walk the cursor.
-async function fetchAllBrands(): Promise<BrandRead[]> {
-  const brands: BrandRead[] = []
-  let cursor: string | null = null
-  do {
-    const params = new URLSearchParams({ limit: '100' })
-    if (cursor) params.set('cursor', cursor)
-    const page = await api.get<BrandPage>(`/vehicle-mdm/brands?${params.toString()}`)
-    brands.push(...page.items)
-    cursor = page.nextCursor
-  } while (cursor)
-  return brands
 }
 
 export interface CatalogueBrowseGridProps {
@@ -155,9 +164,15 @@ function narrowCataloguePredicates(stored: FilterPredicate[]): FilterPredicate[]
 }
 
 /**
- * The catalogue results grid — drill-down scope, mirror-derived facets,
- * saved views, column config, selection. Standalone on `/catalogue`, and
- * embedded in the configurator overlay's "Find the car" phase (C-C).
+ * The catalogue results grid — the drill-down (vehicle kind → brand →
+ * model group), the provider's facets, saved views, column config,
+ * selection. **Live on the identAPI** (ADR-112, KAN-548): the brands, the
+ * model groups, each facet field and each page of variants are one provider
+ * request each, made only once the user has chosen enough — a brand at least
+ * — so nothing is fetched for a page nobody asked for. The provider's states
+ * (`notConfigured`, `notInContract`, `unavailable`) are alerts, never a
+ * broken grid. Standalone on `/catalogue`, and embedded in the configurator
+ * overlay's "Find the car" phase (C-C).
  */
 export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGridProps) {
   const { t } = useTranslation()
@@ -166,11 +181,12 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
-  const { labelFor, labelsFailed } = useReferenceLabels()
+  const { labelFor, activeValuesOf, labelsFailed } = useReferenceLabels()
 
-  const brandId = searchParams.get('brand') || null
-  const modelGroupId = searchParams.get('modelGroup') || null
-  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const vehicleKind = searchParams.get('kind') || DEFAULT_VEHICLE_KIND
+  const brand = searchParams.get('brand') || null
+  const modelGroupKey = searchParams.get('modelGroup') || null
+  const sort = (searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort).filter((s) => SORTABLE_FIELDS.has(s.field))
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
   const predicates = narrowCataloguePredicates(searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : [])
@@ -207,46 +223,92 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const brandsQuery = useQuery({
-    queryKey: ['catalogue-brands'],
-    queryFn: fetchAllBrands,
-  })
-  const modelGroupsQuery = useQuery({
-    queryKey: ['catalogue-model-groups', brandId],
-    queryFn: () => api.get<CatalogueModelGroupPage>(`/catalogue/model-groups?brandId=${brandId}`),
-    enabled: brandId !== null,
-  })
+  // Every provider query carries the drill-down scope; a brand (or a model
+  // group) is the least the provider is asked with (ADR-112 (4)).
+  const scopeParams = (extra: Record<string, string | null | undefined> = {}) => {
+    const params = new URLSearchParams({ vehicleKind })
+    if (brand) params.set('brand', brand)
+    if (modelGroupKey) params.set('modelGroupKey', modelGroupKey)
+    for (const [key, value] of Object.entries(extra)) if (value) params.set(key, value)
+    return params
+  }
+  const scoped = brand !== null || modelGroupKey !== null
 
-  const facetScope = new URLSearchParams()
-  if (brandId) facetScope.set('brandId', brandId)
-  if (modelGroupId) facetScope.set('modelGroup', modelGroupId)
-  facetScope.set('mode', mode)
+  const brandsQuery = useQuery({
+    queryKey: ['catalogue-brands', vehicleKind],
+    queryFn: () => api.get<CatalogueBrandPage>(`/catalogue/brands?vehicleKind=${encodeURIComponent(vehicleKind)}`),
+    ...PROVIDER_QUERY,
+  })
+  // The mode's production-year default (PRD NurNeue) narrows the model groups;
+  // the identAPI's variant rows carry no filterable production end.
+  const modelGroupsQuery = useQuery({
+    queryKey: ['catalogue-model-groups', vehicleKind, brand, mode],
+    queryFn: () => api.get<CatalogueModelGroupPage>(`/catalogue/model-groups?${scopeParams({ mode }).toString()}`),
+    enabled: brand !== null,
+    ...PROVIDER_QUERY,
+  })
+  // One request per facet field, only once a brand is chosen **and the user
+  // opened the views-and-filters control in this scope** (ADR-112 (4)): a
+  // scope change — kind, brand, model group — costs its page and its model
+  // groups, never four facet requests nobody looked at; the facets come when
+  // the control is clicked open again.
+  const facetsScope = `${vehicleKind}|${brand ?? ''}|${modelGroupKey ?? ''}`
+  const [facetsOpenedFor, setFacetsOpenedFor] = useState<string | null>(null)
+  // The memory is cleared the moment the scope changes — during this very
+  // render (React's derived-state pattern), so the query never sees "opened"
+  // for a scope the user has not clicked the control in. Coming back to a
+  // scope opened earlier costs nothing until the next click, even once the
+  // cached facets have gone stale.
+  if (facetsOpenedFor !== null && facetsOpenedFor !== facetsScope) {
+    setFacetsOpenedFor(null)
+  }
   const facetsQuery = useQuery({
-    queryKey: ['catalogue-facets', brandId, modelGroupId, mode],
-    queryFn: () => api.get<CatalogueFacetsRead>(`/catalogue/facets?${facetScope.toString()}`),
+    queryKey: ['catalogue-facets', vehicleKind, brand, modelGroupKey],
+    queryFn: () => api.get<CatalogueFacetsRead>(`/catalogue/facets?${scopeParams().toString()}`),
+    enabled: brand !== null && facetsOpenedFor === facetsScope,
+    ...PROVIDER_QUERY,
   })
 
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
   const variantsQuery = useInfiniteQuery({
-    queryKey: ['catalogue-variants', brandId, modelGroupId, mode, debouncedQuery, sortParam, predicates],
+    queryKey: ['catalogue-variants', vehicleKind, brand, modelGroupKey, debouncedQuery, sortParam, predicates],
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {
-      const params = new URLSearchParams()
-      if (brandId) params.set('brandId', brandId)
-      if (modelGroupId) params.set('modelGroup', modelGroupId)
-      params.set('mode', mode)
-      if (debouncedQuery) params.set('q', debouncedQuery)
-      if (sortParam) params.set('sort', sortParam)
+      const params = scopeParams({ q: debouncedQuery, sort: sortParam })
       applyCatalogueFilters(params, predicates)
-      params.set('limit', '50')
+      // `cursor` is the provider page number: the page the user moved the grid to.
       if (pageParam) params.set('cursor', pageParam)
       return api.get<CatalogueVariantPage>(`/catalogue/variants?${params.toString()}`)
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: scoped,
+    ...PROVIDER_QUERY,
   })
 
+  // The next provider page is fetched only after the user has moved in the
+  // grid (a wheel, a scroll, a key) since the last page arrived: the identAPI
+  // pages at 10, so the grid's "within 10 rows of the end" prefetch (FR-UI-04)
+  // would otherwise walk page after page with no scroll at all — the pages
+  // nobody asked for that ADR-112 (4) forbids.
+  const [scrolledSinceLastPage, setScrolledSinceLastPage] = useState(false)
+  const armNextPage = () => setScrolledSinceLastPage(true)
+  const loadNextPage = () => {
+    setScrolledSinceLastPage(false)
+    void variantsQuery.fetchNextPage()
+  }
+  // A movement counts for the query it happened in: a new brand, model group,
+  // filter, sort or search, and every page that arrives, start from "not moved".
+  const variantsKey = JSON.stringify([vehicleKind, brand, modelGroupKey, debouncedQuery, sortParam, predicates])
+  const loadedPages = variantsQuery.data?.pages.length ?? 0
+  useEffect(() => {
+    setScrolledSinceLastPage(false)
+  }, [variantsKey, loadedPages])
+
   const firstPage = variantsQuery.data?.pages[0]
-  const browseAvailable = firstPage?.browseAvailable ?? true
+  // The provider's state, from whichever query answered first: the brand
+  // list speaks for a Betrieb without access before any variant was asked.
+  const state: CatalogueBrowseState | null = firstPage?.state ?? brandsQuery.data?.state ?? null
+  const browseAvailable = state === null || state === 'ok'
   const rows = useMemo(
     () => variantsQuery.data?.pages.flatMap((p) => p.items) ?? [],
     [variantsQuery.data],
@@ -265,7 +327,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         id: 'variant',
         header: t('catalogueBrowse.columns.variant'),
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.variantName}</span>,
-        meta: { sortField: 'variantName', pinned: 'left', locked: true },
+        meta: { pinned: 'left', locked: true },
       },
       {
         id: 'brand',
@@ -309,7 +371,13 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         id: 'ps',
         header: t('catalogueBrowse.columns.ps'),
         cell: ({ row }) => (row.original.spec.ps != null ? formatNumber(row.original.spec.ps) : '—'),
-        meta: { sortField: 'ps', align: 'right' },
+        meta: { align: 'right' },
+      },
+      {
+        id: 'kw',
+        header: t('catalogueBrowse.columns.kw'),
+        cell: ({ row }) => (row.original.spec.kw != null ? formatNumber(row.original.spec.kw) : '—'),
+        meta: { sortField: 'kw', align: 'right', defaultVisible: false },
       },
       {
         id: 'displacementCcm',
@@ -323,13 +391,13 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         header: t('catalogueBrowse.columns.basePrice'),
         cell: ({ row }) =>
           row.original.currentPrice ? formatChf(row.original.currentPrice.amount) : '—',
-        meta: { sortField: 'basePrice', align: 'right' },
+        meta: { align: 'right' },
       },
       {
         id: 'productionFrom',
         header: t('catalogueBrowse.columns.productionFrom'),
         cell: ({ row }) => row.original.modelYearFrom,
-        meta: { sortField: 'modelYearFrom', align: 'right' },
+        meta: { align: 'right' },
       },
       {
         id: 'productionTo',
@@ -347,19 +415,19 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         id: 'doors',
         header: t('catalogueBrowse.columns.doors'),
         cell: ({ row }) => row.original.spec.doors ?? '—',
-        meta: { align: 'right', defaultVisible: false },
+        meta: { sortField: 'doors', align: 'right', defaultVisible: false },
       },
       {
         id: 'seats',
         header: t('catalogueBrowse.columns.seats'),
         cell: ({ row }) => row.original.spec.seats ?? '—',
-        meta: { align: 'right', defaultVisible: false },
+        meta: { sortField: 'seats', align: 'right', defaultVisible: false },
       },
       {
         id: 'co2Gkm',
         header: t('catalogueBrowse.columns.co2Gkm'),
         cell: ({ row }) => row.original.spec.co2Gkm ?? '—',
-        meta: { align: 'right', defaultVisible: false },
+        meta: { sortField: 'co2Gkm', align: 'right', defaultVisible: false },
       },
     ],
     [t, labelFor],
@@ -387,7 +455,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
   const actionBarLabels = useActionBarLabels()
 
-  const isFiltered = debouncedQuery.length > 0 || predicates.length > 0 || brandId !== null
+  const isFiltered = debouncedQuery.length > 0 || predicates.length > 0 || modelGroupKey !== null
   const currentViewName =
     (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) ||
     t('catalogueBrowse.allVariantsView')
@@ -399,19 +467,45 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
     if (view.snapshot.filters) setPredicates(view.snapshot.filters)
   }
 
-  const brandOptions = (brandsQuery.data ?? []).map((b) => ({ value: b.id, label: b.displayName }))
-  const modelGroupOptions = (modelGroupsQuery.data?.items ?? []).map((g) => ({ value: g.id, label: g.name }))
+  const kindOptions = activeValuesOf('vehicle_kind').map((code) => ({ value: code, label: labelFor('vehicle_kind', code) }))
+  const brandOptions = (brandsQuery.data?.items ?? []).map((b) => ({ value: b.name, label: b.name }))
+  const modelGroupOptions = (modelGroupsQuery.data?.items ?? []).map((g) => ({ value: g.key, label: g.name }))
+
+  const stateAlert =
+    state === 'notConfigured' ? (
+      <Alert icon={<Plug size={16} />} color="yellow" title={t('catalogueBrowse.notConfigured.title')} data-testid="catalogue-state-notConfigured">
+        {t('catalogueBrowse.notConfigured.body')}
+      </Alert>
+    ) : state === 'notInContract' ? (
+      <Alert icon={<ShieldOff size={16} />} color="yellow" title={t('catalogueBrowse.notInContract.title')} data-testid="catalogue-state-notInContract">
+        {t('catalogueBrowse.notInContract.body')}
+      </Alert>
+    ) : state === 'unavailable' ? (
+      <Alert icon={<Unplug size={16} />} color="yellow" title={t('catalogueBrowse.unavailable.title')} data-testid="catalogue-state-unavailable">
+        {t('catalogueBrowse.unavailable.body')}
+      </Alert>
+    ) : null
 
   return (
     <Stack gap="md">
       <Group gap="sm" wrap="wrap">
         <Select
+          aria-label={t('catalogueBrowse.drilldown.vehicleKind')}
+          data={kindOptions.length > 0 ? kindOptions : [{ value: vehicleKind, label: labelFor('vehicle_kind', vehicleKind) }]}
+          value={vehicleKind}
+          onChange={(value) => updateUrl({ kind: value && value !== DEFAULT_VEHICLE_KIND ? value : null, brand: null, modelGroup: null })}
+          allowDeselect={false}
+          comboboxProps={DROPDOWN_IN_PLACE}
+          w={200}
+        />
+        <Select
           aria-label={t('catalogueBrowse.drilldown.brand')}
           placeholder={t('catalogueBrowse.drilldown.brandPlaceholder')}
           data={brandOptions}
-          value={brandId}
+          value={brand}
           onChange={(value) => updateUrl({ brand: value, modelGroup: null })}
           error={brandsQuery.isError ? t('catalogueBrowse.drilldown.brandsLoadError') : undefined}
+          comboboxProps={DROPDOWN_IN_PLACE}
           clearable
           searchable
           w={220}
@@ -419,14 +513,15 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         <Select
           aria-label={t('catalogueBrowse.drilldown.modelGroup')}
           placeholder={
-            brandId
+            brand
               ? t('catalogueBrowse.drilldown.modelGroupPlaceholder')
               : t('catalogueBrowse.drilldown.modelGroupNeedsBrand')
           }
           data={modelGroupOptions}
-          value={modelGroupId}
+          value={modelGroupKey}
           onChange={(value) => updateUrl({ modelGroup: value })}
-          disabled={!brandId}
+          disabled={!brand}
+          comboboxProps={DROPDOWN_IN_PLACE}
           clearable
           searchable
           w={240}
@@ -439,11 +534,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         </Alert>
       )}
 
-      {!browseAvailable && (
-        <Alert icon={<Plug size={16} />} color="yellow" title={t('catalogueBrowse.unavailable.title')}>
-          {t('catalogueBrowse.unavailable.body')}
-        </Alert>
-      )}
+      {stateAlert}
 
       <OverviewShellRegion
         header={<div />}
@@ -459,7 +550,8 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
               onRefresh={() => variantsQuery.refetch()}
               refreshing={variantsQuery.isRefetching}
               filterSlot={
-                <ViewsAndFilters
+                <div onClickCapture={() => setFacetsOpenedFor(facetsScope)}>
+                  <ViewsAndFilters
                   labels={viewsAndFiltersLabels}
                   currentViewName={currentViewName}
                   views={savedViews.views}
@@ -485,6 +577,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
                     setAppliedViewId(null)
                   }}
                 />
+                </div>
               }
               columnsSlot={
                 <ColumnConfigPanel
@@ -514,6 +607,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           </>
         }
       >
+        <div onWheelCapture={armNextPage} onScrollCapture={armNextPage} onKeyDownCapture={armNextPage} onTouchMoveCapture={armNextPage}>
         <DataGrid<CatalogueVariantRead>
           columns={columns}
           rows={browseAvailable ? rows : []}
@@ -522,11 +616,11 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           onSortChange={setSort}
           density={density}
           onRowActivate={onSelectVariant}
-          loading={variantsQuery.isLoading}
+          loading={scoped && variantsQuery.isLoading}
           refetching={variantsQuery.isRefetching && !variantsQuery.isLoading}
           fetchingNextPage={variantsQuery.isFetchingNextPage}
-          hasNextPage={Boolean(variantsQuery.hasNextPage)}
-          onLoadMore={() => variantsQuery.fetchNextPage()}
+          hasNextPage={scrolledSinceLastPage && Boolean(variantsQuery.hasNextPage)}
+          onLoadMore={loadNextPage}
           error={variantsQuery.isError ? t('catalogueBrowse.loadError') : null}
           onRetry={() => variantsQuery.refetch()}
           total={total}
@@ -541,17 +635,26 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={dataGridLabels}
-          emptyState={{
-            icon: <Database size={24} />,
-            title: t('catalogueBrowse.emptyState.title'),
-            description: t('catalogueBrowse.emptyState.description'),
-          }}
+          emptyState={
+            scoped
+              ? {
+                  icon: <Database size={24} />,
+                  title: t('catalogueBrowse.emptyState.title'),
+                  description: t('catalogueBrowse.emptyState.description'),
+                }
+              : {
+                  icon: <Database size={24} />,
+                  title: t('catalogueBrowse.needsBrand.title'),
+                  description: t('catalogueBrowse.needsBrand.description'),
+                }
+          }
           emptyFilteredState={{
             icon: <Database size={24} />,
             title: t('catalogueBrowse.emptyFilteredState.title'),
             description: t('catalogueBrowse.emptyFilteredState.description'),
           }}
         />
+        </div>
       </OverviewShellRegion>
     </Stack>
   )

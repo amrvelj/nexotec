@@ -1,5 +1,10 @@
 """WP-5 PR-6, ADR-013/ADR-043/ADR-045: "This needs a test on the response
-shape, not a code review," quoted directly from the brief. Two layers:
+shape, not a code review," quoted directly from the brief. **Amended by
+ADR-112 (3), KAN-548 (closes KAN-130):** a vehicle already known in the
+platform carries its catalogue variant, the variant's list price and the spec
+block for every dealer — master data auto-i-dat lets every dealer read
+(ADR-075) — while options, colours, tyres, images and every other licensed
+detail stay out of the shape (ADR-013). Two layers:
 
 1. The schema class itself (SharedVehicleIdentity) has EXACTLY the allowed
    field set — nothing more, nothing that could regress in by a future
@@ -25,23 +30,29 @@ _ALLOWED_FIELDS = {
     "bodyStyle",
     "drivetrain",
     "vehicleStatus",
+    # ADR-112 (3), KAN-548: master data for everyone (ADR-075).
+    "catalogueVariantId",
+    "listPrice",
+    "specification",
 }
 
-# Fields that must NEVER appear — the licensed specification block ADR-013
-# explicitly forbids on a cross-tenant read: provider option lists, list
-# prices, images, and the catalogue link itself (which would let a caller
-# walk into the full variant record another tenant's provider contract pays
-# for).
+# Fields that must NEVER appear — what ADR-013 keeps tenant-scoped on a
+# cross-tenant read: provider option lists, colours, tyres, images, prices
+# beyond the list price, and the tenant's own match status. (Until ADR-112
+# the variant link, the list price and the spec block were here too; ADR-075
+# makes them master data, readable by every dealer.)
 _FORBIDDEN_FIELDS = {
-    "catalogueVariantId",
     "catalogueMatchStatus",
     "options",
     "optionList",
-    "listPrice",
+    "colours",
+    "tyreSpecs",
+    "tyres",
     "price",
+    "prices",
     "images",
     "image",
-    "specification",
+    "optionRelations",
 }
 
 
@@ -70,3 +81,18 @@ def test_actual_wire_response_carries_exactly_the_allowed_fields(client, db_sess
 
     assert set(body.keys()) == _ALLOWED_FIELDS
     assert not (set(body.keys()) & _FORBIDDEN_FIELDS)
+    # a vehicle without a catalogue match carries the master-data fields as null, never omitted
+    assert body["catalogueVariantId"] is None and body["listPrice"] is None and body["specification"] is None
+
+
+def test_the_spec_block_is_a_plain_block_never_the_tenant_scoped_specification():
+    """`specification` is the ADR-071 spec block (`VehicleSpecBlockRead`),
+    not `CatalogueSpecificationRead` — the tenant-scoped options, colours,
+    tyres and images (ADR-013) have no field here to regress into."""
+
+    from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
+
+    annotation = SharedVehicleIdentity.model_fields["specification"].annotation
+    assert VehicleSpecBlockRead in getattr(annotation, "__args__", (annotation,))
+    block_fields = {VehicleSpecBlockRead.model_fields[n].alias or n for n in VehicleSpecBlockRead.model_fields}
+    assert not (block_fields & {"options", "colours", "tyreSpecs", "images", "optionRelations"})

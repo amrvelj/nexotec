@@ -22,7 +22,9 @@ from sqlalchemy.orm import Session
 from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.schemas.catalogue import CatalogueVariantPrice
 from app.vehicle.schemas.lookup import SharedVehicleIdentity
+from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import plate as plate_service
 from app.vehicle.services.plate import resolve_plate
 from app.vehicle.services.plate_read_guard import read_plate_history
@@ -98,6 +100,15 @@ def _to_shared_identity(
         body_style=variant.body_style if variant else None,
         drivetrain=variant.drivetrain if variant else None,
         vehicle_status=vehicle.vehicle_status.value,
+        # ADR-112 (3): master data for everyone (ADR-075), never the
+        # tenant-scoped details (ADR-013).
+        catalogue_variant_id=variant.id if variant else None,
+        list_price=(
+            CatalogueVariantPrice(amount=variant.base_price, year=variant.base_price_year, is_net=bool(variant.price_is_net))
+            if variant is not None and variant.base_price is not None
+            else None
+        ),
+        specification=VehicleSpecBlockRead.model_validate(variant, from_attributes=True) if variant else None,
     )
     plates = read_plate_history(
         db,
