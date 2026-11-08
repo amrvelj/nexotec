@@ -271,10 +271,11 @@ def _load_colours(
         raise _NothingToLoad(VARIANT_UNKNOWN_AT_PROVIDER) from exc
     # The same request carries the master data: a revisit fills what is still
     # NULL and records the raw codes (KAN-83), never overwriting a value. In a
-    # savepoint, as `store_seen_variants` does: the shared rows it touches (a
-    # price year, this year's label, a raw code) may be written by another
-    # Betrieb's open at the same moment — the winner's row stands, this
-    # Betrieb's colours still load.
+    # savepoint: the shared rows it touches (a price year, this year's label,
+    # a raw code) may be written by another Betrieb's open at the same
+    # moment — then the winner's rows stand and this visit's fill is dropped
+    # for this open (both saw the same provider answer; the next visit fills
+    # what is still NULL), and this Betrieb's colours still load.
     try:
         with db.begin_nested():
             upsert_model_variant(db, provider_code=provider_code, master=answer.master)

@@ -466,8 +466,8 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   serialises two opens of the same car by the same Betrieb so two tabs send one set; the load holds no connection
   besides the request's own (the gateway's brief session aside); another Betrieb's open of the same car waits only
   where both write the same shared row — a new mapping gap, a price year, this year's label — and the loser's unique
-  violation is answered by re-reading the winner's row (`_record_mapping_gap`, the colours request's master-data
-  visit in a savepoint, the energy-rating insert), never a 500. The specification's `details.*.note` says why a state is what it is
+  violation is never a 500: `_record_mapping_gap` re-reads the winner's gap row and counts its occurrence there; the
+  colours request's master-data visit and the energy-rating insert run in a savepoint and let the winner's row stand. The specification's `details.*.note` says why a state is what it is
   (the failure's class, `entitlement_absent`, `variant_unknown_at_provider`, `energy_label_ambiguous`). The configurator's specification query neither refetches on window
   focus nor retries (a state, not an error). No automatic refresh of any kind: `POST /v1/catalogue/variants/{id}/details/reload`
   («Neu laden» on the stock car's technical data, dealer manager or platform staff, audited as

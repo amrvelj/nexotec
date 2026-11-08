@@ -634,60 +634,90 @@ def test_an_open_that_cannot_get_the_lock_in_time_asks_nothing_and_still_answers
     assert set(_states(_open(db_session, s, variant)).values()) == {"present"}
 
 
-def test_two_betriebe_opening_the_same_car_at_once_both_load_when_they_write_the_same_shared_rows(
-    db_session, engine, monkeypatch
-):
-    """A new mapping gap, a price year and this year's label are shared rows
-    two Betriebe's opens write at the same moment; the loser re-reads the
-    winner's row instead of failing (round-3 review). Made deterministic: the
-    second Betrieb's rows are inserted by another connection just before the
-    first one's flush."""
+def test_a_rival_betrieb_writing_each_shared_row_first_never_fails_the_open(db_session, engine, monkeypatch):
+    """Shared rows two Betriebe's opens write at the same moment: a new
+    mapping gap (the options detail), this Swiss year's label (the colours
+    request's master-data visit) and the label endpoint's 2025 row (the
+    energy-label detail). Each is inserted by another connection just before
+    the flush that carries this open's own row, so each of the three
+    tolerances is reached: the gap re-reads the winner's row, the other two
+    let the winner's row stand (round-3/4 reviews)."""
 
     from sqlalchemy import event, text
     from sqlalchemy.orm import Session
 
+    from app.vehicle.services.plate import swiss_today
+
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
-    gap_key = ("auto_i_dat", "01", "option_group", "Komfort")
+    this_year = swiss_today().year
+    # the master-data visit on open must have a label row to insert
+    db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=this_year).delete()
+    db_session.commit()
+    fired: list[str] = []
 
     def rival_writes(session, flush_context, instances):
-        """Before the first flush that carries the gap row, the other Betrieb's
-        open has already written it (and the 2025 label row)."""
-
-        pending = [o for o in session.new if type(o).__name__ in ("MappingGap", "ModelVariantEnergyRating")]
-        if not pending or fired:
-            return
-        fired.append(True)  # once; removing the listener inside its own dispatch is not allowed
+        pending = list(session.new)
         with engine.connect() as rival:
-            rival.execute(
-                text(
-                    "INSERT INTO vehicle_mapping_gap (id, provider, vehicle_kind, code_group, provider_code, occurrences, "
-                    "resolved, first_seen_at, last_seen_at, created_at, updated_at) VALUES (gen_random_uuid(), :p, :k, :g, "
-                    ":c, 1, false, now(), now(), now(), now()) ON CONFLICT DO NOTHING"
-                ),
-                dict(zip("pkgc", gap_key)),
-            )
-            rival.execute(
-                text(
-                    "INSERT INTO vehicle_model_variant_energy_rating (id, model_variant_id, rating_year, "
-                    "energy_efficiency_category, source, created_at, updated_at) VALUES (gen_random_uuid(), :v, 2025, 'b', "
-                    "'auto_i_dat', now(), now()) ON CONFLICT DO NOTHING"
-                ),
-                {"v": variant.id},
-            )
+            if any(type(o).__name__ == "MappingGap" and o.provider_code == "Komfort" for o in pending) and "gap" not in fired:
+                fired.append("gap")
+                rival.execute(
+                    text(
+                        "INSERT INTO vehicle_mapping_gap (id, provider, vehicle_kind, code_group, provider_code, occurrences, "
+                        "resolved, first_seen_at, last_seen_at, created_at, updated_at) VALUES (gen_random_uuid(), 'auto_i_dat', "
+                        "'01', 'option_group', 'Komfort', 1, false, now(), now(), now(), now())"
+                    )
+                )
+            for year, tag in ((this_year, "label_this_year"), (2025, "label_2025")):
+                if any(type(o).__name__ == "ModelVariantEnergyRating" and o.rating_year == year for o in pending) and tag not in fired:
+                    fired.append(tag)
+                    rival.execute(
+                        text(
+                            "INSERT INTO vehicle_model_variant_energy_rating (id, model_variant_id, rating_year, "
+                            "energy_efficiency_category, source, created_at, updated_at) VALUES (gen_random_uuid(), :v, :y, 'b', "
+                            "'auto_i_dat', now(), now())"
+                        ),
+                        {"v": variant.id, "y": year},
+                    )
             rival.commit()
 
-    fired: list[bool] = []
     event.listen(Session, "before_flush", rival_writes)
     try:
         result = _open(db_session, s, variant)
     finally:
         event.remove(Session, "before_flush", rival_writes)
-    assert fired, "the rival never wrote: the probe did not exercise the race"
 
+    assert sorted(fired) == ["gap", "label_2025", "label_this_year"], "the rival did not reach every insert point"
     assert set(_states(result).values()) == {"present"}
     gaps = db_session.scalars(select(MappingGap).where(MappingGap.provider_code == "Komfort")).all()
-    assert len(gaps) == 1 and gaps[0].occurrences >= 2
-    assert db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=2025).count() == 1
+    assert len(gaps) == 1 and gaps[0].occurrences >= 2  # the loser counted its occurrence on the winner's row
+    for year in (this_year, 2025):
+        assert db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=year).count() == 1
+    assert db_session.query(ColourCache).filter_by(tenant_id=s.connection.tenant_id, model_variant_id=variant.id).count() == 3
+
+
+def test_a_statement_timeout_while_waiting_for_the_lock_is_not_read_as_another_open(db_session, engine, monkeypatch):
+    """Only `lock_not_available` (55P03) means another open holds the lock;
+    any other database error propagates (a dropped connection, a statement
+    timeout) rather than ending as a quiet, request-less 200."""
+
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    first, second = catalogue_details._lock_keys(s.connection.tenant_id, variant.id)
+    holder = engine.connect()
+    holder.execute(text("SELECT pg_advisory_xact_lock(:a, :b)"), {"a": first, "b": second})
+    db_session.execute(text("SET statement_timeout = '500ms'"))  # fires before LOCK_WAIT's 25 s
+    try:
+        with pytest.raises(OperationalError):
+            _open(db_session, s, variant)
+    finally:
+        db_session.rollback()
+        db_session.execute(text("SET statement_timeout = 0"))
+        db_session.commit()
+        holder.rollback()
+        holder.close()
+    assert s.fake.api_requests() == []
 
 
 def test_neu_laden_on_a_variant_without_a_key_at_the_provider_records_nothing(db_session, monkeypatch):
