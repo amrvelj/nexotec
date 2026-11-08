@@ -1325,7 +1325,11 @@
       "attachError": "The configuration could not be assigned. Please try again.",
       "edit": "Edit configuration",
       "editContract": "Edit contract",
-      "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled."
+      "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled.",
+      "reloadDetails": "Reload",
+      "reloadDetailsHint": "Asks auto-i-dat again for options, colours, tyre data, images and the energy label and replaces the data stored for this business.",
+      "reloadDetailsError": "The catalogue data could not be reloaded.",
+      "reloadDetailsDone": "Reloaded on {{date}}"
     },
     "rowMenu": {
       "changeCondition": "Change condition",
@@ -2091,13 +2095,20 @@
         "onlyWith": "Only available with {{option}}",
         "notInCombinationWith": "Not available in combination with {{option}}",
         "onlyInCombinationWith": "Only available in combination with {{option}}"
-      }
+      },
+      "searchPlaceholder": "Search an option or code…",
+      "searchLabel": "Search options",
+      "noMatches": "No option matches the search."
     },
     "colour": {
       "exterior": "Exterior colour",
       "interior": "Interior colour",
       "pickFromCatalogue": "Pick from catalogue",
-      "surcharge": "Surcharge"
+      "surcharge": "Surcharge",
+      "exteriorType": "Paint type",
+      "interiorType": "Upholstery type",
+      "pickType": "Choose…",
+      "typeListUnavailable": "The list could not be loaded"
     },
     "wheels": {
       "title": "Wheels & tyres",
@@ -2234,6 +2245,34 @@
       "overridden": "overridden by you",
       "apply": "Apply selected",
       "error": "Re-sync failed."
+    },
+    "details": {
+      "loadedAt": "Loaded on {{date}}",
+      "notInContract": {
+        "title": "Not in your contract",
+        "body": "auto-i-dat does not deliver this data for your account: the option is not licensed. An account with the option loads it on the next open."
+      },
+      "unavailable": {
+        "title": "Currently unavailable from the provider",
+        "body": "auto-i-dat did not deliver this data. It is asked for again the next time the car is opened."
+      },
+      "notLoaded": {
+        "title": "Not loaded yet",
+        "body": "This data has not been asked from auto-i-dat for this business yet."
+      },
+      "names": {
+        "options": "Options",
+        "colours": "Colours",
+        "tyreSpecs": "Tyre data",
+        "images": "Images",
+        "energyLabel": "Energy label"
+      },
+      "state": {
+        "present": "Loaded",
+        "notInContract": "Not in your contract",
+        "unavailable": "Unavailable",
+        "notLoaded": "Not loaded yet"
+      }
     }
   },
   "customerRowMenu": {

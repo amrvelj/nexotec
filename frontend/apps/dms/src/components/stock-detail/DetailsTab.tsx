@@ -34,6 +34,10 @@ interface DetailsTabProps {
    * (`configurations`) — «Konfiguration bearbeiten» on the card and beside
    * the purchase dialog's VIN refusal. Hidden when not. */
   canEditConfiguration?: boolean
+  /** KAN-211 (ADR-123): whether this user may «Neu laden» the car's
+   * catalogue details — a dealer manager or platform staff; the stock
+   * detail passes the session's answer, the API refuses anyone else. */
+  canReloadCatalogueDetails?: boolean
   /** KAN-146: the stock item after «Einkauf stornieren» reversed its
    * purchase. Offered beside a booked purchase to the same role that books it
    * (`canRecordPurchase`). */
@@ -73,6 +77,7 @@ export function DetailsTab({
   canRecordPurchase = true,
   canAttachConfiguration = true,
   canEditConfiguration = true,
+  canReloadCatalogueDetails = false,
   onPurchaseStornoed,
   requestedAction = null,
   onRequestedActionHandled,
@@ -178,6 +183,7 @@ export function DetailsTab({
             technicalDataColumns={4}
             onOpenConfigurator={mayEditConfiguration ? (configuration) => editConfiguration(configuration) : undefined}
             openConfiguratorLabel={t('stockDetail.configuration.edit')}
+            canReloadCatalogueDetails={canReloadCatalogueDetails}
           />
           {/* An action, not a field: its reason is said (ADR-061). */}
           {canEditConfiguration && onStock && reservedByContract && (

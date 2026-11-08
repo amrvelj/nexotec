@@ -1,7 +1,8 @@
-import { Alert, Loader } from '@mantine/core'
+import { Alert, Loader, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
+import { CatalogueDetailsReload } from './CatalogueDetailsReload'
 import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 import type { ConfigurationRead } from '../../api/types'
 
@@ -15,6 +16,11 @@ export interface HostConfigurationCardProps {
   /** KAN-459 — every host shows the stored configuration's technical data
    * (PRD-Stock FR-I-07 block 2); a full-width host widens the grid to four. */
   technicalDataColumns?: 2 | 3 | 4
+  /** KAN-211 (ADR-123) — «Neu laden» under the card, on a catalogue-matched
+   * configuration: the stock detail passes it for dealer managers and
+   * platform staff; every other host leaves it out (the ticket's ruling:
+   * the refresh lives on the stock car's technical data only). */
+  canReloadCatalogueDetails?: boolean
 }
 
 /**
@@ -29,6 +35,7 @@ export function HostConfigurationCard({
   onOpenConfigurator,
   openConfiguratorLabel,
   technicalDataColumns = 2,
+  canReloadCatalogueDetails = false,
 }: HostConfigurationCardProps) {
   const { t } = useTranslation()
   const query = useQuery({
@@ -39,11 +46,16 @@ export function HostConfigurationCard({
   if (query.isError || !query.data) return <Alert color="red">{t('vehicleDetail.specification.loadError')}</Alert>
   const configuration = query.data
   return (
-    <ConfigurationSummaryCard
-      configuration={configuration}
-      onOpenConfigurator={onOpenConfigurator ? () => onOpenConfigurator(configuration) : undefined}
-      openConfiguratorLabel={openConfiguratorLabel}
-      technicalDataColumns={technicalDataColumns}
-    />
+    <Stack gap="sm">
+      <ConfigurationSummaryCard
+        configuration={configuration}
+        onOpenConfigurator={onOpenConfigurator ? () => onOpenConfigurator(configuration) : undefined}
+        openConfiguratorLabel={openConfiguratorLabel}
+        technicalDataColumns={technicalDataColumns}
+      />
+      {canReloadCatalogueDetails && configuration.catalogueVariantId && (
+        <CatalogueDetailsReload catalogueVariantId={configuration.catalogueVariantId} configurationId={configurationId} />
+      )}
+    </Stack>
   )
 }

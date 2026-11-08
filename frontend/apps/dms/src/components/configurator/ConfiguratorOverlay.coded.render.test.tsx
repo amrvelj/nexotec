@@ -4,6 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
+import { detailsPresent } from '../../test/catalogueDetails'
 import { installFakeBackend, type FakeRoute } from '../../test/fakeBackend'
 import {
   CODED_REFERENCE_ROUTES,
@@ -68,7 +69,7 @@ function install(over: FakeRoute[] = []): Ctx {
       method: 'GET',
       match: /\/catalogue\/variants\/v1\/specification$/,
       handler: () => ({
-        hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false,
+        hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false, details: detailsPresent,
         dealerCanUploadImages: true, options: [], colours: [], tyreSpecs: [], images: [], optionRelations: [],
       }),
     },

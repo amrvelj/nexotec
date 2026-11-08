@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useOverlay } from '@nexotec/ui-kit'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
+import { detailsPresent } from '../../test/catalogueDetails'
 import { installFakeBackend, status, type FakeBackend, type FakeRoute } from '../../test/fakeBackend'
 import { ConfiguratorOverlay } from './ConfiguratorOverlay'
 import { CODED_REFERENCE_ROUTES, PICKED_CODED_VALUES, pickCodedFields } from '../../test/configuratorFixtures'
@@ -157,6 +158,7 @@ function install(over: FakeRoute[] = []): Ctx {
         hasProviderConnection: true,
         packagesAvailable: true,
         imagesAvailable: true,
+        details: detailsPresent,
         dealerCanUploadImages: false,
         options: [CATALOGUE_OPTION],
         colours: [CATALOGUE_COLOUR],
@@ -538,7 +540,7 @@ describe('ConfiguratorOverlay', () => {
         method: 'GET',
         match: /\/catalogue\/variants\/v1\/specification$/,
         handler: () => ({
-          hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false,
+          hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false, details: detailsPresent,
           dealerCanUploadImages: false, options: [{ ...CATALOGUE_OPTION, equipmentFeatures: ['navigation'] }],
           colours: [], tyreSpecs: [], images: [], optionRelations: [],
         }),

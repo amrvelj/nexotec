@@ -1325,7 +1325,11 @@
       "attachError": "La configuration n'a pas pu être attribuée. Veuillez réessayer.",
       "edit": "Modifier la configuration",
       "editContract": "Modifier le contrat",
-      "reservedByContract": "Un contrat réserve ce véhicule. Tant qu'il le réserve, la configuration reste inchangée : elle ne peut être modifiée qu'une fois le contrat annulé."
+      "reservedByContract": "Un contrat réserve ce véhicule. Tant qu'il le réserve, la configuration reste inchangée : elle ne peut être modifiée qu'une fois le contrat annulé.",
+      "reloadDetails": "Recharger",
+      "reloadDetailsHint": "Redemande à auto-i-dat les options, couleurs, données de pneus, images et l'étiquette-énergie et remplace les données enregistrées de cette entreprise.",
+      "reloadDetailsError": "Les données du catalogue n'ont pas pu être rechargées.",
+      "reloadDetailsDone": "Rechargé le {{date}}"
     },
     "rowMenu": {
       "changeCondition": "Modifier l'état",
@@ -2091,13 +2095,20 @@
         "onlyWith": "Disponible uniquement avec {{option}}",
         "notInCombinationWith": "Non disponible en combinaison avec {{option}}",
         "onlyInCombinationWith": "Disponible uniquement en combinaison avec {{option}}"
-      }
+      },
+      "searchPlaceholder": "Rechercher une option ou un code…",
+      "searchLabel": "Rechercher dans les options",
+      "noMatches": "Aucune option ne correspond à la recherche."
     },
     "colour": {
       "exterior": "Couleur extérieure",
       "interior": "Couleur de sellerie",
       "pickFromCatalogue": "Choisir dans le catalogue",
-      "surcharge": "Supplément"
+      "surcharge": "Supplément",
+      "exteriorType": "Type de peinture",
+      "interiorType": "Type de sellerie",
+      "pickType": "Choisir…",
+      "typeListUnavailable": "La liste n'a pas pu être chargée"
     },
     "wheels": {
       "title": "Roues & pneus",
@@ -2234,6 +2245,34 @@
       "overridden": "modifié par vous",
       "apply": "Appliquer la sélection",
       "error": "L'actualisation a échoué."
+    },
+    "details": {
+      "loadedAt": "Chargé le {{date}}",
+      "notInContract": {
+        "title": "Pas dans votre contrat",
+        "body": "auto-i-dat ne fournit pas ces données pour votre accès : l'option n'est pas sous licence. Un accès disposant de cette option les charge à la prochaine ouverture."
+      },
+      "unavailable": {
+        "title": "Indisponible chez le fournisseur pour le moment",
+        "body": "auto-i-dat n'a pas fourni ces données. Elles seront redemandées à la prochaine ouverture du véhicule."
+      },
+      "notLoaded": {
+        "title": "Pas encore chargé",
+        "body": "Ces données n'ont pas encore été demandées à auto-i-dat pour cette entreprise."
+      },
+      "names": {
+        "options": "Options",
+        "colours": "Couleurs",
+        "tyreSpecs": "Données de pneus",
+        "images": "Images",
+        "energyLabel": "Étiquette-énergie"
+      },
+      "state": {
+        "present": "Chargé",
+        "notInContract": "Pas dans votre contrat",
+        "unavailable": "Indisponible",
+        "notLoaded": "Pas encore chargé"
+      }
     }
   },
   "customerRowMenu": {

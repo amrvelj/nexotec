@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend, type FakeRoute } from '../../test/fakeBackend'
+import { installFakeBackend, status, type FakeRoute } from '../../test/fakeBackend'
+import { detailsPresent } from '../../test/catalogueDetails'
 import { CODED_REFERENCE_ROUTES, configurationRead } from '../../test/configuratorFixtures'
 import { DetailsTab } from './DetailsTab'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
@@ -236,5 +238,68 @@ describe('Stock detail — a configured car\'s name follows its configuration (K
     expect(screen.queryByTestId('vehicle-label-read-only')).not.toBeInTheDocument()
     name.click()
     expect(await screen.findByDisplayValue('VW Golf 8 GTI')).toBeInTheDocument()
+  })
+})
+
+// KAN-211 (ADR-123) — «Neu laden», the one refresh of a car's licensed
+// details, on the stock car's technical data, for dealer managers and
+// platform staff: one request, the answer's per-detail states listed, the
+// card re-read. Exit criterion 5 (KAN-212): the per-detail state on screen.
+describe('Stock detail — «Neu laden» of the catalogue details (KAN-211)', () => {
+  const reloaded = {
+    hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: true,
+    dealerCanUploadImages: false, options: [], optionRelations: [], colours: [], tyreSpecs: [], images: [],
+    details: { ...detailsPresent, images: { state: 'notInContract', loadedAt: '2026-11-08T10:00:00Z' } },
+  }
+
+  it('is offered to a dealer manager and asks the provider once, then lists each detail\'s state', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      ...CODED_REFERENCE_ROUTES,
+      ...SPEC_REFERENCE_ROUTES,
+      { method: 'GET', match: /^\/configurations\/cfg-1$/, handler: () => CONFIGURATION },
+      { method: 'POST', match: /^\/catalogue\/variants\/v1\/details\/reload$/, handler: () => reloaded },
+    ])
+    renderWithProviders(
+      <DetailsTab item={ITEM} locale="de-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} canReloadCatalogueDetails />,
+    )
+
+    await screen.findByTestId('configuration-technical-data')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.configuration.reloadDetails') }))
+
+    const result = await screen.findByTestId('catalogue-details-reload-result')
+    const calls = backend.callsTo(/\/details\/reload$/, 'POST')
+    expect(calls).toHaveLength(1)
+    expect(calls[0].headers.get('Idempotency-Key')).toBeTruthy()
+    expect(within(result).getByTestId('reload-state-options')).toHaveTextContent(i18n.t('configurator.details.state.present'))
+    expect(within(result).getByTestId('reload-state-images')).toHaveTextContent(i18n.t('configurator.details.state.notInContract'))
+    // The card is re-read so its texts follow the fresh rows.
+    await waitFor(() => expect(backend.callsTo(/^\/configurations\/cfg-1$/, 'GET').length).toBeGreaterThan(1))
+  })
+
+  it('is not offered to anyone else', async () => {
+    backend()
+    renderWithProviders(
+      <DetailsTab item={ITEM} locale="de-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />,
+    )
+    await screen.findByTestId('configuration-technical-data')
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.configuration.reloadDetails') })).not.toBeInTheDocument()
+  })
+
+  it('shows the refusal in the UI language when the API says no', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      ...CODED_REFERENCE_ROUTES,
+      ...SPEC_REFERENCE_ROUTES,
+      { method: 'GET', match: /^\/configurations\/cfg-1$/, handler: () => CONFIGURATION },
+      { method: 'POST', match: /^\/catalogue\/variants\/v1\/details\/reload$/, handler: () => status(503, { error: { code: 'provider_unavailable', message: 'down' } }) },
+    ])
+    renderWithProviders(
+      <DetailsTab item={ITEM} locale="de-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} canReloadCatalogueDetails />,
+    )
+    await screen.findByTestId('configuration-technical-data')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.configuration.reloadDetails') }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('stockDetail.configuration.reloadDetailsError'))
+    expect(screen.queryByText('down')).not.toBeInTheDocument()
   })
 })

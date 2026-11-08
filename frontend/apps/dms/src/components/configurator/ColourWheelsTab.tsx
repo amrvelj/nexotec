@@ -3,6 +3,7 @@ import { ChfInput } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
 import type { ConfiguratorMode } from '../../configurationOptions'
+import { DetailStateNotice } from './DetailStateNotice'
 
 // KAN-75: the axle is the `axle_position` value the provider's AchsenCode
 // resolves to through the code map, or null while that code is an unresolved
@@ -18,10 +19,22 @@ function axleLabel(t: (key: string) => string, axle: string | null): string {
 export interface ColourWheelsFields {
   exteriorColour: string
   interiorColour: string
+  /** KAN-211 (Anto, 2026-11-08): the type the advisor names by hand — a
+   * `colour_type` value for the paint, an `interior_colour_type` value for
+   * the upholstery; `''` is «not set». The identAPI delivers neither. */
+  exteriorColourType: string
+  interiorColourType: string
   exteriorColourSurcharge: string
   interiorColourSurcharge: string
   wheels: string
   wheelsSurcharge: string
+}
+
+export interface ColourTypeOptions {
+  options: { value: string; label: string }[]
+  /** The list could not be loaded: the select says so instead of offering
+   * nothing silently (the KAN-239 pattern). */
+  isError: boolean
 }
 
 export interface ColourWheelsTabProps extends ColourWheelsFields {
@@ -30,6 +43,10 @@ export interface ColourWheelsTabProps extends ColourWheelsFields {
    * picker and the tyre-spec reference table need it. */
   spec: CatalogueSpecificationRead | undefined
   mode: ConfiguratorMode
+  /** The active values of the two type lists, labelled in the UI language
+   * (the overlay reads them, like `equipmentFeatureOptions` on OptionsTab). */
+  exteriorColourTypeOptions: ColourTypeOptions
+  interiorColourTypeOptions: ColourTypeOptions
   onChange: (patch: Partial<ColourWheelsFields>) => void
 }
 
@@ -47,10 +64,14 @@ export function ColourWheelsTab({
   mode,
   exteriorColour,
   interiorColour,
+  exteriorColourType,
+  interiorColourType,
   exteriorColourSurcharge,
   interiorColourSurcharge,
   wheels,
   wheelsSurcharge,
+  exteriorColourTypeOptions,
+  interiorColourTypeOptions,
   onChange,
 }: ColourWheelsTabProps) {
   const { t } = useTranslation()
@@ -59,6 +80,36 @@ export function ColourWheelsTab({
   const exteriorOptions = (spec?.colours ?? []).filter((c) => c.colourType === 'exterior')
   const interiorOptions = (spec?.colours ?? []).filter((c) => c.colourType === 'interior')
   const tyreSpecs = spec?.tyreSpecs ?? []
+  // KAN-211 / KAN-212 (ADR-123): why the catalogue offers no colour or no
+  // tyre data — a licence gap or a failed request — is said, never implied
+  // by an absent picker. The free-text fields work either way.
+  const coloursState = spec?.details.colours
+  const tyresState = spec?.details.tyreSpecs
+
+  const typeSelect = (
+    field: 'exteriorColourType' | 'interiorColourType',
+    label: string,
+    value: string,
+    { options, isError }: ColourTypeOptions,
+  ) => {
+    // A stored value the list no longer offers stays visible, disabled, so
+    // the advisor sees it and picks a current one (the KAN-96 pattern).
+    const data = options.some((o) => o.value === value) || value === '' ? options : [...options, { value, label: `⚠ ${value}`, disabled: true }]
+    return (
+      <Select
+        label={label}
+        placeholder={t('configurator.colour.pickType')}
+        data={data}
+        value={value === '' ? null : value}
+        onChange={(v) => onChange({ [field]: v ?? '' })}
+        error={isError ? t('configurator.colour.typeListUnavailable') : undefined}
+        clearable
+        clearButtonProps={{ 'aria-label': t('common.clear') }}
+        searchable
+        data-testid={`${field}-select`}
+      />
+    )
+  }
 
   const pickColour = (
     field: 'exteriorColour' | 'interiorColour',
@@ -84,12 +135,14 @@ export function ColourWheelsTab({
         <Text fw={600} size="sm">
           {t('configurator.colour.exterior')}
         </Text>
+        {coloursState && coloursState.state !== 'present' && <DetailStateNotice detail="colours" state={coloursState} />}
         <Group grow align="flex-end">
           <TextInput
             label={t('configurator.colour.exterior')}
             value={exteriorColour}
             onChange={(e) => onChange({ exteriorColour: e.currentTarget.value })}
           />
+          {typeSelect('exteriorColourType', t('configurator.colour.exteriorType'), exteriorColourType, exteriorColourTypeOptions)}
           {exteriorOptions.length > 0 && (
             <Select
               label={t('configurator.colour.pickFromCatalogue')}
@@ -119,6 +172,7 @@ export function ColourWheelsTab({
             value={interiorColour}
             onChange={(e) => onChange({ interiorColour: e.currentTarget.value })}
           />
+          {typeSelect('interiorColourType', t('configurator.colour.interiorType'), interiorColourType, interiorColourTypeOptions)}
           {interiorOptions.length > 0 && (
             <Select
               label={t('configurator.colour.pickFromCatalogue')}
@@ -144,6 +198,7 @@ export function ColourWheelsTab({
         <Text fw={600} size="sm">
           {t('configurator.wheels.title')}
         </Text>
+        {tyresState && tyresState.state !== 'present' && <DetailStateNotice detail="tyreSpecs" state={tyresState} />}
 
         {tyreSpecs.length > 0 && (
           <Table data-testid="tyre-spec-table" withTableBorder={false}>

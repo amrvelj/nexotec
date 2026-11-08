@@ -44,6 +44,8 @@ function config(over: Partial<ConfigurationRead> = {}): ConfigurationRead {
     interiorColour: null,
     exteriorColourSurcharge: null,
     interiorColourSurcharge: null,
+    exteriorColourType: null,
+    interiorColourType: null,
     wheels: null,
     wheelsSurcharge: null,
     spec: { ps: 245, displacementCcm: 1984, trimName: 'GTI' },
@@ -74,6 +76,9 @@ const LISTS: Record<string, Row[]> = {
   ],
   drivetrain: [['fwd', 'Frontantrieb', 'Traction avant', 'Trazione anteriore', 'Front-wheel drive']],
   transmission: [['automatic', 'Automat', 'Automatique', 'Automatico', 'Automatic']],
+  // KAN-211: the hand-named colour types.
+  colour_type: [['metallic', 'Metallic', 'Métallisé', 'Metallizzato', 'Metallic']],
+  interior_colour_type: [['leather', 'Leder', 'Cuir', 'Pelle', 'Leather']],
 }
 
 function listRoutes(over: FakeRoute[] = []): FakeRoute[] {
@@ -262,5 +267,52 @@ describe('ConfigurationSummaryCard first registration date (KAN-333)', () => {
     renderCard(<ConfigurationSummaryCard configuration={config({ ...coded, energyRating: null })} technicalDataColumns={2} />)
     const label = within(screen.getByTestId('configuration-technical-data')).getByText(i18n.t('configurator.spec.fields.energyLabel'))
     expect(label.parentElement).toHaveTextContent(i18n.t('common.notSet'))
+  })
+})
+
+// KAN-211 (Anto, 2026-11-08): the colour name as delivered, the type the
+// advisor named beside it — «Deep Black · Metallic» — as a label in the UI
+// language, in the compact summary and in the technical block's colours group.
+describe('ConfigurationSummaryCard — colour type (KAN-211)', () => {
+  it('shows the colour with its type label, in the UI language', async () => {
+    installFakeBackend(listRoutes())
+    renderCard(
+      <ConfigurationSummaryCard
+        configuration={config({ ...coded, exteriorColourType: 'metallic', interiorColour: 'Titanschwarz', interiorColourType: 'leather' })}
+        technicalDataColumns={2}
+      />,
+    )
+    const block = screen.getByTestId('configuration-technical-data')
+    await waitFor(() => expect(block).toHaveTextContent('Deep Black · Metallic'))
+    expect(block).toHaveTextContent('Titanschwarz · Leder')
+    expect(block).not.toHaveTextContent('metallic')
+  })
+
+  it('shows the type alone when the colour has no name, and the name alone without a type', async () => {
+    installFakeBackend(listRoutes())
+    renderIn('h', config({ ...coded, exteriorColour: null, exteriorColourType: 'metallic' }))
+    const card = screen.getByTestId('configuration-summary-card')
+    await waitFor(() => expect(card).toHaveTextContent('Metallic'))
+    const colour = within(card).getByText(i18n.t('configurator.summary.colour')).parentElement as HTMLElement
+    expect(colour).toHaveTextContent(/Metallic$/)
+    expect(colour).not.toHaveTextContent('·')
+  })
+
+  it('reads «Deep Black» alone without a type, asking for no list', async () => {
+    const backend = installFakeBackend(listRoutes())
+    renderIn('h', config(coded))
+    await waitFor(() => expect(screen.getByTestId('configuration-summary-card')).toHaveTextContent('Deep Black'))
+    expect(backend.callsTo(/reference-data\/colour_type/).length).toBe(0)
+  })
+
+  it('follows the UI language for the type label', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      installFakeBackend(listRoutes())
+      renderIn('h', config({ ...coded, exteriorColourType: 'metallic' }))
+      await waitFor(() => expect(screen.getByTestId('configuration-summary-card')).toHaveTextContent('Deep Black · Métallisé'))
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })

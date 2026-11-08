@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Alert, Badge, Button, Checkbox, CloseButton, Group, Select, Stack, Text } from '@mantine/core'
-import { AlertTriangle, Info, Plug } from 'lucide-react'
+import { Alert, Badge, Button, Checkbox, CloseButton, Group, Select, Stack, Text, TextInput } from '@mantine/core'
+import { AlertTriangle, Info, Plug, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyChf } from '../../utils/format'
 import type {
@@ -10,6 +10,7 @@ import type {
   ConfigurationOptionInput,
 } from '../../api/types'
 import type { ConfiguratorMode } from '../../configurationOptions'
+import { DetailStateNotice } from './DetailStateNotice'
 
 // FR-C-06's own phrasing example: "contained in Pack Family · excludes
 // Sportsitze · CHF 400 in combination with Klimaautomat · becomes standard
@@ -31,6 +32,17 @@ const RELATION_I18N_KEY: Record<string, string> = {
 
 function pairKey(aId: string, bId: string): string {
   return [aId, bId].sort().join('|')
+}
+
+/** KAN-211 (Anto, 2026-11-08): the advisor finds an option by its text or by
+ * a code — the manufacturer's (`manufacturerCode`, what the order sheet and
+ * the customer name) or auto-i's own key. Case-insensitive substring. */
+export function optionMatchesSearch(option: CatalogueOptionRead, search: string): boolean {
+  const needle = search.trim().toLowerCase()
+  if (needle === '') return true
+  return [option.description, option.manufacturerCode, option.optionCode].some(
+    (text) => typeof text === 'string' && text.toLowerCase().includes(needle),
+  )
 }
 
 export interface OptionsTabProps {
@@ -81,6 +93,7 @@ export function OptionsTab({
   // `spec` that is still `undefined`.
   const [pendingPackageIds, setPendingPackageIds] = useState<Set<string>>(new Set())
   const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState('')
 
   const options = spec?.options ?? []
   const relations = spec?.optionRelations ?? []
@@ -169,16 +182,23 @@ export function OptionsTab({
     )
   }
 
+  // KAN-211 / KAN-212 (ADR-123): a Betrieb whose licence excludes the
+  // options, or whose request failed, sees why — never an empty list that
+  // reads as «this car has no options».
+  const detailState = spec.details.options
   if (spec.options.length === 0) {
-    return (
+    return detailState.state === 'present' ? (
       <Alert color="gray" icon={<Info size={16} />}>
         {t('configurator.options.empty')}
       </Alert>
+    ) : (
+      <DetailStateNotice detail="options" state={detailState} />
     )
   }
 
+  const visibleOptions = spec.options.filter((o) => optionMatchesSearch(o, search))
   const groups = new Map<string | null, CatalogueOptionRead[]>()
-  for (const o of spec.options) {
+  for (const o of visibleOptions) {
     const key = o.optionGroup
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(o)
@@ -261,6 +281,23 @@ export function OptionsTab({
 
   return (
     <Stack gap="md" data-testid="options-tab">
+      {detailState.state !== 'present' && <DetailStateNotice detail="options" state={detailState} />}
+
+      <TextInput
+        aria-label={t('configurator.options.searchLabel')}
+        placeholder={t('configurator.options.searchPlaceholder')}
+        leftSection={<Search size={14} />}
+        value={search}
+        onChange={(e) => setSearch(e.currentTarget.value)}
+        data-testid="options-search"
+      />
+
+      {visibleOptions.length === 0 && (
+        <Text size="sm" c="dimmed" data-testid="options-no-matches">
+          {t('configurator.options.noMatches')}
+        </Text>
+      )}
+
       {!spec.packagesAvailable && (
         <Alert
           color="yellow"
@@ -315,13 +352,29 @@ export function OptionsTab({
                   {option.isIncluded ? (
                     <Group gap="xs">
                       <Text size="sm">{option.description}</Text>
+                      {option.manufacturerCode && (
+                        <Text size="xs" c="dimmed" ff="monospace">
+                          {option.manufacturerCode}
+                        </Text>
+                      )}
                       <Badge size="xs" color="gray" variant="light">
                         {t('configurator.options.included')}
                       </Badge>
                     </Group>
                   ) : (
                     <Checkbox
-                      label={option.description}
+                      label={
+                        option.manufacturerCode ? (
+                          <>
+                            {option.description}{' '}
+                            <Text component="span" size="xs" c="dimmed" ff="monospace">
+                              {option.manufacturerCode}
+                            </Text>
+                          </>
+                        ) : (
+                          option.description
+                        )
+                      }
                       checked={isChecked(option)}
                       onChange={() => handleToggle(option)}
                     />

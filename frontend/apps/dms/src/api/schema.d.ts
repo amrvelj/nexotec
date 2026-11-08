@@ -5200,6 +5200,8 @@ export interface components {
             exteriorColour?: string | null;
             /** Exteriorcoloursurcharge */
             exteriorColourSurcharge?: number | string | null;
+            /** Exteriorcolourtype */
+            exteriorColourType?: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
             /**
@@ -5211,6 +5213,8 @@ export interface components {
             interiorColour?: string | null;
             /** Interiorcoloursurcharge */
             interiorColourSurcharge?: number | string | null;
+            /** Interiorcolourtype */
+            interiorColourType?: string | null;
             /** Licenceplate */
             licencePlate?: string | null;
             matchMethod: components["schemas"]["ConfigurationMatchMethod"];
@@ -5377,6 +5381,8 @@ export interface components {
             exteriorColour: string | null;
             /** Exteriorcoloursurcharge */
             exteriorColourSurcharge: string | null;
+            /** Exteriorcolourtype */
+            exteriorColourType: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate: string | null;
             /** Fueltype */
@@ -5390,6 +5396,8 @@ export interface components {
             interiorColour: string | null;
             /** Interiorcoloursurcharge */
             interiorColourSurcharge: string | null;
+            /** Interiorcolourtype */
+            interiorColourType: string | null;
             /** Licenceplate */
             licencePlate: string | null;
             matchMethod: components["schemas"]["ConfigurationMatchMethod"];
@@ -5467,6 +5475,8 @@ export interface components {
             exteriorColour?: string | null;
             /** Exteriorcoloursurcharge */
             exteriorColourSurcharge?: number | string | null;
+            /** Exteriorcolourtype */
+            exteriorColourType?: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
             /**
@@ -5478,6 +5488,8 @@ export interface components {
             interiorColour?: string | null;
             /** Interiorcoloursurcharge */
             interiorColourSurcharge?: number | string | null;
+            /** Interiorcolourtype */
+            interiorColourType?: string | null;
             /** Licenceplate */
             licencePlate?: string | null;
             matchMethod?: components["schemas"]["ConfigurationMatchMethod"] | null;

@@ -2,6 +2,7 @@ import { Alert, Badge, Group, Image, SimpleGrid, Stack, Text } from '@mantine/co
 import { Info, Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
+import { DetailStateNotice } from './DetailStateNotice'
 
 // BildTyp (small/large) and BildArt (exterior/interior) are FR-C-09's own
 // fixed, documented two-value codes — unlike an axle or option code, there
@@ -50,6 +51,16 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
     )
   }
 
+  // KAN-211 / KAN-212 (ADR-123): the detail's own state first — «Nicht in
+  // Ihrem Vertrag» when the provider's licence refused the photos of this
+  // car, «derzeit nicht verfügbar» when the request failed. The probe-based
+  // entitlement notice below stays for a Betrieb whose licence the probe
+  // already found wanting before any car was opened.
+  const detailState = spec.details.images
+  if (detailState.state === 'notInContract' || detailState.state === 'unavailable') {
+    return <DetailStateNotice detail="images" state={detailState} />
+  }
+
   if (!spec.imagesAvailable) {
     return (
       <Alert
@@ -78,10 +89,12 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
   }
 
   if (spec.images.length === 0) {
-    return (
+    return detailState.state === 'present' ? (
       <Alert color="gray" icon={<Info size={16} />}>
         {t('configurator.images.empty')}
       </Alert>
+    ) : (
+      <DetailStateNotice detail="images" state={detailState} />
     )
   }
 

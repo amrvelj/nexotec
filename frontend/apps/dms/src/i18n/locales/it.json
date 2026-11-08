@@ -1325,7 +1325,11 @@
       "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
       "edit": "Modifica configurazione",
       "editContract": "Modifica contratto",
-      "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto."
+      "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto.",
+      "reloadDetails": "Ricarica",
+      "reloadDetailsHint": "Richiede di nuovo ad auto-i-dat opzioni, colori, dati pneumatici, immagini ed etichetta energia e sostituisce i dati salvati di questa azienda.",
+      "reloadDetailsError": "I dati del catalogo non sono stati ricaricati.",
+      "reloadDetailsDone": "Ricaricato il {{date}}"
     },
     "rowMenu": {
       "changeCondition": "Modifica stato",
@@ -2091,13 +2095,20 @@
         "onlyWith": "Disponibile solo con {{option}}",
         "notInCombinationWith": "Non disponibile in combinazione con {{option}}",
         "onlyInCombinationWith": "Disponibile solo in combinazione con {{option}}"
-      }
+      },
+      "searchPlaceholder": "Cerca un'opzione o un codice…",
+      "searchLabel": "Cerca nelle opzioni",
+      "noMatches": "Nessuna opzione corrisponde alla ricerca."
     },
     "colour": {
       "exterior": "Colore esterno",
       "interior": "Colore dei sedili",
       "pickFromCatalogue": "Scegli dal catalogo",
-      "surcharge": "Sovrapprezzo"
+      "surcharge": "Sovrapprezzo",
+      "exteriorType": "Tipo di vernice",
+      "interiorType": "Tipo di rivestimento",
+      "pickType": "Scegli…",
+      "typeListUnavailable": "L'elenco non è stato caricato"
     },
     "wheels": {
       "title": "Ruote & pneumatici",
@@ -2234,6 +2245,34 @@
       "overridden": "modificato da voi",
       "apply": "Applicare la selezione",
       "error": "L'aggiornamento non è riuscito."
+    },
+    "details": {
+      "loadedAt": "Caricato il {{date}}",
+      "notInContract": {
+        "title": "Non nel vostro contratto",
+        "body": "auto-i-dat non fornisce questi dati per il vostro accesso: l'opzione non è in licenza. Un accesso con questa opzione li carica alla prossima apertura."
+      },
+      "unavailable": {
+        "title": "Al momento non disponibile presso il fornitore",
+        "body": "auto-i-dat non ha fornito questi dati. Alla prossima apertura del veicolo verranno richiesti di nuovo."
+      },
+      "notLoaded": {
+        "title": "Non ancora caricato",
+        "body": "Questi dati non sono ancora stati richiesti ad auto-i-dat per questa azienda."
+      },
+      "names": {
+        "options": "Opzioni",
+        "colours": "Colori",
+        "tyreSpecs": "Dati pneumatici",
+        "images": "Immagini",
+        "energyLabel": "Etichetta energia"
+      },
+      "state": {
+        "present": "Caricato",
+        "notInContract": "Non nel vostro contratto",
+        "unavailable": "Non disponibile",
+        "notLoaded": "Non ancora caricato"
+      }
     }
   },
   "customerRowMenu": {

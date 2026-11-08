@@ -66,6 +66,11 @@ class _ConfigurationObserved(CamelModel):
     interior_colour: str | None = Field(default=None, max_length=120)
     exterior_colour_surcharge: Decimal | None = None
     interior_colour_surcharge: Decimal | None = None
+    # KAN-211: the colour's type, chosen by the advisor — an active value of the
+    # `colour_type` list for the paint finish, of `interior_colour_type` for the
+    # upholstery (the identAPI delivers neither).
+    exterior_colour_type: str | None = Field(default=None, max_length=64)
+    interior_colour_type: str | None = Field(default=None, max_length=64)
     wheels: str | None = Field(default=None, max_length=120)
     wheels_surcharge: Decimal | None = None
     notes: str | None = None
@@ -152,6 +157,8 @@ class ConfigurationRead(CamelModel):
     interior_colour: str | None
     exterior_colour_surcharge: Decimal | None
     interior_colour_surcharge: Decimal | None
+    exterior_colour_type: str | None
+    interior_colour_type: str | None
     wheels: str | None
     wheels_surcharge: Decimal | None
     # Populated by the API layer from the configuration's own flat spec-block
