@@ -18,6 +18,7 @@ import functools
 from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Any, TypeVar, cast
+from zoneinfo import ZoneInfo
 
 from app.core.base import utcnow
 from app.integration.adapters.base import (
@@ -28,6 +29,7 @@ from app.integration.adapters.base import (
     CatalogueBrandData,
     CatalogueModelGroupData,
     CodeMapEntryData,
+    EnergyLabelData,
     ForecastResult,
     ModelGroupData,
     ModelGroupShortData,
@@ -38,6 +40,7 @@ from app.integration.adapters.base import (
     TypeApprovalDataResult,
     ValuationResult,
     VariantColourData,
+    VariantColoursData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
@@ -456,6 +459,13 @@ def _request(datenname: str) -> Callable[[_Method], _Method]:
     return wrap
 
 
+def _swiss_year() -> int:
+    """The year in Switzerland now (the label is a fact of a Swiss year; the
+    vehicle context's `swiss_today` is behind the context boundary)."""
+
+    return dt.datetime.now(ZoneInfo("Europe/Zurich")).year
+
+
 class MockAutoIDatAdapter:
     """Realistic auto-i-dat shapes, no live call. `system_watermark_date`
     defaults to today; a test may pass another date. (The sync-age alarm
@@ -491,6 +501,25 @@ class MockAutoIDatAdapter:
     @_request("Bilder")
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         return list(_IMAGES.get(fz_key, []))
+
+    # KAN-211 (ADR-123): the identAPI-shaped detail reads, so the local app
+    # and the screenshots load details on open the way staging does. Colours
+    # ride on the variant answer (one request, `Fahrzeuge`); the energy label
+    # is the master data's letter as this year's class.
+
+    @_request("Fahrzeuge")
+    def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
+        if fz_key not in _MASTER_DATA:
+            raise KeyError(f"Mock adapter has no data for FzKey '{fz_key}'.")
+        master = _MASTER_DATA[fz_key]
+        return VariantColoursData(master=master, colours=list(_COLOURS.get(master.werkscode or "", [])))
+
+    @_request("Energieetikette")
+    def fetch_energy_label(self, *, type_approval_number: str) -> list[EnergyLabelData]:
+        master = next((m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers), None)
+        if master is None or not master.energy_label:
+            return []
+        return [EnergyLabelData(energy_class=master.energy_label, calculation_year=_swiss_year())]
 
     # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) -------
 

@@ -30,7 +30,16 @@ def _make_mock_provider(db_session) -> IntegrationProvider:
         auth_type="none",
         required_secret_slots=[],
         # The eight account-sheet lines migration 49be490e2077 seeds.
-        capability_codes=["fahrzeuge", "optionen", "kontrollschild", "pneu", "bewertung", "vin", "vin_ident_db", "ins_tc"],
+        capability_codes=[
+            "fahrzeuge",
+            "optionen",
+            "kontrollschild",
+            "pneu",
+            "bewertung",
+            "vin",
+            "vin_ident_db",
+            "ins_tc",
+        ],
     )
     db_session.add(provider)
     db_session.commit()
@@ -40,8 +49,11 @@ def _make_mock_provider(db_session) -> IntegrationProvider:
 
 def _make_connection(db_session, provider, *, tenant_id):
     return connection_service.create_connection(
-        db_session, tenant_id=tenant_id,
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
+        db_session,
+        tenant_id=tenant_id,
+        data=ConnectionCreate(
+            provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX
+        ),
         actor_id=uuid.uuid4(),
     )
 
@@ -53,8 +65,11 @@ def _deny(db_session, connection_id, capability_code):
 
     db_session.add(
         IntegrationEntitlement(
-            connection_id=connection_id, capability_code=capability_code, granted=False,
-            source=EntitlementSource.DECLARED, checked_at=utcnow(),
+            connection_id=connection_id,
+            capability_code=capability_code,
+            granted=False,
+            source=EntitlementSource.DECLARED,
+            checked_at=utcnow(),
         )
     )
     db_session.commit()
@@ -101,13 +116,28 @@ def test_specification_flattens_option_groups_without_packages_entitlement(db_se
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    _deny(db_session, connection.id, "ausstattung")
 
+    from scripts.seed_demo_provider_code_map import seed_demo_option_groups
+
+    # Loaded while the licence option was held, then the option goes (a
+    # re-probe on «Test connection»): the stored options stay, flattened.
+    # Since KAN-211 a Betrieb without `ausstattung` loads no options at all,
+    # and groups go through the code map — the demo's identity rows first.
+    seed_demo_option_groups(db_session)
     look_up_demo_variants(db_session, tenant_id)
     master = MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100002")
     variant = catalogue_sync.upsert_model_variant(db_session, provider_code="auto_i_dat_mock", master=master)
+    granted = catalogue_entitlements.get_catalogue_specification(
+        db_session, tenant_id=tenant_id, model_variant_id=variant.id
+    )
+    assert granted.packages_available is True
+    assert {o.option_group for o in granted.options} >= {"comfort", "exterior"}  # grouped while the option is held
 
-    spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=variant.id)
+    _deny(db_session, connection.id, "ausstattung")
+
+    spec = catalogue_entitlements.get_catalogue_specification(
+        db_session, tenant_id=tenant_id, model_variant_id=variant.id
+    )
     assert spec.packages_available is False
     assert len(spec.options) >= 1
     assert all(o.option_group is None for o in spec.options)
@@ -122,7 +152,9 @@ def test_specification_hides_images_without_images_entitlement(db_session):
     look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
 
-    spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=variant.id)
+    spec = catalogue_entitlements.get_catalogue_specification(
+        db_session, tenant_id=tenant_id, model_variant_id=variant.id
+    )
     assert spec.images_available is False
     assert spec.images == []
     assert spec.dealer_can_upload_images is True
@@ -137,7 +169,9 @@ def test_specification_carries_the_full_image_url(db_session):
     look_up_demo_variants(db_session, tenant_id)
     variant = db_session.query(ModelVariant).first()
 
-    spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=variant.id)
+    spec = catalogue_entitlements.get_catalogue_specification(
+        db_session, tenant_id=tenant_id, model_variant_id=variant.id
+    )
     assert spec.images_available is True
     assert len(spec.images) == 2  # front (exterior, small) + interior (large)
     for image in spec.images:
@@ -197,8 +231,12 @@ def test_specification_renders_a_relation_with_the_related_option_denormalised(d
     }
     db_session.add(
         VariantOptionRelation(
-            tenant_id=tenant_id, model_variant_id=golf.id, model_year=golf.model_year_from,
-            from_option_id=options["WNTR"].id, to_option_id=options["LED"].id, relation_type="excludes",
+            tenant_id=tenant_id,
+            model_variant_id=golf.id,
+            model_year=golf.model_year_from,
+            from_option_id=options["WNTR"].id,
+            to_option_id=options["LED"].id,
+            relation_type="excludes",
         )
     )
     db_session.commit()
@@ -229,8 +267,11 @@ def test_specification_with_no_catalogue_match_is_empty_but_valid(db_session):
 
 def _token(tenant_id: uuid.UUID) -> str:
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
-        roles=frozenset(), is_dealer_manager=True,
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=dealer_group_of(str(tenant_id)),
+        roles=frozenset(),
+        is_dealer_manager=True,
     )
 
 
@@ -309,8 +350,11 @@ def test_variant_specification_endpoint_needs_no_manager_flag(client, db_session
     variant = db_session.query(ModelVariant).first()
 
     non_manager_token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
-        roles=frozenset(), is_dealer_manager=False,
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=dealer_group_of(str(tenant_id)),
+        roles=frozenset(),
+        is_dealer_manager=False,
     )
     response = client.get(f"/v1/catalogue/variants/{variant.id}/specification", headers=_bearer(non_manager_token))
     assert response.status_code == 200, response.text
@@ -383,8 +427,11 @@ def test_capability_check_endpoint_needs_no_manager_flag(client, db_session):
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
     non_manager_token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=dealer_group_of(str(tenant_id)),
-        roles=frozenset(), is_dealer_manager=False,
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=dealer_group_of(str(tenant_id)),
+        roles=frozenset(),
+        is_dealer_manager=False,
     )
 
     response = client.get("/v1/integrations/capabilities/valuation", headers=_bearer(non_manager_token))

@@ -112,7 +112,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   (`plate_recorded`, `plate_ended`, `plate_wechselschild_formed`) carry validity and plate group,
   never the plate value. Every write service in `app/vehicle/services` is reached from production
   code (`tests/architecture/test_vehicle_write_services_have_a_caller.py`, KAN-467; exceptions
-  KAN-524, KAN-211).
+  KAN-524).
 - **Plate-history reads (Plates tab, resolved search hit, shared identity lookup) are audited and limited per user**
   (ADR-085, KAN-231): only through `services/plate_read_guard.py::read_plate_history`, never
   `plate.list_plates_for_vehicle` directly (architecture test); every read and every refusal
@@ -229,8 +229,16 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   (`list_catalogue_brands`, `list_catalogue_model_groups`, `search_catalogue_variants` — one page, `includeCount`,
   refused in code without a brand or model-group scope —, `facet_values` = `fields=<field> distinct`). Bodies are
   read by `adapters/identapi_parse.py`, which interprets no code: `0` is *unknown* (NULL), a null `productionEnd`
-  is *in production*, a Stammnummer loses its dots and a plate its spaces. Not built: options, colours, tyres,
-  images (KAN-211), valuation (KAN-552), the VIN rung (KAN-549); the SOAP adapter (`auto_i_dat_soap.py`, legacy
+  is *in production*, a Stammnummer loses its dots and a plate its spaces. **The details (KAN-211, ADR-123):**
+  `fetch_variant_with_colours` (`GET /vehiclecatalog/autoi/{fzKey}` — the variant row carries `colorOptionsData`;
+  the identAPI has no colour endpoint), `fetch_options` (`GET /vehicleoption/catalog/autoi/{fzKey}/modelyear/{y}`,
+  `0` = currently available; the one bounded walk over `page[number]`: it follows `links.next` for the one car
+  opened, at most `OPTIONS_PAGE_CAP` = 30 pages, each page its own `vehicleoption_catalog` row, pinned by
+  `test_the_options_walk_is_bounded_by_the_page_cap`), `fetch_tyre_specs` (`GET /tyresandrims/typeapproval/{nr}`,
+  one request, both seasons — each row names its `tyreType`), `fetch_images` (`GET /image/vehicle/{fzKey}`, one
+  request, every size and perspective, stored under the S/L and A/I codes `ImageRef` has always held) and
+  `fetch_energy_label` (`GET /energylabel/info/typeapproval/{nr}`, one row per gearbox with its
+  `calculationYear`). Not built: valuation (KAN-552), the VIN rung (KAN-549); the SOAP adapter (`auto_i_dat_soap.py`, legacy
   code `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550 — the mock also answers the
   identAPI-shaped operations from its fixtures (invented spec blocks included), so demos and tests run on it.
 - **Provider captions are vocabulary, global, fetched on «Test connection» only** (ADR-111 (3); KAN-547, Anto
@@ -439,11 +447,45 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   no full seed, no daily delta, no `FzKeyChanged`, no daily job reaching a provider — the demo
   provider (`auto_i_dat_mock`) follows the same rule. A variant enters the catalogue only through
   identification (every rung stores the variants it returns, master data only — KAN-547; a plate
-  lookup also fills the plate-lookup cache), a browsed page (KAN-548, the same store) or `catalogue_sync.sync_catalogue_variant` (one variant with its options,
-  colours, tyres and images; nothing calls it yet — loading a variant's details on open is
-  KAN-211). **Consequence until KAN-211:** a variant has no options, colours, tyres or images until
-  they are loaded on open; since KAN-547 every identification rung stores what it finds and since
-  KAN-548 every browsed page does too (the browse itself is live, never a mirror read). `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule. The
+  lookup also fills the plate-lookup cache) or a browsed page (KAN-548, the same store); since KAN-547 every
+  identification rung stores what it finds and since KAN-548 every browsed page does too (the browse itself is
+  live, never a mirror read). **Its licensed details load once per Betrieb when the car is opened** (KAN-211,
+  ADR-123; `services/catalogue_details.py`): the specification read (`GET /v1/catalogue/variants/{id}/specification`
+  and `/vehicle-mdm/{id}/catalogue-specification`) asks the Betrieb's provider for every detail it has not
+  stored — colours (with the variant), options, tyres, images, energy label: five requests on the first open,
+  none on the second — each detail its own `call_capability` block, savepoint **and commit**, ending in its own
+  `VariantDetailState`: `present` (loaded, possibly empty; also the provider's coherent "nothing": a key it no
+  longer lists, a 400/422 — `error` says which, and the detail is not asked again until «Neu laden») ·
+  `not_in_contract` (403, or a licence option «Test connection» recorded as absent — then nothing is sent; asked
+  again only once a later probe records the option as granted) · `unavailable` (timeout, 5xx, open breaker; asked
+  again on the next open) · no row = never asked (no connection, or no key at this provider). A refused or failed
+  detail never discards the car or the others (KAN-212); what a provider sends is stored defensively (a key repeated
+  in one answer is one row, texts are cut to their columns, an over-long image URL is left out). A transaction-scoped
+  advisory lock on (Betrieb, variant), taken per detail on the request's own connection (`pg_advisory_xact_lock`,
+  `lock_timeout` 25 s — past it the second open leaves the rest to the first) and released by that detail's commit,
+  serialises two opens of the same car by the same Betrieb so two tabs send one set; the load holds no connection
+  besides the request's own (the gateway's brief session aside); another Betrieb's open of the same car waits only
+  where both write the same shared row — a new mapping gap, a price year, this year's label — and the loser's unique
+  violation is never a 500: `_record_mapping_gap` re-reads the winner's gap row and counts its occurrence there; the
+  colours request's master-data visit and the energy-rating insert run in a savepoint and let the winner's row stand. The specification's `details.*.note` says why a state is what it is
+  (the failure's class, `entitlement_absent`, `variant_unknown_at_provider`, `energy_label_ambiguous`). The configurator's specification query neither refetches on window
+  focus nor retries (a state, not an error). No automatic refresh of any kind: `POST /v1/catalogue/variants/{id}/details/reload`
+  («Neu laden» on the stock car's technical data, dealer manager or platform staff, audited as
+  `vehicle_variant_details.reload`) is the one refresh, one fresh request per detail replacing the Betrieb's rows.
+  The energy label is stored once for every Betrieb as that year's `ModelVariantEnergyRating`
+  (`source = auto_i_dat`, filling an absence only; ADR-042 — Anto, 2026-11-08), and only for a year whose rows
+  (one per gearbox) agree on the class — a disagreement stores nothing and is noted; the state stays per Betrieb.
+  Options carry the manufacturer's code (`manufacturer_code`, the identAPI's `optionCode`) beside auto-i's key
+  (`option_code`), their `group` resolved through the code map like every coded field (a miss is a gap and a flat
+  list; the raw code stays on the row — `option_group_code` — and the admin's resolve fills every Betrieb's options
+  at once, `apply_resolved_code_to_option_groups`; the demo provider's identity rows come from
+  `scripts/seed_demo_provider_code_map.py`), their relations
+  (`contains` / `excludes` / `price_in_combination_with` — the last only where the provider names a price) stored
+  and shown, never enforced (ADR-072), and the year they stand for (the one asked, or the current Swiss year for a
+  car still built).
+  `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule and lists the five detail
+  operations of the adapter, `load_on_open`, `reload_details` and `get_catalogue_specification` as queries no
+  loop may call. The
   bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and the platform's
   catalogue-sync status board that read it are gone (KAN-497; Anto, 2026-10-31, option A —
   vehicle-chain migration `e4b7c2a91d36` drops the table).
@@ -490,8 +532,8 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 - **Typenschein** — `vehicle_type_approval` is many-to-many with `vehicle_model_variant`;
   `type_approval_number` is indexed, not unique. Use `find_model_variants_by_type_approval`
   for the reverse lookup. A variant mirrored before KAN-42 has no links; identification's best
-  match visits an existing variant with `upsert_model_variant`, which links them (as
-  `sync_catalogue_variant` would, once KAN-211 calls it) — no backfill asks a provider for them
+  match visits an existing variant with `upsert_model_variant`, which links them (as the
+  colours request on open does too, KAN-211) — no backfill asks a provider for them
   (KAN-190, KAN-485).
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
   drivetrain (groups 012 and 022 are Hinten/Vorne/Allrad). The seeded code map (migration

@@ -176,12 +176,29 @@ class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
     )
     option_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    # KAN-211 — the manufacturer's own code (the identAPI's `optionCode`),
+    # beside auto-i's key in `option_code`: what the advisor reads off a
+    # price list and searches by (Anto, 2026-11-08). NULL where the
+    # provider sends none.
+    manufacturer_code: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="KAN-211: the manufacturer's option code (identAPI optionCode); option_code is the provider's key.",
+    )
     description: Mapped[str] = mapped_column(Text, nullable=False)
     # `Gruppe` (CodeGrpNr 046) — a canonical `option_group` value_code
     # string resolved through `provider_code_map`, not a raw provider code
     # and not a FK (reference data is platform-owned). Drives the
     # option-section grouping (FR-C-06). Was a free string before C-A.
     option_group: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # KAN-211 — the provider's raw group code (the identAPI's `group`), kept
+    # so a resolved mapping gap fills `option_group` on every row it left
+    # NULL at once (KAN-75's pattern; `apply_resolved_code_to_option_groups`).
+    option_group_code: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        comment="KAN-211: the provider's raw option group code; option_group is what it resolves to.",
+    )
     price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # C-A — what C-E (KAN-43) needs. All nullable/defaulted so the existing
     # `catalogue_sync` option upsert keeps working unchanged; C-E teaches

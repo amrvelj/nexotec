@@ -33,8 +33,6 @@ NO_CALLER_YET = {
     "yet; KAN-467 leaves the dealer-plate model alone by its own do-not-touch",
     "merge_vehicles": "KAN-524: FR-V-12's merge has no screen yet — the Vehicle 360 overflow shows it disabled "
     "with its reason (vehicleRowMenu.tsx)",
-    "sync_catalogue_variant": "KAN-211: loading a variant's details when it is opened (the function's own "
-    "docstring)",
 }
 
 

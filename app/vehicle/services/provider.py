@@ -81,15 +81,36 @@ def _record_mapping_gap(
         db.flush()
         return gap
 
-    gap = MappingGap(
-        provider=provider,
-        vehicle_kind=vehicle_kind,
-        code_group=code_group,
-        provider_code=provider_code,
-    )
-    db.add(gap)
-    db.flush()
-    return gap
+    # The table is shared by every Betrieb: two opens meeting the same unknown
+    # code at once (KAN-211) both find no row; the loser's unique violation is
+    # answered by re-reading the winner's row and counting this occurrence on
+    # it — a lookup never fails because another dealer saw the code first.
+    try:
+        with db.begin_nested():
+            gap = MappingGap(
+                provider=provider,
+                vehicle_kind=vehicle_kind,
+                code_group=code_group,
+                provider_code=provider_code,
+            )
+            db.add(gap)
+            db.flush()
+            return gap
+    except IntegrityError:
+        gap = db.scalar(
+            select(MappingGap).where(
+                MappingGap.provider == provider,
+                MappingGap.vehicle_kind == vehicle_kind,
+                MappingGap.code_group == code_group,
+                MappingGap.provider_code == provider_code,
+            )
+        )
+        if gap is None:  # the violation was not the gap's own key: not ours to swallow
+            raise
+        gap.occurrences += 1
+        gap.last_seen_at = utcnow()
+        db.flush()
+        return gap
 
 
 def resolve_mapping_gap(

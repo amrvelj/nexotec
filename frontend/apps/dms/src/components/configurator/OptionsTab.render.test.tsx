@@ -12,6 +12,7 @@ import type {
   CatalogueSpecificationRead,
   ConfigurationOptionInput,
 } from '../../api/types'
+import { detailsPresent } from '../../test/catalogueDetails'
 
 // KAN-43 (C-E) exit criteria 1-3, 5: grouped options with relations
 // inline, a conflicting selection warns and proceeds (never blocks), a
@@ -154,6 +155,7 @@ function buildSpec(over: Partial<CatalogueSpecificationRead> = {}): CatalogueSpe
     packagesAvailable: true,
     imagesAvailable: true,
     dealerCanUploadImages: false,
+    details: detailsPresent,
     options: [PACK, CHILD, INCLUDED, SPORT, FOG],
     colours: [],
     tyreSpecs: [],

@@ -1,8 +1,9 @@
-"""WP-6 PR-4: the per-tenant catalogue mirror sync. Since KAN-485
-(2026-10-29) a variant reaches the catalogue only by a single lookup,
-`sync_catalogue_variant` — no full seed, no daily delta. The A-12 sync-age
-alarm and the platform's sync-status board that read it went with them
-(KAN-497).
+"""WP-6 PR-4: the catalogue's master-data store and the code-map repairs.
+Since KAN-485 (2026-10-29) a variant reaches the catalogue only by a single
+lookup — no full seed, no daily delta — and since KAN-211 its licensed
+details load once per Betrieb when the car is opened
+(`tests/test_catalogue_details_on_open.py`). The A-12 sync-age alarm and the
+platform's sync-status board went with the seed (KAN-497).
 """
 
 import dataclasses
@@ -14,21 +15,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.audit import list_audit_events
-from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter, _request
-from app.integration.errors import ProviderGatewayError, ProviderTransportError
-from app.integration.models.call_log import CallStatus, IntegrationCallLog
+from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.integration.services import gateway, resilience
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
-from tests.catalogue_lookup_support import DEMO_FZ_KEYS, look_up_demo_variants
+from tests.catalogue_lookup_support import look_up_demo_variants
 
 
 def _bare_variant(db_session, name: str = "Bare Variant") -> ModelVariant:
@@ -63,51 +61,14 @@ def _make_connection(db_session, provider, *, tenant_id=None):
     return connection_service.create_connection(
         db_session,
         tenant_id=tenant_id or uuid.uuid4(),
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
+        data=ConnectionCreate(
+            provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX
+        ),
         actor_id=uuid.uuid4(),
     )
 
 
 # --- single lookup ------------------------------------------------------
-
-
-def test_a_lookup_creates_a_global_variant_and_its_tenant_scoped_content(db_session):
-    provider = _make_mock_provider(db_session)
-    tenant_id = uuid.uuid4()
-    _make_connection(db_session, provider, tenant_id=tenant_id)
-
-    assert catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key="FZ100001") is None
-
-    assert db_session.query(ModelVariant).count() == 1  # only the variant looked up, never the catalogue
-    variant = catalogue_sync.find_variant_by_fz_key(db_session, provider_code="auto_i_dat_mock", fz_key="FZ100001")
-    content = {"tenant_id": tenant_id, "model_variant_id": variant.id}
-    assert db_session.query(VariantOption).filter_by(**content).count() >= 1
-    assert db_session.query(ColourCache).filter_by(**content).count() == 3
-    assert db_session.query(TyreSpecCache).filter_by(**content).count() == 3  # front + rear + both
-    assert db_session.query(ImageRef).filter_by(**content).count() == 2  # front + interior
-
-
-def test_a_lookup_logs_each_provider_request_under_its_datenname(db_session):
-    """KAN-486: one call-log row per request, named by the provider's own
-    operation — not one `vehicle_data` row for the whole lookup."""
-
-    provider = _make_mock_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-
-    catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key="FZ100001")
-
-    rows = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
-    assert sorted(row.capability for row in rows) == sorted(
-        ["Fahrzeuge", "Optionen", "OptionenFarben", "PneuDimTS", "Bilder"]
-    )
-    assert {row.status for row in rows} == {CallStatus.SUCCESS}
-    assert {row.cost_units for row in rows} == {Decimal(1)}
-
-
-def test_a_lookup_raises_without_an_enabled_connection(db_session):
-    with pytest.raises(catalogue_sync.NoVehicleDataConnectionError):
-        catalogue_sync.sync_catalogue_variant(db_session, tenant_id=uuid.uuid4(), fz_key="FZ100001")
 
 
 def test_a_repeated_lookup_duplicates_neither_variants_nor_tenant_content(db_session):
@@ -161,7 +122,10 @@ def test_a_lookup_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session
     # by all three, so its occurrences count reflects that, never three
     # separate rows for the identical miss.
     vehicle_kind_gap = next(g for g in gaps if g.code_group == "vehicle_kind" and g.provider_code == "1")
-    assert vehicle_kind_gap.occurrences == 3
+    # Each demo variant is visited twice: stored as seen, then its colours
+    # request on open carries the master data again (KAN-211) — a revisit
+    # bumps the gap like any other miss of the same code.
+    assert vehicle_kind_gap.occurrences == 6
 
 
 # --- KAN-43 (C-E): options/colours/tyres field wiring --------------------
@@ -186,7 +150,12 @@ def test_a_lookup_populates_option_included_package_and_model_year(db_session):
     assert options["WNTR"].is_included is False
     assert options["AC"].is_included is True
     assert options["AC"].is_package is False
-    assert all(o.model_year == golf.model_year_from for o in options.values())
+    # KAN-211: a car still in production carries the provider's "currently
+    # available" equipment — the current model year, not its first one.
+    from app.vehicle.services.plate import swiss_today
+
+    assert golf.model_year_to is None
+    assert all(o.model_year == swiss_today().year for o in options.values())
 
 
 def test_a_lookup_resolves_equipment_features_via_provider_code_map(db_session):
@@ -201,8 +170,12 @@ def test_a_lookup_resolves_equipment_features_via_provider_code_map(db_session):
     _make_connection(db_session, provider, tenant_id=tenant_id)
     db_session.add(
         ProviderCodeMap(
-            provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature",
-            provider_code="navigation", canonical_list_code="equipment_feature", canonical_value_code="navigation",
+            provider="auto_i_dat_mock",
+            vehicle_kind="1",
+            code_group="equipment_feature",
+            provider_code="navigation",
+            canonical_list_code="equipment_feature",
+            canonical_value_code="navigation",
         )
     )
     db_session.commit()
@@ -244,15 +217,23 @@ def test_sync_option_equipment_features_replaces_the_set_on_each_call(db_session
     db_session.flush()
     db_session.add(
         ProviderCodeMap(
-            provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature",
-            provider_code="navigation", canonical_list_code="equipment_feature", canonical_value_code="navigation",
+            provider="auto_i_dat_mock",
+            vehicle_kind="1",
+            code_group="equipment_feature",
+            provider_code="navigation",
+            canonical_list_code="equipment_feature",
+            canonical_value_code="navigation",
         )
     )
     db_session.commit()
 
-    catalogue_sync._sync_option_equipment_features(
-        db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock", vehicle_kind_code="1",
-        variant_option=option, feature_codes=["navigation"],
+    catalogue_sync.sync_option_equipment_features(
+        db_session,
+        tenant_id=tenant_id,
+        provider_code="auto_i_dat_mock",
+        vehicle_kind_code="1",
+        variant_option=option,
+        feature_codes=["navigation"],
     )
     db_session.commit()
     codes = {
@@ -261,9 +242,13 @@ def test_sync_option_equipment_features_replaces_the_set_on_each_call(db_session
     }
     assert codes == {"navigation"}
 
-    catalogue_sync._sync_option_equipment_features(
-        db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock", vehicle_kind_code="1",
-        variant_option=option, feature_codes=[],
+    catalogue_sync.sync_option_equipment_features(
+        db_session,
+        tenant_id=tenant_id,
+        provider_code="auto_i_dat_mock",
+        vehicle_kind_code="1",
+        variant_option=option,
+        feature_codes=[],
     )
     db_session.commit()
     codes = {
@@ -327,13 +312,17 @@ def test_a_lookup_populates_the_full_image_url(db_session):
     look_up_demo_variants(db_session, tenant_id)
 
     golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
-    front = db_session.query(ImageRef).filter_by(
-        tenant_id=tenant_id, model_variant_id=golf.id, image_key="FZ100002-front.jpg"
-    ).one()
+    front = (
+        db_session.query(ImageRef)
+        .filter_by(tenant_id=tenant_id, model_variant_id=golf.id, image_key="FZ100002-front.jpg")
+        .one()
+    )
     assert front.image_url == "https://images.autoi.ch/img/FZ100002-front.jpg"
-    interior = db_session.query(ImageRef).filter_by(
-        tenant_id=tenant_id, model_variant_id=golf.id, image_key="FZ100002-interior.jpg"
-    ).one()
+    interior = (
+        db_session.query(ImageRef)
+        .filter_by(tenant_id=tenant_id, model_variant_id=golf.id, image_key="FZ100002-interior.jpg")
+        .one()
+    )
     assert interior.image_url == "https://images.autoi.ch/img/FZ100002-interior.jpg"
 
 
@@ -415,164 +404,6 @@ def test_a_variant_mirrored_without_its_typenscheine_is_linked_by_its_next_looku
     assert db_session.query(VariantTypeApproval).count() == 3
 
 
-# --- per-lookup isolation (KAN-78) -------------------------------------------
-
-
-class _Refused(ProviderGatewayError):
-    """What a refused Datenname looks like by the time it leaves an adapter."""
-
-
-class _RefusingAdapter(MockAutoIDatAdapter):
-    """The mock, refusing chosen calls the way a provider refuses a
-    Datenname an account is not entitled to. Each override is metered under
-    its Datenname like the mock's own methods (KAN-486), so a refusal is a
-    request with a row of its own.
-    """
-
-    def __init__(self, *, refuse_images_for=(), refuse_master_for=()) -> None:
-        super().__init__()
-        self.refuse_images_for = set(refuse_images_for)
-        self.refuse_master_for = set(refuse_master_for)
-        self.master_calls: list[str] = []
-
-    @_request("Fahrzeuge")
-    def fetch_vehicle_master_data(self, fz_key):
-        self.master_calls.append(fz_key)
-        if fz_key in self.refuse_master_for:
-            raise _Refused("Fahrzeuge refused for this account")
-        return MockAutoIDatAdapter.fetch_vehicle_master_data.__wrapped__(self, fz_key)
-
-    @_request("Bilder")
-    def fetch_images(self, fz_key):
-        if fz_key in self.refuse_images_for:
-            raise _Refused("Bilder refused for this account")
-        return MockAutoIDatAdapter.fetch_images.__wrapped__(self, fz_key)
-
-
-@pytest.fixture()
-def refusing_adapter(monkeypatch):
-    """Installs one `_RefusingAdapter` behind the mock provider_code and
-    counts every circuit-breaker charge, so a test can assert the gateway's
-    own failure signal is still emitted exactly as before.
-    """
-
-    adapter = _RefusingAdapter()
-    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", lambda *_args: adapter)
-    adapter.breaker_failures = []
-    real_record_failure = resilience.record_failure
-
-    def _spy(connection_id):
-        adapter.breaker_failures.append(connection_id)
-        real_record_failure(connection_id)
-
-    monkeypatch.setattr(resilience, "record_failure", _spy)
-    yield adapter
-
-
-def _error_log_rows(db_session, connection_id):
-    return (
-        db_session.query(IntegrationCallLog)
-        .filter_by(connection_id=connection_id, status=CallStatus.ERROR)
-        .all()
-    )
-
-
-def test_a_refused_field_leaves_that_variant_unwritten_and_other_lookups_unaffected(db_session, refusing_adapter):
-    provider = _make_mock_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    refusing_adapter.refuse_images_for = {"FZ100002"}
-
-    try:
-        results = {
-            fz_key: catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key=fz_key)
-            for fz_key in DEMO_FZ_KEYS
-        }
-    finally:
-        resilience.reset_circuit(connection.id)
-
-    # The refused lookup says what it skipped, by key and by field.
-    assert results["FZ100001"] is None and results["FZ100003"] is None
-    skipped = results["FZ100002"]
-    assert (skipped.fz_key, skipped.field, skipped.error) == ("FZ100002", "images", "_Refused")
-
-    # It leaves nothing half-written: its savepoint rolled back the master
-    # data, options and colours fetched before the refusal (KAN-90's rule).
-    assert catalogue_sync.find_variant_by_fz_key(db_session, provider_code="auto_i_dat_mock", fz_key="FZ100002") is None
-    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 2 * 3
-
-    # ... and the lookup after it is synced in full.
-    later_variant = catalogue_sync.find_variant_by_fz_key(
-        db_session, provider_code="auto_i_dat_mock", fz_key="FZ100003"
-    )
-    assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id, model_variant_id=later_variant.id).count() == 2
-
-    # The gateway's failure signal: the refused request is the one ERROR row,
-    # under its own Datenname (KAN-486), and the breaker is charged once.
-    assert [row.capability for row in _error_log_rows(db_session, connection.id)] == ["Bilder"]
-    assert refusing_adapter.breaker_failures == [connection.id]
-
-
-def test_an_opened_circuit_refuses_the_next_lookup_before_the_provider(db_session, refusing_adapter):
-    provider = _make_mock_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-    keys = [f"FZ9000{n:02d}" for n in range(6)]
-    refusing_adapter.refuse_master_for = set(keys)
-
-    try:
-        for fz_key in keys[:5]:
-            skipped = catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key=fz_key)
-            assert (skipped.fz_key, skipped.field) == (fz_key, "master_data")
-        # The breaker opens after its threshold: the next lookup never reaches the provider.
-        with pytest.raises(resilience.CircuitOpenError):
-            catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key=keys[5])
-    finally:
-        resilience.reset_circuit(connection.id)
-
-    assert refusing_adapter.master_calls == keys[:5]
-    assert len(_error_log_rows(db_session, connection.id)) == 5
-
-
-def test_a_programmer_error_is_not_filed_as_a_provider_failure(db_session, refusing_adapter):
-    provider = _make_mock_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-
-    try:
-        with pytest.raises(KeyError):
-            catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key="NO-SUCH-KEY")
-    finally:
-        resilience.reset_circuit(connection.id)
-
-    assert refusing_adapter.master_calls == ["NO-SUCH-KEY"]
-
-
-def test_an_adapter_that_fails_to_build_is_raised_as_it_came(db_session, monkeypatch):
-    """A WSDL that will not load fails in the gateway's adapter resolution,
-    before the caller's block: not about the key (the gateway logs and
-    charges it as a provider failure, KAN-108), so it is raised, never
-    returned as a skipped field.
-    """
-
-    provider = _make_mock_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
-
-    def _factory(*_args):
-        raise ProviderTransportError("WSDL could not be loaded")
-
-    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", _factory)
-    try:
-        with pytest.raises(ProviderTransportError):
-            catalogue_sync.sync_catalogue_variant(db_session, tenant_id=tenant_id, fz_key="FZ100001")
-    finally:
-        resilience.reset_circuit(connection.id)
-
-    # The block metered no request, so it writes its one row, as before KAN-486.
-    assert [row.capability for row in _error_log_rows(db_session, connection.id)] == ["vehicle_data"]
-
-
 # --- KAN-83: a resolved gap heals the variants it left NULL -------------------
 
 
@@ -583,7 +414,12 @@ def _seed_reference_list(db_session, list_code: str, values: tuple[str, ...]) ->
     for code in values:
         db_session.add(
             ReferenceValue(
-                list_id=ref_list.id, value_code=code, label_de=code, label_fr=code, label_it=code, label_en=code,
+                list_id=ref_list.id,
+                value_code=code,
+                label_de=code,
+                label_fr=code,
+                label_it=code,
+                label_en=code,
             )
         )
     db_session.commit()
@@ -606,7 +442,8 @@ def _looked_up_tenant(db_session) -> uuid.UUID:
 def _fuel_gap(db_session, provider_code: str) -> MappingGap:
     gap = db_session.scalar(
         select(MappingGap).where(
-            MappingGap.provider == "auto_i_dat_mock", MappingGap.code_group == "fuel_type",
+            MappingGap.provider == "auto_i_dat_mock",
+            MappingGap.code_group == "fuel_type",
             MappingGap.provider_code == provider_code,
         )
     )
@@ -642,7 +479,11 @@ def test_resolving_a_gap_fills_the_variants_it_left_null_at_once(db_session):
     actor_id = uuid.uuid4()
 
     catalogue_admin.resolve_gap(
-        db_session, gap=gap, canonical_list_code="fuel_type", canonical_value_code="petrol", actor_id=actor_id,
+        db_session,
+        gap=gap,
+        canonical_list_code="fuel_type",
+        canonical_value_code="petrol",
+        actor_id=actor_id,
     )
 
     assert _variant(db_session, "FZ100001").fuel_type == "petrol"
@@ -661,7 +502,10 @@ def test_resolving_a_gap_never_overwrites_a_field_that_already_holds_a_value(db_
     db_session.commit()
 
     catalogue_admin.resolve_gap(
-        db_session, gap=_fuel_gap(db_session, "3"), canonical_list_code="fuel_type", canonical_value_code="petrol",
+        db_session,
+        gap=_fuel_gap(db_session, "3"),
+        canonical_list_code="fuel_type",
+        canonical_value_code="petrol",
         actor_id=uuid.uuid4(),
     )
 
@@ -680,8 +524,12 @@ def test_a_resync_fills_a_coded_field_whose_code_has_been_mapped_since(db_sessio
     tenant_id = _looked_up_tenant(db_session)
     db_session.add(
         ProviderCodeMap(
-            provider="auto_i_dat_mock", vehicle_kind="1", code_group="body_style", provider_code="5",
-            canonical_list_code="body_style", canonical_value_code="hatchback",
+            provider="auto_i_dat_mock",
+            vehicle_kind="1",
+            code_group="body_style",
+            provider_code="5",
+            canonical_list_code="body_style",
+            canonical_value_code="hatchback",
         )
     )
     db_session.commit()
@@ -751,7 +599,10 @@ def _variant_with_raw_fuel_code(db_session, *, provider: str, vehicle_kind: str,
     variant = _bare_variant(db_session, name=f"{provider} kind {vehicle_kind}")
     db_session.add(
         VariantProviderCode(
-            model_variant_id=variant.id, provider=provider, vehicle_kind=vehicle_kind, code_group="fuel_type",
+            model_variant_id=variant.id,
+            provider=provider,
+            vehicle_kind=vehicle_kind,
+            code_group="fuel_type",
             provider_code=raw_code,
         )
     )
@@ -770,7 +621,10 @@ def test_resolving_a_gap_fills_only_variants_of_its_own_vehicle_kind_and_provide
     other_provider = _variant_with_raw_fuel_code(db_session, provider="auto_i_dat", vehicle_kind="1", raw_code="3")
 
     catalogue_admin.resolve_gap(
-        db_session, gap=_fuel_gap(db_session, "3"), canonical_list_code="fuel_type", canonical_value_code="petrol",
+        db_session,
+        gap=_fuel_gap(db_session, "3"),
+        canonical_list_code="fuel_type",
+        canonical_value_code="petrol",
         actor_id=uuid.uuid4(),
     )
 
@@ -789,13 +643,20 @@ def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(d
     _looked_up_tenant(db_session)
     _seed_reference_list(db_session, "equipment_feature", ("heated_seats",))
     resolve_provider_code(
-        db_session, provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature", provider_code="HS",
+        db_session,
+        provider="auto_i_dat_mock",
+        vehicle_kind="1",
+        code_group="equipment_feature",
+        provider_code="HS",
     )
     # The lookups record equipment-feature gaps of their own; this one is "HS".
     gap = _feature_gap(db_session, "HS")
 
     catalogue_admin.resolve_gap(
-        db_session, gap=gap, canonical_list_code="equipment_feature", canonical_value_code="heated_seats",
+        db_session,
+        gap=gap,
+        canonical_list_code="equipment_feature",
+        canonical_value_code="heated_seats",
         actor_id=uuid.uuid4(),
     )
 
@@ -811,7 +672,8 @@ def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(d
 def _option(db_session, tenant_id: uuid.UUID, fz_key: str, option_code: str) -> VariantOption:
     return db_session.scalars(
         select(VariantOption).where(
-            VariantOption.tenant_id == tenant_id, VariantOption.model_variant_id == _variant(db_session, fz_key).id,
+            VariantOption.tenant_id == tenant_id,
+            VariantOption.model_variant_id == _variant(db_session, fz_key).id,
             VariantOption.option_code == option_code,
         )
     ).one()
@@ -866,7 +728,10 @@ def test_resolving_an_equipment_feature_gap_adds_the_feature_to_every_tenants_op
     gap = _feature_gap(db_session, "APPLE_CARPLAY")
 
     catalogue_admin.resolve_gap(
-        db_session, gap=gap, canonical_list_code="equipment_feature", canonical_value_code="apple_carplay",
+        db_session,
+        gap=gap,
+        canonical_list_code="equipment_feature",
+        canonical_value_code="apple_carplay",
         actor_id=uuid.uuid4(),
     )
 
@@ -881,12 +746,17 @@ def test_resolving_a_feature_an_option_already_carries_adds_no_second_row(db_ses
     tenant_id = _looked_up_tenant(db_session)
     _seed_reference_list(db_session, "equipment_feature", ("navigation",))
     nav = _option(db_session, tenant_id, "FZ100002", "NAV")
-    db_session.add(VariantOptionEquipmentFeature(tenant_id=tenant_id, variant_option_id=nav.id, feature_value_code="navigation"))
+    db_session.add(
+        VariantOptionEquipmentFeature(tenant_id=tenant_id, variant_option_id=nav.id, feature_value_code="navigation")
+    )
     db_session.commit()
 
     catalogue_admin.resolve_gap(
-        db_session, gap=_feature_gap(db_session, "navigation"), canonical_list_code="equipment_feature",
-        canonical_value_code="navigation", actor_id=uuid.uuid4(),
+        db_session,
+        gap=_feature_gap(db_session, "navigation"),
+        canonical_list_code="equipment_feature",
+        canonical_value_code="navigation",
+        actor_id=uuid.uuid4(),
     )
 
     assert _features(db_session, nav) == {(tenant_id, "navigation")}
@@ -905,16 +775,23 @@ def test_resolving_a_feature_gap_reaches_only_options_of_its_own_vehicle_kind_an
         db_session.flush()
         db_session.add(
             VariantOptionProviderCode(
-                tenant_id=tenant_id, variant_option_id=option.id, provider=provider, vehicle_kind=kind,
-                code_group="equipment_feature", provider_code="APPLE_CARPLAY",
+                tenant_id=tenant_id,
+                variant_option_id=option.id,
+                provider=provider,
+                vehicle_kind=kind,
+                code_group="equipment_feature",
+                provider_code="APPLE_CARPLAY",
             )
         )
         others.append(option)
     db_session.commit()
 
     catalogue_admin.resolve_gap(
-        db_session, gap=_feature_gap(db_session, "APPLE_CARPLAY"), canonical_list_code="equipment_feature",
-        canonical_value_code="apple_carplay", actor_id=uuid.uuid4(),
+        db_session,
+        gap=_feature_gap(db_session, "APPLE_CARPLAY"),
+        canonical_list_code="equipment_feature",
+        canonical_value_code="apple_carplay",
+        actor_id=uuid.uuid4(),
     )
 
     assert _features(db_session, _option(db_session, tenant_id, "FZ100002", "NAV")) == {(tenant_id, "apple_carplay")}
@@ -929,9 +806,13 @@ def test_a_such_code_the_provider_drops_is_removed_from_the_options_raw_codes(db
     db_session.commit()
 
     for codes in (["navigation", "APPLE_CARPLAY"], ["APPLE_CARPLAY"]):
-        catalogue_sync._sync_option_equipment_features(
-            db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock", vehicle_kind_code="1",
-            variant_option=option, feature_codes=codes,
+        catalogue_sync.sync_option_equipment_features(
+            db_session,
+            tenant_id=tenant_id,
+            provider_code="auto_i_dat_mock",
+            vehicle_kind_code="1",
+            variant_option=option,
+            feature_codes=codes,
         )
         db_session.commit()
 

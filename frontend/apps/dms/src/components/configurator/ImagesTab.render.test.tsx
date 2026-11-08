@@ -6,6 +6,7 @@ import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { ImagesTab, type ImagesTabProps } from './ImagesTab'
 import type { CatalogueSpecificationRead } from '../../api/types'
+import { detailsPresent } from '../../test/catalogueDetails'
 
 // KAN-43 (C-E) / FR-C-09: small(210px)/large(1200px), exterior/interior,
 // entitlement-gated. No fabricated "upload" affordance — no upload
@@ -18,6 +19,7 @@ function buildSpec(over: Partial<CatalogueSpecificationRead> = {}): CatalogueSpe
     packagesAvailable: true,
     imagesAvailable: true,
     dealerCanUploadImages: false,
+    details: detailsPresent,
     options: [],
     optionRelations: [],
     colours: [],

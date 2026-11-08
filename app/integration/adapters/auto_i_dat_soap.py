@@ -73,6 +73,7 @@ from app.integration.adapters.base import (
     CatalogueBrandData,
     CatalogueModelGroupData,
     CodeMapEntryData,
+    EnergyLabelData,
     ForecastResult,
     ModelGroupData,
     ModelGroupShortData,
@@ -83,6 +84,7 @@ from app.integration.adapters.base import (
     TypeApprovalDataResult,
     ValuationResult,
     VariantColourData,
+    VariantColoursData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
@@ -91,7 +93,12 @@ from app.integration.adapters.base import (
     VehicleKindData,
     VehiclePriceData,
 )
-from app.integration.errors import ProviderConfigurationError, ProviderTimeoutError, ProviderTransportError
+from app.integration.errors import (
+    ProviderConfigurationError,
+    ProviderOperationNotBuiltError,
+    ProviderTimeoutError,
+    ProviderTransportError,
+)
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
@@ -332,8 +339,7 @@ class AutoIDatSoapAdapter:
             # key does not open this response". The message names no key
             # material, only its likeliest cause.
             raise AutoIDatResponseError(
-                f"{datenname}: the response could not be decrypted "
-                "(wrong AES key, or the response is not encrypted)."
+                f"{datenname}: the response could not be decrypted (wrong AES key, or the response is not encrypted)."
             ) from exc
 
     # -- the one SOAP operation ----------------------------------------
@@ -488,6 +494,21 @@ class AutoIDatSoapAdapter:
             for row in result.rows
         ]
 
+    # KAN-211 (ADR-123): the identAPI-shaped detail reads. The SOAP service
+    # keys colours by Werkscode and has no energy-label operation; this
+    # legacy adapter (retired by KAN-550) answers neither — a
+    # `ProviderConfigurationError`, so nothing is logged or charged.
+
+    def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
+        raise ProviderOperationNotBuiltError(
+            "The variant-with-colours read is an identAPI operation; the SOAP adapter does not offer it (KAN-550)."
+        )
+
+    def fetch_energy_label(self, *, type_approval_number: str) -> list[EnergyLabelData]:
+        raise ProviderOperationNotBuiltError(
+            "The energy label is an identAPI operation; the SOAP adapter does not offer it (KAN-550)."
+        )
+
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         # Bilder returns <BildURL> (a URL string), not a key + sequence.
         # ImageRef.image_key is String(160); a URL can exceed that, so the
@@ -521,8 +542,7 @@ class AutoIDatSoapAdapter:
     def list_brands(self, *, fz_art: str) -> list[BrandData]:
         result = self._suchen("Marken", {"FzArt": fz_art})
         return [
-            BrandData(code=row_text(row, "MarkenNr") or "", name=row_text(row, "Marke") or "")
-            for row in result.rows
+            BrandData(code=row_text(row, "MarkenNr") or "", name=row_text(row, "Marke") or "") for row in result.rows
         ]
 
     def list_model_groups(
@@ -539,8 +559,14 @@ class AutoIDatSoapAdapter:
     ) -> list[ModelGroupData]:
         # "Mindestens FzArt und MarkenNr (oder Marke) oder ModGrpKey" (p7).
         suchwerte = _build_suchwerte(
-            FzArt=fz_art, MarkenNr=marken_nr, Marke=marke, ModGrpKey=mod_grp_key, ModKurzBez=mod_kurz_bez,
-            NurNeue="1" if nur_neue else None, ProdVon=prod_von, ProdBis=prod_bis,
+            FzArt=fz_art,
+            MarkenNr=marken_nr,
+            Marke=marke,
+            ModGrpKey=mod_grp_key,
+            ModKurzBez=mod_kurz_bez,
+            NurNeue="1" if nur_neue else None,
+            ProdVon=prod_von,
+            ProdBis=prod_bis,
         )
         result = self._suchen("ModellGruppen", suchwerte)
         return [
@@ -567,7 +593,10 @@ class AutoIDatSoapAdapter:
         # "Mindestens FzArt plus ein weiterer Suchwert" (p8). Not for
         # motorcycles (spec's own restriction — the caller's job to honour).
         suchwerte = _build_suchwerte(
-            FzArt=fz_art, MarkenNr=marken_nr, Marke=marke, NurNeue="1" if nur_neue else None,
+            FzArt=fz_art,
+            MarkenNr=marken_nr,
+            Marke=marke,
+            NurNeue="1" if nur_neue else None,
         )
         einstellungen: dict[str, str | int] = {}
         if page is not None:
@@ -596,8 +625,7 @@ class AutoIDatSoapAdapter:
     def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
         result = self._suchen("FahrzeugePreise", _build_suchwerte(FzKey=fz_key, Jahr=year))
         return [
-            VehiclePriceData(year=row_int(row, "Jahr") or 0, price=row_int(row, "Preis") or 0)
-            for row in result.rows
+            VehiclePriceData(year=row_int(row, "Jahr") or 0, price=row_int(row, "Preis") or 0) for row in result.rows
         ]
 
     def fetch_grouped_values(
@@ -615,7 +643,11 @@ class AutoIDatSoapAdapter:
         # field name IS the `gruppiert` value, since the response's shape
         # depends on what was asked for (p12).
         suchwerte = _build_suchwerte(
-            FzArt=fz_art, MarkenNr=marken_nr, Marke=marke, ModKurzBez=mod_kurz_bez, TypSchNr=typ_sch_nr,
+            FzArt=fz_art,
+            MarkenNr=marken_nr,
+            Marke=marke,
+            ModKurzBez=mod_kurz_bez,
+            TypSchNr=typ_sch_nr,
         )
         result = self._suchen("FzgWerteGruppiert", suchwerte, einstellungen={"Gruppiert": gruppiert})
         return [value for row in result.rows if (value := row_text(row, gruppiert)) is not None]
@@ -656,8 +688,12 @@ class AutoIDatSoapAdapter:
         result = self._suchen(
             "FahrzeugeMatch",
             _build_suchwerte(
-                TypSchNr=typ_sch_nr, Neupreis=neupreis, ModellBez=modell_bez, EurotaxCode=eurotax_code,
-                Getriebe=getriebe, Türen=tueren,
+                TypSchNr=typ_sch_nr,
+                Neupreis=neupreis,
+                ModellBez=modell_bez,
+                EurotaxCode=eurotax_code,
+                Getriebe=getriebe,
+                Türen=tueren,
             ),
         )
         # match_code (1=eindeutig, 2=bestmöglich) lives in Info, sibling of
@@ -673,9 +709,7 @@ class AutoIDatSoapAdapter:
         # zurückgegeben" (p28) — every field below is None unless the
         # caller supplied Getriebe+Gänge too; this method never guesses a
         # default for either.
-        result = self._suchen(
-            "FzgDatenTS", _build_suchwerte(TypSchNr=typ_sch_nr, Getriebe=getriebe, Gänge=gaenge)
-        )
+        result = self._suchen("FzgDatenTS", _build_suchwerte(TypSchNr=typ_sch_nr, Getriebe=getriebe, Gänge=gaenge))
         el = result.rows[0] if result.rows else None
         return TypeApprovalDataResult(
             euro_norm=row_text(el, "EuroNorm"),
@@ -710,9 +744,7 @@ class AutoIDatSoapAdapter:
             for row in result.rows
         ]
 
-    def fetch_codes(
-        self, *, code_groups: list[str] | None = None, active_only: bool = False
-    ) -> list[CodeMapEntryData]:
+    def fetch_codes(self, *, code_groups: list[str] | None = None, active_only: bool = False) -> list[CodeMapEntryData]:
         # Fetches and shapes the raw (CodeGrpNr, CodeNr) -> label rows only.
         # The mapping into app.vehicle's ProviderCodeMap is vehicle-context
         # knowledge this adapter has no business holding (rule 3), and that
@@ -736,7 +768,9 @@ class AutoIDatSoapAdapter:
     # adapter (ADR-111) and this module leaves with KAN-550.
 
     def _not_on_soap(self, what: str) -> NoReturn:
-        raise ProviderConfigurationError(f"{what} exists on the identAPI only (ADR-111); the SOAP adapter is retired by KAN-550.")
+        raise ProviderConfigurationError(
+            f"{what} exists on the identAPI only (ADR-111); the SOAP adapter is retired by KAN-550."
+        )
 
     def identify_by_vrn(self, stammnummer: str) -> list[BuiltVehicleData]:
         self._not_on_soap("Identification by Stammnummer")
@@ -915,9 +949,7 @@ def _build_real_adapter(
     # mistyped scheme never reaches the provider, so it is the dealer's to fix
     # and must not be charged to the circuit breaker as a provider failure.
     if urlsplit(str(wsdl_url)).scheme.lower() not in ("http", "https"):
-        raise ProviderConfigurationError(
-            f"Connection {connection.id} has a config.wsdlUrl that is not an http(s) URL."
-        )
+        raise ProviderConfigurationError(f"Connection {connection.id} has a config.wsdlUrl that is not an http(s) URL.")
     # KAN-213: the parsed WSDL is reused per connection until it expires or
     # the connection changes — any `update_connection` (the `wsdlUrl`, the
     # `username`: it bumps `version`) or a secret set or rotated (`set_secret`
@@ -928,7 +960,9 @@ def _build_real_adapter(
         connection_id=connection.id,
         cache_key=(str(wsdl_url), connection.version, connection.rotated_at),
     )
-    return AutoIDatSoapAdapter(db=db, connection=connection, soap_client=soap_client, actor_id=actor_id, purpose=purpose)
+    return AutoIDatSoapAdapter(
+        db=db, connection=connection, soap_client=soap_client, actor_id=actor_id, purpose=purpose
+    )
 
 
 def _register() -> None:

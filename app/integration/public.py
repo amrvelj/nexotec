@@ -56,12 +56,15 @@ from app.integration.adapters.base import (
     CaptionData,
     CatalogueBrandData,
     CatalogueModelGroupData,
+    EnergyLabelData,
     ForecastResult,
+    OptionPriceWithData,
     PlateInfoData,
     ProviderAdapter,
     SystemWatermark,
     ValuationResult,
     VariantColourData,
+    VariantColoursData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
@@ -76,7 +79,12 @@ from app.integration.adapters.marketplace_base import (
     MarketplaceTransmissionError,
     TransmissionResult,
 )
-from app.integration.errors import ProviderGatewayError, ProviderNotEntitledError, ProviderTimeoutError
+from app.integration.errors import (
+    ProviderGatewayError,
+    ProviderNotEntitledError,
+    ProviderRequestError,
+    ProviderTimeoutError,
+)
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.services.captions import ProviderCaption, get_captions
@@ -102,6 +110,7 @@ __all__ = [
     "CircuitOpenError",
     "ConnectionDisabledError",
     "ConnectionStatus",
+    "EnergyLabelData",
     "ForecastResult",
     "IntegrationConnection",
     "IntegrationEntitlement",
@@ -109,17 +118,20 @@ __all__ = [
     "MarketplaceListing",
     "MarketplaceListingError",
     "MarketplaceTransmissionError",
+    "OptionPriceWithData",
     "PlateInfoData",
     "ProviderAdapter",
     "ProviderCaption",
     "ProviderGatewayError",
     "ProviderNotEntitledError",
+    "ProviderRequestError",
     "ProviderTimeoutError",
     "SystemWatermark",
     "TransmissionResult",
     "UnknownProviderError",
     "ValuationResult",
     "VariantColourData",
+    "VariantColoursData",
     "VariantImageData",
     "VariantMasterData",
     "VariantOptionData",

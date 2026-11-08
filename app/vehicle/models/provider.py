@@ -137,7 +137,7 @@ class VariantOptionProviderCode(PrimaryKeyMixin, TenantScopedMixin, TimestampMix
     "equipment_feature"` (KAN-250, FR-C-10). One row per (option, provider,
     code_group, provider_code), keyed exactly as `ProviderCodeMap` and
     `MappingGap` key a code. The catalogue sync replaces an option's set on
-    every visit (`catalogue_sync._sync_option_equipment_features`), resolved
+    every visit (`catalogue_sync.sync_option_equipment_features`), resolved
     or not, so resolving a gap can add the feature to every option whose list
     carried the code at once (`catalogue_sync.apply_resolved_code_to_options`).
 

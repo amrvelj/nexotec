@@ -61,10 +61,43 @@ def copy_code_map(db: Session) -> int:
     return added
 
 
+# KAN-211: the demo adapter's option groups are the canonical `option_group`
+# values themselves (`exterior`, `comfort`, …) under its vehicle kind `1`,
+# where the real provider sends CodeGrpNr 046 codes. Since the details load
+# through the code map (FR-C-10) the demo needs these identity rows, or every
+# demo option is a mapping gap and a flat list.
+DEMO_OPTION_GROUPS = ("exterior", "interior", "comfort", "infotainment", "safety")
+
+
+def seed_demo_option_groups(db: Session) -> int:
+    existing = {
+        row.provider_code
+        for row in db.scalars(
+            select(ProviderCodeMap).where(
+                ProviderCodeMap.provider == DEMO_PROVIDER, ProviderCodeMap.code_group == "option_group",
+                ProviderCodeMap.vehicle_kind == "1",
+            )
+        )
+    }
+    added = 0
+    for code in DEMO_OPTION_GROUPS:
+        if code in existing:
+            continue
+        db.add(
+            ProviderCodeMap(
+                provider=DEMO_PROVIDER, vehicle_kind="1", code_group="option_group", provider_code=code,
+                canonical_list_code="option_group", canonical_value_code=code,
+            )
+        )
+        added += 1
+    db.commit()
+    return added
+
+
 def main() -> None:
     db = SessionLocal()
     try:
-        added = copy_code_map(db)
+        added = copy_code_map(db) + seed_demo_option_groups(db)
     finally:
         db.close()
     print(f"demo provider code map: {added} row(s) added for {DEMO_PROVIDER}.")
