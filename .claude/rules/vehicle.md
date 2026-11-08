@@ -483,6 +483,18 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   (`contains` / `excludes` / `price_in_combination_with` — the last only where the provider names a price) stored
   and shown, never enforced (ADR-072), and the year they stand for (the one asked, or the current Swiss year for a
   car still built).
+  **On screen** (KAN-211 PR 2, KAN-212): each tab of the configurator shows its detail's state through the one
+  `DetailStateNotice` — «Nicht in Ihrem Vertrag» (`notInContract`), «vom Anbieter derzeit nicht verfügbar»
+  (`unavailable`), «noch nicht geladen» (`notLoaded`); a loaded detail shows its data and nothing else — and the
+  options tab offers a search over text, manufacturer code and auto-i key (every option of the opened car is loaded,
+  Anto 2026-11-08). The colour's **name is shown as delivered and its type is the advisor's pick** (the identAPI
+  carries no finish): `exterior_colour_type` from the `colour_type` list, `interior_colour_type` from the
+  `interior_colour_type` list (platform `4c8e1f2a9d57`: Stoff, Leder, Teilleder, Alcantara, Kunstleder,
+  Sonstiges), two nullable columns on the configuration (vehicle `a7c2d94e1b35`) validated like every coded
+  field — the one field whose name is not its list's, `validate_reference_codes(..., list_codes=)` — and read
+  beside the colour on every summary card («Deep Black · Metallic»). «Neu laden» (`CatalogueDetailsReload`) sits
+  under the stock car's configuration card for a dealer manager or platform staff and lists each detail's state
+  after the reload.
   `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule and lists the five detail
   operations of the adapter, `load_on_open`, `reload_details` and `get_catalogue_specification` as queries no
   loop may call. The
