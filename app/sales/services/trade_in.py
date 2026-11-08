@@ -30,7 +30,7 @@ from app.core.validators import is_valid_vin, normalise_vin
 from app.customer.public import get_customer_or_404
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
-from app.valuation.public import list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
+from app.valuation.public import Valuation, list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
 from app.vehicle.public import match_vehicle
 
 
@@ -105,16 +105,19 @@ def set_trade_in(
     # this default. By the linked record when there is one, else by the VIN
     # (a car not yet in the register, KAN-189). Only a valuation with a VIN is
     # offered (KAN-574: older valuations without one are refused as
-    # trade-ins); none found attaches nothing, the save goes on.
-    existing = [
-        valuation
-        for valuation in (
-            list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=car.vehicle_id)
-            if car.vehicle_id is not None
-            else []
-        ) or list_valid_valuations_for_vin(db, tenant_id=deal.tenant_id, vin=car.vin)
-        if is_valid_vin(_normalised(valuation.vehicle_vin))
-    ]
+    # trade-ins); none found attaches nothing, the save goes on. Each lookup
+    # is filtered before the fallback (KAN-584): a record whose only valid
+    # valuations have no VIN still falls through to the VIN lookup, so a
+    # valuation carrying the car's VIN but linking no record (KAN-449 A) is
+    # found.
+    def _offerable(valuations: list[Valuation]) -> list[Valuation]:
+        return [valuation for valuation in valuations if is_valid_vin(_normalised(valuation.vehicle_vin))]
+
+    existing = (
+        _offerable(list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=car.vehicle_id))
+        if car.vehicle_id is not None
+        else []
+    ) or _offerable(list_valid_valuations_for_vin(db, tenant_id=deal.tenant_id, vin=car.vin))
     if existing:
         _attach(db, deal, existing[0])
 

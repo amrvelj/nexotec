@@ -224,4 +224,51 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
     expect(await screen.findByText('Subaru Justy G3X')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByTestId('configuration-summary-card').length).toBeGreaterThan(0))
   })
+
+  // KAN-584 — a refused attach said only «Die Bewertung konnte nicht
+  // übernommen werden.»; the refusal's reason now reaches the screen through
+  // apiRefusalText, with that sentence as the fallback.
+  it.each([
+    {
+      name: 'a valuation that names no car says why',
+      reply: { __status: 422, body: { error: { code: 'unprocessable_entity', message: 'This valuation names no car.', details: { reason: 'trade_in_valuation_names_no_car', valuationId: 'val-7' } } } },
+      key: 'apiRefusal.reasons.trade_in_valuation_names_no_car',
+    },
+    {
+      name: 'a refusal without a reason keeps the screen\'s sentence',
+      reply: { __status: 409, body: { error: { code: 'conflict', message: 'Refused.', details: null } } },
+      key: 'offerWorkspace.tradeIn.attachError',
+    },
+  ])('a refused attach: $name', async ({ reply, key }) => {
+    const user = userEvent.setup()
+    const offer = draftOffer()
+    const tradeIn = configurationRead({
+      id: 'cfg-ti', mode: 'record', source: 'manual', catalogueVariantId: null,
+      brandDisplayName: 'Subaru', modelGroupName: 'Justy', variantName: 'G3X', licencePlate: 'ZH123456', mileageKm: 148000,
+    })
+    installFakeBackend([
+      { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => offer },
+      { method: 'POST', match: /^\/configurations$/, handler: () => ({ __status: 201, body: tradeIn }) },
+      { method: 'GET', match: /^\/configurations\/cfg-ti$/, handler: () => tradeIn },
+      { method: 'POST', match: /^\/valuations$/, handler: () => ({ __status: 201, body: { id: 'val-7' } }) },
+      { method: 'POST', match: /^\/sales\/offers\/o1\/trade-in\/valuation$/, handler: () => reply },
+      ...CATALOGUE,
+    ])
+    render()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.valueWithConfigurator') }))
+    const overlay = await screen.findByRole('dialog')
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+    const valuationDialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    await user.type(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')
+    await nameValuationCar(user, valuationDialog)
+    await user.click(within(valuationDialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
+
+    expect(await screen.findByText(i18n.t(key))).toBeInTheDocument()
+    if (key !== 'offerWorkspace.tradeIn.attachError') {
+      expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.attachError'))).not.toBeInTheDocument()
+    }
+  })
 })

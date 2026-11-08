@@ -413,7 +413,9 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
       valuationKey.renew()
       setTradeInConfiguration(null)
     } catch (err) {
-      setTradeInError(liveContractRefusal(t, err) ?? t('offerWorkspace.tradeIn.attachError'))
+      // KAN-584 — the refusal's own reason (`trade_in_valuation_names_no_car`, a live
+      // contract, …) through the one helper; the screen's sentence only as its fallback.
+      setTradeInError(apiRefusalText(t, err, 'offerWorkspace.tradeIn.attachError'))
     }
   }
 
