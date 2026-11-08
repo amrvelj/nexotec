@@ -9,16 +9,21 @@ as "sales.stock_item_storno", and since KAN-185 `customer.merged` as
 "sales.customer_merged".
 """
 
+import logging
 import uuid
 
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError
 from app.core.outbox_model import OutboxMessage
-from app.customer.public import resolve_live_customer_id
+from app.customer.public import get_customer_or_404, resolve_live_customer_id
 from app.inventory.public import is_stock_item_purchased
-from app.sales.services.customer_merge import repoint_merged_customer_records
+from app.sales.services.customer_merge import SurvivorLabel, repoint_merged_customer_records
+from app.sales.services.offer import resolve_customer_label
 from app.sales.services.pipeline_link import link_manual_configuration_to_pipeline_item
 from app.sales.services.stock_item_purchase import record_stock_item_purchased, record_stock_item_storno
+
+logger = logging.getLogger(__name__)
 
 
 def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> None:
@@ -101,4 +106,18 @@ def handle_customer_merged_message(db: Session, message: OutboxMessage) -> None:
     target_id = (
         resolve_live_customer_id(db, group_id=message.tenant_id, customer_id=survivor_id) or survivor_id
     )
-    repoint_merged_customer_records(db, duplicate_id=duplicate_id, target_id=target_id)
+    # KAN-580 — the moved rows take the survivor's label, read from its owner
+    # now (never from the payload). A survivor the group cannot read (a
+    # chain that left it, the payload fallback above) moves the rows and
+    # leaves their labels as they were.
+    try:
+        survivor = get_customer_or_404(db, message.tenant_id, target_id)
+    except NotFoundError:
+        logger.warning(
+            "customer.merged %s: survivor %s is not readable in group %s; Sales rows move without a new label",
+            message.id, target_id, message.tenant_id,
+        )
+        label = None
+    else:
+        label = SurvivorLabel(label=resolve_customer_label(survivor))
+    repoint_merged_customer_records(db, duplicate_id=duplicate_id, target_id=target_id, survivor=label)

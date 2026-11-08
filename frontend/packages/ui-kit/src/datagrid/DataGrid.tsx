@@ -231,6 +231,30 @@ export function DataGrid<T>({
     return sum + (ownWidth ?? unsizedMinWidth(id));
   }, 0);
 
+  // KAN-582 — every left-pinned column sticks *after* the left-pinned columns
+  // before it, never at `left: 0` on top of them: scrolled sideways, the
+  // selection checkboxes (40 px) stay reachable beside the pinned identifier,
+  // and several pinned columns stand one after the other. A column's share of
+  // the offset is its own width when it has one (`meta.width`, the user's
+  // resize, the select column's 40 px); an unsized pinned column grows with
+  // the grid (`flex: 1 1 0`), so its header reports its rendered width and
+  // that is used (its minimum until the first measurement).
+  const [pinnedWidths, setPinnedWidths] = useState<Record<string, number>>({});
+  const reportPinnedWidth = useCallback((columnId: string, width: number) => {
+    setPinnedWidths((previous) => (previous[columnId] === width ? previous : { ...previous, [columnId]: width }));
+  }, []);
+  const stickyLeftOffsets = new Map<string, number>();
+  {
+    let offset = 0;
+    for (const column of allColumns) {
+      const id = String(column.id);
+      const meta = column.meta as GridColumnDef<T>["meta"];
+      if (meta?.pinned !== "left") continue;
+      stickyLeftOffsets.set(id, offset);
+      offset += id === "__select" ? SELECTION_COLUMN_WIDTH : (meta.width ?? pinnedWidths[id] ?? unsizedMinWidth(id));
+    }
+  }
+
   const virtualizer = useVirtualizer({
     count: tableRows.length,
     getScrollElement: () => scrollRef.current,
@@ -348,10 +372,16 @@ export function DataGrid<T>({
                       sort={sort}
                       onSortChange={onSortChange}
                       pinned={isActions ? "right" : meta?.pinned}
+                      stickyLeft={stickyLeftOffsets.get(columnId)}
                       align={meta?.align}
                       width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}
                       minWidth={unsizedMinWidth(columnId)}
                       onMeasureHeading={isActions ? undefined : (width) => reportHeadingWidth(columnId, width)}
+                      onMeasureWidth={
+                        meta?.pinned === "left" && meta.width === undefined
+                          ? (width) => reportPinnedWidth(columnId, width)
+                          : undefined
+                      }
                       onResize={
                         columnLayout && onColumnLayoutChange
                           ? (width) => onColumnLayoutChange(resizeColumn(columnLayout, columnId, width))
@@ -405,7 +435,7 @@ export function DataGrid<T>({
                           );
                         }
                         return (
-                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width} minWidth={unsizedMinWidth(cell.column.id)}>
+                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} stickyLeft={stickyLeftOffsets.get(cell.column.id)} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width} minWidth={unsizedMinWidth(cell.column.id)}>
                             {isActions && rowActions ? (
                               <RowMenu groups={rowActions(row.original)} ariaLabel={L.rowActionsLabel} />
                             ) : density !== "comfortable" && meta?.secondary ? (
@@ -522,10 +552,12 @@ function HeaderCell({
   sort,
   onSortChange,
   pinned,
+  stickyLeft,
   align,
   width,
   minWidth,
   onMeasureHeading,
+  onMeasureWidth,
   onResize,
 }: {
   label: ReactNode;
@@ -533,18 +565,38 @@ function HeaderCell({
   sort: SortSpec[];
   onSortChange: (sort: SortSpec[]) => void;
   pinned?: "left" | "right";
+  /** A left-pinned column's sticky offset: the widths of the left-pinned
+   * columns before it (KAN-582). */
+  stickyLeft?: number;
   align?: "left" | "right";
   width?: number;
   /** An unsized column's minimum (KAN-578): at least its heading's width. */
   minWidth?: number;
   /** Reports the width the label and sort indicator need (KAN-578). */
   onMeasureHeading?: (width: number) => void;
+  /** Reports the cell's rendered width — an unsized left-pinned column's
+   * share of the next pinned column's offset (KAN-582). */
+  onMeasureWidth?: (width: number) => void;
   /** Present only when the caller wired `columnLayout` +
    * `onColumnLayoutChange` — renders the resize handle at all only then,
    * since without it there's nowhere to persist the result. */
   onResize?: (width: number) => void;
 }) {
   const headingRef = useRef<HTMLSpanElement>(null);
+  const cellRef = useRef<HTMLDivElement>(null);
+  const measuresWidth = onMeasureWidth !== undefined;
+  const measureWidthRef = useRef(onMeasureWidth);
+  measureWidthRef.current = onMeasureWidth;
+  useLayoutEffect(() => {
+    const element = cellRef.current;
+    if (!element || !measuresWidth) return;
+    const measure = () => measureWidthRef.current?.(element.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [measuresWidth]);
   const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
   // Measured when what the heading shows changes — its label (a language
   // switch), the sort indicator and its ordinal — never on a scroll; the grid
@@ -573,11 +625,12 @@ function HeaderCell({
 
   return (
     <div
+      ref={cellRef}
       role="columnheader"
       aria-sort={ariaSort}
       style={{
         position: pinned ? "sticky" : "relative",
-        left: pinned === "left" ? 0 : undefined,
+        left: pinned === "left" ? (stickyLeft ?? 0) : undefined,
         right: pinned === "right" ? 0 : undefined,
         zIndex: pinned ? 3 : undefined,
         width: width ?? "1%",
@@ -795,6 +848,7 @@ function InlineComposite({ children, secondary }: { children: ReactNode; seconda
 function Cell({
   children,
   pinned,
+  stickyLeft,
   mono,
   align,
   width,
@@ -802,6 +856,8 @@ function Cell({
 }: {
   children: ReactNode;
   pinned?: "left" | "right";
+  /** As the header's: after the left-pinned columns before it (KAN-582). */
+  stickyLeft?: number;
   mono?: boolean;
   align?: "left" | "right";
   width?: number;
@@ -813,7 +869,7 @@ function Cell({
       role="cell"
       style={{
         position: pinned ? "sticky" : undefined,
-        left: pinned === "left" ? 0 : undefined,
+        left: pinned === "left" ? (stickyLeft ?? 0) : undefined,
         right: pinned === "right" ? 0 : undefined,
         backgroundColor: pinned ? white : undefined,
         width: width ?? "1%",

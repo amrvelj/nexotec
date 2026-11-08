@@ -29,7 +29,7 @@ from app.sales.services.offer import create_offer, update_offer
 from app.sales.services.priced_deal import has_trade_in
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.schemas.valuation import ValuationCreate
-from app.valuation.services.valuation import create_valuation
+from app.valuation.services.valuation import create_valuation, list_valid_valuations_for_vin
 from tests.stock_support import create_in_stock_item
 from tests.test_sales_lifecycle_reservation import _customer, _dealership
 from tests.test_sales_trade_in_valuation_use import _confirm
@@ -314,3 +314,65 @@ def test_a_valuation_vin_stored_unnormalised_still_brings_its_car(db_session):
 
     assert offer.trade_in_vin == VIN
     assert has_trade_in(offer)
+
+
+def test_auto_attach_falls_back_to_the_vin_when_the_record_has_only_valuations_without_one(db_session):
+    """KAN-584: `set_trade_in` (FR-S-08) filtered its candidates for a VIN
+    only *after* choosing between the record lookup and the VIN lookup. A car
+    in the register whose only linked valuation is an older one without a VIN
+    (refused as a trade-in since KAN-574) made the record lookup non-empty, so
+    the VIN lookup never ran and nothing was attached — although a valid
+    valuation carrying the car's VIN, made before the car entered the register
+    (it links no record), was there. Each lookup is now filtered before the
+    fallback."""
+
+    from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    # Made while the car was not in the register: it carries the VIN, links no record.
+    by_vin = _valuation(db_session, dealership.id, group_id)
+    assert by_vin.vehicle_id is None
+    record = vehicle_mdm_service.create_vehicle_mdm(db_session, vin=VIN, catalogue_variant_id=None)
+    # An older valuation linked to the record, as a row from before KAN-574 stands: no VIN.
+    without_vin = _valuation(db_session, dealership.id, group_id)
+    assert without_vin.vehicle_id == record.id
+    without_vin.vehicle_vin = None
+    db_session.commit()
+
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = set_trade_in(
+        db_session, deal=offer, group_id=group_id, vin=VIN, plate=None, canton=None,
+        vehicle_label="VW Golf", customer_id=None, actor_id=uuid.uuid4(),
+    )
+
+    assert offer.trade_in_vehicle_id == record.id
+    assert offer.trade_in_valuation_id == by_vin.id
+    assert offer.trade_in_value == Decimal("12000.00")
+
+
+def test_auto_attach_still_prefers_the_records_own_valuation_with_a_vin(db_session):
+    """KAN-584 keeps FR-S-08's order: a valuation linked to the record and
+    carrying a VIN wins over a NEWER VIN-only one (made beside a configuration
+    without a VIN, KAN-449 A, so it links no record). The VIN lookup, newest
+    first, would pick the VIN-only one: only record-first picks the linked."""
+
+    from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    record = vehicle_mdm_service.create_vehicle_mdm(db_session, vin=VIN, catalogue_variant_id=None)
+    linked = _valuation(db_session, dealership.id, group_id)
+    assert linked.vehicle_id == record.id
+    vin_only = _valuation(db_session, dealership.id, group_id)
+    vin_only.vehicle_id = None
+    db_session.commit()
+    assert list_valid_valuations_for_vin(db_session, tenant_id=dealership.id, vin=VIN)[0].id == vin_only.id
+
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = set_trade_in(
+        db_session, deal=offer, group_id=group_id, vin=VIN, plate=None, canton=None,
+        vehicle_label="VW Golf", customer_id=None, actor_id=uuid.uuid4(),
+    )
+
+    assert offer.trade_in_valuation_id == linked.id
