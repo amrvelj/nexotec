@@ -269,9 +269,11 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
     )
     // KAN-476: the exclusions «ist nicht» is sent as.
     expect(queryParamsOf('/v1/customers')).toContain('advisorUserIdNot')
-    expect(queryParamsOf('/v1/catalogue/variants')).toContain('fuelTypeNot')
     expect(queryParamsOf('/v1/customers')).toContain('updated_more_than_days_ago')
-    expect(queryParamsOf('/v1/catalogue/variants')).toContain('psMin')
+    // KAN-548: the catalogue filters on the identAPI's filterable fields — kW, never PS or an exclusion.
+    expect(queryParamsOf('/v1/catalogue/variants')).toContain('kwMin')
+    expect(queryParamsOf('/v1/catalogue/variants')).not.toContain('psMin')
+    expect(queryParamsOf('/v1/catalogue/variants')).not.toContain('fuelTypeNot')
   })
 
   it('no mapper drops a predicate with continue', () => {

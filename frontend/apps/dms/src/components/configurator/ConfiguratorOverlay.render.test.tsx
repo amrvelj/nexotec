@@ -135,17 +135,19 @@ function install(over: FakeRoute[] = []): Ctx {
     // First match wins — declared before the defaults below so a test's
     // own route (e.g. a simulated failure) actually shadows one.
     ...over,
-    { method: 'GET', match: /\/vehicle-mdm\/brands$/, handler: () => ({ items: [], nextCursor: null }) },
-    { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [] }) },
+    // KAN-548: the embedded catalogue grid is a live provider query — brands
+    // per vehicle kind, then a page of variants once a brand is chosen.
+    { method: 'GET', match: /\/catalogue\/brands$/, handler: () => ({ items: [{ name: 'Volkswagen', brandNr: '2', models: ['Golf'] }], state: 'ok' }) },
+    { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [], state: 'ok' }) },
     {
       method: 'GET',
       match: /\/catalogue\/facets$/,
-      handler: () => ({ browseAvailable: true, coded: {}, numeric: {} }),
+      handler: () => ({ browseAvailable: true, state: 'ok', coded: {}, numeric: {} }),
     },
     {
       method: 'GET',
       match: /\/catalogue\/variants$/,
-      handler: () => ({ items: [VARIANT], nextCursor: null, total: 1, totalIsEstimate: false, browseAvailable: true }),
+      handler: () => ({ items: [VARIANT], nextCursor: null, total: 1, totalIsEstimate: false, browseAvailable: true, state: 'ok' }),
     },
     {
       method: 'GET',
@@ -230,6 +232,16 @@ async function openOverlay(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByText(i18n.t('configurator.find.title'))
 }
 
+/** The live catalogue grid shows variants only once a brand is chosen
+ * (KAN-548): pick Volkswagen in the embedded grid, then the Golf GTI row. The
+ * option is looked up *inside* the dialog: the drill-down's dropdown renders
+ * in place (no portal), or the overlay would cover it. */
+async function pickGolfGti(user: ReturnType<typeof userEvent.setup>, container: HTMLElement) {
+  await user.click(await within(container).findByRole('textbox', { name: i18n.t('catalogueBrowse.drilldown.brand') }))
+  await user.click(await within(container).findByRole('option', { name: 'Volkswagen' }))
+  await user.click(await within(container).findByText('Golf GTI'))
+}
+
 describe('ConfiguratorOverlay', () => {
   it('opens on top of a host and keeps the host input mounted (ADR-059)', async () => {
     const user = userEvent.setup()
@@ -312,7 +324,7 @@ describe('ConfiguratorOverlay', () => {
 
     // the embedded browse grid renders its one row (virtualizer mocked)
     const overlayEl = screen.getByRole('dialog')
-    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await pickGolfGti(user, overlayEl)
 
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
@@ -330,7 +342,7 @@ describe('ConfiguratorOverlay', () => {
     await openOverlay(user)
 
     const overlayEl = screen.getByRole('dialog')
-    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await pickGolfGti(user, overlayEl)
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
     await user.click(screen.getByText(i18n.t('configurator.sections.colour')))
@@ -362,7 +374,7 @@ describe('ConfiguratorOverlay', () => {
     await openOverlay(user)
 
     const overlayEl = screen.getByRole('dialog')
-    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await pickGolfGti(user, overlayEl)
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
     await user.click(screen.getByText(i18n.t('configurator.sections.options')))
@@ -411,7 +423,7 @@ describe('ConfiguratorOverlay', () => {
     await openOverlay(user)
 
     const overlayEl = screen.getByRole('dialog')
-    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await pickGolfGti(user, overlayEl)
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
     // First save: nothing selected yet — establishes cfg-1 at version 1,
@@ -450,7 +462,7 @@ describe('ConfiguratorOverlay', () => {
     await openOverlay(user)
 
     const overlayEl = screen.getByRole('dialog')
-    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await pickGolfGti(user, overlayEl)
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
     await user.click(screen.getByText(i18n.t('configurator.sections.options')))
@@ -492,7 +504,7 @@ describe('ConfiguratorOverlay', () => {
     await openOverlay(user)
 
     const overlayEl = screen.getByRole('dialog')
-    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await pickGolfGti(user, overlayEl)
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
     await user.click(screen.getByText(i18n.t('configurator.sections.options')))
@@ -535,7 +547,7 @@ describe('ConfiguratorOverlay', () => {
     renderWithProviders(<Host onCommitted={vi.fn()} />)
     await openOverlay(user)
 
-    await user.click(await within(screen.getByRole('dialog')).findByText('Golf GTI'))
+    await pickGolfGti(user, screen.getByRole('dialog'))
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
     await user.click(screen.getByText(i18n.t('configurator.sections.options')))
     const optionRow = (await screen.findByText('Navigation Pro')).closest('[data-testid^="option-row-"]') as HTMLElement
@@ -596,7 +608,7 @@ describe('ConfiguratorOverlay — one Idempotency-Key per first save (KAN-266)',
 
   async function pickVariant(user: ReturnType<typeof userEvent.setup>) {
     await openOverlay(user)
-    await user.click(await within(screen.getByRole('dialog')).findByText('Golf GTI'))
+    await pickGolfGti(user, screen.getByRole('dialog'))
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
   }
 
@@ -660,7 +672,7 @@ describe('ConfiguratorOverlay — a refused VIN is said in the user language (KA
       ])
       renderWithProviders(<Host onCommitted={vi.fn()} />)
       await openOverlay(user)
-      await user.click(await within(screen.getByRole('dialog')).findByText('Golf GTI'))
+      await pickGolfGti(user, screen.getByRole('dialog'))
       await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
       await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))

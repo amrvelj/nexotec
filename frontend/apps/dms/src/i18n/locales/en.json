@@ -322,7 +322,15 @@
       "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
       "storno_return_not_trade_in": "Only a trade-in can go back to its customer.",
       "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
-      "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade."
+      "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade.",
+      "brand_required": "Choose a brand first.",
+      "catalogue_filter_value_unknown": "The provider does not know this filter value.",
+      "catalogue_scope_required": "Choose a brand or a model group first — the catalogue is never queried whole.",
+      "cursor_invalid": "Invalid page.",
+      "page_invalid": "Invalid page.",
+      "sort_field_unknown": "The catalogue cannot be sorted by this field.",
+      "vehicle_kind_unknown_to_provider": "The provider does not know this vehicle kind.",
+      "catalogue_scope_invalid": "The brand or model group is not a valid name."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1872,7 +1880,7 @@
   },
   "catalogueBrowse": {
     "title": "Catalogue",
-    "subtitle": "Browse vehicle variants — brand, model, trim. From the mirror, never the provider.",
+    "subtitle": "Browse vehicle variants — vehicle kind, brand, model, trim. Live from the provider, one page at a time.",
     "tabs": {
       "browse": "Browse",
       "mappingGaps": "Mapping gaps",
@@ -1886,20 +1894,21 @@
     },
     "drilldown": {
       "brand": "Brand",
-      "brandPlaceholder": "All brands",
+      "brandPlaceholder": "Choose a brand",
       "modelGroup": "Model group",
       "modelGroupPlaceholder": "All model groups",
-      "modelGroupNeedsBrand": "Pick a brand first",
-      "brandsLoadError": "Brands could not be loaded"
+      "modelGroupNeedsBrand": "Choose a brand first",
+      "brandsLoadError": "Brands could not be loaded",
+      "vehicleKind": "Vehicle kind"
     },
-    "searchPlaceholder": "Search by variant, model or brand…",
+    "searchPlaceholder": "Search the description…",
     "labelsLoadError": {
       "title": "Labels unavailable",
       "body": "The labels for the catalogue's values could not be loaded. Values marked ⚠ show their code instead."
     },
     "unavailable": {
-      "title": "Catalogue unavailable",
-      "body": "No auto-i-dat connection is active for this business. Connect auto-i-dat to browse the catalogue."
+      "title": "auto-i-dat not reachable",
+      "body": "The provider is not answering right now. Try again later; identification of known vehicles keeps working."
     },
     "columns": {
       "brand": "Brand",
@@ -1935,24 +1944,19 @@
       "bodyStyle": "Body",
       "drivetrain": "Drive",
       "transmission": "Transmission",
-      "vehicleKind": "Vehicle kind",
       "vehicleClass": "Vehicle class",
       "emissionStandard": "Emission standard",
-      "engineCycle": "Stroke",
-      "ps": "PS",
       "kw": "kW",
       "displacementCcm": "Displacement (cc)",
       "doors": "Doors",
       "seats": "Seats",
-      "co2Gkm": "CO₂ (g/km)",
-      "modelYearFrom": "Production year from",
-      "basePrice": "List price"
+      "co2Gkm": "CO₂ (g/km)"
     },
     "allVariantsView": "All variants",
     "loadError": "The catalogue could not be loaded.",
     "emptyState": {
       "title": "No variants",
-      "description": "No catalogue data has been synced for this business yet."
+      "description": "The provider lists no variant for this selection."
     },
     "emptyFilteredState": {
       "title": "No results",
@@ -1963,6 +1967,18 @@
       "count": "{{count, number}} selected",
       "clear": "Clear selection",
       "copyIds": "Copy IDs"
+    },
+    "needsBrand": {
+      "title": "Choose a brand",
+      "description": "Choose a vehicle kind and a brand — the catalogue is asked live from the provider, one page at a time."
+    },
+    "notConfigured": {
+      "title": "No auto-i-dat access",
+      "body": "This business has no active auto-i-dat connection. A vehicle is entered manually; the access is set up under Integrations."
+    },
+    "notInContract": {
+      "title": "Catalogue not in the contract",
+      "body": "auto-i-dat refuses the catalogue query: the «ident_basis» option is not licensed for this access."
     }
   },
   "configurator": {

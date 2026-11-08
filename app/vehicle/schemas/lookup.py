@@ -11,11 +11,20 @@ See tests/architecture/test_shared_identity_lookup_response_shape.py —
 """
 
 import datetime as dt
+import uuid
 
 from app.core.schemas import CamelModel
+from app.vehicle.schemas.catalogue import CatalogueVariantPrice
+from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 
 
 class SharedVehicleIdentity(CamelModel):
+    """ADR-112 (3), KAN-130/KAN-548: a vehicle already known in the platform
+    carries its catalogue variant, the variant's list price and the spec
+    block for every dealer, with or without a provider contract — that is
+    master data (ADR-075). What stays out, by shape: options, colours, tyres,
+    images and any other licensed detail (ADR-013)."""
+
     vin: str
     stammnummer: str | None
     type_approval_number: str | None
@@ -25,3 +34,6 @@ class SharedVehicleIdentity(CamelModel):
     body_style: str | None
     drivetrain: str | None
     vehicle_status: str
+    catalogue_variant_id: uuid.UUID | None
+    list_price: CatalogueVariantPrice | None
+    specification: VehicleSpecBlockRead | None

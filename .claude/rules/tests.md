@@ -31,7 +31,8 @@ as any change to what it states. -->
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, no bulk catalogue retrieval
   and no daily job reaching a provider (KAN-485), the capability vocabulary,
-  catalogue browse without provider calls, configurations never writing vehicle-mdm, margin
+  catalogue browse as a bounded live query (one provider request per page and per facet field,
+  `page[number]` only in the adapter, no catalogue query in a loop — ADR-112, KAN-548), configurations never writing vehicle-mdm, margin
   never in a rendered document, no ambient group reads, layout code only in the document
   renderer, password-shaped columns in `credential` and nowhere else and no second credential
   table outside the allow-list (inverted by KAN-196 as D-A-07 ruled; a third realm is an ADR),

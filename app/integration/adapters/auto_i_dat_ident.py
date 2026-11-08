@@ -59,6 +59,7 @@ import logging
 import uuid
 from collections.abc import Callable, Hashable, Mapping, Sequence
 from typing import Any, NoReturn
+from urllib.parse import quote
 
 import httpx
 from sqlalchemy.orm import Session
@@ -513,8 +514,10 @@ class AutoIDatIdentAdapter:
         params: list[tuple[str, str]] = []
         if in_production:
             params.append(("onlyInProduction", "true"))
+        # A brand is a path segment the user typed or picked: percent-encoded, so
+        # «../..» can never reach another identAPI path on the dealer's credentials.
         return parse.parse_model_groups(
-            self._request(OP_VEHICLECATALOG, "GET", f"/vehiclecatalog/modelgroup/{segment}/{brand}", params)
+            self._request(OP_VEHICLECATALOG, "GET", f"/vehiclecatalog/modelgroup/{segment}/{quote(brand, safe='')}", params)
         )
 
     def _scoped_catalog_query(
@@ -526,7 +529,7 @@ class AutoIDatIdentAdapter:
         before anything is sent, as a request error."""
 
         if model_group_key:
-            return f"/vehiclecatalog/modelgroup/{model_group_key}", [("filter[type]", vehicle_kind_code)]
+            return f"/vehiclecatalog/modelgroup/{quote(model_group_key, safe='')}", [("filter[type]", vehicle_kind_code)]
         if brand:
             return "/vehiclecatalog", [("filter[type]", vehicle_kind_code), ("filter[brand]", brand)]
         raise ProviderRequestError(

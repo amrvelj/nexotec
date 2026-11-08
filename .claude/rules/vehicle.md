@@ -18,7 +18,8 @@ paths:
   - "tests/architecture/test_plate_lookup_is_not_enumerable.py"
   - "tests/architecture/test_spec_block_carriers_do_not_drift.py"
   - "tests/architecture/test_auto_i_dat_calls_go_through_the_gateway.py"
-  - "tests/architecture/test_catalogue_browse_makes_no_provider_call.py"
+  - "tests/architecture/test_catalogue_browse_is_a_bounded_live_query.py"
+  - "tests/architecture/test_no_bulk_catalogue_retrieval.py"
   - "tests/architecture/test_configuration_never_writes_vehicle_mdm.py"
   - "tests/architecture/test_shared_identity_lookup_response_shape.py"
   - "tests/test_provider_code_map_seed.py"
@@ -242,7 +243,47 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   connection `connected`. Two concurrent tests of two Betriebe meet on the shared table in a savepoint, never a 500. Other contexts read them through
   `integration.public.get_captions` as plain data — to show a provider's wording
   beside an unmapped code, never to fill a reference list (ADR-044).
-- Catalogue browse makes **no** live provider call (architecture test).
+- **Catalogue browse is a live identAPI query, bounded** (ADR-112; KAN-548, closing KAN-130):
+  `services/catalogue_browse.py` asks the Betrieb's own connection for the brands of a vehicle kind
+  (`GET /v1/catalogue/brands?vehicleKind=`), a brand's model groups (`/model-groups?brand=&mode=`,
+  `onlyInProduction` in `build` mode — PRD `NurNeue` applies to the model-group list only: the
+  identAPI's variant rows carry no filterable production end, so a page of variants is never
+  narrowed by the mode), one provider page of variants
+  (`/variants?vehicleKind&brand|modelGroupKey&cursor=<page>`, the identAPI's 10; `total` from
+  `includeCount`, `nextCursor` the next page number) and the facet values of a fixed tuple of
+  fields (`/facets`, `fields=<field> distinct`, **one request per field, only once a brand is
+  chosen and the user clicks the views-and-filters control open in that scope** — a kind, brand or
+  model-group pick costs its page and its model-group list, the facets wait for the next click on the
+  control) — never a page or a field the user did not ask for
+  (`tests/architecture/test_catalogue_browse_is_a_bounded_live_query.py`;
+  `test_no_bulk_catalogue_retrieval.py` refuses `page[number]` outside the adapter and any catalogue
+  query — the adapter's or the service's — inside a `for`/`while`/comprehension, `compute_facets`'s
+  loop over the fixed field tuple allow-listed by name with its bound pinned). A query without a
+  brand or a model group is 422 before anything is sent, as is a brand or model-group key that is
+  no name (`..` or `.` alone, a slash, a query character — the adapter percent-encodes the path segment too); a
+  kind or a filter value the map does not know is the user's 422, decided **before** the gateway
+  block, so it charges no breaker and writes no call-log row. The grid asks for the next page only
+  after the user moved in it (the kit's within-ten-rows prefetch would otherwise walk the identAPI's
+  ten-row pages) and never refetches a page on window focus. Every variant a page returns is stored once through `store_seen_variants` (master data,
+  ADR-075); a second browse of the page asks again (no mirror), `GET /catalogue/variants/{id}`
+  reads the stored row for every Betrieb. Filters are the identAPI's own: a canonical code is
+  translated to the provider's through `ProviderCodeMap` (the reverse map — every provider code the
+  value maps from, `eq` for one, `in(…)` for several; an unmapped value is 422, a facet value the map
+  does not know is a mapping gap and is not offered), numbers only on fields
+  the identAPI marks filterable (`kw`, `displacement`, `doors`, `seats`, `co2` — never `ps`, the
+  list price or the production years), free text as `has(descriptionShort,…)`, sort on the same
+  fields; «ist nicht» (KAN-476) is gone from the catalogue (the identAPI has no «not equal»).
+  **States, never errors** (Anto, 2026-11-07: a normal answer, no 503): no connection →
+  `notConfigured` (the screen says «Kein auto-i-dat-Zugang» and offers the manual configuration),
+  the provider's 403 or a `ident_basis` option not granted → `notInContract`, a failure or timeout
+  → `unavailable`; each a 200 with `state` on it, `browseAvailable` = `state == ok`. The demo
+  provider needs the real provider's code map copied (`scripts/seed_demo_provider_code_map.py`,
+  once per local or staging database) or every kind and code is a gap.
+- **The shared identity lookup carries master data for every dealer** (ADR-112 (3), ADR-075;
+  KAN-548 closes KAN-130): `GET /v1/vehicle-mdm/lookup` answers `catalogueVariantId`, `listPrice`
+  and `specification` (the ADR-071 spec block) for a vehicle already known, with or without a
+  provider contract — never options, colours, tyres or images (ADR-013;
+  `test_shared_identity_lookup_response_shape.py`, `test_shared_lookup_carries_master_data.py`).
 - Provider text (option names, colour names) is stored and rendered **as delivered**, never
   translated (ADR-044); only our canonical reference data is translated.
 - **Provider specification excerpts never leave this private repository** (identAPI test
@@ -398,12 +439,11 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   no full seed, no daily delta, no `FzKeyChanged`, no daily job reaching a provider — the demo
   provider (`auto_i_dat_mock`) follows the same rule. A variant enters the catalogue only through
   identification (every rung stores the variants it returns, master data only — KAN-547; a plate
-  lookup also fills the plate-lookup cache) or `catalogue_sync.sync_catalogue_variant` (one variant with its options,
+  lookup also fills the plate-lookup cache), a browsed page (KAN-548, the same store) or `catalogue_sync.sync_catalogue_variant` (one variant with its options,
   colours, tyres and images; nothing calls it yet — loading a variant's details on open is
-  KAN-211). **Consequence until KAN-211 / KAN-548:** on a database the old seed never ran on,
-  catalogue browse is empty until a lookup stored a variant (live browse is KAN-548), and a variant
-  has no options, colours, tyres or images; since KAN-547 every identification rung stores what it
-  finds. `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule. The
+  KAN-211). **Consequence until KAN-211:** a variant has no options, colours, tyres or images until
+  they are loaded on open; since KAN-547 every identification rung stores what it finds and since
+  KAN-548 every browsed page does too (the browse itself is live, never a mirror read). `tests/architecture/test_no_bulk_catalogue_retrieval.py` guards the rule. The
   bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and the platform's
   catalogue-sync status board that read it are gone (KAN-497; Anto, 2026-10-31, option A —
   vehicle-chain migration `e4b7c2a91d36` drops the table).

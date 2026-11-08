@@ -396,6 +396,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalogue/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Brands
+         * @description Every brand the provider lists for a vehicle kind, with its model
+         *     names — live, one request, not stored (ADR-112).
+         */
+        get: operations["list_brands_v1_catalogue_brands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalogue/facets": {
         parameters: {
             query?: never;
@@ -403,7 +424,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Catalogue Facets */
+        /**
+         * Catalogue Facets
+         * @description The values the provider holds per facet field in the drill-down scope
+         *     — one request per field, only once a brand is chosen (before that: no
+         *     call, nothing offered).
+         */
         get: operations["catalogue_facets_v1_catalogue_facets_get"];
         put?: never;
         post?: never;
@@ -420,7 +446,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Model Groups */
+        /**
+         * List Model Groups
+         * @description The provider's model groups of a brand — live, one request. In `build`
+         *     mode only the groups in production (PRD `NurNeue`).
+         */
         get: operations["list_model_groups_v1_catalogue_model_groups_get"];
         put?: never;
         post?: never;
@@ -437,7 +467,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Browse Variants */
+        /**
+         * Browse Variants
+         * @description One provider page of variants for the drill-down and the filters —
+         *     exactly the page asked (ADR-112 (4)); every variant on it stored once.
+         *     The production-year default of the mode (PRD `NurNeue`) applies to the
+         *     model-group list: the identAPI's variant rows are not filterable on
+         *     `productionEnd`, so a page is never narrowed by it here.
+         */
         get: operations["browse_variants_v1_catalogue_variants_get"];
         put?: never;
         post?: never;
@@ -4691,6 +4728,24 @@ export interface components {
             /** Granted */
             granted: boolean;
         };
+        /** CatalogueBrandPage */
+        CatalogueBrandPage: {
+            /** Items */
+            items: components["schemas"]["CatalogueBrandRead"][];
+            state: components["schemas"]["CatalogueBrowseState"];
+        };
+        /**
+         * CatalogueBrandRead
+         * @description One brand the provider lists for a vehicle kind (live, not stored).
+         */
+        CatalogueBrandRead: {
+            /** Brandnr */
+            brandNr: string | null;
+            /** Models */
+            models: string[];
+            /** Name */
+            name: string;
+        };
         /**
          * CatalogueBrowseMode
          * @description `build` — configuring a new car / factory order: the production-year
@@ -4699,6 +4754,17 @@ export interface components {
          * @enum {string}
          */
         CatalogueBrowseMode: "build" | "record";
+        /**
+         * CatalogueBrowseState
+         * @description What a live catalogue answer is (ADR-112; Anto, 2026-11-07: a normal
+         *     answer, never a 503). `ok` — the provider answered; `not_configured` —
+         *     this Betrieb has no vehicle-data connection, the manual configuration is
+         *     the path; `not_in_contract` — the provider refused the query (the
+         *     `ident_basis` option is not licensed); `unavailable` — the provider
+         *     could not be reached or failed.
+         * @enum {string}
+         */
+        CatalogueBrowseState: "ok" | "notConfigured" | "notInContract" | "unavailable";
         /** CatalogueColourRead */
         CatalogueColourRead: {
             /** Colourcode */
@@ -4710,18 +4776,23 @@ export interface components {
             /** Price */
             price: string | null;
         };
-        /** CatalogueFacetValue */
+        /**
+         * CatalogueFacetValue
+         * @description A canonical value the provider holds in the drill-down scope. The
+         *     identAPI's `distinct` carries no counts: `count` is null since KAN-548.
+         */
         CatalogueFacetValue: {
             /** Count */
-            count: number;
+            count?: number | null;
             /** Valuecode */
             valueCode: string;
         };
         /**
          * CatalogueFacetsRead
-         * @description Every value that actually exists in the current drill-down scope,
-         *     with its row count — computed from the mirror, never the provider
-         *     (`FzgWerteGruppiert` is a later pre-aggregation accelerator, C-0).
+         * @description Every value the provider holds in the current drill-down scope
+         *     (`fields=<field> distinct`, one request per facet field, brand chosen
+         *     first — ADR-112). The identAPI offers no min/max aggregates, so `numeric`
+         *     is empty since KAN-548 and a number filter is typed freely.
          */
         CatalogueFacetsRead: {
             /** Browseavailable */
@@ -4734,6 +4805,7 @@ export interface components {
             numeric: {
                 [key: string]: components["schemas"]["CatalogueNumericFacet"];
             };
+            state: components["schemas"]["CatalogueBrowseState"];
         };
         /** CatalogueImageRead */
         CatalogueImageRead: {
@@ -4757,21 +4829,25 @@ export interface components {
         CatalogueModelGroupPage: {
             /** Items */
             items: components["schemas"]["CatalogueModelGroupRead"][];
+            state: components["schemas"]["CatalogueBrowseState"];
         };
-        /** CatalogueModelGroupRead */
+        /**
+         * CatalogueModelGroupRead
+         * @description One model group as the provider lists it (live, not stored): `key` is
+         *     the provider's model-group key, what `GET /catalogue/variants` takes as
+         *     `modelGroupKey`; `productionYearTo` is null while in production.
+         */
         CatalogueModelGroupRead: {
-            /**
-             * Brandid
-             * Format: uuid
-             */
-            brandId: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
+            /** Key */
+            key: string;
+            /** Modelsearch */
+            modelSearch: string | null;
             /** Name */
             name: string;
+            /** Productionyearfrom */
+            productionYearFrom: number | null;
+            /** Productionyearto */
+            productionYearTo: number | null;
         };
         /** CatalogueNumericFacet */
         CatalogueNumericFacet: {
@@ -4870,7 +4946,13 @@ export interface components {
             /** Speedrating */
             speedRating: string | null;
         };
-        /** CatalogueVariantPage */
+        /**
+         * CatalogueVariantPage
+         * @description One provider page (ADR-112): `nextCursor` is the next provider page
+         *     number, `total` the provider's count (`includeCount`; null when it did not
+         *     count). `state` says why a page is empty; `browseAvailable` is `state ==
+         *     ok`, kept for the screens that read it before KAN-548.
+         */
         CatalogueVariantPage: {
             /** Browseavailable */
             browseAvailable: boolean;
@@ -4878,8 +4960,9 @@ export interface components {
             items: components["schemas"]["CatalogueVariantRead"][];
             /** Nextcursor */
             nextCursor: string | null;
+            state: components["schemas"]["CatalogueBrowseState"];
             /** Total */
-            total: number;
+            total: number | null;
             /** Totalisestimate */
             totalIsEstimate: boolean;
         };
@@ -9516,10 +9599,19 @@ export interface components {
             /** Options */
             options: components["schemas"]["OptionInput"][];
         };
-        /** SharedVehicleIdentity */
+        /**
+         * SharedVehicleIdentity
+         * @description ADR-112 (3), KAN-130/KAN-548: a vehicle already known in the platform
+         *     carries its catalogue variant, the variant's list price and the spec
+         *     block for every dealer, with or without a provider contract — that is
+         *     master data (ADR-075). What stays out, by shape: options, colours, tyres,
+         *     images and any other licensed detail (ADR-013).
+         */
         SharedVehicleIdentity: {
             /** Bodystyle */
             bodyStyle: string | null;
+            /** Cataloguevariantid */
+            catalogueVariantId: string | null;
             /** Currentplate */
             currentPlate: string | null;
             /** Drivetrain */
@@ -9528,6 +9620,8 @@ export interface components {
             firstRegistrationDate: string | null;
             /** Fueltype */
             fuelType: string | null;
+            listPrice: components["schemas"]["CatalogueVariantPrice"] | null;
+            specification: components["schemas"]["VehicleSpecBlockRead"] | null;
             /** Stammnummer */
             stammnummer: string | null;
             /** Typeapprovalnumber */
@@ -12351,12 +12445,47 @@ export interface operations {
             };
         };
     };
+    list_brands_v1_catalogue_brands_get: {
+        parameters: {
+            query?: {
+                vehicleKind?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueBrandPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     catalogue_facets_v1_catalogue_facets_get: {
         parameters: {
             query?: {
-                brandId?: string | null;
-                modelGroup?: string | null;
-                mode?: components["schemas"]["CatalogueBrowseMode"];
+                vehicleKind?: string;
+                brand?: string | null;
+                modelGroupKey?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -12391,7 +12520,9 @@ export interface operations {
     list_model_groups_v1_catalogue_model_groups_get: {
         parameters: {
             query: {
-                brandId: string;
+                brand: string;
+                vehicleKind?: string;
+                mode?: components["schemas"]["CatalogueBrowseMode"];
             };
             header?: {
                 authorization?: string | null;
@@ -12426,31 +12557,19 @@ export interface operations {
     browse_variants_v1_catalogue_variants_get: {
         parameters: {
             query?: {
-                brandId?: string | null;
-                modelGroup?: string | null;
-                mode?: components["schemas"]["CatalogueBrowseMode"];
-                /** @description e.g. 'ps:desc,variantName:asc' */
+                vehicleKind?: string;
+                brand?: string | null;
+                modelGroupKey?: string | null;
+                /** @description e.g. 'kw:desc,doors:asc' */
                 sort?: string | null;
-                limit?: number;
+                /** @description the provider page number; absent = page 1 */
                 cursor?: string | null;
                 fuelType?: string | null;
                 bodyStyle?: string | null;
                 drivetrain?: string | null;
                 transmission?: string | null;
-                vehicleKind?: string | null;
                 vehicleClass?: string | null;
                 emissionStandard?: string | null;
-                engineCycle?: string | null;
-                fuelTypeNot?: string | null;
-                bodyStyleNot?: string | null;
-                drivetrainNot?: string | null;
-                transmissionNot?: string | null;
-                vehicleKindNot?: string | null;
-                vehicleClassNot?: string | null;
-                emissionStandardNot?: string | null;
-                engineCycleNot?: string | null;
-                psMin?: number | string | null;
-                psMax?: number | string | null;
                 kwMin?: number | string | null;
                 kwMax?: number | string | null;
                 displacementCcmMin?: number | string | null;
@@ -12461,11 +12580,6 @@ export interface operations {
                 seatsMax?: number | string | null;
                 co2GkmMin?: number | string | null;
                 co2GkmMax?: number | string | null;
-                modelYearFromMin?: number | string | null;
-                modelYearFromMax?: number | string | null;
-                basePriceMin?: number | string | null;
-                basePriceMax?: number | string | null;
-                inProduction?: boolean | null;
                 q?: string | null;
             };
             header?: {

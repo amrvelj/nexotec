@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.integration.public import (
@@ -216,6 +217,31 @@ def _resolve_code(
         provider_code=provider_value,
     )
     return canonical.value_code if canonical is not None else None
+
+
+def store_seen_variants(db: Session, *, provider_code: str, masters: list[VariantMasterData]) -> list[ModelVariant]:
+    """Every variant a lookup or a browse page returned, through
+    `upsert_model_variant` (master data only, ADR-075; fill-if-NULL, KAN-83),
+    committed — the stored rows are a cache of what was seen, never the
+    source (ADR-112). Returned in `masters` order.
+
+    Each upsert runs in a savepoint: two Betriebe can see one new variant (or
+    one new brand) at the same moment, and the loser's unique violation is
+    answered by re-reading the row the winner wrote — a lookup never fails
+    because another dealer saw the same car first (KAN-547)."""
+
+    variants: list[ModelVariant] = []
+    for master in masters:
+        try:
+            with db.begin_nested():
+                variant = upsert_model_variant(db, provider_code=provider_code, master=master)
+        except IntegrityError:
+            logger.info("variant %s was stored concurrently; re-reading", master.fz_key)
+            variant = upsert_model_variant(db, provider_code=provider_code, master=master)
+        variants.append(variant)
+    if variants:
+        db.commit()
+    return variants
 
 
 def find_variant_by_fz_key(db: Session, *, provider_code: str, fz_key: str) -> ModelVariant | None:

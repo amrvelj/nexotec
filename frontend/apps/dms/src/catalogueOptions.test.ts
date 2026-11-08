@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FilterPredicate } from '@nexotec/ui-kit'
 import { applyCatalogueFilters, readLegacyCataloguePredicates } from './catalogueOptions'
 
-// KAN-458: `/catalogue/variants` bounds are inclusive (`psMin` is ≥), so the
+// KAN-458: `/catalogue/variants` bounds are inclusive (`kwMin` is ≥), so the
 // grid offers «at least» / «at most» and sends «equals» as both bounds.
 function paramsFor(predicate: Omit<FilterPredicate, 'id'>): Record<string, string> {
   const params = new URLSearchParams()
@@ -11,13 +11,15 @@ function paramsFor(predicate: Omit<FilterPredicate, 'id'>): Record<string, strin
 }
 
 describe('applyCatalogueFilters', () => {
-  it('«PS at least 150» is psMin=150 — 150 PS included, as the label says', () => {
-    expect(paramsFor({ fieldId: 'ps', type: 'number', condition: 'atLeast', value: 150 })).toEqual({ psMin: '150' })
+  it('«kW at least 110» is kwMin=110 — 110 kW included, as the label says', () => {
+    expect(paramsFor({ fieldId: 'kw', type: 'number', condition: 'atLeast', value: 110 })).toEqual({ kwMin: '110' })
   })
 
-  it('«price at most 40 000» is basePriceMax=40000', () => {
-    expect(paramsFor({ fieldId: 'basePrice', type: 'number', condition: 'atMost', value: 40000 })).toEqual({
-      basePriceMax: '40000',
+  it('«CO₂ at most 120» is co2GkmMax=120; a field the identAPI does not filter (PS, price) is not sent (KAN-548)', () => {
+    expect(paramsFor({ fieldId: 'ps', type: 'number', condition: 'atLeast', value: 150 })).toEqual({})
+    expect(paramsFor({ fieldId: 'basePrice', type: 'number', condition: 'atMost', value: 40000 })).toEqual({})
+    expect(paramsFor({ fieldId: 'co2Gkm', type: 'number', condition: 'atMost', value: 120 })).toEqual({
+      co2GkmMax: '120',
     })
   })
 
@@ -38,8 +40,8 @@ describe('applyCatalogueFilters', () => {
 describe('readLegacyCataloguePredicates', () => {
   it('reads a saved «grösser als» / «kleiner als» as the inclusive bound it was always sent as', () => {
     const read = readLegacyCataloguePredicates([
-      { id: 'a', fieldId: 'ps', type: 'number', condition: 'greaterThan', value: 150 },
-      { id: 'b', fieldId: 'ps', type: 'number', condition: 'lessThan', value: 300 },
+      { id: 'a', fieldId: 'kw', type: 'number', condition: 'greaterThan', value: 110 },
+      { id: 'b', fieldId: 'kw', type: 'number', condition: 'lessThan', value: 220 },
       { id: 'c', fieldId: 'fuelType', type: 'select', condition: 'is', value: 'petrol' },
     ])
     expect(read.map((p) => p.condition)).toEqual(['atLeast', 'atMost', 'is'])

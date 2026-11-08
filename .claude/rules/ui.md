@@ -92,8 +92,8 @@ second local combobox.
   offers no «duplicate»; a link or saved view with two keeps the first. A field offers only the
   conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
   (`atLeast`/`atMost`), and a select field offers «ist nicht» as its endpoint's exclusion —
-  `…_not` on Stock and Customers, `advisorUserIdNot`/`assigned` for the advisor, `<field>Not` on
-  the catalogue; a record without a value is kept (KAN-476). An N-days count is a whole
+  `…_not` on Stock and Customers, `advisorUserIdNot`/`assigned` for the advisor — not on the
+  catalogue since KAN-548 (the identAPI has no «not equal», so the live catalogue offers «ist» only); a record without a value is kept (KAN-476). An N-days count is a whole
   number from `MIN_FILTER_DAYS` to `MAX_FILTER_DAYS` (0–36500, the endpoints' `ge`/`le`): the builder
   refuses another in place and holds Save back, and `offeredPredicates` drops one from a link or
   view (KAN-475).
@@ -120,7 +120,9 @@ second local combobox.
 - **ADR-063** — generating an offer is **two steps**: build, then review the rendered document
   in the customer's correspondence language with the seller-only margin panel *beside* it,
   never on it.
-- Grids (UI/UX Core Principles): every column sortable server-side; column order, visibility,
+- Grids (UI/UX Core Principles): every column sortable server-side — the live catalogue grid excepted
+  (KAN-548): it sorts on the fields the identAPI sorts (kW, displacement, CO₂, doors, seats), and a stored
+  sort on another field is narrowed away like an unoffered predicate, never sent; column order, visibility,
   width and pinning configurable and persisted per user; a three-dots row menu on every row;
   cursor-based lazy loading; maximum information density; Shift + wheel scrolls horizontally.
 - **The dashboard is the landing page and the breadcrumb's root** (FR-UI-07; KAN-104): the shell

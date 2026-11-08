@@ -72,14 +72,11 @@ const VARIANT = {
 const page = <T,>(items: T[]) => ({ items, nextCursor: null, total: items.length, totalIsEstimate: false })
 
 const CATALOGUE_ROUTES: FakeRoute[] = [
-  {
-    method: 'GET',
-    match: /\/vehicle-mdm\/brands$/,
-    handler: () => ({ items: [{ id: 'brand-vw', code: 'vw', displayName: 'Volkswagen', version: 1, createdAt: '', updatedAt: '' }], nextCursor: null }),
-  },
-  { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [] }) },
-  { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ browseAvailable: true, coded: {}, numeric: {} }) },
-  { method: 'GET', match: /\/catalogue\/variants$/, handler: () => ({ ...page([VARIANT]), browseAvailable: true }) },
+  // KAN-548: the catalogue is a live provider query, a page asked once a brand is chosen.
+  { method: 'GET', match: /\/catalogue\/brands$/, handler: () => ({ items: [{ name: 'Volkswagen', brandNr: '2', models: ['Golf'] }], state: 'ok' }) },
+  { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [], state: 'ok' }) },
+  { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ browseAvailable: true, state: 'ok', coded: {}, numeric: {} }) },
+  { method: 'GET', match: /\/catalogue\/variants$/, handler: () => ({ ...page([VARIANT]), browseAvailable: true, state: 'ok' }) },
   { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
 ]
 
@@ -117,7 +114,7 @@ describe('Grids with no saved layout show their default subset (KAN-361)', () =>
   it('Catalogue: a defaultVisible: false column (drivetrain) is not on screen, and the Columns panel shows it', async () => {
     const user = userEvent.setup()
     installFakeBackend(CATALOGUE_ROUTES)
-    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue' })
+    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?brand=Volkswagen' })
     await screen.findByText('Golf GTI')
 
     const drivetrain = i18n.t('catalogueBrowse.columns.drivetrain')

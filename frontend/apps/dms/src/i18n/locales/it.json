@@ -322,7 +322,15 @@
       "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
       "storno_return_not_trade_in": "Solo un veicolo in permuta può tornare al cliente.",
       "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
-      "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
+      "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta.",
+      "brand_required": "Scegliere prima una marca.",
+      "catalogue_filter_value_unknown": "Il fornitore non conosce questo valore di filtro.",
+      "catalogue_scope_required": "Scegliere prima una marca o un gruppo di modelli – il catalogo non viene mai interrogato per intero.",
+      "cursor_invalid": "Pagina non valida.",
+      "page_invalid": "Pagina non valida.",
+      "sort_field_unknown": "Il catalogo non può essere ordinato per questo campo.",
+      "vehicle_kind_unknown_to_provider": "Il fornitore non conosce questo genere di veicolo.",
+      "catalogue_scope_invalid": "La marca o il gruppo di modelli non è un nome valido."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1872,7 +1880,7 @@
   },
   "catalogueBrowse": {
     "title": "Catalogo",
-    "subtitle": "Sfoglia le varianti dei veicoli — marca, modello, allestimento. Dal mirror, mai dal fornitore.",
+    "subtitle": "Sfogliare le varianti — genere di veicolo, marca, modello, allestimento. In diretta dal fornitore, pagina per pagina.",
     "tabs": {
       "browse": "Sfoglia",
       "mappingGaps": "Lacune di mappatura",
@@ -1886,20 +1894,21 @@
     },
     "drilldown": {
       "brand": "Marca",
-      "brandPlaceholder": "Tutte le marche",
+      "brandPlaceholder": "Scegliere una marca",
       "modelGroup": "Gruppo di modelli",
       "modelGroupPlaceholder": "Tutti i gruppi di modelli",
       "modelGroupNeedsBrand": "Scegliere prima una marca",
-      "brandsLoadError": "Impossibile caricare le marche"
+      "brandsLoadError": "Impossibile caricare le marche",
+      "vehicleKind": "Genere di veicolo"
     },
-    "searchPlaceholder": "Cerca per variante, modello o marca…",
+    "searchPlaceholder": "Cerca nella designazione…",
     "labelsLoadError": {
       "title": "Etichette non disponibili",
       "body": "Non è stato possibile caricare le etichette dei valori del catalogo. I valori contrassegnati con ⚠ mostrano il loro codice."
     },
     "unavailable": {
-      "title": "Catalogo non disponibile",
-      "body": "Nessuna connessione auto-i-dat attiva per questa azienda. Collega auto-i-dat per sfogliare il catalogo."
+      "title": "auto-i-dat non raggiungibile",
+      "body": "Il fornitore al momento non risponde. Riprovare più tardi; l’identificazione dei veicoli noti continua a funzionare."
     },
     "columns": {
       "brand": "Marca",
@@ -1935,24 +1944,19 @@
       "bodyStyle": "Carrozzeria",
       "drivetrain": "Trazione",
       "transmission": "Cambio",
-      "vehicleKind": "Genere di veicolo",
       "vehicleClass": "Classe del veicolo",
       "emissionStandard": "Norma antinquinamento",
-      "engineCycle": "Tempi",
-      "ps": "CV",
       "kw": "kW",
       "displacementCcm": "Cilindrata (cm³)",
       "doors": "Porte",
       "seats": "Posti",
-      "co2Gkm": "CO₂ (g/km)",
-      "modelYearFrom": "Anno di produzione da",
-      "basePrice": "Prezzo di listino"
+      "co2Gkm": "CO₂ (g/km)"
     },
     "allVariantsView": "Tutte le varianti",
     "loadError": "Impossibile caricare il catalogo.",
     "emptyState": {
       "title": "Nessuna variante",
-      "description": "Nessun dato di catalogo ancora sincronizzato per questa azienda."
+      "description": "Il fornitore non elenca alcuna variante per questa selezione."
     },
     "emptyFilteredState": {
       "title": "Nessun risultato",
@@ -1963,6 +1967,18 @@
       "count": "{{count, number}} selezionati",
       "clear": "Annulla selezione",
       "copyIds": "Copia ID"
+    },
+    "needsBrand": {
+      "title": "Scegliere una marca",
+      "description": "Scegliere genere di veicolo e marca — il catalogo viene interrogato in diretta dal fornitore, pagina per pagina."
+    },
+    "notConfigured": {
+      "title": "Nessun accesso auto-i-dat",
+      "body": "Questa azienda non ha una connessione auto-i-dat attiva. Un veicolo si registra manualmente; l’accesso si configura sotto Integrazioni."
+    },
+    "notInContract": {
+      "title": "Catalogo non nel contratto",
+      "body": "auto-i-dat rifiuta la richiesta al catalogo: l’opzione «ident_basis» non è in licenza per questo accesso."
     }
   },
   "configurator": {

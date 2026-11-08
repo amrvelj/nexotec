@@ -322,7 +322,15 @@
       "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
       "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen.",
       "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
-      "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
+      "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
+      "brand_required": "Zuerst eine Marke wählen.",
+      "catalogue_filter_value_unknown": "Diesen Filterwert kennt der Anbieter nicht.",
+      "catalogue_scope_required": "Zuerst Marke oder Modellgruppe wählen – der Katalog wird nie als Ganzes abgefragt.",
+      "cursor_invalid": "Ungültige Seite.",
+      "page_invalid": "Ungültige Seite.",
+      "sort_field_unknown": "Nach diesem Feld kann der Katalog nicht sortiert werden.",
+      "vehicle_kind_unknown_to_provider": "Diese Fahrzeugart kennt der Anbieter nicht.",
+      "catalogue_scope_invalid": "Marke oder Modellgruppe ist kein gültiger Name."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1872,7 +1880,7 @@
   },
   "catalogueBrowse": {
     "title": "Katalog",
-    "subtitle": "Fahrzeugvarianten durchsuchen — Marke, Modell, Ausstattung. Aus dem Spiegel, nicht vom Anbieter.",
+    "subtitle": "Fahrzeugvarianten durchsuchen — Fahrzeugart, Marke, Modell, Ausstattung. Live vom Anbieter, Seite für Seite.",
     "tabs": {
       "browse": "Durchsuchen",
       "mappingGaps": "Zuordnungslücken",
@@ -1886,20 +1894,21 @@
     },
     "drilldown": {
       "brand": "Marke",
-      "brandPlaceholder": "Alle Marken",
+      "brandPlaceholder": "Marke wählen",
       "modelGroup": "Modellgruppe",
       "modelGroupPlaceholder": "Alle Modellgruppen",
       "modelGroupNeedsBrand": "Zuerst eine Marke wählen",
-      "brandsLoadError": "Marken konnten nicht geladen werden"
+      "brandsLoadError": "Marken konnten nicht geladen werden",
+      "vehicleKind": "Fahrzeugart"
     },
-    "searchPlaceholder": "Nach Variante, Modell oder Marke suchen…",
+    "searchPlaceholder": "Nach Bezeichnung suchen…",
     "labelsLoadError": {
       "title": "Bezeichnungen nicht verfügbar",
       "body": "Die Bezeichnungen der Katalogwerte konnten nicht geladen werden. Mit ⚠ markierte Werte zeigen ihren Code."
     },
     "unavailable": {
-      "title": "Katalog nicht verfügbar",
-      "body": "Für diesen Betrieb ist keine auto-i-dat-Verbindung aktiv. Verbinden Sie auto-i-dat, um den Katalog zu durchsuchen."
+      "title": "auto-i-dat nicht erreichbar",
+      "body": "Der Anbieter antwortet gerade nicht. Später erneut versuchen; die Identifikation bekannter Fahrzeuge funktioniert weiter."
     },
     "columns": {
       "brand": "Marke",
@@ -1935,24 +1944,19 @@
       "bodyStyle": "Aufbau",
       "drivetrain": "Antrieb",
       "transmission": "Getriebe",
-      "vehicleKind": "Fahrzeugart",
       "vehicleClass": "Fahrzeugklasse",
       "emissionStandard": "Abgasnorm",
-      "engineCycle": "Takt",
-      "ps": "PS",
       "kw": "kW",
       "displacementCcm": "Hubraum (cm³)",
       "doors": "Türen",
       "seats": "Plätze",
-      "co2Gkm": "CO₂ (g/km)",
-      "modelYearFrom": "Baujahr ab",
-      "basePrice": "Listenpreis"
+      "co2Gkm": "CO₂ (g/km)"
     },
     "allVariantsView": "Alle Varianten",
     "loadError": "Der Katalog konnte nicht geladen werden.",
     "emptyState": {
       "title": "Keine Varianten",
-      "description": "Für diesen Betrieb sind noch keine Katalogdaten synchronisiert."
+      "description": "Der Anbieter führt keine Variante für diese Auswahl."
     },
     "emptyFilteredState": {
       "title": "Keine Treffer",
@@ -1963,6 +1967,18 @@
       "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
+    },
+    "needsBrand": {
+      "title": "Marke wählen",
+      "description": "Fahrzeugart und Marke wählen — der Katalog wird live beim Anbieter abgefragt, Seite für Seite."
+    },
+    "notConfigured": {
+      "title": "Kein auto-i-dat-Zugang",
+      "body": "Für diesen Betrieb ist keine auto-i-dat-Verbindung aktiv. Ein Fahrzeug wird manuell erfasst; der Zugang wird unter Integrationen eingerichtet."
+    },
+    "notInContract": {
+      "title": "Katalog nicht im Vertrag",
+      "body": "auto-i-dat lehnt die Katalogabfrage ab: die Option «ident_basis» ist für diesen Zugang nicht lizenziert."
     }
   },
   "configurator": {

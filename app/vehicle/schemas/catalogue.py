@@ -68,14 +68,48 @@ class CatalogueBrowseMode(str, enum.Enum):
     RECORD = "record"
 
 
-class CatalogueModelGroupRead(CamelModel):
-    id: uuid.UUID
-    brand_id: uuid.UUID
+class CatalogueBrowseState(str, enum.Enum):
+    """What a live catalogue answer is (ADR-112; Anto, 2026-11-07: a normal
+    answer, never a 503). `ok` — the provider answered; `not_configured` —
+    this Betrieb has no vehicle-data connection, the manual configuration is
+    the path; `not_in_contract` — the provider refused the query (the
+    `ident_basis` option is not licensed); `unavailable` — the provider
+    could not be reached or failed."""
+
+    OK = "ok"
+    NOT_CONFIGURED = "notConfigured"
+    NOT_IN_CONTRACT = "notInContract"
+    UNAVAILABLE = "unavailable"
+
+
+class CatalogueBrandRead(CamelModel):
+    """One brand the provider lists for a vehicle kind (live, not stored)."""
+
     name: str
+    brand_nr: str | None
+    models: list[str]
+
+
+class CatalogueBrandPage(CamelModel):
+    items: list[CatalogueBrandRead]
+    state: CatalogueBrowseState
+
+
+class CatalogueModelGroupRead(CamelModel):
+    """One model group as the provider lists it (live, not stored): `key` is
+    the provider's model-group key, what `GET /catalogue/variants` takes as
+    `modelGroupKey`; `productionYearTo` is null while in production."""
+
+    key: str
+    name: str
+    model_search: str | None
+    production_year_from: int | None
+    production_year_to: int | None
 
 
 class CatalogueModelGroupPage(CamelModel):
     items: list[CatalogueModelGroupRead]
+    state: CatalogueBrowseState
 
 
 class CatalogueVariantPrice(CamelModel):
@@ -108,19 +142,25 @@ class CatalogueVariantRead(CamelModel):
 
 
 class CatalogueVariantPage(CamelModel):
+    """One provider page (ADR-112): `nextCursor` is the next provider page
+    number, `total` the provider's count (`includeCount`; null when it did not
+    count). `state` says why a page is empty; `browseAvailable` is `state ==
+    ok`, kept for the screens that read it before KAN-548."""
+
     items: list[CatalogueVariantRead]
     next_cursor: str | None
-    total: int
+    total: int | None
     total_is_estimate: bool
-    # PRD "Degradation by entitlement": no provider contract → browse is
-    # *hidden, not broken*. False ⇒ items/total are empty and the screen
-    # shows a "connect auto-i-dat" state, never a broken grid.
     browse_available: bool
+    state: CatalogueBrowseState
 
 
 class CatalogueFacetValue(CamelModel):
+    """A canonical value the provider holds in the drill-down scope. The
+    identAPI's `distinct` carries no counts: `count` is null since KAN-548."""
+
     value_code: str
-    count: int
+    count: int | None = None
 
 
 class CatalogueNumericFacet(CamelModel):
@@ -129,10 +169,12 @@ class CatalogueNumericFacet(CamelModel):
 
 
 class CatalogueFacetsRead(CamelModel):
-    """Every value that actually exists in the current drill-down scope,
-    with its row count — computed from the mirror, never the provider
-    (`FzgWerteGruppiert` is a later pre-aggregation accelerator, C-0)."""
+    """Every value the provider holds in the current drill-down scope
+    (`fields=<field> distinct`, one request per facet field, brand chosen
+    first — ADR-112). The identAPI offers no min/max aggregates, so `numeric`
+    is empty since KAN-548 and a number filter is typed freely."""
 
     browse_available: bool
+    state: CatalogueBrowseState
     coded: dict[str, list[CatalogueFacetValue]]
     numeric: dict[str, CatalogueNumericFacet]
