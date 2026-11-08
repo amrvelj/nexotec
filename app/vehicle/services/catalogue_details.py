@@ -44,7 +44,8 @@ load stored is kept indefinitely (KAN-487). Two opens of the same car by
 the same Betrieb are serialised by a transaction-scoped advisory lock on
 (Betrieb, variant), taken per detail on the request's own connection and
 released by that detail's commit, so two tabs send one set; another Betrieb's open of the same car waits only
-where both write the same shared row (a new mapping gap, a price year), and
+where both write the same shared row (a new mapping gap, a price year, a
+year's label), and
 the load itself holds no connection besides the request's own (the gateway's
 brief session aside, KAN-90).
 """
@@ -556,8 +557,8 @@ def _load_energy_label(
             continue
         # The table is shared by every Betrieb: two opens of the same car at
         # once may both find the year absent; the second insert loses on the
-        # unique key and the first one's row stands (`store_seen_variants`'s
-        # own pattern).
+        # unique key and the first one's row stands — in a savepoint of its
+        # own, so the years stored before it in this open stay.
         try:
             with db.begin_nested():
                 db.add(

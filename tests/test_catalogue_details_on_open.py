@@ -648,7 +648,14 @@ def test_a_rival_betrieb_writing_each_shared_row_first_never_fails_the_open(db_s
 
     from app.vehicle.services.plate import swiss_today
 
-    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
+    bodies = fix.detail_bodies()
+    # Two years from the label endpoint, 2024 first: the rival wins 2025, so
+    # without the insert's own savepoint the 2024 row stored before it is
+    # undone with the failed flush (review round 5).
+    bodies[fix.ENERGY_LABEL_PATH] = fix.body(
+        fix.energy_label_body(energy_class="C", year=2024)["data"] + fix.energy_label_body(energy_class="B", year=2025)["data"]
+    )
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies))
     this_year = swiss_today().year
     # the master-data visit on open must have a label row to insert
     db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=this_year).delete()
@@ -690,8 +697,14 @@ def test_a_rival_betrieb_writing_each_shared_row_first_never_fails_the_open(db_s
     assert set(_states(result).values()) == {"present"}
     gaps = db_session.scalars(select(MappingGap).where(MappingGap.provider_code == "Komfort")).all()
     assert len(gaps) == 1 and gaps[0].occurrences >= 2  # the loser counted its occurrence on the winner's row
-    for year in (this_year, 2025):
+    for year in (this_year, 2024, 2025):
         assert db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=year).count() == 1
+    # the row this open stored before the rival's year is kept
+    assert db_session.scalar(
+        select(ModelVariantEnergyRating.energy_efficiency_category).where(
+            ModelVariantEnergyRating.model_variant_id == variant.id, ModelVariantEnergyRating.rating_year == 2024
+        )
+    ) == "c"
     assert db_session.query(ColourCache).filter_by(tenant_id=s.connection.tenant_id, model_variant_id=variant.id).count() == 3
 
 
