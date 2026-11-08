@@ -85,8 +85,10 @@ export function ColourWheelsTab({
   const interiorOptions = (spec?.colours ?? []).filter((c) => c.colourType === 'interior')
   const tyreSpecs = spec?.tyreSpecs ?? []
   // KAN-211 / KAN-212 (ADR-123): why the catalogue offers no colour or no
-  // tyre data — a licence gap or a failed request — is said, never implied
-  // by an absent picker. The free-text fields work either way.
+  // tyre data — a licence gap, a failed request, or a variant the provider no
+  // longer lists (a loaded detail with that note) — is said, never implied by
+  // an absent picker; the notice renders nothing for a plain loaded detail.
+  // The free-text fields work either way.
   const coloursState = spec?.details.colours
   const tyresState = spec?.details.tyreSpecs
 
@@ -109,7 +111,7 @@ export function ColourWheelsTab({
         error={isError ? t('configurator.colour.typeListUnavailable') : undefined}
         clearable
         // Mantine keeps the clear button out of the accessibility tree (the
-        // input clears on Backspace); the name is for the pointer user's tooltip.
+        // input clears on Backspace); the name still travels with the button.
         clearButtonProps={{ 'aria-label': t('common.clear') }}
         searchable
         data-testid={`${field}-select`}
@@ -141,7 +143,7 @@ export function ColourWheelsTab({
         <Text fw={600} size="sm">
           {t('configurator.colour.exterior')}
         </Text>
-        {coloursState && coloursState.state !== 'present' && <DetailStateNotice detail="colours" state={coloursState} />}
+        {coloursState && <DetailStateNotice detail="colours" state={coloursState} />}
         <Group grow align="flex-end">
           <TextInput
             label={t('configurator.colour.exterior')}
@@ -204,7 +206,7 @@ export function ColourWheelsTab({
         <Text fw={600} size="sm">
           {t('configurator.wheels.title')}
         </Text>
-        {tyresState && tyresState.state !== 'present' && <DetailStateNotice detail="tyreSpecs" state={tyresState} />}
+        {tyresState && <DetailStateNotice detail="tyreSpecs" state={tyresState} />}
 
         {tyreSpecs.length > 0 && (
           <Table data-testid="tyre-spec-table" withTableBorder={false}>

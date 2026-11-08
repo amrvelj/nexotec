@@ -179,3 +179,72 @@ describe('ConfiguratorOverlay — re-sync (FR-C-16)', () => {
     expect(applied[0]).toEqual({ body: { fields: ['kw'] }, ifMatch: '3' })
   })
 })
+
+// KAN-211 — the colour type the advisor named, on a reopened configuration.
+describe('ConfiguratorOverlay — colour type on a reopened configuration (KAN-211)', () => {
+  const COLOUR_TYPE_ROUTE: FakeRoute = {
+    method: 'GET',
+    match: /\/reference-data\/colour_type$/,
+    handler: () => ({
+      items: [
+        { id: 'ct-1', listCode: 'colour_type', valueCode: 'metallic', labelDe: 'Metallic', labelFr: 'Métallisé', labelIt: 'Metallizzato', labelEn: 'Metallic', sortOrder: 0, active: true, version: 1 },
+        // retired since the configuration stored it
+        { id: 'ct-2', listCode: 'colour_type', valueCode: 'chrome', labelDe: 'Chrom', labelFr: 'Chrome', labelIt: 'Cromo', labelEn: 'Chrome', sortOrder: 1, active: false, version: 1 },
+      ],
+      nextCursor: null,
+    }),
+  }
+
+  it('shows a retired stored type by its label, disabled, and refuses the save naming the field', async () => {
+    const user = userEvent.setup()
+    const patched: unknown[] = []
+    installFakeBackend([
+      COLOUR_TYPE_ROUTE,
+      { method: 'PATCH', match: /^\/configurations\/cfg-1$/, handler: (req) => { patched.push(req.body); return configurationRead({ version: 2 }) } },
+      ...BASE_ROUTES,
+    ])
+    renderWithProviders(
+      <ConfiguratorOverlay allowedModes={['build']} existing={configurationRead({ exteriorColourType: 'chrome' })} onCommitted={vi.fn()} onClose={vi.fn()} />,
+    )
+
+    await user.click(await screen.findByText(i18n.t('configurator.sections.colour')))
+    const select = screen.getByTestId('exteriorColourType-select') as HTMLInputElement
+    await waitFor(() => expect(select.value).toBe('Chrom'))
+
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+    expect(await screen.findByText(i18n.t('configurator.spec.retiredSaveError', { fields: i18n.t('configurator.colour.exteriorType') }))).toBeInTheDocument()
+    expect(patched).toHaveLength(0)
+  })
+
+  it('says on the summary why the Energieetikette could not be taken over (energy_label_ambiguous)', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants\/v1\/specification$/,
+        handler: () => ({
+          hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false,
+          details: { ...detailsPresent, energyLabel: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'energy_label_ambiguous' } },
+          dealerCanUploadImages: true, options: [], colours: [], tyreSpecs: [], images: [], optionRelations: [],
+        }),
+      },
+      ...BASE_ROUTES,
+    ])
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} existing={configurationRead()} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByText(i18n.t('configurator.sections.summary')))
+    const notice = await screen.findByTestId('detail-state-energyLabel')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.energyLabelAmbiguous'))
+    expect(notice).not.toHaveTextContent('energy_label_ambiguous')
+  })
+
+  it('renders no energy-label notice on the summary when the label is simply loaded', async () => {
+    const user = userEvent.setup()
+    installFakeBackend(BASE_ROUTES)
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} existing={configurationRead()} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByText(i18n.t('configurator.sections.summary')))
+    await screen.findByTestId('configuration-summary-card')
+    expect(screen.queryByTestId('detail-state-energyLabel')).not.toBeInTheDocument()
+  })
+})

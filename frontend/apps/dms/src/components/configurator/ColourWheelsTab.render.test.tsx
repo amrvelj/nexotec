@@ -256,4 +256,19 @@ describe('ColourWheelsTab — per-detail state (KAN-211, KAN-212)', () => {
     expect(screen.queryByTestId('detail-state-colours')).not.toBeInTheDocument()
     expect(screen.queryByTestId('detail-state-tyreSpecs')).not.toBeInTheDocument()
   })
+
+  it('says the provider no longer lists the variant when the loaded colours carry that note', () => {
+    // `_load_colours` ends a vanished key in `present` with `variant_unknown_at_provider`:
+    // no picker, and the reason said — translated, never the raw note.
+    renderTab({
+      spec: buildSpec({
+        colours: [],
+        details: { ...detailsPresent, colours: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'variant_unknown_at_provider' } },
+      }),
+    })
+    const notice = screen.getByTestId('detail-state-colours')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.variantUnknownAtProvider'))
+    expect(notice).not.toHaveTextContent('variant_unknown_at_provider')
+    expect(screen.queryByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))).not.toBeInTheDocument()
+  })
 })

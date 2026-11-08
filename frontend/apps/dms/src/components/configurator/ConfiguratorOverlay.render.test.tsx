@@ -339,7 +339,19 @@ describe('ConfiguratorOverlay', () => {
 
   it('KAN-43 (C-E) — picking a catalogue colour and typing a wheels description both reach the save body', async () => {
     const user = userEvent.setup()
-    const ctx = install()
+    // KAN-211: the paint type is the advisor's pick from the `colour_type` list.
+    const ctx = install([
+      {
+        method: 'GET',
+        match: /\/reference-data\/colour_type$/,
+        handler: () => ({
+          items: [
+            { id: 'ct-1', listCode: 'colour_type', valueCode: 'metallic', labelDe: 'Metallic', labelFr: 'Métallisé', labelIt: 'Metallizzato', labelEn: 'Metallic', sortOrder: 0, active: true, version: 1 },
+          ],
+          nextCursor: null,
+        }),
+      },
+    ])
     renderWithProviders(<Host onCommitted={vi.fn()} />)
     await openOverlay(user)
 
@@ -352,6 +364,8 @@ describe('ConfiguratorOverlay', () => {
     await user.click(pickers[0])
     await user.click(await screen.findByRole('option', { name: 'Rosso competizione' }))
     await user.type(screen.getByLabelText(i18n.t('configurator.wheels.description')), '19" Turini')
+    await user.click(screen.getByTestId('exteriorColourType-select'))
+    await user.click(await screen.findByRole('option', { name: 'Metallic' }))
 
     // The catalogue's own tyre dimension is shown as reference material.
     expect(screen.getByTestId('tyre-spec-table')).toBeInTheDocument()
@@ -367,6 +381,8 @@ describe('ConfiguratorOverlay', () => {
     expect(body.exteriorColour).toBe('Rosso competizione')
     expect(body.exteriorColourSurcharge).toBe('1100.00')
     expect(body.wheels).toBe('19" Turini')
+    expect(body.exteriorColourType).toBe('metallic') // KAN-211
+    expect(body.interiorColourType).toBeNull()
   })
 
   it('KAN-43 (C-E) — selecting a catalogue option carries it into a separate options save', async () => {

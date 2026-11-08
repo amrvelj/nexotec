@@ -558,18 +558,6 @@ describe('OptionsTab — per-detail state (KAN-211, KAN-212)', () => {
     expect(notice).not.toHaveTextContent('ProviderGatewayError')
   })
 
-  it('translates a known note, and says so when the provider no longer lists the variant', () => {
-    renderTab({
-      spec: buildSpec({
-        options: [],
-        details: { ...detailsPresent, options: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'variant_unknown_at_provider' } },
-      }),
-    })
-    expect(screen.getByTestId('detail-state-options')).toHaveTextContent(i18n.t('configurator.details.notes.variantUnknownAtProvider'))
-    expect(screen.queryByText(i18n.t('configurator.options.empty'))).not.toBeInTheDocument()
-    expect(screen.queryByText('variant_unknown_at_provider')).not.toBeInTheDocument()
-  })
-
   it('says «noch nicht geladen» for a Betrieb that never asked', () => {
     renderTab({ spec: buildSpec({ options: [], details: { ...detailsPresent, options: { state: 'notLoaded' } } }) })
     expect(screen.getByTestId('detail-state-options')).toHaveTextContent(i18n.t('configurator.details.notLoaded.title'))

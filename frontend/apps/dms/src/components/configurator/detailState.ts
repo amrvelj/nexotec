@@ -20,5 +20,5 @@ export const DETAIL_NOTE_I18N_KEY: Record<string, string> = {
 /** Whether a loaded (`present`) detail carries a note worth a line on
  * screen — the provider's coherent «nothing» (a key it no longer lists). */
 export function hasNoteToShow(state: CatalogueDetailStateRead): boolean {
-  return state.note != null && state.note in DETAIL_NOTE_I18N_KEY
+  return state.note != null && Object.hasOwn(DETAIL_NOTE_I18N_KEY, state.note)
 }

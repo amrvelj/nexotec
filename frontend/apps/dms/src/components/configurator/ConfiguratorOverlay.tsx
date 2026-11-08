@@ -931,10 +931,10 @@ export function ConfiguratorOverlay({
             autosize
             minRows={2}
           />
-          {/* KAN-211 / KAN-212: the Energieetikette's load state, where the label is read. */}
-          {specQuery.data && specQuery.data.details.energyLabel.state !== 'present' && (
-            <DetailStateNotice detail="energyLabel" state={specQuery.data.details.energyLabel} />
-          )}
+          {/* KAN-211 / KAN-212: the Energieetikette's load state, where the label is
+           * read — nothing for a plain loaded label, the reason when the gearboxes
+           * disagree on the class (`energy_label_ambiguous`). */}
+          {specQuery.data && <DetailStateNotice detail="energyLabel" state={specQuery.data.details.energyLabel} />}
           <ConfigurationSummaryCard configuration={readModel} />
         </Stack>
       )}

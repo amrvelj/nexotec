@@ -485,7 +485,10 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   car still built).
   **On screen** (KAN-211 PR 2, KAN-212): each tab of the configurator shows its detail's state through the one
   `DetailStateNotice` — «Nicht in Ihrem Vertrag» (`notInContract`), «vom Anbieter derzeit nicht verfügbar»
-  (`unavailable`), «noch nicht geladen» (`notLoaded`); a loaded detail shows its data and nothing else — and the
+  (`unavailable`), «noch nicht geladen» (`notLoaded`); a loaded detail shows its data and nothing else, unless its
+  note says the provider answered a coherent «nothing» (`variant_unknown_at_provider` on the colours,
+  `energy_label_ambiguous` on the label): then one translated line says so, and a failure's class name never
+  reaches the screen — and the
   options tab offers a search over text, manufacturer code and auto-i key (every option of the opened car is loaded,
   Anto 2026-11-08). The colour's **name is shown as delivered and its type is the advisor's pick** (the identAPI
   carries no finish): `exterior_colour_type` from the `colour_type` list, `interior_colour_type` from the
