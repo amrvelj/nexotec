@@ -201,11 +201,14 @@ describe('ColourWheelsTab — colour type (KAN-211)', () => {
     expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ exteriorColourType: expect.anything() }))
   })
 
-  it('keeps a stored type the list no longer offers visible, marked, and clearable', async () => {
+  it('keeps a stored type the list no longer offers visible, labelled and disabled, and clearable', async () => {
     const user = userEvent.setup()
-    const { onChange } = renderTab({ exteriorColourType: 'chrome' })
+    const { onChange } = renderTab({
+      exteriorColourType: 'chrome',
+      exteriorColourTypeOptions: { options: [...COLOUR_TYPES, { value: 'chrome', label: 'Chrom (chrome)', disabled: true }], isError: false },
+    })
     const select = screen.getByTestId('exteriorColourType-select') as HTMLInputElement
-    expect(select.value).toBe('⚠ chrome')
+    expect(select.value).toBe('Chrom (chrome)')
     // Mantine marks the clear button aria-hidden (the input itself clears on
     // Backspace); it is still the one the mouse user clicks.
     await user.click(screen.getByLabelText(i18n.t('common.clear')))
@@ -221,6 +224,11 @@ describe('ColourWheelsTab — colour type (KAN-211)', () => {
     renderTab({ spec: undefined })
     expect(screen.getByTestId('exteriorColourType-select')).toBeInTheDocument()
     expect(screen.getByTestId('interiorColourType-select')).toBeInTheDocument()
+  })
+
+  it('lets the stored code stand in while the list has not arrived, never a marker', () => {
+    renderTab({ exteriorColourType: 'metallic', exteriorColourTypeOptions: { options: [], isError: false } })
+    expect((screen.getByTestId('exteriorColourType-select') as HTMLInputElement).value).toBe('metallic')
   })
 })
 

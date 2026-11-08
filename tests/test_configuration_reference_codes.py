@@ -565,3 +565,38 @@ def test_a_host_copy_carries_both_colour_types(client, db_session):
 
     assert copy.id != source.id
     assert (copy.exterior_colour_type, copy.interior_colour_type) == ("matte", "alcantara")
+
+
+def test_a_provider_create_checks_the_colour_types_too(client, db_session):
+    """The catalogue carries no finish, so the types are the advisor's on a
+    provider configuration as well — and checked there as well: a bad value
+    is a 422 and nothing is stored (review of PR 2: the provider branch once
+    skipped the check)."""
+
+    _seed_coded_lists(db_session)
+    _seed_colour_type_lists(db_session)
+    variant = _variant(db_session, **{k: v for k, v in zip(_CODED_LISTS, MANUAL_CODED_JSON.values(), strict=True)})
+
+    r = _post(client, uuid.uuid4(), {
+        "source": "provider", "mode": "build", "matchMethod": "catalogue_browse",
+        "catalogueVariantId": str(variant.id), "exteriorColourType": "glitter", "interiorColourType": "velvet",
+    })
+
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["details"]["invalid"] == {"exteriorColourType": "glitter", "interiorColourType": "velvet"}
+    assert _configuration_count(db_session) == 0
+
+    ok = _post(client, uuid.uuid4(), {
+        "source": "provider", "mode": "build", "matchMethod": "catalogue_browse",
+        "catalogueVariantId": str(variant.id), "exteriorColourType": "pearl",
+    })
+    assert ok.status_code == 201, ok.text
+    assert ok.json()["exteriorColourType"] == "pearl"
+
+
+def test_a_missing_colour_type_list_names_the_list_checked_not_the_field(client, db_session):
+    _seed_coded_lists(db_session)
+    _seed_list(db_session, "interior_colour_type", "fabric")
+
+    with pytest.raises(RuntimeError, match="'colour_type' reference list is not seeded.*exteriorColourType"):
+        _post(client, uuid.uuid4(), _manual(exteriorColourType="metallic"))

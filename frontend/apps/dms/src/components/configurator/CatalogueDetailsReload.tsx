@@ -9,7 +9,7 @@ import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { apiRefusalText } from '../../utils/apiRefusal'
 import { formatDateTime } from '../../utils/format'
 import type { CatalogueSpecificationRead } from '../../api/types'
-import { detailStateLabelKey, type CatalogueDetailName } from './DetailStateNotice'
+import { detailStateLabelKey, type CatalogueDetailName } from './detailState'
 
 const DETAILS: CatalogueDetailName[] = ['options', 'colours', 'tyreSpecs', 'images', 'energyLabel']
 

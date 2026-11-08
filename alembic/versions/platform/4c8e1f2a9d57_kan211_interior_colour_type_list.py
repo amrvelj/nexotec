@@ -4,8 +4,9 @@ The advisor names a configuration's upholstery type by hand (Anto,
 2026-11-08: «we ask the user to select manually the colour type, as well as
 for interior»); the paint finish already has its list (`colour_type`,
 6ba0a99ed5c4). This list holds the upholstery materials a Swiss dealer
-names: Stoff, Leder, Teilleder, Alcantara, Kunstleder, Sonstiges. An admin
-edits it in Dealer Administration like every reference list (A-RULE-0).
+names: Stoff, Leder, Teilleder, Alcantara, Kunstleder, Sonstiges. Platform
+staff edit it on the Reference data screen (`/settings/reference`,
+`referenceLists.ts` lists it) like every reference list.
 
 Same shape as b13e074523d7: insert-if-absent, so a value an admin already
 added by hand is left as it is; skipped offline because it reads rows.

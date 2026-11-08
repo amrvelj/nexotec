@@ -2247,10 +2247,9 @@
       "error": "L'actualisation a échoué."
     },
     "details": {
-      "loadedAt": "Chargé le {{date}}",
       "notInContract": {
         "title": "Pas dans votre contrat",
-        "body": "auto-i-dat ne fournit pas ces données pour votre accès : l'option n'est pas sous licence. Un accès disposant de cette option les charge à la prochaine ouverture."
+        "body": "auto-i-dat ne fournit pas ces données pour votre accès : l'option n'est pas sous licence. Dès qu'un test de la connexion constate que l'option est sous licence, elles sont chargées à la prochaine ouverture."
       },
       "unavailable": {
         "title": "Indisponible chez le fournisseur pour le moment",
@@ -2272,6 +2271,11 @@
         "notInContract": "Pas dans votre contrat",
         "unavailable": "Indisponible",
         "notLoaded": "Pas encore chargé"
+      },
+      "notes": {
+        "entitlementAbsent": "Le test de la connexion a constaté que cette option n'est pas sous licence ; auto-i-dat n'a pas été interrogé.",
+        "variantUnknownAtProvider": "auto-i-dat ne répertorie plus cette variante ; il n'y a rien à charger.",
+        "energyLabelAmbiguous": "auto-i-dat indique pour cette année des classes différentes selon la boîte de vitesses ; aucune n'a été reprise."
       }
     }
   },

@@ -2247,10 +2247,9 @@
       "error": "Die Aktualisierung ist fehlgeschlagen."
     },
     "details": {
-      "loadedAt": "Geladen am {{date}}",
       "notInContract": {
         "title": "Nicht in Ihrem Vertrag",
-        "body": "auto-i-dat liefert diese Daten für Ihren Zugang nicht: die Option ist nicht lizenziert. Ein Zugang mit dieser Option lädt sie beim nächsten Öffnen."
+        "body": "auto-i-dat liefert diese Daten für Ihren Zugang nicht: die Option ist nicht lizenziert. Sobald eine Verbindungsprüfung die Option als lizenziert feststellt, werden sie beim nächsten Öffnen geladen."
       },
       "unavailable": {
         "title": "Vom Anbieter derzeit nicht verfügbar",
@@ -2272,6 +2271,11 @@
         "notInContract": "Nicht in Ihrem Vertrag",
         "unavailable": "Nicht verfügbar",
         "notLoaded": "Noch nicht geladen"
+      },
+      "notes": {
+        "entitlementAbsent": "Die Prüfung der Verbindung hat diese Option als nicht lizenziert festgestellt; auto-i-dat wurde nicht angefragt.",
+        "variantUnknownAtProvider": "auto-i-dat führt diese Variante nicht mehr; es gibt dazu nichts zu laden.",
+        "energyLabelAmbiguous": "auto-i-dat nennt für dieses Jahr je nach Getriebe verschiedene Klassen; es wurde keine übernommen."
       }
     }
   },

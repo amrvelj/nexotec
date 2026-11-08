@@ -2247,10 +2247,9 @@
       "error": "Re-sync failed."
     },
     "details": {
-      "loadedAt": "Loaded on {{date}}",
       "notInContract": {
         "title": "Not in your contract",
-        "body": "auto-i-dat does not deliver this data for your account: the option is not licensed. An account with the option loads it on the next open."
+        "body": "auto-i-dat does not deliver this data for your account: the option is not licensed. Once a connection test finds the option licensed, it is loaded on the next open."
       },
       "unavailable": {
         "title": "Currently unavailable from the provider",
@@ -2272,6 +2271,11 @@
         "notInContract": "Not in your contract",
         "unavailable": "Unavailable",
         "notLoaded": "Not loaded yet"
+      },
+      "notes": {
+        "entitlementAbsent": "The connection test found this option unlicensed; auto-i-dat was not asked.",
+        "variantUnknownAtProvider": "auto-i-dat no longer lists this variant; there is nothing to load.",
+        "energyLabelAmbiguous": "auto-i-dat names different classes for this year depending on the gearbox; none was taken over."
       }
     }
   },

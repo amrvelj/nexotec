@@ -3,6 +3,7 @@ import { Info, Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
 import { DetailStateNotice } from './DetailStateNotice'
+import { hasNoteToShow } from './detailState'
 
 // BildTyp (small/large) and BildArt (exterior/interior) are FR-C-09's own
 // fixed, documented two-value codes — unlike an axle or option code, there
@@ -57,11 +58,11 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
   // entitlement notice below stays for a Betrieb whose licence the probe
   // already found wanting before any car was opened.
   const detailState = spec.details.images
-  if (detailState.state === 'notInContract' || detailState.state === 'unavailable') {
+  if (spec.images.length === 0 && (detailState.state === 'notInContract' || detailState.state === 'unavailable')) {
     return <DetailStateNotice detail="images" state={detailState} />
   }
 
-  if (!spec.imagesAvailable) {
+  if (!spec.imagesAvailable && spec.images.length === 0) {
     return (
       <Alert
         color="yellow"
@@ -89,7 +90,7 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
   }
 
   if (spec.images.length === 0) {
-    return detailState.state === 'present' ? (
+    return detailState.state === 'present' && !hasNoteToShow(detailState) ? (
       <Alert color="gray" icon={<Info size={16} />}>
         {t('configurator.images.empty')}
       </Alert>
@@ -98,7 +99,12 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
     )
   }
 
+  // Photos still stored under a notice (a reload the provider refused or
+  // failed keeps the earlier rows): the notice says so, the photos stay —
+  // as OptionsTab keeps its list.
   return (
+    <Stack gap="md">
+      {detailState.state !== 'present' && <DetailStateNotice detail="images" state={detailState} />}
     <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md" data-testid="images-tab">
       {[...spec.images]
         .sort((a, b) => a.sequence - b.sequence)
@@ -133,5 +139,6 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
           </Stack>
         ))}
     </SimpleGrid>
+    </Stack>
   )
 }

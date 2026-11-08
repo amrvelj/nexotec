@@ -2247,10 +2247,9 @@
       "error": "L'aggiornamento non è riuscito."
     },
     "details": {
-      "loadedAt": "Caricato il {{date}}",
       "notInContract": {
         "title": "Non nel vostro contratto",
-        "body": "auto-i-dat non fornisce questi dati per il vostro accesso: l'opzione non è in licenza. Un accesso con questa opzione li carica alla prossima apertura."
+        "body": "auto-i-dat non fornisce questi dati per il vostro accesso: l'opzione non è in licenza. Non appena un test della connessione rileva l'opzione come in licenza, vengono caricati alla prossima apertura."
       },
       "unavailable": {
         "title": "Al momento non disponibile presso il fornitore",
@@ -2272,6 +2271,11 @@
         "notInContract": "Non nel vostro contratto",
         "unavailable": "Non disponibile",
         "notLoaded": "Non ancora caricato"
+      },
+      "notes": {
+        "entitlementAbsent": "Il test della connessione ha rilevato che questa opzione non è in licenza; auto-i-dat non è stato interrogato.",
+        "variantUnknownAtProvider": "auto-i-dat non elenca più questa variante; non c'è nulla da caricare.",
+        "energyLabelAmbiguous": "auto-i-dat indica per quest'anno classi diverse a seconda del cambio; nessuna è stata ripresa."
       }
     }
   },

@@ -31,7 +31,11 @@ export interface ColourWheelsFields {
 }
 
 export interface ColourTypeOptions {
-  options: { value: string; label: string }[]
+  /** The list's active values, plus the stored value when the list no
+   * longer offers it — labelled and `disabled`, so the advisor sees what is
+   * stored and picks a current one (the KAN-96 pattern, built by the overlay's
+   * `specRefOptionsOf`). */
+  options: { value: string; label: string; disabled?: boolean }[]
   /** The list could not be loaded: the select says so instead of offering
    * nothing silently (the KAN-239 pattern). */
   isError: boolean
@@ -92,9 +96,9 @@ export function ColourWheelsTab({
     value: string,
     { options, isError }: ColourTypeOptions,
   ) => {
-    // A stored value the list no longer offers stays visible, disabled, so
-    // the advisor sees it and picks a current one (the KAN-96 pattern).
-    const data = options.some((o) => o.value === value) || value === '' ? options : [...options, { value, label: `⚠ ${value}`, disabled: true }]
+    // Until the list arrives the stored code stands in for its label (as
+    // `refLabelOf` does); the overlay's options carry a retired value, labelled.
+    const data = options.some((o) => o.value === value) || value === '' ? options : [...options, { value, label: value, disabled: true }]
     return (
       <Select
         label={label}
@@ -104,6 +108,8 @@ export function ColourWheelsTab({
         onChange={(v) => onChange({ [field]: v ?? '' })}
         error={isError ? t('configurator.colour.typeListUnavailable') : undefined}
         clearable
+        // Mantine keeps the clear button out of the accessibility tree (the
+        // input clears on Backspace); the name is for the pointer user's tooltip.
         clearButtonProps={{ 'aria-label': t('common.clear') }}
         searchable
         data-testid={`${field}-select`}

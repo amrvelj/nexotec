@@ -23,6 +23,7 @@ import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 import { OptionsTab } from './OptionsTab'
 import { ColourWheelsTab } from './ColourWheelsTab'
 import { ImagesTab } from './ImagesTab'
+import { DetailStateNotice } from './DetailStateNotice'
 import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel'
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
 import { HostCommitError } from './hostCommitError'
@@ -453,12 +454,13 @@ export function ConfiguratorOverlay({
     .filter((r) => r.active)
     .map((r) => ({ value: r.valueCode, label: r.label }))
   // KAN-211 — the colour types the advisor names by hand (`ColourWheelsTab`).
-  const colourTypeOptionsOf = (listCode: string) => ({
-    options: (refLabels.data?.[listCode] ?? []).filter((r) => r.active).map((r) => ({ value: r.valueCode, label: r.label })),
+  // A retired stored value stays visible, disabled, labelled (KAN-96's pattern).
+  const colourTypeOptionsOf = (listCode: string, current: string) => ({
+    options: specRefOptionsOf(refLabels.data, listCode, current || null),
     isError: refLabels.data !== undefined && refLabels.data[listCode] === null,
   })
-  const exteriorColourTypeOptions = colourTypeOptionsOf('colour_type')
-  const interiorColourTypeOptions = colourTypeOptionsOf('interior_colour_type')
+  const exteriorColourTypeOptions = colourTypeOptionsOf('colour_type', draft?.exteriorColourType ?? '')
+  const interiorColourTypeOptions = colourTypeOptionsOf('interior_colour_type', draft?.interiorColourType ?? '')
   const codedLabelField = LABEL_FIELD[resolveLanguage(i18n.language)]
 
   const save = async () => {
@@ -484,6 +486,9 @@ export function ConfiguratorOverlay({
           specRefWillBeSent(draft.source, draft.overridden, f.key as string) &&
           specRefRetiredOf(refLabels.data, f.listCode!, (draft.spec[f.key] as string) ?? null),
       ).map((f) => t(specFieldLabelKey(f.key as string))),
+      // KAN-211: the colour types are always sent and refused when retired, like the rest.
+      ...(specRefRetiredOf(refLabels.data, 'colour_type', draft.exteriorColourType || null) ? [t('configurator.colour.exteriorType')] : []),
+      ...(specRefRetiredOf(refLabels.data, 'interior_colour_type', draft.interiorColourType || null) ? [t('configurator.colour.interiorType')] : []),
     ]
     if (retired.length > 0) {
       setError(t('configurator.spec.retiredSaveError', { fields: retired.join(', ') }))
@@ -926,6 +931,10 @@ export function ConfiguratorOverlay({
             autosize
             minRows={2}
           />
+          {/* KAN-211 / KAN-212: the Energieetikette's load state, where the label is read. */}
+          {specQuery.data && specQuery.data.details.energyLabel.state !== 'present' && (
+            <DetailStateNotice detail="energyLabel" state={specQuery.data.details.energyLabel} />
+          )}
           <ConfigurationSummaryCard configuration={readModel} />
         </Stack>
       )}

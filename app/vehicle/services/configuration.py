@@ -339,6 +339,9 @@ def create_configuration(
         config.catalogue_variant_label = _variant_label(variant)
         config.catalogue_variant_label_refreshed_at = utcnow()
         _copy_spec_block_from_variant(config, variant)
+        # KAN-211: the colour types are the advisor's on a provider configuration
+        # too (the catalogue carries no finish), so they are checked here as well.
+        validate_reference_codes(db, {f: getattr(data, f) for f in _COLOUR_TYPE_LISTS}, _COLOUR_TYPE_LISTS, list_codes=_COLOUR_TYPE_LISTS)
         config.catalogue_match_status = (
             ConfigurationMatchStatus.BEST_MATCH_CONFIRMED
             if data.confirmed_best_match_code == 2

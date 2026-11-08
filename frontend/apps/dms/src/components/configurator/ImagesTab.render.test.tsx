@@ -131,6 +131,19 @@ describe('ImagesTab', () => {
       spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }),
     })
     expect(screen.getByTestId('detail-state-images')).toHaveTextContent(i18n.t('configurator.details.unavailable.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
+
+  it('keeps the stored photos visible under the notice when a reload failed (as OptionsTab keeps its list)', () => {
+    renderTab({ spec: buildSpec({ details: { ...detailsPresent, images: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }) })
+    expect(screen.getByTestId('detail-state-images')).toBeInTheDocument()
+    expect(screen.getByTestId('images-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('image-fz1-front.jpg')).toBeInTheDocument()
+  })
+
+  it('renders no state notice when the photos are loaded', () => {
+    renderTab()
+    expect(screen.queryByTestId('detail-state-images')).not.toBeInTheDocument()
   })
 
   it('says «noch nicht geladen» for a Betrieb that never asked, and «empty» only once loaded', () => {

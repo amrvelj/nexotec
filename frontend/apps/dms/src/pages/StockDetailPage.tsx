@@ -79,10 +79,10 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const canCreateContract = useCanWrite('sales_contracts')
   const canCreateOffer = useCanWrite('sales_offers')
   // KAN-211 (ADR-123): «Neu laden» of the car's catalogue details is the
-  // dealer manager's (or platform staff's) — not a matrix row, a role.
-  const sessionUser = useAuth().user
-  const canReloadCatalogueDetails =
-    sessionUser?.isDealerManager === true || (sessionUser?.accessRoles ?? []).includes('platform_admin')
+  // dealer manager's (or platform staff's) — the ACTIVE Betrieb's flag as the
+  // session carries it, never `user.isDealerManager` (the home Betrieb's).
+  const { user: sessionUser, isActiveDealershipManager } = useAuth()
+  const canReloadCatalogueDetails = isActiveDealershipManager || (sessionUser?.accessRoles ?? []).includes('platform_admin')
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
 
   const setActiveTab = (tab: string) => {

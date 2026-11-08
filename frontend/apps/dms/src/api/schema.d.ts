@@ -8061,6 +8061,11 @@ export interface components {
             activeDealership: components["schemas"]["DealershipMembershipSummary"];
             /** Entitlements */
             entitlements: components["schemas"]["ModuleCode"][];
+            /**
+             * Isactivedealershipmanager
+             * @default false
+             */
+            isActiveDealershipManager?: boolean;
             /** Memberships */
             memberships: components["schemas"]["DealershipMembershipSummary"][];
             /**

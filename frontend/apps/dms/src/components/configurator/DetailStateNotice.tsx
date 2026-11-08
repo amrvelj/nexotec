@@ -1,24 +1,11 @@
 import { Alert, Text } from '@mantine/core'
 import { Info, Plug, Unplug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { toSwissLocale, type SupportedLanguage } from '../../i18n'
-import { formatDateTime } from '../../utils/format'
-import type { CatalogueSpecificationRead } from '../../api/types'
-
-export type CatalogueDetailName = keyof CatalogueSpecificationRead['details']
-export type CatalogueDetailStateRead = CatalogueSpecificationRead['details'][CatalogueDetailName]
-
-/** The key under `configurator.details.state` for a state value. */
-export function detailStateLabelKey(state: CatalogueDetailStateRead['state']): string {
-  return `configurator.details.state.${state}`
-}
+import { DETAIL_NOTE_I18N_KEY, hasNoteToShow, type CatalogueDetailName, type CatalogueDetailStateRead } from './detailState'
 
 export interface DetailStateNoticeProps {
   detail: CatalogueDetailName
   state: CatalogueDetailStateRead
-  /** `true` renders «Geladen am …» for a loaded detail too; by default a
-   * loaded detail shows nothing — the data speaks for itself. */
-  showLoadedAt?: boolean
 }
 
 /**
@@ -26,20 +13,21 @@ export interface DetailStateNoticeProps {
  * screen, the same on every tab that shows a detail: «Nicht in Ihrem
  * Vertrag» when the provider's licence refused it, «derzeit nicht verfügbar»
  * when the request failed (the next open asks again), «noch nicht geladen»
- * when this Betrieb never asked. A loaded detail renders nothing unless
- * asked for its timestamp. The provider's note (the error class, a vanished
- * key) is a dimmed line for support, never the message itself.
+ * when this Betrieb never asked. A loaded detail renders nothing — unless
+ * its note says the provider answered a coherent «nothing» (a key it no
+ * longer lists), which reads as an information line. Every note is
+ * translated or left out: a failure's class name is for the call log.
  */
-export function DetailStateNotice({ detail, state, showLoadedAt = false }: DetailStateNoticeProps) {
-  const { t, i18n } = useTranslation()
-  const locale = toSwissLocale(i18n.language as SupportedLanguage)
+export function DetailStateNotice({ detail, state }: DetailStateNoticeProps) {
+  const { t } = useTranslation()
+  const noteKey = state.note != null ? DETAIL_NOTE_I18N_KEY[state.note] : undefined
 
   if (state.state === 'present') {
-    if (!showLoadedAt || !state.loadedAt) return null
+    if (!hasNoteToShow(state) || !noteKey) return null
     return (
-      <Text size="xs" c="dimmed" data-testid={`detail-state-${detail}`}>
-        {t('configurator.details.loadedAt', { date: formatDateTime(state.loadedAt, locale) })}
-      </Text>
+      <Alert color="gray" icon={<Info size={16} />} data-testid={`detail-state-${detail}`} data-state="present">
+        <Text size="sm">{t(noteKey)}</Text>
+      </Alert>
     )
   }
 
@@ -54,9 +42,9 @@ export function DetailStateNotice({ detail, state, showLoadedAt = false }: Detai
       data-state={state.state}
     >
       <Text size="sm">{t(`configurator.details.${state.state}.body`)}</Text>
-      {state.note && (
-        <Text size="xs" c="dimmed" mt={4} ff="monospace">
-          {state.note}
+      {noteKey && (
+        <Text size="xs" c="dimmed" mt={4}>
+          {t(noteKey)}
         </Text>
       )}
     </Alert>

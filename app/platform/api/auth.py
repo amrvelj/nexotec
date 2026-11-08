@@ -214,6 +214,7 @@ def _login_response(
 ) -> LoginResponse:
     rows = dealership_service.list_dealerships_by_ids(db, membership_ids)
     rows.sort(key=lambda d: (d.id != active_dealership.id, d.legal_name))
+    is_manager_here = user_service.is_dealer_manager_in(db, user=user, dealership_id=active_dealership.id)
     return LoginResponse(
         user=UserRead.model_validate(user, from_attributes=True),
         active_dealership=DealershipMembershipSummary.model_validate(active_dealership, from_attributes=True),
@@ -223,9 +224,10 @@ def _login_response(
             db, user=user, dealership_id=active_dealership.id, mfa_used=mfa_used
         ),
         # The same roles and manager flag the session's token carries (`_mint_session`).
+        is_active_dealership_manager=is_manager_here,
         writable_capabilities=writable_capabilities(
             roles=frozenset(AccessRole(role) for role in user.access_roles),
-            is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=active_dealership.id),
+            is_dealer_manager=is_manager_here,
         ),
     )
 

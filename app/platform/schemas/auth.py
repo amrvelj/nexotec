@@ -46,6 +46,11 @@ class LoginResponse(CamelModel):
     # `marketplace_publishing`, …), from `CAPABILITY_MATRIX` — the SPA hides
     # an action outside them. Presentation only: every write is still gated
     # by the server.
+    # KAN-211: the manager flag the session's token carries — the ACTIVE
+    # dealership's (`is_dealer_manager_in`), unlike `user.isDealerManager`,
+    # which is the home dealership's. The SPA gates «Neu laden» on it; the
+    # server's check stays the authority.
+    is_active_dealership_manager: bool = False
     writable_capabilities: list[str] = Field(
         default_factory=list,
         description=(
