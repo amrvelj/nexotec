@@ -1,46 +1,36 @@
-"""Per-tenant catalogue mirror sync (WP-6 PR-4) — the real work the
-provider-gateway mock/real adapters exist to feed. `app.integration.public
-.call_capability` is the only way this module ever reaches a provider;
-this file resolves the connection itself via `get_enabled_connection`
-(never handed one by a caller), so `app.integration` never needs to know
-anything about vehicle's own tables — the same seam
-`get_enabled_connection`'s own docstring describes.
+"""The catalogue's master-data store (WP-6 PR-4, reshaped by KAN-485, KAN-547,
+KAN-548 and KAN-211). `app.integration.public` is the only way `app.vehicle`
+reaches a provider; this module resolves the Betrieb's connection itself via
+`get_enabled_connection` (never handed one by a caller).
 
 No bulk retrieval, for any provider (ADR-023 as amended 2026-10-29; KAN-485).
 Anto's ruling: the auto-i-dat agreement permits single lookups only — never
 retrieving the whole catalogue, storing it or passing it on — and the demo
-provider follows the same rule so that nothing built on it assumes a full
-mirror. The full seed, the daily `FzKeyChanged` delta, its 3-month fallback
-reseed, the daily job that ran them and the sync-age alarm (A-12) built on
-their `System` watermark are gone; no adapter offers `FzKeyChanged` any more
-(`tests/architecture/test_no_bulk_catalogue_retrieval.py`). A variant reaches
-the catalogue only through a single lookup: identification's best match
-(`identification.py`, master data only; its plate lookup fills the plate-lookup
-cache, not the catalogue) or `sync_catalogue_variant` below (master data plus
-this tenant's options, colours, tyres and images; nothing calls it yet —
-KAN-211).
-The bookkeeping table those runs wrote (`vehicle_provider_sync_state`) and
-the platform's sync-status board that read it were retired by KAN-497 (Anto,
-2026-10-31, option A).
+provider follows the same rule. A variant reaches the catalogue only through
+a single lookup: identification (`identification.py`) or a catalogue browse
+page (`catalogue_browse.py`), both storing what they saw as master data
+(`store_seen_variants`, `upsert_model_variant`; ADR-075: global, readable by
+every Betrieb). The licensed details — options, colours, tyres, images, the
+energy label — load once per Betrieb when a car is opened
+(`catalogue_details.py`, KAN-211, ADR-123); the fetch-everything-at-once
+`sync_catalogue_variant` this module held until then is gone with its
+caller-less allow-list entry.
 
 Provider data a lookup stored is kept indefinitely (Anto, 2026-10-29, KAN-487:
-paid for once): there is no retention window on any of these tables.
+paid for once): there is no retention window on any of these tables. The
+bookkeeping table the full seed wrote (`vehicle_provider_sync_state`) and the
+platform's sync-status board that read it were retired by KAN-497.
 
-One lookup is one `call_capability` block and savepoint (KAN-78's per-key
-isolation): a provider failure — a Datenname the account is refused, a
-transport error — is logged by the gateway, charged to the connection's
-breaker, rolls this variant's writes back and comes back as a `SkippedFzKey`.
-Only a `ProviderGatewayError` raised *by a call* is handled this way; anything
-else is a bug and propagates. The gateway logs each provider request the block
-makes as its own call-log row (KAN-486), so one lookup shows up to five rows
-(`Fahrzeuge`, `Optionen`, `OptionenFarben`, `PneuDimTS`, `Bilder`).
+What stays here besides the master-data upsert: the code-map resolution the
+details share (`resolve_colour_or_tyre_code`, `sync_option_equipment_features`)
+and the "a resolved gap fills what it left NULL" repairs (KAN-83, KAN-250,
+KAN-75), which reach every tenant's rows at once.
 """
 
 import logging
 import re
 import uuid
-from dataclasses import dataclass
-from typing import Final, Literal
+from typing import Final
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -48,9 +38,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.integration.public import (
     IntegrationConnection,
-    ProviderGatewayError,
     VariantMasterData,
-    call_capability,
     get_enabled_connection,
 )
 from app.platform.public import get_active_reference_value_codes
@@ -64,7 +52,7 @@ from app.vehicle.models.catalogue import (
     VariantPrice,
     VariantTypeApproval,
 )
-from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import ColourCache, TyreSpecCache
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.provider import ProviderEntityRef, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.models.spec_block import SPEC_BLOCK_FIELDS
@@ -131,42 +119,6 @@ _FILLABLE_MASTER_FIELDS: Final = (
 )
 
 
-class NoVehicleDataConnectionError(Exception):
-    """`sync_catalogue_variant` for a tenant with no enabled vehicle-data
-    connection — a lookup with no contract to make it under. Reads never
-    raise it (PR-5's "fully usable module without a provider contract").
-    """
-
-    def __init__(self, tenant_id: uuid.UUID) -> None:
-        super().__init__(f"Tenant {tenant_id} has no enabled vehicle-data connection.")
-
-
-SkippedField = Literal["master_data", "options", "colours", "tyre_specs", "images"]
-
-
-@dataclass(frozen=True)
-class SkippedFzKey:
-    """A variant `sync_catalogue_variant` did not sync in full. `field` is
-    the call it failed on; `error` is the exception's class name, never its
-    message.
-    """
-
-    fz_key: str
-    field: SkippedField
-    error: str
-
-
-@dataclass
-class _KeyProgress:
-    """Which provider call the current FzKey is on, so a failure can name it."""
-
-    field: SkippedField = "master_data"
-    # Set as the first statement inside the `call_capability` block: a
-    # failure while it is still False came from resolving the adapter, not
-    # from a call about this key.
-    entered: bool = False
-
-
 def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
@@ -213,10 +165,30 @@ def _resolve_code(
         # (the vocabulary is per kind) and is no gap either — no value, no gap.
         return None
     canonical = resolve_provider_code(
-        db, provider=provider_code, vehicle_kind=vehicle_kind_qualifier, code_group=code_group,
+        db,
+        provider=provider_code,
+        vehicle_kind=vehicle_kind_qualifier,
+        code_group=code_group,
         provider_code=provider_value,
     )
     return canonical.value_code if canonical is not None else None
+
+
+def resolve_colour_or_tyre_code(
+    db: Session, *, provider_code: str, vehicle_kind_code: str, code_group: str, raw_code: str | None
+) -> str | None:
+    """KAN-75, for `catalogue_details`: `FarbArt`, `AchsenCode` and `PneuTyp`
+    resolve through the code map like every other coded field — an unknown
+    code is a mapping gap and leaves the value NULL, never a guess (FR-C-10);
+    the raw code stays on the row for `apply_resolved_code_to_colours_and_tyres`."""
+
+    return _resolve_code(
+        db,
+        provider_code=provider_code,
+        vehicle_kind_qualifier=vehicle_kind_code,
+        code_group=code_group,
+        provider_value=raw_code,
+    )
 
 
 def store_seen_variants(db: Session, *, provider_code: str, masters: list[VariantMasterData]) -> list[ModelVariant]:
@@ -283,8 +255,12 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
     existing = find_variant_by_fz_key(db, provider_code=provider_code, fz_key=master.fz_key)
     if existing is not None:
         canonical_kind = existing.vehicle_kind or _resolve_kind(db, provider_code=provider_code, master=master)
-        _record_raw_codes(db, variant=existing, provider_code=provider_code, master=master, canonical_kind=canonical_kind)
-        _fill_null_fields(db, variant=existing, provider_code=provider_code, master=master, canonical_kind=canonical_kind)
+        _record_raw_codes(
+            db, variant=existing, provider_code=provider_code, master=master, canonical_kind=canonical_kind
+        )
+        _fill_null_fields(
+            db, variant=existing, provider_code=provider_code, master=master, canonical_kind=canonical_kind
+        )
         _link_type_approvals(db, variant=existing, type_approval_numbers=master.type_approval_numbers)
         _store_catalogue_prices(db, variant=existing, master=master)
         _store_energy_label(db, variant=existing, master=master)
@@ -309,7 +285,9 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
     db.flush()
     db.add(
         ProviderEntityRef(
-            entity_type=_ENTITY_TYPE_MODEL_VARIANT, entity_id=variant.id, provider=provider_code,
+            entity_type=_ENTITY_TYPE_MODEL_VARIANT,
+            entity_id=variant.id,
+            provider=provider_code,
             provider_key=master.fz_key,
         )
     )
@@ -343,8 +321,11 @@ def _raw_codes(master: VariantMasterData, *, canonical_kind: str | None) -> dict
 
 def _resolve_kind(db: Session, *, provider_code: str, master: VariantMasterData) -> str | None:
     return _resolve_code(
-        db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
-        code_group="vehicle_kind", provider_value=master.vehicle_kind_code,
+        db,
+        provider_code=provider_code,
+        vehicle_kind_qualifier=master.vehicle_kind_code,
+        code_group="vehicle_kind",
+        provider_value=master.vehicle_kind_code,
     )
 
 
@@ -361,8 +342,11 @@ def _resolve_codes(db: Session, *, provider_code: str, master: VariantMasterData
         if code_group == "vehicle_kind":
             continue
         resolved[code_group] = _resolve_code(
-            db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
-            code_group=code_group, provider_value=raw_code,
+            db,
+            provider_code=provider_code,
+            vehicle_kind_qualifier=master.vehicle_kind_code,
+            code_group=code_group,
+            provider_value=raw_code,
         )
     return resolved
 
@@ -391,8 +375,11 @@ def _record_raw_codes(
         elif row is None:
             db.add(
                 VariantProviderCode(
-                    model_variant_id=variant.id, provider=provider_code, vehicle_kind=master.vehicle_kind_code,
-                    code_group=code_group, provider_code=raw_code,
+                    model_variant_id=variant.id,
+                    provider=provider_code,
+                    vehicle_kind=master.vehicle_kind_code,
+                    code_group=code_group,
+                    provider_code=raw_code,
                 )
             )
         elif (row.vehicle_kind, row.provider_code) != (master.vehicle_kind_code, raw_code):
@@ -431,8 +418,11 @@ def _fill_null_fields(
             canonical = canonical_kind  # resolved once by the caller, its gap bumped once
         else:
             canonical = _resolve_code(
-                db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
-                code_group=code_group, provider_value=raw_code,
+                db,
+                provider_code=provider_code,
+                vehicle_kind_qualifier=master.vehicle_kind_code,
+                code_group=code_group,
+                provider_value=raw_code,
             )
         if canonical is not None:
             fills[code_group] = canonical
@@ -462,17 +452,18 @@ def _store_catalogue_prices(db: Session, *, variant: ModelVariant, master: Varia
 
     if not master.catalogue_prices:
         return
-    held = set(
-        db.scalars(select(VariantPrice.model_year).where(VariantPrice.model_variant_id == variant.id)).all()
-    )
+    held = set(db.scalars(select(VariantPrice.model_year).where(VariantPrice.model_variant_id == variant.id)).all())
     for price in master.catalogue_prices:
         if price.year in held:
             continue
         held.add(price.year)
         db.add(
             VariantPrice(
-                model_variant_id=variant.id, model_year=price.year, new_price=price.price,
-                price_is_net=bool(master.price_is_net), source="provider",
+                model_variant_id=variant.id,
+                model_year=price.year,
+                new_price=price.price,
+                price_is_net=bool(master.price_is_net),
+                source="provider",
             )
         )
     db.flush()
@@ -500,7 +491,9 @@ def _store_energy_label(db: Session, *, variant: ModelVariant, master: VariantMa
         return
     db.add(
         ModelVariantEnergyRating(
-            model_variant_id=variant.id, rating_year=year, energy_efficiency_category=label,
+            model_variant_id=variant.id,
+            rating_year=year,
+            energy_efficiency_category=label,
             source=_ENERGY_LABEL_SOURCE,
         )
     )
@@ -508,7 +501,13 @@ def _store_energy_label(db: Session, *, variant: ModelVariant, master: VariantMa
 
 
 def apply_resolved_code_to_variants(
-    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+    db: Session,
+    *,
+    provider: str,
+    vehicle_kind: str,
+    code_group: str,
+    provider_code: str,
+    value_code: str,
 ) -> int:
     """Fills `value_code` into every variant whose `code_group` field is
     NULL and whose recorded raw code is exactly this (provider, vehicle
@@ -525,14 +524,24 @@ def apply_resolved_code_to_variants(
 
     return len(
         fill_variants_for_resolved_code(
-            db, provider=provider, vehicle_kind=vehicle_kind, code_group=code_group, provider_code=provider_code,
+            db,
+            provider=provider,
+            vehicle_kind=vehicle_kind,
+            code_group=code_group,
+            provider_code=provider_code,
             value_code=value_code,
         )
     )
 
 
 def fill_variants_for_resolved_code(
-    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+    db: Session,
+    *,
+    provider: str,
+    vehicle_kind: str,
+    code_group: str,
+    provider_code: str,
+    value_code: str,
 ) -> list[uuid.UUID]:
     """`apply_resolved_code_to_variants`, returning the ids of the variants
     it filled — what the configuration heal (KAN-240) starts from."""
@@ -558,7 +567,13 @@ def fill_variants_for_resolved_code(
 
 
 def apply_resolved_code_to_options(
-    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+    db: Session,
+    *,
+    provider: str,
+    vehicle_kind: str,
+    code_group: str,
+    provider_code: str,
+    value_code: str,
 ) -> int:
     """Adds the `value_code` equipment feature to every option, in every
     tenant, whose recorded raw `SuchCode` list contains exactly this
@@ -606,7 +621,13 @@ def apply_resolved_code_to_options(
 
 
 def apply_resolved_code_to_colours_and_tyres(
-    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+    db: Session,
+    *,
+    provider: str,
+    vehicle_kind: str,
+    code_group: str,
+    provider_code: str,
+    value_code: str,
 ) -> int:
     """Fills `value_code` into every cached colour or tyre row, in every
     tenant, whose raw code is exactly this one and whose value is still NULL —
@@ -687,9 +708,14 @@ def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_nu
     db.flush()
 
 
-def _sync_option_equipment_features(
-    db: Session, *, tenant_id: uuid.UUID, provider_code: str, vehicle_kind_code: str,
-    variant_option: VariantOption, feature_codes: list[str],
+def sync_option_equipment_features(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    provider_code: str,
+    vehicle_kind_code: str,
+    variant_option: VariantOption,
+    feature_codes: list[str],
 ) -> None:
     """`SuchCode` — a genuinely many-valued attribute of the option (unlike
     every other field synced in this module), so it is replaced wholesale
@@ -706,13 +732,20 @@ def _sync_option_equipment_features(
     """
 
     _record_option_raw_codes(
-        db, tenant_id=tenant_id, provider_code=provider_code, vehicle_kind_code=vehicle_kind_code,
-        variant_option=variant_option, feature_codes=feature_codes,
+        db,
+        tenant_id=tenant_id,
+        provider_code=provider_code,
+        vehicle_kind_code=vehicle_kind_code,
+        variant_option=variant_option,
+        feature_codes=feature_codes,
     )
     resolved_codes = set()
     for raw_code in feature_codes:
         canonical = resolve_provider_code(
-            db, provider=provider_code, vehicle_kind=vehicle_kind_code, code_group=_EQUIPMENT_FEATURE,
+            db,
+            provider=provider_code,
+            vehicle_kind=vehicle_kind_code,
+            code_group=_EQUIPMENT_FEATURE,
             provider_code=raw_code,
         )
         if canonical is not None:
@@ -738,8 +771,13 @@ def _sync_option_equipment_features(
 
 
 def _record_option_raw_codes(
-    db: Session, *, tenant_id: uuid.UUID, provider_code: str, vehicle_kind_code: str,
-    variant_option: VariantOption, feature_codes: list[str],
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    provider_code: str,
+    vehicle_kind_code: str,
+    variant_option: VariantOption,
+    feature_codes: list[str],
 ) -> None:
     """Keeps the option's `VariantOptionProviderCode` rows equal to the raw
     `SuchCode` list the provider sent this time: a new code is written, one
@@ -766,184 +804,12 @@ def _record_option_raw_codes(
         if raw_code not in rows:
             db.add(
                 VariantOptionProviderCode(
-                    tenant_id=tenant_id, variant_option_id=variant_option.id, provider=provider_code,
-                    vehicle_kind=vehicle_kind_code, code_group=_EQUIPMENT_FEATURE, provider_code=raw_code,
+                    tenant_id=tenant_id,
+                    variant_option_id=variant_option.id,
+                    provider=provider_code,
+                    vehicle_kind=vehicle_kind_code,
+                    code_group=_EQUIPMENT_FEATURE,
+                    provider_code=raw_code,
                 )
             )
     db.flush()
-
-
-def _sync_tenant_variant_content(
-    db: Session, *, tenant_id: uuid.UUID, provider_code: str, model_variant: ModelVariant, fz_key: str,
-    master: VariantMasterData, adapter, progress: _KeyProgress,
-) -> None:
-    """Options/colours/tyre-specs/images — all tenant-scoped, all upserted
-    by their own natural key so a re-sync never duplicates a row.
-
-    Nothing here consults an entitlement, and the four calls are not
-    independent of each other: they share the lookup's one `vehicle_data`
-    `call_capability` block and savepoint (`sync_catalogue_variant`), so a
-    Datenname the provider refuses for this account (the protocol documents
-    no "not entitled" signal — see `services/entitlement_probes.py` in
-    `app.integration`) ends this variant's sync and is charged to the
-    connection's breaker. Nothing this lookup wrote is kept: the gateway logs
-    the failed request on a session of its own (KAN-90) and the savepoint
-    rolls this variant's writes back, so the variant is never left
-    half-synced. Degrading per capability (KAN-38 exit criterion 3) still
-    needs these calls split by capability; until then `catalogue_entitlements`
-    only ever degrades what is *read*, never what is fetched. `progress.field`
-    is set before each call so a failure can say which one it was.
-
-    C-0 PR 1: the real Datennamen need more than an `FzKey` —
-    `Optionen` needs the model year, `OptionenFarben` the `Werkscode`,
-    `PneuDimTS` a `TypSchNr`. All three come off `master`; a variant with
-    no `werkscode` / no type-approval number simply skips that call.
-    """
-
-    progress.field = "options"
-    for option in adapter.fetch_options(fz_key, model_year=model_variant.model_year_from):
-        option_row = db.scalar(
-            select(VariantOption).where(
-                VariantOption.tenant_id == tenant_id, VariantOption.model_variant_id == model_variant.id,
-                VariantOption.option_code == option.option_code,
-            )
-        )
-        if option_row is None:
-            option_row = VariantOption(
-                tenant_id=tenant_id, model_variant_id=model_variant.id, option_code=option.option_code
-            )
-            db.add(option_row)
-        option_row.description = option.description
-        option_row.option_group = option.option_group
-        option_row.price = option.price
-        # KAN-43 (C-E) — these three columns were added by C-A but never
-        # populated by this sync until now.
-        option_row.is_included = option.is_included
-        option_row.is_package = option.is_package
-        option_row.model_year = model_variant.model_year_from
-        db.flush()  # option_row.id must exist before the child rows below reference it
-        _sync_option_equipment_features(
-            db, tenant_id=tenant_id, provider_code=provider_code, vehicle_kind_code=master.vehicle_kind_code,
-            variant_option=option_row, feature_codes=option.equipment_feature_codes,
-        )
-
-    # KAN-75: FarbArt, AchsenCode and PneuTyp arrive raw and resolve through
-    # the code map like every other coded field — an unknown code is a
-    # mapping gap and leaves the value NULL, never a guess (FR-C-10). The raw
-    # code stays on the row for the resolve (`apply_resolved_code_to_colours_and_tyres`).
-    def resolve(code_group: str, raw_code: str | None) -> str | None:
-        return _resolve_code(
-            db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
-            code_group=code_group, provider_value=raw_code,
-        )
-
-    progress.field = "colours"
-    for colour in (adapter.fetch_colours(werkscode=master.werkscode) if master.werkscode else []):
-        # Resolved before the row is touched: the lookup may flush, and a new
-        # row must not reach the database half-filled.
-        colour_type = resolve(_COLOUR_AREA, colour.colour_area_code)
-        colour_row = db.scalar(
-            select(ColourCache).where(
-                ColourCache.tenant_id == tenant_id, ColourCache.model_variant_id == model_variant.id,
-                ColourCache.colour_code == colour.colour_code,
-            )
-        )
-        if colour_row is None:
-            colour_row = ColourCache(
-                tenant_id=tenant_id, model_variant_id=model_variant.id, colour_code=colour.colour_code
-            )
-            db.add(colour_row)
-        colour_row.description = colour.description
-        colour_row.colour_area_code = colour.colour_area_code
-        colour_row.colour_type = colour_type
-        colour_row.price = colour.price
-
-    _type_approval = master.type_approval_numbers[0] if master.type_approval_numbers else None
-    progress.field = "tyre_specs"
-    for tyre in (adapter.fetch_tyre_specs(type_approval_number=_type_approval) if _type_approval else []):
-        axle = resolve(_AXLE_POSITION, tyre.axle_code)
-        season = resolve(_TYRE_TYPE, tyre.season_code)
-        tyre_row = db.scalar(
-            select(TyreSpecCache).where(
-                TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == model_variant.id,
-                _is(TyreSpecCache.axle_code, tyre.axle_code), _is(TyreSpecCache.season_code, tyre.season_code),
-            )
-        )
-        if tyre_row is None:
-            tyre_row = TyreSpecCache(
-                tenant_id=tenant_id, model_variant_id=model_variant.id, axle_code=tyre.axle_code,
-                season_code=tyre.season_code,
-            )
-            db.add(tyre_row)
-        tyre_row.axle = axle
-        tyre_row.season = season
-        tyre_row.size = tyre.size
-        tyre_row.load_index = tyre.load_index
-        tyre_row.speed_rating = tyre.speed_rating
-        tyre_row.remark = tyre.remark
-
-    progress.field = "images"
-    for image in adapter.fetch_images(fz_key):
-        image_row = db.scalar(
-            select(ImageRef).where(
-                ImageRef.tenant_id == tenant_id, ImageRef.model_variant_id == model_variant.id,
-                ImageRef.image_key == image.image_key,
-            )
-        )
-        if image_row is None:
-            image_row = ImageRef(tenant_id=tenant_id, model_variant_id=model_variant.id, image_key=image.image_key)
-            db.add(image_row)
-        image_row.bild_typ = image.bild_typ
-        image_row.bild_art = image.bild_art
-        image_row.sequence = image.sequence
-        image_row.image_url = image.image_url
-
-    db.flush()
-
-
-def sync_catalogue_variant(
-    db: Session, *, tenant_id: uuid.UUID, fz_key: str, actor_id: uuid.UUID | None = None,
-    purpose: str = "variant_lookup",
-) -> SkippedFzKey | None:
-    """One variant, fetched on its own: its master data, then its options,
-    colours, tyres and images — a single lookup, the only way this module
-    reaches the provider (ADR-023 as amended 2026-10-29; module docstring).
-    Not wired to a screen yet: loading a variant's details when it is opened
-    is KAN-211.
-
-    The whole lookup is one `call_capability` block and one savepoint: the
-    gateway logs each provider request (KAN-486) and charges or resets the
-    breaker once for the block; a provider failure rolls this variant's
-    writes back and comes back as the `SkippedFzKey` naming the call it was
-    on, so a variant is never left half-synced. A synced variant is
-    committed. A `ProviderGatewayError` raised before the block is entered is
-    about the connection, not this key — the breaker open, the connection
-    disabled or refused (KAN-489), an adapter that will not build — and is
-    raised as it came.
-    """
-
-    found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
-    if found is None:
-        raise NoVehicleDataConnectionError(tenant_id)
-    connection, provider_code = found
-    progress = _KeyProgress()
-    try:
-        with call_capability(
-            db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
-        ) as adapter:
-            progress.entered = True
-            # Rolled back on any failure before the gateway sees it, so a
-            # refused call leaves nothing half-written (KAN-90's rule).
-            with db.begin_nested():
-                master = adapter.fetch_vehicle_master_data(fz_key)
-                variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-                _sync_tenant_variant_content(
-                    db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
-                    master=master, adapter=adapter, progress=progress,
-                )
-    except ProviderGatewayError as exc:
-        if not progress.entered:
-            raise
-        return SkippedFzKey(fz_key=fz_key, field=progress.field, error=type(exc).__name__)
-    db.commit()
-    return None

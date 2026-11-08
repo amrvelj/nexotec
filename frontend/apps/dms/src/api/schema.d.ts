@@ -507,6 +507,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalogue/variants/{model_variant_id}/details/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reload Variant Details
+         * @description «Neu laden» (KAN-211, ADR-123): one fresh provider request per detail,
+         *     replacing the Betrieb's stored rows — the dealer manager's action on the
+         *     stock car's technical data, nowhere else, and audited. Platform staff may
+         *     run it too (D-A-24's write posture). The variant is global, so a wrong id
+         *     is a 404 for everyone; the details written are the caller's tenant's. No
+         *     `If-Match`: the variant row is not what changes (its `version` stays),
+         *     the tenant's detail rows are, and they carry no version.
+         */
+        post: operations["reload_variant_details_v1_catalogue_variants__model_variant_id__details_reload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalogue/variants/{model_variant_id}/specification": {
         parameters: {
             query?: never;
@@ -4028,8 +4054,9 @@ export interface paths {
          * @description WP-6 PR-5 — degrades per capability against the CALLING tenant's
          *     own contract (ADR-013's own per-dealer mirror means two dealers can
          *     legitimately see two different degraded views of the same global
-         *     vehicle). Reads PR-4's already-synced mirror only, never a live
-         *     provider call — this is a fast, cacheable read, not a sync trigger.
+         *     vehicle). Since KAN-211 (ADR-123) opening the car is what loads its
+         *     details: the ones this Betrieb has not stored are asked of its provider
+         *     once, the second read sends nothing.
          */
         get: operations["get_catalogue_specification_v1_vehicle_mdm__vehicle_id__catalogue_specification_get"];
         put?: never;
@@ -4777,6 +4804,31 @@ export interface components {
             price: string | null;
         };
         /**
+         * CatalogueDetailStateRead
+         * @description KAN-211 (ADR-123) — one detail's state for the calling Betrieb.
+         *     `present`: loaded (possibly empty) · `notInContract`: the licence does
+         *     not include it (the screen says so, FR-C-06) · `unavailable`: the
+         *     provider could not be reached, asked again on the next open ·
+         *     `notLoaded`: never asked (no connection, or no key at the provider).
+         */
+        CatalogueDetailStateRead: {
+            /** Loadedat */
+            loadedAt?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "present" | "notInContract" | "unavailable" | "notLoaded";
+        };
+        /** CatalogueDetailStatesRead */
+        CatalogueDetailStatesRead: {
+            colours: components["schemas"]["CatalogueDetailStateRead"];
+            energyLabel: components["schemas"]["CatalogueDetailStateRead"];
+            images: components["schemas"]["CatalogueDetailStateRead"];
+            options: components["schemas"]["CatalogueDetailStateRead"];
+            tyreSpecs: components["schemas"]["CatalogueDetailStateRead"];
+        };
+        /**
          * CatalogueFacetValue
          * @description A canonical value the provider holds in the drill-down scope. The
          *     identAPI's `distinct` carries no counts: `count` is null since KAN-548.
@@ -4871,6 +4923,8 @@ export interface components {
             isIncluded: boolean;
             /** Ispackage */
             isPackage: boolean;
+            /** Manufacturercode */
+            manufacturerCode?: string | null;
             /** Optioncode */
             optionCode: string;
             /** Optiongroup */
@@ -4914,6 +4968,7 @@ export interface components {
             colours: components["schemas"]["CatalogueColourRead"][];
             /** Dealercanuploadimages */
             dealerCanUploadImages: boolean;
+            details: components["schemas"]["CatalogueDetailStatesRead"];
             /** Hascataloguematch */
             hasCatalogueMatch: boolean;
             /** Hasproviderconnection */
@@ -12634,6 +12689,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueVariantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reload_variant_details_v1_catalogue_variants__model_variant_id__details_reload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                model_variant_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSpecificationRead"];
                 };
             };
             /** @description Validation Error */

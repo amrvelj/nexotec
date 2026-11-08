@@ -17,14 +17,10 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.customer.public import list_vehicle_party_holders
 from app.db import get_db
+from app.vehicle.api.catalogue import specification_read
 from app.vehicle.models.vehicle_history import VehicleAccessory
 from app.vehicle.schemas.vehicle_mdm import (
-    CatalogueColourRead,
-    CatalogueImageRead,
-    CatalogueOptionRead,
-    CatalogueOptionRelationRead,
     CatalogueSpecificationRead,
-    CatalogueTyreSpecRead,
     VehicleAccessoryCreate,
     VehicleAccessoryRead,
     VehicleOdometerReadingCreate,
@@ -154,7 +150,11 @@ def end_plate(
         db, vehicle_id=vehicle_id, plate_id=plate_id, group_id=principal.group_id
     )
     plate_service.end_plate(
-        db, row=row, valid_to=body.valid_to, expected_version=if_match, actor_id=principal.user_id,
+        db,
+        row=row,
+        valid_to=body.valid_to,
+        expected_version=if_match,
+        actor_id=principal.user_id,
         tenant_id=principal.tenant_id,
     )
     db.commit()
@@ -171,28 +171,19 @@ def get_catalogue_specification(
     """WP-6 PR-5 — degrades per capability against the CALLING tenant's
     own contract (ADR-013's own per-dealer mirror means two dealers can
     legitimately see two different degraded views of the same global
-    vehicle). Reads PR-4's already-synced mirror only, never a live
-    provider call — this is a fast, cacheable read, not a sync trigger.
+    vehicle). Since KAN-211 (ADR-123) opening the car is what loads its
+    details: the ones this Betrieb has not stored are asked of its provider
+    once, the second read sends nothing.
     """
 
     vehicle_mdm = vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     result = catalogue_entitlements.get_catalogue_specification(
-        db, tenant_id=principal.tenant_id, model_variant_id=vehicle_mdm.catalogue_variant_id
+        db,
+        tenant_id=principal.tenant_id,
+        model_variant_id=vehicle_mdm.catalogue_variant_id,
+        actor_id=principal.user_id,
     )
-    return CatalogueSpecificationRead(
-        has_catalogue_match=result.has_catalogue_match,
-        has_provider_connection=result.has_provider_connection,
-        packages_available=result.packages_available,
-        images_available=result.images_available,
-        dealer_can_upload_images=result.dealer_can_upload_images,
-        options=[CatalogueOptionRead.model_validate(o, from_attributes=True) for o in result.options],
-        colours=[CatalogueColourRead.model_validate(c, from_attributes=True) for c in result.colours],
-        tyre_specs=[CatalogueTyreSpecRead.model_validate(t, from_attributes=True) for t in result.tyre_specs],
-        images=[CatalogueImageRead.model_validate(i, from_attributes=True) for i in result.images],
-        option_relations=[
-            CatalogueOptionRelationRead.model_validate(r, from_attributes=True) for r in result.option_relations
-        ],
-    )
+    return specification_read(result)
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/odometer-readings", response_model=list[VehicleOdometerReadingRead])
@@ -209,9 +200,7 @@ def list_odometer_readings(
     return [VehicleOdometerReadingRead.model_validate(r, from_attributes=True) for r in rows]
 
 
-@router.post(
-    "/vehicle-mdm/{vehicle_id}/odometer-readings", response_model=VehicleOdometerReadingRead, status_code=201
-)
+@router.post("/vehicle-mdm/{vehicle_id}/odometer-readings", response_model=VehicleOdometerReadingRead, status_code=201)
 def record_odometer_reading(
     vehicle_id: uuid.UUID,
     body: VehicleOdometerReadingCreate,
@@ -220,7 +209,11 @@ def record_odometer_reading(
 ):
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     reading = history_service.record_odometer_reading(
-        db, vehicle_id=vehicle_id, value=body.value, reading_date=body.reading_date, source=body.source,
+        db,
+        vehicle_id=vehicle_id,
+        value=body.value,
+        reading_date=body.reading_date,
+        source=body.source,
         recording_tenant_id=principal.tenant_id,
     )
     return VehicleOdometerReadingRead.model_validate(reading, from_attributes=True)
@@ -250,8 +243,12 @@ def add_accessory(
 ):
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     accessory = history_service.add_accessory(
-        db, vehicle_id=vehicle_id, accessory_type=body.accessory_type, description=body.description,
-        valid_from=body.valid_from, recording_tenant_id=principal.tenant_id,
+        db,
+        vehicle_id=vehicle_id,
+        accessory_type=body.accessory_type,
+        description=body.description,
+        valid_from=body.valid_from,
+        recording_tenant_id=principal.tenant_id,
     )
     return VehicleAccessoryRead.model_validate(accessory, from_attributes=True)
 
@@ -271,7 +268,10 @@ def remove_accessory(
     if accessory is None or accessory.vehicle_id != vehicle_id:
         raise NotFoundError(f"Accessory {accessory_id} was not found.")
     history_service.remove_accessory(
-        db, accessory=accessory, valid_to=plate_service.swiss_today(), actor_id=principal.user_id,
+        db,
+        accessory=accessory,
+        valid_to=plate_service.swiss_today(),
+        actor_id=principal.user_id,
         tenant_id=principal.tenant_id,
     )
 

@@ -176,6 +176,15 @@ class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
     )
     option_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    # KAN-211 — the manufacturer's own code (the identAPI's `optionCode`),
+    # beside auto-i's key in `option_code`: what the advisor reads off a
+    # price list and searches by (Anto, 2026-11-08). NULL where the
+    # provider sends none.
+    manufacturer_code: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="KAN-211: the manufacturer's option code (identAPI optionCode); option_code is the provider's key.",
+    )
     description: Mapped[str] = mapped_column(Text, nullable=False)
     # `Gruppe` (CodeGrpNr 046) — a canonical `option_group` value_code
     # string resolved through `provider_code_map`, not a raw provider code

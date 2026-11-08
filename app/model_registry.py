@@ -74,7 +74,7 @@ from app.vehicle.models.catalogue import (
     VariantPrice,
     VariantTypeApproval,
 )
-from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache, VariantDetailState
 from app.vehicle.models.configuration import (
     VehicleConfiguration,
     VehicleConfigurationOption,
@@ -174,6 +174,7 @@ __all__ = [
     "Transaction",
     "TypeApproval",
     "TyreSpecCache",
+    "VariantDetailState",
     "UiTranslation",
     "UiTranslationRevision",
     "User",

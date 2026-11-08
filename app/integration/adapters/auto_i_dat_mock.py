@@ -28,6 +28,7 @@ from app.integration.adapters.base import (
     CatalogueBrandData,
     CatalogueModelGroupData,
     CodeMapEntryData,
+    EnergyLabelData,
     ForecastResult,
     ModelGroupData,
     ModelGroupShortData,
@@ -38,6 +39,7 @@ from app.integration.adapters.base import (
     TypeApprovalDataResult,
     ValuationResult,
     VariantColourData,
+    VariantColoursData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
@@ -491,6 +493,25 @@ class MockAutoIDatAdapter:
     @_request("Bilder")
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         return list(_IMAGES.get(fz_key, []))
+
+    # KAN-211 (ADR-123): the identAPI-shaped detail reads, so the local app
+    # and the screenshots load details on open the way staging does. Colours
+    # ride on the variant answer (one request, `Fahrzeuge`); the energy label
+    # is the master data's letter as this year's class.
+
+    @_request("Fahrzeuge")
+    def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
+        if fz_key not in _MASTER_DATA:
+            raise KeyError(f"Mock adapter has no data for FzKey '{fz_key}'.")
+        master = _MASTER_DATA[fz_key]
+        return VariantColoursData(master=master, colours=list(_COLOURS.get(master.werkscode or "", [])))
+
+    @_request("Energieetikette")
+    def fetch_energy_label(self, *, type_approval_number: str) -> list[EnergyLabelData]:
+        master = next((m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers), None)
+        if master is None or not master.energy_label:
+            return []
+        return [EnergyLabelData(energy_class=master.energy_label, calculation_year=utcnow().year)]
 
     # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) -------
 

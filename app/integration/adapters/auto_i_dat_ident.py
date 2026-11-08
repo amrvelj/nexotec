@@ -82,6 +82,7 @@ from app.integration.adapters.base import (
     CatalogueBrandData,
     CatalogueModelGroupData,
     CodeMapEntryData,
+    EnergyLabelData,
     ForecastResult,
     ModelGroupData,
     ModelGroupShortData,
@@ -92,6 +93,7 @@ from app.integration.adapters.base import (
     TypeApprovalDataResult,
     ValuationResult,
     VariantColourData,
+    VariantColoursData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
@@ -131,6 +133,9 @@ OP_RESIDUALVALUE = "residualvalue"
 OP_VINREQUEST = "vinrequest"
 OP_TYRESANDRIMS_TYPEAPPROVAL = "tyresandrims_typeapproval"
 OP_ENERGYLABEL_INFO = "energylabel_info"
+OP_IMAGE_VEHICLE = "image_vehicle"
+# KAN-211 (ADR-123): the most option pages `fetch_options` follows for one car.
+OPTIONS_PAGE_CAP = 30
 
 # Probe inputs — the examples auto-i's own public OpenAPI document uses in
 # its "Try me" links (https://api.ident.autoi.ch/docs). Catalogue identifiers
@@ -404,8 +409,9 @@ class AutoIDatIdentAdapter:
         return next((v for v in self._vehicle_catalog("autoi", fz_key) if v.fz_key == fz_key), None)
 
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
-        """The Protocol's single-variant read (`catalogue_sync.sync_catalogue_variant`,
-        KAN-211): `fetch_variant`, with a missing key raised as the sync expects."""
+        """The Protocol's single-variant read: `fetch_variant`, with a missing key
+        raised as a caller expects (KAN-211 loads details through
+        `fetch_variant_with_colours`, the same request)."""
 
         variant = self.fetch_variant(fz_key)
         if variant is None:
@@ -585,17 +591,101 @@ class AutoIDatIdentAdapter:
         # caption call (`entitlement_probes.access_check`).
         _not_built("KAN-550", "The catalogue watermark")
 
+    # -- KAN-211 (ADR-123): the details loaded once per Betrieb on open ------------
+
+    def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
+        """`GET /vehiclecatalog/autoi/{fzKey}` — one request for the variant's
+        master data and its colour options (`colorOptionsData`, on the same
+        row; the identAPI has no colour endpoint). A missing key is raised as
+        the loader expects, like `fetch_vehicle_master_data`."""
+
+        body = self._request(
+            OP_VEHICLECATALOG,
+            "GET",
+            f"/vehiclecatalog/autoi/{quote(fz_key, safe='')}",
+            [("page[size]", str(PROVIDER_PAGE_SIZE)), ("page[number]", "1")],
+            empty_on_404=True,
+        )
+        answer = parse.parse_variant_with_colours(body, fz_key=fz_key)
+        if answer is None:
+            raise KeyError(f"The identAPI knows no catalogue variant with FzKey {fz_key!r}.")
+        return answer
+
     def fetch_options(self, fz_key: str, *, model_year: int) -> list[VariantOptionData]:
-        _not_built("KAN-211", "The option list")
+        """`GET /vehicleoption/catalog/autoi/{fzKey}/modelyear/{year}` — every
+        option of the one car the user opened (Anto, 2026-11-08: all options,
+        searchable). The endpoint carries json:api paging (10 a page), so this
+        is the one bounded walk over `page[number]` in the codebase (ADR-123,
+        allow-listed by name in `test_no_bulk_catalogue_retrieval.py`): it
+        follows `links.next` for this FzKey alone, never past
+        `OPTIONS_PAGE_CAP` pages, each page its own call-log row. Model year 0
+        is the provider's "currently available equipment" for a car still in
+        production."""
+
+        path = f"/vehicleoption/catalog/autoi/{quote(fz_key, safe='')}/modelyear/{int(model_year)}"
+        options: list[VariantOptionData] = []
+        for page_number in range(1, OPTIONS_PAGE_CAP + 1):
+            body = self._request(
+                OP_VEHICLEOPTION_CATALOG,
+                "GET",
+                path,
+                [
+                    ("lang", "de"),
+                    ("stringify", "true"),
+                    ("page[size]", str(PROVIDER_PAGE_SIZE)),
+                    ("page[number]", str(page_number)),
+                ],
+                empty_on_404=True,
+            )
+            page = parse.parse_options(body)
+            options.extend(page)
+            if not page or not parse.has_next_page(body):
+                break
+        else:
+            logger.warning(
+                "options of FzKey %s stopped at the page cap (%d pages): the list is cut off", fz_key, OPTIONS_PAGE_CAP
+            )
+        return options
 
     def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]:
-        _not_built("KAN-211", "The colour list")
+        # The identAPI keys colours by FzKey, on the variant row:
+        # `fetch_variant_with_colours`. The Werkscode-keyed SOAP shape leaves
+        # the Protocol with KAN-550.
+        _not_built("KAN-550", "The Werkscode-keyed colour list")
 
     def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]:
-        _not_built("KAN-211", "The tyre dimensions")
+        """`GET /tyresandrims/typeapproval/{nr}` — one request; without a
+        `tyreType` filter the answer carries both seasons, each row naming
+        its own (so no request per season)."""
+
+        body = self._request(
+            OP_TYRESANDRIMS_TYPEAPPROVAL,
+            "GET",
+            f"/tyresandrims/typeapproval/{quote(type_approval_number, safe='')}",
+            [("lang", "de")],
+            empty_on_404=True,
+        )
+        return parse.parse_tyre_specs(body)
 
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
-        _not_built("KAN-211", "The image list")
+        """`GET /image/vehicle/{fzKey}` — one request, every size and
+        perspective the provider holds (no request per size)."""
+
+        body = self._request(OP_IMAGE_VEHICLE, "GET", f"/image/vehicle/{quote(fz_key, safe='')}", empty_on_404=True)
+        return parse.parse_images(body)
+
+    def fetch_energy_label(self, *, type_approval_number: str) -> list[EnergyLabelData]:
+        """`GET /energylabel/info/typeapproval/{nr}` — one request; one row
+        per gearbox, each with the class and the year it is valid for."""
+
+        body = self._request(
+            OP_ENERGYLABEL_INFO,
+            "GET",
+            f"/energylabel/info/typeapproval/{quote(type_approval_number, safe='')}",
+            [("lang", "de")],
+            empty_on_404=True,
+        )
+        return parse.parse_energy_labels(body)
 
     def fetch_valuation(
         self, *, fz_key: str, model_year: int, first_registration: dt.date, valuation_date: dt.date, mileage: int

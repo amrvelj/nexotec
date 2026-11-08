@@ -12,6 +12,8 @@ these tables only hold the provider-delivered specifics one dealer's
 contract entitles them to see.
 """
 
+import datetime as dt
+import enum
 import uuid
 from decimal import Decimal
 
@@ -19,7 +21,8 @@ from sqlalchemy import DECIMAL, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
-from app.core.types import GUID
+from app.core.enum_type import StoredEnum
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -122,3 +125,55 @@ class ImageRef(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     image_key: Mapped[str] = mapped_column(String(160), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class CatalogueDetail(str, enum.Enum):
+    """KAN-211 (ADR-123) — the five licensed details a Betrieb loads once
+    when a car is opened, each its own provider request, each its own
+    state. `COLOURS` rides on the variant request; the others are their own
+    endpoints."""
+
+    OPTIONS = "options"
+    COLOURS = "colours"
+    TYRE_SPECS = "tyre_specs"
+    IMAGES = "images"
+    ENERGY_LABEL = "energy_label"
+
+
+class DetailState(str, enum.Enum):
+    """What the last load of a detail ended in. `notLoaded` on the API is
+    the absence of a row: the Betrieb never asked (no connection, or the
+    variant has no key at its provider)."""
+
+    PRESENT = "present"  # loaded and stored, possibly with no rows
+    NOT_IN_CONTRACT = "not_in_contract"  # the provider refused (403), or the probe says the option is absent
+    UNAVAILABLE = "unavailable"  # a timeout, 5xx or open breaker: retried on the next open
+
+
+class VariantDetailState(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """KAN-211 (ADR-123) — one row per (Betrieb, variant, detail): whether the
+    detail was loaded, refused or failed, and when. The content tables
+    (`VariantOption`, `ColourCache`, `TyreSpecCache`, `ImageRef`) cannot
+    tell *empty* from *refused* from *never asked*; this table can, and it
+    is what decides whether an open sends a request. Tenant-partitioned like
+    the content it describes (ADR-013): another Betrieb's refusal says
+    nothing about this one's contract."""
+
+    __tablename__ = "vehicle_variant_detail_state"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "model_variant_id", "detail", name="uq_vehicle_variant_detail_state_tenant_variant_detail"
+        ),
+    )
+
+    model_variant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
+    )
+    detail: Mapped[CatalogueDetail] = mapped_column(StoredEnum(CatalogueDetail, length=16), nullable=False)
+    state: Mapped[DetailState] = mapped_column(StoredEnum(DetailState, length=16), nullable=False)
+    # When the state was last decided: the load that stored the rows, or the
+    # refusal or failure that stopped it.
+    loaded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # The failure's class name (never its message: a provider's text can echo
+    # what it was sent), for the manager's eye. NULL when `present`.
+    error: Mapped[str | None] = mapped_column(String(80), nullable=True)

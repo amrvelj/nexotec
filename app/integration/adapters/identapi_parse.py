@@ -27,7 +27,14 @@ from app.integration.adapters.base import (
     CaptionData,
     CatalogueBrandData,
     CatalogueModelGroupData,
+    EnergyLabelData,
+    OptionPriceWithData,
+    VariantColourData,
+    VariantColoursData,
+    VariantImageData,
     VariantMasterData,
+    VariantOptionData,
+    VariantTyreSpecData,
     VehiclePriceData,
 )
 
@@ -83,6 +90,19 @@ def _decimal(value: Any) -> Decimal | None:
     except InvalidOperation:
         return None
     return number if number != 0 else None
+
+
+def _money(value: Any) -> Decimal | None:
+    """An amount where zero means *free*, not *unknown* (KAN-211): a colour
+    or an option the manufacturer lists at CHF 0.00 keeps its zero, so the
+    screen can say so instead of showing no price."""
+
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
 
 
 def _price(value: Any) -> Decimal | None:
@@ -369,3 +389,185 @@ def parse_distinct_values(body: Mapping[str, Any], field: str) -> list[str]:
         if value is not None and value not in values:
             values.append(value)
     return values
+
+
+# -- KAN-211: the details loaded when a car is opened (ADR-123) -----------------
+
+# The identAPI's image enums, stored under the two-letter codes `ImageRef`
+# has always held (`bild_typ` S/L, `bild_art` A/I — the SOAP service's own),
+# so the frontend's existing maps keep reading them.
+_IMAGE_SIZE_CODES = {"thumbnail": "S", "fullsize": "L"}
+_IMAGE_PERSPECTIVE_CODES = {"outside": "A", "inside": "I"}
+
+
+def parse_colours(item: Mapping[str, Any]) -> list[VariantColourData]:
+    """`VehicleCatalogData.colorOptionsData` — the variant's colour options,
+    on the variant row itself (the identAPI has no colour endpoint). The raw
+    `colorType` (1 exterior, 2 upholstery) is the `colour_area` code
+    `app.vehicle` resolves through the code map; a zero price is a free
+    colour and is kept as such (FR-C-07's surcharge line)."""
+
+    colours: list[VariantColourData] = []
+    for raw in item.get("colorOptionsData") or []:
+        if not isinstance(raw, Mapping):
+            continue
+        code = _text(raw.get("colorOptionCode"))
+        description = _text(raw.get("colorDescription"))
+        if code is None or description is None:
+            continue
+        colours.append(
+            VariantColourData(
+                colour_code=code,
+                description=description,
+                colour_area_code=_code(raw.get("colorType")),
+                price=_money(raw.get("colorPrice")),
+            )
+        )
+    return colours
+
+
+def parse_variant_with_colours(body: Mapping[str, Any], *, fz_key: str) -> VariantColoursData | None:
+    """The one `GET /vehiclecatalog/autoi/{fzKey}` answer as master data plus
+    colours; `None` when no row carries that FzKey."""
+
+    for item in data_items(body):
+        variant = parse_variant(item)
+        if variant is not None and variant.fz_key == fz_key:
+            return VariantColoursData(master=variant, colours=parse_colours(item))
+    return None
+
+
+def _option_keys(values: Any) -> list[str]:
+    """`packOptions` / `addition` rows carry `optionKey`; `exclusions` is a
+    list of keys already."""
+
+    keys: list[str] = []
+    if not isinstance(values, list):
+        return keys
+    for value in values:
+        key = _text(value.get("optionKey")) if isinstance(value, Mapping) else _text(value)
+        if key:
+            keys.append(key)
+    return keys
+
+
+def parse_option(item: Mapping[str, Any]) -> VariantOptionData | None:
+    """One `VehicleOptionData`. `optionKey` is auto-i's identifier and the
+    natural key (`option_code`); `optionCode` is the manufacturer's code the
+    advisor searches by (`manufacturer_code`). `description` is the text in
+    the language asked for, `descriptionDe` the fallback. `pack` says the
+    option is *inside* a pack; an option *is* a pack when it lists
+    `packOptions`."""
+
+    key = _text(item.get("optionKey"))
+    description = _text(item.get("description")) or _text(item.get("descriptionDe"))
+    if key is None or description is None:
+        return None
+    pack_options = item.get("packOptions")
+    priced_with: list[OptionPriceWithData] = []
+    for addition in item.get("addition") or []:
+        if not isinstance(addition, Mapping):
+            continue
+        related = _text(addition.get("optionKey"))
+        if related:
+            priced_with.append(OptionPriceWithData(option_code=related, price=_money(addition.get("price"))))
+    return VariantOptionData(
+        option_code=key,
+        description=description,
+        option_group=_text(item.get("group")),
+        price=_money(item.get("price")),
+        is_included=item.get("included") is True,
+        is_package=isinstance(pack_options, list) and len(pack_options) > 0,
+        equipment_feature_codes=_strings(item.get("searchCode")),
+        manufacturer_code=_text(item.get("optionCode")),
+        pack_option_codes=_option_keys(pack_options),
+        excluded_option_codes=_option_keys(item.get("exclusions")),
+        priced_with=priced_with,
+    )
+
+
+def parse_options(body: Mapping[str, Any]) -> list[VariantOptionData]:
+    return [option for option in (parse_option(item) for item in data_items(body)) if option is not None]
+
+
+def has_next_page(body: Mapping[str, Any]) -> bool:
+    """json:api `links.next` — present while the provider holds more rows."""
+
+    links = body.get("links")
+    return isinstance(links, Mapping) and bool(_text(links.get("next")))
+
+
+def parse_tyre_specs(body: Mapping[str, Any]) -> list[VariantTyreSpecData]:
+    """`TyresAndRimsDimensionData`: `info.state` 0 = data, 1 = no data,
+    2 = no vehicle (both read as no rows); `values` one row per axle, season
+    and gearbox. The raw `axisCode` and `tyreType` are the `axle_position`
+    and `tyre_type` codes `app.vehicle` resolves; the dimension is kept as
+    the provider spells it."""
+
+    data = body.get("data")
+    if not isinstance(data, Mapping):
+        return []
+    tyres: list[VariantTyreSpecData] = []
+    for raw in data.get("values") or []:
+        if not isinstance(raw, Mapping):
+            continue
+        size = _text(raw.get("dimension"))
+        if size is None:
+            continue
+        load_index = _int(raw.get("loadIndex"))
+        tyres.append(
+            VariantTyreSpecData(
+                axle_code=_code(raw.get("axisCode")),
+                size=size,
+                load_index=str(load_index) if load_index is not None else None,
+                speed_rating=_text(raw.get("speedIndex")),
+                remark=_text(raw.get("remark")) or _text(raw.get("rimRemark")),
+                season_code=_code(raw.get("tyreType")),
+            )
+        )
+    return tyres
+
+
+def parse_images(body: Mapping[str, Any]) -> list[VariantImageData]:
+    """`VehicleImageData` rows: key, URL, size, perspective. The order the
+    provider lists them is the sequence."""
+
+    images: list[VariantImageData] = []
+    for sequence, raw in enumerate(data_items(body)):
+        key = _text(raw.get("key"))
+        url = _text(raw.get("url"))
+        if key is None or url is None:
+            continue
+        size = (_text(raw.get("size")) or "").lower()
+        perspective = (_text(raw.get("perspective")) or "").lower()
+        images.append(
+            VariantImageData(
+                bild_typ=_IMAGE_SIZE_CODES.get(size, size[:16] or "?"),
+                bild_art=_IMAGE_PERSPECTIVE_CODES.get(perspective, perspective[:16] or "?"),
+                image_key=key,
+                sequence=sequence,
+                image_url=url,
+            )
+        )
+    return images
+
+
+def parse_energy_labels(body: Mapping[str, Any]) -> list[EnergyLabelData]:
+    """`EnergyLabelInfoData` rows: the class for its `calculationYear`; a row
+    without either says nothing and is left out."""
+
+    labels: list[EnergyLabelData] = []
+    for raw in data_items(body):
+        energy_class = _text(raw.get("energyEfficiencyClass"))
+        year = _int(raw.get("calculationYear"))
+        if energy_class is None or year is None:
+            continue
+        labels.append(
+            EnergyLabelData(
+                energy_class=energy_class.upper(),
+                calculation_year=year,
+                gearbox=_text(raw.get("gearbox")),
+                label_url=_text(raw.get("energyLabelLink")),
+            )
+        )
+    return labels

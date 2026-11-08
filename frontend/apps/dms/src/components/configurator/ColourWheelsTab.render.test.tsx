@@ -7,6 +7,7 @@ import { testTheme } from '../../test/testTheme'
 import i18n from '../../i18n'
 import { ColourWheelsTab, type ColourWheelsTabProps } from './ColourWheelsTab'
 import type { CatalogueSpecificationRead } from '../../api/types'
+import { detailsPresent } from '../../test/catalogueDetails'
 
 // KAN-43 (C-E) exit criterion 4: colours and tyre dimensions (with BemDe
 // shown) render. FR-C-07: free text is always the primary input; a
@@ -20,6 +21,7 @@ function buildSpec(over: Partial<CatalogueSpecificationRead> = {}): CatalogueSpe
     packagesAvailable: true,
     imagesAvailable: true,
     dealerCanUploadImages: false,
+    details: detailsPresent,
     options: [],
     optionRelations: [],
     colours: [

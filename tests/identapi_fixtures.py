@@ -66,7 +66,11 @@ def catalog_variant(**overrides: Any) -> dict[str, Any]:
         "euronorm": "6d",
         "batteryCapacity": 0,
         "powerConsumption": 0,
-        "catalogPrices": [{"modelyear": 2021, "price": 56900}, {"modelyear": 2022, "price": 57900}, {"modelyear": 2023, "price": 58900}],
+        "catalogPrices": [
+            {"modelyear": 2021, "price": 56900},
+            {"modelyear": 2022, "price": 57900},
+            {"modelyear": 2023, "price": 58900},
+        ],
         "typeApprovalNrs": [DEMO_TYPE_APPROVAL, "1ZZ912"],
         "typeApprovalNrsGrayImport": [],
         "factoryCodes": [DEMO_WERKSCODE],
@@ -125,7 +129,12 @@ def captions_body(lang: str) -> dict[str, Any]:
 def brands_body() -> dict[str, Any]:
     return body(
         [
-            {"brand": "Testmarke", "brandNr": "911", "models": ["Prüfling", "Muster"], "modelssearch": ["PRUEFLING", "MUSTER"]},
+            {
+                "brand": "Testmarke",
+                "brandNr": "911",
+                "models": ["Prüfling", "Muster"],
+                "modelssearch": ["PRUEFLING", "MUSTER"],
+            },
             {"brand": "Zweitmarke", "brandNr": "912", "models": ["Beispiel"], "modelssearch": ["BEISPIEL"]},
         ]
     )
@@ -134,11 +143,189 @@ def brands_body() -> dict[str, Any]:
 def model_groups_body() -> dict[str, Any]:
     return body(
         [
-            {"modelGroupKey": DEMO_MODEL_GROUP_KEY, "productionYearStart": "2021", "productionYearEnd": "0000", "modelSearch": "PRUEFLING", "description": "Prüfling (2021-)"},
-            {"modelGroupKey": "104912", "productionYearStart": "2015", "productionYearEnd": "2020", "modelSearch": "MUSTER", "description": "Muster (2015-2020)"},
+            {
+                "modelGroupKey": DEMO_MODEL_GROUP_KEY,
+                "productionYearStart": "2021",
+                "productionYearEnd": "0000",
+                "modelSearch": "PRUEFLING",
+                "description": "Prüfling (2021-)",
+            },
+            {
+                "modelGroupKey": "104912",
+                "productionYearStart": "2015",
+                "productionYearEnd": "2020",
+                "modelSearch": "MUSTER",
+                "description": "Muster (2015-2020)",
+            },
         ]
     )
 
 
 def match_body(match_code: int) -> dict[str, Any]:
-    return {"data": {"matchCode": match_code, "matchCodeText": ["None", "Exact", "Multiple"][match_code], "vehicle": catalog_variant()}}
+    return {
+        "data": {
+            "matchCode": match_code,
+            "matchCodeText": ["None", "Exact", "Multiple"][match_code],
+            "vehicle": catalog_variant(),
+        }
+    }
+
+
+# -- KAN-211: the details loaded when a car is opened ---------------------------------
+
+
+def colour_options() -> list[dict[str, Any]]:
+    """`VehicleCatalogData.colorOptionsData`: two exterior colours (one free, one
+    with a surcharge) and one upholstery colour."""
+
+    return [
+        {"colorOptionCode": "C01", "colorType": 1, "colorDescription": "Mythosschwarz Metallic", "colorPrice": 0},
+        {"colorOptionCode": "C02", "colorType": 1, "colorDescription": "Tangorot Metallic", "colorPrice": 1150},
+        {"colorOptionCode": "U07", "colorType": 2, "colorDescription": "Leder schwarz", "colorPrice": 0},
+    ]
+
+
+def option(key: str, **overrides: Any) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "fzKey": DEMO_FZ_KEY,
+        "year": 0,
+        "optionKey": key,
+        "description": f"Option {key}",
+        "descriptionDe": f"Option {key}",
+        "descriptionFr": f"Option {key} (fr)",
+        "descriptionIt": f"Option {key} (it)",
+        "descriptionEn": f"Option {key} (en)",
+        "included": False,
+        "price": 500,
+        "optionCode": f"M{key}",
+        "pack": False,
+        "group": "Komfort",
+        "group2": None,
+        "group3": [],
+        "searchCode": [],
+        "packOptions": [],
+        "addition": [],
+        "exclusions": [],
+    }
+    item.update(overrides)
+    return item
+
+
+def options_page(items: list[dict[str, Any]], *, page: int, total: int, has_next: bool) -> dict[str, Any]:
+    """One json:api page of `VehicleOptionData`; `links.next` while more follow."""
+
+    links = {
+        "self": f"https://api.ident.autoi.ch/vehicleoption/catalog/autoi/{DEMO_FZ_KEY}/modelyear/0?page[number]={page}"
+    }
+    if has_next:
+        links["next"] = (
+            f"https://api.ident.autoi.ch/vehicleoption/catalog/autoi/{DEMO_FZ_KEY}/modelyear/0?page[number]={page + 1}"
+        )
+    return {"data": items, "links": links, "meta": {"totalCount": total, "dataIsEmpty": not items}}
+
+
+def images_body() -> dict[str, Any]:
+    return body(
+        [
+            {
+                "key": f"{DEMO_FZ_KEY}-01",
+                "url": f"https://images.example.test/{DEMO_FZ_KEY}/01-thumb.jpg",
+                "size": "Thumbnail",
+                "perspective": "Outside",
+            },
+            {
+                "key": f"{DEMO_FZ_KEY}-02",
+                "url": f"https://images.example.test/{DEMO_FZ_KEY}/01-full.jpg",
+                "size": "FullSize",
+                "perspective": "Outside",
+            },
+            {
+                "key": f"{DEMO_FZ_KEY}-03",
+                "url": f"https://images.example.test/{DEMO_FZ_KEY}/02-full.jpg",
+                "size": "FullSize",
+                "perspective": "Inside",
+            },
+        ]
+    )
+
+
+def tyres_body() -> dict[str, Any]:
+    """`TyresAndRimsDimensionData`: both seasons in one answer, each row naming
+    its own `tyreType` (121 summer, 122 winter) and `axisCode` (1 front+rear)."""
+
+    def row(tyre_type: int, dimension: str, **overrides: Any) -> dict[str, Any]:
+        item = {
+            "typeApprovalNr": DEMO_TYPE_APPROVAL,
+            "tyreType": tyre_type,
+            "gearbox": 5,
+            "axisCode": 1,
+            "dimension": dimension,
+            "standardTyres": 1,
+            "width": 225,
+            "height": 45,
+            "radius": 18,
+            "loadIndex": 95,
+            "speedIndex": "Y",
+            "extraLoad": False,
+            "commercial": False,
+            "rims": "7.5Jx18",
+            "rimWidth": 7.5,
+            "rimSize": 18,
+            "rimOffset": 39,
+            "rimRemark": None,
+            "remark": "nur mit Leichtmetallfelgen" if tyre_type == 121 else None,
+        }
+        item.update(overrides)
+        return item
+
+    return {
+        "data": {
+            "info": {"state": 0, "stateMsg": "OK"},
+            "values": [row(121, "225/45 R18"), row(122, "205/55 R17", loadIndex=91, speedIndex="H")],
+            "vehicleInfo": {"techPermAxleLoadFront": 1100, "techPermAxleLoadRear": 1200},
+        },
+        "links": {"self": "https://api.ident.autoi.ch/x"},
+        "meta": {"dataIsEmpty": False},
+    }
+
+
+def energy_label_body(*, energy_class: str = "B", year: int = 2026) -> dict[str, Any]:
+    return body(
+        [
+            {
+                "typeApprovalNr": DEMO_TYPE_APPROVAL,
+                "brand": "Testmarke",
+                "description": "Prüfling 2.0 TDI",
+                "fuel": "Diesel",
+                "gearbox": "Automat",
+                "co2": 142,
+                "energyEfficiencyClass": energy_class,
+                "calculationYear": year,
+                "energyLabelLink": "https://energielabel.example.test/1ZZ911.pdf",
+            }
+        ]
+    )
+
+
+VARIANT_PATH = f"/vehiclecatalog/autoi/{DEMO_FZ_KEY}"
+OPTIONS_PATH = f"/vehicleoption/catalog/autoi/{DEMO_FZ_KEY}/modelyear/0"
+IMAGES_PATH = f"/image/vehicle/{DEMO_FZ_KEY}"
+TYRES_PATH = f"/tyresandrims/typeapproval/{DEMO_TYPE_APPROVAL}"
+ENERGY_LABEL_PATH = f"/energylabel/info/typeapproval/{DEMO_TYPE_APPROVAL}"
+
+
+def detail_bodies(*, options: list[dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
+    """Every detail answer of the demo variant, for `FakeAutoi.api_bodies`."""
+
+    items = (
+        options
+        if options is not None
+        else [option("1001", searchCode=["navigation"]), option("1002", included=True, price=0, group="Serie")]
+    )
+    return {
+        VARIANT_PATH: body([catalog_variant(colorOptionsData=colour_options())]),
+        OPTIONS_PATH: options_page(items, page=1, total=len(items), has_next=False),
+        IMAGES_PATH: images_body(),
+        TYRES_PATH: tyres_body(),
+        ENERGY_LABEL_PATH: energy_label_body(),
+    }

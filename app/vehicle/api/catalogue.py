@@ -22,8 +22,9 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.auth import Principal, get_current_principal
-from app.core.errors import NotFoundError, UnprocessableEntityError
+from app.core.auth import AccessRole, Principal, get_current_principal
+from app.core.errors import ForbiddenError, NotFoundError, UnprocessableEntityError
+from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.schemas.catalogue import (
@@ -42,13 +43,14 @@ from app.vehicle.schemas.catalogue import (
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.schemas.vehicle_mdm import (
     CatalogueColourRead,
+    CatalogueDetailStatesRead,
     CatalogueImageRead,
     CatalogueOptionRead,
     CatalogueOptionRelationRead,
     CatalogueSpecificationRead,
     CatalogueTyreSpecRead,
 )
-from app.vehicle.services import catalogue_browse, catalogue_entitlements
+from app.vehicle.services import catalogue_browse, catalogue_details, catalogue_entitlements
 from app.vehicle.services.catalogue_browse import (
     CODED_FIELDS,
     DEFAULT_VEHICLE_KIND,
@@ -58,7 +60,7 @@ from app.vehicle.services.catalogue_browse import (
     VariantFilters,
 )
 
-router = APIRouter(tags=["catalogue"])
+router = APIRouter(route_class=IdempotentRoute, tags=["catalogue"])
 
 
 def _catalogue_filters(
@@ -86,11 +88,27 @@ def _catalogue_filters(
     offered (KAN-548); «ist nicht» (KAN-476) went with the mirror."""
 
     coded = {
-        "fuelType": fuelType, "bodyStyle": bodyStyle, "drivetrain": drivetrain, "transmission": transmission,
-        "vehicleClass": vehicleClass, "emissionStandard": emissionStandard,
+        "fuelType": fuelType,
+        "bodyStyle": bodyStyle,
+        "drivetrain": drivetrain,
+        "transmission": transmission,
+        "vehicleClass": vehicleClass,
+        "emissionStandard": emissionStandard,
     }
-    numeric_min = {"kw": kwMin, "displacementCcm": displacementCcmMin, "doors": doorsMin, "seats": seatsMin, "co2Gkm": co2GkmMin}
-    numeric_max = {"kw": kwMax, "displacementCcm": displacementCcmMax, "doors": doorsMax, "seats": seatsMax, "co2Gkm": co2GkmMax}
+    numeric_min = {
+        "kw": kwMin,
+        "displacementCcm": displacementCcmMin,
+        "doors": doorsMin,
+        "seats": seatsMin,
+        "co2Gkm": co2GkmMin,
+    }
+    numeric_max = {
+        "kw": kwMax,
+        "displacementCcm": displacementCcmMax,
+        "doors": doorsMax,
+        "seats": seatsMax,
+        "co2Gkm": co2GkmMax,
+    }
     return VariantFilters(
         coded={k: v for k, v in coded.items() if v is not None and k in CODED_FIELDS},
         numeric_min={k: v for k, v in numeric_min.items() if v is not None and k in NUMERIC_FIELDS},
@@ -192,8 +210,11 @@ def list_model_groups(
     return CatalogueModelGroupPage(
         items=[
             CatalogueModelGroupRead(
-                key=g.model_group_key, name=g.description, model_search=g.model_search,
-                production_year_from=g.production_year_from, production_year_to=g.production_year_to,
+                key=g.model_group_key,
+                name=g.description,
+                model_search=g.model_search,
+                production_year_from=g.production_year_from,
+                production_year_to=g.production_year_to,
             )
             for g in result.items
         ],
@@ -252,13 +273,20 @@ def catalogue_facets(
     call, nothing offered)."""
 
     facets = catalogue_browse.compute_facets(
-        db, tenant_id=principal.tenant_id, actor_id=principal.user_id, vehicle_kind=vehicle_kind, brand=brand,
+        db,
+        tenant_id=principal.tenant_id,
+        actor_id=principal.user_id,
+        vehicle_kind=vehicle_kind,
+        brand=brand,
         model_group_key=model_group_key,
     )
     return CatalogueFacetsRead(
         browse_available=facets.state is CatalogueBrowseState.OK,
         state=facets.state,
-        coded={api_field: [CatalogueFacetValue(value_code=code) for code in codes] for api_field, codes in facets.coded.items()},
+        coded={
+            api_field: [CatalogueFacetValue(value_code=code) for code in codes]
+            for api_field, codes in facets.coded.items()
+        },
         numeric={},
     )
 
@@ -301,9 +329,18 @@ def get_variant_specification(
     if db.get(ModelVariant, model_variant_id) is None:
         raise NotFoundError(f"Catalogue variant {model_variant_id} was not found.")
 
+    # KAN-211 (ADR-123): opening the car loads the details this Betrieb has
+    # not stored, once; the signed-in user is who the identAPI enrols.
     result = catalogue_entitlements.get_catalogue_specification(
-        db, tenant_id=principal.tenant_id, model_variant_id=model_variant_id
+        db, tenant_id=principal.tenant_id, model_variant_id=model_variant_id, actor_id=principal.user_id
     )
+    return specification_read(result)
+
+
+def specification_read(result: catalogue_entitlements.CatalogueSpecificationResult) -> CatalogueSpecificationRead:
+    """The one serialisation of a specification result, shared with the
+    vehicle-mdm route (`vehicle_mdm_detail.py`) and the reload below."""
+
     return CatalogueSpecificationRead(
         has_catalogue_match=result.has_catalogue_match,
         has_provider_connection=result.has_provider_connection,
@@ -317,4 +354,40 @@ def get_variant_specification(
         option_relations=[
             CatalogueOptionRelationRead.model_validate(r, from_attributes=True) for r in result.option_relations
         ],
+        details=CatalogueDetailStatesRead.model_validate(result.details, from_attributes=True),
     )
+
+
+@router.post(
+    "/catalogue/variants/{model_variant_id}/details/reload",
+    response_model=CatalogueSpecificationRead,
+    status_code=200,
+)
+def reload_variant_details(
+    model_variant_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """«Neu laden» (KAN-211, ADR-123): one fresh provider request per detail,
+    replacing the Betrieb's stored rows — the dealer manager's action on the
+    stock car's technical data, nowhere else, and audited. Platform staff may
+    run it too (D-A-24's write posture). The variant is global, so a wrong id
+    is a 404 for everyone; the details written are the caller's tenant's. No
+    `If-Match`: the variant row is not what changes (its `version` stays),
+    the tenant's detail rows are, and they carry no version.
+    """
+
+    if not (principal.is_dealer_manager or AccessRole.PLATFORM_ADMIN in principal.roles):
+        raise ForbiddenError("Only a dealer manager may reload a car's catalogue details.")
+    variant = db.get(ModelVariant, model_variant_id)
+    if variant is None:
+        raise NotFoundError(f"Catalogue variant {model_variant_id} was not found.")
+    catalogue_details.reload_details(db, tenant_id=principal.tenant_id, variant=variant, actor_id=principal.user_id)
+    result = catalogue_entitlements.get_catalogue_specification(
+        db,
+        tenant_id=principal.tenant_id,
+        model_variant_id=model_variant_id,
+        actor_id=principal.user_id,
+        load_on_open=False,
+    )
+    return specification_read(result)

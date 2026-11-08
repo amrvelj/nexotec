@@ -190,6 +190,51 @@ class VariantOptionData:
     is_included: bool = False
     is_package: bool = False
     equipment_feature_codes: list[str] = field(default_factory=list)
+    # KAN-211 — the identAPI carries two identifiers per option: `optionKey`
+    # (auto-i's own, the natural key, in `option_code`) and `optionCode`, the
+    # manufacturer's code the advisor knows from the price list and searches
+    # by (Anto, 2026-11-08). None where the provider sends none.
+    manufacturer_code: str | None = None
+    # KAN-211 — the option's relations as the identAPI delivers them, by the
+    # related option's key: the options this one is a package of (`packOptions`),
+    # the ones it excludes (`exclusions`) and the ones it is priced in
+    # combination with (`addition`, with that price). Stored and shown, never
+    # enforced (ADR-072).
+    pack_option_codes: list[str] = field(default_factory=list)
+    excluded_option_codes: list[str] = field(default_factory=list)
+    priced_with: list["OptionPriceWithData"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class OptionPriceWithData:
+    """KAN-211 — `VehicleOptionAdditionData`: this option costs `price` when
+    taken together with `option_code`."""
+
+    option_code: str
+    price: Decimal | None
+
+
+@dataclass(frozen=True)
+class VariantColoursData:
+    """KAN-211 — what one `GET /vehiclecatalog/autoi/{fzKey}` answers: the
+    variant's master data and, on the same row, its colour options
+    (`colorOptionsData`). The identAPI has no colour endpoint of its own, so
+    colours ride on the variant request (ADR-123)."""
+
+    master: VariantMasterData
+    colours: list["VariantColourData"]
+
+
+@dataclass(frozen=True)
+class EnergyLabelData:
+    """KAN-211 — one `EnergyLabelInfoData` row of `GET /energylabel/info/
+    typeapproval/{nr}`: the A–G class valid for `calculation_year`; several
+    rows per Typenschein where gearboxes differ."""
+
+    energy_class: str
+    calculation_year: int
+    gearbox: str | None = None
+    label_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -428,6 +473,12 @@ class ProviderAdapter(Protocol):
     def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]: ...
     def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]: ...
     def fetch_images(self, fz_key: str) -> list[VariantImageData]: ...
+
+    # KAN-211 (ADR-123) — the details loaded once per Betrieb when a car is
+    # opened. Colours come with the variant on the identAPI (one request for
+    # both); the energy label is its own endpoint, keyed by Typenschein.
+    def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData: ...
+    def fetch_energy_label(self, *, type_approval_number: str) -> list[EnergyLabelData]: ...
 
     def fetch_valuation(
         self, *, fz_key: str, model_year: int, first_registration: dt.date, valuation_date: dt.date, mileage: int

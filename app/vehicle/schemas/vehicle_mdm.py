@@ -7,6 +7,7 @@ included) may ever carry them as writable fields, per ADR-045.
 import datetime as dt
 import uuid
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import Field, model_validator
 
@@ -211,6 +212,31 @@ class CatalogueOptionRead(CamelModel):
     is_included: bool
     is_package: bool
     equipment_features: list[str]
+    # KAN-211 — the manufacturer's own code (identAPI `optionCode`); the
+    # advisor searches the list by it and by the description.
+    manufacturer_code: str | None = None
+
+
+CatalogueDetailState = Literal["present", "notInContract", "unavailable", "notLoaded"]
+
+
+class CatalogueDetailStateRead(CamelModel):
+    """KAN-211 (ADR-123) — one detail's state for the calling Betrieb.
+    `present`: loaded (possibly empty) · `notInContract`: the licence does
+    not include it (the screen says so, FR-C-06) · `unavailable`: the
+    provider could not be reached, asked again on the next open ·
+    `notLoaded`: never asked (no connection, or no key at the provider)."""
+
+    state: CatalogueDetailState
+    loaded_at: dt.datetime | None = None
+
+
+class CatalogueDetailStatesRead(CamelModel):
+    options: CatalogueDetailStateRead
+    colours: CatalogueDetailStateRead
+    tyre_specs: CatalogueDetailStateRead
+    images: CatalogueDetailStateRead
+    energy_label: CatalogueDetailStateRead
 
 
 class CatalogueColourRead(CamelModel):
@@ -268,6 +294,8 @@ class CatalogueSpecificationRead(CamelModel):
     tyre_specs: list[CatalogueTyreSpecRead]
     images: list[CatalogueImageRead]
     option_relations: list[CatalogueOptionRelationRead]
+    # KAN-211 — additive: per detail, what the last load ended in.
+    details: CatalogueDetailStatesRead
 
 
 class VehicleSearchHit(VehicleMdmRead):

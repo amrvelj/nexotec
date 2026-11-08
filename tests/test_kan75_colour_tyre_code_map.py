@@ -47,7 +47,9 @@ def _golf(db_session) -> ModelVariant:
 
 def _colours(db_session, tenant_id) -> dict[str, ColourCache]:
     rows = db_session.scalars(
-        select(ColourCache).where(ColourCache.tenant_id == tenant_id, ColourCache.model_variant_id == _golf(db_session).id)
+        select(ColourCache).where(
+            ColourCache.tenant_id == tenant_id, ColourCache.model_variant_id == _golf(db_session).id
+        )
     )
     return {row.colour_code: row for row in rows}
 
@@ -109,8 +111,12 @@ def test_the_seed_is_insert_if_absent_and_leaves_an_admins_row_alone(db_session)
     migration = code_map_migration()
     db_session.add(
         ProviderCodeMap(
-            provider="auto_i_dat", vehicle_kind="01", code_group="axle_position", provider_code="2",
-            canonical_list_code="axle_position", canonical_value_code="rear",
+            provider="auto_i_dat",
+            vehicle_kind="01",
+            code_group="axle_position",
+            provider_code="2",
+            canonical_list_code="axle_position",
+            canonical_value_code="rear",
         )
     )
     db_session.flush()
@@ -123,8 +129,10 @@ def test_the_seed_is_insert_if_absent_and_leaves_an_admins_row_alone(db_session)
     assert second.inserted == 0 and second.identical == 27
     kept = db_session.scalar(
         select(ProviderCodeMap.canonical_value_code).where(
-            ProviderCodeMap.provider == "auto_i_dat", ProviderCodeMap.vehicle_kind == "01",
-            ProviderCodeMap.code_group == "axle_position", ProviderCodeMap.provider_code == "2",
+            ProviderCodeMap.provider == "auto_i_dat",
+            ProviderCodeMap.vehicle_kind == "01",
+            ProviderCodeMap.code_group == "axle_position",
+            ProviderCodeMap.provider_code == "2",
         )
     )
     assert kept == "rear"
@@ -140,11 +148,15 @@ def test_with_the_seed_the_sync_resolves_colours_and_tyres_and_keeps_the_raw_cod
 
     colours = _colours(db_session, tenant_id)
     assert {code: (c.colour_type, c.colour_area_code) for code, c in colours.items()} == {
-        "BLK": ("exterior", "1"), "RED": ("exterior", "1"), "GRY": ("interior", "2"),
+        "BLK": ("exterior", "1"),
+        "RED": ("exterior", "1"),
+        "GRY": ("interior", "2"),
     }
     tyres = _tyres(db_session, tenant_id)
     assert {key: (t.axle, t.season) for key, t in tyres.items()} == {
-        ("2", "121"): ("front", "summer"), ("3", "121"): ("rear", "summer"), ("1", "122"): ("both", "winter"),
+        ("2", "121"): ("front", "summer"),
+        ("3", "121"): ("rear", "summer"),
+        ("1", "122"): ("both", "winter"),
     }
     assert _gaps(db_session) == set()
 
@@ -158,38 +170,53 @@ def test_an_unmapped_code_is_a_gap_and_its_value_stays_empty_never_a_guess(db_se
     assert {c.colour_type for c in _colours(db_session, tenant_id).values()} == {None}
     assert {(t.axle, t.season) for t in _tyres(db_session, tenant_id).values()} == {(None, None)}
     assert _gaps(db_session) == {
-        ("1", "colour_area", "1"), ("1", "colour_area", "2"),
-        ("1", "axle_position", "1"), ("1", "axle_position", "2"), ("1", "axle_position", "3"),
-        ("1", "tyre_type", "121"), ("1", "tyre_type", "122"),
+        ("1", "colour_area", "1"),
+        ("1", "colour_area", "2"),
+        ("1", "axle_position", "1"),
+        ("1", "axle_position", "2"),
+        ("1", "axle_position", "3"),
+        ("1", "tyre_type", "121"),
+        ("1", "tyre_type", "122"),
     }
 
 
 def test_an_unknown_code_beside_known_ones_is_a_gap_and_a_missing_code_is_no_value(db_session, monkeypatch):
     seed_colour_tyre_code_map(db_session)
-    real_colours = MockAutoIDatAdapter.fetch_colours
+    real_variant = MockAutoIDatAdapter.fetch_variant_with_colours
     real_tyres = MockAutoIDatAdapter.fetch_tyre_specs
 
-    def colours(self, *, werkscode):
-        rows = real_colours(self, werkscode=werkscode)
-        return [
-            dataclasses.replace(rows[0], colour_area_code="7"),
-            dataclasses.replace(rows[1], colour_area_code=None),
-            rows[2],
-        ]
+    def colours(self, fz_key):
+        # KAN-211: colours ride on the variant answer (`colorOptionsData`).
+        answer = real_variant(self, fz_key)
+        rows = answer.colours
+        return dataclasses.replace(
+            answer,
+            colours=[
+                dataclasses.replace(rows[0], colour_area_code="7"),
+                dataclasses.replace(rows[1], colour_area_code=None),
+                rows[2],
+            ],
+        )
 
     def tyres(self, *, type_approval_number):
         rows = real_tyres(self, type_approval_number=type_approval_number)
-        return [dataclasses.replace(rows[0], axle_code="5", season_code="129"), dataclasses.replace(rows[1], axle_code=None)]
+        return [
+            dataclasses.replace(rows[0], axle_code="5", season_code="129"),
+            dataclasses.replace(rows[1], axle_code=None),
+        ]
 
-    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_colours", colours)
+    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_variant_with_colours", colours)
     monkeypatch.setattr(MockAutoIDatAdapter, "fetch_tyre_specs", tyres)
     tenant_id = _sync_tenant(db_session)
 
     assert {code: c.colour_type for code, c in _colours(db_session, tenant_id).items()} == {
-        "BLK": None, "RED": None, "GRY": "interior",
+        "BLK": None,
+        "RED": None,
+        "GRY": "interior",
     }
     assert {key: (t.axle, t.season) for key, t in _tyres(db_session, tenant_id).items()} == {
-        ("5", "129"): (None, None), (None, "121"): (None, "summer"),
+        ("5", "129"): (None, None),
+        (None, "121"): (None, "summer"),
     }
     # A code nobody mapped is a gap; an absent code is no code, so no gap.
     assert _gaps(db_session) == {("1", "colour_area", "7"), ("1", "axle_position", "5"), ("1", "tyre_type", "129")}
@@ -223,20 +250,30 @@ def test_resolving_a_gap_fills_the_cached_colours_and_tyres_of_every_tenant_at_o
         db_session, gap=exterior, canonical_list_code="colour_area", canonical_value_code="exterior", actor_id=actor
     )
     catalogue_admin.resolve_gap(
-        db_session, gap=_gap(db_session, "axle_position", "2"), canonical_list_code="axle_position",
-        canonical_value_code="front", actor_id=actor,
+        db_session,
+        gap=_gap(db_session, "axle_position", "2"),
+        canonical_list_code="axle_position",
+        canonical_value_code="front",
+        actor_id=actor,
     )
     catalogue_admin.resolve_gap(
-        db_session, gap=_gap(db_session, "tyre_type", "121"), canonical_list_code="tyre_type",
-        canonical_value_code="summer", actor_id=actor,
+        db_session,
+        gap=_gap(db_session, "tyre_type", "121"),
+        canonical_list_code="tyre_type",
+        canonical_value_code="summer",
+        actor_id=actor,
     )
 
     for tenant_id in (first, second):
         assert {code: c.colour_type for code, c in _colours(db_session, tenant_id).items()} == {
-            "BLK": "exterior", "RED": "exterior", "GRY": None,  # FarbArt 2 is another gap
+            "BLK": "exterior",
+            "RED": "exterior",
+            "GRY": None,  # FarbArt 2 is another gap
         }
         assert {key: (t.axle, t.season) for key, t in _tyres(db_session, tenant_id).items()} == {
-            ("2", "121"): ("front", "summer"), ("3", "121"): (None, "summer"), ("1", "122"): (None, None),
+            ("2", "121"): ("front", "summer"),
+            ("3", "121"): (None, "summer"),
+            ("1", "122"): (None, None),
         }
     events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=exterior.id, tenant_id=None)
     # BLK and RED on each of the three demo variants, in each of two tenants.
@@ -251,14 +288,21 @@ def test_resolving_a_gap_never_overwrites_a_value_and_stays_within_its_vehicle_k
     db_session.commit()
 
     filled = catalogue_sync.apply_resolved_code_to_colours_and_tyres(
-        db_session, provider=MOCK, vehicle_kind="02", code_group="colour_area", provider_code="1",
+        db_session,
+        provider=MOCK,
+        vehicle_kind="02",
+        code_group="colour_area",
+        provider_code="1",
         value_code="exterior",
     )
     assert filled == 0  # the demo variants are FzArt "1", not "02"
 
     catalogue_admin.resolve_gap(
-        db_session, gap=_gap(db_session, "colour_area", "1"), canonical_list_code="colour_area",
-        canonical_value_code="exterior", actor_id=uuid.uuid4(),
+        db_session,
+        gap=_gap(db_session, "colour_area", "1"),
+        canonical_list_code="colour_area",
+        canonical_value_code="exterior",
+        actor_id=uuid.uuid4(),
     )
     colours = _colours(db_session, tenant_id)
     assert colours["RED"].colour_type == "interior"
@@ -273,8 +317,12 @@ def test_two_raw_axle_codes_mapped_onto_one_value_stay_two_rows(db_session, monk
     seed_colour_tyre_code_map(db_session)
     db_session.add(
         ProviderCodeMap(
-            provider=MOCK, vehicle_kind="1", code_group="axle_position", provider_code="5",
-            canonical_list_code="axle_position", canonical_value_code="front",
+            provider=MOCK,
+            vehicle_kind="1",
+            code_group="axle_position",
+            provider_code="5",
+            canonical_list_code="axle_position",
+            canonical_value_code="front",
         )
     )
     db_session.commit()
@@ -289,5 +337,6 @@ def test_two_raw_axle_codes_mapped_onto_one_value_stay_two_rows(db_session, monk
     look_up_demo_variants(db_session, tenant_id)  # a re-sync keeps the two rows
 
     assert {key: (t.axle, t.size) for key, t in _tyres(db_session, tenant_id).items()} == {
-        ("2", "121"): ("front", "225/45 R18"), ("5", "121"): ("front", "235/40 R18"),
+        ("2", "121"): ("front", "225/45 R18"),
+        ("5", "121"): ("front", "235/40 R18"),
     }
