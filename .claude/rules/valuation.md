@@ -59,6 +59,25 @@ file in the same PR as any change to what it states. -->
   VIN typed beside a configuration without one is stored (KAN-449 option A) — **open with Anto on
   KAN-574** (the ruling asked the configuration to carry it); `ValuationCreateDialog` marks the three required and holds its submit
   until they are filled. Rows written before keep what they had.
+- **The auto-i-dat figure is fetched, never typed** (KAN-552; Anto, 2026-11-09: option A, «Wert auto-i-dat» = the
+  Eintauschpreis, Einkaufs- and Verkaufspreis beside it; valuation calls are not rationed). «Bewertung von auto-i-dat
+  holen» in `ValuationCreateDialog` — shown only for a configuration with a catalogue variant and the strict `valuation`
+  capability (the probed `bewertung` row, `integration` `STRICT_FEATURE_OPTIONS`; never probed is not granted) — is
+  `POST /v1/valuations/provider-quotes` (`services/provider_quote.py`): it reads the car through
+  `vehicle.public.get_provider_valuation_input` (the Betrieb's connection, the FzKey at that provider, the variant's
+  model-year range — the first registration's year held inside it —, first registration, mileage, the selected
+  non-standard options' six-digit OptKeys), asks `vehiclevaluation` and then `residualvalue_table` under one correlation
+  id (two call-log rows, each its own `call_capability` block) and stores a `ValuationProviderQuote` (tenant-private,
+  written once); 409 `no_provider_connection` / `not_entitled` (the row, or a 403 at call time), 422
+  `provider_unavailable`, `provider_cannot_value` (the provider's `state` and message as delivered),
+  `no_catalogue_variant`, `provider_quote_inputs_missing`; a failed table keeps the quote with
+  `residualTableState`. The valuation is created on it (`providerQuoteId`): `source` is **derived** — `auto_i_dat` and
+  the quote's trade-in price when no other figure is sent, `manual` for the advisor's own figure with the quote beside it
+  (`ValuationRead.providerQuote`, shown on the detail with the residual table); a typed `auto_i_dat` without a quote is
+  422 `provider_quote_required`, a quote of another configuration `provider_quote_mismatch`, of other first
+  registration or mileage `provider_quote_stale`. Nothing asks the provider on opening a valuation. Run against the
+  mock and a fake transport only; whether `vehicleExchangePrice` already includes the km correction is not verified
+  against a real answer.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.

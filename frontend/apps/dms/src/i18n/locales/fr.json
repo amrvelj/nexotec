@@ -330,7 +330,14 @@
       "page_invalid": "Page invalide.",
       "sort_field_unknown": "Le catalogue ne peut pas être trié par ce champ.",
       "vehicle_kind_unknown_to_provider": "Le fournisseur ne connaît pas ce genre de véhicule.",
-      "catalogue_scope_invalid": "La marque ou le groupe de modèles n’est pas un nom valide."
+      "catalogue_scope_invalid": "La marque ou le groupe de modèles n’est pas un nom valide.",
+      "not_entitled": "Cette requête n’est pas comprise dans le contrat avec le fournisseur.",
+      "provider_unavailable": "Le fournisseur n’est pas disponible actuellement. Veuillez réessayer plus tard.",
+      "provider_cannot_value": "auto-i-dat ne peut pas évaluer ce véhicule : {{message}}",
+      "provider_quote_required": "Une valeur auto-i-dat vient du fournisseur — utilisez d’abord « Obtenir l’évaluation auto-i-dat ».",
+      "provider_quote_mismatch": "Cette évaluation auto-i-dat appartient à une autre configuration.",
+      "provider_quote_stale": "La première mise en circulation ou le kilométrage diffèrent de l’évaluation auto-i-dat. Veuillez l’obtenir à nouveau.",
+      "provider_quote_inputs_missing": "L’évaluation auto-i-dat requiert la première mise en circulation et le kilométrage."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1757,7 +1764,18 @@
     "configurator": {
       "skip": "Saisir à la main sans configurateur"
     },
-    "vehicleNotLoaded": "Le véhicule n'a pas pu être chargé. Saisissez-le ici vous-même."
+    "vehicleNotLoaded": "Le véhicule n'a pas pu être chargé. Saisissez-le ici vous-même.",
+    "quote": {
+      "fetch": "Obtenir l’évaluation auto-i-dat",
+      "refetch": "Obtenir à nouveau",
+      "needsInputs": "Saisissez la première mise en circulation et le kilométrage pour obtenir l’évaluation.",
+      "stale": "Première mise en circulation ou kilométrage modifié — cette évaluation auto-i-dat n’est plus valable. Veuillez l’obtenir à nouveau.",
+      "notInContract": "Évaluation non comprise dans le contrat avec auto-i-dat.",
+      "noConnection": "Aucun fournisseur de données véhicule connecté.",
+      "unavailable": "L’évaluation auto-i-dat n’est pas disponible actuellement. Veuillez réessayer plus tard.",
+      "noCatalogueVariant": "auto-i-dat ne peut pas évaluer un véhicule sans variante de catalogue.",
+      "failed": "L’évaluation auto-i-dat n’a pas pu être obtenue."
+    }
   },
   "integrationsList": {
     "title": "Intégrations",
@@ -3658,6 +3676,26 @@
         "body": "Lors de la saisie d'une adresse dans le DMS, le texte d'adresse tapé – et uniquement celui-ci, jamais un nom ni d'autres données client – est transmis à Google Ireland Limited afin d'afficher des propositions. Google traite ces données en tant que responsable du traitement distinct, conformément aux Conditions d'utilisation de Google Maps Platform et aux Google Controller-Controller Data Protection Terms (y compris les clauses contractuelles types pour les transferts depuis la Suisse). Seule l'adresse choisie par l'utilisateur est enregistrée. Une entreprise peut désactiver la fonction à tout moment sous Administration › Entreprise › Saisie des adresses.",
         "google": "La manière dont Google traite ces données est décrite dans les <privacy>Règles de confidentialité de Google</privacy> ; les <terms>Conditions d'utilisation de Google</terms> s'appliquent en outre aux propositions d'adresses."
       }
+    }
+  },
+  "valuationQuote": {
+    "title": "Évaluation auto-i-dat",
+    "exchange": "Valeur auto-i-dat (prix de reprise)",
+    "purchase": "Prix d’achat",
+    "sale": "Prix de vente",
+    "range": "Fourchette de reprise",
+    "kmCorrection": "Correction kilométrique (reprise)",
+    "kmExpected": "Kilométrage usuel pour cet âge",
+    "asked": "Évalué avec l’année modèle {{year}}, {{km}} km, première mise en circulation {{date}} — demandé le {{at}}",
+    "manualHint": "auto-i-dat recommande de vérifier cette valeur manuellement.",
+    "residualTitle": "Valeurs résiduelles (en % du prix neuf)",
+    "kmPerYear": "km/an",
+    "months": "{{months}} mois",
+    "residualState": {
+      "present": "Aucune valeur résiduelle fournie.",
+      "not_in_contract": "Valeurs résiduelles non comprises dans le contrat avec auto-i-dat.",
+      "unavailable": "Valeurs résiduelles actuellement indisponibles.",
+      "declined": "auto-i-dat ne fournit pas de valeurs résiduelles pour ce véhicule."
     }
   }
 }

@@ -240,8 +240,12 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `fetch_energy_label` (`GET /energylabel/info/typeapproval/{nr}`, one row per gearbox with its
   `calculationYear`). **The VIN rung (KAN-549):** `identify_by_vin` (`GET /vehiclebuild/vin/{vin}?needAutoiKeyIfExists`,
   one `vehicle_vin` row — named apart from `vehiclebuild` so the call log tells the licence option `vin` from a
-  plate or Stammnummer lookup; the `vin` probe calls the same endpoint, Anto 2026-11-09 option A). Not built:
-  valuation (KAN-552); the SOAP adapter (`auto_i_dat_soap.py`, legacy
+  plate or Stammnummer lookup; the `vin` probe calls the same endpoint, Anto 2026-11-09 option A). **Valuation
+  (KAN-552):** `fetch_vehicle_valuation` (`GET /vehiclevaluation/{fzKey}/{modelYear}/{firstAdmission}/{km}`, options as
+  `option[n].key`, messages in DE/FR/IT/EN — one `vehiclevaluation` row) and `fetch_residual_table`
+  (`GET /residualvalue/{fzKey}/{modelYear}?firstAdmission&kilometreState`, the predefined table in one
+  `residualvalue_table` row; the single-cell residual call is not built — no caller); Valuation's caller and its
+  `vehicle.public.get_provider_valuation_input` are in `valuation.md`. The SOAP adapter (`auto_i_dat_soap.py`, legacy
   code `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550 — the mock also answers the
   identAPI-shaped operations from its fixtures (invented spec blocks included), so demos and tests run on it.
 - **Provider captions are vocabulary, global, fetched on «Test connection» only** (ADR-111 (3); KAN-547, Anto

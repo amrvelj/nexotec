@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Group, Modal, NumberInput, Select, Stack, Text, TextInput, Textarea, UnstyledButton } from '@mantine/core'
+import { Alert, Button, Group, Modal, NumberInput, Stack, Text, TextInput, Textarea, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
-import { api } from '../api/client'
+import { ApiError, api } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
 import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
+import { ProviderQuoteCard } from './ProviderQuoteCard'
+import { ValuationSourceMarker } from './ValuationSourceMarker'
 import type {
   CapabilityCheckRead,
   ConfigurationRead,
   CustomerPage,
   CustomerRead,
+  ProviderQuoteRead,
+  ProviderQuoteRequest,
   ValuationCreate,
   ValuationRead,
-  ValuationSourceValue,
 } from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
 import { vinRefusalKey } from '../utils/vin'
@@ -53,6 +56,15 @@ export interface ValuationVehiclePrefill {
 
 const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
 
+// KAN-552 — the quote's refusals in this dialog's own words («nicht im
+// Vertrag», «derzeit nicht verfügbar»); anything else through apiRefusalText.
+const QUOTE_REFUSALS: Record<string, string> = {
+  not_entitled: 'valuationCreate.quote.notInContract',
+  no_provider_connection: 'valuationCreate.quote.noConnection',
+  provider_unavailable: 'valuationCreate.quote.unavailable',
+  no_catalogue_variant: 'valuationCreate.quote.noCatalogueVariant',
+}
+
 /**
  * WP-8 PR-9 — the standalone application's own create dialog. Deductions
  * are a plain local array here, not RepeatableRowGroup: that component's
@@ -81,9 +93,15 @@ export function ValuationCreateDialog({
   // attach is still running or after it failed. "Erstellen" again then
   // replays the valuation already created instead of creating a second one.
   const idempotency = useIdempotencyKey()
+  // One key per quote request: a retry after a lost answer replays the
+  // stored quote instead of asking the provider again.
+  const quoteKey = useIdempotencyKey()
   useEffect(() => {
-    if (opened) idempotency.renew()
-  }, [opened, idempotency])
+    if (opened) {
+      idempotency.renew()
+      quoteKey.renew()
+    }
+  }, [opened, idempotency, quoteKey])
 
   const c = configuration
   // KAN-449 (Anto, 2026-10-25): a configuration that names a car (by VIN or
@@ -114,8 +132,12 @@ export function ValuationCreateDialog({
     enabled: customerPickerOpen && debouncedCustomerQuery.length > 0,
   })
 
-  const [source, setSource] = useState<ValuationSourceValue>('manual')
   const [providerValue, setProviderValue] = useState<number | ''>('')
+  // KAN-552 — the identAPI's answer, fetched only on the advisor's click
+  // (never on open) and stored server-side; the valuation references it.
+  const [quote, setQuote] = useState<ProviderQuoteRead | null>(null)
+  const [quoting, setQuoting] = useState(false)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
   const [finalOffer, setFinalOffer] = useState<number | ''>('')
   const [validForDays, setValidForDays] = useState(30) // Q-11, confirmed live default
   const [note, setNote] = useState('')
@@ -138,6 +160,38 @@ export function ValuationCreateDialog({
     queryFn: () => api.get<CapabilityCheckRead>('/integrations/capabilities/valuation'),
   })
   const bewertungUnavailable = bewertungCapability.data?.granted === false
+  // The button needs the option granted (read strictly: a connection never
+  // tested is not granted) and a car the provider knows by its FzKey.
+  const canQuote = Boolean(c?.catalogueVariantId) && bewertungCapability.data?.granted === true
+  const quoteInputsReady = firstRegistration !== '' && mileage !== ''
+  // A quote values what the dialog showed when it was fetched; changed
+  // figures need a new one (the API refuses the old one: provider_quote_stale).
+  const quoteStale = quote != null && (quote.mileage !== mileage || quote.firstRegistration !== firstRegistration)
+  const activeQuote = quote != null && !quoteStale ? quote : null
+  const derivedSource =
+    activeQuote && (providerValue === '' || Number(providerValue) === Number(activeQuote.exchangePrice)) ? 'auto_i_dat' : 'manual'
+
+  const fetchQuote = async () => {
+    if (!c || !quoteInputsReady) return
+    setQuoting(true)
+    setQuoteError(null)
+    try {
+      const body: ProviderQuoteRequest = {
+        configurationId: c.id,
+        firstRegistration: firstRegistration || null,
+        mileage: mileage === '' ? null : mileage,
+      }
+      const fetched = await api.post<ProviderQuoteRead>('/valuations/provider-quotes', body, quoteKey.headers(body))
+      quoteKey.renew()
+      setQuote(fetched)
+      setProviderValue(Number(fetched.exchangePrice))
+    } catch (err) {
+      const reason = err instanceof ApiError ? (err.details?.reason as string | undefined) : undefined
+      setQuoteError(reason && QUOTE_REFUSALS[reason] ? t(QUOTE_REFUSALS[reason]) : apiRefusalText(t, err, 'valuationCreate.quote.failed'))
+    } finally {
+      setQuoting(false)
+    }
+  }
 
   const addDeduction = () => {
     if (!newDeductionLabel || newDeductionAmount === '') return
@@ -161,7 +215,8 @@ export function ValuationCreateDialog({
         vehiclePlate: plate || null,
         mileage: mileage === '' ? null : mileage,
         customerId,
-        source,
+        // KAN-552: the server derives the source from the quote.
+        providerQuoteId: activeQuote?.id ?? null,
         providerValue: providerValue === '' ? null : String(providerValue),
         finalOffer: String(finalOffer),
         deductions,
@@ -259,16 +314,32 @@ export function ValuationCreateDialog({
             )}
           </Stack>
 
+          {canQuote && (
+            <Stack gap="xs" data-testid="provider-quote-section">
+              <Group justify="space-between">
+                <Text size="sm" fw={600}>{t('valuationQuote.title')}</Text>
+                <Button
+                  size="xs"
+                  variant={quote ? 'default' : 'filled'}
+                  loading={quoting}
+                  disabled={!quoteInputsReady}
+                  onClick={() => void fetchQuote()}
+                >
+                  {quote ? t('valuationCreate.quote.refetch') : t('valuationCreate.quote.fetch')}
+                </Button>
+              </Group>
+              {!quoteInputsReady && <Text size="xs" c="dimmed">{t('valuationCreate.quote.needsInputs')}</Text>}
+              {quoteError && <Alert color="yellow">{quoteError}</Alert>}
+              {quoteStale && <Alert color="yellow">{t('valuationCreate.quote.stale')}</Alert>}
+              {activeQuote && <ProviderQuoteCard quote={activeQuote} />}
+            </Stack>
+          )}
+
           <Group grow align="flex-end">
-            <Select
-              label={t('valuationCreate.source')}
-              data={[
-                { value: 'auto_i_dat', label: 'auto-i-dat', disabled: bewertungUnavailable },
-                { value: 'manual', label: t('valuationCreate.sourceManual') },
-              ]}
-              value={bewertungUnavailable ? 'manual' : source}
-              onChange={(v) => setSource((v as ValuationSourceValue) ?? 'manual')}
-            />
+            <Stack gap={4}>
+              <Text size="sm" fw={500}>{t('valuationCreate.source')}</Text>
+              <ValuationSourceMarker source={derivedSource} />
+            </Stack>
             <ChfInput
               label={t('valuationCreate.providerValue')}
               value={providerValue}

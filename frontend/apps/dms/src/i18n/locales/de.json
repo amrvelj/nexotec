@@ -330,7 +330,14 @@
       "page_invalid": "Ungültige Seite.",
       "sort_field_unknown": "Nach diesem Feld kann der Katalog nicht sortiert werden.",
       "vehicle_kind_unknown_to_provider": "Diese Fahrzeugart kennt der Anbieter nicht.",
-      "catalogue_scope_invalid": "Marke oder Modellgruppe ist kein gültiger Name."
+      "catalogue_scope_invalid": "Marke oder Modellgruppe ist kein gültiger Name.",
+      "not_entitled": "Diese Abfrage ist nicht im Vertrag mit dem Anbieter.",
+      "provider_unavailable": "Der Anbieter ist derzeit nicht verfügbar. Bitte später erneut versuchen.",
+      "provider_cannot_value": "auto-i-dat kann dieses Fahrzeug nicht bewerten: {{message}}",
+      "provider_quote_required": "Ein auto-i-dat-Wert kommt vom Anbieter — zuerst «Bewertung von auto-i-dat holen».",
+      "provider_quote_mismatch": "Diese auto-i-dat-Bewertung gehört zu einer anderen Konfiguration.",
+      "provider_quote_stale": "Erstinverkehrsetzung oder Kilometerstand weichen von der auto-i-dat-Bewertung ab. Bitte erneut holen.",
+      "provider_quote_inputs_missing": "Für die auto-i-dat-Bewertung braucht es Erstinverkehrsetzung und Kilometerstand."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1757,7 +1764,18 @@
     "configurator": {
       "skip": "Ohne Konfigurator von Hand erfassen"
     },
-    "vehicleNotLoaded": "Das Fahrzeug konnte nicht geladen werden. Erfassen Sie es hier selbst."
+    "vehicleNotLoaded": "Das Fahrzeug konnte nicht geladen werden. Erfassen Sie es hier selbst.",
+    "quote": {
+      "fetch": "Bewertung von auto-i-dat holen",
+      "refetch": "Erneut holen",
+      "needsInputs": "Erstinverkehrsetzung und Kilometerstand eintragen, um die Bewertung zu holen.",
+      "stale": "Erstinverkehrsetzung oder Kilometerstand geändert — diese auto-i-dat-Bewertung gilt nicht mehr. Bitte erneut holen.",
+      "notInContract": "Bewertung nicht im Vertrag mit auto-i-dat.",
+      "noConnection": "Kein Fahrzeugdaten-Anbieter verbunden.",
+      "unavailable": "Die auto-i-dat-Bewertung ist derzeit nicht verfügbar. Bitte später erneut versuchen.",
+      "noCatalogueVariant": "Ein Fahrzeug ohne Katalogvariante kann auto-i-dat nicht bewerten.",
+      "failed": "Die auto-i-dat-Bewertung konnte nicht geholt werden."
+    }
   },
   "integrationsList": {
     "title": "Integrationen",
@@ -3658,6 +3676,26 @@
         "body": "Beim Erfassen einer Adresse im DMS wird der eingetippte Adresstext – und nur dieser, nie ein Name oder andere Kundendaten – an Google Ireland Limited übermittelt, um Vorschläge anzuzeigen. Google verarbeitet diese Angaben als eigenständige Verantwortliche nach den Google Maps Platform Nutzungsbedingungen und den Google Controller-Controller Data Protection Terms (einschliesslich der Standardvertragsklauseln für Übermittlungen aus der Schweiz). Gespeichert wird nur die vom Mitarbeiter ausgewählte Adresse. Der Betrieb kann die Funktion unter Verwaltung › Betrieb › Adresseingabe jederzeit abschalten.",
         "google": "Wie Google diese Angaben bearbeitet, beschreibt die <privacy>Datenschutzerklärung von Google</privacy>; für die Adressvorschläge gelten zudem die <terms>Nutzungsbedingungen von Google</terms>."
       }
+    }
+  },
+  "valuationQuote": {
+    "title": "Bewertung auto-i-dat",
+    "exchange": "Wert auto-i-dat (Eintauschpreis)",
+    "purchase": "Einkaufspreis",
+    "sale": "Verkaufspreis",
+    "range": "Preisspanne Eintausch",
+    "kmCorrection": "Kilometerkorrektur (Eintausch)",
+    "kmExpected": "Üblicher Kilometerstand für dieses Alter",
+    "asked": "Bewertet mit Modelljahr {{year}}, {{km}} km, Erstinverkehrsetzung {{date}} — abgefragt am {{at}}",
+    "manualHint": "auto-i-dat empfiehlt, diesen Wert von Hand zu prüfen.",
+    "residualTitle": "Restwerte (in % des Neupreises)",
+    "kmPerYear": "km/Jahr",
+    "months": "{{months}} Mt.",
+    "residualState": {
+      "present": "Keine Restwerte geliefert.",
+      "not_in_contract": "Restwerte nicht im Vertrag mit auto-i-dat.",
+      "unavailable": "Restwerte derzeit nicht verfügbar.",
+      "declined": "auto-i-dat liefert für dieses Fahrzeug keine Restwerte."
     }
   }
 }
