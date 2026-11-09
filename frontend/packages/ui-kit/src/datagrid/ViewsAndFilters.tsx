@@ -112,7 +112,7 @@ export function ViewsAndFilters({
   };
 
   return (
-    <Popover opened={opened} onChange={setOpened} position="bottom-start" shadow="md" width={340} withinPortal>
+    <Popover opened={opened} onChange={setOpened} position="bottom-start" shadow="md" width={340} withinPortal trapFocus>
       <Popover.Target>
         <button
           type="button"

@@ -827,7 +827,6 @@ function SelectCell({ children }: { children: ReactNode }) {
   return (
     <div
       role="cell"
-      data-select-cell=""
       style={{
         position: "sticky",
         left: 0,

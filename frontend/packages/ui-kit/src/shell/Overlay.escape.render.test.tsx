@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { MantineProvider, Modal, Select } from "@mantine/core";
 import { useEffect, useState, type ReactNode } from "react";
 import { testTheme } from "../test/testTheme";
-import { FR_VIEWS_AND_FILTERS_LABELS } from "../test/frenchLabels";
+import { FR_ACTION_BAR_LABELS, FR_VIEWS_AND_FILTERS_LABELS } from "../test/frenchLabels";
+import { ActionBar } from "../datagrid/ActionBar";
 import { ViewsAndFilters } from "../datagrid/ViewsAndFilters";
 import { OverlayProvider, useOverlay } from "./Overlay";
 
@@ -82,7 +83,7 @@ describe("Overlay — Escape closes the innermost open thing (KAN-605)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("an open views-and-filters panel: Escape inside it closes the panel, never the layer", async () => {
+  it("an open views-and-filters panel: focus moves into it, Escape closes the panel and returns focus, the next Escape the layer", async () => {
     const user = userEvent.setup();
     const onClose = mount(
       <ViewsAndFilters
@@ -102,19 +103,81 @@ describe("Overlay — Escape closes the innermost open thing (KAN-605)", () => {
     await screen.findByRole("button", { name: "Fermer" });
     const trigger = screen.getByRole("button", { name: /Tous les véhicules/ });
     await user.click(trigger);
-    const heading = await screen.findByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading);
+    const panel = (await screen.findByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading)).closest(".mantine-Popover-dropdown") as HTMLElement;
+    // Opening the panel moves focus into it — whether or not the browser
+    // focused the trigger on click (Safari and Firefox on macOS do not).
+    await waitFor(() => expect(panel.contains(document.activeElement)).toBe(true));
 
-    // Focus on the open panel's trigger: the panel owns this Escape.
-    trigger.focus();
-    await user.keyboard("{Escape}");
-    expect(layerOpen()).toBe(true);
-
-    // Focus inside the panel (portalled): Mantine closes the panel, the layer stays.
-    (heading.closest(".mantine-Popover-dropdown") as HTMLElement).querySelector("button")!.focus();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading)).toBeNull());
     expect(layerOpen()).toBe(true);
     expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+
+    await user.keyboard("{Escape}");
+    expect(layerOpen()).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("a typed search in a grid's Action Bar: Escape clears it, the next Escape closes the layer", async () => {
+    const user = userEvent.setup();
+    function SearchBar() {
+      const [search, setSearch] = useState("");
+      return (
+        <ActionBar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Rechercher…"
+          density="default"
+          onDensityChange={() => {}}
+          onRefresh={() => {}}
+          labels={FR_ACTION_BAR_LABELS}
+        />
+      );
+    }
+    const onClose = mount(<SearchBar />);
+    await screen.findByRole("button", { name: "Fermer" });
+    const search = screen.getByPlaceholderText("Rechercher…");
+    await user.type(search, "Golf");
+
+    await user.keyboard("{Escape}");
+    expect(search).toHaveValue("");
+    expect(layerOpen()).toBe(true);
+
+    await user.keyboard("{Escape}");
+    expect(layerOpen()).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("content that handles Escape itself claims it with preventDefault (an inline edit's cancel): the layer stays", async () => {
+    const user = userEvent.setup();
+    const onClose = mount(
+      <input
+        aria-label="Édition"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") e.preventDefault();
+        }}
+      />,
+    );
+    await screen.findByRole("button", { name: "Fermer" });
+    await user.click(screen.getByRole("textbox", { name: "Édition" }));
+    await user.keyboard("{Escape}");
+    expect(layerOpen()).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("an expanded disclosure is not a popup: Escape on its toggle closes the layer", async () => {
+    const user = userEvent.setup();
+    const onClose = mount(
+      <button type="button" aria-expanded="true">
+        Détails
+      </button>,
+    );
+    await screen.findByRole("button", { name: "Fermer" });
+    screen.getByRole("button", { name: "Détails" }).focus();
+    await user.keyboard("{Escape}");
+    expect(layerOpen()).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("a modal opened inside the layer: Escape closes the modal only", async () => {

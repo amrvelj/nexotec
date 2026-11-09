@@ -74,7 +74,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
   };
 
   return (
-    <Popover opened={opened} onChange={setOpened} width={320} position="bottom-end" shadow="md" withinPortal>
+    <Popover opened={opened} onChange={setOpened} width={320} position="bottom-end" shadow="md" withinPortal trapFocus>
       <Popover.Target>
         <button
           type="button"

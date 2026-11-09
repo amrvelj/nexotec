@@ -98,7 +98,13 @@ export function ActionBar({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") onSearchChange("");
+            // Escape clears a typed search and takes the keypress for itself,
+            // so an overlay around the grid stays open (KAN-605); on an empty
+            // search it is left to whatever encloses the grid.
+            if (e.key === "Escape" && searchValue !== "") {
+              e.preventDefault();
+              onSearchChange("");
+            }
           }}
           placeholder={searchPlaceholder}
           style={{
