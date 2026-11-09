@@ -2,10 +2,11 @@
 
 `gateway.test_connection` probes the mock's one capability (`ident_basis`
 since KAN-488 — the identAPI vocabulary) after the access check succeeds and
-records the result as an `integration_entitlement` row. The mock still speaks
-the SOAP shapes, whose protocol has no "not entitled" signal, so what is
-tested here is the *inference* and the discipline around it; the identAPI's
-own 403 verdicts are `test_integration_identapi_foundation.py`.
+records the result as an `integration_entitlement` row. Since KAN-550 the mock
+speaks the identAPI only, so a refusal is the identAPI's own explicit signal
+(a 403 → `ProviderNotEntitledError`) — what is tested here is the discipline
+around the probes; the identAPI adapter's own 403 verdicts are
+`test_integration_identapi_foundation.py`.
 """
 
 import uuid
@@ -13,7 +14,7 @@ import uuid
 import pytest
 
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter, _request
-from app.integration.adapters.auto_i_dat_parse import ProviderMaintenanceError, ProviderRejectedError
+from app.integration.errors import ProviderNotEntitledError, ProviderTransportError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
 from app.integration.models.entitlement import EntitlementSource
@@ -54,34 +55,37 @@ def _make_connection(db_session, provider):
     )
 
 
+_PROBE_OPERATION = "vehiclecatalog"  # the basis probe: one brand list (KAN-550)
+
+
 class _RefusingAdapter(MockAutoIDatAdapter):
-    """`System` answers (so the credentials are proven good), `FahrzeugArten`
-    comes back as the empty string the real adapter turns into a rejection.
-    Metered under its Datenname like every real request (KAN-486).
+    """The access check answers (so the credentials are proven good); the
+    basis option's call is refused with the identAPI's 403. Metered under its
+    operation name like every real request (KAN-486).
     """
 
-    @_request("FahrzeugArten")
-    def list_vehicle_kinds(self):
-        raise ProviderRejectedError("empty response")
+    @_request(_PROBE_OPERATION)
+    def list_catalogue_brands(self, *, vehicle_kind_code):
+        raise ProviderNotEntitledError(_PROBE_OPERATION)
 
 
 class _OutageAdapter(MockAutoIDatAdapter):
-    @_request("FahrzeugArten")
-    def list_vehicle_kinds(self):
-        raise ProviderMaintenanceError("Webservice ist offline (Wartung)")
+    @_request(_PROBE_OPERATION)
+    def list_catalogue_brands(self, *, vehicle_kind_code):
+        raise ProviderTransportError("HTTP 503 from the provider")
 
 
-class _WatermarkFailsAdapter(MockAutoIDatAdapter):
+class _AccessCheckFailsAdapter(MockAutoIDatAdapter):
     def __init__(self) -> None:
         super().__init__()
         self.probed = False
 
-    def get_system_watermark(self):
-        raise ProviderGatewayError("System refused the credentials")
+    def fetch_captions(self, lang):
+        raise ProviderGatewayError("the provider refused the credentials")
 
-    def list_vehicle_kinds(self):
+    def list_catalogue_brands(self, *, vehicle_kind_code):
         self.probed = True
-        return super().list_vehicle_kinds()
+        return super().list_catalogue_brands(vehicle_kind_code=vehicle_kind_code)
 
 
 def _serve(monkeypatch, adapter, provider_code: str = _MOCK_PROVIDER_CODE) -> None:
@@ -101,14 +105,14 @@ def _calls(db_session, connection, capability):
     )
 
 
-def test_run_probe_reads_only_a_rejection_as_not_granted():
+def test_run_probe_reads_only_a_refusal_of_the_option_as_not_granted():
     probe = entitlement_probes.probes_for(_MOCK_PROVIDER_CODE)[0]
 
     assert entitlement_probes.run_probe(probe, MockAutoIDatAdapter()) is True
     assert entitlement_probes.run_probe(probe, _RefusingAdapter()) is False
     # An outage says nothing about entitlement — it must not be swallowed
     # into either answer.
-    with pytest.raises(ProviderMaintenanceError):
+    with pytest.raises(ProviderTransportError):
         entitlement_probes.run_probe(probe, _OutageAdapter())
 
 
@@ -138,7 +142,7 @@ def test_a_refusal_records_not_granted_but_the_connection_itself_stays_healthy(d
     row = _ident_basis(db_session, connection)
     assert row is not None
     assert row.granted is False
-    # `System` answered, so the connection is fine; one un-entitled
+    # the access check answered, so the connection is fine; one un-entitled
     # capability must not read as a broken connection ...
     assert updated.status == ConnectionStatus.CONNECTED
     assert updated.last_error is None
@@ -148,9 +152,9 @@ def test_a_refusal_records_not_granted_but_the_connection_itself_stays_healthy(d
 
 def test_a_refusal_is_never_charged_to_the_connections_circuit_breaker(db_session, monkeypatch):
     """The breaker is per *connection*, so a refusal that counted as a
-    failure would eventually take `System` and every other capability
+    failure would eventually take the access check and every other capability
     offline. Inside `test_connection` alone it could never get that far —
-    each click's successful `System` call resets the counter — which is why
+    each click's successful access check resets the counter — which is why
     this spies on `record_failure` instead of asserting the circuit stayed
     closed: that assertion passes even when the refusal *is* charged. What
     it protects is a probe run outside that reset (the opportunistic
@@ -166,7 +170,7 @@ def test_a_refusal_is_never_charged_to_the_connections_circuit_breaker(db_sessio
         gateway.test_connection(db_session, connection=connection)
 
     assert charged == []
-    refusals = _calls(db_session, connection, "FahrzeugArten")
+    refusals = _calls(db_session, connection, _PROBE_OPERATION)
     assert len(refusals) == 6
     # Each refused request is logged as what it was — refused (KAN-486) —
     # yet never charged to the breaker: the block itself succeeded.
@@ -215,26 +219,25 @@ def test_a_transient_probe_failure_leaves_the_entitlement_exactly_as_it_was(db_s
     after = _ident_basis(db_session, connection)
     assert after is not None
     assert (after.granted, after.checked_at) == (False, checked_at)
-    # The probe failing never fails "Test connection" — `System` was fine.
+    # The probe failing never fails "Test connection" — the access check was fine.
     assert updated.status == ConnectionStatus.CONNECTED
     # And the outage's request is recorded as failed.
-    assert {call.status for call in _calls(db_session, connection, "FahrzeugArten")} == {CallStatus.ERROR}
+    assert {call.status for call in _calls(db_session, connection, _PROBE_OPERATION)} == {CallStatus.ERROR}
 
 
-def test_a_connection_that_fails_the_watermark_check_is_never_probed(db_session, monkeypatch):
-    """The differential only means anything if `System` was accepted first —
-    otherwise an empty string could equally be a bad password.
-    """
+def test_a_connection_that_fails_the_access_check_is_never_probed(db_session, monkeypatch):
+    """A probe's verdict is only attributable to the option once the access
+    check accepted the same credentials."""
 
     connection = _make_connection(db_session, _make_provider(db_session))
-    adapter = _WatermarkFailsAdapter()
+    adapter = _AccessCheckFailsAdapter()
     _serve(monkeypatch, adapter)
 
     updated = gateway.test_connection(db_session, connection=connection)
 
     assert updated.status == ConnectionStatus.ERROR
     assert adapter.probed is False
-    assert _calls(db_session, connection, "FahrzeugArten") == []
+    assert _calls(db_session, connection, _PROBE_OPERATION) == []
     assert _ident_basis(db_session, connection) is None
 
 
@@ -247,4 +250,4 @@ def test_a_provider_with_no_registered_probes_gets_no_entitlement_rows(db_sessio
 
     assert updated.status == ConnectionStatus.CONNECTED
     assert connection_service.list_entitlements(db_session, connection_id=connection.id) == []
-    assert _calls(db_session, connection, "FahrzeugArten") == []
+    assert _calls(db_session, connection, _PROBE_OPERATION) == []

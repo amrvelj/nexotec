@@ -31,7 +31,7 @@ class ProviderGatewayError(Exception):
 
 class ProviderTransportError(ProviderGatewayError):
     """A call failed below the level of anything the provider said: DNS, TLS,
-    a timeout, an HTTP or SOAP fault, a WSDL that will not load. Worded from
+    a timeout, an HTTP fault. Worded from
     the original exception's CLASS NAME only, and always raised `from` it.
     """
 
@@ -47,7 +47,8 @@ class ProviderTimeoutError(ProviderTransportError):
 
 class ProviderConfigurationError(ProviderGatewayError):
     """The connection is not configured well enough to make the call — no
-    `wsdlUrl`, a credential that cannot be read. Something the dealer manager
+    `clientId`, a credential that cannot be read, no signed-in user to enrol.
+    Something the dealer manager
     can fix, as opposed to a provider that is down.
     """
 
@@ -55,9 +56,8 @@ class ProviderConfigurationError(ProviderGatewayError):
 class ProviderRejectedError(ProviderGatewayError):
     """The provider understood the request and said no to the caller's
     credentials or to the call itself — a wrong client secret, a refused
-    login, an empty SOAP answer (KAN-488). Never transient: a retry with the
-    same input would not help. The SOAP parser's own `ProviderRejectedError`
-    is a subclass of this one, so one `except` covers both transports.
+    login (KAN-488). Never transient: a retry with the same input would not
+    help.
     """
 
 
@@ -83,12 +83,3 @@ class ProviderRequestError(ProviderGatewayError):
     free-text `detail` and never a credential.
     """
 
-
-class ProviderOperationNotBuiltError(ProviderConfigurationError):
-    """An operation the adapter does not implement yet — the identAPI's
-    identification, browse, details, VIN and valuation methods until their
-    tickets land (KAN-488). A `ProviderConfigurationError`, so the gateway
-    neither logs a call that was never sent nor charges the circuit breaker
-    (five plate lookups must not take a connection offline); the message names
-    the ticket.
-    """

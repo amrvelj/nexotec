@@ -117,11 +117,11 @@ def test_a_lookup_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session
     gaps = db_session.query(MappingGap).filter_by(provider="auto_i_dat_mock").all()
     assert len(gaps) > 0
     assert all(gap.resolved is False for gap in gaps)
-    # Every demo variant shares vehicle_kind_code="1" (see auto_i_dat_mock.py's
-    # own fixture data) — the vehicle_kind gap for provider_code "1" is hit
+    # Every demo variant shares vehicle_kind_code="01" (see auto_i_dat_mock.py's
+    # own fixture data) — the vehicle_kind gap for provider_code "01" is hit
     # by all three, so its occurrences count reflects that, never three
     # separate rows for the identical miss.
-    vehicle_kind_gap = next(g for g in gaps if g.code_group == "vehicle_kind" and g.provider_code == "1")
+    vehicle_kind_gap = next(g for g in gaps if g.code_group == "vehicle_kind" and g.provider_code == "01")
     # Each demo variant is visited twice: stored as seen, then its colours
     # request on open carries the master data again (KAN-211) — a revisit
     # bumps the gap like any other miss of the same code.
@@ -171,7 +171,7 @@ def test_a_lookup_resolves_equipment_features_via_provider_code_map(db_session):
     db_session.add(
         ProviderCodeMap(
             provider="auto_i_dat_mock",
-            vehicle_kind="1",
+            vehicle_kind="01",
             code_group="equipment_feature",
             provider_code="navigation",
             canonical_list_code="equipment_feature",
@@ -459,12 +459,12 @@ def test_the_sync_records_each_variants_raw_provider_codes(db_session):
     ).all()
 
     assert {(r.provider, r.vehicle_kind, r.code_group, r.provider_code) for r in rows} == {
-        ("auto_i_dat_mock", "1", "vehicle_kind", "1"),
-        ("auto_i_dat_mock", "1", "fuel_type", "3"),
-        ("auto_i_dat_mock", "1", "body_style", "5"),
-        ("auto_i_dat_mock", "1", "drivetrain", "1"),
-        ("auto_i_dat_mock", "1", "transmission", "M"),
-        ("auto_i_dat_mock", "1", "consumption_norm", "4"),  # KAN-547: the spec block's coded fields too
+        ("auto_i_dat_mock", "01", "vehicle_kind", "01"),
+        ("auto_i_dat_mock", "01", "fuel_type", "3"),
+        ("auto_i_dat_mock", "01", "body_style", "5"),
+        ("auto_i_dat_mock", "01", "drivetrain", "1"),
+        ("auto_i_dat_mock", "01", "transmission", "1"),
+        ("auto_i_dat_mock", "01", "consumption_norm", "4"),  # KAN-547: the spec block's coded fields too
     }
 
 
@@ -525,7 +525,7 @@ def test_a_resync_fills_a_coded_field_whose_code_has_been_mapped_since(db_sessio
     db_session.add(
         ProviderCodeMap(
             provider="auto_i_dat_mock",
-            vehicle_kind="1",
+            vehicle_kind="01",
             code_group="body_style",
             provider_code="5",
             canonical_list_code="body_style",
@@ -572,7 +572,7 @@ def test_a_resync_of_an_unchanged_variant_does_not_bump_its_version(db_session):
 
 def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(db_session, monkeypatch):
     tenant_id = _looked_up_tenant(db_session)
-    original = MockAutoIDatAdapter.fetch_vehicle_master_data
+    original = MockAutoIDatAdapter.fetch_variant
 
     def _changed(self, fz_key):
         master = original(self, fz_key)
@@ -580,7 +580,7 @@ def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(d
             return master
         return dataclasses.replace(master, fuel_type_code="9", drivetrain_code=None)
 
-    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_vehicle_master_data", _changed)
+    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_variant", _changed)
     look_up_demo_variants(db_session, tenant_id)
 
     codes = {
@@ -645,7 +645,7 @@ def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(d
     resolve_provider_code(
         db_session,
         provider="auto_i_dat_mock",
-        vehicle_kind="1",
+        vehicle_kind="01",
         code_group="equipment_feature",
         provider_code="HS",
     )
@@ -708,8 +708,8 @@ def test_the_sync_records_each_options_raw_such_codes_in_its_tenant(db_session):
 
     # Resolved or not, every raw code is kept — none is mapped in this test.
     assert {(r.tenant_id, r.provider, r.vehicle_kind, r.code_group, r.provider_code) for r in rows} == {
-        (tenant_id, "auto_i_dat_mock", "1", "equipment_feature", "navigation"),
-        (tenant_id, "auto_i_dat_mock", "1", "equipment_feature", "APPLE_CARPLAY"),
+        (tenant_id, "auto_i_dat_mock", "01", "equipment_feature", "navigation"),
+        (tenant_id, "auto_i_dat_mock", "01", "equipment_feature", "APPLE_CARPLAY"),
     }
 
 

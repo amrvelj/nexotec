@@ -813,7 +813,7 @@ def test_opening_a_demo_variant_loads_its_details_once_with_one_row_per_request(
     assert_all_present(db_session, tenant_id, variant)
     rows = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
     assert sorted(row.capability for row in rows) == sorted(
-        ["Fahrzeuge", "Optionen", "PneuDimTS", "Bilder", "Energieetikette"]
+        ["vehiclecatalog", "vehicleoption_catalog", "tyresandrims_typeapproval", "image_vehicle", "energylabel_info"]
     )
     assert {row.status for row in rows} == {CallStatus.SUCCESS}
     where = {"tenant_id": tenant_id, "model_variant_id": variant.id}

@@ -7,7 +7,9 @@ amended accordingly. The full seed and the daily `FzKeyChanged` delta were
 removed; this guard keeps them out:
 
   1. No adapter offers the changed-keys list a mirror is built on
-     (`list_changed_keys`, the `FzKeyChanged` Datenname).
+     (`list_changed_keys`; the retired SOAP service's `FzKeyChanged`, kept
+     here by name so it never comes back — KAN-550 removed the SOAP adapter,
+     the guard stays whole).
   2. Nothing under `app/` or `scripts/` calls or names it, and the old bulk
      entry points (`seed_tenant_catalogue`, `run_daily_delta_for_tenant`) do
      not come back under those names.
@@ -35,8 +37,8 @@ import pytest
 
 from app import worker
 from app.core import daily_scheduler
+from app.integration.adapters.auto_i_dat_ident import AutoIDatIdentAdapter
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
-from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter
 from app.integration.adapters.base import ProviderAdapter
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
@@ -145,17 +147,17 @@ def _python_files() -> list[Path]:
 def test_the_scan_covers_the_adapters_and_the_sync():
     files = {path.relative_to(_REPO).as_posix() for path in _python_files()}
     for expected in (
-        "app/integration/adapters/auto_i_dat_soap.py",
+        "app/integration/adapters/auto_i_dat_ident.py",
         "app/integration/adapters/auto_i_dat_mock.py",
         "app/vehicle/services/catalogue_sync.py",
         "app/integration/daily_jobs.py",
-        "scripts/verify_auto_i_dat.py",
+        "scripts/seed_demo_provider_code_map.py",
     ):
         assert expected in files, expected
 
 
 @pytest.mark.parametrize(
-    "adapter", [ProviderAdapter, MockAutoIDatAdapter, AutoIDatSoapAdapter], ids=lambda a: a.__name__
+    "adapter", [ProviderAdapter, MockAutoIDatAdapter, AutoIDatIdentAdapter], ids=lambda a: a.__name__
 )
 def test_no_adapter_offers_the_changed_keys_list(adapter):
     assert not hasattr(adapter, "list_changed_keys"), (
@@ -356,7 +358,7 @@ def test_the_loop_scanner_leaves_one_page_alone():
 @pytest.mark.parametrize(
     "source",
     [
-        'adapter._suchen("FzKeyChanged", {})',
+        'adapter._request("FzKeyChanged", "GET", "/changes", [])',
         "keys = adapter.list_changed_keys(since=today)",
         "def list_changed_keys(self, *, since): ...",
         "def seed_tenant_catalogue(db, *, tenant_id): ...",
@@ -370,7 +372,7 @@ def test_the_scanner_catches(source):
 
 def test_the_scanner_leaves_single_lookups_alone():
     assert not _violations(
-        'adapter._suchen("Fahrzeuge", {"FzKey": fz_key})\n'
+        "adapter.fetch_variant(fz_key)\n"
         "sync_catalogue_variant(db, tenant_id=tenant_id, fz_key=fz_key)\n"
         '"""A docstring may mention FzKeyChanged in prose."""\n'
     )

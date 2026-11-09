@@ -192,8 +192,7 @@ def build_feed_file(listings: list[MarketplaceListing], *, kundennummer: str) ->
 class FtpClient(Protocol):
     """The subset of `ftplib.FTP` this adapter actually uses — a
     structural Protocol, not `ftplib.FTP` itself, so tests supply a
-    hand-written fake with no real socket, matching `SoapClient`'s own
-    precedent in auto_i_dat_soap.py."""
+    hand-written fake with no real socket."""
 
     def storbinary(self, cmd: str, fp) -> str: ...
     def quit(self) -> str: ...
@@ -286,7 +285,7 @@ def _build_real_adapter(
 
 
 def _register() -> None:
-    # Imported lazily, same reasoning as auto_i_dat_soap.py's own
+    # Imported lazily, same reasoning as auto_i_dat_ident.py's own
     # _register(): nothing in adapters/ should import gateway.py at
     # module scope.
     from app.integration.services.gateway import register_adapter_factory

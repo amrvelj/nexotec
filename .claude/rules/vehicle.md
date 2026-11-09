@@ -2,7 +2,7 @@
 paths:
   - "app/vehicle/**"
   - "app/integration/**"
-  - "scripts/verify_auto_i_dat.py"
+  - "scripts/seed_demo_provider_code_map.py"
   - "frontend/apps/dms/src/**/*atalogue*"
   - "frontend/apps/dms/src/**/*atalogue*/**"
   - "frontend/apps/dms/src/**/*ehicle*"
@@ -245,9 +245,14 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   `option[n].key`, messages in DE/FR/IT/EN — one `vehiclevaluation` row) and `fetch_residual_table`
   (`GET /residualvalue/{fzKey}/{modelYear}?firstAdmission&kilometreState`, the predefined table in one
   `residualvalue_table` row; the single-cell residual call is not built — no caller); Valuation's caller and its
-  `vehicle.public.get_provider_valuation_input` are in `valuation.md`. The SOAP adapter (`auto_i_dat_soap.py`, legacy
-  code `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550 — the mock also answers the
-  identAPI-shaped operations from its fixtures (invented spec blocks included), so demos and tests run on it.
+  `vehicle.public.get_provider_valuation_input` are in `valuation.md`. **`ProviderAdapter` is exactly these identAPI
+  operations** (KAN-550; `tests/architecture/test_provider_adapter_is_the_identapi.py`): the identAPI adapter implements
+  them plus its access check and six probes; the demo provider (`auto_i_dat_mock`) implements exactly them over invented
+  fixtures carrying auto-i's own codes (kind `01`, gearbox `1`/`5`, …) and meters each request under the identAPI
+  adapter's operation name, so demos and tests run on it. *Historical:* the SOAP «Webservice Fahrzeuge» adapter
+  (zeep transport, AES decryption, the legacy code `auto_i_dat_soap`), its Datenname-shaped Protocol methods and
+  `scripts/verify_auto_i_dat.py` were retired by KAN-550 (ADR-111); `zeep`, `requests` and `urllib3` left the
+  declared dependencies with it (`requests`/`urllib3` stay installed only as other packages' dependencies).
 - **Provider captions are vocabulary, global, fetched on «Test connection» only** (ADR-111 (3); KAN-547, Anto
   2026-11-07: no scheduled refresh — a background job has no user to enrol). `integration_provider_caption`
   (`app/integration/models/caption.py`, migration `3f1c9a7e2b54`; in the integration registry, not vehicle,
@@ -302,11 +307,11 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
 - Provider text (option names, colour names) is stored and rendered **as delivered**, never
   translated (ADR-044); only our canonical reference data is translated.
 - **Provider specification excerpts never leave this private repository** (identAPI test
-  agreement §5, §12; KAN-491, repo private since 2026-10-28): the SOAP adapter's sample result
-  XML in tests, the code-map transcription (`7c4e9a2b6d13`) and docstrings citing spec pages stay
+  agreement §5, §12; KAN-491, repo private since 2026-10-28): the code-map transcription
+  (`7c4e9a2b6d13`, from the retired SOAP specification) and docstrings citing spec pages stay
   here — never pasted into a public issue, gist, PR on another repo or chat. Fixtures and the
   mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, `test-dealer`;
-  mock OptKeys 9xxxxx; the mock's plates and its one VIN, `WVWZZZDEMV0000001`, resolve to invented cars),
+  the mock's plates and its one VIN, `WVWZZZDEMV0000001`, resolve to invented cars),
   never a value from an account sheet or a specification example. The entitlement probes'
   inputs (`auto_i_dat_ident.py`: an FzKey, two Typenschein numbers, a VIN) are the examples of
   auto-i's **publicly served** OpenAPI document, not of the confidential PDFs — public, not an
@@ -517,15 +522,14 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   vehicle-chain migration `e4b7c2a91d36` drops the table).
 - **Every provider request is counted** (§6; KAN-486): one `integration_call_log` row per
   request — a retry is a second row — with the provider's own operation name as `capability`
-  (the Datenname; `FtpUpload` for the AutoScout24 feed) and `cost_units = 1`. An adapter wraps
+  (the identAPI operation — `caption_code`, `vehiclecatalog`, …; `FtpUpload` for the AutoScout24 feed) and
+  `cost_units = 1`. An adapter wraps
   each request in `integration/services/metering.py::provider_request`; a `call_capability`
   block that metered none writes its one row under its label, as before; the circuit breaker
   stays per block, and a block that fails after its last answer arrived marks that request's
   row `ERROR`. **Nexotec enforces no quota and sends no usage warning**: auto-i-dat limits its
-  own access (Anto, 2026-10-29). `scripts/verify_auto_i_dat.py` builds the **SOAP** adapter directly
-  against a SOAP-configured connection — none exists since KAN-488's migration wiped the SOAP
-  config, so it cannot run until KAN-550 removes it; the identAPI has no such script, its
-  go-live check is «Test connection» itself.
+  own access (Anto, 2026-10-29). The identAPI's go-live check is «Test connection» itself (the
+  SOAP-era `scripts/verify_auto_i_dat.py` went with KAN-550).
 - **Looked-up catalogue data is kept and shared** (Anto, 2026-10-29, KAN-487): what a single
   lookup stored in the catalogue tables is kept indefinitely — no retention window — and variant
   master data stays readable by every Betrieb (ADR-075). The plate-lookup cache keeps its 30-day
@@ -562,10 +566,12 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
   match visits an existing variant with `upsert_model_variant`, which links them (as the
   colours request on open does too, KAN-211) — no backfill asks a provider for them
   (KAN-190, KAN-485).
-- **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
-  drivetrain (groups 012 and 022 are Hinten/Vorne/Allrad). The seeded code map (migration
-  `7c4e9a2b6d13`, asserted in `tests/test_provider_code_map_seed.py`) maps 112 →
-  `engine_cycle`. **The sync routes it by the resolved vehicle kind (KAN-547, closing KAN-447):** the identAPI's
+- **A motorcycle's `drive` is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
+  drivetrain (a car's and a light commercial's are Hinten/Vorne/Allrad). The seeded code map (migration
+  `7c4e9a2b6d13`, transcribed from the retired SOAP specification's CodeGrpNr 112 / 012 / 022 tables and still the
+  identAPI's live map — Anto, 2026-11-07, KAN-547 decision 1; asserted in `tests/test_provider_code_map_seed.py`
+  and checked after every CI migration run) maps kind `03`'s codes → `engine_cycle`; KAN-550 kept it (Anto,
+  2026-11-09, D1). **The sync routes it by the resolved vehicle kind (KAN-547, closing KAN-447):** the identAPI's
   `type` is unambiguous, so `catalogue_sync._raw_codes` reads a motorcycle's `drive` as `engine_cycle` and leaves
   its `drivetrain` NULL, and every other kind's as `drivetrain` with no `engine_cycle` — routed on the **resolved**
   `vehicle_kind` (`motorcycle`), never a raw code; while the kind is itself a gap, `drive` is recorded as `drivetrain`,

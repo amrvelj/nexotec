@@ -125,7 +125,8 @@ def test_specification_flattens_option_groups_without_packages_entitlement(db_se
     # and groups go through the code map — the demo's identity rows first.
     seed_demo_option_groups(db_session)
     look_up_demo_variants(db_session, tenant_id)
-    master = MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100002")
+    master = MockAutoIDatAdapter().fetch_variant("FZ100002")
+    assert master is not None
     variant = catalogue_sync.upsert_model_variant(db_session, provider_code="auto_i_dat_mock", master=master)
     granted = catalogue_entitlements.get_catalogue_specification(
         db_session, tenant_id=tenant_id, model_variant_id=variant.id

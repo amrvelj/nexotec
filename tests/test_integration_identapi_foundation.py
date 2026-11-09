@@ -598,28 +598,6 @@ def test_last_error_carries_the_providers_title_but_never_its_prose(db_session, 
     assert "No vehicle for this key" not in (updated.last_error or "")
 
 
-def test_a_not_built_operation_is_neither_logged_nor_charged(db_session, monkeypatch):
-    """Finding 2: a caller reaching an operation the identAPI adapter does not
-    implement (the SOAP-shaped forecast, left for KAN-550; valuation is KAN-552's
-    `fetch_vehicle_valuation`; the option list was KAN-211's) five
-    times must not open the connection's circuit breaker nor invent call-log
-    rows."""
-
-    from app.integration.errors import ProviderGatewayError
-    from app.integration.services.gateway import call_capability
-
-    s = fx.connected(db_session, monkeypatch)
-    for _ in range(resilience._FAILURE_THRESHOLD):
-        with pytest.raises(ProviderGatewayError, match="KAN-550"), call_capability(
-            db_session, connection=s.connection, capability="vehicle_data", actor_id=s.user.id
-        ) as adapter:
-            adapter.fetch_forecast(fz_key="152567", model_year=2024)
-
-    assert _rows(db_session, s.connection) == []
-    assert resilience.is_circuit_open(s.connection.id) is False
-    updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
-    assert updated.status == ConnectionStatus.CONNECTED
-
 
 def test_a_failed_discovery_resolves_no_secret_and_leaves_an_honest_row(db_session, monkeypatch):
     """Findings 6 and 7: discovery is read before the secret is resolved, and

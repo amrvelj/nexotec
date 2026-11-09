@@ -9,11 +9,10 @@ demo screens show «—» where the real provider shows labels.
 
 This copies every `auto_i_dat` row to `auto_i_dat_mock` where the mock has
 none (idempotent; a row the mock already has is left alone), which is what the
-browse's vehicle-kind translation needs. The mock's fixtures still carry some
-SOAP-era codes the identAPI never sends (vehicle kind `1`, gearbox `A`/`M`),
-and those stay mapping gaps until KAN-550 retires the SOAP shapes — the demo
-shows «—» for them, as before. Vehicle context only; run once per local or
-staging database:
+browse's vehicle-kind translation needs. The mock's fixtures carry auto-i's
+own codes as the identAPI sends them (KAN-550: vehicle kind `01`, gearbox
+`1`/`5`), so the demo variants' coded fields resolve once this ran.
+Vehicle context only; run once per local or staging database:
 
     python scripts/seed_demo_provider_code_map.py
 
@@ -62,8 +61,9 @@ def copy_code_map(db: Session) -> int:
 
 
 # KAN-211: the demo adapter's option groups are the canonical `option_group`
-# values themselves (`exterior`, `comfort`, …) under its vehicle kind `1`,
-# where the real provider sends CodeGrpNr 046 codes. Since the details load
+# values themselves (`exterior`, `comfort`, …) under its vehicle kind `01`
+# (KAN-550; `1` before, the SOAP-era kind), where the real provider sends its
+# own group codes. Since the details load
 # through the code map (FR-C-10) the demo needs these identity rows, or every
 # demo option is a mapping gap and a flat list.
 DEMO_OPTION_GROUPS = ("exterior", "interior", "comfort", "infotainment", "safety")
@@ -75,7 +75,7 @@ def seed_demo_option_groups(db: Session) -> int:
         for row in db.scalars(
             select(ProviderCodeMap).where(
                 ProviderCodeMap.provider == DEMO_PROVIDER, ProviderCodeMap.code_group == "option_group",
-                ProviderCodeMap.vehicle_kind == "1",
+                ProviderCodeMap.vehicle_kind == "01",
             )
         )
     }
@@ -85,7 +85,7 @@ def seed_demo_option_groups(db: Session) -> int:
             continue
         db.add(
             ProviderCodeMap(
-                provider=DEMO_PROVIDER, vehicle_kind="1", code_group="option_group", provider_code=code,
+                provider=DEMO_PROVIDER, vehicle_kind="01", code_group="option_group", provider_code=code,
                 canonical_list_code="option_group", canonical_value_code=code,
             )
         )

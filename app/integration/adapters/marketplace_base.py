@@ -1,7 +1,7 @@
 """MarketplaceAdapter (KAN-27, WP-7, ADR-062) — the shape every
 marketplace channel implements. Deliberately NOT `ProviderAdapter`
 (adapters/base.py): that Protocol's methods are vehicle-data FETCH verbs
-(`fetch_options`, `fetch_colours`, ...); a marketplace channel does the
+(`fetch_options`, `fetch_variant_with_colours`, ...); a marketplace channel does the
 reverse — it is handed a tenant's already-assembled listing data and
 DELIVERS it outward. Both kinds of adapter still go through the exact
 same `services/gateway.py::call_capability` (credential resolution,
