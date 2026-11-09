@@ -12,11 +12,10 @@ against `created_at`, the same posture the break-glass endpoint's own
 docstring describes for reads.
 
 `capture_call_payload` is the write path — currently unreached in this
-session's own adapters. Neither `MockAutoIDatAdapter` (PR-2) nor
-`AutoIDatSoapAdapter` (PR-3) has anywhere it surfaces a raw wire payload
-today (the mock has no wire payload at all; the real adapter's `zeep`
-client isn't wired to capture request/response XML in this session, per
-that adapter's own "no real WSDL" caveat) — `services/gateway.py`'s
+codebase's adapters. Neither `MockAutoIDatAdapter` nor the identAPI adapter
+surfaces a raw wire payload today (the mock has no wire payload at all; the
+identAPI adapter does not capture request or response bodies) —
+`services/gateway.py`'s
 `call_capability` accepts an optional `capture_raw_payload` callable
 specifically so a future adapter revision can start supplying one without
 any change to this module, the purge jobs, or the break-glass endpoint,

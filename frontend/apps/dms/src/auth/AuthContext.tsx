@@ -13,6 +13,9 @@ interface AuthContextValue {
   /** KAN-430: the permission-matrix rows this user may write in the active
    * dealership — read through `useCanWrite`. Presentation only. */
   writableCapabilities: string[]
+  /** KAN-211: the manager flag of the ACTIVE Betrieb, as the session's token
+   * carries it — never `user.isDealerManager`, the home Betrieb's flag. */
+  isActiveDealershipManager: boolean
   /** KAN-196 (D-A-36): this session was minted without a second factor
    * while one is required — `ProtectedRoute` sends the user to enrolment. */
   mfaEnrolmentRequired: boolean
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [memberships, setMemberships] = useState<DealershipMembershipSummary[]>([])
   const [entitlements, setEntitlements] = useState<string[]>([])
   const [writableCapabilities, setWritableCapabilities] = useState<string[]>([])
+  const [isActiveDealershipManager, setIsActiveDealershipManager] = useState(false)
   const [mfaEnrolmentRequired, setMfaEnrolmentRequired] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -50,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMemberships(res.memberships)
     setEntitlements(res.entitlements ?? [])
     setWritableCapabilities(res.writableCapabilities ?? [])
+    setIsActiveDealershipManager(res.isActiveDealershipManager ?? false)
     setMfaEnrolmentRequired(res.mfaEnrolmentRequired ?? false)
   }, [])
 
@@ -58,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveDealership(null)
     setMemberships([])
     setEntitlements([])
+    setIsActiveDealershipManager(false)
     setWritableCapabilities([])
     setMfaEnrolmentRequired(false)
   }, [])
@@ -126,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         memberships,
         entitlements,
         writableCapabilities,
+        isActiveDealershipManager,
         mfaEnrolmentRequired,
         loading,
         login,

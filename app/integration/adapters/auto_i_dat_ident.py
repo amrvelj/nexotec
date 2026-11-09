@@ -33,24 +33,18 @@ who is working, so the adapter is built with the acting user — read through
 signed-in user has no token and is refused as a configuration error before
 anything is sent.
 
-**Built here** (KAN-488, KAN-547, KAN-548): ``fetch_code_captions`` /
-``fetch_captions`` (the access check of *Test connection*, and the code
-vocabulary in four languages), the six entitlement probes
-(``services/entitlement_probes.py``), identification by Stammnummer, plate,
-Typenschein and Werkscode (Vehicle Build / Vehicle Catalog), one variant by
-FzKey, the Typenschein + Neupreis match (Vehicle Match), and the catalogue
-browse operations (brands, model groups, one page of variants, facet values).
-Every body is read by ``identapi_parse.py``; no code is interpreted here.
-The details — the variant with its colours, options, tyres, images, the
-energy label — are KAN-211's (ADR-123). **Not built yet**: valuation and
-forecast (KAN-552), the VIN rung (KAN-549). Those ``ProviderAdapter``
-methods raise ``ProviderOperationNotBuiltError`` (a
-``ProviderConfigurationError``: nothing sent, nothing logged, the breaker
-untouched) naming their ticket — an explicit "not built", never a silent
-empty answer. The SOAP-era list methods the Protocol still carries until
-KAN-550 (``list_vehicle_kinds``, ``list_brands``, …) are not built on this
-adapter either: the identAPI-shaped ``list_catalogue_*`` / ``search_catalogue_variants``
-replace them.
+**Built here** (KAN-488, KAN-547, KAN-548, KAN-211, KAN-549, KAN-552):
+``fetch_code_captions`` / ``fetch_captions`` (the access check of *Test
+connection*, and the code vocabulary in four languages), the six entitlement
+probes (``services/entitlement_probes.py``), identification by Stammnummer,
+plate, VIN, Typenschein and Werkscode (Vehicle Build / Vehicle Catalog), one
+variant by FzKey, the Typenschein + Neupreis match (Vehicle Match), the
+catalogue browse operations (brands, model groups, one page of variants, facet
+values), the details loaded on open (the variant with its colours, options,
+tyres, images, the energy label — ADR-123) and the valuation (current value and
+the residual table). Every body is read by ``identapi_parse.py``; no code is
+interpreted here. This is the whole ``ProviderAdapter`` Protocol: the SOAP-era
+operations it once carried left with the SOAP adapter (KAN-550).
 """
 
 from __future__ import annotations
@@ -59,7 +53,7 @@ import datetime as dt
 import logging
 import uuid
 from collections.abc import Callable, Hashable, Mapping, Sequence
-from typing import Any, NoReturn
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -77,36 +71,23 @@ from app.integration.adapters.autoi_oauth import (
 )
 from app.integration.adapters.base import (
     BestMatchResult,
-    BrandData,
     BuiltVehicleData,
     CaptionData,
     CatalogueBrandData,
     CatalogueModelGroupData,
-    CodeMapEntryData,
     EnergyLabelData,
-    ForecastResult,
-    ModelGroupData,
-    ModelGroupShortData,
-    OptionConditionData,
-    OptionPackageContentData,
-    PlateInfoData,
-    SystemWatermark,
-    TypeApprovalDataResult,
-    ValuationResult,
-    VariantColourData,
+    ResidualTableData,
     VariantColoursData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
     VariantSearchPage,
     VariantTyreSpecData,
-    VehicleKindData,
-    VehiclePriceData,
+    VehicleValuationData,
 )
 from app.integration.errors import (
     ProviderConfigurationError,
     ProviderNotEntitledError,
-    ProviderOperationNotBuiltError,
     ProviderRejectedError,
     ProviderRequestError,
     ProviderTransportError,
@@ -131,7 +112,15 @@ OP_VEHICLEBUILD = "vehiclebuild"
 OP_VEHICLEMATCH = "vehiclematch"
 OP_VEHICLEOPTION_CATALOG = "vehicleoption_catalog"
 OP_RESIDUALVALUE = "residualvalue"
-OP_VINREQUEST = "vinrequest"
+# KAN-552: the current value and the predefined residual table — one request each.
+OP_VEHICLEVALUATION = "vehiclevaluation"
+OP_RESIDUALVALUE_TABLE = "residualvalue_table"
+# The four languages a valuation's screen and print messages are asked in.
+VALUATION_LANGUAGES = ("de", "fr", "it", "en")
+# KAN-549 (Anto, 2026-11-09, option A): the VIN rung is Vehicle Build by
+# `vin`; it is named apart from `vehiclebuild` so the call log tells a VIN
+# lookup — the licence option `vin` — from a plate or Stammnummer lookup.
+OP_VEHICLE_VIN = "vehicle_vin"
 OP_TYRESANDRIMS_TYPEAPPROVAL = "tyresandrims_typeapproval"
 OP_ENERGYLABEL_INFO = "energylabel_info"
 OP_IMAGE_VEHICLE = "image_vehicle"
@@ -162,13 +151,6 @@ _Params = Sequence[tuple[str, str]]
 class _Unauthorized(ProviderRejectedError):
     """Internal: the identAPI answered 401 — `_request` drops the token and
     tries once more; only the second 401 leaves this module."""
-
-
-def _not_built(ticket: str, what: str) -> NoReturn:
-    # A `ProviderConfigurationError`: nothing was sent, so the gateway writes
-    # no row and charges no breaker (a caller probing every rung of
-    # identification must not take the connection offline).
-    raise ProviderOperationNotBuiltError(f"{what} is not available on the identAPI adapter until {ticket} is built.")
 
 
 class AutoIDatIdentAdapter:
@@ -353,7 +335,9 @@ class AutoIDatIdentAdapter:
         return self._request(OP_RESIDUALVALUE, "GET", f"/residualvalue/{PROBE_FZ_KEY_RESIDUAL}/{PROBE_MODEL_YEAR_RESIDUAL}", empty_on_404=True)
 
     def probe_vin(self) -> dict[str, Any]:
-        return self._request(OP_VINREQUEST, "GET", f"/vinrequest/{PROBE_VIN}", empty_on_404=True)
+        # The endpoint the VIN rung calls (KAN-549, option A): the `vin` row
+        # that gates the rung is the answer of that same endpoint.
+        return self._request(OP_VEHICLE_VIN, "GET", f"/vehiclebuild/vin/{PROBE_VIN}", empty_on_404=True)
 
     def probe_pneu(self) -> dict[str, Any]:
         return self._request(OP_TYRESANDRIMS_TYPEAPPROVAL, "GET", f"/tyresandrims/typeapproval/{PROBE_TYPE_APPROVAL_TYRES}", empty_on_404=True)
@@ -366,16 +350,18 @@ class AutoIDatIdentAdapter:
     def fetch_captions(self, lang: str) -> list[CaptionData]:
         return parse.parse_captions(self.fetch_code_captions(lang))
 
-    def _vehicle_build(self, identifier_type: str, identifier: str) -> list[BuiltVehicleData]:
+    def _vehicle_build(
+        self, identifier_type: str, identifier: str, *, operation: str = OP_VEHICLEBUILD
+    ) -> list[BuiltVehicleData]:
         """`GET /vehiclebuild/{type}/{id}?needAutoiKeyIfExists`: the registered
         vehicle(s) and, where the provider resolved one, the catalogue variant
         each belongs to — one answer, one row in the call log. A 404 and an
         empty `data` both read as "nothing registered under this identifier"."""
 
         body = self._request(
-            OP_VEHICLEBUILD,
+            operation,
             "GET",
-            f"/vehiclebuild/{identifier_type}/{identifier}",
+            f"/vehiclebuild/{identifier_type}/{quote(identifier, safe='')}",
             [("needAutoiKeyIfExists", "true")],
             empty_on_404=True,
         )
@@ -386,6 +372,15 @@ class AutoIDatIdentAdapter:
 
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         return self._vehicle_build("licenseplate", plate)
+
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        """KAN-549: `GET /vehiclebuild/vin/{vin}?needAutoiKeyIfExists`, one
+        `vehicle_vin` row — the built car with its catalogue variant and spec
+        block, like the plate and Stammnummer lookups. Behind the licence
+        option `vin` (not in the test licence, ADR-113): the caller asks only
+        when the connection's probed `vin` row is granted."""
+
+        return self._vehicle_build("vin", vin, operation=OP_VEHICLE_VIN)
 
     def _vehicle_catalog(self, identifier_type: str, identifier: str) -> list[VariantMasterData]:
         """`GET /vehiclecatalog/{type}/{id}` — the first provider page (10)
@@ -408,58 +403,6 @@ class AutoIDatIdentAdapter:
 
     def fetch_variant(self, fz_key: str) -> VariantMasterData | None:
         return next((v for v in self._vehicle_catalog("autoi", fz_key) if v.fz_key == fz_key), None)
-
-    def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
-        """The Protocol's single-variant read: `fetch_variant`, with a missing key
-        raised as a caller expects (KAN-211 loads details through
-        `fetch_variant_with_colours`, the same request)."""
-
-        variant = self.fetch_variant(fz_key)
-        if variant is None:
-            raise KeyError(f"The identAPI knows no catalogue variant with FzKey {fz_key!r}.")
-        return variant
-
-    def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
-        """The list price per model year travels with the variant
-        (`catalogPrices`): one request, filtered locally."""
-
-        prices = self.fetch_vehicle_master_data(fz_key).catalogue_prices
-        return [p for p in prices if year is None or p.year == year]
-
-    def fetch_type_approvals(self, fz_key: str) -> list[str]:
-        return list(self.fetch_vehicle_master_data(fz_key).type_approval_numbers)
-
-    def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
-        """The SOAP-shaped plate answer, served from `identify_by_plate`: one
-        record per built vehicle that carries a Typenschein and a Stammnummer
-        (what the plate-lookup cache stores). The identification waterfall
-        reads `identify_by_plate` itself since KAN-547 PR 2; this shim stays
-        for the `VehicleDataAdapter` contract (the SOAP adapter's callers)."""
-
-        records: list[PlateInfoData] = []
-        for vehicle in self.identify_by_plate(plate):
-            if vehicle.type_approval_number is None or vehicle.stammnummer is None:
-                # The spec says `vrn` is "only a part of the response, depends on user group
-                # definition": a record this account may not see whole cannot be cached as
-                # plate → Typenschein → Stammnummer and is left out, said so in the log.
-                logger.warning(
-                    "plate answer without Typenschein or Stammnummer left out of the SOAP-shaped records "
-                    "(fz_key=%s, type_approval=%s)", vehicle.fz_key, vehicle.type_approval_number,
-                )
-                continue
-            records.append(
-                PlateInfoData(
-                    vehicle_kind_code=vehicle.vehicle_kind_code,
-                    brand_name=vehicle.brand_name,
-                    model_description=vehicle.model_description,
-                    production_from=vehicle.production_from,
-                    production_to=vehicle.production_to,
-                    type_approval_number=vehicle.type_approval_number,
-                    first_registration_date=vehicle.first_registration_date,
-                    stammnummer=vehicle.stammnummer,
-                )
-            )
-        return records
 
     def find_best_match(
         self,
@@ -585,20 +528,13 @@ class AutoIDatIdentAdapter:
         body = self._request(OP_VEHICLECATALOG, "GET", path, params, empty_on_404=True)
         return parse.parse_distinct_values(body, field)
 
-    # -- ProviderAdapter methods other tickets build ------------------------------
-
-    def get_system_watermark(self) -> SystemWatermark:
-        # The identAPI has no `System` watermark; its access check is the
-        # caption call (`entitlement_probes.access_check`).
-        _not_built("KAN-550", "The catalogue watermark")
-
     # -- KAN-211 (ADR-123): the details loaded once per Betrieb on open ------------
 
     def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
         """`GET /vehiclecatalog/autoi/{fzKey}` — one request for the variant's
         master data and its colour options (`colorOptionsData`, on the same
         row; the identAPI has no colour endpoint). A missing key is raised as
-        the loader expects, like `fetch_vehicle_master_data`."""
+        the loader expects."""
 
         body = self._request(
             OP_VEHICLECATALOG,
@@ -648,12 +584,6 @@ class AutoIDatIdentAdapter:
             )
         return options
 
-    def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]:
-        # The identAPI keys colours by FzKey, on the variant row:
-        # `fetch_variant_with_colours`. The Werkscode-keyed SOAP shape leaves
-        # the Protocol with KAN-550.
-        _not_built("KAN-550", "The Werkscode-keyed colour list")
-
     def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]:
         """`GET /tyresandrims/typeapproval/{nr}` — one request; without a
         `tyreType` filter the answer carries both seasons, each row naming
@@ -688,84 +618,45 @@ class AutoIDatIdentAdapter:
         )
         return parse.parse_energy_labels(body)
 
-    def fetch_valuation(
-        self, *, fz_key: str, model_year: int, first_registration: dt.date, valuation_date: dt.date, mileage: int
-    ) -> ValuationResult:
-        _not_built("KAN-552", "Valuation")
+    @staticmethod
+    def _valuation_params(option_keys: Sequence[int], extra: _Params = ()) -> list[tuple[str, str]]:
+        params = [("lang", lang) for lang in VALUATION_LANGUAGES]
+        params += [(f"option[{index}].key", str(key)) for index, key in enumerate(option_keys)]
+        return [*params, *extra]
 
-    def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:
-        _not_built("KAN-552", "The residual-value forecast")
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
+        """KAN-552: `GET /vehiclevaluation/{fzKey}/{modelYear}/{firstAdmission}/{kilometreState}`,
+        one `vehiclevaluation` row — the options by their OptKey, the screen and
+        print messages in the four languages. A 404 reads as "no valuation"."""
 
-    # The SOAP-shaped browse methods: superseded by `list_catalogue_brands`,
-    # `list_catalogue_model_groups`, `search_catalogue_variants` and
-    # `facet_values`; they leave the Protocol with KAN-550.
+        body = self._request(
+            OP_VEHICLEVALUATION,
+            "GET",
+            f"/vehiclevaluation/{quote(fz_key, safe='')}/{model_year}/{first_registration.isoformat()}/{mileage_km}",
+            self._valuation_params(option_keys),
+            empty_on_404=True,
+        )
+        return parse.parse_vehicle_valuation(body)
 
-    def list_vehicle_kinds(self) -> list[VehicleKindData]:
-        _not_built("KAN-550", "The SOAP-shaped vehicle-kind list")
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        """KAN-552: `GET /residualvalue/{fzKey}/{modelYear}?firstAdmission&kilometreState`,
+        one `residualvalue_table` row — the whole predefined table for a used
+        car; never a loop over durations or km bands."""
 
-    def list_brands(self, *, fz_art: str) -> list[BrandData]:
-        _not_built("KAN-550", "The SOAP-shaped brand list")
-
-    def list_model_groups(
-        self,
-        *,
-        fz_art: str | None = None,
-        marken_nr: str | None = None,
-        marke: str | None = None,
-        mod_grp_key: int | None = None,
-        mod_kurz_bez: str | None = None,
-        nur_neue: bool = False,
-        prod_von: int | None = None,
-        prod_bis: int | None = None,
-    ) -> list[ModelGroupData]:
-        _not_built("KAN-550", "The SOAP-shaped model-group list")
-
-    def list_model_groups_short(
-        self,
-        *,
-        fz_art: str,
-        marken_nr: str | None = None,
-        marke: str | None = None,
-        nur_neue: bool = False,
-        page: int | None = None,
-        per_page: int | None = None,
-    ) -> list[ModelGroupShortData]:
-        _not_built("KAN-550", "The SOAP-shaped short model-group list")
-
-    def search_vehicles(self, criteria: dict[str, str | int | Sequence[str | int]]) -> list[VariantMasterData]:
-        _not_built("KAN-550", "The SOAP-shaped variant search")
-
-    def fetch_grouped_values(
-        self,
-        *,
-        fz_art: str,
-        marken_nr: str | None = None,
-        marke: str | None = None,
-        mod_kurz_bez: str | None = None,
-        typ_sch_nr: str | None = None,
-        gruppiert: str,
-    ) -> list[str]:
-        _not_built("KAN-550", "The SOAP-shaped grouped values")
-
-    def fetch_type_approval_data(
-        self, typ_sch_nr: str, *, getriebe: str | None = None, gaenge: int | None = None
-    ) -> TypeApprovalDataResult:
-        _not_built("KAN-550", "Type-approval data")
-
-    def fetch_option_package_contents(self, opt_key: int) -> list[OptionPackageContentData]:
-        _not_built("KAN-550", "The SOAP-shaped option package contents")
-
-    def fetch_option_exclusions(self, fz_key: str, *, year: int, opt_key: int) -> list[int]:
-        _not_built("KAN-550", "The SOAP-shaped option exclusions")
-
-    def fetch_option_conditions(self, fz_key: str, *, year: int, opt_key: int) -> list[OptionConditionData]:
-        _not_built("KAN-550", "The SOAP-shaped option conditions")
-
-    def fetch_codes(
-        self, *, code_groups: list[str] | None = None, active_only: bool = False
-    ) -> list[CodeMapEntryData]:
-        # Superseded: the identAPI's vocabulary is `fetch_captions` (ADR-111 (3)).
-        _not_built("KAN-550", "The CodeGrpNr code list")
+        body = self._request(
+            OP_RESIDUALVALUE_TABLE,
+            "GET",
+            f"/residualvalue/{quote(fz_key, safe='')}/{model_year}",
+            self._valuation_params(
+                option_keys, (("firstAdmission", first_registration.isoformat()), ("kilometreState", str(mileage_km)))
+            ),
+            empty_on_404=True,
+        )
+        return parse.parse_residual_table(body)
 
 
 def _json_api_title(response: httpx.Response) -> str:
@@ -881,9 +772,7 @@ def _build_ident_adapter(
 def _register() -> None:
     # Imported lazily: services/gateway.py imports the adapters package's
     # mock directly, and nothing in adapters/ imports gateway.py at module
-    # scope. Registered after the SOAP adapter's own `_register`, so the
-    # identAPI adapter is what `auto_i_dat` resolves to (ADR-111); the SOAP
-    # module stays importable until KAN-550 removes it.
+    # scope. `auto_i_dat` resolves to the identAPI adapter (ADR-111).
     from app.integration.services.gateway import register_adapter_factory
 
     register_adapter_factory("auto_i_dat", _build_ident_adapter)

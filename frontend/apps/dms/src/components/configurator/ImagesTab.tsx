@@ -2,6 +2,8 @@ import { Alert, Badge, Group, Image, SimpleGrid, Stack, Text } from '@mantine/co
 import { Info, Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
+import { DetailStateNotice } from './DetailStateNotice'
+import { hasNoteToShow } from './detailState'
 
 // BildTyp (small/large) and BildArt (exterior/interior) are FR-C-09's own
 // fixed, documented two-value codes — unlike an axle or option code, there
@@ -50,7 +52,17 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
     )
   }
 
-  if (!spec.imagesAvailable) {
+  // KAN-211 / KAN-212 (ADR-123): the detail's own state first — «Nicht in
+  // Ihrem Vertrag» when the provider's licence refused the photos of this
+  // car, «derzeit nicht verfügbar» when the request failed. The probe-based
+  // entitlement notice below stays for a Betrieb whose licence the probe
+  // already found wanting before any car was opened.
+  const detailState = spec.details.images
+  if (spec.images.length === 0 && (detailState.state === 'notInContract' || detailState.state === 'unavailable')) {
+    return <DetailStateNotice detail="images" state={detailState} />
+  }
+
+  if (!spec.imagesAvailable && spec.images.length === 0) {
     return (
       <Alert
         color="yellow"
@@ -78,47 +90,55 @@ export function ImagesTab({ spec, isLoading, isManual }: ImagesTabProps) {
   }
 
   if (spec.images.length === 0) {
-    return (
+    return detailState.state === 'present' && !hasNoteToShow(detailState) ? (
       <Alert color="gray" icon={<Info size={16} />}>
         {t('configurator.images.empty')}
       </Alert>
+    ) : (
+      <DetailStateNotice detail="images" state={detailState} />
     )
   }
 
+  // Photos still stored under a notice (a reload the provider refused or
+  // failed keeps the earlier rows): the notice says so, the photos stay —
+  // as OptionsTab keeps its list.
   return (
-    <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md" data-testid="images-tab">
-      {[...spec.images]
-        .sort((a, b) => a.sequence - b.sequence)
-        .map((image) => (
-          <Stack key={image.imageKey} gap={4} data-testid={`image-${image.imageKey}`}>
-            {image.imageUrl ? (
-              <Image
-                src={image.imageUrl}
-                alt={image.imageKey}
-                radius="sm"
-                h={image.bildTyp === 'S' ? 120 : 280}
-                fit="cover"
-                fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='120'%3E%3Crect width='210' height='120' fill='%23e9ecef'/%3E%3C/svg%3E"
-              />
-            ) : (
-              <Text size="xs" c="dimmed">
-                {image.imageKey}
-              </Text>
-            )}
-            <Group gap={4}>
-              {image.bildArt && (
-                <Badge size="xs" variant="light">
-                  {codeLabel(t, 'bildArt', BILD_ART_KEY, image.bildArt)}
-                </Badge>
+    <Stack gap="md">
+      {detailState.state !== 'present' && <DetailStateNotice detail="images" state={detailState} />}
+      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md" data-testid="images-tab">
+        {[...spec.images]
+          .sort((a, b) => a.sequence - b.sequence)
+          .map((image) => (
+            <Stack key={image.imageKey} gap={4} data-testid={`image-${image.imageKey}`}>
+              {image.imageUrl ? (
+                <Image
+                  src={image.imageUrl}
+                  alt={image.imageKey}
+                  radius="sm"
+                  h={image.bildTyp === 'S' ? 120 : 280}
+                  fit="cover"
+                  fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='120'%3E%3Crect width='210' height='120' fill='%23e9ecef'/%3E%3C/svg%3E"
+                />
+              ) : (
+                <Text size="xs" c="dimmed">
+                  {image.imageKey}
+                </Text>
               )}
-              {image.bildTyp && (
-                <Badge size="xs" variant="outline">
-                  {codeLabel(t, 'bildTyp', BILD_TYP_KEY, image.bildTyp)}
-                </Badge>
-              )}
-            </Group>
-          </Stack>
-        ))}
-    </SimpleGrid>
+              <Group gap={4}>
+                {image.bildArt && (
+                  <Badge size="xs" variant="light">
+                    {codeLabel(t, 'bildArt', BILD_ART_KEY, image.bildArt)}
+                  </Badge>
+                )}
+                {image.bildTyp && (
+                  <Badge size="xs" variant="outline">
+                    {codeLabel(t, 'bildTyp', BILD_TYP_KEY, image.bildTyp)}
+                  </Badge>
+                )}
+              </Group>
+            </Stack>
+          ))}
+      </SimpleGrid>
+    </Stack>
   )
 }

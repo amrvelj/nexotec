@@ -65,8 +65,8 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     ).toBe(r.provider_code_already_mapped.replace('{{mapping}}', 'fuel_type/petrol'))
     expect(apiRefusalText(t, refusal(409, { reason: 'too_many_images', maxImages: 16 }), FALLBACK)).toBe(r.too_many_images.replace('{{max, number}}', '16'))
     expect(
-      apiRefusalText(t, refusal(422, { reason: 'missing_config_fields', missingConfigKeys: ['benutzerNr', 'notAKnownKey'] }, 'unprocessable_entity'), FALLBACK),
-    ).toBe(r.missing_config_fields.replace('{{fields}}', `${fr.integrationEnums.configKey.benutzerNr}, notAKnownKey`))
+      apiRefusalText(t, refusal(422, { reason: 'missing_config_fields', missingConfigKeys: ['username', 'notAKnownKey'] }, 'unprocessable_entity'), FALLBACK),
+    ).toBe(r.missing_config_fields.replace('{{fields}}', `${fr.integrationEnums.configKey.username}, notAKnownKey`))
   })
 
   it("names the access window's days in the user's locale, as calendar days", async () => {

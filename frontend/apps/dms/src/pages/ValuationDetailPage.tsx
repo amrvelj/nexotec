@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useCreateOfferFromValuation } from '../hooks/useCreateOfferFromValuation'
 import { CreateOfferFromValuationAlert } from '../components/CreateOfferFromValuationAlert'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
+import { ProviderQuoteCard } from '../components/ProviderQuoteCard'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
@@ -173,6 +174,13 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
             <Text size="sm" c="dimmed">{t('valuationDetail.valueCard.providerValue')}</Text>
             <Text size="sm">{valuation.providerValue != null ? formatCurrencyChf(Number(valuation.providerValue)) : '—'}</Text>
           </Group>
+          {valuation.source === 'manual' && valuation.providerQuote && (
+            // KAN-552: an advisor's own figure keeps the provider's beside it.
+            <Group justify="space-between">
+              <Text size="xs" c="dimmed">{t('valuationQuote.exchange')}</Text>
+              <Text size="xs" c="dimmed">{formatCurrencyChf(Number(valuation.providerQuote.exchangePrice))}</Text>
+            </Group>
+          )}
           {(valuation.deductions ?? []).map((d, i) => (
             <Group key={i} justify="space-between">
               <Text size="sm" c="dimmed">{d.label}</Text>
@@ -194,6 +202,12 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
           <Text size="xs" c="dimmed">{t('valuationDetail.valueCard.finalOfferHint')}</Text>
         </Stack>
       </OverviewCard>
+
+      {valuation.providerQuote && (
+        <OverviewCard title={t('valuationQuote.title')}>
+          <ProviderQuoteCard quote={valuation.providerQuote} />
+        </OverviewCard>
+      )}
 
       <OverviewCard title={t('valuationDetail.vehicleCard.title')}>
         <SpecGrid

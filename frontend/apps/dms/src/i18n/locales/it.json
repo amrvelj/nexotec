@@ -330,7 +330,15 @@
       "page_invalid": "Pagina non valida.",
       "sort_field_unknown": "Il catalogo non può essere ordinato per questo campo.",
       "vehicle_kind_unknown_to_provider": "Il fornitore non conosce questo genere di veicolo.",
-      "catalogue_scope_invalid": "La marca o il gruppo di modelli non è un nome valido."
+      "catalogue_scope_invalid": "La marca o il gruppo di modelli non è un nome valido.",
+      "not_entitled": "Questa richiesta non è compresa nel contratto con il fornitore.",
+      "provider_unavailable": "Il fornitore non è al momento disponibile. Riprovare più tardi.",
+      "provider_cannot_value": "auto-i-dat non può valutare questo veicolo: {{message}}",
+      "provider_quote_required": "Un valore auto-i-dat proviene dal fornitore — usare prima «Ottieni la valutazione auto-i-dat».",
+      "provider_quote_mismatch": "Questa valutazione auto-i-dat appartiene a un’altra configurazione.",
+      "provider_quote_stale": "La prima immatricolazione o il chilometraggio differiscono dalla valutazione auto-i-dat. Ottenerla di nuovo.",
+      "provider_quote_inputs_missing": "La valutazione auto-i-dat richiede la prima immatricolazione e il chilometraggio.",
+      "provider_not_configured": "Il collegamento ad auto-i-dat non è configurato completamente — verificarlo nell’amministrazione dell’azienda, sotto Integrazioni."
     },
     "accessWindow": {
       "between": "valido dal {{from}} al {{to}}",
@@ -1325,7 +1333,11 @@
       "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
       "edit": "Modifica configurazione",
       "editContract": "Modifica contratto",
-      "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto."
+      "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto.",
+      "reloadDetails": "Ricarica",
+      "reloadDetailsHint": "Richiede di nuovo ad auto-i-dat opzioni, colori, dati pneumatici, immagini ed etichetta energia e sostituisce i dati salvati di questa azienda.",
+      "reloadDetailsError": "I dati del catalogo non sono stati ricaricati.",
+      "reloadDetailsDone": "Ricaricato il {{date}}"
     },
     "rowMenu": {
       "changeCondition": "Modifica stato",
@@ -1739,7 +1751,6 @@
     "searchCustomer": "Cerca cliente",
     "createCustomer": "Crea nuovo",
     "source": "Fonte",
-    "sourceManual": "Manuale",
     "providerValue": "Valore lordo",
     "validForDays": "Valida per (giorni)",
     "deductionsSection": "Detrazioni",
@@ -1753,7 +1764,18 @@
     "configurator": {
       "skip": "Rilevare a mano senza configuratore"
     },
-    "vehicleNotLoaded": "Non è stato possibile caricare il veicolo. Inseritelo qui voi stessi."
+    "vehicleNotLoaded": "Non è stato possibile caricare il veicolo. Inseritelo qui voi stessi.",
+    "quote": {
+      "fetch": "Ottieni la valutazione auto-i-dat",
+      "refetch": "Ottieni di nuovo",
+      "needsInputs": "Inserire la prima immatricolazione e il chilometraggio per ottenere la valutazione.",
+      "stale": "Prima immatricolazione o chilometraggio modificati — questa valutazione auto-i-dat non è più valida. Ottenerla di nuovo.",
+      "notInContract": "Valutazione non compresa nel contratto con auto-i-dat.",
+      "noConnection": "Nessun fornitore di dati veicolo collegato.",
+      "unavailable": "La valutazione auto-i-dat non è al momento disponibile. Riprovare più tardi.",
+      "noCatalogueVariant": "auto-i-dat non può valutare un veicolo senza variante di catalogo.",
+      "failed": "Non è stato possibile ottenere la valutazione auto-i-dat."
+    }
   },
   "integrationsList": {
     "title": "Integrazioni",
@@ -1828,16 +1850,12 @@
     },
     "secretSlot": {
       "password": "Password",
-      "aes_key": "Chiave AES",
       "client_secret": "Client secret",
       "refresh_token": "Refresh token",
       "certificate": "Certificato"
     },
     "configKey": {
       "username": "Nome utente",
-      "benutzerNr": "Numero di conto (BenutzerNr)",
-      "benutzerInfo": "Etichetta del conto (BenutzerInfo)",
-      "accountNumber": "Numero di conto DAT",
       "clientId": "Client-ID"
     }
   },
@@ -2091,13 +2109,20 @@
         "onlyWith": "Disponibile solo con {{option}}",
         "notInCombinationWith": "Non disponibile in combinazione con {{option}}",
         "onlyInCombinationWith": "Disponibile solo in combinazione con {{option}}"
-      }
+      },
+      "searchPlaceholder": "Cerca un'opzione o un codice…",
+      "searchLabel": "Cerca nelle opzioni",
+      "noMatches": "Nessuna opzione corrisponde alla ricerca."
     },
     "colour": {
       "exterior": "Colore esterno",
       "interior": "Colore dei sedili",
       "pickFromCatalogue": "Scegli dal catalogo",
-      "surcharge": "Sovrapprezzo"
+      "surcharge": "Sovrapprezzo",
+      "exteriorType": "Tipo di vernice",
+      "interiorType": "Tipo di rivestimento",
+      "pickType": "Scegli…",
+      "typeListUnavailable": "L'elenco non è stato caricato"
     },
     "wheels": {
       "title": "Ruote & pneumatici",
@@ -2183,7 +2208,7 @@
       "productionYears": "{{from}}–{{to}}",
       "inProduction": "dal {{from}}",
       "notes": {
-        "vin_decode_unavailable": "La decodifica VIN presso il fornitore non è ancora disponibile — continuare con la targa o l'approvazione del tipo.",
+        "vin_decode_not_entitled": "Interrogazione VIN non compresa nel contratto – identificare il veicolo tramite targa, numero di matricola o approvazione del tipo.",
         "no_provider_connection": "Nessun fornitore di dati veicolo collegato — sfogliare il catalogo o configurare manualmente.",
         "plate_lookup_not_entitled": "La ricerca per targa non è abilitata per questo account.",
         "plate_lookup_failed": "La ricerca per targa presso il fornitore non è riuscita. Riprovare più tardi.",
@@ -2234,6 +2259,38 @@
       "overridden": "modificato da voi",
       "apply": "Applicare la selezione",
       "error": "L'aggiornamento non è riuscito."
+    },
+    "details": {
+      "notInContract": {
+        "title": "Non nel vostro contratto",
+        "body": "auto-i-dat non fornisce questi dati per il vostro accesso: l'opzione non è in licenza. Non appena un test della connessione rileva l'opzione come in licenza, vengono caricati alla prossima apertura."
+      },
+      "unavailable": {
+        "title": "Al momento non disponibile presso il fornitore",
+        "body": "auto-i-dat non ha fornito questi dati. Alla prossima apertura del veicolo verranno richiesti di nuovo."
+      },
+      "notLoaded": {
+        "title": "Non ancora caricato",
+        "body": "Questi dati non sono ancora stati richiesti ad auto-i-dat per questa azienda."
+      },
+      "names": {
+        "options": "Opzioni",
+        "colours": "Colori",
+        "tyreSpecs": "Dati pneumatici",
+        "images": "Immagini",
+        "energyLabel": "Etichetta energia"
+      },
+      "state": {
+        "present": "Caricato",
+        "notInContract": "Non nel vostro contratto",
+        "unavailable": "Non disponibile",
+        "notLoaded": "Non ancora caricato"
+      },
+      "notes": {
+        "entitlementAbsent": "Il test della connessione ha rilevato che questa opzione non è in licenza; auto-i-dat non è stato interrogato.",
+        "variantUnknownAtProvider": "auto-i-dat non elenca più questa variante; non c'è nulla da caricare.",
+        "energyLabelAmbiguous": "auto-i-dat indica per quest'anno classi diverse a seconda del cambio; nessuna è stata ripresa."
+      }
     }
   },
   "customerRowMenu": {
@@ -3616,6 +3673,26 @@
         "body": "Durante l'inserimento di un indirizzo nel DMS, il testo dell'indirizzo digitato – e soltanto questo, mai un nome o altri dati dei clienti – viene trasmesso a Google Ireland Limited per mostrare suggerimenti. Google tratta tali dati in qualità di titolare del trattamento autonomo ai sensi dei Termini di servizio di Google Maps Platform e dei Google Controller-Controller Data Protection Terms (incluse le clausole contrattuali tipo per i trasferimenti dalla Svizzera). Viene memorizzato soltanto l'indirizzo scelto dall'utente. Un'azienda può disattivare la funzione in qualsiasi momento in Amministrazione › Azienda › Inserimento indirizzi.",
         "google": "Il modo in cui Google tratta questi dati è descritto nelle <privacy>Norme sulla privacy di Google</privacy>; ai suggerimenti di indirizzi si applicano inoltre i <terms>Termini di servizio di Google</terms>."
       }
+    }
+  },
+  "valuationQuote": {
+    "title": "Valutazione auto-i-dat",
+    "exchange": "Valore auto-i-dat (prezzo di permuta)",
+    "purchase": "Prezzo d’acquisto",
+    "sale": "Prezzo di vendita",
+    "range": "Fascia di permuta",
+    "kmCorrection": "Correzione chilometrica (permuta)",
+    "kmExpected": "Chilometraggio usuale per questa età",
+    "asked": "Valutato con anno modello {{year}}, {{km}} km, prima immatricolazione {{date}} — richiesto il {{at}}",
+    "manualHint": "auto-i-dat consiglia di verificare manualmente questo valore.",
+    "residualTitle": "Valori residui (in % del prezzo nuovo)",
+    "kmPerYear": "km/anno",
+    "months": "{{months}} mesi",
+    "residualState": {
+      "present": "Nessun valore residuo fornito.",
+      "not_in_contract": "Valori residui non compresi nel contratto con auto-i-dat.",
+      "unavailable": "Valori residui al momento non disponibili.",
+      "declined": "auto-i-dat non fornisce valori residui per questo veicolo."
     }
   }
 }

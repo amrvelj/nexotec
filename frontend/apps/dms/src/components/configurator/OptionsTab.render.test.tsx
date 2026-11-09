@@ -13,6 +13,7 @@ import type {
   ConfigurationOptionInput,
 } from '../../api/types'
 import { detailsPresent } from '../../test/catalogueDetails'
+import { optionMatchesSearch } from './optionSearch'
 
 // KAN-43 (C-E) exit criteria 1-3, 5: grouped options with relations
 // inline, a conflicting selection warns and proceeds (never blocks), a
@@ -528,5 +529,111 @@ describe('OptionsTab', () => {
   it('shows an empty-state message when the variant has no options', () => {
     renderTab({ spec: buildSpec({ options: [] }) })
     expect(screen.getByText(i18n.t('configurator.options.empty'))).toBeInTheDocument()
+  })
+})
+
+// KAN-211 / KAN-212 (ADR-123): the detail's own load state on screen —
+// a licence gap or a failed request is said, never shown as «no options».
+describe('OptionsTab — per-detail state (KAN-211, KAN-212)', () => {
+  it('says «Nicht in Ihrem Vertrag» instead of the empty state when the licence refused the options', () => {
+    renderTab({
+      spec: buildSpec({ options: [], details: { ...detailsPresent, options: { state: 'notInContract', loadedAt: '2026-11-08T10:00:00Z' } } }),
+    })
+    const notice = screen.getByTestId('detail-state-options')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notInContract.title'))
+    expect(screen.queryByText(i18n.t('configurator.options.empty'))).not.toBeInTheDocument()
+  })
+
+  it('says the provider did not answer, with the note for support, and that the next open retries', () => {
+    renderTab({
+      spec: buildSpec({
+        options: [],
+        details: { ...detailsPresent, options: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderGatewayError' } },
+      }),
+    })
+    const notice = screen.getByTestId('detail-state-options')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.unavailable.title'))
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.unavailable.body'))
+    // A failure's class name is for the call log, never the screen (i18n rule).
+    expect(notice).not.toHaveTextContent('ProviderGatewayError')
+  })
+
+  it('says «noch nicht geladen» for a Betrieb that never asked', () => {
+    renderTab({ spec: buildSpec({ options: [], details: { ...detailsPresent, options: { state: 'notLoaded' } } }) })
+    expect(screen.getByTestId('detail-state-options')).toHaveTextContent(i18n.t('configurator.details.notLoaded.title'))
+  })
+
+  it('keeps the stale list visible under the notice when a reload failed', () => {
+    renderTab({
+      spec: buildSpec({ details: { ...detailsPresent, options: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }),
+    })
+    expect(screen.getByTestId('detail-state-options')).toBeInTheDocument()
+    expect(screen.getByText('Winter package')).toBeInTheDocument()
+  })
+
+  it('renders nothing about the state when the options are loaded', () => {
+    renderTab()
+    expect(screen.queryByTestId('detail-state-options')).not.toBeInTheDocument()
+  })
+
+  it('follows the UI language', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      renderTab({ spec: buildSpec({ options: [], details: { ...detailsPresent, options: { state: 'notInContract', loadedAt: '2026-11-08T10:00:00Z' } } }) })
+      expect(screen.getByTestId('detail-state-options')).toHaveTextContent('Pas dans votre contrat')
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+  })
+})
+
+// KAN-211 (Anto, 2026-11-08): «I want to see all options and I want to be
+// able to search by them and their codes».
+describe('OptionsTab — search by text and code (KAN-211)', () => {
+  const CODED = { ...FOG, manufacturerCode: 'PXA' }
+
+  it('shows the manufacturer code beside the option', () => {
+    renderTab({ spec: buildSpec({ options: [CODED, SPORT] }) })
+    const row = screen.getByTestId(`option-row-${CODED.id}`)
+    expect(within(row).getByText('PXA')).toBeInTheDocument()
+  })
+
+  it('narrows the list to options whose text matches, hiding emptied groups', async () => {
+    const user = userEvent.setup()
+    renderTab({ spec: buildSpec({ options: [CODED, SPORT, INCLUDED] }) })
+    await user.type(screen.getByTestId('options-search'), 'sport')
+    expect(screen.getByText('Sport seats')).toBeInTheDocument()
+    expect(screen.queryByText('Fog lights')).not.toBeInTheDocument()
+    expect(screen.queryByText('Air conditioning')).not.toBeInTheDocument()
+    expect(screen.queryByText('Exterior')).not.toBeInTheDocument() // the group with no match
+  })
+
+  it('finds an option by its manufacturer code, case-insensitively', async () => {
+    const user = userEvent.setup()
+    renderTab({ spec: buildSpec({ options: [CODED, SPORT] }) })
+    await user.type(screen.getByTestId('options-search'), 'pxa')
+    expect(screen.getByText('Fog lights')).toBeInTheDocument()
+    expect(screen.queryByText('Sport seats')).not.toBeInTheDocument()
+  })
+
+  it('says so when nothing matches, and the list comes back when the search is cleared', async () => {
+    const user = userEvent.setup()
+    renderTab({ spec: buildSpec({ options: [CODED, SPORT] }) })
+    const search = screen.getByTestId('options-search')
+    await user.type(search, 'zzz')
+    expect(screen.getByTestId('options-no-matches')).toBeInTheDocument()
+    await user.clear(search)
+    expect(screen.queryByTestId('options-no-matches')).not.toBeInTheDocument()
+    expect(screen.getByText('Sport seats')).toBeInTheDocument()
+  })
+
+  it('matches text, manufacturer code or auto-i key; a blank search matches everything', () => {
+    expect(optionMatchesSearch(CODED, '')).toBe(true)
+    expect(optionMatchesSearch(CODED, '  ')).toBe(true)
+    expect(optionMatchesSearch(CODED, 'FOG')).toBe(true) // optionCode
+    expect(optionMatchesSearch(CODED, 'lights')).toBe(true)
+    expect(optionMatchesSearch(CODED, 'pxa')).toBe(true)
+    expect(optionMatchesSearch(CODED, 'sport')).toBe(false)
+    expect(optionMatchesSearch({ ...CODED, manufacturerCode: null }, 'pxa')).toBe(false)
   })
 })

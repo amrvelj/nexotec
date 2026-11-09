@@ -13,6 +13,7 @@ not yet in the register is still offered its valuation.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -27,8 +28,15 @@ from app.core.pagination import SortPageParams, build_sorted_page, count_capped,
 from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
 from app.customer.public import get_customer_or_404
 from app.sales.public import valuations_carried_by_pending_contracts, valuations_carried_by_signed_contracts
-from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
+from app.valuation.models.valuation import (
+    Valuation,
+    ValuationDeduction,
+    ValuationNumberSequence,
+    ValuationProviderQuote,
+    ValuationSource,
+)
 from app.valuation.schemas.valuation import ValuationCreate
+from app.valuation.services.provider_quote import get_quote_or_404
 from app.vehicle.public import CONFIGURATION_MODE_RECORD, get_configuration_for_host, match_vehicle
 
 _EVENT_PRODUCER = "valuation"
@@ -119,6 +127,52 @@ def _normalised_or_none(vin: str | None) -> str | None:
     return normalise_vin(vin) if vin is not None else None
 
 
+def _provider_figure(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    data: ValuationCreate,
+    first_registration: dt.date | None,
+    mileage: int | None,
+) -> tuple[ValuationSource, Decimal | None, ValuationProviderQuote | None]:
+    """KAN-552 — the provider figure comes from a stored quote, never typed
+    (Anto, 2026-11-09, option A). With a quote for this configuration, first
+    registration and mileage: `auto_i_dat` and the quote's trade-in price,
+    unless the advisor sent a figure of their own — then `manual`, the quote
+    kept beside it. Without a quote: `manual`; `auto_i_dat` is refused."""
+
+    if data.provider_quote_id is None:
+        if data.source == ValuationSource.AUTO_I_DAT:
+            raise UnprocessableEntityError(
+                "An auto-i-dat figure comes from the provider: fetch it first («Bewertung von auto-i-dat holen»).",
+                details={"reason": "provider_quote_required"},
+            )
+        return ValuationSource.MANUAL, data.provider_value, None
+
+    quote = get_quote_or_404(db, tenant_id=tenant_id, quote_id=data.provider_quote_id)
+    if data.configuration_id != quote.configuration_id:
+        raise UnprocessableEntityError(
+            "The provider quote was fetched for another configuration.",
+            details={"reason": "provider_quote_mismatch"},
+        )
+    stale = [
+        field
+        for field, valued, quoted in (
+            ("vehicleFirstRegistration", first_registration, quote.first_registration),
+            ("mileage", mileage, quote.mileage),
+        )
+        if valued != quoted
+    ]
+    if stale:
+        raise UnprocessableEntityError(
+            "The provider valued other figures than this valuation states: fetch the valuation again.",
+            details={"reason": "provider_quote_stale", "fields": stale},
+        )
+    if data.provider_value is None or data.provider_value == quote.exchange_price:
+        return ValuationSource.AUTO_I_DAT, quote.exchange_price, quote
+    return ValuationSource.MANUAL, data.provider_value, quote
+
+
 def create_valuation(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: ValuationCreate, actor_id: uuid.UUID | None
 ) -> Valuation:
@@ -195,6 +249,12 @@ def create_valuation(
         elif data.vin:
             vehicle_id = _linked_vehicle_id(db, vin=data.vin, group_id=group_id)
 
+    first_registration = _from_configuration(data.vehicle_first_registration, "first_registration_date")
+    mileage = _from_configuration(data.mileage, "mileage_km")
+    source, provider_value, quote = _provider_figure(
+        db, tenant_id=tenant_id, data=data, first_registration=first_registration, mileage=mileage
+    )
+
     customer_label = None
     if data.customer_id is not None:
         customer = get_customer_or_404(db, group_id, data.customer_id)
@@ -212,15 +272,16 @@ def create_valuation(
         vehicle_trim=_from_configuration(data.vehicle_trim, "variant_name"),
         vehicle_plate=_from_configuration(data.vehicle_plate, "licence_plate"),
         vehicle_vin=stored_vin,
-        vehicle_first_registration=_from_configuration(data.vehicle_first_registration, "first_registration_date"),
-        mileage=_from_configuration(data.mileage, "mileage_km"),
+        vehicle_first_registration=first_registration,
+        mileage=mileage,
         configuration_id=configuration.id if configuration is not None else None,
         configuration_label=configuration.label if configuration is not None else None,
         configuration_label_refreshed_at=utcnow() if configuration is not None else None,
         customer_id=data.customer_id,
         customer_label=customer_label,
-        source=data.source,
-        provider_value=data.provider_value,
+        source=source,
+        provider_value=provider_value,
+        provider_quote_id=quote.id if quote is not None else None,
         final_offer=data.final_offer,
         note=data.note,
         valid_from=valid_from,

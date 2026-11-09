@@ -285,6 +285,10 @@ export type EquipmentRead = Schemas['EquipmentRead']
 // Sales — offer/contract container state, valuation
 export type OfferContainerState = Schemas['OfferContainerState']
 export type ValuationCreate = Schemas['ValuationCreate']
+// KAN-552 — the identAPI's valuation of a configured car, stored before the valuation is created.
+export type ProviderQuoteRead = Schemas['ProviderQuoteRead']
+export type ProviderQuoteRequest = Schemas['ProviderQuoteRequest']
+export type ResidualValueRead = Schemas['ResidualValueRead']
 
 // Integration / dealership / catalogue sync
 export type CapabilityCheckRead = Schemas['CapabilityCheckRead']

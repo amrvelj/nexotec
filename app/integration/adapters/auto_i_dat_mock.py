@@ -7,15 +7,19 @@ the real thing (PR-3's `auto_i_dat`), never a runtime flag on one
 connection (the same "never a flag" posture rule 7 already applies to
 sandbox/production).
 
-`system_watermark_date` is injectable so a test can control the `System`
-answer without monkeypatching a clock. Every method is one metered request
-under the real adapter's Datenname (KAN-486). There is no `FzKeyChanged`:
-no provider, this one included, is asked for its whole catalogue (KAN-485).
+It implements exactly the identAPI's `ProviderAdapter` operations (KAN-550;
+`tests/architecture/test_provider_adapter_is_the_identapi.py`), over invented
+fixtures (KAN-491) that carry auto-i's own codes as the identAPI sends them
+(vehicle kind `01`, gearbox `1`/`5`, …), so the demo provider resolves through
+the same code map as the real one (`scripts/seed_demo_provider_code_map.py`).
+Every method is one metered request under the identAPI adapter's own
+operation name (KAN-486), so a dev or staging call log reads like a real one.
+No provider, this one included, is asked for its whole catalogue (KAN-485).
 """
 
 import datetime as dt
 import functools
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from decimal import Decimal
 from typing import Any, TypeVar, cast
 from zoneinfo import ZoneInfo
@@ -23,22 +27,15 @@ from zoneinfo import ZoneInfo
 from app.core.base import utcnow
 from app.integration.adapters.base import (
     BestMatchResult,
-    BrandData,
     BuiltVehicleData,
     CaptionData,
     CatalogueBrandData,
     CatalogueModelGroupData,
-    CodeMapEntryData,
     EnergyLabelData,
-    ForecastResult,
-    ModelGroupData,
-    ModelGroupShortData,
-    OptionConditionData,
-    OptionPackageContentData,
     PlateInfoData,
-    SystemWatermark,
-    TypeApprovalDataResult,
-    ValuationResult,
+    ProviderMessage,
+    ResidualTableData,
+    ResidualValueRow,
     VariantColourData,
     VariantColoursData,
     VariantImageData,
@@ -46,8 +43,8 @@ from app.integration.adapters.base import (
     VariantOptionData,
     VariantSearchPage,
     VariantTyreSpecData,
-    VehicleKindData,
     VehiclePriceData,
+    VehicleValuationData,
 )
 from app.integration.services.metering import provider_request
 
@@ -62,11 +59,11 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         variant_name="Giulietta 1.4 TB Progression",
         model_year_from=2019,
         model_year_to=2021,
-        vehicle_kind_code="1",  # provider code — never resolved here
+        vehicle_kind_code="01",  # provider code — never resolved here
         fuel_type_code="3",
         body_style_code="5",
         drivetrain_code="1",
-        transmission_code="M",
+        transmission_code="1",
         base_price=Decimal("28900.00"),
         werkscode="ALF14TB",
         type_approval_numbers=["1AB234"],
@@ -86,11 +83,11 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         variant_name="Golf GTI 2.0 TSI DSG",
         model_year_from=2021,
         model_year_to=None,
-        vehicle_kind_code="1",
+        vehicle_kind_code="01",
         fuel_type_code="3",
         body_style_code="5",
         drivetrain_code="1",
-        transmission_code="A",
+        transmission_code="5",
         base_price=Decimal("42500.00"),
         werkscode="VW20TSI",
         type_approval_numbers=["2CD456"],
@@ -109,11 +106,11 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         variant_name="320d xDrive Touring M Sport",
         model_year_from=2020,
         model_year_to=None,
-        vehicle_kind_code="1",
+        vehicle_kind_code="01",
         fuel_type_code="4",
         body_style_code="4",
         drivetrain_code="2",
-        transmission_code="A",
+        transmission_code="5",
         base_price=Decimal("54900.00"),
         werkscode="BMW320D",
         type_approval_numbers=["3EF789"],
@@ -173,30 +170,28 @@ _OPTIONS: dict[str, list[VariantOptionData]] = {
     ],
 }
 
-# Keyed by Werkscode now, not FzKey — OptionenFarben's real search value
-# (KAN-38 PR 1). Every demo variant carries a werkscode in _MASTER_DATA.
-# `price=None` on the exterior colour models the common "free" case;
-# `GRY`'s price models FR-C-07's "surcharge is a price line in build mode".
-# KAN-75 (Anto, C1): raw `FarbArt` codes like the real service (1 Aussenfarbe,
-# 2 Polsterfarbe), resolved by the sync through the code map, which migration
-# `b0a125a0a583` seeds for this provider too.
+# Keyed by FzKey: the identAPI carries a variant's colours on its catalogue
+# row (`colorOptionsData`, KAN-211). `price=None` on the grey models the
+# common "free" case; `RED`'s price models FR-C-07's "surcharge is a price
+# line in build mode". The raw colour-area codes (1 exterior, 2 interior) are
+# resolved by `app.vehicle` through the code map, which migration
+# `b0a125a0a583` seeds for this provider too (KAN-75).
 _COLOURS: dict[str, list[VariantColourData]] = {
-    master.werkscode: [
+    fz_key: [
         VariantColourData(colour_code="BLK", description="Black metallic", colour_area_code="1", price=Decimal("0.00")),
         VariantColourData(
             colour_code="RED", description="Rosso competizione", colour_area_code="1", price=Decimal("1100.00")
         ),
         VariantColourData(colour_code="GRY", description="Grey cloth", colour_area_code="2"),
     ]
-    for master in _MASTER_DATA.values()
-    if master.werkscode
+    for fz_key in _DEMO_FZ_KEYS
 }
 
-# Keyed by TypSchNr now — PneuDimTS's real search value (KAN-38 PR 1).
-# One "both" row (AchsenCode 1) models the KAN-43 fix; `remark`/`season_code`
-# model FR-C-08's BemDe/PneuTyp requirements. KAN-75 (C1): raw `AchsenCode`
-# (2 Vorne, 3 Hinten, 1 Vorne+Hinten) and `PneuTyp` (121 Sommer, 122 Winter)
-# codes, as the real service sends them.
+# Keyed by Typenschein, as `GET /tyresandrims/typeapproval/{nr}` is; one
+# answer carries both seasons. One "both axles" row (axle code 1) models the
+# KAN-43 fix; `remark`/`season_code` model FR-C-08. The raw axle codes (2
+# front, 3 rear, 1 both) and season codes (121 summer, 122 winter) resolve
+# through the code map seeded by `b0a125a0a583` (KAN-75, C1).
 _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
     master.type_approval_numbers[0]: [
         VariantTyreSpecData(
@@ -214,53 +209,21 @@ _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
 }
 
 
-# -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) fixtures ----
-
-_VEHICLE_KINDS = [
-    VehicleKindData(code="01", label="Personenwagen"),
-    VehicleKindData(code="02", label="Nutzfahrzeuge"),
-    VehicleKindData(code="03", label="Motorräder"),
-]
-
-# All three demo vehicles are FzArt "01" (passenger cars) — matches
-# vehicle_kind_code="1" on every _MASTER_DATA row above.
-_BRANDS: dict[str, list[BrandData]] = {
-    "01": [
-        BrandData(code=master.brand_code, name=master.brand_display_name) for master in _MASTER_DATA.values()
-    ],
-}
-
-# ModGrpKey values are invented (no real account to read them from) but
-# stable per brand, matching each demo vehicle's own model_group_name.
-_MODEL_GROUPS: dict[str, ModelGroupData] = {
-    master.brand_code: ModelGroupData(
-        model_group_key=100000 + index,
-        name_de=master.model_group_name,
-        short_name=master.model_group_name[:10],
-        production_from=master.model_year_from,
-        production_to=master.model_year_to,
+# ModelGroupKeys are invented but stable per brand, matching each demo
+# vehicle's own model_group_name.
+_MODEL_GROUPS: dict[str, CatalogueModelGroupData] = {
+    master.brand_code: CatalogueModelGroupData(
+        model_group_key=str(100000 + index),
+        description=master.model_group_name,
+        model_search=master.model_group_name[:10],
+        production_year_from=master.model_year_from,
+        production_year_to=master.model_year_to,
     )
     for index, master in enumerate(_MASTER_DATA.values())
 }
 
-_VEHICLE_PRICES: dict[str, list[VehiclePriceData]] = {
-    fz_key: [
-        VehiclePriceData(year=master.model_year_from, price=int(master.base_price or 0)),
-        VehiclePriceData(year=master.model_year_from + 1, price=int((master.base_price or 0) * Decimal("0.92"))),
-    ]
-    for fz_key, master in _MASTER_DATA.items()
-}
-
-# Sync-side completeness check fixture (KAN-38's own ruling — never a
-# browse-facet source) — the provider's own coded values for one
-# dimension, for a brand that has produced more variety than our three
-# demo vehicles individually show.
-_GROUPED_VALUES: dict[str, list[str]] = {
-    "Aufbau": ["4", "5", "6", "8"],
-    "Treibstoff": ["2", "3", "4"],
-    "Antrieb": ["1", "2"],
-}
-
+# The registered cars behind the demo plates, answered as Vehicle Build rows
+# (`_built_vehicle`).
 _PLATES: dict[str, list[PlateInfoData]] = {
     # KAN-491: invented, like every record here — never the specification's
     # own KontrollschildInfo example.
@@ -310,63 +273,9 @@ _PLATES: dict[str, list[PlateInfoData]] = {
     ],
 }
 
-_TYPE_APPROVAL_DATA: dict[str, TypeApprovalDataResult] = {
-    master.type_approval_numbers[0]: TypeApprovalDataResult(
-        euro_norm="6b", fuel_consumption_mixed=Decimal("6.4"), emission_standard_code="3",
-        energy_efficiency_category="D", co2=149, kerb_weight=1355, energy_consumption=Decimal(0),
-    )
-    for master in _MASTER_DATA.values()
-    if master.type_approval_numbers
-}
-
-# OptKeys 9xxxxx are invented (KAN-491): no real or specification OptKey
-# is in this range, so a mock key can never be read as one.
-_OPTION_PACKAGES: dict[int, list[OptionPackageContentData]] = {
-    900101: [
-        OptionPackageContentData(opt_key=900101, description="Lordosenstütze Fahrersitz"),
-        OptionPackageContentData(opt_key=900102, description="Sitzheizung vorne"),
-    ],
-}
-
-_OPTION_EXCLUSIONS: dict[int, list[int]] = {
-    900100: [900101, 900102],
-}
-
-_OPTION_CONDITIONS: dict[int, list[OptionConditionData]] = {
-    900200: [
-        OptionConditionData(opt_key=900200, description="Aktionspaket Winter", aktion_code="1", price=Decimal(0)),
-    ],
-}
-
-# `Codes` (p24) — a small representative slice of the real CodeGrpNr
-# vocabulary, transcribed from the spec's own "Kodierte Felder" tables
-# (pages 32-34): Aufbau (010), Antrieb (012, and 112 — the R-C-5 stroke-count
-# trap), Einstufung (041). Labels are the spec's own German text. The spec
-# prints exactly one short label anywhere (010/1 "Gpw", p24), so none is
-# invented here.
-#
-# KAN-38 PR 2c corrected this slice. PR 2a had 112 code 2 labelled "4 Takt"
-# and code 4 missing (the spec's 112 is 2 = 2 Takt, 4 = 4 Takt, 9 = Kein
-# Takt), a truncated 041 label, and short labels the spec does not carry —
-# on exactly the trap the ticket names, pinned by tests.
-_CODES: list[CodeMapEntryData] = [
-    CodeMapEntryData(code_group_nr="010", code_nr="6", label_de="Limousine", label_short_de=None),
-    CodeMapEntryData(code_group_nr="010", code_nr="5", label_de="Kombi", label_short_de=None),
-    CodeMapEntryData(code_group_nr="012", code_nr="1", label_de="Hinten", label_short_de=None),
-    CodeMapEntryData(code_group_nr="012", code_nr="2", label_de="Vorne", label_short_de=None),
-    CodeMapEntryData(code_group_nr="112", code_nr="2", label_de="2 Takt", label_short_de=None),
-    CodeMapEntryData(code_group_nr="112", code_nr="4", label_de="4 Takt", label_short_de=None),
-    CodeMapEntryData(code_group_nr="112", code_nr="9", label_de="Kein Takt", label_short_de=None),
-    CodeMapEntryData(
-        code_group_nr="041", code_nr="0", label_de="Definitive Einstufung (Bewertung möglich)", label_short_de=None
-    ),
-]
-
-
-# BildTyp: S (small, 210px) / L (large, 1200px). BildArt: A (Aussen/
-# exterior) / I (Innen/interior) — matching the real provider's own
-# two-letter codes (Webservice Fahrzeuge p23), not a placeholder value the
-# frontend's BILD_TYP_KEY/BILD_ART_KEY maps wouldn't recognise.
+# Stored under the size and perspective codes `ImageRef` holds (S small / L
+# large; A exterior / I interior), as `identapi_parse` maps the identAPI's
+# image rows — values the frontend's BILD_TYP_KEY/BILD_ART_KEY maps know.
 _IMAGES: dict[str, list[VariantImageData]] = {
     fz_key: [
         VariantImageData(
@@ -381,24 +290,6 @@ _IMAGES: dict[str, list[VariantImageData]] = {
     for fz_key in _DEMO_FZ_KEYS
 }
 
-
-def _model_groups(
-    *, marken_nr: str | None = None, marke: str | None = None, mod_grp_key: int | None = None
-) -> list[ModelGroupData]:
-    if mod_grp_key is not None:
-        return [g for g in _MODEL_GROUPS.values() if g.model_group_key == mod_grp_key]
-    # `marken_nr` matches this mock's own brand_code convention
-    # (e.g. "ALF") — see _BRANDS/_MASTER_DATA above; the real
-    # provider's MarkenNr is likewise an opaque code, never resolved
-    # by this adapter (rule 3).
-    if marken_nr is not None:
-        group = _MODEL_GROUPS.get(marken_nr)
-        return [group] if group is not None else []
-    if marke is not None:
-        master = next((m for m in _MASTER_DATA.values() if m.brand_display_name == marke), None)
-        group = _MODEL_GROUPS.get(master.brand_code) if master is not None else None
-        return [group] if group is not None else []
-    return list(_MODEL_GROUPS.values())
 
 
 _Method = TypeVar("_Method", bound=Callable[..., Any])
@@ -417,19 +308,27 @@ _CAPTIONS: list[CaptionData] = [
     CaptionData(group="body", kind="passenger", code="5", label="Demo-Kombi", label_short=None),
     CaptionData(group="drive", kind="passenger", code="1", label="Demo-Heck", label_short=None),
     CaptionData(group="drive", kind="passenger", code="2", label="Demo-Front", label_short=None),
-    CaptionData(group="gearbox", kind="passenger", code="A", label="Demo-Automat", label_short="A"),
-    CaptionData(group="gearbox", kind="passenger", code="M", label="Demo-Handschaltung", label_short="M"),
+    CaptionData(group="gearbox", kind="passenger", code="1", label="Demo-Handschaltung", label_short="M"),
+    CaptionData(group="gearbox", kind="passenger", code="5", label="Demo-Automat", label_short="A"),
 ]
 
 
-def _built_vehicle(record: PlateInfoData, *, plate: str | None) -> BuiltVehicleData:
+# KAN-549 — an invented VIN for the VIN rung, the Golf behind plate BE123456
+# (never the specification's sample VIN, KAN-491). Answered only where the
+# connection's `vin` row is granted; the demo connection probes `ident_basis`
+# and `bewertung` but never `vin`, so the rung says «nicht im Vertrag», as on
+# the test licence.
+_VINS: dict[str, tuple[str, int]] = {"WVWZZZDEMV0000001": ("BE123456", 0)}
+
+
+def _built_vehicle(record: PlateInfoData, *, plate: str | None, vin: str | None = None) -> BuiltVehicleData:
     """A mock plate record as the identAPI's Vehicle Build row: the variant
     is the demo variant whose Typenscheine carry the record's number."""
 
     variant = next((m for m in _MASTER_DATA.values() if record.type_approval_number in m.type_approval_numbers), None)
     return BuiltVehicleData(
         fz_key=variant.fz_key if variant else None,
-        vin=None,
+        vin=vin,
         stammnummer=record.stammnummer,
         plate=plate,
         first_registration_date=record.first_registration_date,
@@ -444,14 +343,15 @@ def _built_vehicle(record: PlateInfoData, *, plate: str | None) -> BuiltVehicleD
     )
 
 
-def _request(datenname: str) -> Callable[[_Method], _Method]:
-    """Each mock method is one request under the real adapter's Datenname,
-    so a dev or staging call log reads like a real one (KAN-486)."""
+def _request(operation: str) -> Callable[[_Method], _Method]:
+    """Each mock method is one request under the identAPI adapter's own
+    operation name, so a dev or staging call log reads like a real one
+    (KAN-486)."""
 
     def wrap(method: _Method) -> _Method:
         @functools.wraps(method)
         def metered(*args: Any, **kwargs: Any) -> Any:
-            with provider_request(datenname) as request:
+            with provider_request(operation) as request:
                 return request.attempt(lambda: method(*args, **kwargs))
 
         return cast(_Method, metered)
@@ -467,152 +367,40 @@ def _swiss_year() -> int:
 
 
 class MockAutoIDatAdapter:
-    """Realistic auto-i-dat shapes, no live call. `system_watermark_date`
-    defaults to today; a test may pass another date. (The sync-age alarm
-    that compared it was retired with the full catalogue download, KAN-485 /
-    KAN-497.)
-    """
+    """The identAPI's shapes over invented fixtures, no live call."""
 
-    def __init__(self, *, system_watermark_date: dt.date | None = None) -> None:
-        self._system_watermark_date = system_watermark_date or utcnow().date()
-
-    @_request("Fahrzeuge")
-    def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
-        if fz_key not in _MASTER_DATA:
-            raise KeyError(f"Mock adapter has no data for FzKey '{fz_key}'.")
-        return _MASTER_DATA[fz_key]
-
-    @_request("System")
-    def get_system_watermark(self) -> SystemWatermark:
-        return SystemWatermark(current_model_year=utcnow().year, update_date=self._system_watermark_date)
-
-    @_request("Optionen")
+    @_request("vehicleoption_catalog")
     def fetch_options(self, fz_key: str, *, model_year: int) -> list[VariantOptionData]:
         return list(_OPTIONS.get(fz_key, []))
 
-    @_request("OptionenFarben")
-    def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]:
-        return list(_COLOURS.get(werkscode, []))
-
-    @_request("PneuDimTS")
+    @_request("tyresandrims_typeapproval")
     def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]:
         return list(_TYRE_SPECS.get(type_approval_number, []))
 
-    @_request("Bilder")
+    @_request("image_vehicle")
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         return list(_IMAGES.get(fz_key, []))
 
-    # KAN-211 (ADR-123): the identAPI-shaped detail reads, so the local app
-    # and the screenshots load details on open the way staging does. Colours
-    # ride on the variant answer (one request, `Fahrzeuge`); the energy label
-    # is the master data's letter as this year's class.
+    # KAN-211 (ADR-123): the local app and the screenshots load details on
+    # open the way staging does. Colours ride on the variant answer (one
+    # request); the energy label is the master data's letter as this year's
+    # class.
 
-    @_request("Fahrzeuge")
+    @_request("vehiclecatalog")
     def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
         if fz_key not in _MASTER_DATA:
             raise KeyError(f"Mock adapter has no data for FzKey '{fz_key}'.")
         master = _MASTER_DATA[fz_key]
-        return VariantColoursData(master=master, colours=list(_COLOURS.get(master.werkscode or "", [])))
+        return VariantColoursData(master=master, colours=list(_COLOURS.get(fz_key, [])))
 
-    @_request("Energieetikette")
+    @_request("energylabel_info")
     def fetch_energy_label(self, *, type_approval_number: str) -> list[EnergyLabelData]:
         master = next((m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers), None)
         if master is None or not master.energy_label:
             return []
         return [EnergyLabelData(energy_class=master.energy_label, calculation_year=_swiss_year())]
 
-    # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) -------
-
-    @_request("FahrzeugArten")
-    def list_vehicle_kinds(self) -> list[VehicleKindData]:
-        return list(_VEHICLE_KINDS)
-
-    @_request("Marken")
-    def list_brands(self, *, fz_art: str) -> list[BrandData]:
-        return list(_BRANDS.get(fz_art, []))
-
-    @_request("ModellGruppen")
-    def list_model_groups(
-        self,
-        *,
-        fz_art: str | None = None,
-        marken_nr: str | None = None,
-        marke: str | None = None,
-        mod_grp_key: int | None = None,
-        mod_kurz_bez: str | None = None,
-        nur_neue: bool = False,
-        prod_von: int | None = None,
-        prod_bis: int | None = None,
-    ) -> list[ModelGroupData]:
-        return _model_groups(marken_nr=marken_nr, marke=marke, mod_grp_key=mod_grp_key)
-
-    @_request("ModellGruppenKurz")
-    def list_model_groups_short(
-        self,
-        *,
-        fz_art: str,
-        marken_nr: str | None = None,
-        marke: str | None = None,
-        nur_neue: bool = False,
-        page: int | None = None,
-        per_page: int | None = None,
-    ) -> list[ModelGroupShortData]:
-        # Not `self.list_model_groups`: one request here, not a second one for ModellGruppen.
-        groups = _model_groups(marken_nr=marken_nr, marke=marke)
-        matched_keys = {g.model_group_key for g in groups}
-        result: list[ModelGroupShortData] = []
-        for master in _MASTER_DATA.values():
-            group = _MODEL_GROUPS.get(master.brand_code)
-            if group is not None and group.model_group_key in matched_keys:
-                result.append(
-                    ModelGroupShortData(
-                        brand_code=master.brand_code, brand_name=master.brand_display_name, short_name=group.short_name
-                    )
-                )
-        return result
-
-    @_request("Fahrzeuge")
-    def search_vehicles(self, criteria: Mapping[str, str | int | Sequence[str | int]]) -> list[VariantMasterData]:
-        fz_key = criteria.get("FzKey")
-        if fz_key is not None:
-            master = _MASTER_DATA.get(str(fz_key))
-            return [master] if master is not None else []
-        typ_sch_nr = criteria.get("TypSchNr")
-        if typ_sch_nr is not None:
-            return [m for m in _MASTER_DATA.values() if str(typ_sch_nr) in m.type_approval_numbers]
-        werkscode = criteria.get("Werkscode")
-        if werkscode is not None:
-            return [m for m in _MASTER_DATA.values() if m.werkscode == werkscode]
-        return list(_MASTER_DATA.values())
-
-    @_request("FahrzeugePreise")
-    def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
-        prices = _VEHICLE_PRICES.get(fz_key, [])
-        return [p for p in prices if year is None or p.year == year]
-
-    @_request("FzgWerteGruppiert")
-    def fetch_grouped_values(
-        self,
-        *,
-        fz_art: str,
-        marken_nr: str | None = None,
-        marke: str | None = None,
-        mod_kurz_bez: str | None = None,
-        typ_sch_nr: str | None = None,
-        gruppiert: str,
-    ) -> list[str]:
-        return list(_GROUPED_VALUES.get(gruppiert, []))
-
-    @_request("Typenscheine")
-    def fetch_type_approvals(self, fz_key: str) -> list[str]:
-        master = _MASTER_DATA.get(fz_key)
-        return list(master.type_approval_numbers) if master else []
-
-    @_request("KontrollschildInfo")
-    def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
-        return list(_PLATES.get(plate, []))
-
-    @_request("FahrzeugeMatch")
+    @_request("vehiclematch")
     def find_best_match(
         self,
         *,
@@ -629,48 +417,9 @@ class MockAutoIDatAdapter:
                 return BestMatchResult(vehicle=master, match_code=match_code)
         raise KeyError(f"Mock adapter has no vehicle for Typenschein '{typ_sch_nr}'.")
 
-    @_request("FzgDatenTS")
-    def fetch_type_approval_data(
-        self, typ_sch_nr: str, *, getriebe: str | None = None, gaenge: int | None = None
-    ) -> TypeApprovalDataResult:
-        found = _TYPE_APPROVAL_DATA.get(typ_sch_nr)
-        if found is None:
-            return TypeApprovalDataResult(
-                euro_norm=None, fuel_consumption_mixed=None, emission_standard_code=None,
-                energy_efficiency_category=None, co2=None, kerb_weight=None, energy_consumption=None,
-            )
-        if getriebe is None or gaenge is None:
-            # "Bei Suche mit TypSchNr wird nur die EuroNorm zurückgegeben" (p28).
-            return TypeApprovalDataResult(
-                euro_norm=found.euro_norm, fuel_consumption_mixed=None, emission_standard_code=None,
-                energy_efficiency_category=None, co2=None, kerb_weight=None, energy_consumption=None,
-            )
-        return found
-
-    @_request("OptionenPack")
-    def fetch_option_package_contents(self, opt_key: int) -> list[OptionPackageContentData]:
-        return list(_OPTION_PACKAGES.get(opt_key, []))
-
-    @_request("OptionenAusschluss")
-    def fetch_option_exclusions(self, fz_key: str, *, year: int, opt_key: int) -> list[int]:
-        return list(_OPTION_EXCLUSIONS.get(opt_key, []))
-
-    @_request("OptionenZusatz")
-    def fetch_option_conditions(self, fz_key: str, *, year: int, opt_key: int) -> list[OptionConditionData]:
-        return list(_OPTION_CONDITIONS.get(opt_key, []))
-
-    @_request("Codes")
-    def fetch_codes(
-        self, *, code_groups: list[str] | None = None, active_only: bool = False
-    ) -> list[CodeMapEntryData]:
-        if code_groups is None:
-            return list(_CODES)
-        wanted = set(code_groups)
-        return [c for c in _CODES if c.code_group_nr in wanted]
-
-    # -- the identAPI-shaped operations (KAN-547, KAN-548), over the same
-    # fixtures, so the demo provider answers the identification waterfall and
-    # the browse screen like the real one. Operation names are the identAPI's.
+    # -- identification and browse (KAN-547, KAN-548, KAN-549), so the demo
+    # provider answers the identification waterfall and the browse screen
+    # like the real one.
 
     @_request("vehiclebuild")
     def identify_by_vrn(self, stammnummer: str) -> list[BuiltVehicleData]:
@@ -684,6 +433,13 @@ class MockAutoIDatAdapter:
     @_request("vehiclebuild")
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         return [_built_vehicle(record, plate=plate) for record in _PLATES.get(plate, [])]
+
+    @_request("vehicle_vin")
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        if vin not in _VINS:
+            return []
+        plate, index = _VINS[vin]
+        return [_built_vehicle(_PLATES[plate][index], plate=None, vin=vin)]
 
     @_request("vehiclecatalog")
     def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
@@ -712,7 +468,7 @@ class MockAutoIDatAdapter:
     def list_catalogue_brands(self, *, vehicle_kind_code: str) -> list[CatalogueBrandData]:
         brands: dict[str, CatalogueBrandData] = {}
         for master in _MASTER_DATA.values():
-            if master.vehicle_kind_code.lstrip("0") != vehicle_kind_code.lstrip("0"):
+            if master.vehicle_kind_code != vehicle_kind_code:
                 continue
             brand = brands.setdefault(
                 master.brand_display_name,
@@ -732,14 +488,7 @@ class MockAutoIDatAdapter:
                 continue
             if in_production and master.model_year_to is not None:
                 continue
-            group = _MODEL_GROUPS[master.brand_code]
-            groups.append(
-                CatalogueModelGroupData(
-                    model_group_key=str(group.model_group_key), description=group.name_de,
-                    model_search=group.short_name, production_year_from=group.production_from,
-                    production_year_to=group.production_to,
-                )
-            )
+            groups.append(_MODEL_GROUPS[master.brand_code])
         return groups
 
     @_request("vehiclecatalog")
@@ -759,7 +508,7 @@ class MockAutoIDatAdapter:
             m
             for m in _MASTER_DATA.values()
             if (brand is None or m.brand_display_name.lower() == brand.lower())
-            and (model_group_key is None or str(_MODEL_GROUPS[m.brand_code].model_group_key) == model_group_key)
+            and (model_group_key is None or _MODEL_GROUPS[m.brand_code].model_group_key == model_group_key)
         ]
         page_size = 10
         start = (page_number - 1) * page_size
@@ -786,21 +535,61 @@ class MockAutoIDatAdapter:
                 values.append(value)
         return values
 
-    @_request("Fahrzeuge")
-    def fetch_valuation(
-        self, *, fz_key: str, model_year: int, first_registration: dt.date, valuation_date: dt.date, mileage: int
-    ) -> ValuationResult:
-        base = _MASTER_DATA.get(fz_key)
-        base_price = (base.base_price if base else None) or Decimal("20000.00")
-        age_years = max(valuation_date.year - first_registration.year, 0)
-        depreciation = min(Decimal("0.12") * age_years + Decimal(mileage) / Decimal(100000) * Decimal("0.05"), Decimal("0.85"))
-        return ValuationResult(provider_value=(base_price * (Decimal(1) - depreciation)).quantize(Decimal("0.01")), status_code="ok")
+    # -- the identAPI's valuation (KAN-552), invented figures on the demo
+    # variants' list prices: deterministic, never a real valuation.
 
-    @_request("Fahrzeuge")
-    def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:
+    @_request("vehiclevaluation")
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
         base = _MASTER_DATA.get(fz_key)
-        base_price = (base.base_price if base else None) or Decimal("20000.00")
-        return ForecastResult(
-            residual_value=(base_price * Decimal("0.55")).quantize(Decimal("0.01")),
-            forecast_date=utcnow().date() + dt.timedelta(days=365),
+        if base is None or base.base_price is None:
+            return VehicleValuationData(
+                state=20, state_message="Fahrzeug nicht gefunden (Demo)", manually=False, exchange_price=None,
+                purchase_price=None, sale_price=None, vehicle_exchange_price=None, options_exchange_price=None,
+                kilometre_correction_exchange=None, kilometre_expected=None, exchange_range_from=None,
+                exchange_range_to=None, screen_messages=[], print_messages=[],
+            )
+        age_years = max(utcnow().date().year - first_registration.year, 0)
+        expected_km = 15000 * max(age_years, 1)
+        vehicle = (base.base_price * (Decimal("0.86") ** age_years) * Decimal("0.80")).quantize(Decimal(1))
+        correction = (Decimal(expected_km - mileage_km) * Decimal("0.05")).quantize(Decimal(1))
+        options = Decimal(150 * len(option_keys))
+        exchange = vehicle + options
+        return VehicleValuationData(
+            state=0, state_message="OK", manually=False,
+            exchange_price=exchange,
+            purchase_price=(exchange * Decimal("0.93")).quantize(Decimal(1)),
+            sale_price=(exchange * Decimal("1.18")).quantize(Decimal(1)),
+            vehicle_exchange_price=vehicle, options_exchange_price=options,
+            kilometre_correction_exchange=correction, kilometre_expected=expected_km,
+            exchange_range_from=(exchange * Decimal("0.95")).quantize(Decimal(1)),
+            exchange_range_to=(exchange * Decimal("1.05")).quantize(Decimal(1)),
+            screen_messages=[
+                ProviderMessage(
+                    de="Demo-Bewertung — keine echte Bewertung.", fr="Évaluation de démonstration — pas une vraie évaluation.",
+                    it="Valutazione dimostrativa — non una vera valutazione.", en="Demo valuation — not a real valuation.",
+                )
+            ],
+            print_messages=[],
         )
+
+    @_request("residualvalue_table")
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        base = _MASTER_DATA.get(fz_key)
+        if base is None or base.base_price is None:
+            return ResidualTableData(state=20, state_message="Fahrzeug nicht gefunden (Demo)", rows=[])
+        rows = []
+        for km in (10000, 15000, 20000, 25000, 30000):
+            for months in (12, 24, 36, 48, 60, 72):
+                years = Decimal(months) / Decimal(12)
+                percent = (Decimal(100) * Decimal("0.86") ** (months // 12) - Decimal(km - 15000) / Decimal(1000) * Decimal("0.4") * years)
+                percent = percent.quantize(Decimal("0.1"))
+                rows.append(ResidualValueRow(
+                    duration_months=months, km_per_year=km, total_percent=percent,
+                    total_price=(base.base_price * percent / Decimal(100)).quantize(Decimal(1)),
+                ))
+        return ResidualTableData(state=0, state_message="OK", rows=rows)
+

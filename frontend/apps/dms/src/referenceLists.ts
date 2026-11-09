@@ -36,6 +36,8 @@ export const REFERENCE_LIST_CODES = [
   'vehicle_class',
   'colour',
   'colour_type',
+  // KAN-211 (platform 4c8e1f2a9d57): the upholstery type the advisor names by hand
+  'interior_colour_type',
   'tyre_type',
   'axle_position',
   'option_group',

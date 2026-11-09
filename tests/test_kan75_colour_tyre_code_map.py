@@ -89,12 +89,21 @@ def test_the_seed_maps_the_seven_documented_codes_for_both_providers():
         assert rows[("auto_i_dat", kind, "axle_position", "3")] == "rear"
         assert rows[("auto_i_dat", kind, "tyre_type", "121")] == "summer"
         assert rows[("auto_i_dat", kind, "tyre_type", "122")] == "winter"
-    # C1: the mock's demo variants carry FzArt "1".
+    # C1: frozen in the migration under the SOAP-era kind "1" the demo variants
+    # carried then; KAN-550's bb6e760d9464 moves them to "01" (next test).
     assert {(g, c, v) for (p, _k, g, c), v in rows.items() if p == MOCK} == {
         (g, c, v) for (p, k, g, c), v in rows.items() if p == "auto_i_dat" and k == "01"
     }
     assert {k for (p, k, _g, _c) in rows if p == MOCK} == {"1"}
     assert len(rows) == 7 * 4
+
+
+def test_after_kan550_the_demo_providers_rows_sit_under_the_identapi_kind(db_session):
+    seed_colour_tyre_code_map(db_session)  # b0a125a0a583's seed, then bb6e760d9464's re-key
+
+    rows = db_session.scalars(select(ProviderCodeMap).where(ProviderCodeMap.provider == MOCK)).all()
+    assert len(rows) == 7
+    assert {row.vehicle_kind for row in rows} == {"01"}
 
 
 def test_every_seeded_target_is_a_canonical_value():
@@ -170,13 +179,13 @@ def test_an_unmapped_code_is_a_gap_and_its_value_stays_empty_never_a_guess(db_se
     assert {c.colour_type for c in _colours(db_session, tenant_id).values()} == {None}
     assert {(t.axle, t.season) for t in _tyres(db_session, tenant_id).values()} == {(None, None)}
     assert _gaps(db_session) == {
-        ("1", "colour_area", "1"),
-        ("1", "colour_area", "2"),
-        ("1", "axle_position", "1"),
-        ("1", "axle_position", "2"),
-        ("1", "axle_position", "3"),
-        ("1", "tyre_type", "121"),
-        ("1", "tyre_type", "122"),
+        ("01", "colour_area", "1"),
+        ("01", "colour_area", "2"),
+        ("01", "axle_position", "1"),
+        ("01", "axle_position", "2"),
+        ("01", "axle_position", "3"),
+        ("01", "tyre_type", "121"),
+        ("01", "tyre_type", "122"),
     }
 
 
@@ -219,7 +228,7 @@ def test_an_unknown_code_beside_known_ones_is_a_gap_and_a_missing_code_is_no_val
         (None, "121"): (None, "summer"),
     }
     # A code nobody mapped is a gap; an absent code is no code, so no gap.
-    assert _gaps(db_session) == {("1", "colour_area", "7"), ("1", "axle_position", "5"), ("1", "tyre_type", "129")}
+    assert _gaps(db_session) == {("01", "colour_area", "7"), ("01", "axle_position", "5"), ("01", "tyre_type", "129")}
 
 
 def test_an_unclassified_colour_reaches_the_configurator_without_a_group(db_session):
@@ -295,7 +304,7 @@ def test_resolving_a_gap_never_overwrites_a_value_and_stays_within_its_vehicle_k
         provider_code="1",
         value_code="exterior",
     )
-    assert filled == 0  # the demo variants are FzArt "1", not "02"
+    assert filled == 0  # the demo variants are kind "01", not "02"
 
     catalogue_admin.resolve_gap(
         db_session,
@@ -318,7 +327,7 @@ def test_two_raw_axle_codes_mapped_onto_one_value_stay_two_rows(db_session, monk
     db_session.add(
         ProviderCodeMap(
             provider=MOCK,
-            vehicle_kind="1",
+            vehicle_kind="01",
             code_group="axle_position",
             provider_code="5",
             canonical_list_code="axle_position",

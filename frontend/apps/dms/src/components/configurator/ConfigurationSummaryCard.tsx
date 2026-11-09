@@ -15,6 +15,9 @@ import {
 } from '../../configurationOptions'
 import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 
+/** KAN-211 — the lists behind `exteriorColourType` / `interiorColourType`. */
+const COLOUR_TYPE_LIST_CODES = ['colour_type', 'interior_colour_type']
+
 export interface ConfigurationSummaryCardProps {
   configuration: ConfigurationRead
   /** The host decides what "open the configurator" does (re-open the
@@ -69,12 +72,23 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
   const labels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
   const showTechnical = technicalDataColumns != null
   const specLabels = useReferenceLabelLookup(showTechnical ? SPEC_REF_LIST_CODES : [])
+  // KAN-211: the hand-named colour types read as labels beside the colour
+  // («Deep Black · Metallic»); the lists are asked only when a type is set.
+  const colourTypeLabels = useReferenceLabelLookup(
+    configuration.exteriorColourType || configuration.interiorColourType ? COLOUR_TYPE_LIST_CODES : [],
+  )
   const c = configuration
   const s = c.spec
   // Absent values are "not set" in italic — never zero, never guessed (FR-I-07).
   const notSet = <span style={{ fontStyle: 'italic', color: slate[4] }}>{t('common.notSet')}</span>
 
   const heroParts = [c.brandDisplayName, c.modelGroupName, c.variantName, s.trimName].filter(Boolean)
+  const colourLine = (colour: string | null, type: string | null, listCode: string): string | null => {
+    const parts = [colour, type ? colourTypeLabels.label(listCode, type) : null].filter(Boolean)
+    return parts.length ? parts.join(' · ') : null
+  }
+  const exteriorLine = colourLine(c.exteriorColour, c.exteriorColourType, 'colour_type')
+  const interiorLine = colourLine(c.interiorColour, c.interiorColourType, 'interior_colour_type')
   const isManual = c.source === 'manual'
 
   const specItems = [
@@ -91,7 +105,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
         ]),
     { label: t('configurator.summary.firstRegistration'), value: c.firstRegistrationDate ? formatDateOnly(c.firstRegistrationDate, locale) : '—' },
     { label: t('configurator.summary.mileage'), value: c.mileageKm != null ? `${formatNumber(c.mileageKm)} km` : '—' },
-    ...(showTechnical ? [] : [{ label: t('configurator.summary.colour'), value: c.exteriorColour ?? '—' }]),
+    ...(showTechnical ? [] : [{ label: t('configurator.summary.colour'), value: exteriorLine ?? '—' }]),
   ]
 
   const technicalGroups = showTechnical
@@ -128,8 +142,8 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
         {
           title: t('configurator.spec.groups.colours'),
           items: [
-            { label: t('configurator.colour.exterior'), value: c.exteriorColour || notSet },
-            { label: t('configurator.colour.interior'), value: c.interiorColour || notSet },
+            { label: t('configurator.colour.exterior'), value: exteriorLine ?? notSet },
+            { label: t('configurator.colour.interior'), value: interiorLine ?? notSet },
           ],
         },
       ]

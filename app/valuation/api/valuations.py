@@ -14,14 +14,17 @@ from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.public import valuations_carried_by_signed_contracts
-from app.valuation.models.valuation import Valuation
+from app.valuation.models.valuation import Valuation, ValuationProviderQuote
 from app.valuation.schemas.valuation import (
     DeductionRead,
+    ProviderQuoteRead,
+    ProviderQuoteRequest,
     ValuationCreate,
     ValuationPage,
     ValuationRead,
     ValuationRevertUse,
 )
+from app.valuation.services import provider_quote as provider_quote_service
 from app.valuation.services import valuation as valuation_service
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -43,7 +46,13 @@ _DEFAULT_VALUATION_SORT = [
 ]
 
 
-def _valuation_read(db: Session, valuation: Valuation, *, has_signed_contract: bool) -> ValuationRead:
+def _valuation_read(
+    db: Session,
+    valuation: Valuation,
+    *,
+    has_signed_contract: bool,
+    quotes: dict[uuid.UUID, ValuationProviderQuote],
+) -> ValuationRead:
     """`status` is derived, never a column on `Valuation` (ADR-066) — so it
     cannot be produced by validating straight off the ORM object the way
     every other field can (KAN-65: that used to be exactly what this did,
@@ -55,12 +64,19 @@ def _valuation_read(db: Session, valuation: Valuation, *, has_signed_contract: b
     """
 
     deductions = valuation_service.get_deductions(db, valuation.id)
-    derived = ("status", "deductions", "has_signed_contract")
+    derived = ("status", "deductions", "has_signed_contract", "provider_quote")
     fields = {name: getattr(valuation, name) for name in ValuationRead.model_fields if name not in derived}
     fields["status"] = valuation_service.derive_status(valuation)
     fields["deductions"] = [DeductionRead.model_validate(d, from_attributes=True) for d in deductions]
     fields["has_signed_contract"] = has_signed_contract
+    fields["provider_quote"] = (
+        _quote_read(quotes.get(valuation.provider_quote_id)) if valuation.provider_quote_id is not None else None
+    )
     return ValuationRead.model_validate(fields)
+
+
+def _quote_read(quote: ValuationProviderQuote | None) -> ProviderQuoteRead | None:
+    return ProviderQuoteRead.model_validate(quote, from_attributes=True) if quote is not None else None
 
 
 def _valuation_reads(db: Session, tenant_id: uuid.UUID, valuations: list[Valuation]) -> list[ValuationRead]:
@@ -69,7 +85,13 @@ def _valuation_reads(db: Session, tenant_id: uuid.UUID, valuations: list[Valuati
     carried = valuations_carried_by_signed_contracts(
         db, tenant_id=tenant_id, valuation_ids=[valuation.id for valuation in valuations]
     )
-    return [_valuation_read(db, valuation, has_signed_contract=valuation.id in carried) for valuation in valuations]
+    # KAN-552: the page's provider quotes in one read, not one per row.
+    quote_ids = {v.provider_quote_id for v in valuations if v.provider_quote_id is not None}
+    quotes = provider_quote_service.quotes_by_id(db, tenant_id=tenant_id, quote_ids=quote_ids)
+    return [
+        _valuation_read(db, valuation, has_signed_contract=valuation.id in carried, quotes=quotes)
+        for valuation in valuations
+    ]
 
 
 @router.post("/valuations", response_model=ValuationRead, status_code=201)
@@ -82,6 +104,23 @@ def create_valuation(
         db, tenant_id=principal.tenant_id, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
     return _valuation_reads(db, principal.tenant_id, [valuation])[0]
+
+
+@router.post("/valuations/provider-quotes", response_model=ProviderQuoteRead, status_code=201)
+def request_provider_quote(
+    body: ProviderQuoteRequest,
+    principal: Principal = Depends(require_write("valuations")),
+    db: Session = Depends(get_db),
+):
+    """KAN-552 — «Bewertung von auto-i-dat holen»: the identAPI's valuation
+    and residual table for a configured car, stored as a quote the valuation
+    created next references. The advisor's deliberate action; nothing calls
+    it on opening a screen."""
+
+    quote = provider_quote_service.request_provider_quote(
+        db, tenant_id=principal.tenant_id, actor_id=principal.user_id, data=body
+    )
+    return _quote_read(quote)
 
 
 @router.get("/valuations", response_model=ValuationPage)

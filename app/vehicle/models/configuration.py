@@ -160,6 +160,12 @@ class VehicleConfiguration(
     interior_colour: Mapped[str | None] = mapped_column(String(120), nullable=True)
     exterior_colour_surcharge: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     interior_colour_surcharge: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # KAN-211 (Anto, 2026-11-08): the identAPI delivers a colour's name and no
+    # finish, so the advisor names the type by hand — a value of the platform's
+    # `colour_type` list (Uni / Metallic / Perleffekt / Matt) for the paint and
+    # of `interior_colour_type` (Stoff / Leder / …) for the upholstery.
+    exterior_colour_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    interior_colour_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # KAN-43 (C-E) — `PneuDimTS`, mirroring the colour pair above: free
     # text (FR-C-07's "free text where the provider has no data" applies
     # here too — not every configuration matches a catalogue variant with

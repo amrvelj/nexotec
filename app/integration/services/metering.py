@@ -13,14 +13,13 @@ otherwise.
 
 The block is still the unit of the circuit breaker (charged or reset once per
 `call_capability`, as before) and still writes its single row when no request
-was metered inside it: a WSDL that will not load, an adapter with nothing to
-send. Nothing here enforces a limit: auto-i-dat enforces its own (Anto,
+was metered inside it: a login that failed before the request, an adapter
+with nothing to send. Nothing here enforces a limit: auto-i-dat enforces its own (Anto,
 2026-10-29, KAN-486); this only counts honestly.
 
 The meter is a `ContextVar` that `call_capability` sets for the length of its
 block, so adapters need no gateway import and no extra argument. An adapter
-used outside a block (`scripts/verify_auto_i_dat.py`, an adapter unit test)
-meters nothing.
+used outside a block (an adapter unit test) meters nothing.
 """
 
 import time
@@ -120,8 +119,8 @@ def provider_request(
 ) -> Iterator[ProviderRequest]:
     """The adapter's side: wraps everything from sending the request to
     accepting what came back, so a refused answer is the request's own
-    `ERROR`. `operation` is the provider's own name for it (the SOAP
-    `Datenname`, the identAPI endpoint, `FtpUpload` for a marketplace feed)."""
+    `ERROR`. `operation` is the provider's own name for it (the identAPI
+    operation, `FtpUpload` for a marketplace feed)."""
 
     request = ProviderRequest(_CURRENT.get(), operation, cost_units=cost_units, is_timeout=is_timeout)
     try:

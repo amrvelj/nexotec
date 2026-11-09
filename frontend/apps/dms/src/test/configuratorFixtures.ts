@@ -36,6 +36,8 @@ export function configurationRead(overrides: Partial<ConfigurationRead> = {}): C
     interiorColour: null,
     exteriorColourSurcharge: null,
     interiorColourSurcharge: null,
+    exteriorColourType: null,
+    interiorColourType: null,
     wheels: null,
     wheelsSurcharge: null,
     spec: { ps: 245 },

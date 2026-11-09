@@ -109,7 +109,7 @@ _discovery_cache: dict[str, _CachedDiscovery] = {}
 # (connection id, cache key, user id) -> the user's token on that connection.
 # The cache key carries the connection's `version` and `rotated_at`, so an
 # edit of the connection or a rotation of the secret leaves every token it
-# issued behind (the same key `auto_i_dat_soap`'s WSDL cache used, KAN-213).
+# issued behind (the key the retired SOAP adapter's WSDL cache used, KAN-213).
 _token_cache: dict[tuple[uuid.UUID, Hashable, str], AccessToken] = {}
 _cache_lock = threading.Lock()
 

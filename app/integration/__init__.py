@@ -6,7 +6,7 @@ regardless of protocol: the connection registry, write-only secret
 references (the actual material lives in Infisical, never here — see
 services/secrets_backend.py), per-connection entitlements, the call log,
 and (PR-6) retention/notification. It never speaks a provider protocol
-itself — auto-i-dat's SOAP/AES specifics live in adapters/ (PR-2/3), still
+itself — auto-i-dat's identAPI specifics live in adapters/ (KAN-488), still
 inside this context (the spec's own diagram draws `provider-gateway` as
 "no business data... never persists credentials of its own", which is
 exactly this package's own posture) rather than inside `app.vehicle`. The
@@ -22,24 +22,18 @@ import-linter contract: only `app.integration.public` is reachable from
 outside this package.
 """
 
-# Importing this submodule registers the real auto-i-dat SOAP adapter
-# factory with services/gateway.py (PR-3) as a side effect, the same way
+# Importing this submodule registers the real auto-i-dat adapter factory
+# with services/gateway.py as a side effect, the same way
 # services/gateway.py's own module already registers the mock factory in
 # its own dict literal. Importing app.integration anywhere (every context
 # that reaches this package's public.py does) is enough to make the real
-# provider resolvable — no separate app-startup wiring step needed. This
-# does NOT import zeep eagerly: auto_i_dat_soap.py's own build_zeep_client
-# imports it lazily, inside the function body, so this import costs
-# nothing extra for tests/local dev that never construct a real adapter.
-# KAN-488 (ADR-111): the identAPI adapter is what `auto_i_dat` resolves to;
-# the SOAP adapter registers under its legacy code `auto_i_dat_soap` (no
-# provider row) and stays importable for its own tests until KAN-550 removes
-# it. Import order decides nothing: the two codes differ.
+# provider resolvable — no separate app-startup wiring step needed.
+# KAN-488 (ADR-111): `auto_i_dat` resolves to the identAPI adapter; the SOAP
+# adapter and its legacy code `auto_i_dat_soap` are gone (KAN-550).
 from app.integration.adapters import auto_i_dat_ident as _auto_i_dat_ident  # noqa: F401
-from app.integration.adapters import auto_i_dat_soap as _auto_i_dat_soap  # noqa: F401
 
 # KAN-27 — same reasoning, for the AutoScout24 marketplace-transmission
-# adapter. No zeep/ftplib-equivalent cost here either: ftplib is a Python
-# stdlib module, and build_real_ftp_client only opens a connection when a
-# real adapter is actually constructed, never at import time.
+# adapter. ftplib is a Python stdlib module, and build_real_ftp_client only
+# opens a connection when a real adapter is actually constructed, never at
+# import time.
 from app.integration.adapters import autoscout24 as _autoscout24  # noqa: F401

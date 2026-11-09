@@ -23,6 +23,7 @@ import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 import { OptionsTab } from './OptionsTab'
 import { ColourWheelsTab } from './ColourWheelsTab'
 import { ImagesTab } from './ImagesTab'
+import { DetailStateNotice } from './DetailStateNotice'
 import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel'
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
 import { HostCommitError } from './hostCommitError'
@@ -62,7 +63,8 @@ import type {
 // KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
 // reference lists in the one label-lookup query this file already has;
 // nothing here needs its own fetch.
-const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature']
+// KAN-211 — and the two colour-type lists the advisor picks from.
+const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature', 'colour_type', 'interior_colour_type']
 // KAN-245 — the spec block's reference fields (engine cycle, vehicle class,
 // valuation classification, emission standard, consumption norm).
 const SPEC_REF_FIELDS = SPEC_FIELD_GROUPS.flatMap((g) => g.fields).filter((f) => f.kind === 'ref')
@@ -91,6 +93,9 @@ interface Draft {
   mileageKm: string
   exteriorColour: string
   interiorColour: string
+  /** KAN-211 — the hand-named colour types (`ColourWheelsFields`); `''` is not set. */
+  exteriorColourType: string
+  interiorColourType: string
   /** Empty string means "not set" (matches `mileageKm`'s own convention) —
    * `''` never reaches the wire as `NaN`, `save()` maps it to `null`. */
   exteriorColourSurcharge: string
@@ -137,6 +142,8 @@ function draftFromVariant(v: CatalogueVariantRead): Draft {
     mileageKm: '',
     exteriorColour: '',
     interiorColour: '',
+    exteriorColourType: '',
+    interiorColourType: '',
     exteriorColourSurcharge: '',
     interiorColourSurcharge: '',
     wheels: '',
@@ -166,6 +173,8 @@ function emptyManualDraft(): Draft {
     mileageKm: '',
     exteriorColour: '',
     interiorColour: '',
+    exteriorColourType: '',
+    interiorColourType: '',
     exteriorColourSurcharge: '',
     interiorColourSurcharge: '',
     wheels: '',
@@ -213,6 +222,8 @@ function draftFromRead(c: ConfigurationRead): Draft {
     mileageKm: c.mileageKm != null ? String(c.mileageKm) : '',
     exteriorColour: c.exteriorColour ?? '',
     interiorColour: c.interiorColour ?? '',
+    exteriorColourType: c.exteriorColourType ?? '',
+    interiorColourType: c.interiorColourType ?? '',
     exteriorColourSurcharge: c.exteriorColourSurcharge ?? '',
     interiorColourSurcharge: c.interiorColourSurcharge ?? '',
     wheels: c.wheels ?? '',
@@ -442,6 +453,14 @@ export function ConfiguratorOverlay({
   const equipmentFeatureOptions = (refLabels.data?.equipment_feature ?? [])
     .filter((r) => r.active)
     .map((r) => ({ value: r.valueCode, label: r.label }))
+  // KAN-211 — the colour types the advisor names by hand (`ColourWheelsTab`).
+  // A retired stored value stays visible, disabled, labelled (KAN-96's pattern).
+  const colourTypeOptionsOf = (listCode: string, current: string) => ({
+    options: specRefOptionsOf(refLabels.data, listCode, current || null),
+    isError: refLabels.data !== undefined && refLabels.data[listCode] === null,
+  })
+  const exteriorColourTypeOptions = colourTypeOptionsOf('colour_type', draft?.exteriorColourType ?? '')
+  const interiorColourTypeOptions = colourTypeOptionsOf('interior_colour_type', draft?.interiorColourType ?? '')
   const codedLabelField = LABEL_FIELD[resolveLanguage(i18n.language)]
 
   const save = async () => {
@@ -467,6 +486,9 @@ export function ConfiguratorOverlay({
           specRefWillBeSent(draft.source, draft.overridden, f.key as string) &&
           specRefRetiredOf(refLabels.data, f.listCode!, (draft.spec[f.key] as string) ?? null),
       ).map((f) => t(specFieldLabelKey(f.key as string))),
+      // KAN-211: the colour types are always sent and refused when retired, like the rest.
+      ...(specRefRetiredOf(refLabels.data, 'colour_type', draft.exteriorColourType || null) ? [t('configurator.colour.exteriorType')] : []),
+      ...(specRefRetiredOf(refLabels.data, 'interior_colour_type', draft.interiorColourType || null) ? [t('configurator.colour.interiorType')] : []),
     ]
     if (retired.length > 0) {
       setError(t('configurator.spec.retiredSaveError', { fields: retired.join(', ') }))
@@ -496,6 +518,8 @@ export function ConfiguratorOverlay({
         mileageKm: draft.mileageKm ? Number(draft.mileageKm) : null,
         exteriorColour: draft.exteriorColour || null,
         interiorColour: draft.interiorColour || null,
+        exteriorColourType: draft.exteriorColourType || null,
+        interiorColourType: draft.interiorColourType || null,
         // KAN-43 (C-E) / FR-C-07, FR-C-08 — a surcharge only means anything
         // in build mode (a new-vehicle price build-up); record mode never
         // shows the inputs (see the 'colour' section below), so nothing
@@ -882,6 +906,10 @@ export function ConfiguratorOverlay({
           mode={mode}
           exteriorColour={draft.exteriorColour}
           interiorColour={draft.interiorColour}
+          exteriorColourType={draft.exteriorColourType}
+          interiorColourType={draft.interiorColourType}
+          exteriorColourTypeOptions={exteriorColourTypeOptions}
+          interiorColourTypeOptions={interiorColourTypeOptions}
           exteriorColourSurcharge={draft.exteriorColourSurcharge}
           interiorColourSurcharge={draft.interiorColourSurcharge}
           wheels={draft.wheels}
@@ -903,6 +931,10 @@ export function ConfiguratorOverlay({
             autosize
             minRows={2}
           />
+          {/* KAN-211 / KAN-212: the Energieetikette's load state, where the label is
+           * read — nothing for a plain loaded label, the reason when the gearboxes
+           * disagree on the class (`energy_label_ambiguous`). */}
+          {specQuery.data && <DetailStateNotice detail="energyLabel" state={specQuery.data.details.energyLabel} />}
           <ConfigurationSummaryCard configuration={readModel} />
         </Stack>
       )}
@@ -1332,6 +1364,8 @@ function previewRead(draft: Draft, mode: ConfiguratorMode, spec: CatalogueSpecif
     variantName: draft.variantName,
     exteriorColour: draft.exteriorColour || null,
     interiorColour: draft.interiorColour || null,
+    exteriorColourType: draft.exteriorColourType || null,
+    interiorColourType: draft.interiorColourType || null,
     exteriorColourSurcharge: draft.exteriorColourSurcharge || null,
     interiorColourSurcharge: draft.interiorColourSurcharge || null,
     wheels: draft.wheels || null,

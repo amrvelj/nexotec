@@ -185,7 +185,7 @@ def test_a_programmer_error_is_not_dressed_up_as_a_connection_failure(db_session
     catching `Exception` in the gateway: a bug must stay loud."""
 
     class _BuggyAdapter(MockAutoIDatAdapter):
-        def get_system_watermark(self):
+        def fetch_captions(self, lang):
             raise AttributeError("no such method")
 
     provider = IntegrationProvider(

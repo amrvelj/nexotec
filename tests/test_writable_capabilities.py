@@ -151,3 +151,40 @@ def test_switching_to_a_sister_betrieb_follows_the_manager_flag_held_there(clien
         roles=frozenset({AccessRole.SALES}), is_dealer_manager=False
     )
     assert "stock_acquisition" not in switched.json()["writableCapabilities"]
+
+
+# KAN-211: the session's own manager flag — the ACTIVE Betrieb's, as the
+# token carries it — on the session read, beside the capabilities. The SPA
+# gates «Neu laden» on it; `user.isDealerManager` is the home flag and must
+# not be used for that (platform.md).
+
+
+def test_the_session_read_carries_the_active_betriebs_manager_flag(client, login):
+    dealership_id = create_dealership(client)
+    manager = create_user(client, dealership_id, accessRoles=["sales"], isDealerManager=True)
+    salesperson = create_user(client, dealership_id, accessRoles=["sales"], isDealerManager=False)
+
+    assert client.get("/v1/auth/me", headers=cookie_headers(login.session_cookie(manager))).json()["isActiveDealershipManager"] is True
+    assert client.get("/v1/auth/me", headers=cookie_headers(login.session_cookie(salesperson))).json()["isActiveDealershipManager"] is False
+
+
+def test_switching_to_a_sister_betrieb_reports_the_manager_flag_held_there(client, login):
+    """A home manager switched into a sister Betrieb they do not manage: the
+    home flag stays true on `user`, the session's own flag reads false."""
+
+    home = create_dealership(client)
+    sister = create_dealership(client)
+    manager = create_user(client, home, accessRoles=["sales"], isDealerManager=True)
+    granted = client.post(
+        f"/v1/dealerships/{home}/users/{manager['id']}/memberships",
+        json={"dealershipId": sister, "isDealerManager": False},
+        headers=platform_admin_headers(),
+    )
+    assert granted.status_code == 201, granted.text
+
+    cookie = login.session_cookie(manager)
+    switched = client.post("/v1/auth/switch-dealership", json={"dealershipId": sister}, headers=cookie_headers(cookie))
+
+    assert switched.status_code == 200, switched.text
+    assert switched.json()["user"]["isDealerManager"] is True
+    assert switched.json()["isActiveDealershipManager"] is False

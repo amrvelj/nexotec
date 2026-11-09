@@ -38,12 +38,24 @@ function buildSpec(over: Partial<CatalogueSpecificationRead> = {}): CatalogueSpe
   }
 }
 
+// KAN-211 (Anto, 2026-11-08): the type is the advisor's pick from the
+// platform lists; the identAPI delivers a name and no finish.
+const COLOUR_TYPES = [
+  { value: 'solid', label: 'Uni (solid)' },
+  { value: 'metallic', label: 'Metallic (metallic)' },
+]
+const INTERIOR_TYPES = [{ value: 'leather', label: 'Leder (leather)' }]
+
 function defaultProps(props: Partial<ColourWheelsTabProps> = {}): ColourWheelsTabProps {
   return {
     spec: buildSpec(),
     mode: 'build',
     exteriorColour: '',
     interiorColour: '',
+    exteriorColourType: '',
+    interiorColourType: '',
+    exteriorColourTypeOptions: { options: COLOUR_TYPES, isError: false },
+    interiorColourTypeOptions: { options: INTERIOR_TYPES, isError: false },
     exteriorColourSurcharge: '',
     interiorColourSurcharge: '',
     wheels: '',
@@ -161,5 +173,102 @@ describe('ColourWheelsTab', () => {
     }
     const row = screen.getByRole('row', { name: /255\/35 R19/ })
     expect(within(row).getByText(i18n.t('configurator.wheels.axlePosition.unclassified'))).toBeInTheDocument()
+  })
+})
+
+// KAN-211 (Anto, 2026-11-08): «show the colour name as delivered; we ask the
+// user to select manually the colour type, as well as for interior».
+describe('ColourWheelsTab — colour type (KAN-211)', () => {
+  it('offers the paint type from the colour_type list and the upholstery type from its own list', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderTab()
+    await user.click(screen.getByTestId('exteriorColourType-select'))
+    await user.click(await screen.findByRole('option', { name: 'Metallic (metallic)' }))
+    expect(onChange).toHaveBeenCalledWith({ exteriorColourType: 'metallic' })
+
+    await user.click(screen.getByTestId('interiorColourType-select'))
+    await user.click(await screen.findByRole('option', { name: 'Leder (leather)' }))
+    expect(onChange).toHaveBeenCalledWith({ interiorColourType: 'leather' })
+  })
+
+  it('picking a catalogue colour fills the name as delivered and leaves the type to the advisor', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderTab()
+    const pickers = screen.getAllByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))
+    await user.click(pickers[0])
+    await user.click(await screen.findByRole('option', { name: 'Rosso competizione' }))
+    expect(onChange).toHaveBeenCalledWith({ exteriorColour: 'Rosso competizione', exteriorColourSurcharge: '1100.00' })
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ exteriorColourType: expect.anything() }))
+  })
+
+  it('keeps a stored type the list no longer offers visible, labelled and disabled, and clearable', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderTab({
+      exteriorColourType: 'chrome',
+      exteriorColourTypeOptions: { options: [...COLOUR_TYPES, { value: 'chrome', label: 'Chrom (chrome)', disabled: true }], isError: false },
+    })
+    const select = screen.getByTestId('exteriorColourType-select') as HTMLInputElement
+    expect(select.value).toBe('Chrom (chrome)')
+    // Mantine marks the clear button aria-hidden (the input itself clears on
+    // Backspace); it is still the one the mouse user clicks.
+    await user.click(screen.getByLabelText(i18n.t('common.clear')))
+    expect(onChange).toHaveBeenCalledWith({ exteriorColourType: '' })
+  })
+
+  it('says so when a type list could not be loaded', () => {
+    renderTab({ exteriorColourTypeOptions: { options: [], isError: true } })
+    expect(screen.getByText(i18n.t('configurator.colour.typeListUnavailable'))).toBeInTheDocument()
+  })
+
+  it('the type selects work for a manual draft with no catalogue specification', () => {
+    renderTab({ spec: undefined })
+    expect(screen.getByTestId('exteriorColourType-select')).toBeInTheDocument()
+    expect(screen.getByTestId('interiorColourType-select')).toBeInTheDocument()
+  })
+
+  it('lets the stored code stand in while the list has not arrived, never a marker', () => {
+    renderTab({ exteriorColourType: 'metallic', exteriorColourTypeOptions: { options: [], isError: false } })
+    expect((screen.getByTestId('exteriorColourType-select') as HTMLInputElement).value).toBe('metallic')
+  })
+})
+
+// KAN-211 / KAN-212 (ADR-123): why the catalogue has no colour or tyre data.
+describe('ColourWheelsTab — per-detail state (KAN-211, KAN-212)', () => {
+  it('says the colours are not in the contract and still offers the free-text fields', () => {
+    renderTab({
+      spec: buildSpec({ colours: [], details: { ...detailsPresent, colours: { state: 'notInContract', loadedAt: '2026-11-08T10:00:00Z' } } }),
+    })
+    expect(screen.getByTestId('detail-state-colours')).toHaveTextContent(i18n.t('configurator.details.notInContract.title'))
+    expect(screen.getByLabelText(i18n.t('configurator.colour.exterior'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))).not.toBeInTheDocument()
+  })
+
+  it('says the tyre data were not delivered, in the wheels section', () => {
+    renderTab({
+      spec: buildSpec({ tyreSpecs: [], details: { ...detailsPresent, tyreSpecs: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }),
+    })
+    expect(screen.getByTestId('detail-state-tyreSpecs')).toHaveTextContent(i18n.t('configurator.details.unavailable.title'))
+    expect(screen.queryByTestId('tyre-spec-table')).not.toBeInTheDocument()
+  })
+
+  it('renders no state notice when both details are loaded', () => {
+    renderTab()
+    expect(screen.queryByTestId('detail-state-colours')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('detail-state-tyreSpecs')).not.toBeInTheDocument()
+  })
+
+  it('says the provider no longer lists the variant when the loaded colours carry that note', () => {
+    // `_load_colours` ends a vanished key in `present` with `variant_unknown_at_provider`:
+    // no picker, and the reason said — translated, never the raw note.
+    renderTab({
+      spec: buildSpec({
+        colours: [],
+        details: { ...detailsPresent, colours: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'variant_unknown_at_provider' } },
+      }),
+    })
+    const notice = screen.getByTestId('detail-state-colours')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.variantUnknownAtProvider'))
+    expect(notice).not.toHaveTextContent('variant_unknown_at_provider')
+    expect(screen.queryByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))).not.toBeInTheDocument()
   })
 })

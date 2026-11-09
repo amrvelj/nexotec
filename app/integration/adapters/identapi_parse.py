@@ -29,6 +29,9 @@ from app.integration.adapters.base import (
     CatalogueModelGroupData,
     EnergyLabelData,
     OptionPriceWithData,
+    ProviderMessage,
+    ResidualTableData,
+    ResidualValueRow,
     VariantColourData,
     VariantColoursData,
     VariantImageData,
@@ -36,6 +39,7 @@ from app.integration.adapters.base import (
     VariantOptionData,
     VariantTyreSpecData,
     VehiclePriceData,
+    VehicleValuationData,
 )
 
 # The identAPI's vehicle types: the raw `type` code (what every coded field's
@@ -576,3 +580,105 @@ def parse_energy_labels(body: Mapping[str, Any]) -> list[EnergyLabelData]:
             )
         )
     return labels
+
+
+# -- valuation (KAN-552) ---------------------------------------------------------
+
+
+def _valuation_state(info: Mapping[str, Any]) -> tuple[int, str | None]:
+    """The answer's own verdict: `stateCode` when it is a number, else the
+    `state` name (`"OK"`, or the code as a string). Anything unreadable is
+    not a valuation (-1) — never read as success."""
+
+    code = info.get("stateCode")
+    if isinstance(code, int) and not isinstance(code, bool):
+        state = code
+    else:
+        raw = _text(info.get("state"))
+        if raw is not None and raw.upper() == "OK":
+            state = 0
+        elif raw is not None and raw.isdigit():
+            state = int(raw)
+        else:
+            state = -1
+    return state, _text(info.get("stateMsg"))
+
+
+def _messages(values: Any) -> list[ProviderMessage]:
+    if not isinstance(values, list):
+        return []
+    messages = []
+    for raw in values:
+        if not isinstance(raw, Mapping):
+            continue
+        message = ProviderMessage(
+            de=_text(raw.get("textDe")), fr=_text(raw.get("textFr")), it=_text(raw.get("textIt")), en=_text(raw.get("textEn"))
+        )
+        if any((message.de, message.fr, message.it, message.en)):
+            messages.append(message)
+    return messages
+
+
+def _sum(*values: Decimal | None) -> Decimal | None:
+    present = [v for v in values if v is not None]
+    return sum(present, Decimal(0)) if present else None
+
+
+def _info_and_first(body: Mapping[str, Any], array: str) -> tuple[Mapping[str, Any], Any]:
+    data = body.get("data")
+    if not isinstance(data, Mapping):
+        return {}, None
+    info = data.get("info")
+    return (info if isinstance(info, Mapping) else {}), data.get(array)
+
+
+def parse_vehicle_valuation(body: Mapping[str, Any]) -> VehicleValuationData:
+    """`AutoiBewertungData`: `info` plus a `valuation` list whose first row is
+    the car. Prices are read as delivered (a zero stays a zero — `_money`);
+    the vehicle's and its options' figures are summed into each price."""
+
+    info, rows = _info_and_first(body, "valuation")
+    state, message = _valuation_state(info)
+    row: Mapping[str, Any] = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], Mapping) else {}
+    vehicle_exchange = _money(row.get("vehicleExchangePrice"))
+    options_exchange = _money(row.get("optionsExchangePrice"))
+    return VehicleValuationData(
+        state=state if row or state != 0 else -1,
+        state_message=message,
+        manually=info.get("manually") is True,
+        exchange_price=_sum(vehicle_exchange, options_exchange),
+        purchase_price=_sum(_money(row.get("vehiclePurchasePrice")), _money(row.get("optionsPurchasePrice"))),
+        sale_price=_sum(_money(row.get("vehicleSalePrice")), _money(row.get("optionsSalePrice"))),
+        vehicle_exchange_price=vehicle_exchange,
+        options_exchange_price=options_exchange,
+        kilometre_correction_exchange=_money(row.get("kilometreCorrectionExchange")),
+        kilometre_expected=_int(row.get("kilometreExpected")),
+        exchange_range_from=_money(row.get("vehiclePriceRangeFrom")),
+        exchange_range_to=_money(row.get("vehiclePriceRangeTo")),
+        screen_messages=_messages(info.get("screenMsg")),
+        print_messages=_messages(info.get("printMsg")),
+    )
+
+
+def parse_residual_table(body: Mapping[str, Any]) -> ResidualTableData:
+    """`AutoiRestwertData`: `info` plus the `residualvalue` rows, one per
+    (duration, km per year). A row without both keys is left out."""
+
+    info, rows = _info_and_first(body, "residualvalue")
+    state, message = _valuation_state(info)
+    table: list[ResidualValueRow] = []
+    for raw in rows if isinstance(rows, list) else []:
+        if not isinstance(raw, Mapping):
+            continue
+        duration, km = _int(raw.get("duration")), _int(raw.get("kilometreYear"))
+        if duration is None or km is None:
+            continue
+        table.append(
+            ResidualValueRow(
+                duration_months=duration,
+                km_per_year=km,
+                total_percent=_money(raw.get("totalPercent")),
+                total_price=_money(raw.get("totalPrice")),
+            )
+        )
+    return ResidualTableData(state=state, state_message=message, rows=table)

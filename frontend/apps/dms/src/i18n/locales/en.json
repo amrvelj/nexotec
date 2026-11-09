@@ -330,7 +330,15 @@
       "page_invalid": "Invalid page.",
       "sort_field_unknown": "The catalogue cannot be sorted by this field.",
       "vehicle_kind_unknown_to_provider": "The provider does not know this vehicle kind.",
-      "catalogue_scope_invalid": "The brand or model group is not a valid name."
+      "catalogue_scope_invalid": "The brand or model group is not a valid name.",
+      "not_entitled": "This request is not in the contract with the provider.",
+      "provider_unavailable": "The provider is currently unavailable. Please try again later.",
+      "provider_cannot_value": "auto-i-dat cannot value this vehicle: {{message}}",
+      "provider_quote_required": "An auto-i-dat value comes from the provider — use «Get valuation from auto-i-dat» first.",
+      "provider_quote_mismatch": "This auto-i-dat valuation belongs to another configuration.",
+      "provider_quote_stale": "The first registration or the mileage differ from the auto-i-dat valuation. Please get it again.",
+      "provider_quote_inputs_missing": "The auto-i-dat valuation needs the first registration and the mileage.",
+      "provider_not_configured": "The auto-i-dat connection is not fully set up — check it under Integrations in the business administration."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1325,7 +1333,11 @@
       "attachError": "The configuration could not be assigned. Please try again.",
       "edit": "Edit configuration",
       "editContract": "Edit contract",
-      "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled."
+      "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled.",
+      "reloadDetails": "Reload",
+      "reloadDetailsHint": "Asks auto-i-dat again for options, colours, tyre data, images and the energy label and replaces the data stored for this business.",
+      "reloadDetailsError": "The catalogue data could not be reloaded.",
+      "reloadDetailsDone": "Reloaded on {{date}}"
     },
     "rowMenu": {
       "changeCondition": "Change condition",
@@ -1739,7 +1751,6 @@
     "searchCustomer": "Search customer",
     "createCustomer": "Create new",
     "source": "Source",
-    "sourceManual": "Manual",
     "providerValue": "Raw value",
     "validForDays": "Valid for (days)",
     "deductionsSection": "Deductions",
@@ -1753,7 +1764,18 @@
     "configurator": {
       "skip": "Enter by hand instead"
     },
-    "vehicleNotLoaded": "The vehicle could not be loaded. Enter it here yourself."
+    "vehicleNotLoaded": "The vehicle could not be loaded. Enter it here yourself.",
+    "quote": {
+      "fetch": "Get valuation from auto-i-dat",
+      "refetch": "Get again",
+      "needsInputs": "Enter the first registration and the mileage to get the valuation.",
+      "stale": "First registration or mileage changed — this auto-i-dat valuation no longer applies. Please get it again.",
+      "notInContract": "Valuation not in the contract with auto-i-dat.",
+      "noConnection": "No vehicle-data provider is connected.",
+      "unavailable": "The auto-i-dat valuation is currently unavailable. Please try again later.",
+      "noCatalogueVariant": "auto-i-dat cannot value a vehicle without a catalogue variant.",
+      "failed": "The auto-i-dat valuation could not be fetched."
+    }
   },
   "integrationsList": {
     "title": "Integrations",
@@ -1828,16 +1850,12 @@
     },
     "secretSlot": {
       "password": "Password",
-      "aes_key": "AES key",
       "client_secret": "Client secret",
       "refresh_token": "Refresh token",
       "certificate": "Certificate"
     },
     "configKey": {
       "username": "Username",
-      "benutzerNr": "Account number (BenutzerNr)",
-      "benutzerInfo": "Account label (BenutzerInfo)",
-      "accountNumber": "DAT account number",
       "clientId": "Client ID"
     }
   },
@@ -2091,13 +2109,20 @@
         "onlyWith": "Only available with {{option}}",
         "notInCombinationWith": "Not available in combination with {{option}}",
         "onlyInCombinationWith": "Only available in combination with {{option}}"
-      }
+      },
+      "searchPlaceholder": "Search an option or code…",
+      "searchLabel": "Search options",
+      "noMatches": "No option matches the search."
     },
     "colour": {
       "exterior": "Exterior colour",
       "interior": "Interior colour",
       "pickFromCatalogue": "Pick from catalogue",
-      "surcharge": "Surcharge"
+      "surcharge": "Surcharge",
+      "exteriorType": "Paint type",
+      "interiorType": "Upholstery type",
+      "pickType": "Choose…",
+      "typeListUnavailable": "The list could not be loaded"
     },
     "wheels": {
       "title": "Wheels & tyres",
@@ -2183,7 +2208,7 @@
       "productionYears": "{{from}}–{{to}}",
       "inProduction": "since {{from}}",
       "notes": {
-        "vin_decode_unavailable": "Provider VIN decoding is not available yet — continue with the plate or the Typenschein.",
+        "vin_decode_not_entitled": "VIN lookup not in the contract – identify the vehicle by plate, Stammnummer or Typenschein.",
         "no_provider_connection": "No vehicle-data provider is connected — browse the catalogue or configure manually.",
         "plate_lookup_not_entitled": "Plate lookup is not enabled on this account.",
         "plate_lookup_failed": "The provider's plate lookup failed. Please try again later.",
@@ -2234,6 +2259,38 @@
       "overridden": "overridden by you",
       "apply": "Apply selected",
       "error": "Re-sync failed."
+    },
+    "details": {
+      "notInContract": {
+        "title": "Not in your contract",
+        "body": "auto-i-dat does not deliver this data for your account: the option is not licensed. Once a connection test finds the option licensed, it is loaded on the next open."
+      },
+      "unavailable": {
+        "title": "Currently unavailable from the provider",
+        "body": "auto-i-dat did not deliver this data. It is asked for again the next time the car is opened."
+      },
+      "notLoaded": {
+        "title": "Not loaded yet",
+        "body": "This data has not been asked from auto-i-dat for this business yet."
+      },
+      "names": {
+        "options": "Options",
+        "colours": "Colours",
+        "tyreSpecs": "Tyre data",
+        "images": "Images",
+        "energyLabel": "Energy label"
+      },
+      "state": {
+        "present": "Loaded",
+        "notInContract": "Not in your contract",
+        "unavailable": "Unavailable",
+        "notLoaded": "Not loaded yet"
+      },
+      "notes": {
+        "entitlementAbsent": "The connection test found this option unlicensed; auto-i-dat was not asked.",
+        "variantUnknownAtProvider": "auto-i-dat no longer lists this variant; there is nothing to load.",
+        "energyLabelAmbiguous": "auto-i-dat names different classes for this year depending on the gearbox; none was taken over."
+      }
     }
   },
   "customerRowMenu": {
@@ -3616,6 +3673,26 @@
         "body": "When an address is entered in the DMS, the typed address text — and only that, never a name or any other customer data — is sent to Google Ireland Limited to show suggestions. Google processes it as a separate controller under the Google Maps Platform Terms of Service and the Google Controller-Controller Data Protection Terms (including the standard contractual clauses for transfers from Switzerland). Only the address the user picks is stored. A business can switch the feature off at any time under Administration › Business › Address entry.",
         "google": "How Google processes this data is described in <privacy>Google's Privacy Policy</privacy>; <terms>Google's Terms of Service</terms> also apply to the address suggestions."
       }
+    }
+  },
+  "valuationQuote": {
+    "title": "auto-i-dat valuation",
+    "exchange": "auto-i-dat value (trade-in price)",
+    "purchase": "Purchase price",
+    "sale": "Sale price",
+    "range": "Trade-in range",
+    "kmCorrection": "Mileage correction (trade-in)",
+    "kmExpected": "Usual mileage for this age",
+    "asked": "Valued with model year {{year}}, {{km}} km, first registration {{date}} — requested on {{at}}",
+    "manualHint": "auto-i-dat recommends checking this value by hand.",
+    "residualTitle": "Residual values (% of the new price)",
+    "kmPerYear": "km/year",
+    "months": "{{months}} mo.",
+    "residualState": {
+      "present": "No residual values delivered.",
+      "not_in_contract": "Residual values not in the contract with auto-i-dat.",
+      "unavailable": "Residual values currently unavailable.",
+      "declined": "auto-i-dat delivers no residual values for this vehicle."
     }
   }
 }
