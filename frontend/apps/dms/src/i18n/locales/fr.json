@@ -1841,7 +1841,6 @@
       "username": "Nom d'utilisateur",
       "benutzerNr": "Numéro de compte (BenutzerNr)",
       "benutzerInfo": "Libellé du compte (BenutzerInfo)",
-      "accountNumber": "Numéro de compte DAT",
       "clientId": "Client-ID"
     }
   },
@@ -2194,7 +2193,7 @@
       "productionYears": "{{from}}–{{to}}",
       "inProduction": "depuis {{from}}",
       "notes": {
-        "vin_decode_unavailable": "Le décodage VIN chez le fournisseur n'est pas encore disponible — continuez avec la plaque ou la réception par type.",
+        "vin_decode_not_entitled": "Requête VIN non comprise dans le contrat – identifier le véhicule par la plaque, le numéro matricule ou la réception par type.",
         "no_provider_connection": "Aucun fournisseur de données véhicule connecté — parcourez le catalogue ou configurez manuellement.",
         "plate_lookup_not_entitled": "La recherche par plaque n'est pas activée pour ce compte.",
         "plate_lookup_failed": "La recherche par plaque chez le fournisseur a échoué. Réessayez plus tard.",

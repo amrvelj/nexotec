@@ -1841,7 +1841,6 @@
       "username": "Username",
       "benutzerNr": "Account number (BenutzerNr)",
       "benutzerInfo": "Account label (BenutzerInfo)",
-      "accountNumber": "DAT account number",
       "clientId": "Client ID"
     }
   },
@@ -2194,7 +2193,7 @@
       "productionYears": "{{from}}–{{to}}",
       "inProduction": "since {{from}}",
       "notes": {
-        "vin_decode_unavailable": "Provider VIN decoding is not available yet — continue with the plate or the Typenschein.",
+        "vin_decode_not_entitled": "VIN lookup not in the contract – identify the vehicle by plate, Stammnummer or Typenschein.",
         "no_provider_connection": "No vehicle-data provider is connected — browse the catalogue or configure manually.",
         "plate_lookup_not_entitled": "Plate lookup is not enabled on this account.",
         "plate_lookup_failed": "The provider's plate lookup failed. Please try again later.",

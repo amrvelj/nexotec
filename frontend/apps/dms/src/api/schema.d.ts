@@ -7584,11 +7584,12 @@ export interface components {
         /**
          * IdentificationNote
          * @description Why the waterfall did what it did — rendered as a hint, never as an
-         *     error. `VIN_DECODE_NOT_ENTITLED` is deliberately silent on screen: a
-         *     dealer without the DAT sub-account sees what they saw before it existed.
+         *     error. `VIN_DECODE_NOT_ENTITLED` (KAN-549): the connection's `vin`
+         *     licence option is not granted, so no VIN query was sent — the advisor
+         *     is told to identify by plate, Stammnummer or Typenschein.
          * @enum {string}
          */
-        IdentificationNote: "vin_decode_not_entitled" | "vin_decode_unavailable" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found" | "provider_not_entitled" | "provider_unavailable";
+        IdentificationNote: "vin_decode_not_entitled" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found" | "provider_not_entitled" | "provider_unavailable";
         /**
          * IdentificationOutcome
          * @description What the overlay renders next. `variants` with exactly one entry is

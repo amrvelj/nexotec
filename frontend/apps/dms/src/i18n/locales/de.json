@@ -1841,7 +1841,6 @@
       "username": "Benutzername",
       "benutzerNr": "Kontonummer (BenutzerNr)",
       "benutzerInfo": "Kontobezeichnung (BenutzerInfo)",
-      "accountNumber": "DAT-Kontonummer",
       "clientId": "Client-ID"
     }
   },
@@ -2194,7 +2193,7 @@
       "productionYears": "{{from}}–{{to}}",
       "inProduction": "seit {{from}}",
       "notes": {
-        "vin_decode_unavailable": "Die VIN-Entschlüsselung beim Anbieter ist noch nicht verfügbar — mit Kontrollschild oder Typenschein weiterfahren.",
+        "vin_decode_not_entitled": "VIN-Abfrage nicht im Vertrag – Fahrzeug über Kennzeichen, Stammnummer oder Typenschein identifizieren.",
         "no_provider_connection": "Kein Fahrzeugdaten-Anbieter verbunden — im Katalog suchen oder manuell konfigurieren.",
         "plate_lookup_not_entitled": "Die Kontrollschild-Abfrage ist in diesem Konto nicht freigeschaltet.",
         "plate_lookup_failed": "Die Kontrollschild-Abfrage beim Anbieter ist fehlgeschlagen. Bitte später erneut versuchen.",

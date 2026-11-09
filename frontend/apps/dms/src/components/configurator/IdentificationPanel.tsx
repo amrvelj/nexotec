@@ -44,15 +44,10 @@ export interface IdentificationPanelProps {
   initialQuery?: string
 }
 
-// The one note an advisor must not see: a dealer without the DAT
-// sub-account gets exactly what they had before it existed (KAN-42 exit
-// criterion 6) — no message, no dead menu item.
-const SILENT_NOTES = new Set(['vin_decode_not_entitled'])
-
 /**
  * FR-C-02 — one input, the waterfall behind it. The advisor types one thing;
- * the backend decides what it is. Since KAN-547 every rung but the VIN is
- * live on the identAPI: the button's loading state covers the round trip, and
+ * the backend decides what it is. Since KAN-547 every rung is live on the
+ * identAPI (the VIN behind the `vin` licence option, KAN-549): the button's loading state covers the round trip, and
  * the provider's «nicht freigeschaltet» / «nicht erreichbar» come back as notes
  * (`configurator.identify.notes.*`), rendered as hints, never as errors. Every ambiguous answer is the FR-V-06
  * picker (the Vehicles list's own `Picker`-in-an-alert, Wechselschild vs.
@@ -145,7 +140,7 @@ export function IdentificationPanel({
       result?.matchMethod ?? null,
     )
 
-  const visibleNotes = (result?.notes ?? []).filter((n) => !SILENT_NOTES.has(n))
+  const visibleNotes = result?.notes ?? []
 
   return (
     <Stack gap="sm">

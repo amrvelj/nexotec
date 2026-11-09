@@ -177,7 +177,7 @@ describe('IdentificationPanel', () => {
     expect(onStart.mock.calls[0][0].confirmedBestMatchCode).toBe(2)
   })
 
-  it('says nothing at all about a VIN decode the dealer is not entitled to', async () => {
+  it('says a VIN lookup is not in the contract and how to go on (KAN-549)', async () => {
     const user = userEvent.setup()
     setup([
       {
@@ -195,7 +195,8 @@ describe('IdentificationPanel', () => {
 
     await identify(user, 'WVWZZZ1KZAW000099')
     await screen.findByText(i18n.t('configurator.identify.none'))
-    expect(screen.getByTestId('identification-result').textContent).not.toMatch(/vin_decode|VIN-Entschl|decod/i)
+    expect(screen.getByText(i18n.t('configurator.identify.notes.vin_decode_not_entitled'))).toBeTruthy()
+    expect(screen.getByTestId('identification-result').textContent).toMatch(/nicht im Vertrag/)
   })
 
   it('refuses to reuse a configuration in a mode this host does not allow', async () => {

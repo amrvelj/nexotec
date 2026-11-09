@@ -1841,7 +1841,6 @@
       "username": "Nome utente",
       "benutzerNr": "Numero di conto (BenutzerNr)",
       "benutzerInfo": "Etichetta del conto (BenutzerInfo)",
-      "accountNumber": "Numero di conto DAT",
       "clientId": "Client-ID"
     }
   },
@@ -2194,7 +2193,7 @@
       "productionYears": "{{from}}–{{to}}",
       "inProduction": "dal {{from}}",
       "notes": {
-        "vin_decode_unavailable": "La decodifica VIN presso il fornitore non è ancora disponibile — continuare con la targa o l'approvazione del tipo.",
+        "vin_decode_not_entitled": "Interrogazione VIN non compresa nel contratto – identificare il veicolo tramite targa, numero di matricola o approvazione del tipo.",
         "no_provider_connection": "Nessun fornitore di dati veicolo collegato — sfogliare il catalogo o configurare manualmente.",
         "plate_lookup_not_entitled": "La ricerca per targa non è abilitata per questo account.",
         "plate_lookup_failed": "La ricerca per targa presso il fornitore non è riuscita. Riprovare più tardi.",

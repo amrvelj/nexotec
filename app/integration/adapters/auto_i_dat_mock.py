@@ -422,14 +422,21 @@ _CAPTIONS: list[CaptionData] = [
 ]
 
 
-def _built_vehicle(record: PlateInfoData, *, plate: str | None) -> BuiltVehicleData:
+# KAN-549 — an invented VIN for the VIN rung, the Golf behind plate BE123456
+# (never the specification's sample VIN, KAN-491). Answered only where the
+# connection's `vin` row is granted; the demo connection probes nothing, so
+# by default the rung says «nicht im Vertrag», as on the test licence.
+_VINS: dict[str, tuple[str, int]] = {"WVWZZZDEMV0000001": ("BE123456", 0)}
+
+
+def _built_vehicle(record: PlateInfoData, *, plate: str | None, vin: str | None = None) -> BuiltVehicleData:
     """A mock plate record as the identAPI's Vehicle Build row: the variant
     is the demo variant whose Typenscheine carry the record's number."""
 
     variant = next((m for m in _MASTER_DATA.values() if record.type_approval_number in m.type_approval_numbers), None)
     return BuiltVehicleData(
         fz_key=variant.fz_key if variant else None,
-        vin=None,
+        vin=vin,
         stammnummer=record.stammnummer,
         plate=plate,
         first_registration_date=record.first_registration_date,
@@ -684,6 +691,13 @@ class MockAutoIDatAdapter:
     @_request("vehiclebuild")
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         return [_built_vehicle(record, plate=plate) for record in _PLATES.get(plate, [])]
+
+    @_request("vehicle_vin")
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        if vin not in _VINS:
+            return []
+        plate, index = _VINS[vin]
+        return [_built_vehicle(_PLATES[plate][index], plate=None, vin=vin)]
 
     @_request("vehiclecatalog")
     def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:

@@ -35,10 +35,9 @@ C-D) are what the identification waterfall in
 `app.vehicle.services.identification` needs: the plate-record shape the
 plate-lookup cache stores (once `KontrollschildInfo`, now what a Vehicle
 Build record reduces to) and the `vehiclematch` return shape, and a
-read-only `vin_decode` check. The
-cached entitlement row is written only by integration's own "Test
-connection" (`compute_vin_decode_entitlement`, KAN-80) — ADR-047 keeps
-that write out of another context's transaction.
+read-only check of a connection's `vin` licence option (KAN-549): the
+row is written only by integration's own "Test connection" probes —
+ADR-047 keeps that write out of another context's transaction.
 
 KAN-547 / KAN-548: `BuiltVehicleData`, `VariantSearchPage` and the catalogue
 browse shapes are the identAPI operations' return vocabulary;

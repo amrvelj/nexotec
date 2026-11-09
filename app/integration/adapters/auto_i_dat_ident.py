@@ -131,7 +131,10 @@ OP_VEHICLEBUILD = "vehiclebuild"
 OP_VEHICLEMATCH = "vehiclematch"
 OP_VEHICLEOPTION_CATALOG = "vehicleoption_catalog"
 OP_RESIDUALVALUE = "residualvalue"
-OP_VINREQUEST = "vinrequest"
+# KAN-549 (Anto, 2026-11-09, option A): the VIN rung is Vehicle Build by
+# `vin`; it is named apart from `vehiclebuild` so the call log tells a VIN
+# lookup — the licence option `vin` — from a plate or Stammnummer lookup.
+OP_VEHICLE_VIN = "vehicle_vin"
 OP_TYRESANDRIMS_TYPEAPPROVAL = "tyresandrims_typeapproval"
 OP_ENERGYLABEL_INFO = "energylabel_info"
 OP_IMAGE_VEHICLE = "image_vehicle"
@@ -353,7 +356,9 @@ class AutoIDatIdentAdapter:
         return self._request(OP_RESIDUALVALUE, "GET", f"/residualvalue/{PROBE_FZ_KEY_RESIDUAL}/{PROBE_MODEL_YEAR_RESIDUAL}", empty_on_404=True)
 
     def probe_vin(self) -> dict[str, Any]:
-        return self._request(OP_VINREQUEST, "GET", f"/vinrequest/{PROBE_VIN}", empty_on_404=True)
+        # The endpoint the VIN rung calls (KAN-549, option A): the `vin` row
+        # that gates the rung is the answer of that same endpoint.
+        return self._request(OP_VEHICLE_VIN, "GET", f"/vehiclebuild/vin/{PROBE_VIN}", empty_on_404=True)
 
     def probe_pneu(self) -> dict[str, Any]:
         return self._request(OP_TYRESANDRIMS_TYPEAPPROVAL, "GET", f"/tyresandrims/typeapproval/{PROBE_TYPE_APPROVAL_TYRES}", empty_on_404=True)
@@ -366,16 +371,18 @@ class AutoIDatIdentAdapter:
     def fetch_captions(self, lang: str) -> list[CaptionData]:
         return parse.parse_captions(self.fetch_code_captions(lang))
 
-    def _vehicle_build(self, identifier_type: str, identifier: str) -> list[BuiltVehicleData]:
+    def _vehicle_build(
+        self, identifier_type: str, identifier: str, *, operation: str = OP_VEHICLEBUILD
+    ) -> list[BuiltVehicleData]:
         """`GET /vehiclebuild/{type}/{id}?needAutoiKeyIfExists`: the registered
         vehicle(s) and, where the provider resolved one, the catalogue variant
         each belongs to — one answer, one row in the call log. A 404 and an
         empty `data` both read as "nothing registered under this identifier"."""
 
         body = self._request(
-            OP_VEHICLEBUILD,
+            operation,
             "GET",
-            f"/vehiclebuild/{identifier_type}/{identifier}",
+            f"/vehiclebuild/{identifier_type}/{quote(identifier, safe='')}",
             [("needAutoiKeyIfExists", "true")],
             empty_on_404=True,
         )
@@ -386,6 +393,15 @@ class AutoIDatIdentAdapter:
 
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         return self._vehicle_build("licenseplate", plate)
+
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        """KAN-549: `GET /vehiclebuild/vin/{vin}?needAutoiKeyIfExists`, one
+        `vehicle_vin` row — the built car with its catalogue variant and spec
+        block, like the plate and Stammnummer lookups. Behind the licence
+        option `vin` (not in the test licence, ADR-113): the caller asks only
+        when the connection's probed `vin` row is granted."""
+
+        return self._vehicle_build("vin", vin, operation=OP_VEHICLE_VIN)
 
     def _vehicle_catalog(self, identifier_type: str, identifier: str) -> list[VariantMasterData]:
         """`GET /vehiclecatalog/{type}/{id}` — the first provider page (10)

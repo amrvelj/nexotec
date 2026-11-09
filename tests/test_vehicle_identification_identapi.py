@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 
 from app.core.auth import AccessRole, create_access_token
 from app.integration.models.call_log import IntegrationCallLog
+from app.integration.services import connections as connection_service
 from app.integration.services import resilience
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.models.configuration import ConfigurationMatchMethod
@@ -38,6 +39,8 @@ PLATE_PATH = f"/vehiclebuild/licenseplate/{PLATE}"
 VRN_PATH = f"/vehiclebuild/vrn/{STAMMNUMMER}"
 TYPENSCHEIN_PATH = f"/vehiclecatalog/typeapproval/{fix.DEMO_TYPE_APPROVAL}"
 WERKSCODE_PATH = f"/vehiclecatalog/factorycode/{fix.DEMO_WERKSCODE}"
+VIN = "WVWZZZTESTV000911"  # invented; the fixture car answers it
+VIN_PATH = f"/vehiclebuild/vin/{VIN}"
 
 
 @pytest.fixture(autouse=True)
@@ -276,6 +279,77 @@ def test_a_refused_or_unreachable_stammnummer_rung_is_noted_and_falls_through(db
     fake.raise_on_api = httpx.ReadTimeout("slow")
     result = _identify(db_session, s, STAMMNUMMER)
     assert result.outcome is IdentificationOutcome.NONE and result.notes == [IdentificationNote.PROVIDER_UNAVAILABLE]
+    assert resilience.is_circuit_open(s.connection.id) is False
+
+
+# --- VIN (KAN-549) ------------------------------------------------------------------------
+
+
+def _vin_option(db_session, s, *, granted: bool) -> None:
+    connection_service.record_probed_entitlement(
+        db_session, connection_id=s.connection.id, capability_code="vin", granted=granted
+    )
+
+
+def test_a_vin_without_the_vin_option_sends_nothing_and_says_so(db_session, monkeypatch):
+    """KAN-549 exit criteria 1 and 2: the option never probed, or probed as
+    not granted (the test licence) → the note, no request, no call-log row."""
+
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_bodies={VIN_PATH: fix.body([fix.built_vehicle()])}))
+    unprobed = _identify(db_session, s, VIN)
+    _vin_option(db_session, s, granted=False)
+    refused = _identify(db_session, s, VIN)
+
+    for result in (unprobed, refused):
+        assert result.outcome is IdentificationOutcome.NONE and result.observed.vin == VIN
+        assert result.notes == [IdentificationNote.VIN_DECODE_NOT_ENTITLED]
+    assert s.fake.api_requests() == [] and _calls(db_session, "vehicle_vin") == 0
+
+
+def test_a_vin_with_the_vin_option_is_one_vehicle_vin_request_and_the_registered_car(db_session, monkeypatch):
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_bodies={VIN_PATH: fix.body([fix.built_vehicle()])}))
+    _vin_option(db_session, s, granted=True)
+    db_session.add(VehicleMdm(vin="WVWZZZTESTV000777", vehicle_number="F-000777"))
+    db_session.commit()
+
+    known = _identify(db_session, s, "WVWZZZTESTV000777")
+    assert known.outcome is IdentificationOutcome.EXISTING_VEHICLE and s.fake.api_requests() == []
+
+    result = _identify(db_session, s, VIN)
+    assert result.kind is IdentifierKind.VIN and result.match_method is ConfigurationMatchMethod.VIN
+    assert result.outcome is IdentificationOutcome.VARIANTS
+    assert [v.variant_name for v in result.variants] == ["2.0 TDI Avant quattro"]
+    assert result.observed.vin == VIN and result.observed.stammnummer == STAMMNUMMER
+    (request,) = s.fake.api_requests_to(VIN_PATH)
+    assert ("needAutoiKeyIfExists", "true") in request.query
+    assert _calls(db_session, "vehicle_vin") == 1 and _calls(db_session, "vehiclebuild") == 0
+    # the variant is stored as master data; a VIN answer never fills the plate cache
+    assert db_session.get(ModelVariant, result.variants[0].catalogue_variant_id) is not None
+    assert db_session.scalar(select(func.count()).select_from(PlateLookupCacheEntry)) == 0
+
+
+def test_a_vin_the_provider_does_not_know_is_the_manual_path_with_the_vin_kept(db_session, monkeypatch):
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_status={VIN_PATH: 404}))
+    _vin_option(db_session, s, granted=True)
+
+    result = _identify(db_session, s, VIN)
+
+    assert result.outcome is IdentificationOutcome.NONE and result.notes == []
+    assert result.observed.vin == VIN and result.variants == []
+    assert _calls(db_session, "vehicle_vin") == 1
+
+
+def test_a_vin_refused_or_unreachable_at_call_time_is_a_note_never_an_error(db_session, monkeypatch):
+    fake = FakeAutoi(api_status={VIN_PATH: 403})
+    s = _connected(db_session, monkeypatch, fake)
+    _vin_option(db_session, s, granted=True)
+    assert _identify(db_session, s, VIN).notes == [IdentificationNote.VIN_DECODE_NOT_ENTITLED]
+
+    fake.api_status.clear()
+    fake.raise_on_api = httpx.ReadTimeout("slow")
+    result = _identify(db_session, s, VIN)
+    assert result.outcome is IdentificationOutcome.NONE and result.observed.vin == VIN
+    assert result.notes == [IdentificationNote.PROVIDER_UNAVAILABLE]
     assert resilience.is_circuit_open(s.connection.id) is False
 
 

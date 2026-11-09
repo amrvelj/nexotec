@@ -451,12 +451,6 @@ def test_connection(
     connection that fails here is never probed. Each probe is a real,
     logged, potentially billed provider call: for the identAPI one click is
     the login, the caption call and six probes (KAN-488).
-
-    KAN-80 (Anto, option A): testing the `dat` connection also refreshes the
-    tenant's cached `vin_decode` entitlement row, healthy or not — the one
-    write path for that row; a capability read never writes it. (No `dat`
-    adapter exists yet, so that test ends in `ERROR`: see
-    `connections.compute_vin_decode_entitlement`.)
     """
 
     provider = provider_service.get_provider_or_404(db, connection.provider_id)
@@ -497,9 +491,6 @@ def test_connection(
             access_answer=access_answer,
         )
         _probe_entitlements(db, connection=connection, actor_id=actor_id)
-    # A platform-scoped connection (no tenant) entitles no one's VIN decode.
-    if provider.provider_code == connection_service.VIN_DECODE_PROVIDER_CODE and connection.tenant_id is not None:
-        connection_service.compute_vin_decode_entitlement(db, tenant_id=connection.tenant_id)
     db.refresh(connection)
     return connection
 

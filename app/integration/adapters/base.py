@@ -596,6 +596,12 @@ class ProviderAdapter(Protocol):
         several records for a Wechselschild; the caller shows a picker."""
         ...
 
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        """`GET /vehiclebuild/vin/{vin}?needAutoiKeyIfExists` (KAN-549) —
+        behind the licence option `vin`; an empty list when the provider
+        does not know the VIN."""
+        ...
+
     def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
         """`GET /vehiclecatalog/typeapproval/{nr}` — the first page (10) of
         catalogue variants homologated under the Typenschein."""
