@@ -2,7 +2,6 @@
 shapes, one call-log row per call, no business data written from here.
 """
 
-import datetime as dt
 import os
 import uuid
 from decimal import Decimal
@@ -71,35 +70,24 @@ def _make_connection(db_session, provider, *, tenant_id=None, enabled=True):
 
 def test_mock_adapter_returns_realistic_shapes():
     adapter = MockAutoIDatAdapter()
-    master = adapter.fetch_vehicle_master_data("FZ100001")
+    master = adapter.fetch_variant("FZ100001")
+    assert master is not None
     assert master.brand_display_name == "Alfa Romeo"
     assert master.base_price is not None
 
-    # KAN-38 PR 1: fetch_options needs the model year (Optionen.Jahr is
-    # obligatorisch); fetch_colours keys on Werkscode, not FzKey.
+    # The identAPI keys options by FzKey and model year; colours ride on the
+    # variant row (KAN-211).
     options = adapter.fetch_options("FZ100001", model_year=master.model_year_from)
     assert len(options) >= 1
     assert options[0].description  # never empty, "as delivered" text
-    assert master.werkscode is not None
-    assert isinstance(adapter.fetch_colours(werkscode=master.werkscode), list)
-
-    watermark = adapter.get_system_watermark()
-    assert watermark.update_date is not None
+    assert adapter.fetch_variant_with_colours("FZ100001").colours
 
 
-def test_mock_adapter_system_watermark_is_injectable_for_staleness_tests():
-    stale_date = dt.date(2020, 1, 1)
-    adapter = MockAutoIDatAdapter(system_watermark_date=stale_date)
-    assert adapter.get_system_watermark().update_date == stale_date
-
-
-def test_mock_adapter_unknown_fz_key_raises():
+def test_mock_adapter_unknown_fz_key_is_none_or_raises():
     adapter = MockAutoIDatAdapter()
-    try:
-        adapter.fetch_vehicle_master_data("NOPE")
-        raise AssertionError("expected KeyError")
-    except KeyError:
-        pass
+    assert adapter.fetch_variant("NOPE") is None
+    with pytest.raises(KeyError):
+        adapter.fetch_variant_with_colours("NOPE")
 
 
 # --- the gateway --------------------------------------------------------------
@@ -113,13 +101,13 @@ def test_call_capability_writes_one_call_log_row_with_status_duration_correlatio
     with gateway.call_capability(
         db_session, connection=connection, capability="vehicle_data", correlation_id=correlation_id
     ) as adapter:
-        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_variant("FZ100001")
 
     logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
     assert len(logs) == 1
     assert logs[0].status == CallStatus.SUCCESS
-    # KAN-486: the request is named by its Datenname, and counts one unit.
-    assert logs[0].capability == "Fahrzeuge"
+    # KAN-486: the request is named by its operation, and counts one unit.
+    assert logs[0].capability == "vehiclecatalog"
     assert logs[0].cost_units == Decimal(1)
     assert logs[0].correlation_id == correlation_id
     assert logs[0].duration_ms >= 0
@@ -135,7 +123,7 @@ def test_every_request_in_a_block_is_its_own_row_and_the_breaker_is_charged_once
     monkeypatch.setattr(resilience, "record_success", successes.append)
 
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_variant("FZ100001")
         adapter.fetch_options("FZ100001", model_year=2023)
         adapter.fetch_images("FZ100001")
 
@@ -143,7 +131,7 @@ def test_every_request_in_a_block_is_its_own_row_and_the_breaker_is_charged_once
         select(IntegrationCallLog).filter_by(connection_id=connection.id).order_by(IntegrationCallLog.created_at)
     ).all()
     assert [(log.capability, log.status) for log in logs] == [
-        ("Fahrzeuge", CallStatus.SUCCESS), ("Optionen", CallStatus.SUCCESS), ("Bilder", CallStatus.SUCCESS),
+        ("vehiclecatalog", CallStatus.SUCCESS), ("vehicleoption_catalog", CallStatus.SUCCESS), ("image_vehicle", CallStatus.SUCCESS),
     ]
     assert len({log.correlation_id for log in logs}) == 1  # one block, one correlation
     assert successes == [connection.id]
@@ -177,7 +165,7 @@ def test_a_retried_request_is_two_rows(db_session, monkeypatch):
 
     with (
         gateway.call_capability(db_session, connection=connection, capability="vehicle_data"),
-        metering.provider_request("Fahrzeuge", is_timeout=lambda exc: isinstance(exc, TimeoutError)) as request,
+        metering.provider_request("vehiclecatalog", is_timeout=lambda exc: isinstance(exc, TimeoutError)) as request,
     ):
         assert resilience.call_with_retry(lambda: request.attempt(send)) == "<ok/>"
 
@@ -185,7 +173,7 @@ def test_a_retried_request_is_two_rows(db_session, monkeypatch):
         select(IntegrationCallLog).filter_by(connection_id=connection.id).order_by(IntegrationCallLog.created_at)
     ).all()
     assert [(log.capability, log.status) for log in logs] == [
-        ("Fahrzeuge", CallStatus.TIMEOUT), ("Fahrzeuge", CallStatus.SUCCESS),
+        ("vehiclecatalog", CallStatus.TIMEOUT), ("vehiclecatalog", CallStatus.SUCCESS),
     ]
 
 
@@ -196,18 +184,18 @@ def test_an_answer_refused_after_it_arrived_is_that_requests_error(db_session):
     with (
         pytest.raises(ProviderGatewayError),
         gateway.call_capability(db_session, connection=connection, capability="vehicle_data"),
-        metering.provider_request("Fahrzeuge") as request,
+        metering.provider_request("vehiclecatalog") as request,
     ):
         request.attempt(lambda: "")
         raise ProviderGatewayError("empty answer: rejected login")
 
     logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
-    assert [(log.capability, log.status) for log in logs] == [("Fahrzeuge", CallStatus.ERROR)]
+    assert [(log.capability, log.status) for log in logs] == [("vehiclecatalog", CallStatus.ERROR)]
 
 
 def test_a_block_failing_after_its_answer_arrived_marks_that_request_failed(db_session, monkeypatch):
     """The answer arrived (a SUCCESS on the wire), then the caller refused it
-    — a `Fahrzeuge` miss read through `.first`, say. The block is charged to
+    — a `vehiclecatalog` miss read through `.first`, say. The block is charged to
     the breaker, and the log must not show that request as a success."""
 
     provider = _make_provider(db_session)
@@ -220,15 +208,15 @@ def test_a_block_failing_after_its_answer_arrived_marks_that_request_failed(db_s
         gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter,
     ):
         adapter.fetch_options("FZ100001", model_year=2023)
-        adapter.fetch_vehicle_master_data("FZ100001")
-        raise ProviderGatewayError("Fahrzeuge: no row for this key")
+        adapter.fetch_variant("FZ100001")
+        raise ProviderGatewayError("vehiclecatalog: no row for this key")
 
     logs = db_session.scalars(
         select(IntegrationCallLog).filter_by(connection_id=connection.id).order_by(IntegrationCallLog.created_at)
     ).all()
     # Two requests, two rows; the last is the one whose answer was refused.
     assert [(log.capability, log.status) for log in logs] == [
-        ("Optionen", CallStatus.SUCCESS), ("Fahrzeuge", CallStatus.ERROR),
+        ("vehicleoption_catalog", CallStatus.SUCCESS), ("vehiclecatalog", CallStatus.ERROR),
     ]
     assert charged == [connection.id]
 
@@ -238,14 +226,14 @@ def test_one_mock_request_is_one_row(db_session):
     connection = _make_connection(db_session, provider)
 
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-        adapter.list_model_groups_short(fz_art="1")
+        adapter.list_catalogue_model_groups(vehicle_kind_code="01", brand="Alfa Romeo")
 
     logs = db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
-    assert [log.capability for log in logs] == ["ModellGruppenKurz"]
+    assert [log.capability for log in logs] == ["vehiclecatalog"]
 
 
 def test_an_adapter_used_outside_a_block_meters_nothing(db_session):
-    assert MockAutoIDatAdapter().fetch_vehicle_master_data("FZ100001").fz_key == "FZ100001"
+    assert MockAutoIDatAdapter().fetch_variant("FZ100001").fz_key == "FZ100001"  # type: ignore[union-attr]
     assert db_session.query(IntegrationCallLog).count() == 0
 
 
@@ -266,7 +254,7 @@ def test_a_sandbox_connection_is_refused_only_on_a_production_deployment(db_sess
         with pytest.raises(gateway.SandboxConnectionOnProductionError), gateway.call_capability(
             db_session, connection=connection, capability="vehicle_data", actor_id=actor_id
         ) as adapter:
-            adapter.fetch_vehicle_master_data("FZ100001")
+            adapter.fetch_variant("FZ100001")
         # Refused before the provider: no call-log row, the breaker untouched,
         # and an audit row naming the refusal.
         assert db_session.query(IntegrationCallLog).count() == 0
@@ -280,7 +268,7 @@ def test_a_sandbox_connection_is_refused_only_on_a_production_deployment(db_sess
         assert refusal[0].tenant_id == connection.tenant_id
     else:
         with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-            adapter.fetch_vehicle_master_data("FZ100001")
+            adapter.fetch_variant("FZ100001")
         assert db_session.query(IntegrationCallLog).count() == 1
 
 
@@ -294,7 +282,7 @@ def test_a_production_connection_is_used_on_a_production_deployment(db_session, 
     )
 
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_variant("FZ100001")
 
     assert db_session.query(IntegrationCallLog).count() == 1
 
@@ -317,7 +305,7 @@ def test_call_capability_logs_error_status_and_reraises_on_failure(db_session):
     raised = False
     try:
         with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-            adapter.fetch_vehicle_master_data("NOPE")
+            adapter.fetch_variant_with_colours("NOPE")
     except KeyError:
         raised = True
     assert raised
@@ -364,9 +352,9 @@ def test_gateway_writes_no_business_data_only_call_log(db_session):
     connection = _make_connection(db_session, provider)
 
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-        master = adapter.fetch_vehicle_master_data("FZ100001")
+        master = adapter.fetch_variant_with_colours("FZ100001").master
         adapter.fetch_options("FZ100001", model_year=master.model_year_from)
-        adapter.fetch_colours(werkscode=master.werkscode)
+        adapter.fetch_tyre_specs(type_approval_number=master.type_approval_numbers[0])
 
     # Nothing in app.vehicle's own tables was touched — no ModelVariant/
     # VariantOption row exists anywhere, since resolving provider codes
@@ -392,7 +380,7 @@ def test_a_failed_call_never_commits_the_callers_half_written_rows(db_session, e
         with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
             db_session.add(Brand(code="half-written", display_name="Half written"))
             db_session.flush()
-            adapter.fetch_vehicle_master_data("NOPE")
+            adapter.fetch_variant_with_colours("NOPE")
         raise AssertionError("expected KeyError")
     except KeyError:
         db_session.rollback()
@@ -411,7 +399,7 @@ def test_a_successful_call_leaves_the_callers_work_for_the_caller_to_commit(db_s
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
         db_session.add(Brand(code="callers-own", display_name="Caller's own"))
         db_session.flush()
-        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_variant("FZ100001")
 
     with Session(engine) as fresh:
         assert fresh.query(Brand).filter_by(code="callers-own").count() == 0  # not committed by the gateway
@@ -431,7 +419,7 @@ def test_a_captured_payload_is_committed_with_the_log_not_with_the_callers_work(
     ) as adapter:
         db_session.add(Brand(code="pending", display_name="Pending"))
         db_session.flush()
-        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_variant("FZ100001")
 
     with Session(engine) as fresh:
         log = fresh.scalars(select(IntegrationCallLog).filter_by(connection_id=connection.id)).one()
@@ -458,11 +446,11 @@ def test_a_caller_locking_its_own_connection_row_is_logged_without_waiting(db_se
     db_session.scalars(select(IntegrationConnection).filter_by(id=connection.id).with_for_update()).one()
 
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-        adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_variant("FZ100001")
     db_session.rollback()
 
     logs = db_session.scalars(select(IntegrationCallLog).filter_by(connection_id=connection.id)).all()
-    assert [log.capability for log in logs] == ["Fahrzeuge"]  # the request's Datenname (KAN-486)
+    assert [log.capability for log in logs] == ["vehiclecatalog"]  # the request's operation name (KAN-486)
 
 
 def test_test_connection_endpoint_updates_status_and_last_verified(db_session):

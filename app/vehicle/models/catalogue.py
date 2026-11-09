@@ -343,8 +343,8 @@ class TypeApproval(PrimaryKeyMixin, TimestampMixin, Base):
 
     **A Typenschein is not an identifier.** It is the number an importer
     uses to homologate similar or identical vehicles, so one Typenschein
-    normally covers several model variants — and auto-i-dat's `Typenscheine`
-    Datenname returns a *list* of them for one FzKey, so one variant also
+    normally covers several model variants — and auto-i-dat's catalogue row
+    carries a *list* of them for one FzKey, so one variant also
     carries several Typenscheine. The link to `ModelVariant` is therefore
     many-to-many, through `VariantTypeApproval`. PRD-Vehicles' identifier
     table has always said "Not unique — many cars share one"; the original

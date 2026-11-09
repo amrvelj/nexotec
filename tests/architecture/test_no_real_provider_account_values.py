@@ -6,9 +6,9 @@ Before KAN-491, tests/test_integration_auto_i_dat_account.py used a real
 project label from a dealer's account sheet as BenutzerInfo, and the
 mock's ZH123456 plate answered with the specification's KontrollschildInfo
 example. The values are assembled from pieces below and named nowhere
-else, so this file does not carry them either. The SOAP adapter's spec-derived sample XML in
-tests/test_integration_soap_adapter.py may keep spec values (criterion 4);
-the mock may not.
+else, so this file does not carry them either. The mock may carry no
+specification value (the SOAP adapter's spec-derived sample XML, which could,
+left with it in KAN-550).
 """
 
 import re

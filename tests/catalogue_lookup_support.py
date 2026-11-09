@@ -21,7 +21,8 @@ MOCK_PROVIDER_CODE = "auto_i_dat_mock"
 def see_demo_variant(db: Session, fz_key: str) -> ModelVariant:
     """The variant as identification or browse would store it: master data only."""
 
-    master = MockAutoIDatAdapter().fetch_vehicle_master_data(fz_key)
+    master = MockAutoIDatAdapter().fetch_variant(fz_key)
+    assert master is not None, fz_key
     variant = catalogue_sync.upsert_model_variant(db, provider_code=MOCK_PROVIDER_CODE, master=master)
     db.commit()
     return variant

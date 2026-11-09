@@ -9,11 +9,10 @@ demo screens show «—» where the real provider shows labels.
 
 This copies every `auto_i_dat` row to `auto_i_dat_mock` where the mock has
 none (idempotent; a row the mock already has is left alone), which is what the
-browse's vehicle-kind translation needs. The mock's fixtures still carry some
-SOAP-era codes the identAPI never sends (vehicle kind `1`, gearbox `A`/`M`),
-and those stay mapping gaps until KAN-550 retires the SOAP shapes — the demo
-shows «—» for them, as before. Vehicle context only; run once per local or
-staging database:
+browse's vehicle-kind translation needs. The mock's fixtures carry auto-i's
+own codes as the identAPI sends them (KAN-550: vehicle kind `01`, gearbox
+`1`/`5`), so the demo variants' coded fields resolve once this ran.
+Vehicle context only; run once per local or staging database:
 
     python scripts/seed_demo_provider_code_map.py
 

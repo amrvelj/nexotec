@@ -53,20 +53,11 @@ dependencies = [
     # Pillow — the decoder WeasyPrint itself prints raster images with, so a
     # PNG it accepts is one the renderer can print. It arrived only through
     # weasyprint; declared because app/platform/services/logo_validation.py
-    # now imports it (as requests/urllib3 below). No new package: the SVG
-    # sanitiser there is the standard library's expat and ElementTree.
+    # now imports it. No new package: the SVG sanitiser there is the
+    # standard library's expat and ElementTree.
     "pillow>=11.0,<14",
-    # WP-6 PR-3: the real auto-i-dat adapter speaks SOAP. No SOAP/XML client
-    # existed in this codebase before this. app/integration/adapters/
-    # auto_i_dat_soap.py imports it lazily (inside build_zeep_client), so no
-    # test or local dev path that never constructs a real adapter pays its
-    # import cost or needs a live WSDL.
-    "zeep>=4.2,<5",
-    # KAN-108: the adapter tells a provider timeout from other transport
-    # failures by the exception types of zeep's own HTTP stack. Both arrived
-    # only through zeep; declared because auto_i_dat_soap.py now imports them.
-    "requests>=2.31,<3",
-    "urllib3>=2,<3",
+    # KAN-550: zeep (and requests/urllib3/lxml with it) left with the SOAP
+    # adapter (ADR-111); the identAPI adapter speaks REST over httpx.
 ]
 
 [project.optional-dependencies]

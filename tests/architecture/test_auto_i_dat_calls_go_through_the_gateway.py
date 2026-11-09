@@ -17,10 +17,10 @@ and ``_discover`` (the ``oauth_discovery`` row) and ``request_token`` (the
 ``oauth_token`` row) are the only two opening ``provider_request`` /
 ``call_with_retry`` and calling ``_send``.
 
-**The SOAP adapter** (`adapters/auto_i_dat_soap.py`) keeps its guard until
-KAN-550 removes it: ``_suchen`` is its one choke point.
+The identAPI adapter is the only real vehicle-data adapter: the SOAP adapter
+and its ``_suchen`` guard left with KAN-550.
 
-Guard 2 (grep): neither real adapter class is constructed anywhere in ``app/``
+Guard 2 (grep): the real adapter class is constructed nowhere in ``app/``
 but its own module's gateway factory, so every call inherits the circuit
 breaker and the call log.
 """
@@ -123,30 +123,10 @@ def test_the_oauth_client_sends_only_through_its_two_metered_requests():
             )
 
 
-def test_only_suchen_touches_the_soap_client_and_the_retry_layer():
-    tree = ast.parse((_ADAPTERS / "auto_i_dat_soap.py").read_text())
-    cls = _class(tree, "AutoIDatSoapAdapter")
-    for method in _methods(cls):
-        if method.name == "__init__":
-            continue
-        touches_client = _touches_self_attr(method, "_client")
-        calls_retry = _calls(method, "call_with_retry")
-        if method.name == "_suchen":
-            assert touches_client, "_suchen must be the method that calls the SOAP client"
-            assert calls_retry, "_suchen must go through resilience.call_with_retry"
-        else:
-            assert not touches_client, (
-                f"{method.name} touches self._client directly — every provider call must go through _suchen"
-            )
-            assert not calls_retry, (
-                f"{method.name} calls call_with_retry directly — the retry layer belongs only in _suchen"
-            )
-
 
 def test_the_real_adapters_are_only_constructed_by_their_own_gateway_factory():
     owners = {
         "AutoIDatIdentAdapter(": "app/integration/adapters/auto_i_dat_ident.py",
-        "AutoIDatSoapAdapter(": "app/integration/adapters/auto_i_dat_soap.py",
     }
     hits: list[str] = []
     for path in (_REPO / "app").rglob("*.py"):

@@ -572,7 +572,7 @@ def test_a_resync_of_an_unchanged_variant_does_not_bump_its_version(db_session):
 
 def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(db_session, monkeypatch):
     tenant_id = _looked_up_tenant(db_session)
-    original = MockAutoIDatAdapter.fetch_vehicle_master_data
+    original = MockAutoIDatAdapter.fetch_variant
 
     def _changed(self, fz_key):
         master = original(self, fz_key)
@@ -580,7 +580,7 @@ def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(d
             return master
         return dataclasses.replace(master, fuel_type_code="9", drivetrain_code=None)
 
-    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_vehicle_master_data", _changed)
+    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_variant", _changed)
     look_up_demo_variants(db_session, tenant_id)
 
     codes = {

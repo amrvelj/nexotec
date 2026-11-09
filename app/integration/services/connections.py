@@ -35,8 +35,8 @@ _ENTITY_TYPE = "integration_connection"
 #   sheet line  One of the identAPI's licence options (ident_basis,
 #               ausstattung, bewertung, vin, pneu, energielabel), seeded as the
 #               provider's `capability_codes` by migration 6b98739fe743
-#               (KAN-488; they replaced the eight SOAP account-sheet counters
-#               of 49be490e2077). Entitlement rows are keyed by these; each is
+#               (KAN-488; they replaced the eight account-sheet counters of
+#               the retired SOAP service, 49be490e2077). Entitlement rows are keyed by these; each is
 #               probed by its own identAPI call on "Test connection"
 #               (`entitlement_probes.py`: 403 = not granted); a line with no
 #               row reads as "granted".
@@ -49,10 +49,11 @@ _ENTITY_TYPE = "integration_connection"
 #               row is NOT granted, the opposite of the optimistic default.
 #   call label  What `call_capability(capability=...)` names a block by:
 #               `vehicle_data` (catalogue_sync's and identification's umbrella
-#               over the Datennamen they call), `system_watermark`,
+#               over the operations they call), `system_watermark` (the
+#               access check of «Test connection»),
 #               `marketplace_publish`, and a probe's own sheet line. Never an
 #               entitlement. Since KAN-486 the call log names each request
-#               by the provider's own operation (the Datenname, `FtpUpload`)
+#               by the provider's own operation (`caption_code`, `FtpUpload`, …)
 #               and keeps the label only for a block that metered none.
 #
 # tests/architecture/test_capability_codes_are_in_the_vocabulary.py fails when

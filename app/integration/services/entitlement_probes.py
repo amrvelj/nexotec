@@ -12,22 +12,15 @@ represents a licence option (`ProviderNotEntitledError`). Each of the six
 options is probed by one documented call with auto-i's own documentation
 example as input (`adapters/auto_i_dat_ident.py`); 200 (or 404) is granted,
 403 is not, and anything else — a refused login, an outage, a 400/422 on our
-request — leaves the row exactly as it was.
-
-**The SOAP protocol has no such signal** (*Webservice Fahrzeuge* p4 documents
-``Status`` 0 / 1 / 2 and nothing else; an empty string means "invalid
-Benutzername / Passwort / Sprache / Datenname"), so the mock, which still
-speaks the SOAP shapes until KAN-547/KAN-550, keeps the one inferred probe:
-a criteria-free ``FahrzeugArten`` that comes back as the empty string right
-after the access check accepted the same credentials can only be the
-Datenname. It is keyed by the identAPI's basis option so the vocabulary is one.
+request — leaves the row exactly as it was. Nothing is inferred: the SOAP
+protocol's empty-string answer, which had to be read as "not this Datenname",
+left with the SOAP adapter (KAN-550).
 """
 
 import datetime as dt
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.integration.adapters.auto_i_dat_parse import ProviderRejectedError as SoapEmptyAnswerError
 from app.integration.adapters.base import ProviderAdapter
 from app.integration.errors import ProviderNotEntitledError
 
@@ -55,9 +48,9 @@ _IDENT_API_PROBES: tuple[CapabilityProbe, ...] = (
 # The mock is fully entitled by construction, so probing it writes a
 # `granted` row — which is what lets a dev/staging connection show a populated
 # entitlement list and lets the granted path run in tests without patching.
-# It still speaks the SOAP shapes until KAN-547/KAN-550 reshape it; its one
-# probe is keyed by the identAPI's basis option so the vocabulary is one.
-_MOCK_IDENT_BASIS = CapabilityProbe("ident_basis", lambda adapter: adapter.list_vehicle_kinds())
+# Its basis probe is one brand list of passenger cars (KAN-550: an identAPI
+# operation, as every mock method is).
+_MOCK_IDENT_BASIS = CapabilityProbe("ident_basis", lambda adapter: adapter.list_catalogue_brands(vehicle_kind_code="01"))
 # KAN-552: the demo valuation is behind the `bewertung` row like the real one
 # (read strictly), so the mock probes it too — one residual table of a demo
 # variant. `vin` stays unprobed: the demo shows what the test licence shows,
@@ -76,15 +69,16 @@ _PROBES_BY_PROVIDER: dict[str, tuple[CapabilityProbe, ...]] = {
 
 # What `gateway.test_connection` calls first to prove the credentials: for the
 # identAPI the token request followed by `GET /caption/code?lang=de`, which
-# every licence may read (KAN-488); for every other vehicle-data adapter the
-# `System` watermark, as before.
+# every licence may read (KAN-488); for every other vehicle-data adapter (the
+# demo provider) the captions in German through the Protocol (KAN-550: the
+# SOAP `System` watermark is gone).
 _ACCESS_CHECKS: dict[str, Callable[[ProviderAdapter], object]] = {
     "auto_i_dat": lambda adapter: adapter.fetch_code_captions("de"),  # type: ignore[attr-defined]
 }
 
 
 def access_check(provider_code: str) -> Callable[[ProviderAdapter], object]:
-    return _ACCESS_CHECKS.get(provider_code, lambda adapter: adapter.get_system_watermark())
+    return _ACCESS_CHECKS.get(provider_code, lambda adapter: adapter.fetch_captions("de"))
 
 
 def probes_for(provider_code: str) -> tuple[CapabilityProbe, ...]:
@@ -94,9 +88,8 @@ def probes_for(provider_code: str) -> tuple[CapabilityProbe, ...]:
 def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool:
     """`True` = the provider answered (data or "no data"), `False` = it
     refused the capability. Only a refusal of the capability reads as not
-    granted: the identAPI's 403 (`ProviderNotEntitledError`, KAN-488) and the
-    SOAP empty string (`auto_i_dat_parse.ProviderRejectedError`, the p4
-    inference). Everything else propagates — a refused login
+    granted: the identAPI's 403 (`ProviderNotEntitledError`, KAN-488).
+    Everything else propagates — a refused login
     (`errors.ProviderRejectedError`: a 401 twice, a bad secret; the caller
     stops probing on it), maintenance, a transport failure, a 400/422
     (`ProviderRequestError`: our request, not the licence) — because none of
@@ -110,6 +103,6 @@ def run_probe(probe: CapabilityProbe, adapter: ProviderAdapter) -> bool:
 
     try:
         probe.call(adapter)
-    except (ProviderNotEntitledError, SoapEmptyAnswerError):
+    except ProviderNotEntitledError:
         return False
     return True

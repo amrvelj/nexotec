@@ -185,17 +185,16 @@ def test_a_werkscode_lookup_and_a_variant_read_use_the_catalogue_identifier_path
     # another key in the answer is never taken for the one asked
     fake.api_bodies["/vehiclecatalog/autoi/01999999"] = fix.body([fix.catalog_variant()])
     assert _call(db_session, s, "vehicle_data", lambda a: a.fetch_variant("01999999")) is None
-    with pytest.raises(KeyError):
-        _call(db_session, s, "vehicle_data", lambda a: a.fetch_vehicle_master_data("01999999"))
 
 
-def test_the_soap_shaped_shims_the_waterfall_still_calls_are_served_from_the_identapi(db_session, monkeypatch, caplog):
-    """The `VehicleDataAdapter` contract's `lookup_plate` and `find_best_match`
-    (the best match is what the waterfall still calls) are live on the
-    identAPI. In the shim a built vehicle without a Typenschein or a
-    Stammnummer (the spec: `vrn` "depends on user group definition") cannot
-    be cached and is left out, logged — the waterfall itself (PR 2) offers
-    such a car in the picker by its Typenschein and caches nothing."""
+def test_a_plate_answer_keeps_every_built_vehicle_and_the_variant_carries_its_prices(db_session, monkeypatch):
+    """KAN-550 replaced the SOAP-shaped shims (`lookup_plate`,
+    `fetch_vehicle_prices`, `fetch_type_approvals`) with the identAPI reads
+    they were served from. A plate answer keeps every built vehicle — one
+    without a Stammnummer (the spec: `vrn` "depends on user group definition")
+    or without a Typenschein included; what the plate cache may store is the
+    waterfall's decision (`identification._cacheable`) — and the list prices
+    and Typenscheine travel on the variant row, in one request."""
 
     fake = FakeAutoi(
         api_bodies={
@@ -207,16 +206,18 @@ def test_the_soap_shaped_shims_the_waterfall_still_calls_are_served_from_the_ide
     )
     s = fx.connected(db_session, monkeypatch, fake=fake)
 
-    with caplog.at_level("WARNING"):
-        records = _call(db_session, s, "kontrollschild", lambda a: a.lookup_plate("ZH911001"))
-    assert [(r.stammnummer, r.type_approval_number, r.brand_name) for r in records] == [("900911001", fix.DEMO_TYPE_APPROVAL, "Testmarke")]
-    assert records[0].first_registration_date == dt.date(2022, 5, 17) and records[0].production_from == 2021
-    assert sum("left out" in m for m in caplog.messages) == 2
+    built = _call(db_session, s, "kontrollschild", lambda a: a.identify_by_plate("ZH911001"))
+    assert [(b.stammnummer, b.type_approval_number) for b in built] == [
+        ("900911001", fix.DEMO_TYPE_APPROVAL), (None, fix.DEMO_TYPE_APPROVAL), ("900911003", None),
+    ]
+    assert built[0].brand_name == "Testmarke"
+    assert built[0].first_registration_date == dt.date(2022, 5, 17) and built[0].production_from == 2021
     assert len(fake.api_requests_to("/vehiclebuild/licenseplate/ZH911001")) == 1
 
-    prices = _call(db_session, s, "vehicle_data", lambda a: a.fetch_vehicle_prices(fix.DEMO_FZ_KEY, year=2022))
-    assert [(p.year, p.price) for p in prices] == [(2022, 57900)]
-    assert _call(db_session, s, "vehicle_data", lambda a: a.fetch_type_approvals(fix.DEMO_FZ_KEY)) == [fix.DEMO_TYPE_APPROVAL, "1ZZ912"]
+    variant = _call(db_session, s, "vehicle_data", lambda a: a.fetch_variant(fix.DEMO_FZ_KEY))
+    assert variant is not None
+    assert (2022, 57900) in [(p.year, p.price) for p in variant.catalogue_prices]
+    assert variant.type_approval_numbers == [fix.DEMO_TYPE_APPROVAL, "1ZZ912"]
 
 
 def test_a_403_is_not_entitled_and_a_timeout_is_unavailable(db_session, monkeypatch):
