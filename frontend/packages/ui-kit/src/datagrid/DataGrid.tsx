@@ -835,6 +835,11 @@ function SelectCell({ children }: { children: ReactNode }) {
         width: SELECTION_COLUMN_WIDTH,
         flex: `0 0 ${SELECTION_COLUMN_WIDTH}px`,
         minWidth: SELECTION_COLUMN_WIDTH,
+        // The body row centres its cells (`alignItems: center`); the header
+        // row stretches them. Stretched, the sticky white column covers the
+        // row's whole height, as the padded Cell did, so content scrolled
+        // under it sideways never shows above or below the checkbox.
+        alignSelf: "stretch",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -846,7 +851,7 @@ function SelectCell({ children }: { children: ReactNode }) {
 }
 
 function SelectRowCheckbox({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }) {
-  // Sits in a pinned (`position: sticky`) Cell, which already paints above
+  // Sits in the sticky SelectCell (`position: sticky`), which already paints above
   // `.dg-row-link` — see Row's own comment. `stopPropagation` is a
   // defensive backstop, not what makes this clickable.
   return <input type="checkbox" checked={checked} onChange={onChange} aria-label={label} onClick={(e) => e.stopPropagation()} />;

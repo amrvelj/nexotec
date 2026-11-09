@@ -74,6 +74,9 @@ describe("DataGrid — the row's selection cell (KAN-591)", () => {
     expect(cell.style.alignItems).toBe("center");
     expect(cell.style.justifyContent).toBe("center");
     expect(cell.style.width).toBe("40px");
+    // The body row centres its cells; the select cell stretches to the row's
+    // full height so the sticky white column covers what scrolls under it.
+    expect(cell.style.alignSelf).toBe("stretch");
   });
 
   it("is the header's twin: same width and centring as SelectHeaderCell, still pinned at the left edge", () => {
