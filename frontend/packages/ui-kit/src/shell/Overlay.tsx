@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { radius, shadow, slate, white, zIndex } from "../tokens";
 import { closeAllEntries, popEntry, pushEntry } from "./overlayStack";
@@ -82,14 +82,24 @@ export function OverlayProvider({
 
   // Escape closes the top layer only — never a full closeAll from one
   // keypress, which would silently discard whatever the layers below were
-  // mid-way through too.
+  // mid-way through too. And only when nothing opened inside the layer is
+  // open (KAN-605): an Escape that dismisses a popover, dropdown, menu or
+  // modal belongs to that, not to the overlay.
+  const topLayerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (stack.length === 0) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") pop();
+      if (event.key !== "Escape" || event.isComposing) return;
+      if (escapeBelongsToAPopupInside(event.target, topLayerRef.current)) return;
+      pop();
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // Capture phase: the decision reads the popups' state *before* any of
+    // them handles this keypress. A Select closes its dropdown in React's
+    // keydown handler, which flushes synchronously, so by the time the
+    // event bubbled to `window` its input would already read
+    // `aria-expanded="false"`.
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [stack.length, pop]);
 
   return (
@@ -98,6 +108,7 @@ export function OverlayProvider({
       {stack.map((entry, index) => (
         <div
           key={entry.key}
+          ref={index === stack.length - 1 ? topLayerRef : undefined}
           role="dialog"
           aria-modal="true"
           // Every layer stays in the tree; only the top one paints and can
@@ -154,4 +165,32 @@ export function useOverlay(): OverlayContextValue {
   const ctx = useContext(OverlayContext);
   if (!ctx) throw new Error("useOverlay must be used within an OverlayProvider");
   return ctx;
+}
+
+/**
+ * KAN-605 — whether an Escape keydown is the dismissal of something opened
+ * inside the top overlay layer rather than a request to close the layer.
+ * Mantine's Popover, Combobox and Modal close themselves on Escape but never
+ * stop the event, so it reaches the overlay's window listener too; popping
+ * the layer then would discard the configuration half-built in it (ADR-059).
+ *
+ * - Focus inside Mantine's portal (`data-portal`): a popover's dropdown, a
+ *   menu, a modal — they render outside the layer, above it (KAN-594).
+ * - Focus inside the layer on a trigger whose popup is open: a Popover's or
+ *   Menu's button (`aria-expanded="true"`), a Select's or Autocomplete's
+ *   input (Mantine's Combobox marks it `data-expanded="true"` and
+ *   `data-mantine-stop-propagation="true"` — the flag Mantine's own Modal
+ *   honours before closing on Escape). Read in the capture phase, before
+ *   the popup's own handler runs.
+ *
+ * Anything else — focus in the layer with nothing open, on the page's
+ * button that opened the overlay, or nowhere — closes the layer as before.
+ */
+const OPEN_POPUP_TRIGGER =
+  '[aria-expanded="true"], [data-expanded="true"], [data-mantine-stop-propagation="true"]';
+
+function escapeBelongsToAPopupInside(target: EventTarget | null, layer: HTMLElement | null): boolean {
+  if (!(target instanceof Element)) return false;
+  if (target.closest('[data-portal="true"]')) return true;
+  return layer !== null && layer.contains(target) && target.closest(OPEN_POPUP_TRIGGER) !== null;
 }
