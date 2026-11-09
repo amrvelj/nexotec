@@ -201,6 +201,7 @@ const REASON_KEYS: Record<string, string> = {
       'provider_quote_mismatch',
       'provider_quote_stale',
       'provider_quote_inputs_missing',
+      'provider_not_configured',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

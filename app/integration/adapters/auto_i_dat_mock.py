@@ -428,8 +428,9 @@ _CAPTIONS: list[CaptionData] = [
 
 # KAN-549 — an invented VIN for the VIN rung, the Golf behind plate BE123456
 # (never the specification's sample VIN, KAN-491). Answered only where the
-# connection's `vin` row is granted; the demo connection probes nothing, so
-# by default the rung says «nicht im Vertrag», as on the test licence.
+# connection's `vin` row is granted; the demo connection probes `ident_basis`
+# and `bewertung` but never `vin`, so the rung says «nicht im Vertrag», as on
+# the test licence.
 _VINS: dict[str, tuple[str, int]] = {"WVWZZZDEMV0000001": ("BE123456", 0)}
 
 

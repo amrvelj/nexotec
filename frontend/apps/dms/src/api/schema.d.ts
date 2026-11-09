@@ -11046,6 +11046,10 @@ export interface components {
             providerQuoteId?: string | null;
             /** Providervalue */
             providerValue?: number | string | null;
+            /**
+             * @deprecated
+             * @description Deprecated (KAN-552): derived from `providerQuoteId` and `providerValue`; a sent value is not stored. `auto_i_dat` without `providerQuoteId` is refused (422 provider_quote_required).
+             */
             source?: components["schemas"]["ValuationSource"] | null;
             /** Supersedesvaluationid */
             supersedesValuationId?: string | null;

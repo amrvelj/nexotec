@@ -18,9 +18,13 @@ Refusals, each before anything is stored:
 - the connection's `bewertung` option not granted (read strictly: never
   probed is not granted) or refused by the provider at call time (403) →
   409 `not_entitled`;
-- a failure, a timeout, an open breaker → 422 `provider_unavailable`;
+- a failure, a timeout, an open breaker, or the provider's own «offline
+  (maintenance)» state → 422 `provider_unavailable`;
+- a connection without its client id or secret → 409 `provider_not_configured`;
 - the provider's own «cannot value this car» (its `state`, e.g. too old) →
-  422 `provider_cannot_value`, with its code and message as delivered;
+  422 `provider_cannot_value`, with its code and message as delivered (the
+  identAPI words `stateMsg` in the first language asked, German: provider
+  text, never translated — ADR-044);
 - no FzKey for the car at that provider (a manual configuration) → 422
   `no_catalogue_variant` (from `vehicle.public`);
 - no first registration or mileage → 422 `provider_quote_inputs_missing`.
@@ -32,6 +36,7 @@ request keeps the valuation and records why the table is missing.
 import dataclasses
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -39,6 +44,7 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.uuid7 import uuid7
 from app.integration.public import (
+    ProviderConfigurationError,
     ProviderGatewayError,
     ProviderNotEntitledError,
     ProviderRequestError,
@@ -50,6 +56,8 @@ from app.valuation.schemas.valuation import ProviderQuoteRequest
 from app.vehicle.public import get_provider_valuation_input
 
 _CALL_LABEL = "valuation"
+# `info.state` 1 of `/vehiclevaluation`: «Web service is offline (maintenance)».
+_STATE_OFFLINE = 1
 _PURPOSE = "provider_valuation"
 
 
@@ -113,8 +121,17 @@ def request_provider_quote(
     except ProviderRequestError:
         # A 400/422: the provider's coherent refusal of this car's inputs.
         raise _cannot_value(state=None, message=None) from None
+    except ProviderConfigurationError:
+        # The connection lacks its client id or secret, or there is nobody to
+        # enrol: the dealer's to fix in Dealer Administration, not «later».
+        raise ConflictError(
+            "The provider connection is not fully set up.", details={"reason": "provider_not_configured"}
+        ) from None
     except (ProviderGatewayError, KeyError):
         raise _unavailable() from None
+    if valuation.state == _STATE_OFFLINE:
+        # The provider's own «offline (maintenance)» is an outage, not a verdict on the car.
+        raise _unavailable()
     if valuation.state != 0 or valuation.exchange_price is None:
         raise _cannot_value(state=valuation.state, message=valuation.state_message)
 
@@ -203,3 +220,18 @@ def get_quote_or_404(db: Session, *, tenant_id: uuid.UUID, quote_id: uuid.UUID) 
         # 404, never 403 (rule 7).
         raise NotFoundError(f"Provider quote {quote_id} was not found.")
     return quote
+
+
+def quotes_by_id(
+    db: Session, *, tenant_id: uuid.UUID, quote_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, ValuationProviderQuote]:
+    """The quotes a page of valuations references, in one read."""
+
+    if not quote_ids:
+        return {}
+    rows = db.scalars(
+        select(ValuationProviderQuote).where(
+            ValuationProviderQuote.tenant_id == tenant_id, ValuationProviderQuote.id.in_(quote_ids)
+        )
+    ).all()
+    return {row.id: row for row in rows}

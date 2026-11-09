@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { screen, within } from '@testing-library/react'
 import i18n from '../i18n'
@@ -59,5 +59,27 @@ describe('ValuationDetailPage — the auto-i-dat quote (KAN-552)', () => {
     expect(screen.getByText(formatCurrencyChf(16500))).toBeInTheDocument()
     expect(screen.getAllByText(i18n.t('valuationQuote.exchange')).length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText(i18n.t('valuationSource.manual'))).toBeInTheDocument()
+  })
+})
+
+// KAN-333's rule for the quote's date-only first registration: the recorded
+// day, west of Greenwich too.
+describe('ValuationDetailPage — the quote keeps its first-registration day (KAN-552)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders the valued first registration as the recorded day', async () => {
+    render(valuation({ source: 'auto_i_dat', providerValue: '18400.00' }))
+
+    const card = await screen.findByTestId('provider-quote')
+    expect(card.textContent).toContain('02.03.2020')
+    expect(card.textContent).not.toContain('01.03.2020')
   })
 })

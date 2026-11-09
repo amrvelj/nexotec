@@ -228,7 +228,10 @@ _OWN_COMMIT_WRITES = {
     # again, only sometimes — which is why the commit's home is named.
     "app.integration.public.call_capability": (
         "app.integration.services.gateway.record_call",
-        "inventory: marketplace transmission; vehicle: catalogue seed and daily delta",
+        (
+            "inventory: marketplace transmission; vehicle: catalogue seed and daily delta; "
+            "valuation: the provider quote (KAN-552)"
+        ),
     ),
 }
 

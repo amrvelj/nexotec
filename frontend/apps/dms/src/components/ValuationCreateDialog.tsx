@@ -168,6 +168,14 @@ export function ValuationCreateDialog({
   // figures need a new one (the API refuses the old one: provider_quote_stale).
   const quoteStale = quote != null && (quote.mileage !== mileage || quote.firstRegistration !== firstRegistration)
   const activeQuote = quote != null && !quoteStale ? quote : null
+  // A stale quote's figure is not the advisor's: once the quote stops
+  // applying, its trade-in price leaves the field rather than being sent as
+  // a manual figure with no quote beside it.
+  useEffect(() => {
+    if (quoteStale && quote && providerValue !== '' && Number(providerValue) === Number(quote.exchangePrice)) {
+      setProviderValue('')
+    }
+  }, [quoteStale, quote, providerValue])
   const derivedSource =
     activeQuote && (providerValue === '' || Number(providerValue) === Number(activeQuote.exchangePrice)) ? 'auto_i_dat' : 'manual'
 

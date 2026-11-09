@@ -46,7 +46,13 @@ _DEFAULT_VALUATION_SORT = [
 ]
 
 
-def _valuation_read(db: Session, valuation: Valuation, *, has_signed_contract: bool) -> ValuationRead:
+def _valuation_read(
+    db: Session,
+    valuation: Valuation,
+    *,
+    has_signed_contract: bool,
+    quotes: dict[uuid.UUID, ValuationProviderQuote],
+) -> ValuationRead:
     """`status` is derived, never a column on `Valuation` (ADR-066) — so it
     cannot be produced by validating straight off the ORM object the way
     every other field can (KAN-65: that used to be exactly what this did,
@@ -64,9 +70,7 @@ def _valuation_read(db: Session, valuation: Valuation, *, has_signed_contract: b
     fields["deductions"] = [DeductionRead.model_validate(d, from_attributes=True) for d in deductions]
     fields["has_signed_contract"] = has_signed_contract
     fields["provider_quote"] = (
-        _quote_read(db.get(ValuationProviderQuote, valuation.provider_quote_id))
-        if valuation.provider_quote_id is not None
-        else None
+        _quote_read(quotes.get(valuation.provider_quote_id)) if valuation.provider_quote_id is not None else None
     )
     return ValuationRead.model_validate(fields)
 
@@ -81,7 +85,13 @@ def _valuation_reads(db: Session, tenant_id: uuid.UUID, valuations: list[Valuati
     carried = valuations_carried_by_signed_contracts(
         db, tenant_id=tenant_id, valuation_ids=[valuation.id for valuation in valuations]
     )
-    return [_valuation_read(db, valuation, has_signed_contract=valuation.id in carried) for valuation in valuations]
+    # KAN-552: the page's provider quotes in one read, not one per row.
+    quote_ids = {v.provider_quote_id for v in valuations if v.provider_quote_id is not None}
+    quotes = provider_quote_service.quotes_by_id(db, tenant_id=tenant_id, quote_ids=quote_ids)
+    return [
+        _valuation_read(db, valuation, has_signed_contract=valuation.id in carried, quotes=quotes)
+        for valuation in valuations
+    ]
 
 
 @router.post("/valuations", response_model=ValuationRead, status_code=201)

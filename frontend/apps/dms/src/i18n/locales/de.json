@@ -337,7 +337,8 @@
       "provider_quote_required": "Ein auto-i-dat-Wert kommt vom Anbieter — zuerst «Bewertung von auto-i-dat holen».",
       "provider_quote_mismatch": "Diese auto-i-dat-Bewertung gehört zu einer anderen Konfiguration.",
       "provider_quote_stale": "Erstinverkehrsetzung oder Kilometerstand weichen von der auto-i-dat-Bewertung ab. Bitte erneut holen.",
-      "provider_quote_inputs_missing": "Für die auto-i-dat-Bewertung braucht es Erstinverkehrsetzung und Kilometerstand."
+      "provider_quote_inputs_missing": "Für die auto-i-dat-Bewertung braucht es Erstinverkehrsetzung und Kilometerstand.",
+      "provider_not_configured": "Die Verbindung zu auto-i-dat ist nicht vollständig eingerichtet — in der Betriebsverwaltung unter Integrationen prüfen."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
@@ -1750,7 +1751,6 @@
     "searchCustomer": "Kunde suchen",
     "createCustomer": "Neu anlegen",
     "source": "Quelle",
-    "sourceManual": "Manuell",
     "providerValue": "Rohwert",
     "validForDays": "Gültig für (Tage)",
     "deductionsSection": "Abzüge",

@@ -79,6 +79,7 @@ from app.integration.adapters.marketplace_base import (
     TransmissionResult,
 )
 from app.integration.errors import (
+    ProviderConfigurationError,
     ProviderGatewayError,
     ProviderNotEntitledError,
     ProviderRequestError,
@@ -122,6 +123,7 @@ __all__ = [
     "PlateInfoData",
     "ProviderAdapter",
     "ProviderCaption",
+    "ProviderConfigurationError",
     "ProviderGatewayError",
     "ProviderNotEntitledError",
     "ProviderRequestError",

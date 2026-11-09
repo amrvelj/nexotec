@@ -41,12 +41,12 @@ _ENTITY_TYPE = "integration_connection"
 #               (`entitlement_probes.py`: 403 = not granted); a line with no
 #               row reads as "granted".
 #   feature     A name a screen asks about through `tenant_has_capability`.
-#               Derived on each ask: `valuation` follows the sheet line
-#               `bewertung`, `packages` and `images` follow `ausstattung`
-#               (FEATURE_SHEET_LINES); `vin_decode` follows the licence option
-#               `vin` strictly (KAN-549, ADR-113): granted only where a probe
-#               recorded the row as granted — no row is NOT granted, the
-#               opposite of every other line's optimistic default.
+#               Derived on each ask: `packages` and `images` follow
+#               `ausstattung` (FEATURE_SHEET_LINES), optimistically;
+#               `vin_decode` follows `vin` (KAN-549, ADR-113) and `valuation`
+#               follows `bewertung` (KAN-552) strictly (STRICT_FEATURE_OPTIONS):
+#               granted only where a probe recorded the row as granted — no
+#               row is NOT granted, the opposite of the optimistic default.
 #   call label  What `call_capability(capability=...)` names a block by:
 #               `vehicle_data` (catalogue_sync's and identification's umbrella
 #               over the Datennamen they call), `system_watermark`,
@@ -68,16 +68,16 @@ FEATURE_SHEET_LINES: dict[str, str] = {"packages": "ausstattung", "images": "aus
 
 # Features read STRICTLY: granted only where «Test connection» probed the
 # option and recorded it as granted — no row is NOT granted. `vin_decode`
-# (KAN-549) and `valuation` (KAN-552): both are calls a dealer's licence may
-# not cover (the test licence has no `vin`, ADR-113; valuations are counted),
-# and neither may be learnt from a billed refusal.
+# (KAN-549: the test licence has no `vin`, ADR-113, and the rung must not learn
+# that from a refused provider call) and `valuation` (KAN-552: the ticket shows
+# «Bewertung von auto-i-dat holen» only when the connection's `bewertung` row is
+# granted). A connection tested before KAN-552 has no `bewertung` row until it
+# is tested again.
 STRICT_FEATURE_OPTIONS: dict[str, str] = {"vin_decode": "vin", "valuation": "bewertung"}
 
 # KAN-549 (ADR-113): VIN identification is the identAPI's licence option
-# `vin`, probed on «Test connection» like every option. Unlike the others it
-# is read strictly — a connection that was never probed may not send a VIN
-# query: the test licence does not grant it (§8), and the rung must not learn
-# that from a billed refusal.
+# `vin`; KAN-552: valuation is `bewertung`. Both probed on «Test connection»
+# like every option and read strictly (STRICT_FEATURE_OPTIONS above).
 VIN_LICENCE_OPTION = "vin"
 VALUATION_LICENCE_OPTION = "bewertung"
 

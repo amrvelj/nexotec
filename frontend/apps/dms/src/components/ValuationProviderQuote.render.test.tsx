@@ -161,7 +161,10 @@ describe('ValuationCreateDialog — the auto-i-dat valuation (KAN-552)', () => {
     expect(within(dialog).queryByTestId('provider-quote')).toBeNull()
     await submitWithOffer(user, dialog)
     await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
-    expect((backend.callsTo(/^\/valuations$/, 'POST')[0].body as Record<string, unknown>).providerQuoteId).toBeNull()
+    const body = backend.callsTo(/^\/valuations$/, 'POST')[0].body as Record<string, unknown>
+    expect(body.providerQuoteId).toBeNull()
+    // the stale quote's figure is not sent as the advisor's own
+    expect(body.providerValue).toBeNull()
   })
 })
 

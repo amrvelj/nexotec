@@ -59,7 +59,17 @@ class ValuationCreate(CamelModel):
     # otherwise (an advisor's own figure, the quote kept beside it). A sent
     # `source` is no longer needed; `auto_i_dat` without a quote is 422
     # `provider_quote_required`.
-    source: ValuationSource | None = None
+    source: ValuationSource | None = Field(
+        default=None,
+        # Marked in the OpenAPI document only: the service still reads it to
+        # refuse `auto_i_dat` without a quote, and pydantic's own
+        # `deprecated=` would warn on that read.
+        json_schema_extra={"deprecated": True},
+        description=(
+            "Deprecated (KAN-552): derived from `providerQuoteId` and `providerValue`; a sent value is not stored. "
+            "`auto_i_dat` without `providerQuoteId` is refused (422 provider_quote_required)."
+        ),
+    )
     provider_quote_id: uuid.UUID | None = None
     provider_value: Decimal | None = None
     final_offer: Decimal

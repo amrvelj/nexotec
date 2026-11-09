@@ -337,7 +337,8 @@
       "provider_quote_required": "Une valeur auto-i-dat vient du fournisseur — utilisez d’abord « Obtenir l’évaluation auto-i-dat ».",
       "provider_quote_mismatch": "Cette évaluation auto-i-dat appartient à une autre configuration.",
       "provider_quote_stale": "La première mise en circulation ou le kilométrage diffèrent de l’évaluation auto-i-dat. Veuillez l’obtenir à nouveau.",
-      "provider_quote_inputs_missing": "L’évaluation auto-i-dat requiert la première mise en circulation et le kilométrage."
+      "provider_quote_inputs_missing": "L’évaluation auto-i-dat requiert la première mise en circulation et le kilométrage.",
+      "provider_not_configured": "La connexion à auto-i-dat n’est pas entièrement configurée — vérifiez-la dans l’administration de l’entreprise, sous Intégrations."
     },
     "accessWindow": {
       "between": "valable du {{from}} au {{to}}",
@@ -1750,7 +1751,6 @@
     "searchCustomer": "Rechercher un client",
     "createCustomer": "Créer un nouveau",
     "source": "Source",
-    "sourceManual": "Manuel",
     "providerValue": "Valeur brute",
     "validForDays": "Valide pendant (jours)",
     "deductionsSection": "Déductions",

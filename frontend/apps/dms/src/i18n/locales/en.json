@@ -337,7 +337,8 @@
       "provider_quote_required": "An auto-i-dat value comes from the provider — use «Get valuation from auto-i-dat» first.",
       "provider_quote_mismatch": "This auto-i-dat valuation belongs to another configuration.",
       "provider_quote_stale": "The first registration or the mileage differ from the auto-i-dat valuation. Please get it again.",
-      "provider_quote_inputs_missing": "The auto-i-dat valuation needs the first registration and the mileage."
+      "provider_quote_inputs_missing": "The auto-i-dat valuation needs the first registration and the mileage.",
+      "provider_not_configured": "The auto-i-dat connection is not fully set up — check it under Integrations in the business administration."
     },
     "accessWindow": {
       "between": "valid from {{from}} to {{to}}",
@@ -1750,7 +1751,6 @@
     "searchCustomer": "Search customer",
     "createCustomer": "Create new",
     "source": "Source",
-    "sourceManual": "Manual",
     "providerValue": "Raw value",
     "validForDays": "Valid for (days)",
     "deductionsSection": "Deductions",

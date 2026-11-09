@@ -361,3 +361,22 @@ def test_opening_a_valuation_makes_no_provider_call(client, db_session):
     assert detail.status_code == 200 and listing.status_code == 200
     assert detail.json()["providerQuote"]["exchangePrice"] == quote["exchangePrice"]
     assert _calls(db_session) == calls, "opening a valuation never asks the provider"
+
+
+def test_a_connection_not_fully_set_up_is_said_as_such(client, db_session, monkeypatch):
+    """No client id or secret, or nobody to enrol: the dealer's to fix in
+    Dealer Administration — never «derzeit nicht verfügbar»."""
+
+    from app.integration.errors import ProviderConfigurationError
+
+    tenant_id = _connected(db_session)
+    configuration_id = _provider_configuration(db_session, tenant_id)
+
+    def unconfigured(self, **_):
+        raise ProviderConfigurationError("no clientId")
+
+    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_vehicle_valuation", unconfigured)
+    response = _quote(client, tenant_id, configuration_id)
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {"reason": "provider_not_configured"}

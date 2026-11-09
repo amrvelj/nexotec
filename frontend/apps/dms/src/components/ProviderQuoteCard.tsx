@@ -1,4 +1,4 @@
-import { Group, Stack, Table, Text } from '@mantine/core'
+import { Alert, Group, Stack, Table, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import type { ProviderQuoteRead } from '../api/types'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -61,7 +61,11 @@ export function ProviderQuoteCard({ quote }: { quote: ProviderQuoteRead }) {
           at: formatDateTime(quote.fetchedAt, locale),
         })}
       </Text>
-      {quote.providerManual && <Text size="xs" c="orange">{t('valuationQuote.manualHint')}</Text>}
+      {quote.providerManual && (
+        <Alert color="yellow" p="xs">
+          <Text size="xs">{t('valuationQuote.manualHint')}</Text>
+        </Alert>
+      )}
       {messages.map((text) => (
         <Text key={text} size="xs" c="dimmed">{text}</Text>
       ))}
