@@ -7,14 +7,18 @@ AutoScout24 feed's `password`. `SecretSlot.AES_KEY` is removed (Anto,
 2026-11-09, D2), so the CHECK is replaced with the four remaining values
 (`tests/test_migrated_enum_checks.py` compares it with the model's).
 
-**No row is deleted here.** KAN-488's `6b98739fe743` already deleted every
-`auto_i_dat` connection's secret references, the only rows that ever held the
-slot. Should one still exist, the upgrade **refuses** with the connections it
-names instead of dropping a reference to secret material it cannot reach (the
-secrets manager is outside the database): clear the slot through the
-connection (or delete the connection) and deploy again. An offline `--sql`
+**No row is deleted here.** KAN-488's `6b98739fe743` deleted every
+`auto_i_dat` connection's secret references — the provider that required the
+slot. Until this release `set_secret` did not check a slot against the
+provider's `required_secret_slots`, so another connection may have taken one;
+none is known. Should one exist, the upgrade **refuses** with the connections
+it names instead of dropping a reference to secret material it cannot reach
+(the secrets manager is outside the database). Clear it **on the release still
+running** (`DELETE /v1/integrations/connections/{id}/secrets/aes_key`, or delete
+the connection): the new release can neither load such a row nor name the slot
+in a request. An offline `--sql`
 render skips that check — it reads rows — and says so in a comment; the
-CHECK's DDL renders as usual (KAN-174).
+CHECK's DDL renders as usual (KAN-174; `tests/test_integration_chain_kan550_renders_offline.py`).
 
 Downgrade restores the five-value CHECK; no data changes either way.
 
@@ -58,9 +62,10 @@ def refuse_if_the_slot_is_held(conn: sa.engine.Connection) -> None:
     if held:
         raise RuntimeError(
             f"{len(held)} connection(s) still hold an '{_RETIRED}' secret reference "
-            f"({', '.join(str(connection_id) for connection_id in held)}). Clear the slot or delete the "
-            "connection, then upgrade again — this migration does not drop a reference to secret material "
-            "it cannot reach (KAN-550)."
+            f"({', '.join(str(connection_id) for connection_id in held)}). On the release still running, "
+            "clear the slot (DELETE /v1/integrations/connections/{id}/secrets/aes_key) or delete the "
+            "connection, then upgrade again: the new release cannot load such a row, and this migration does "
+            "not drop a reference to secret material it cannot reach (KAN-550)."
         )
 
 
