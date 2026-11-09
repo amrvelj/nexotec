@@ -68,8 +68,10 @@ file in the same PR as any change to what it states. -->
   model-year range — the first registration's year held inside it —, first registration, mileage, the selected
   non-standard options' six-digit OptKeys), asks `vehiclevaluation` and then `residualvalue_table` under one correlation
   id (two call-log rows, each its own `call_capability` block) and stores a `ValuationProviderQuote` (tenant-private,
-  written once); 409 `no_provider_connection` / `not_entitled` (the row, or a 403 at call time), 422
-  `provider_unavailable`, `provider_cannot_value` (the provider's `state` and message as delivered),
+  written once); 409 `no_provider_connection` / `not_entitled` (the row, or a 403 at call time) /
+  `provider_not_configured` (no client id or secret — the dealer's to fix), 422 `provider_unavailable` (a failure,
+  a timeout, an open breaker, or the provider's own state 1 «offline»), `provider_cannot_value` (any other
+  provider `state`, its message as delivered — German, the first language asked, ADR-044),
   `no_catalogue_variant`, `provider_quote_inputs_missing`; a failed table keeps the quote with
   `residualTableState`. The valuation is created on it (`providerQuoteId`): `source` is **derived** — `auto_i_dat` and
   the quote's trade-in price when no other figure is sent, `manual` for the advisor's own figure with the quote beside it
