@@ -178,8 +178,9 @@ export function ValuationCreateDialog({
     try {
       const body: ProviderQuoteRequest = {
         configurationId: c.id,
-        firstRegistration: firstRegistration || null,
-        mileage: mileage === '' ? null : mileage,
+        // Both filled: `quoteInputsReady` above narrows them.
+        firstRegistration,
+        mileage,
       }
       const fetched = await api.post<ProviderQuoteRead>('/valuations/provider-quotes', body, quoteKey.headers(body))
       quoteKey.renew()
