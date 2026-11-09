@@ -252,7 +252,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   adapter's operation name, so demos and tests run on it. *Historical:* the SOAP «Webservice Fahrzeuge» adapter
   (zeep transport, AES decryption, the legacy code `auto_i_dat_soap`), its Datenname-shaped Protocol methods and
   `scripts/verify_auto_i_dat.py` were retired by KAN-550 (ADR-111); `zeep`, `requests` and `urllib3` left the
-  dependencies with it.
+  declared dependencies with it (`requests`/`urllib3` stay installed only as other packages' dependencies).
 - **Provider captions are vocabulary, global, fetched on «Test connection» only** (ADR-111 (3); KAN-547, Anto
   2026-11-07: no scheduled refresh — a background job has no user to enrol). `integration_provider_caption`
   (`app/integration/models/caption.py`, migration `3f1c9a7e2b54`; in the integration registry, not vehicle,
@@ -311,7 +311,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   (`7c4e9a2b6d13`, from the retired SOAP specification) and docstrings citing spec pages stay
   here — never pasted into a public issue, gist, PR on another repo or chat. Fixtures and the
   mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, `test-dealer`;
-  mock OptKeys 9xxxxx; the mock's plates and its one VIN, `WVWZZZDEMV0000001`, resolve to invented cars),
+  the mock's plates and its one VIN, `WVWZZZDEMV0000001`, resolve to invented cars),
   never a value from an account sheet or a specification example. The entitlement probes'
   inputs (`auto_i_dat_ident.py`: an FzKey, two Typenschein numbers, a VIN) are the examples of
   auto-i's **publicly served** OpenAPI document, not of the confidential PDFs — public, not an

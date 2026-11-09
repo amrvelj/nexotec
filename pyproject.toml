@@ -56,8 +56,10 @@ dependencies = [
     # now imports it. No new package: the SVG sanitiser there is the
     # standard library's expat and ElementTree.
     "pillow>=11.0,<14",
-    # KAN-550: zeep (and requests/urllib3/lxml with it) left with the SOAP
-    # adapter (ADR-111); the identAPI adapter speaks REST over httpx.
+    # KAN-550: zeep, requests and urllib3 left with the SOAP adapter
+    # (ADR-111); the identAPI adapter speaks REST over httpx. requests and
+    # urllib3 still arrive as other packages' dependencies; nothing of ours
+    # imports them (tests/architecture/test_provider_adapter_is_the_identapi.py).
 ]
 
 [project.optional-dependencies]

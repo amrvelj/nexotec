@@ -3,8 +3,9 @@
 Data only — no schema change. KAN-550 retired the SOAP «Webservice Fahrzeuge»
 adapter and reshaped the demo provider (`auto_i_dat_mock`) to send the
 identAPI's own codes: vehicle kind `01` where its fixtures sent the SOAP-era
-`1`, gearbox `1`/`5` where they sent `M`/`A`. Three steps, each plain DML (no
-row is read in Python, so an offline `--sql` render emits them as they are):
+`1`, gearbox `1`/`5` where they sent `M`/`A`. Three steps, each plain DML with
+its constants bound on the statement (no row is read in Python, and an offline
+`--sql` render writes the values — `tests/test_vehicle_chain_kan550_renders_offline.py`):
 
 1. **The demo provider's code map follows its vehicle kind.** Rows seeded for
    `auto_i_dat_mock` under kind `1` (`b0a125a0a583`'s colour/axle/tyre codes,
@@ -64,38 +65,48 @@ IDENTAPI_KIND = "01"
 SOAP_GEARBOX_CODES = ("A", "M")
 
 
+def _statement(sql: str) -> sa.TextClause:
+    """The step's constants bound on the statement itself, so an offline
+    `--sql` render (`literal_binds`, `alembic/env.py`) writes their values;
+    parameters passed to `execute` alongside would render as NULL there."""
+
+    params = {
+        "provider": sa.bindparam("provider", DEMO_PROVIDER),
+        "soap_kind": sa.bindparam("soap_kind", SOAP_KIND),
+        "kind": sa.bindparam("kind", IDENTAPI_KIND),
+        "soap_gearbox_codes": sa.bindparam("soap_gearbox_codes", list(SOAP_GEARBOX_CODES), expanding=True),
+    }
+    return sa.text(sql).bindparams(*(param for name, param in params.items() if f":{name}" in sql))
+
+
 def retire_demo_soap_codes(conn: Connection) -> None:
     """Steps 1 and 2. Takes a connection so tests can run it against the
     create_all schema after `b0a125a0a583`'s own `_seed`."""
 
-    params = {"provider": DEMO_PROVIDER, "soap_kind": SOAP_KIND, "kind": IDENTAPI_KIND}
     conn.execute(
-        sa.text(
+        _statement(
             "DELETE FROM vehicle_provider_code_map WHERE provider = :provider AND ("
             " (vehicle_kind = :soap_kind AND code_group = 'vehicle_kind')"
-            " OR (code_group = 'transmission' AND provider_code IN ('A', 'M')))"
-        ),
-        params,
+            " OR (code_group = 'transmission' AND provider_code IN :soap_gearbox_codes))"
+        )
     )
     conn.execute(
-        sa.text(
+        _statement(
             "DELETE FROM vehicle_provider_code_map WHERE provider = :provider AND vehicle_kind = :soap_kind"
             " AND EXISTS (SELECT 1 FROM vehicle_provider_code_map AS kept"
             "  WHERE kept.provider = vehicle_provider_code_map.provider AND kept.vehicle_kind = :kind"
             "  AND kept.code_group = vehicle_provider_code_map.code_group"
             "  AND kept.provider_code = vehicle_provider_code_map.provider_code)"
-        ),
-        params,
+        )
     )
     conn.execute(
-        sa.text(
+        _statement(
             "UPDATE vehicle_provider_code_map SET vehicle_kind = :kind, updated_at = CURRENT_TIMESTAMP"
             " WHERE provider = :provider AND vehicle_kind = :soap_kind"
-        ),
-        params,
+        )
     )
     for table in ("vehicle_variant_option_provider_code", "vehicle_variant_provider_code", "vehicle_mapping_gap"):
-        conn.execute(sa.text(f"DELETE FROM {table} WHERE provider = :provider"), params)
+        conn.execute(_statement(f"DELETE FROM {table} WHERE provider = :provider"))
 
 
 def purge_codegrpnr_gaps(conn: Connection) -> None:

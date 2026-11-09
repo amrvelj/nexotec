@@ -14,7 +14,12 @@ from app.core.audit import list_audit_events
 from app.core.auth import create_access_token
 from app.core.config import get_settings
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
-from app.integration.errors import ProviderGatewayError
+from app.integration.errors import (
+    ProviderConfigurationError,
+    ProviderGatewayError,
+    ProviderTimeoutError,
+    ProviderTransportError,
+)
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
@@ -504,3 +509,64 @@ def test_test_connection_endpoint(client, db_session):
     assert tested.status_code == 200, tested.text
     assert tested.json()["status"] == "connected"
     assert tested.json()["lastVerifiedAt"] is not None
+
+
+# --- KAN-108: a failure while the adapter is built --------------------------------
+# The SOAP adapter fetched its WSDL in the factory; its tests of this branch
+# left with it (KAN-550). The branch itself stays in `call_capability`, so it
+# keeps a test of its own with a factory that fails.
+
+
+def _failing_factory(monkeypatch, exc: Exception) -> list[int]:
+    built: list[int] = []
+
+    def factory(db, connection, actor_id, purpose):
+        built.append(1)
+        raise exc
+
+    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", factory)
+    return built
+
+
+@pytest.mark.parametrize(
+    ("exc", "status"),
+    [
+        (ProviderTimeoutError("the provider did not answer"), CallStatus.TIMEOUT),
+        (ProviderTransportError("ConnectError"), CallStatus.ERROR),
+    ],
+    ids=["timeout", "transport"],
+)
+def test_a_transport_failure_while_building_the_adapter_is_logged_and_charged(db_session, monkeypatch, exc, status):
+    connection = _make_connection(db_session, _make_provider(db_session))
+    resilience.reset_circuit(connection.id)
+    built = _failing_factory(monkeypatch, exc)
+
+    for _ in range(resilience._FAILURE_THRESHOLD):
+        with pytest.raises(type(exc)), gateway.call_capability(db_session, connection=connection, capability="vehicle_data"):
+            raise AssertionError("the block never runs when the adapter cannot be built")
+
+    rows = db_session.scalars(select(IntegrationCallLog).filter_by(connection_id=connection.id)).all()
+    assert [row.status for row in rows] == [status] * resilience._FAILURE_THRESHOLD
+    assert resilience.is_circuit_open(connection.id) is True
+    # Past the threshold nothing is built (no further request would reach the provider).
+    with pytest.raises(resilience.CircuitOpenError), gateway.call_capability(
+        db_session, connection=connection, capability="vehicle_data"
+    ):
+        pass
+    assert len(built) == resilience._FAILURE_THRESHOLD
+    resilience.reset_circuit(connection.id)
+
+
+def test_a_configuration_error_while_building_the_adapter_is_neither_logged_nor_charged(db_session, monkeypatch):
+    connection = _make_connection(db_session, _make_provider(db_session))
+    resilience.reset_circuit(connection.id)
+    _failing_factory(monkeypatch, ProviderConfigurationError("no clientId on the connection"))
+
+    for _ in range(resilience._FAILURE_THRESHOLD):
+        with pytest.raises(ProviderConfigurationError), gateway.call_capability(
+            db_session, connection=connection, capability="vehicle_data"
+        ):
+            pass
+
+    assert db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).count() == 0
+    assert resilience.is_circuit_open(connection.id) is False

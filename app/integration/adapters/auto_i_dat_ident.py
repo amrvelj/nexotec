@@ -528,15 +528,13 @@ class AutoIDatIdentAdapter:
         body = self._request(OP_VEHICLECATALOG, "GET", path, params, empty_on_404=True)
         return parse.parse_distinct_values(body, field)
 
-    # -- ProviderAdapter methods other tickets build ------------------------------
-
     # -- KAN-211 (ADR-123): the details loaded once per Betrieb on open ------------
 
     def fetch_variant_with_colours(self, fz_key: str) -> VariantColoursData:
         """`GET /vehiclecatalog/autoi/{fzKey}` — one request for the variant's
         master data and its colour options (`colorOptionsData`, on the same
         row; the identAPI has no colour endpoint). A missing key is raised as
-        the loader expects, like `fetch_vehicle_master_data`."""
+        the loader expects."""
 
         body = self._request(
             OP_VEHICLECATALOG,
