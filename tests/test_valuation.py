@@ -52,7 +52,7 @@ def test_creatable_with_no_customer_no_vehicle(db_session):
         db_session,
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
-        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.AUTO_I_DAT, provider_value=Decimal(19000), final_offer=Decimal(19000)),
+        data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf", source=ValuationSource.MANUAL, provider_value=Decimal(19000), final_offer=Decimal(19000)),
         actor_id=uuid.uuid4(),
     )
 
@@ -110,7 +110,9 @@ def test_deductions_are_stored_as_child_rows(db_session):
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
         data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf",
-            source=ValuationSource.AUTO_I_DAT,
+            # KAN-552: a typed provider figure is the advisor's own (manual);
+            # an auto-i-dat figure comes only from a stored quote.
+            source=ValuationSource.MANUAL,
             provider_value=Decimal(27850),
             deductions=[
                 DeductionInput(label="MFK-Vorbereitung", amount=Decimal(570)),
@@ -135,7 +137,9 @@ def test_final_offer_may_differ_from_provider_value_minus_deductions(db_session)
         tenant_id=tenant_id,
         group_id=uuid.uuid4(),
         data=ValuationCreate(vin=unique_vin(), vehicle_make="VW", vehicle_model="Golf",
-            source=ValuationSource.AUTO_I_DAT,
+            # KAN-552: a typed provider figure is the advisor's own (manual);
+            # an auto-i-dat figure comes only from a stored quote.
+            source=ValuationSource.MANUAL,
             provider_value=Decimal(27850),
             deductions=[DeductionInput(label="MFK", amount=Decimal(570))],
             final_offer=Decimal(26750),  # not 27850-570=27280 — a real negotiated number

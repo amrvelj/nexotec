@@ -90,6 +90,7 @@ from app.integration.services.captions import ProviderCaption, get_captions
 from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
+    valuation_granted,
     vin_decode_granted,
 )
 from app.integration.services.gateway import (
@@ -142,5 +143,6 @@ __all__ = [
     "get_enabled_connection",
     "get_entitlement",
     "resolve_adapter",
+    "valuation_granted",
     "vin_decode_granted",
 ]

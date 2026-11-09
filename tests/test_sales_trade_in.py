@@ -89,7 +89,7 @@ def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
     vin = "WVWZZZ1KZAW654321"
     create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
-        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.AUTO_I_DAT, final_offer=Decimal(15350)),
+        data=ValuationCreate(vehicle_make="VW", vehicle_model="Golf", vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(15350)),
         actor_id=uuid.uuid4(),
     )
 

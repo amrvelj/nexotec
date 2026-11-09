@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.core.errors import UnprocessableEntityError
+from app.integration.public import IntegrationConnection
 
 # Literals, not `ConfigurationMode.X.value`: the ADR-047 guard
 # (tests/architecture/test_adr_047_no_shared_transaction.py) cannot follow a
@@ -80,3 +81,31 @@ class HostConfiguration:
     def require_mode(self, *, host: str, allowed: tuple[str, ...]) -> None:
         if self.mode not in allowed:
             raise ConfigurationModeNotAllowedError(host=host, mode=self.mode, allowed=allowed)
+
+
+# -- KAN-552: what the identAPI's valuation needs (services/provider_valuation_input.py)
+
+
+@dataclasses.dataclass(frozen=True)
+class ProviderValuationInput:
+    connection: IntegrationConnection
+    configuration_id: uuid.UUID
+    configuration_label: str | None
+    fz_key: str
+    model_year_from: int
+    model_year_to: int | None
+    first_registration_date: dt.date | None
+    mileage_km: int | None
+    option_keys: list[int]
+
+    def model_year_for(self, first_registration: dt.date) -> int:
+        year = max(first_registration.year, self.model_year_from)
+        return min(year, self.model_year_to) if self.model_year_to is not None else year
+
+
+class NoCatalogueVariantError(UnprocessableEntityError):
+    def __init__(self) -> None:
+        super().__init__(
+            "This configuration has no catalogue variant the provider knows, so the provider cannot value it.",
+            details={"reason": "no_catalogue_variant"},
+        )

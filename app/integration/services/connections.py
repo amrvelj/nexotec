@@ -64,15 +64,22 @@ _ENTITY_TYPE = "integration_connection"
 # `energielabel`. The features screens ask about keep their names and follow
 # the option that licenses them: option lists, packages and images are all
 # the `ausstattung` option (there is no separate image or package licence).
-FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung", "packages": "ausstattung", "images": "ausstattung"}
+FEATURE_SHEET_LINES: dict[str, str] = {"packages": "ausstattung", "images": "ausstattung"}
+
+# Features read STRICTLY: granted only where «Test connection» probed the
+# option and recorded it as granted — no row is NOT granted. `vin_decode`
+# (KAN-549) and `valuation` (KAN-552): both are calls a dealer's licence may
+# not cover (the test licence has no `vin`, ADR-113; valuations are counted),
+# and neither may be learnt from a billed refusal.
+STRICT_FEATURE_OPTIONS: dict[str, str] = {"vin_decode": "vin", "valuation": "bewertung"}
 
 # KAN-549 (ADR-113): VIN identification is the identAPI's licence option
 # `vin`, probed on «Test connection» like every option. Unlike the others it
 # is read strictly — a connection that was never probed may not send a VIN
 # query: the test licence does not grant it (§8), and the rung must not learn
 # that from a billed refusal.
-_VIN_DECODE_CAPABILITY = "vin_decode"
 VIN_LICENCE_OPTION = "vin"
+VALUATION_LICENCE_OPTION = "bewertung"
 
 
 def _validate_required_config(provider: IntegrationProvider, config: dict) -> None:
@@ -498,14 +505,25 @@ def record_probed_entitlement(
     return row
 
 
-def vin_decode_granted(db: Session, *, connection_id: uuid.UUID) -> bool:
-    """KAN-549: may this connection send a VIN query — its `vin` row, probed
-    on «Test connection», and nothing else. No row is not granted. Writes
-    nothing, so another context's request (the identification waterfall) can
-    ask it inside its own transaction (ADR-047)."""
+def licence_option_granted(db: Session, *, connection_id: uuid.UUID, option: str) -> bool:
+    """A licence option read strictly: the connection's probed row, and
+    nothing else. No row is not granted. Writes nothing, so another context's
+    request can ask it inside its own transaction (ADR-047)."""
 
-    entitlement = get_entitlement(db, connection_id=connection_id, capability_code=VIN_LICENCE_OPTION)
+    entitlement = get_entitlement(db, connection_id=connection_id, capability_code=option)
     return entitlement is not None and entitlement.granted
+
+
+def vin_decode_granted(db: Session, *, connection_id: uuid.UUID) -> bool:
+    """KAN-549: may this connection send a VIN query — its `vin` row."""
+
+    return licence_option_granted(db, connection_id=connection_id, option=VIN_LICENCE_OPTION)
+
+
+def valuation_granted(db: Session, *, connection_id: uuid.UUID) -> bool:
+    """KAN-552: may this connection ask for a valuation — its `bewertung` row."""
+
+    return licence_option_granted(db, connection_id=connection_id, option=VALUATION_LICENCE_OPTION)
 
 
 def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code: str) -> bool:
@@ -521,23 +539,26 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
     dedicated capability endpoint — owns its own degradation policy over
     the same neutral data).
 
-    `vin_decode` (KAN-549) is a deliberate exception, handled before the
-    generic scan: it follows the licence option `vin` strictly — granted
-    only where an enabled connection's probed `vin` row says so; "no row"
-    means "not granted", the opposite of this function's optimistic bias
-    for every other capability.
+    `vin_decode` (KAN-549) and `valuation` (KAN-552) are deliberate
+    exceptions, handled before the generic scan (`STRICT_FEATURE_OPTIONS`):
+    each follows its licence option strictly — granted only where an enabled
+    connection's probed row says so; "no row" means "not granted", the
+    opposite of this function's optimistic bias for every other capability.
 
     A feature named in `FEATURE_SHEET_LINES` is answered from its sheet
-    line: `valuation` reads `bewertung` rows.
+    line: `packages` and `images` read `ausstattung` rows.
     """
 
-    if capability_code == _VIN_DECODE_CAPABILITY:
+    strict_option = STRICT_FEATURE_OPTIONS.get(capability_code)
+    if strict_option is not None:
         enabled = db.scalars(
             select(IntegrationConnection.id).where(
                 IntegrationConnection.tenant_id == tenant_id, IntegrationConnection.enabled.is_(True)
             )
         ).all()
-        return any(vin_decode_granted(db, connection_id=connection_id) for connection_id in enabled)
+        return any(
+            licence_option_granted(db, connection_id=connection_id, option=strict_option) for connection_id in enabled
+        )
 
     capability_code = FEATURE_SHEET_LINES.get(capability_code, capability_code)
 

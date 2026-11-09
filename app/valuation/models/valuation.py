@@ -28,7 +28,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, Date, Integer, String
+from sqlalchemy import DECIMAL, JSON, Boolean, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -40,6 +40,72 @@ from app.db import Base
 class ValuationSource(str, enum.Enum):
     AUTO_I_DAT = "auto_i_dat"
     MANUAL = "manual"
+
+
+class ResidualTableState(str, enum.Enum):
+    """KAN-552 — what became of a quote's residual-value table: loaded, not in
+    the dealer's licence (403), unavailable (failure, timeout, open breaker), or
+    the provider's own «cannot» for this car."""
+
+    PRESENT = "present"
+    NOT_IN_CONTRACT = "not_in_contract"
+    UNAVAILABLE = "unavailable"
+    DECLINED = "declined"
+
+
+class ValuationProviderQuote(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """KAN-552 (Anto, 2026-11-09, option A) — the identAPI's answer for one
+    configured car, fetched on the advisor's click before the valuation is
+    created, and referenced by it. Stored so the provider figure on a
+    valuation is the provider's, never typed; a valuation is never edited
+    after creation (ADR-066), so the quote comes first. Written once, never
+    updated. Tenant-private like the valuation (ADR-029).
+
+    «Wert auto-i-dat» is the trade-in (exchange) price, vehicle plus options;
+    purchase and sale prices are kept beside it (Anto, 2026-11-09)."""
+
+    __tablename__ = "valuation_provider_quote"
+
+    configuration_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True,
+        comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK.",
+    )
+    configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+    # What was asked — a valuation may reference the quote only for the same car,
+    # first registration and mileage (services/provider_quote.py).
+    fz_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    first_registration: Mapped[dt.date] = mapped_column(Date(), nullable=False)
+    mileage: Mapped[int] = mapped_column(Integer, nullable=False)
+    option_keys: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
+
+    # What the provider answered (CHF, as delivered).
+    exchange_price: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
+    purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    sale_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    vehicle_exchange_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    options_exchange_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    kilometre_correction_exchange: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    kilometre_expected: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    exchange_range_from: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    exchange_range_to: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # The provider's "manually" flag: its figure invites a manual correction.
+    provider_manual: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # [{de, fr, it, en}] — provider text, shown as delivered (ADR-044).
+    screen_messages: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    print_messages: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+
+    residual_table_state: Mapped[ResidualTableState] = mapped_column(
+        StoredEnum(ResidualTableState, length=16), nullable=False
+    )
+    # [{durationMonths, kmPerYear, totalPercent, totalPrice}] — the predefined table, one request.
+    residual_table: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+
+    # The call-log correlation id of the requests that produced this quote.
+    provider_request_ref: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
 
 
 class ValuationNumberSequence(Base):
@@ -124,6 +190,13 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     supersedes_valuation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+
+    # KAN-552 — the provider quote this valuation's provider figure came from.
+    # With `source = auto_i_dat` the figure is the quote's trade-in price; with
+    # `manual` beside a quote the advisor overrode it, and both are shown.
+    provider_quote_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("valuation_provider_quote.id", name="fk_valuation_provider_quote_id"), nullable=True, index=True
+    )
 
 
 class ValuationDeduction(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):

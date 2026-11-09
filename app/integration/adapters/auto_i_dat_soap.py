@@ -80,6 +80,7 @@ from app.integration.adapters.base import (
     OptionConditionData,
     OptionPackageContentData,
     PlateInfoData,
+    ResidualTableData,
     SystemWatermark,
     TypeApprovalDataResult,
     ValuationResult,
@@ -92,6 +93,7 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
+    VehicleValuationData,
 )
 from app.integration.errors import (
     ProviderConfigurationError,
@@ -780,6 +782,16 @@ class AutoIDatSoapAdapter:
 
     def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
         self._not_on_soap("Vehicle Build by VIN")
+
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
+        self._not_on_soap("The identAPI valuation")
+
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        self._not_on_soap("The residual-value table")
 
     def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
         self._not_on_soap("The paged Typenschein lookup")

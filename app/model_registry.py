@@ -63,7 +63,12 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
-from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
+from app.valuation.models.valuation import (
+    Valuation,
+    ValuationDeduction,
+    ValuationNumberSequence,
+    ValuationProviderQuote,
+)
 from app.vehicle.models.catalogue import (
     Brand,
     ModelGroup,
@@ -184,6 +189,7 @@ __all__ = [
     "Valuation",
     "ValuationDeduction",
     "ValuationNumberSequence",
+    "ValuationProviderQuote",
     "VariantDetailState",
     "VariantOption",
     "VariantOptionEquipmentFeature",

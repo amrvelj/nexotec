@@ -332,3 +332,36 @@ def detail_bodies(*, options: list[dict[str, Any]] | None = None) -> dict[str, d
         # label endpoint's own row.
         ENERGY_LABEL_PATH: energy_label_body(year=2025),
     }
+
+
+# -- valuation (KAN-552) — invented figures, never a specification example ------
+
+
+def valuation_body(**overrides: Any) -> dict[str, Any]:
+    """An `AutoiBewertungData` item answer: info + one valuation row."""
+
+    row = {
+        "vehicleExchangePrice": 18400, "vehiclePurchasePrice": 17100, "vehicleSalePrice": 21900,
+        "optionsExchangePrice": 600, "optionsPurchasePrice": 500, "optionsSalePrice": 800,
+        "kilometreExpected": 45000, "kilometreCorrectionExchange": -350,
+        "vehiclePriceRangeFrom": 17800, "vehiclePriceRangeTo": 19100,
+        "fzKey": "01911001", "modelYear": 2022, "firstAdmission": "2022-05-17", "kilometreState": 52000,
+    }
+    info = {
+        "state": "OK", "stateCode": 0, "stateMsg": "OK", "manually": False,
+        "screenMsg": [{"textDe": "Testhinweis", "textFr": "Note de test", "textIt": "Nota di prova", "textEn": "Test note"}],
+        "printMsg": [],
+    }
+    info.update(overrides.pop("info", {}))
+    row.update(overrides)
+    return {"data": {"info": info, "valuation": [row]}, "links": {"self": "https://api.ident.autoi.ch/x"}}
+
+
+def residual_table_body() -> dict[str, Any]:
+    rows = [
+        {"duration": months, "kilometreYear": km, "totalPercent": 60.5 - months / 4 - km / 5000, "totalPrice": 20000 - months * 100,
+         "vehiclePercent": 0, "vehiclePrice": 0, "optionsPercent": 0, "optionsPrice": 0, "totalKilometre": months * km // 12}
+        for km in (10000, 20000)
+        for months in (12, 24, 36)
+    ]
+    return {"data": {"info": {"state": "OK", "stateCode": 0, "stateMsg": "OK"}, "vehicle": {"fzKey": "01911001"}, "residualvalue": rows}}

@@ -30,9 +30,10 @@ _VERSIONS = _REPO / "alembic" / "versions"
 
 _CAPABILITY_URL = re.compile(r"/integrations/capabilities/([A-Za-z0-9_]+)")
 
-# `vin_decode` is a feature a screen may ask about, answered strictly from the licence option `vin`
-# (KAN-549, ADR-113). It is no row code: since the `dat` provider was retired nothing writes a `vin_decode` row.
-STRICT_FEATURES = {"vin_decode"}
+# Features a screen may ask about that are answered strictly from one licence option
+# (connections.STRICT_FEATURE_OPTIONS: `vin_decode` → `vin`, KAN-549; `valuation` → `bewertung`, KAN-552). No row
+# code: since the `dat` provider was retired nothing writes a `vin_decode` row.
+STRICT_FEATURES = set(connection_service.STRICT_FEATURE_OPTIONS)
 
 # KAN-488: `images` and `packages` became features over the `ausstattung` option (connections.FEATURE_SHEET_LINES);
 # nothing is read outside the vocabulary any more.
@@ -142,5 +143,5 @@ def test_every_code_the_frontend_asks_about_is_in_the_vocabulary():
 
 
 def test_every_feature_follows_a_seeded_sheet_line():
-    for feature, line in connection_service.FEATURE_SHEET_LINES.items():
+    for feature, line in {**connection_service.FEATURE_SHEET_LINES, **connection_service.STRICT_FEATURE_OPTIONS}.items():
         assert line in _sheet_lines(), f"feature {feature!r} follows {line!r}, which no provider declares"

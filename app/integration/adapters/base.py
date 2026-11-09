@@ -455,6 +455,64 @@ class ForecastResult:
     forecast_date: dt.date
 
 
+# -- the identAPI's valuation (KAN-552) ---------------------------------------
+
+
+@dataclass(frozen=True)
+class ProviderMessage:
+    """A screen or print message of a valuation answer, in the four languages
+    the request asked for — provider text, shown as delivered (ADR-044)."""
+
+    de: str | None
+    fr: str | None
+    it: str | None
+    en: str | None
+
+
+@dataclass(frozen=True)
+class VehicleValuationData:
+    """`GET /vehiclevaluation/{fzKey}/{modelYear}/{firstAdmission}/{kilometreState}`:
+    `state` 0 is a valuation; any other is the provider's own reason it could
+    not value the car (`state_message`, as delivered). Prices are CHF; the
+    trade-in (exchange) price is what the valuation is based on — purchase
+    below it, sale above. Each `*_price` is the vehicle's plus its options'."""
+
+    state: int
+    state_message: str | None
+    manually: bool
+    exchange_price: Decimal | None
+    purchase_price: Decimal | None
+    sale_price: Decimal | None
+    vehicle_exchange_price: Decimal | None
+    options_exchange_price: Decimal | None
+    kilometre_correction_exchange: Decimal | None
+    kilometre_expected: int | None
+    exchange_range_from: Decimal | None
+    exchange_range_to: Decimal | None
+    screen_messages: list[ProviderMessage]
+    print_messages: list[ProviderMessage]
+
+
+@dataclass(frozen=True)
+class ResidualValueRow:
+    """One cell of the predefined residual-value table: after `duration_months`
+    at `km_per_year`, the car keeps `total_percent` of its new price."""
+
+    duration_months: int
+    km_per_year: int
+    total_percent: Decimal | None
+    total_price: Decimal | None
+
+
+@dataclass(frozen=True)
+class ResidualTableData:
+    """`GET /residualvalue/{fzKey}/{modelYear}` — the whole table in one request."""
+
+    state: int
+    state_message: str | None
+    rows: list[ResidualValueRow]
+
+
 class ProviderAdapter(Protocol):
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData: ...
 
@@ -485,6 +543,19 @@ class ProviderAdapter(Protocol):
     ) -> ValuationResult: ...
 
     def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult: ...
+
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
+        """KAN-552: the identAPI's current value of one car — one request."""
+        ...
+
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        """KAN-552: the predefined residual-value table — one request, never a
+        loop over durations or km bands."""
+        ...
 
     # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) ---------
 

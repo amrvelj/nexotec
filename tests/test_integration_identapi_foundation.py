@@ -600,7 +600,8 @@ def test_last_error_carries_the_providers_title_but_never_its_prose(db_session, 
 
 def test_a_not_built_operation_is_neither_logged_nor_charged(db_session, monkeypatch):
     """Finding 2: a caller reaching an operation the identAPI adapter does not
-    implement yet (valuation, KAN-552; the option list was KAN-211's) five
+    implement (the SOAP-shaped forecast, left for KAN-550; valuation is KAN-552's
+    `fetch_vehicle_valuation`; the option list was KAN-211's) five
     times must not open the connection's circuit breaker nor invent call-log
     rows."""
 
@@ -609,7 +610,7 @@ def test_a_not_built_operation_is_neither_logged_nor_charged(db_session, monkeyp
 
     s = fx.connected(db_session, monkeypatch)
     for _ in range(resilience._FAILURE_THRESHOLD):
-        with pytest.raises(ProviderGatewayError, match="KAN-552"), call_capability(
+        with pytest.raises(ProviderGatewayError, match="KAN-550"), call_capability(
             db_session, connection=s.connection, capability="vehicle_data", actor_id=s.user.id
         ) as adapter:
             adapter.fetch_forecast(fz_key="152567", model_year=2024)
