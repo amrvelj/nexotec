@@ -364,14 +364,19 @@ def test_variant_specification_endpoint_needs_no_manager_flag(client, db_session
 
 
 def test_capability_check_endpoint_defaults_to_granted_when_connected(client, db_session):
+    """The optimistic default for a declared line; `valuation` (KAN-552) and
+    `vin_decode` (KAN-549) are read strictly — never probed is not granted."""
+
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
     _make_connection(db_session, provider, tenant_id=tenant_id)
     token = _token(tenant_id)
 
-    response = client.get("/v1/integrations/capabilities/valuation", headers=_bearer(token))
+    response = client.get("/v1/integrations/capabilities/packages", headers=_bearer(token))
     assert response.status_code == 200, response.text
-    assert response.json() == {"capabilityCode": "valuation", "granted": True}
+    assert response.json() == {"capabilityCode": "packages", "granted": True}
+    response = client.get("/v1/integrations/capabilities/valuation", headers=_bearer(token))
+    assert response.json() == {"capabilityCode": "valuation", "granted": False}
 
 
 def test_capability_check_endpoint_returns_false_with_no_connection(client, db_session):
@@ -392,6 +397,10 @@ def test_capability_check_endpoint_respects_a_declared_denial(client, db_session
     response = client.get("/v1/integrations/capabilities/packages", headers=_bearer(token))
     assert response.json()["granted"] is False
 
+    # a denial of one line never touches another: `valuation` follows its own probed row
+    connection_service.record_probed_entitlement(
+        db_session, connection_id=connection.id, capability_code="bewertung", granted=True
+    )
     response = client.get("/v1/integrations/capabilities/valuation", headers=_bearer(token))
     assert response.json()["granted"] is True
 
@@ -411,6 +420,11 @@ def test_valuation_follows_the_bewertung_sheet_line(client, db_session):
         assert response.status_code == 200, response.text
         return response.json()["granted"]
 
+    # KAN-552: read strictly — a connection never probed is not granted
+    assert granted("valuation") is False
+    connection_service.record_probed_entitlement(
+        db_session, connection_id=connection.id, capability_code="bewertung", granted=True
+    )
     assert granted("valuation") is True
     connection_service.record_probed_entitlement(
         db_session, connection_id=connection.id, capability_code="bewertung", granted=False

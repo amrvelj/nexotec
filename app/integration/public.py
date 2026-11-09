@@ -35,10 +35,9 @@ C-D) are what the identification waterfall in
 `app.vehicle.services.identification` needs: the plate-record shape the
 plate-lookup cache stores (once `KontrollschildInfo`, now what a Vehicle
 Build record reduces to) and the `vehiclematch` return shape, and a
-read-only `vin_decode` check. The
-cached entitlement row is written only by integration's own "Test
-connection" (`compute_vin_decode_entitlement`, KAN-80) — ADR-047 keeps
-that write out of another context's transaction.
+read-only check of a connection's `vin` licence option (KAN-549): the
+row is written only by integration's own "Test connection" probes —
+ADR-047 keeps that write out of another context's transaction.
 
 KAN-547 / KAN-548: `BuiltVehicleData`, `VariantSearchPage` and the catalogue
 browse shapes are the identAPI operations' return vocabulary;
@@ -80,6 +79,7 @@ from app.integration.adapters.marketplace_base import (
     TransmissionResult,
 )
 from app.integration.errors import (
+    ProviderConfigurationError,
     ProviderGatewayError,
     ProviderNotEntitledError,
     ProviderRequestError,
@@ -91,6 +91,7 @@ from app.integration.services.captions import ProviderCaption, get_captions
 from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
+    valuation_granted,
     vin_decode_granted,
 )
 from app.integration.services.gateway import (
@@ -122,6 +123,7 @@ __all__ = [
     "PlateInfoData",
     "ProviderAdapter",
     "ProviderCaption",
+    "ProviderConfigurationError",
     "ProviderGatewayError",
     "ProviderNotEntitledError",
     "ProviderRequestError",
@@ -143,5 +145,6 @@ __all__ = [
     "get_enabled_connection",
     "get_entitlement",
     "resolve_adapter",
+    "valuation_granted",
     "vin_decode_granted",
 ]

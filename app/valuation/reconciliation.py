@@ -13,7 +13,7 @@ from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateChec
 from app.customer.public import Customer
 from app.platform.public import Dealership, actor_reference_checks
 from app.sales.public import SalesContract
-from app.valuation.models.valuation import Valuation, ValuationDeduction
+from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationProviderQuote
 from app.valuation.services.valuation import CONFIRMATION_GRACE
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
@@ -22,7 +22,7 @@ CONTEXT = "valuation"
 # Every Valuation table with created_by / updated_by: each must name a
 # platform user, or be null (KAN-243; see
 # app.platform.public.actor_reference_checks).
-ACTOR_TABLES = (Valuation, ValuationDeduction)
+ACTOR_TABLES = (Valuation, ValuationDeduction, ValuationProviderQuote)
 
 # A confirmation stamps its trade-in valuation on its own commit, before the
 # contract is signed in the next (KAN-101, ADR-047); a stamp still without a
@@ -116,6 +116,18 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
         )
         .exists(),
+    ),
+    # KAN-552: a quote belongs to a Betrieb. Its configuration_id is not
+    # checked: a quote the advisor never turned into a valuation names a
+    # configuration no host took, which the purge removes after 30 days
+    # (KAN-270) — that is retention, not a broken reference.
+    ReferenceCheck(
+        label="valuation_provider_quote.tenant_id -> dealership.id",
+        source_model=ValuationProviderQuote,
+        source_row_id_column=ValuationProviderQuote.id,
+        source_fk_column=ValuationProviderQuote.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

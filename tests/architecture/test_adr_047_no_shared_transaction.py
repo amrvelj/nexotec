@@ -228,7 +228,10 @@ _OWN_COMMIT_WRITES = {
     # again, only sometimes — which is why the commit's home is named.
     "app.integration.public.call_capability": (
         "app.integration.services.gateway.record_call",
-        "inventory: marketplace transmission; vehicle: catalogue seed and daily delta",
+        (
+            "inventory: marketplace transmission; vehicle: catalogue seed and daily delta; "
+            "valuation: the provider quote (KAN-552)"
+        ),
     ),
 }
 
@@ -268,6 +271,8 @@ _READS = {
     "app.integration.public.resolve_adapter",
     # KAN-42: the identification waterfall asks whether VIN decode is entitled.
     "app.integration.public.vin_decode_granted",
+    # KAN-552: the valuation's provider quote asks whether the `bewertung` option is granted; a SELECT only.
+    "app.integration.public.valuation_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_item_vehicle",
     "app.inventory.public.get_stock_items_for_vehicles",
@@ -332,6 +337,8 @@ _READS = {
     "app.vehicle.public.get_configuration_for_host",
     # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.
     "app.vehicle.public.get_configuration_labels",
+    # KAN-552: the valuation's provider quote reads the car's FzKey, OptKeys and connection; a SELECT only.
+    "app.vehicle.public.get_provider_valuation_input",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
     "app.vehicle.public.get_vehicle_or_404",

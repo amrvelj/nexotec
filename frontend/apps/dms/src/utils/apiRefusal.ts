@@ -193,6 +193,15 @@ const REASON_KEYS: Record<string, string> = {
       'source_ref_reserved',
       // KAN-572 — only a trade-in's car can go back to its customer.
       'storno_return_not_trade_in',
+      // KAN-552 — the valuation's provider quote, and a valuation built on one.
+      'not_entitled',
+      'provider_unavailable',
+      'provider_cannot_value',
+      'provider_quote_required',
+      'provider_quote_mismatch',
+      'provider_quote_stale',
+      'provider_quote_inputs_missing',
+      'provider_not_configured',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -211,6 +220,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
         : '—',
   }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
+  // KAN-552: the provider's own reason, as delivered (ADR-044).
+  provider_cannot_value: (d) => ({ message: typeof d.providerMessage === 'string' ? d.providerMessage : '—' }),
   // KAN-146: the contract whose invoice request keeps the purchase booked.
   purchase_storno_invoice_requested: (d) => ({ contractNumber: String(d.contractNumber ?? '—') }),
   // A connection's settings by their labels on the connect form; a key the

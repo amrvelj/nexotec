@@ -8,7 +8,7 @@ from pydantic import ConfigDict, Field, field_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import NormalisedVinOrChassisNumber
-from app.valuation.models.valuation import ValuationSource
+from app.valuation.models.valuation import ResidualTableState, ValuationSource
 
 # Q-11 (default validity) — confirmed live on the reference prototype's
 # own "Bewertung erstellen" dialog: "GÜLTIG FÜR (TAGE)" defaults to 30.
@@ -53,7 +53,24 @@ class ValuationCreate(CamelModel):
 
     customer_id: uuid.UUID | None = None
 
-    source: ValuationSource
+    # KAN-552: the provider figure comes from a stored quote, never typed.
+    # `source` is derived: `auto_i_dat` when `providerQuoteId` is sent and
+    # `providerValue` is absent or the quote's trade-in price; `manual`
+    # otherwise (an advisor's own figure, the quote kept beside it). A sent
+    # `source` is no longer needed; `auto_i_dat` without a quote is 422
+    # `provider_quote_required`.
+    source: ValuationSource | None = Field(
+        default=None,
+        # Marked in the OpenAPI document only: the service still reads it to
+        # refuse `auto_i_dat` without a quote, and pydantic's own
+        # `deprecated=` would warn on that read.
+        json_schema_extra={"deprecated": True},
+        description=(
+            "Deprecated (KAN-552): derived from `providerQuoteId` and `providerValue`; a sent value is not stored. "
+            "`auto_i_dat` without `providerQuoteId` is refused (422 provider_quote_required)."
+        ),
+    )
+    provider_quote_id: uuid.UUID | None = None
     provider_value: Decimal | None = None
     final_offer: Decimal
     deductions: list[DeductionInput] = Field(default_factory=list)
@@ -64,6 +81,58 @@ class ValuationCreate(CamelModel):
 
     # Set when this valuation replaces an existing one ("Neu bewerten").
     supersedes_valuation_id: uuid.UUID | None = None
+
+
+class ProviderQuoteRequest(CamelModel):
+    """KAN-552 — «Bewertung von auto-i-dat holen»: one valuation and one
+    residual table for the configured car. The first registration and the
+    mileage default from the configuration; sent, they win (what the dialog
+    shows is what is valued)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    configuration_id: uuid.UUID
+    first_registration: dt.date | None = None
+    mileage: int | None = Field(default=None, ge=0, le=2_000_000)
+
+
+class ProviderMessageRead(CamelModel):
+    de: str | None
+    fr: str | None
+    it: str | None
+    en: str | None
+
+
+class ResidualValueRead(CamelModel):
+    duration_months: int
+    km_per_year: int
+    total_percent: Decimal | None
+    total_price: Decimal | None
+
+
+class ProviderQuoteRead(CamelModel):
+    id: uuid.UUID
+    configuration_id: uuid.UUID
+    fz_key: str
+    model_year: int
+    first_registration: dt.date
+    mileage: int
+    # «Wert auto-i-dat» — the trade-in (exchange) price, vehicle and options.
+    exchange_price: Decimal
+    purchase_price: Decimal | None
+    sale_price: Decimal | None
+    vehicle_exchange_price: Decimal | None
+    options_exchange_price: Decimal | None
+    kilometre_correction_exchange: Decimal | None
+    kilometre_expected: int | None
+    exchange_range_from: Decimal | None
+    exchange_range_to: Decimal | None
+    provider_manual: bool
+    screen_messages: list[ProviderMessageRead]
+    residual_table_state: ResidualTableState
+    residual_table: list[ResidualValueRead]
+    provider_request_ref: uuid.UUID
+    fetched_at: dt.datetime
 
 
 class DeductionRead(CamelModel):
@@ -88,6 +157,9 @@ class ValuationRead(CamelModel):
     customer_label: str | None
     source: ValuationSource
     provider_value: Decimal | None
+    # KAN-552: the quote the provider figure came from — with `manual`, the
+    # advisor's override, shown beside it.
+    provider_quote: ProviderQuoteRead | None = None
     final_offer: Decimal
     deductions: list[DeductionRead] = Field(default_factory=list)
     note: str | None

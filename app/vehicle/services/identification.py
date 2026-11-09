@@ -8,9 +8,12 @@ of the waterfall, in the order the counter uses it:
 
 1. **VIN** — our own `vehicle-mdm` first (`matching.match_vehicle`, reused,
    never paralleled). A hit is decisive and offers this tenant's newest
-   configuration of that car for reuse. A miss falls through: the `vin`
-   licence option is not in the test licence (ADR-113, §8) and the rung
-   itself is KAN-549; the VIN is kept as observed data.
+   configuration of that car for reuse. A miss asks the identAPI's Vehicle
+   Build by `vin` (KAN-549) — only where the connection's probed `vin`
+   licence option is granted (ADR-113: not in the test licence, §8);
+   otherwise the note `vin_decode_not_entitled` and no call. A VIN the
+   provider does not know falls through to the manual path with the VIN
+   kept as observed data.
 2. **Kontrollschild** — the provider first (ADR-114: the counter wants the
    current registration, never vehicle-mdm's plate register), behind the
    per-tenant plate-lookup cache (`plate_lookup_cache`, 30 days): the
@@ -102,6 +105,7 @@ _CANTONS = frozenset(
     }
 )
 
+_VIN_CALL_LABEL = "vin"
 _PLATE_CALL_LABEL = "kontrollschild"
 _STAMMNUMMER_CALL_LABEL = "stammnummer"
 _TYPENSCHEIN_CALL_LABEL = "typenschein"
@@ -142,11 +146,11 @@ class NewPriceSource(str, enum.Enum):
 
 class IdentificationNote(str, enum.Enum):
     """Why the waterfall did what it did — rendered as a hint, never as an
-    error. `VIN_DECODE_NOT_ENTITLED` is deliberately silent on screen: a
-    dealer without the DAT sub-account sees what they saw before it existed."""
+    error. `VIN_DECODE_NOT_ENTITLED` (KAN-549): the connection's `vin`
+    licence option is not granted, so no VIN query was sent — the advisor
+    is told to identify by plate, Stammnummer or Typenschein."""
 
     VIN_DECODE_NOT_ENTITLED = "vin_decode_not_entitled"
-    VIN_DECODE_UNAVAILABLE = "vin_decode_unavailable"
     NO_PROVIDER_CONNECTION = "no_provider_connection"
     PLATE_LOOKUP_NOT_ENTITLED = "plate_lookup_not_entitled"
     PLATE_LOOKUP_FAILED = "plate_lookup_failed"
@@ -475,37 +479,48 @@ def _typenschein_result(
 
 
 def _identify_vin(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None, vin: str) -> IdentificationResult:
+    """Step 1: vehicle-mdm, then — only where the connection's `vin` licence
+    option is granted (KAN-549) — one Vehicle Build lookup by VIN, read like
+    the plate and Stammnummer answers. A provider that does not know the VIN,
+    refuses it or fails leaves the VIN as observed data for the manual path."""
+
+    kind, method = IdentifierKind.VIN, ConfigurationMatchMethod.VIN
     observed = ObservedIdentity(vin=vin)
     found = match_vehicle(db, vin=vin)
     if found.vehicle is not None:
         return _existing_vehicle_result(
-            db, tenant_id=tenant_id, vehicle=found.vehicle, kind=IdentifierKind.VIN,
-            match_method=ConfigurationMatchMethod.VIN, observed=observed,
+            db, tenant_id=tenant_id, vehicle=found.vehicle, kind=kind, match_method=method, observed=observed,
         )
 
-    notes: list[IdentificationNote] = []
-    if not vin_decode_granted(db, tenant_id=tenant_id):
-        notes.append(IdentificationNote.VIN_DECODE_NOT_ENTITLED)
-    else:
-        notes.append(_attempt_vin_decode(db, tenant_id=tenant_id))
-    return IdentificationResult(
-        kind=IdentifierKind.VIN,
-        match_method=ConfigurationMatchMethod.VIN,
-        outcome=IdentificationOutcome.NONE,
-        observed=observed,
-        notes=notes,
+    connection = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
+    if connection is None:
+        return IdentificationResult(
+            kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed,
+            notes=[IdentificationNote.NO_PROVIDER_CONNECTION],
+        )
+    if not vin_decode_granted(db, connection_id=connection[0].id):
+        return IdentificationResult(
+            kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed,
+            notes=[IdentificationNote.VIN_DECODE_NOT_ENTITLED],
+        )
+
+    answer = _ask_provider(
+        db, tenant_id=tenant_id, actor_id=actor_id, label=_VIN_CALL_LABEL, purpose="identify_vin",
+        call=lambda adapter: adapter.identify_by_vin(vin),
+        not_entitled_note=IdentificationNote.VIN_DECODE_NOT_ENTITLED,
     )
-
-
-def _attempt_vin_decode(db: Session, *, tenant_id: uuid.UUID) -> IdentificationNote:
-    """The entitled provider decode — KAN-549 builds it on `GET /vinrequest`
-    behind the `vin` option, which the test licence does not grant (§8,
-    ADR-113). Until then an entitled tenant falls through like an unentitled
-    one, and nothing is sent."""
-
-    if find_enabled_vehicle_data_connection(db, tenant_id=tenant_id) is None:
-        return IdentificationNote.NO_PROVIDER_CONNECTION
-    return IdentificationNote.VIN_DECODE_UNAVAILABLE
+    vehicles: list[BuiltVehicleData] = list(answer.value) if answer.answered else []
+    if not vehicles:
+        return IdentificationResult(
+            kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed, notes=answer.notes
+        )
+    assert answer.provider_code is not None
+    # `plate=None`: a VIN answer proves nothing about a plate, so it never
+    # fills the plate-lookup cache.
+    return _built_vehicles_result(
+        db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=method, observed=observed,
+        vehicles=vehicles, provider_code=answer.provider_code, plate=None,
+    )
 
 
 # -- registered vehicles (plate, Stammnummer) ----------------------------------------

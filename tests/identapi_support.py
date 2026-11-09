@@ -44,7 +44,7 @@ PROBE_PATHS = {
     "ident_basis": f"/vehiclecatalog/autoi/{auto_i_dat_ident.PROBE_FZ_KEY_CATALOG}",
     "ausstattung": f"/vehicleoption/catalog/autoi/{auto_i_dat_ident.PROBE_FZ_KEY_OPTIONS}",
     "bewertung": f"/residualvalue/{auto_i_dat_ident.PROBE_FZ_KEY_RESIDUAL}/{auto_i_dat_ident.PROBE_MODEL_YEAR_RESIDUAL}",
-    "vin": f"/vinrequest/{auto_i_dat_ident.PROBE_VIN}",
+    "vin": f"/vehiclebuild/vin/{auto_i_dat_ident.PROBE_VIN}",
     "pneu": f"/tyresandrims/typeapproval/{auto_i_dat_ident.PROBE_TYPE_APPROVAL_TYRES}",
     "energielabel": f"/energylabel/info/typeapproval/{auto_i_dat_ident.PROBE_TYPE_APPROVAL_ENERGY}",
 }
@@ -52,7 +52,7 @@ PROBE_OPERATIONS = {
     "ident_basis": auto_i_dat_ident.OP_VEHICLECATALOG,
     "ausstattung": auto_i_dat_ident.OP_VEHICLEOPTION_CATALOG,
     "bewertung": auto_i_dat_ident.OP_RESIDUALVALUE,
-    "vin": auto_i_dat_ident.OP_VINREQUEST,
+    "vin": auto_i_dat_ident.OP_VEHICLE_VIN,
     "pneu": auto_i_dat_ident.OP_TYRESANDRIMS_TYPEAPPROVAL,
     "energielabel": auto_i_dat_ident.OP_ENERGYLABEL_INFO,
 }

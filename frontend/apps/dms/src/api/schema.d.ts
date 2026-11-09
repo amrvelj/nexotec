@@ -3705,6 +3705,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/valuations/provider-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Provider Quote
+         * @description KAN-552 — «Bewertung von auto-i-dat holen»: the identAPI's valuation
+         *     and residual table for a configured car, stored as a quote the valuation
+         *     created next references. The advisor's deliberate action; nothing calls
+         *     it on opening a screen.
+         */
+        post: operations["request_provider_quote_v1_valuations_provider_quotes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/valuations/{valuation_id}": {
         parameters: {
             query?: never;
@@ -7584,11 +7607,12 @@ export interface components {
         /**
          * IdentificationNote
          * @description Why the waterfall did what it did — rendered as a hint, never as an
-         *     error. `VIN_DECODE_NOT_ENTITLED` is deliberately silent on screen: a
-         *     dealer without the DAT sub-account sees what they saw before it existed.
+         *     error. `VIN_DECODE_NOT_ENTITLED` (KAN-549): the connection's `vin`
+         *     licence option is not granted, so no VIN query was sent — the advisor
+         *     is told to identify by plate, Stammnummer or Typenschein.
          * @enum {string}
          */
-        IdentificationNote: "vin_decode_not_entitled" | "vin_decode_unavailable" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found" | "provider_not_entitled" | "provider_unavailable";
+        IdentificationNote: "vin_decode_not_entitled" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found" | "provider_not_entitled" | "provider_unavailable";
         /**
          * IdentificationOutcome
          * @description What the overlay renders next. `variants` with exactly one entry is
@@ -9158,10 +9182,98 @@ export interface components {
              */
             supportsSandbox?: boolean;
         };
+        /** ProviderMessageRead */
+        ProviderMessageRead: {
+            /** De */
+            de: string | null;
+            /** En */
+            en: string | null;
+            /** Fr */
+            fr: string | null;
+            /** It */
+            it: string | null;
+        };
         /** ProviderPage */
         ProviderPage: {
             /** Items */
             items: components["schemas"]["ProviderRead"][];
+        };
+        /** ProviderQuoteRead */
+        ProviderQuoteRead: {
+            /**
+             * Configurationid
+             * Format: uuid
+             */
+            configurationId: string;
+            /** Exchangeprice */
+            exchangePrice: string;
+            /** Exchangerangefrom */
+            exchangeRangeFrom: string | null;
+            /** Exchangerangeto */
+            exchangeRangeTo: string | null;
+            /**
+             * Fetchedat
+             * Format: date-time
+             */
+            fetchedAt: string;
+            /**
+             * Firstregistration
+             * Format: date
+             */
+            firstRegistration: string;
+            /** Fzkey */
+            fzKey: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kilometrecorrectionexchange */
+            kilometreCorrectionExchange: string | null;
+            /** Kilometreexpected */
+            kilometreExpected: number | null;
+            /** Mileage */
+            mileage: number;
+            /** Modelyear */
+            modelYear: number;
+            /** Optionsexchangeprice */
+            optionsExchangePrice: string | null;
+            /** Providermanual */
+            providerManual: boolean;
+            /**
+             * Providerrequestref
+             * Format: uuid
+             */
+            providerRequestRef: string;
+            /** Purchaseprice */
+            purchasePrice: string | null;
+            /** Residualtable */
+            residualTable: components["schemas"]["ResidualValueRead"][];
+            residualTableState: components["schemas"]["ResidualTableState"];
+            /** Saleprice */
+            salePrice: string | null;
+            /** Screenmessages */
+            screenMessages: components["schemas"]["ProviderMessageRead"][];
+            /** Vehicleexchangeprice */
+            vehicleExchangePrice: string | null;
+        };
+        /**
+         * ProviderQuoteRequest
+         * @description KAN-552 — «Bewertung von auto-i-dat holen»: one valuation and one
+         *     residual table for the configured car. The first registration and the
+         *     mileage default from the configuration; sent, they win (what the dialog
+         *     shows is what is valued).
+         */
+        ProviderQuoteRequest: {
+            /**
+             * Configurationid
+             * Format: uuid
+             */
+            configurationId: string;
+            /** Firstregistration */
+            firstRegistration?: string | null;
+            /** Mileage */
+            mileage?: number | null;
         };
         /** ProviderRead */
         ProviderRead: {
@@ -9590,6 +9702,25 @@ export interface components {
              * Format: uuid
              */
             contractId: string;
+        };
+        /**
+         * ResidualTableState
+         * @description KAN-552 — what became of a quote's residual-value table: loaded, not in
+         *     the dealer's licence (403), unavailable (failure, timeout, open breaker), or
+         *     the provider's own «cannot» for this car.
+         * @enum {string}
+         */
+        ResidualTableState: "present" | "not_in_contract" | "unavailable" | "declined";
+        /** ResidualValueRead */
+        ResidualValueRead: {
+            /** Durationmonths */
+            durationMonths: number;
+            /** Kmperyear */
+            kmPerYear: number;
+            /** Totalpercent */
+            totalPercent: string | null;
+            /** Totalprice */
+            totalPrice: string | null;
         };
         /**
          * ResyncFieldRead
@@ -10911,9 +11042,15 @@ export interface components {
             mileage?: number | null;
             /** Note */
             note?: string | null;
+            /** Providerquoteid */
+            providerQuoteId?: string | null;
             /** Providervalue */
             providerValue?: number | string | null;
-            source: components["schemas"]["ValuationSource"];
+            /**
+             * @deprecated
+             * @description Deprecated (KAN-552): derived from `providerQuoteId` and `providerValue`; a sent value is not stored. `auto_i_dat` without `providerQuoteId` is refused (422 provider_quote_required).
+             */
+            source?: components["schemas"]["ValuationSource"] | null;
             /** Supersedesvaluationid */
             supersedesValuationId?: string | null;
             /**
@@ -10979,6 +11116,7 @@ export interface components {
             mileage: number | null;
             /** Note */
             note: string | null;
+            providerQuote?: components["schemas"]["ProviderQuoteRead"] | null;
             /** Providervalue */
             providerValue: string | null;
             source: components["schemas"]["ValuationSource"];
@@ -21644,6 +21782,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ValuationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_provider_quote_v1_valuations_provider_quotes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderQuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderQuoteRead"];
                 };
             };
             /** @description Validation Error */

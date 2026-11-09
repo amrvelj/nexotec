@@ -238,7 +238,14 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   one request, both seasons — each row names its `tyreType`), `fetch_images` (`GET /image/vehicle/{fzKey}`, one
   request, every size and perspective, stored under the S/L and A/I codes `ImageRef` has always held) and
   `fetch_energy_label` (`GET /energylabel/info/typeapproval/{nr}`, one row per gearbox with its
-  `calculationYear`). Not built: valuation (KAN-552), the VIN rung (KAN-549); the SOAP adapter (`auto_i_dat_soap.py`, legacy
+  `calculationYear`). **The VIN rung (KAN-549):** `identify_by_vin` (`GET /vehiclebuild/vin/{vin}?needAutoiKeyIfExists`,
+  one `vehicle_vin` row — named apart from `vehiclebuild` so the call log tells the licence option `vin` from a
+  plate or Stammnummer lookup; the `vin` probe calls the same endpoint, Anto 2026-11-09 option A). **Valuation
+  (KAN-552):** `fetch_vehicle_valuation` (`GET /vehiclevaluation/{fzKey}/{modelYear}/{firstAdmission}/{km}`, options as
+  `option[n].key`, messages in DE/FR/IT/EN — one `vehiclevaluation` row) and `fetch_residual_table`
+  (`GET /residualvalue/{fzKey}/{modelYear}?firstAdmission&kilometreState`, the predefined table in one
+  `residualvalue_table` row; the single-cell residual call is not built — no caller); Valuation's caller and its
+  `vehicle.public.get_provider_valuation_input` are in `valuation.md`. The SOAP adapter (`auto_i_dat_soap.py`, legacy
   code `auto_i_dat_soap`, no provider row) and the SOAP-shaped mock stay until KAN-550 — the mock also answers the
   identAPI-shaped operations from its fixtures (invented spec blocks included), so demos and tests run on it.
 - **Provider captions are vocabulary, global, fetched on «Test connection» only** (ADR-111 (3); KAN-547, Anto
@@ -298,8 +305,8 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   agreement §5, §12; KAN-491, repo private since 2026-10-28): the SOAP adapter's sample result
   XML in tests, the code-map transcription (`7c4e9a2b6d13`) and docstrings citing spec pages stay
   here — never pasted into a public issue, gist, PR on another repo or chat. Fixtures and the
-  mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, DAT account
-  9900001, `test-dealer`; mock OptKeys 9xxxxx; the mock's plates resolve to invented cars),
+  mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, `test-dealer`;
+  mock OptKeys 9xxxxx; the mock's plates and its one VIN, `WVWZZZDEMV0000001`, resolve to invented cars),
   never a value from an account sheet or a specification example. The entitlement probes'
   inputs (`auto_i_dat_ident.py`: an FzKey, two Typenschein numbers, a VIN) are the examples of
   auto-i's **publicly served** OpenAPI document, not of the confidential PDFs — public, not an
@@ -390,7 +397,11 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   before any role check (`tests/architecture/test_sales_routers_carry_entitlement_gate.py`).
 - **Identification (FR-C-02, KAN-42; live on the identAPI since KAN-547)** is
   `services/identification.py`, one input (`GET /v1/vehicle-identification`): VIN → vehicle-mdm,
-  then nothing (the `vin` option is not in the test licence, §8 / ADR-113; the rung is KAN-549);
+  then — only where the connection's probed `vin` row is granted (KAN-549; not in the test licence, §8 /
+  ADR-113) — `identify_by_vin`, read like a Stammnummer answer (one car with its variant is one candidate,
+  several the picker, never the plate cache); not granted (no row is not granted) → the note
+  `vin_decode_not_entitled` («VIN-Abfrage nicht im Vertrag …», shown) and no call; a VIN the provider does not
+  know → no match, the VIN kept for the manual path; its 403 at call time → the same note;
   Kontrollschild → the provider first (ADR-114, never vehicle-mdm's plate register) behind the
   per-tenant plate-lookup cache (30-day TTL, daily purge, never enumerable): `identify_by_plate`'s
   Vehicle Build answer carries the registered car **and** its catalogue variant, so one registered
@@ -533,17 +544,18 @@ never quoted in the repository, a ticket or a prompt. What it and Anto's rulings
 - **The test licence covers the identAPI only**, and the identAPI is the one provider since
   KAN-488 (ADR-111; the login and transport paragraph above). The service account runs as a
   `sandbox` connection on local and staging only (ADR-113). VIN queries are not in the licence
-  (§8): the `vin` option is probed and its `granted = False` row is what keeps the VIN rung
-  (KAN-549) from ever calling it.
+  (§8): the `vin` option is probed (on `/vehiclebuild/vin`, the rung's own endpoint) and its
+  `granted = False` row — or no row at all — is what keeps the VIN rung (KAN-549) from ever calling it.
 
 ## auto-i-dat facts that are easy to get wrong
 
-- **VIN decode is an identAPI licence option** (`vin`, `GET /vinrequest/{input}`; ADR-113
-  retires the DAT sub-account model). Until KAN-549 builds that rung, the SOAP-era derivation
-  stands in the code: `vin_decode` is derived from a healthy `dat` connection
-  (`app/integration/services/connections.py::compute_vin_decode_entitlement`), the `dat`
-  provider row still exists, and no adapter decodes a VIN. KAN-549 replaces the derivation with
-  the probed `vin` row and removes `dat`.
+- **VIN identification is an identAPI licence option** (`vin`; ADR-113). Built by KAN-549 on Vehicle
+  Build (`GET /vehiclebuild/vin/{vin}`), not on `GET /vinrequest/{input}` (Anto, 2026-11-09, option A).
+  `integration.public.vin_decode_granted(connection_id=)` reads the connection's probed `vin` row and
+  nothing else, strictly (no row is not granted — the opposite of every other option);
+  `tenant_has_capability("vin_decode")` asks the same of the tenant's enabled connections. The SOAP-era
+  separate provider for VIN and its derivation from that connection's health are gone (integration
+  migration `3b3faa39c5e2` deleted its provider row, connections and cached rows).
 - **Typenschein** — `vehicle_type_approval` is many-to-many with `vehicle_model_variant`;
   `type_approval_number` is indexed, not unique. Use `find_model_variants_by_type_approval`
   for the reverse lookup. A variant mirrored before KAN-42 has no links; identification's best

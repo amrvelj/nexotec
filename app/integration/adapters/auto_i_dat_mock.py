@@ -36,6 +36,9 @@ from app.integration.adapters.base import (
     OptionConditionData,
     OptionPackageContentData,
     PlateInfoData,
+    ProviderMessage,
+    ResidualTableData,
+    ResidualValueRow,
     SystemWatermark,
     TypeApprovalDataResult,
     ValuationResult,
@@ -48,6 +51,7 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
+    VehicleValuationData,
 )
 from app.integration.services.metering import provider_request
 
@@ -422,14 +426,22 @@ _CAPTIONS: list[CaptionData] = [
 ]
 
 
-def _built_vehicle(record: PlateInfoData, *, plate: str | None) -> BuiltVehicleData:
+# KAN-549 — an invented VIN for the VIN rung, the Golf behind plate BE123456
+# (never the specification's sample VIN, KAN-491). Answered only where the
+# connection's `vin` row is granted; the demo connection probes `ident_basis`
+# and `bewertung` but never `vin`, so the rung says «nicht im Vertrag», as on
+# the test licence.
+_VINS: dict[str, tuple[str, int]] = {"WVWZZZDEMV0000001": ("BE123456", 0)}
+
+
+def _built_vehicle(record: PlateInfoData, *, plate: str | None, vin: str | None = None) -> BuiltVehicleData:
     """A mock plate record as the identAPI's Vehicle Build row: the variant
     is the demo variant whose Typenscheine carry the record's number."""
 
     variant = next((m for m in _MASTER_DATA.values() if record.type_approval_number in m.type_approval_numbers), None)
     return BuiltVehicleData(
         fz_key=variant.fz_key if variant else None,
-        vin=None,
+        vin=vin,
         stammnummer=record.stammnummer,
         plate=plate,
         first_registration_date=record.first_registration_date,
@@ -685,6 +697,13 @@ class MockAutoIDatAdapter:
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         return [_built_vehicle(record, plate=plate) for record in _PLATES.get(plate, [])]
 
+    @_request("vehicle_vin")
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        if vin not in _VINS:
+            return []
+        plate, index = _VINS[vin]
+        return [_built_vehicle(_PLATES[plate][index], plate=None, vin=vin)]
+
     @_request("vehiclecatalog")
     def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
         return [m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers]
@@ -795,6 +814,64 @@ class MockAutoIDatAdapter:
         age_years = max(valuation_date.year - first_registration.year, 0)
         depreciation = min(Decimal("0.12") * age_years + Decimal(mileage) / Decimal(100000) * Decimal("0.05"), Decimal("0.85"))
         return ValuationResult(provider_value=(base_price * (Decimal(1) - depreciation)).quantize(Decimal("0.01")), status_code="ok")
+
+    # -- the identAPI's valuation (KAN-552), invented figures on the demo
+    # variants' list prices: deterministic, never a real valuation.
+
+    @_request("vehiclevaluation")
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
+        base = _MASTER_DATA.get(fz_key)
+        if base is None or base.base_price is None:
+            return VehicleValuationData(
+                state=20, state_message="Fahrzeug nicht gefunden (Demo)", manually=False, exchange_price=None,
+                purchase_price=None, sale_price=None, vehicle_exchange_price=None, options_exchange_price=None,
+                kilometre_correction_exchange=None, kilometre_expected=None, exchange_range_from=None,
+                exchange_range_to=None, screen_messages=[], print_messages=[],
+            )
+        age_years = max(utcnow().date().year - first_registration.year, 0)
+        expected_km = 15000 * max(age_years, 1)
+        vehicle = (base.base_price * (Decimal("0.86") ** age_years) * Decimal("0.80")).quantize(Decimal(1))
+        correction = (Decimal(expected_km - mileage_km) * Decimal("0.05")).quantize(Decimal(1))
+        options = Decimal(150 * len(option_keys))
+        exchange = vehicle + options
+        return VehicleValuationData(
+            state=0, state_message="OK", manually=False,
+            exchange_price=exchange,
+            purchase_price=(exchange * Decimal("0.93")).quantize(Decimal(1)),
+            sale_price=(exchange * Decimal("1.18")).quantize(Decimal(1)),
+            vehicle_exchange_price=vehicle, options_exchange_price=options,
+            kilometre_correction_exchange=correction, kilometre_expected=expected_km,
+            exchange_range_from=(exchange * Decimal("0.95")).quantize(Decimal(1)),
+            exchange_range_to=(exchange * Decimal("1.05")).quantize(Decimal(1)),
+            screen_messages=[
+                ProviderMessage(
+                    de="Demo-Bewertung — keine echte Bewertung.", fr="Évaluation de démonstration — pas une vraie évaluation.",
+                    it="Valutazione dimostrativa — non una vera valutazione.", en="Demo valuation — not a real valuation.",
+                )
+            ],
+            print_messages=[],
+        )
+
+    @_request("residualvalue_table")
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        base = _MASTER_DATA.get(fz_key)
+        if base is None or base.base_price is None:
+            return ResidualTableData(state=20, state_message="Fahrzeug nicht gefunden (Demo)", rows=[])
+        rows = []
+        for km in (10000, 15000, 20000, 25000, 30000):
+            for months in (12, 24, 36, 48, 60, 72):
+                years = Decimal(months) / Decimal(12)
+                percent = (Decimal(100) * Decimal("0.86") ** (months // 12) - Decimal(km - 15000) / Decimal(1000) * Decimal("0.4") * years)
+                percent = percent.quantize(Decimal("0.1"))
+                rows.append(ResidualValueRow(
+                    duration_months=months, km_per_year=km, total_percent=percent,
+                    total_price=(base.base_price * percent / Decimal(100)).quantize(Decimal(1)),
+                ))
+        return ResidualTableData(state=0, state_message="OK", rows=rows)
 
     @_request("Fahrzeuge")
     def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:

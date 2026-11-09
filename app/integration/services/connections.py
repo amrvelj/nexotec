@@ -41,13 +41,12 @@ _ENTITY_TYPE = "integration_connection"
 #               (`entitlement_probes.py`: 403 = not granted); a line with no
 #               row reads as "granted".
 #   feature     A name a screen asks about through `tenant_has_capability`.
-#               Derived on each ask: `valuation` follows the sheet line
-#               `bewertung`, `packages` and `images` follow `ausstattung`
-#               (FEATURE_SHEET_LINES); `vin_decode` follows the health of the
-#               tenant's `dat` connection (below, until KAN-549). `vin_decode`
-#               is NOT the licence option `vin` — that one says whether the
-#               identAPI account may send VIN queries, this asks whether the
-#               tenant can decode a VIN at all; its row is a display cache.
+#               Derived on each ask: `packages` and `images` follow
+#               `ausstattung` (FEATURE_SHEET_LINES), optimistically;
+#               `vin_decode` follows `vin` (KAN-549, ADR-113) and `valuation`
+#               follows `bewertung` (KAN-552) strictly (STRICT_FEATURE_OPTIONS):
+#               granted only where a probe recorded the row as granted — no
+#               row is NOT granted, the opposite of the optimistic default.
 #   call label  What `call_capability(capability=...)` names a block by:
 #               `vehicle_data` (catalogue_sync's and identification's umbrella
 #               over the Datennamen they call), `system_watermark`,
@@ -65,21 +64,22 @@ _ENTITY_TYPE = "integration_connection"
 # `energielabel`. The features screens ask about keep their names and follow
 # the option that licenses them: option lists, packages and images are all
 # the `ausstattung` option (there is no separate image or package licence).
-FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung", "packages": "ausstattung", "images": "ausstattung"}
+FEATURE_SHEET_LINES: dict[str, str] = {"packages": "ausstattung", "images": "ausstattung"}
 
-# KAN-36 — vin_decode is never hand-declared: it's derived from the health
-# of the tenant's own `dat` connection (the DAT sub-account auto-i-dat
-# issues alongside the main account, which is what actually entitles VIN
-# decode). Handled as a special case in tenant_has_capability below rather
-# than the plain per-connection entitlement scan, because "no row for this
-# capability" must mean "not granted" here — the opposite of that
-# function's own optimistic default for every other, declared capability.
-_VIN_DECODE_CAPABILITY = "vin_decode"
-_DAT_PROVIDER_CODE = "dat"
-_AUTO_I_DAT_PROVIDER_CODE = "auto_i_dat"
-# KAN-80 (Anto, option A): testing the `dat` connection refreshes the cached
-# `vin_decode` row (`gateway.test_connection`) — the connection it derives from.
-VIN_DECODE_PROVIDER_CODE = _DAT_PROVIDER_CODE
+# Features read STRICTLY: granted only where «Test connection» probed the
+# option and recorded it as granted — no row is NOT granted. `vin_decode`
+# (KAN-549: the test licence has no `vin`, ADR-113, and the rung must not learn
+# that from a refused provider call) and `valuation` (KAN-552: the ticket shows
+# «Bewertung von auto-i-dat holen» only when the connection's `bewertung` row is
+# granted). A connection tested before KAN-552 has no `bewertung` row until it
+# is tested again.
+STRICT_FEATURE_OPTIONS: dict[str, str] = {"vin_decode": "vin", "valuation": "bewertung"}
+
+# KAN-549 (ADR-113): VIN identification is the identAPI's licence option
+# `vin`; KAN-552: valuation is `bewertung`. Both probed on «Test connection»
+# like every option and read strictly (STRICT_FEATURE_OPTIONS above).
+VIN_LICENCE_OPTION = "vin"
+VALUATION_LICENCE_OPTION = "bewertung"
 
 
 def _validate_required_config(provider: IntegrationProvider, config: dict) -> None:
@@ -482,10 +482,9 @@ def record_probed_entitlement(
     db: Session, *, connection_id: uuid.UUID, capability_code: str, granted: bool
 ) -> IntegrationEntitlement:
     """Upsert the one `(connection, capability)` row as `source=probed`.
-    Used by `compute_vin_decode_entitlement` below (KAN-36) and by
-    `services/entitlement_probes.py`'s probes via `gateway.test_connection`
-    (KAN-38 PR 2b) — the two things that establish an entitlement by
-    observation rather than by declaration.
+    Used by `services/entitlement_probes.py`'s probes via
+    `gateway.test_connection` (KAN-38 PR 2b) — what establishes an
+    entitlement by observation rather than by declaration.
     """
 
     existing = get_entitlement(db, connection_id=connection_id, capability_code=capability_code)
@@ -506,53 +505,25 @@ def record_probed_entitlement(
     return row
 
 
-def vin_decode_granted(db: Session, *, tenant_id: uuid.UUID) -> bool:
-    """KAN-36's derivation alone, writing nothing: does this tenant hold a
-    healthy (`enabled` + `CONNECTED`) `dat` connection. Exported through
-    `app.integration.public` for another context's request (the KAN-42
-    identification waterfall), which must not carry integration's cached
-    entitlement row in its own transaction (ADR-047) — that upsert stays in
-    `compute_vin_decode_entitlement` below, on integration's own paths."""
+def licence_option_granted(db: Session, *, connection_id: uuid.UUID, option: str) -> bool:
+    """A licence option read strictly: the connection's probed row, and
+    nothing else. No row is not granted. Writes nothing, so another context's
+    request can ask it inside its own transaction (ADR-047)."""
 
-    dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_DAT_PROVIDER_CODE)
-    return dat_connection is not None and dat_connection.status == ConnectionStatus.CONNECTED
+    entitlement = get_entitlement(db, connection_id=connection_id, capability_code=option)
+    return entitlement is not None and entitlement.granted
 
 
-def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool:
-    """KAN-36 — derived, never hand-declared: granted exactly when this
-    tenant holds a healthy (`enabled` + `CONNECTED`) `dat` connection, the
-    DAT sub-account that actually entitles VIN decode (reached through the
-    tenant's own auto-i-dat account, per the account sheet's own VIN/
-    VINIdentDB counters). Recomputed on every call rather than cached
-    behind write-side triggers — the same "derived on read, never stored,
-    never repaired by a nightly job" posture this codebase already applies
-    to valuation status (ADR-066). When the tenant also holds an enabled
-    `auto_i_dat` connection, the freshly computed value is upserted onto
-    it as a `source=probed` `integration_entitlement` row purely so it's
-    visible on that connection's own entitlements list — that row is a
-    cache of the last time this was checked, never a second source of
-    truth; the return value here always is.
+def vin_decode_granted(db: Session, *, connection_id: uuid.UUID) -> bool:
+    """KAN-549: may this connection send a VIN query — its `vin` row."""
 
-    KAN-80 (Anto, option A): called only from `gateway.test_connection`,
-    when an admin tests the `dat` connection — never from a read.
-    `tenant_has_capability` answers from `vin_decode_granted`, which writes
-    nothing.
+    return licence_option_granted(db, connection_id=connection_id, option=VIN_LICENCE_OPTION)
 
-    Not grantable in shipped code today: no adapter factory is registered
-    for provider `dat` (`gateway._ADAPTER_FACTORIES`), so testing a `dat`
-    connection always ends in `UnknownProviderError` → `ERROR`, never
-    `CONNECTED`. Building one waits for the DAT/auto-i-dat specification
-    (KAN-81, G-46) — never an adapter built on a guess.
-    """
 
-    granted = vin_decode_granted(db, tenant_id=tenant_id)
+def valuation_granted(db: Session, *, connection_id: uuid.UUID) -> bool:
+    """KAN-552: may this connection ask for a valuation — its `bewertung` row."""
 
-    auto_i_dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_AUTO_I_DAT_PROVIDER_CODE)
-    if auto_i_dat_connection is not None:
-        record_probed_entitlement(
-            db, connection_id=auto_i_dat_connection.id, capability_code=_VIN_DECODE_CAPABILITY, granted=granted
-        )
-    return granted
+    return licence_option_granted(db, connection_id=connection_id, option=VALUATION_LICENCE_OPTION)
 
 
 def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code: str) -> bool:
@@ -568,20 +539,26 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
     dedicated capability endpoint — owns its own degradation policy over
     the same neutral data).
 
-    `vin_decode` (KAN-36) is a deliberate exception, handled before the
-    generic scan: it isn't declared on any one connection, it's derived
-    across two, and "no row anywhere" must mean "not granted" — the
-    opposite of this function's own optimistic bias for every other
-    capability. It is derived without writing (KAN-80): this backs a GET
-    any user of the tenant may send, and a read never upserts the cached
-    entitlement row.
+    `vin_decode` (KAN-549) and `valuation` (KAN-552) are deliberate
+    exceptions, handled before the generic scan (`STRICT_FEATURE_OPTIONS`):
+    each follows its licence option strictly — granted only where an enabled
+    connection's probed row says so; "no row" means "not granted", the
+    opposite of this function's optimistic bias for every other capability.
 
     A feature named in `FEATURE_SHEET_LINES` is answered from its sheet
-    line: `valuation` reads `bewertung` rows.
+    line: `packages` and `images` read `ausstattung` rows.
     """
 
-    if capability_code == _VIN_DECODE_CAPABILITY:
-        return vin_decode_granted(db, tenant_id=tenant_id)
+    strict_option = STRICT_FEATURE_OPTIONS.get(capability_code)
+    if strict_option is not None:
+        enabled = db.scalars(
+            select(IntegrationConnection.id).where(
+                IntegrationConnection.tenant_id == tenant_id, IntegrationConnection.enabled.is_(True)
+            )
+        ).all()
+        return any(
+            licence_option_granted(db, connection_id=connection_id, option=strict_option) for connection_id in enabled
+        )
 
     capability_code = FEATURE_SHEET_LINES.get(capability_code, capability_code)
 

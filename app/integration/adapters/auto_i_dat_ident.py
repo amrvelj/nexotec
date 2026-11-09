@@ -90,6 +90,7 @@ from app.integration.adapters.base import (
     OptionConditionData,
     OptionPackageContentData,
     PlateInfoData,
+    ResidualTableData,
     SystemWatermark,
     TypeApprovalDataResult,
     ValuationResult,
@@ -102,6 +103,7 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
+    VehicleValuationData,
 )
 from app.integration.errors import (
     ProviderConfigurationError,
@@ -131,7 +133,15 @@ OP_VEHICLEBUILD = "vehiclebuild"
 OP_VEHICLEMATCH = "vehiclematch"
 OP_VEHICLEOPTION_CATALOG = "vehicleoption_catalog"
 OP_RESIDUALVALUE = "residualvalue"
-OP_VINREQUEST = "vinrequest"
+# KAN-552: the current value and the predefined residual table — one request each.
+OP_VEHICLEVALUATION = "vehiclevaluation"
+OP_RESIDUALVALUE_TABLE = "residualvalue_table"
+# The four languages a valuation's screen and print messages are asked in.
+VALUATION_LANGUAGES = ("de", "fr", "it", "en")
+# KAN-549 (Anto, 2026-11-09, option A): the VIN rung is Vehicle Build by
+# `vin`; it is named apart from `vehiclebuild` so the call log tells a VIN
+# lookup — the licence option `vin` — from a plate or Stammnummer lookup.
+OP_VEHICLE_VIN = "vehicle_vin"
 OP_TYRESANDRIMS_TYPEAPPROVAL = "tyresandrims_typeapproval"
 OP_ENERGYLABEL_INFO = "energylabel_info"
 OP_IMAGE_VEHICLE = "image_vehicle"
@@ -353,7 +363,9 @@ class AutoIDatIdentAdapter:
         return self._request(OP_RESIDUALVALUE, "GET", f"/residualvalue/{PROBE_FZ_KEY_RESIDUAL}/{PROBE_MODEL_YEAR_RESIDUAL}", empty_on_404=True)
 
     def probe_vin(self) -> dict[str, Any]:
-        return self._request(OP_VINREQUEST, "GET", f"/vinrequest/{PROBE_VIN}", empty_on_404=True)
+        # The endpoint the VIN rung calls (KAN-549, option A): the `vin` row
+        # that gates the rung is the answer of that same endpoint.
+        return self._request(OP_VEHICLE_VIN, "GET", f"/vehiclebuild/vin/{PROBE_VIN}", empty_on_404=True)
 
     def probe_pneu(self) -> dict[str, Any]:
         return self._request(OP_TYRESANDRIMS_TYPEAPPROVAL, "GET", f"/tyresandrims/typeapproval/{PROBE_TYPE_APPROVAL_TYRES}", empty_on_404=True)
@@ -366,16 +378,18 @@ class AutoIDatIdentAdapter:
     def fetch_captions(self, lang: str) -> list[CaptionData]:
         return parse.parse_captions(self.fetch_code_captions(lang))
 
-    def _vehicle_build(self, identifier_type: str, identifier: str) -> list[BuiltVehicleData]:
+    def _vehicle_build(
+        self, identifier_type: str, identifier: str, *, operation: str = OP_VEHICLEBUILD
+    ) -> list[BuiltVehicleData]:
         """`GET /vehiclebuild/{type}/{id}?needAutoiKeyIfExists`: the registered
         vehicle(s) and, where the provider resolved one, the catalogue variant
         each belongs to — one answer, one row in the call log. A 404 and an
         empty `data` both read as "nothing registered under this identifier"."""
 
         body = self._request(
-            OP_VEHICLEBUILD,
+            operation,
             "GET",
-            f"/vehiclebuild/{identifier_type}/{identifier}",
+            f"/vehiclebuild/{identifier_type}/{quote(identifier, safe='')}",
             [("needAutoiKeyIfExists", "true")],
             empty_on_404=True,
         )
@@ -386,6 +400,15 @@ class AutoIDatIdentAdapter:
 
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         return self._vehicle_build("licenseplate", plate)
+
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        """KAN-549: `GET /vehiclebuild/vin/{vin}?needAutoiKeyIfExists`, one
+        `vehicle_vin` row — the built car with its catalogue variant and spec
+        block, like the plate and Stammnummer lookups. Behind the licence
+        option `vin` (not in the test licence, ADR-113): the caller asks only
+        when the connection's probed `vin` row is granted."""
+
+        return self._vehicle_build("vin", vin, operation=OP_VEHICLE_VIN)
 
     def _vehicle_catalog(self, identifier_type: str, identifier: str) -> list[VariantMasterData]:
         """`GET /vehiclecatalog/{type}/{id}` — the first provider page (10)
@@ -691,10 +714,52 @@ class AutoIDatIdentAdapter:
     def fetch_valuation(
         self, *, fz_key: str, model_year: int, first_registration: dt.date, valuation_date: dt.date, mileage: int
     ) -> ValuationResult:
-        _not_built("KAN-552", "Valuation")
+        # SOAP-shaped; the identAPI's valuation is `fetch_vehicle_valuation`
+        # (KAN-552). Leaves the Protocol with KAN-550.
+        _not_built("KAN-550", "The SOAP-shaped valuation")
 
     def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:
-        _not_built("KAN-552", "The residual-value forecast")
+        _not_built("KAN-550", "The SOAP-shaped residual-value forecast")
+
+    @staticmethod
+    def _valuation_params(option_keys: Sequence[int], extra: _Params = ()) -> list[tuple[str, str]]:
+        params = [("lang", lang) for lang in VALUATION_LANGUAGES]
+        params += [(f"option[{index}].key", str(key)) for index, key in enumerate(option_keys)]
+        return [*params, *extra]
+
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
+        """KAN-552: `GET /vehiclevaluation/{fzKey}/{modelYear}/{firstAdmission}/{kilometreState}`,
+        one `vehiclevaluation` row — the options by their OptKey, the screen and
+        print messages in the four languages. A 404 reads as "no valuation"."""
+
+        body = self._request(
+            OP_VEHICLEVALUATION,
+            "GET",
+            f"/vehiclevaluation/{quote(fz_key, safe='')}/{model_year}/{first_registration.isoformat()}/{mileage_km}",
+            self._valuation_params(option_keys),
+            empty_on_404=True,
+        )
+        return parse.parse_vehicle_valuation(body)
+
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        """KAN-552: `GET /residualvalue/{fzKey}/{modelYear}?firstAdmission&kilometreState`,
+        one `residualvalue_table` row — the whole predefined table for a used
+        car; never a loop over durations or km bands."""
+
+        body = self._request(
+            OP_RESIDUALVALUE_TABLE,
+            "GET",
+            f"/residualvalue/{quote(fz_key, safe='')}/{model_year}",
+            self._valuation_params(
+                option_keys, (("firstAdmission", first_registration.isoformat()), ("kilometreState", str(mileage_km)))
+            ),
+            empty_on_404=True,
+        )
+        return parse.parse_residual_table(body)
 
     # The SOAP-shaped browse methods: superseded by `list_catalogue_brands`,
     # `list_catalogue_model_groups`, `search_catalogue_variants` and

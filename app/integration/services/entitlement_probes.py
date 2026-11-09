@@ -23,6 +23,7 @@ after the access check accepted the same credentials can only be the
 Datenname. It is keyed by the identAPI's basis option so the vocabulary is one.
 """
 
+import datetime as dt
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -57,10 +58,20 @@ _IDENT_API_PROBES: tuple[CapabilityProbe, ...] = (
 # It still speaks the SOAP shapes until KAN-547/KAN-550 reshape it; its one
 # probe is keyed by the identAPI's basis option so the vocabulary is one.
 _MOCK_IDENT_BASIS = CapabilityProbe("ident_basis", lambda adapter: adapter.list_vehicle_kinds())
+# KAN-552: the demo valuation is behind the `bewertung` row like the real one
+# (read strictly), so the mock probes it too — one residual table of a demo
+# variant. `vin` stays unprobed: the demo shows what the test licence shows,
+# «VIN-Abfrage nicht im Vertrag».
+_MOCK_BEWERTUNG = CapabilityProbe(
+    "bewertung",
+    lambda adapter: adapter.fetch_residual_table(
+        fz_key="FZ100001", model_year=2020, first_registration=dt.date(2020, 1, 1), mileage_km=30000, option_keys=[]
+    ),
+)
 
 _PROBES_BY_PROVIDER: dict[str, tuple[CapabilityProbe, ...]] = {
     "auto_i_dat": _IDENT_API_PROBES,
-    "auto_i_dat_mock": (_MOCK_IDENT_BASIS,),
+    "auto_i_dat_mock": (_MOCK_IDENT_BASIS, _MOCK_BEWERTUNG),
 }
 
 # What `gateway.test_connection` calls first to prove the credentials: for the

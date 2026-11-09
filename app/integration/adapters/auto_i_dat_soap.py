@@ -80,6 +80,7 @@ from app.integration.adapters.base import (
     OptionConditionData,
     OptionPackageContentData,
     PlateInfoData,
+    ResidualTableData,
     SystemWatermark,
     TypeApprovalDataResult,
     ValuationResult,
@@ -92,6 +93,7 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
     VehicleKindData,
     VehiclePriceData,
+    VehicleValuationData,
 )
 from app.integration.errors import (
     ProviderConfigurationError,
@@ -778,6 +780,19 @@ class AutoIDatSoapAdapter:
     def identify_by_plate(self, plate: str) -> list[BuiltVehicleData]:
         self._not_on_soap("Vehicle Build by plate")
 
+    def identify_by_vin(self, vin: str) -> list[BuiltVehicleData]:
+        self._not_on_soap("Vehicle Build by VIN")
+
+    def fetch_vehicle_valuation(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> VehicleValuationData:
+        self._not_on_soap("The identAPI valuation")
+
+    def fetch_residual_table(
+        self, *, fz_key: str, model_year: int, first_registration: dt.date, mileage_km: int, option_keys: list[int]
+    ) -> ResidualTableData:
+        self._not_on_soap("The residual-value table")
+
     def find_variants_by_type_approval(self, type_approval_number: str) -> list[VariantMasterData]:
         self._not_on_soap("The paged Typenschein lookup")
 
@@ -850,21 +865,6 @@ class AutoIDatSoapAdapter:
             forecast_date=date_ddmmyyyy(row_text(el, "ForecastDatum")) or utcnow().date(),
         )
 
-    def decode_vin(self, *, vin: str) -> Any:
-        """KAN-36 — VIN decode is DAT-backed, reached through this auto-
-        i-dat account: the DAT sub-account (its own `dat` connection,
-        never folded into this one — the two rotate independently) is
-        what entitles it, derived as the `vin_decode` capability in
-        `services/connections.py::compute_vin_decode_entitlement`, never
-        hand-declared. Left unimplemented: no auto-i-dat VIN webservice
-        specification exists in Drive today (the four PDFs on file are
-        Fahrzeuge, Bewertung, Valuation and Etikette — none documents a
-        VIN call), and guessing the wire shape of a real, billed provider
-        operation is worse than leaving it absent. Implement this once
-        that specification is obtained (KAN-36's own exit criterion).
-        """
-
-        raise NotImplementedError("auto-i-dat VIN decode webservice specification is not yet available (KAN-36).")
 
 
 # -- helpers ---------------------------------------------------------------

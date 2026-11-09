@@ -26,6 +26,8 @@ from app.vehicle.services.host_configuration import (
     ConfigurationModeNotAllowedError,
     ConfigurationPriceLine,
     HostConfiguration,
+    NoCatalogueVariantError,
+    ProviderValuationInput,
 )
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
@@ -228,6 +230,21 @@ def get_configuration_for_host(
     return _get(db, tenant_id=tenant_id, configuration_id=configuration_id)
 
 
+def get_provider_valuation_input(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID
+) -> ProviderValuationInput | None:
+    """KAN-552 — what the identAPI's valuation needs about a configured car:
+    the Betrieb's vehicle-data connection, the FzKey at that provider, the
+    variant's model-year range, the first registration, the mileage and the
+    selected options' OptKeys. `None` without a connection; 404 for another
+    Betrieb's configuration; 422 `no_catalogue_variant` (`NoCatalogueVariantError`)
+    when the car has no FzKey there. A read; deferred import as above."""
+
+    from app.vehicle.services.provider_valuation_input import provider_valuation_input as _read
+
+    return _read(db, tenant_id=tenant_id, configuration_id=configuration_id)
+
+
 def get_configuration_labels(
     db: Session, tenant_by_configuration: dict[uuid.UUID, uuid.UUID]
 ) -> dict[uuid.UUID, ConfigurationLabel]:
@@ -285,8 +302,10 @@ __all__ = [
     "ConfigurationPriceLine",
     "CustodyEventType",
     "HostConfiguration",
+    "NoCatalogueVariantError",
     "PlateRecordingCheck",
     "PlateVersionRef",
+    "ProviderValuationInput",
     "Vehicle",
     "VehicleConfiguration",
     "VehicleMdm",
@@ -299,6 +318,7 @@ __all__ = [
     "discard_configuration_copy",
     "get_configuration_for_host",
     "get_configuration_labels",
+    "get_provider_valuation_input",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",

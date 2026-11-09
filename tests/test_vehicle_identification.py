@@ -201,74 +201,92 @@ def test_a_vin_held_in_mdm_is_decisive_and_offers_the_configuration_for_reuse(db
     assert other.existing_vehicle.reusable_configuration_id is None
 
 
-def test_without_the_vin_entitlement_a_vin_miss_falls_through_quietly(db_session):
-    """Exit criterion 6: MDM, then fall through — no error, no provider call."""
+def _vin_option(db, tenant_id: uuid.UUID, *, granted: bool) -> None:
+    """The `vin` licence option as «Test connection» records it (KAN-549)."""
+
+    connection = db.scalar(select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id))
+    connection_service.record_probed_entitlement(db, connection_id=connection.id, capability_code="vin", granted=granted)
+
+
+def _vin_calls(db) -> int:
+    return db.scalar(
+        select(func.count()).select_from(IntegrationCallLog).where(IntegrationCallLog.capability == "vehicle_vin")
+    )
+
+
+DEMO_VIN = "WVWZZZDEMV0000001"  # the mock's invented VIN: the Golf behind BE123456
+
+
+@pytest.mark.parametrize("probed", [None, False], ids=["never-probed", "probed-not-granted"])
+def test_without_the_vin_option_a_vin_miss_says_so_and_sends_nothing(db_session, probed):
+    """KAN-549 exit criterion 1: VIN not in MDM and the `vin` option not
+    granted → the note, no provider call (asserted on the call log). A
+    connection never probed has no row and is not granted either."""
 
     tenant_id = _connected_tenant(db_session, seed=False)
+    if probed is not None:
+        _vin_option(db_session, tenant_id, granted=probed)
     calls_before = _all_calls(db_session)
 
-    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="WVWZZZ1KZAW000099")
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query=DEMO_VIN)
 
     assert result.outcome == IdentificationOutcome.NONE
-    assert result.observed.vin == "WVWZZZ1KZAW000099"
+    assert result.observed.vin == DEMO_VIN
     assert result.notes == [IdentificationNote.VIN_DECODE_NOT_ENTITLED]
-    assert _all_calls(db_session) == calls_before
+    assert _all_calls(db_session) == calls_before and _vin_calls(db_session) == 0
 
 
-def test_with_the_vin_entitlement_the_unspecified_decode_falls_through_too(db_session, monkeypatch):
-    """The decode webservice has no specification (KAN-81): an entitled
-    tenant falls through exactly like an unentitled one, and no failing
-    call is logged against the connection's circuit breaker."""
+def test_with_the_vin_option_a_vin_miss_is_one_vehicle_vin_call_and_the_variant(db_session):
+    """KAN-549 exit criterion 1: granted → one `vehicle_vin` request; the
+    registered car's variant is the one candidate, the typed VIN kept."""
 
     tenant_id = _connected_tenant(db_session, seed=False)
-    monkeypatch.setattr(svc, "vin_decode_granted", lambda db, *, tenant_id: True)
-    calls_before = _all_calls(db_session)
+    _vin_option(db_session, tenant_id, granted=True)
+
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query=DEMO_VIN.lower())
+
+    assert result.kind == IdentifierKind.VIN and result.outcome == IdentificationOutcome.VARIANTS
+    (candidate,) = result.variants
+    assert candidate.variant_name.startswith("Golf")
+    assert result.observed.vin == DEMO_VIN and result.observed.type_approval_number == "2CD456"
+    assert result.observed.stammnummer == "777888999" and result.notes == []
+    assert _vin_calls(db_session) == 1 and _all_calls(db_session) == 1
+
+
+def test_a_vin_the_provider_does_not_know_falls_through_with_the_vin_kept(db_session):
+    """KAN-549 exit criterion 1: the provider's «nothing» → the manual path
+    with the VIN prefilled, no note (the advisor asked and was answered)."""
+
+    tenant_id = _connected_tenant(db_session, seed=False)
+    _vin_option(db_session, tenant_id, granted=True)
 
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="WVWZZZ1KZAW000098")
 
     assert result.outcome == IdentificationOutcome.NONE
-    assert result.notes == [IdentificationNote.VIN_DECODE_UNAVAILABLE]
-    assert _all_calls(db_session) == calls_before
+    assert result.observed.vin == "WVWZZZ1KZAW000098" and result.notes == []
+    assert _vin_calls(db_session) == 1
+
+
+def test_without_a_connection_a_vin_miss_names_the_missing_connection(db_session):
+    result = svc.identify(db_session, tenant_id=uuid.uuid4(), actor_id=None, query=DEMO_VIN)
+
+    assert result.outcome == IdentificationOutcome.NONE and result.observed.vin == DEMO_VIN
+    assert result.notes == [IdentificationNote.NO_PROVIDER_CONNECTION]
+    assert _all_calls(db_session) == 0
 
 
 def test_a_vin_lookup_writes_nothing_into_integration(db_session):
-    """ADR-047: the VIN rung asks integration whether decode is entitled,
-    and that question must not write integration's cached `vin_decode`
-    entitlement row inside this request's transaction. A tenant with an
-    enabled `auto_i_dat` connection is where that row lives (written only
-    by testing the `dat` connection since KAN-80)."""
+    """ADR-047: the VIN rung asks integration whether the `vin` option is
+    granted, and that question writes nothing inside this request's
+    transaction — no entitlement row appears for a connection never probed."""
 
     tenant_id = _connected_tenant(db_session, seed=False)
-    provider = IntegrationProvider(
-        provider_code="auto_i_dat",
-        category="vehicle_data",
-        display_name="auto-i-dat",
-        auth_type="none",
-        required_secret_slots=[],
-        capability_codes=["fahrzeuge"],
-    )
-    db_session.add(provider)
-    db_session.commit()
-    connection_service.create_connection(
-        db_session,
-        tenant_id=tenant_id,
-        data=ConnectionCreate(provider_id=provider.id, display_name="live", environment=ConnectionEnvironment.SANDBOX),
-        actor_id=uuid.uuid4(),
-    )
-    db_session.commit()
 
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="WVWZZZ1KZAW000097")
 
     assert result.notes == [IdentificationNote.VIN_DECODE_NOT_ENTITLED]
     assert not db_session.new and not db_session.dirty
-    assert (
-        db_session.scalar(
-            select(func.count())
-            .select_from(IntegrationEntitlement)
-            .where(IntegrationEntitlement.capability_code == "vin_decode")
-        )
-        == 0
-    )
+    assert db_session.scalar(select(func.count()).select_from(IntegrationEntitlement)) == 0
 
 
 # --- Kontrollschild -------------------------------------------------------

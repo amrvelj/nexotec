@@ -30,9 +30,10 @@ _VERSIONS = _REPO / "alembic" / "versions"
 
 _CAPABILITY_URL = re.compile(r"/integrations/capabilities/([A-Za-z0-9_]+)")
 
-# `vin_decode` is derived from the tenant's `dat` connection and cached as a row for display
-# (`connections.compute_vin_decode_entitlement`); it is deliberately not the sheet lines `vin` / `vin_ident_db`.
-DERIVED = {"vin_decode"}
+# Features a screen may ask about that are answered strictly from one licence option
+# (connections.STRICT_FEATURE_OPTIONS: `vin_decode` → `vin`, KAN-549; `valuation` → `bewertung`, KAN-552). No row
+# code: since the `dat` provider was retired nothing writes a `vin_decode` row.
+STRICT_FEATURES = set(connection_service.STRICT_FEATURE_OPTIONS)
 
 # KAN-488: `images` and `packages` became features over the `ausstattung` option (connections.FEATURE_SHEET_LINES);
 # nothing is read outside the vocabulary any more.
@@ -56,13 +57,13 @@ def _sheet_lines() -> set[str]:
 def _row_codes() -> set[str]:
     """What an `integration_entitlement` row can be keyed by."""
 
-    return _sheet_lines() | DERIVED | KNOWN_UNMAPPED
+    return _sheet_lines() | KNOWN_UNMAPPED
 
 
 def _askable_codes() -> set[str]:
     """What a screen may ask about: a row code, or a feature `tenant_has_capability` translates."""
 
-    return _row_codes() | set(connection_service.FEATURE_SHEET_LINES)
+    return _row_codes() | set(connection_service.FEATURE_SHEET_LINES) | STRICT_FEATURES
 
 
 def _module_string_constants(tree: ast.Module) -> dict[str, str]:
@@ -112,7 +113,7 @@ def test_every_code_the_backend_reads_or_writes_is_in_the_vocabulary():
     found = _codes_used_by_the_backend()
     # The scanner must see the forms it claims to (a module constant, a probe's first argument) — otherwise a
     # broken scan would pass by finding nothing.
-    assert {"ident_basis", "vin_decode"} <= {code for _, _, _, code in found}
+    assert {"ident_basis", "vin"} <= {code for _, _, _, code in found}
 
     strays = [
         f"{path}:{line} {callee}() uses {code!r}"
@@ -142,5 +143,5 @@ def test_every_code_the_frontend_asks_about_is_in_the_vocabulary():
 
 
 def test_every_feature_follows_a_seeded_sheet_line():
-    for feature, line in connection_service.FEATURE_SHEET_LINES.items():
+    for feature, line in {**connection_service.FEATURE_SHEET_LINES, **connection_service.STRICT_FEATURE_OPTIONS}.items():
         assert line in _sheet_lines(), f"feature {feature!r} follows {line!r}, which no provider declares"
