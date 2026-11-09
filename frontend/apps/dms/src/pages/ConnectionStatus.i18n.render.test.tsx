@@ -25,8 +25,8 @@ vi.mock('@tanstack/react-virtual', () => ({
 }))
 
 const PROVIDER = {
-  id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'soap',
-  capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: ['password'], supportsSandbox: true,
+  id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'oauth2_user_enrollment',
+  capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: ['client_secret'], supportsSandbox: true,
   docsUrl: null, version: 1,
 } as unknown as IntegrationProviderRead
 

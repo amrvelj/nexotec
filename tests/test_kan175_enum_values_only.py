@@ -75,10 +75,20 @@ def test_one_migration_per_context_chain():
         assert module.down_revision in parents, f"{context}: {module.down_revision} is not in its own chain"
 
 
+# Members a later migration retired, with the migration that replaced the
+# column's CHECK. Each must really be gone from the model (pinned below), so
+# this list cannot hide a member dropped by accident.
+_RETIRED_MEMBERS: dict[tuple[str, str, str], dict[tuple[str, str], str]] = {
+    # KAN-550 (Anto, D2): the SOAP account's AES response key.
+    ("integration", "integration_secret_ref", "slot"): {("AES_KEY", "aes_key"): "db5f1414cbce"},
+}
+
+
 def test_every_frozen_column_agrees_with_its_context_and_its_members():
     """Exact equality held when the lists were written (62 columns). A column
     or member added later is not in them: its own migration creates or
-    replaces the CHECK (app/core/enum_type.py)."""
+    replaces the CHECK (app/core/enum_type.py). A member removed later is
+    listed in `_RETIRED_MEMBERS` with the migration that removed it."""
 
     models = _model_columns()
     for context, module in _MIGRATIONS.items():
@@ -86,8 +96,18 @@ def test_every_frozen_column_agrees_with_its_context_and_its_members():
             current = models[context].get((table, column))
             if current is None:
                 continue  # removed since; its own migration owns that
-            assert set(pairs) <= set(current), (context, table, column)
+            retired = set(_RETIRED_MEMBERS.get((context, table, column), {}))
+            assert set(pairs) <= set(current) | retired, (context, table, column)
     assert len(_frozen()) == 62
+
+
+def test_a_retired_member_is_gone_from_the_model_and_its_migration_exists():
+    models = _model_columns()
+    for (context, table, column), members in _RETIRED_MEMBERS.items():
+        current = set(models[context][(table, column)])
+        for member, revision in members.items():
+            assert member not in current, (context, table, column, member)
+            assert list((_VERSIONS / context).glob(f"{revision}_*.py")), (context, revision)
 
 
 def test_the_database_refuses_a_name_and_an_unknown_string(db_session):

@@ -310,7 +310,7 @@ the code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. 
   agreement §5, §12; KAN-491, repo private since 2026-10-28): the code-map transcription
   (`7c4e9a2b6d13`, from the retired SOAP specification) and docstrings citing spec pages stay
   here — never pasted into a public issue, gist, PR on another repo or chat. Fixtures and the
-  mock use values that read as invented (`Testprojekt A`, BenutzerNr 9001, `test-dealer`;
+  mock use values that read as invented (`test-client-0001` as a client id;
   the mock's plates and its one VIN, `WVWZZZDEMV0000001`, resolve to invented cars),
   never a value from an account sheet or a specification example. The entitlement probes'
   inputs (`auto_i_dat_ident.py`: an FzKey, two Typenschein numbers, a VIN) are the examples of
