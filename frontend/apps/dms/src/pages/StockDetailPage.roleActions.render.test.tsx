@@ -7,6 +7,7 @@ import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import type { StockItemRead } from '../api/types'
+import { CODED_REFERENCE_ROUTES, configurationRead } from '../test/configuratorFixtures'
 import { StockDetailPage } from './StockDetailPage'
 
 // KAN-430 (Anto, 2026-10-30, option A) — since KAN-376 a salesperson creates
@@ -36,24 +37,38 @@ const publishing = (channel: string) => ({
   blockingConditions: [],
 })
 
-function session(writableCapabilities: string[]): FakeRoute {
+interface SessionFlags {
+  /** The home Betrieb's flag on the user row — never what a screen is gated on. */
+  isDealerManager?: boolean
+  /** KAN-211: the active Betrieb's flag, the session's own. */
+  isActiveDealershipManager?: boolean
+}
+
+function session(writableCapabilities: string[], flags: SessionFlags = {}): FakeRoute {
   return {
     method: 'GET',
     match: /\/auth\/me$/,
     handler: () => ({
-      user: { id: 'u-1', firstName: 'Sara', lastName: 'Verkauf', email: 'sara@example.ch', accessRoles: ['sales'] },
+      user: { id: 'u-1', firstName: 'Sara', lastName: 'Verkauf', email: 'sara@example.ch', accessRoles: ['sales'], isDealerManager: flags.isDealerManager ?? false },
       activeDealership: { id: 'dealership-1', legalName: 'Test Motors AG' },
       memberships: [{ id: 'dealership-1', legalName: 'Test Motors AG' }],
       entitlements: ALL_ENTITLEMENTS,
       writableCapabilities,
+      isActiveDealershipManager: flags.isActiveDealershipManager ?? false,
     }),
   }
 }
 
-function install(writableCapabilities: string[], { zusatztitel = null, photos = [] }: { zusatztitel?: string | null; photos?: string[] } = {}) {
+function install(
+  writableCapabilities: string[],
+  { zusatztitel = null, photos = [], flags = {}, item = ITEM }: { zusatztitel?: string | null; photos?: string[]; flags?: SessionFlags; item?: StockItemRead } = {},
+) {
   installFakeBackend([
-    session(writableCapabilities),
-    { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
+    session(writableCapabilities, flags),
+    ...CODED_REFERENCE_ROUTES,
+    { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+    { method: 'GET', match: /^\/configurations\/cfg-1$/, handler: () => configurationRead() },
+    { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => item },
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
     {
       method: 'GET',
@@ -180,5 +195,27 @@ describe('StockDetailPage — what the role may never use is hidden (KAN-430)', 
     ).toBeInTheDocument()
     expect(screen.getByText(i18n.t('stockDetail.publishing.listingTextTitle'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('stockDetail.publishing.media.title'))).toBeInTheDocument()
+  })
+})
+
+// KAN-211 (ADR-123): «Neu laden» of the car's catalogue details follows the
+// session's own manager flag — the ACTIVE Betrieb's — never the home flag on
+// the user row (platform.md). A home manager switched into a Betrieb they do
+// not manage sees no button; a member who manages the active Betrieb does.
+describe('StockDetailPage — «Neu laden» follows the active Betrieb\'s manager flag (KAN-211)', () => {
+  const CONFIGURED = { ...ITEM, configurationId: 'cfg-1', configurationLabel: 'Volkswagen Golf GTI' } as StockItemRead
+
+  it('offers it to a manager of the active Betrieb', async () => {
+    install(SALES, { item: CONFIGURED, flags: { isDealerManager: false, isActiveDealershipManager: true } })
+    render()
+    await screen.findByTestId('configuration-summary-card')
+    expect(await screen.findByRole('button', { name: i18n.t('stockDetail.configuration.reloadDetails') })).toBeInTheDocument()
+  })
+
+  it('hides it from a home manager switched into a Betrieb they do not manage', async () => {
+    install(SALES, { item: CONFIGURED, flags: { isDealerManager: true, isActiveDealershipManager: false } })
+    render()
+    await screen.findByTestId('configuration-summary-card')
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.configuration.reloadDetails') })).not.toBeInTheDocument()
   })
 })

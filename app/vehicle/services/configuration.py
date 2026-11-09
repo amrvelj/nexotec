@@ -78,6 +78,10 @@ _ALL_SPEC_FIELDS = (*SPEC_BLOCK_FIELDS, *_CODED_SPEC_FIELDS)
 # valuation_classification; 6ba0a99ed5c4: vehicle_class, emission_standard,
 # consumption_norm) and is checked exactly like a coded field.
 _SPEC_REFERENCE_FIELDS = ("engine_cycle", "vehicle_class", "valuation_classification", "emission_standard", "consumption_norm")
+# KAN-211 (Anto, 2026-11-08): the colour types the advisor names by hand. The
+# paint finish is the existing `colour_type` list (6ba0a99ed5c4), so the field
+# does not carry its list's name; the upholstery has its own list.
+_COLOUR_TYPE_LISTS = {"exterior_colour_type": "colour_type", "interior_colour_type": "interior_colour_type"}
 
 # The top-level fields a PATCH writes (R2, Anto 2026-10-12): absent leaves a
 # field alone, an explicit null clears it. The coded fields are handled on
@@ -93,6 +97,8 @@ _PATCHABLE_NULLABLE_FIELDS = (
     "interior_colour",
     "exterior_colour_surcharge",
     "interior_colour_surcharge",
+    "exterior_colour_type",
+    "interior_colour_type",
     "wheels",
     "wheels_surcharge",
     "notes",
@@ -193,8 +199,9 @@ def _apply_spec_payload(config: VehicleConfiguration, spec: Any) -> None:
 
 
 def _validate_coded_spec_fields(db: Session, data: ConfigurationCreate | ConfigurationUpdate) -> None:
-    """Every coded value the client sent — the five coded fields (KAN-96)
-    and the spec block's five reference fields (KAN-245) — must be an active
+    """Every coded value the client sent — the five coded fields (KAN-96),
+    the spec block's five reference fields (KAN-245) and the two colour
+    types (KAN-211) — must be an active
     value of its reference list: otherwise one 422 naming every offending
     field; 500 if a list is missing (`validate_reference_codes`, the rule
     KAN-57 set for `/v1/vehicles`).
@@ -207,10 +214,16 @@ def _validate_coded_spec_fields(db: Session, data: ConfigurationCreate | Configu
     """
 
     values: dict[str, Any] = {field: getattr(data, field) for field in _CODED_SPEC_FIELDS}
+    values.update({field: getattr(data, field) for field in _COLOUR_TYPE_LISTS})
     if data.spec is not None:
         spec = data.spec.model_dump(exclude_unset=True)
         values.update({field: spec[field] for field in _SPEC_REFERENCE_FIELDS if field in spec})
-    validate_reference_codes(db, values, (*_CODED_SPEC_FIELDS, *_SPEC_REFERENCE_FIELDS))
+    validate_reference_codes(
+        db,
+        values,
+        (*_CODED_SPEC_FIELDS, *_SPEC_REFERENCE_FIELDS, *_COLOUR_TYPE_LISTS),
+        list_codes=_COLOUR_TYPE_LISTS,
+    )
 
 
 def _require_coded_fields_on_create(data: ConfigurationCreate) -> None:
@@ -309,6 +322,8 @@ def create_configuration(
         interior_colour=data.interior_colour,
         exterior_colour_surcharge=data.exterior_colour_surcharge,
         interior_colour_surcharge=data.interior_colour_surcharge,
+        exterior_colour_type=data.exterior_colour_type,
+        interior_colour_type=data.interior_colour_type,
         wheels=data.wheels,
         wheels_surcharge=data.wheels_surcharge,
         notes=data.notes,
@@ -324,6 +339,9 @@ def create_configuration(
         config.catalogue_variant_label = _variant_label(variant)
         config.catalogue_variant_label_refreshed_at = utcnow()
         _copy_spec_block_from_variant(config, variant)
+        # KAN-211: the colour types are the advisor's on a provider configuration
+        # too (the catalogue carries no finish), so they are checked here as well.
+        validate_reference_codes(db, {f: getattr(data, f) for f in _COLOUR_TYPE_LISTS}, _COLOUR_TYPE_LISTS, list_codes=_COLOUR_TYPE_LISTS)
         config.catalogue_match_status = (
             ConfigurationMatchStatus.BEST_MATCH_CONFIRMED
             if data.confirmed_best_match_code == 2
@@ -549,6 +567,8 @@ def copy_configuration(
         interior_colour=source.interior_colour,
         exterior_colour_surcharge=source.exterior_colour_surcharge,
         interior_colour_surcharge=source.interior_colour_surcharge,
+        exterior_colour_type=source.exterior_colour_type,
+        interior_colour_type=source.interior_colour_type,
         wheels=source.wheels,
         wheels_surcharge=source.wheels_surcharge,
         overridden_fields=list(source.overridden_fields),

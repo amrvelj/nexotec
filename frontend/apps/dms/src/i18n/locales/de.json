@@ -1325,7 +1325,11 @@
       "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen.",
       "edit": "Konfiguration bearbeiten",
       "editContract": "Vertrag bearbeiten",
-      "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist."
+      "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist.",
+      "reloadDetails": "Neu laden",
+      "reloadDetailsHint": "Fragt Optionen, Farben, Reifendaten, Bilder und Energieetikette bei auto-i-dat neu ab und ersetzt die gespeicherten Daten dieses Betriebs.",
+      "reloadDetailsError": "Die Katalogdaten konnten nicht neu geladen werden.",
+      "reloadDetailsDone": "Neu geladen am {{date}}"
     },
     "rowMenu": {
       "changeCondition": "Zustand ändern",
@@ -2091,13 +2095,20 @@
         "onlyWith": "Nur verfügbar mit {{option}}",
         "notInCombinationWith": "Nicht verfügbar in Kombination mit {{option}}",
         "onlyInCombinationWith": "Nur verfügbar in Kombination mit {{option}}"
-      }
+      },
+      "searchPlaceholder": "Option oder Code suchen…",
+      "searchLabel": "Optionen durchsuchen",
+      "noMatches": "Keine Option passt zur Suche."
     },
     "colour": {
       "exterior": "Aussenfarbe",
       "interior": "Polsterfarbe",
       "pickFromCatalogue": "Aus Katalog wählen",
-      "surcharge": "Aufpreis"
+      "surcharge": "Aufpreis",
+      "exteriorType": "Farbtyp",
+      "interiorType": "Polsterart",
+      "pickType": "Wählen…",
+      "typeListUnavailable": "Die Liste konnte nicht geladen werden"
     },
     "wheels": {
       "title": "Räder & Reifen",
@@ -2234,6 +2245,38 @@
       "overridden": "von Ihnen geändert",
       "apply": "Ausgewählte übernehmen",
       "error": "Die Aktualisierung ist fehlgeschlagen."
+    },
+    "details": {
+      "notInContract": {
+        "title": "Nicht in Ihrem Vertrag",
+        "body": "auto-i-dat liefert diese Daten für Ihren Zugang nicht: die Option ist nicht lizenziert. Sobald eine Verbindungsprüfung die Option als lizenziert feststellt, werden sie beim nächsten Öffnen geladen."
+      },
+      "unavailable": {
+        "title": "Vom Anbieter derzeit nicht verfügbar",
+        "body": "auto-i-dat hat diese Daten nicht geliefert. Beim nächsten Öffnen des Fahrzeugs werden sie erneut abgefragt."
+      },
+      "notLoaded": {
+        "title": "Noch nicht geladen",
+        "body": "Diese Daten wurden für diesen Betrieb noch nicht von auto-i-dat abgefragt."
+      },
+      "names": {
+        "options": "Optionen",
+        "colours": "Farben",
+        "tyreSpecs": "Reifendaten",
+        "images": "Bilder",
+        "energyLabel": "Energieetikette"
+      },
+      "state": {
+        "present": "Geladen",
+        "notInContract": "Nicht in Ihrem Vertrag",
+        "unavailable": "Nicht verfügbar",
+        "notLoaded": "Noch nicht geladen"
+      },
+      "notes": {
+        "entitlementAbsent": "Die Prüfung der Verbindung hat diese Option als nicht lizenziert festgestellt; auto-i-dat wurde nicht angefragt.",
+        "variantUnknownAtProvider": "auto-i-dat führt diese Variante nicht mehr; es gibt dazu nichts zu laden.",
+        "energyLabelAmbiguous": "auto-i-dat nennt für dieses Jahr je nach Getriebe verschiedene Klassen; es wurde keine übernommen."
+      }
     }
   },
   "customerRowMenu": {

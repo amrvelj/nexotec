@@ -78,6 +78,11 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const canChangeCondition = useCanWrite('stock_condition')
   const canCreateContract = useCanWrite('sales_contracts')
   const canCreateOffer = useCanWrite('sales_offers')
+  // KAN-211 (ADR-123): «Neu laden» of the car's catalogue details is the
+  // dealer manager's (or platform staff's) — the ACTIVE Betrieb's flag as the
+  // session carries it, never `user.isDealerManager` (the home Betrieb's).
+  const { user: sessionUser, isActiveDealershipManager } = useAuth()
+  const canReloadCatalogueDetails = isActiveDealershipManager || (sessionUser?.accessRoles ?? []).includes('platform_admin')
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
 
   const setActiveTab = (tab: string) => {
@@ -344,6 +349,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
           canRecordPurchase={canBookPurchase}
           canAttachConfiguration={canWriteStockItems && canWriteConfigurations}
           canEditConfiguration={canWriteConfigurations}
+          canReloadCatalogueDetails={canReloadCatalogueDetails}
           onRecordPurchase={recordPurchase}
           onPurchaseStornoed={purchaseStornoed}
           requestedAction={detailsAction}

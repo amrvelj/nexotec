@@ -446,3 +446,157 @@ def test_clearing_a_spec_reference_field_needs_no_list_value(client, db_session)
 
     assert r.status_code == 200, r.text
     assert r.json()["spec"]["engineCycle"] is None
+
+
+# --- KAN-211: the colour types the advisor names by hand -------------------
+#
+# The identAPI delivers a colour's name and no finish (no Métalisé flag on
+# any endpoint), so the advisor picks the type: `exteriorColourType` from
+# the `colour_type` list — the field does not carry its list's name, the one
+# such field — and `interiorColourType` from `interior_colour_type`
+# (platform 4c8e1f2a9d57). Both are free on a provider configuration (the
+# catalogue supplies neither) and clearable.
+
+
+def _seed_colour_type_lists(db_session) -> None:
+    _seed_list(db_session, "colour_type", "solid", "metallic", "pearl", "matte", inactive=("chrome",))
+    _seed_list(db_session, "interior_colour_type", "fabric", "leather", "alcantara")
+
+
+def test_colour_types_are_stored_on_create_and_read_back(client, db_session):
+    _seed_coded_lists(db_session)
+    _seed_colour_type_lists(db_session)
+
+    r = _post(client, uuid.uuid4(), _manual(
+        exteriorColour="Kingsred", exteriorColourType="metallic", interiorColour="Titanschwarz",
+        interiorColourType="leather",
+    ))
+
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert (body["exteriorColourType"], body["interiorColourType"]) == ("metallic", "leather")
+
+
+def test_the_exterior_colour_type_is_checked_against_the_colour_type_list(client, db_session):
+    """The one field whose name is not its list's: a bad value names the
+    list actually checked, `colour_type`, so the admin knows where to add
+    a value; a retired value is refused like any other coded field."""
+
+    _seed_coded_lists(db_session)
+    _seed_colour_type_lists(db_session)
+
+    r = _post(client, uuid.uuid4(), _manual(exteriorColourType="glitter", interiorColourType="velvet"))
+
+    assert r.status_code == 422, r.text
+    error = r.json()["error"]
+    assert error["details"]["invalid"] == {"exteriorColourType": "glitter", "interiorColourType": "velvet"}
+    assert "exteriorColourType='glitter' (reference list 'colour_type')" in error["message"]
+    assert "interiorColourType='velvet' (reference list 'interior_colour_type')" in error["message"]
+    assert _configuration_count(db_session) == 0
+
+    retired = _post(client, uuid.uuid4(), _manual(exteriorColourType="chrome"))
+    assert retired.status_code == 422, retired.text
+    assert retired.json()["error"]["details"]["invalid"] == {"exteriorColourType": "chrome"}
+
+
+def test_a_provider_configuration_takes_and_clears_a_colour_type_by_patch(client, db_session):
+    """Not a catalogue-locked field: the catalogue has no finish to lock, so
+    the advisor sets it on a provider configuration, and an explicit null
+    clears it (R2)."""
+
+    _seed_coded_lists(db_session)
+    _seed_colour_type_lists(db_session)
+    variant = _variant(db_session, **{k: v for k, v in zip(_CODED_LISTS, MANUAL_CODED_JSON.values(), strict=True)})
+    tenant_id = uuid.uuid4()
+    created = _post(client, tenant_id, {
+        "source": "provider", "mode": "build", "matchMethod": "catalogue_browse",
+        "catalogueVariantId": str(variant.id),
+    })
+    assert created.status_code == 201, created.text
+    cid, version = created.json()["id"], created.json()["version"]
+
+    r = client.patch(
+        f"/v1/configurations/{cid}",
+        json={"exteriorColour": "Oryxweiss", "exteriorColourType": "pearl", "interiorColourType": "fabric"},
+        headers=_headers(tenant_id, **{"If-Match": str(version)}),
+    )
+    assert r.status_code == 200, r.text
+    assert (r.json()["exteriorColourType"], r.json()["interiorColourType"]) == ("pearl", "fabric")
+
+    bad = client.patch(
+        f"/v1/configurations/{cid}",
+        json={"exteriorColourType": "glitter"},
+        headers=_headers(tenant_id, **{"If-Match": str(r.json()["version"])}),
+    )
+    assert bad.status_code == 422, bad.text
+    assert bad.json()["error"]["details"]["invalid"] == {"exteriorColourType": "glitter"}
+
+    cleared = client.patch(
+        f"/v1/configurations/{cid}",
+        json={"exteriorColourType": None},
+        headers=_headers(tenant_id, **{"If-Match": str(r.json()["version"])}),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["exteriorColourType"] is None
+    assert cleared.json()["interiorColourType"] == "fabric"
+
+
+def test_a_missing_colour_type_list_is_a_deployment_fault(client, db_session):
+    _seed_coded_lists(db_session)
+
+    with pytest.raises(RuntimeError, match="'interior_colour_type' reference list is not seeded"):
+        _post(client, uuid.uuid4(), _manual(interiorColourType="leather"))
+
+
+def test_a_host_copy_carries_both_colour_types(client, db_session):
+    """FR-C-11: the copy a host takes is the same content under a new id —
+    the hand-named colour types included."""
+
+    from app.vehicle.services.configuration import copy_configuration
+
+    _seed_coded_lists(db_session)
+    _seed_colour_type_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _post(client, tenant_id, _manual(exteriorColourType="matte", interiorColourType="alcantara"))
+    assert created.status_code == 201, created.text
+    source = db_session.get(VehicleConfiguration, uuid.UUID(created.json()["id"]))
+
+    copy = copy_configuration(db_session, source=source, actor_id=None)
+
+    assert copy.id != source.id
+    assert (copy.exterior_colour_type, copy.interior_colour_type) == ("matte", "alcantara")
+
+
+def test_a_provider_create_checks_the_colour_types_too(client, db_session):
+    """The catalogue carries no finish, so the types are the advisor's on a
+    provider configuration as well — and checked there as well: a bad value
+    is a 422 and nothing is stored (review of PR 2: the provider branch once
+    skipped the check)."""
+
+    _seed_coded_lists(db_session)
+    _seed_colour_type_lists(db_session)
+    variant = _variant(db_session, **{k: v for k, v in zip(_CODED_LISTS, MANUAL_CODED_JSON.values(), strict=True)})
+
+    r = _post(client, uuid.uuid4(), {
+        "source": "provider", "mode": "build", "matchMethod": "catalogue_browse",
+        "catalogueVariantId": str(variant.id), "exteriorColourType": "glitter", "interiorColourType": "velvet",
+    })
+
+    assert r.status_code == 422, r.text
+    assert r.json()["error"]["details"]["invalid"] == {"exteriorColourType": "glitter", "interiorColourType": "velvet"}
+    assert _configuration_count(db_session) == 0
+
+    ok = _post(client, uuid.uuid4(), {
+        "source": "provider", "mode": "build", "matchMethod": "catalogue_browse",
+        "catalogueVariantId": str(variant.id), "exteriorColourType": "pearl",
+    })
+    assert ok.status_code == 201, ok.text
+    assert ok.json()["exteriorColourType"] == "pearl"
+
+
+def test_a_missing_colour_type_list_names_the_list_checked_not_the_field(client, db_session):
+    _seed_coded_lists(db_session)
+    _seed_list(db_session, "interior_colour_type", "fabric")
+
+    with pytest.raises(RuntimeError, match="'colour_type' reference list is not seeded.*exteriorColourType"):
+        _post(client, uuid.uuid4(), _manual(exteriorColourType="metallic"))

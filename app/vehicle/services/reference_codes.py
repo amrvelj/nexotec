@@ -20,7 +20,9 @@ from app.core.errors import UnprocessableEntityError
 from app.platform.public import get_active_reference_value_codes
 
 
-def validate_reference_codes(db: Session, values: Mapping[str, Any], fields: Iterable[str]) -> None:
+def validate_reference_codes(
+    db: Session, values: Mapping[str, Any], fields: Iterable[str], *, list_codes: Mapping[str, str] | None = None
+) -> None:
     """A submitted value that is not an *active* value of its reference list
     is a semantic error in the request: 422, naming every offending field,
     the value sent and the list it was checked against (KAN-57 — the rule
@@ -30,24 +32,32 @@ def validate_reference_codes(db: Session, values: Mapping[str, Any], fields: Ite
     something wrong. A deactivated value is rejected on new writes; rows that
     already reference one stay readable. A field absent from `values`, or
     `None`, is not checked.
+
+    `list_codes` names the list of a field whose name is not its list's — the
+    configuration's `exterior_colour_type` holds a value of the `colour_type`
+    list (KAN-211); every other field is checked against the list of its own
+    name. The 422 names the list actually checked.
     """
 
-    invalid: list[tuple[str, str]] = []
+    invalid: list[tuple[str, str, str]] = []
     for field in fields:
         value_code = values.get(field)
         if value_code is None:
             continue
-        valid = get_active_reference_value_codes(db, field)
+        list_code = (list_codes or {}).get(field, field)
+        valid = get_active_reference_value_codes(db, list_code)
         if valid is None:
             raise RuntimeError(
-                f"The '{field}' reference list is not seeded. Run `alembic upgrade heads` on this "
+                f"The '{list_code}' reference list is not seeded. Run `alembic upgrade heads` on this "
                 f"deployment — {to_camel(field)} cannot be validated without it."
             )
         if value_code not in valid:
-            invalid.append((field, value_code))
+            invalid.append((field, value_code, list_code))
     if invalid:
-        rendered = ", ".join(f"{to_camel(field)}={code!r} (reference list '{field}')" for field, code in invalid)
+        rendered = ", ".join(
+            f"{to_camel(field)}={code!r} (reference list '{list_code}')" for field, code, list_code in invalid
+        )
         raise UnprocessableEntityError(
             f"Not an active value of the matching reference list: {rendered}.",
-            details={"invalid": {to_camel(field): code for field, code in invalid}},
+            details={"invalid": {to_camel(field): code for field, code, _ in invalid}},
         )

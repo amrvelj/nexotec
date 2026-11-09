@@ -109,4 +109,46 @@ describe('ImagesTab', () => {
     renderTab({ isLoading: true, spec: undefined })
     expect(screen.getByText(i18n.t('common.loading'))).toBeInTheDocument()
   })
+
+  // KAN-211 / KAN-212 (ADR-123), exit criterion 6: photos the licence
+  // refused are marked «Nicht in Ihrem Vertrag», never an empty gallery.
+  it('marks the photos «Nicht in Ihrem Vertrag» when the licence refused them, even with the probe entitled', () => {
+    renderTab({
+      spec: buildSpec({
+        images: [],
+        imagesAvailable: true,
+        details: { ...detailsPresent, images: { state: 'notInContract', loadedAt: '2026-11-08T10:00:00Z' } },
+      }),
+    })
+    const notice = screen.getByTestId('detail-state-images')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notInContract.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+    expect(screen.queryByTestId('images-entitlement-notice')).not.toBeInTheDocument()
+  })
+
+  it('says the provider did not deliver the photos and that the next open retries', () => {
+    renderTab({
+      spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }),
+    })
+    expect(screen.getByTestId('detail-state-images')).toHaveTextContent(i18n.t('configurator.details.unavailable.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
+
+  it('keeps the stored photos visible under the notice when a reload failed (as OptionsTab keeps its list)', () => {
+    renderTab({ spec: buildSpec({ details: { ...detailsPresent, images: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }) })
+    expect(screen.getByTestId('detail-state-images')).toBeInTheDocument()
+    expect(screen.getByTestId('images-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('image-fz1-front.jpg')).toBeInTheDocument()
+  })
+
+  it('renders no state notice when the photos are loaded', () => {
+    renderTab()
+    expect(screen.queryByTestId('detail-state-images')).not.toBeInTheDocument()
+  })
+
+  it('says «noch nicht geladen» for a Betrieb that never asked, and «empty» only once loaded', () => {
+    renderTab({ spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'notLoaded' } } }) })
+    expect(screen.getByTestId('detail-state-images')).toHaveTextContent(i18n.t('configurator.details.notLoaded.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
 })

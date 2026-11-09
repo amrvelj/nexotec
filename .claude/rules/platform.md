@@ -175,7 +175,10 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   and the first `dealership_settings` save insert in a savepoint and carry on with a concurrent
   winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
-  gate a screen on it; the session's own flag is the token claim.
+  gate a screen on it; the session's own flag is the token claim, and the SPA reads it as
+  `LoginResponse.isActiveDealershipManager` (login, `/auth/me`, switch-dealership; KAN-211), the
+  one thing gated on it today being the stock car's «Neu laden» (`useAuth().isActiveDealershipManager`),
+  whose server check is the manager flag itself, not a matrix row.
 
 ## Access — what exists today
 
