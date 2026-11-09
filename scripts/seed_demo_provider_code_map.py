@@ -61,8 +61,9 @@ def copy_code_map(db: Session) -> int:
 
 
 # KAN-211: the demo adapter's option groups are the canonical `option_group`
-# values themselves (`exterior`, `comfort`, …) under its vehicle kind `1`,
-# where the real provider sends CodeGrpNr 046 codes. Since the details load
+# values themselves (`exterior`, `comfort`, …) under its vehicle kind `01`
+# (KAN-550; `1` before, the SOAP-era kind), where the real provider sends its
+# own group codes. Since the details load
 # through the code map (FR-C-10) the demo needs these identity rows, or every
 # demo option is a mapping gap and a flat list.
 DEMO_OPTION_GROUPS = ("exterior", "interior", "comfort", "infotainment", "safety")
@@ -74,7 +75,7 @@ def seed_demo_option_groups(db: Session) -> int:
         for row in db.scalars(
             select(ProviderCodeMap).where(
                 ProviderCodeMap.provider == DEMO_PROVIDER, ProviderCodeMap.code_group == "option_group",
-                ProviderCodeMap.vehicle_kind == "1",
+                ProviderCodeMap.vehicle_kind == "01",
             )
         )
     }
@@ -84,7 +85,7 @@ def seed_demo_option_groups(db: Session) -> int:
             continue
         db.add(
             ProviderCodeMap(
-                provider=DEMO_PROVIDER, vehicle_kind="1", code_group="option_group", provider_code=code,
+                provider=DEMO_PROVIDER, vehicle_kind="01", code_group="option_group", provider_code=code,
                 canonical_list_code="option_group", canonical_value_code=code,
             )
         )

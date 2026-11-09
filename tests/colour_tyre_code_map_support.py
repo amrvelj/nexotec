@@ -30,6 +30,15 @@ def reference_values_migration():
     return _load(path, "kan75_colour_area_list")
 
 
+def soap_retirement_migration():
+    (path,) = sorted((_VERSIONS / "vehicle").glob("bb6e760d9464_*.py"))
+    return _load(path, "kan550_retire_the_soap_codes")
+
+
 def seed_colour_tyre_code_map(db_session) -> None:
+    """The map as `alembic upgrade heads` leaves it: `b0a125a0a583`'s seed,
+    then KAN-550's re-key of the demo provider's rows to vehicle kind `01`."""
+
     code_map_migration()._seed(db_session.connection())
+    soap_retirement_migration().retire_demo_soap_codes(db_session.connection())
     db_session.commit()
