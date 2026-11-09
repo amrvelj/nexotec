@@ -14,8 +14,8 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 // written too.
 
 const PROVIDER = {
-  id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'soap',
-  capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: ['password'], supportsSandbox: true,
+  id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'oauth2_user_enrollment',
+  capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: ['client_secret'], supportsSandbox: true,
   docsUrl: null, version: 1,
 } as unknown as IntegrationProviderRead
 
@@ -48,11 +48,11 @@ function install({ connected = true, failFirstCreate = false, failFirstSecret = 
     },
     {
       method: 'PUT',
-      match: /^\/integrations\/connections\/conn-1\/secrets\/password$/,
+      match: /^\/integrations\/connections\/conn-1\/secrets\/client_secret$/,
       handler: () => {
         secrets += 1
         if (failFirstSecret && secrets === 1) return unavailable()
-        return { slot: 'password', rotatedAt: null }
+        return { slot: 'client_secret', rotatedAt: null }
       },
     },
   ])
@@ -63,9 +63,9 @@ const keysTo = (backend: ReturnType<typeof install>, pattern: RegExp) =>
 
 async function connect(user: ReturnType<typeof userEvent.setup>) {
   const dialog = await screen.findByRole('dialog')
-  const password = within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.password', 'password'))
-  await user.clear(password)
-  await user.type(password, 's3cret')
+  const secret = within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.client_secret', 'client_secret'))
+  await user.clear(secret)
+  await user.type(secret, 's3cret')
   await user.click(within(dialog).getByRole('button', { name: i18n.t('integrationsList.actions.connect') }))
 }
 
@@ -98,7 +98,7 @@ describe('IntegrationDealerView — one Idempotency-Key per submission (KAN-266)
     await connect(user)
     expect(await screen.findByText(i18n.t('integrationsList.connectError'))).toBeInTheDocument()
     await connect(user)
-    await waitFor(() => expect(backend.callsTo(/\/secrets\/password$/, 'PUT')).toHaveLength(2))
+    await waitFor(() => expect(backend.callsTo(/\/secrets\/client_secret$/, 'PUT')).toHaveLength(2))
 
     const [first, retry] = keysTo(backend, /^\/integrations\/connections$/)
     expect(first).toBeTruthy()

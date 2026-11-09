@@ -1850,15 +1850,12 @@
     },
     "secretSlot": {
       "password": "Passwort",
-      "aes_key": "AES-Schlüssel",
       "client_secret": "Client-Secret",
       "refresh_token": "Refresh-Token",
       "certificate": "Zertifikat"
     },
     "configKey": {
       "username": "Benutzername",
-      "benutzerNr": "Kontonummer (BenutzerNr)",
-      "benutzerInfo": "Kontobezeichnung (BenutzerInfo)",
       "clientId": "Client-ID"
     }
   },

@@ -48,8 +48,8 @@ def _make_provider(db_session, **overrides) -> IntegrationProvider:
         "provider_code": "auto_i_dat",
         "category": "vehicle_data",
         "display_name": "auto-i-dat",
-        "auth_type": "soap_password_aes",
-        "required_secret_slots": ["password", "aes_key"],
+        "auth_type": "oauth2_user_enrollment",
+        "required_secret_slots": ["client_secret"],
         "capability_codes": ["vehicle_data", "images", "packages", "valuation", "forecast"],
     }
     defaults.update(overrides)
@@ -106,7 +106,7 @@ def test_secret_ref_is_a_pointer_not_a_value_at_rest(db_session):
 
 
 def test_multiple_secret_slots_per_connection(db_session):
-    """auto-i-dat needs two: password + aes_key."""
+    """One row per slot a connection holds — two slots, two rows."""
 
     provider = _make_provider(db_session)
     backend = FakeSecretsBackend()
@@ -120,11 +120,11 @@ def test_multiple_secret_slots_per_connection(db_session):
         actor_id=uuid.uuid4(), secrets_backend_module=backend,
     )
     connection_service.set_secret(
-        db_session, connection=connection, slot=SecretSlot.AES_KEY, value="key",
+        db_session, connection=connection, slot=SecretSlot.CLIENT_SECRET, value="key",
         actor_id=uuid.uuid4(), secrets_backend_module=backend,
     )
     slots = connection_service.list_secret_slots(db_session, connection_id=connection.id)
-    assert {s.slot for s in slots} == {SecretSlot.PASSWORD, SecretSlot.AES_KEY}
+    assert {s.slot for s in slots} == {SecretSlot.PASSWORD, SecretSlot.CLIENT_SECRET}
 
 
 def test_delete_connection_deletes_every_secret_slot_from_the_backend(db_session):
@@ -140,7 +140,7 @@ def test_delete_connection_deletes_every_secret_slot_from_the_backend(db_session
         actor_id=uuid.uuid4(), secrets_backend_module=backend,
     )
     connection_service.set_secret(
-        db_session, connection=connection, slot=SecretSlot.AES_KEY, value="key",
+        db_session, connection=connection, slot=SecretSlot.CLIENT_SECRET, value="key",
         actor_id=uuid.uuid4(), secrets_backend_module=backend,
     )
 

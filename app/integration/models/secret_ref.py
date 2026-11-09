@@ -4,9 +4,10 @@ never a value — the actual material lives in Infisical
 (services/secrets_backend.py), enforced structurally by this column never
 being writable to anything but a string the resolver can look up with.
 
-Multiple rows per connection is the norm, not the exception: auto-i-dat
-needs two (`password` + `aes_key`); a future OAuth provider needs three
-(`client_secret` + `refresh_token` + ...).
+A connection holds one row per slot its provider needs — the identAPI one
+(`client_secret`, KAN-488), the AutoScout24 feed one (`password`); a provider
+with a refresh token or a certificate would hold more. The SOAP account's
+`aes_key` slot left with the SOAP adapter (KAN-550, migration `db5f1414cbce`).
 """
 
 import datetime as dt
@@ -24,7 +25,6 @@ from app.db import Base
 
 class SecretSlot(str, enum.Enum):
     PASSWORD = "password"
-    AES_KEY = "aes_key"
     CLIENT_SECRET = "client_secret"
     REFRESH_TOKEN = "refresh_token"
     CERTIFICATE = "certificate"

@@ -15,15 +15,15 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 // lost. Each field must show exactly what was typed into it.
 
 const PROVIDER = {
-  id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'soap',
-  capabilityCodes: [], requiredConfigKeys: ['username'], requiredSecretSlots: ['password'], supportsSandbox: true,
+  id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'oauth2_user_enrollment',
+  capabilityCodes: [], requiredConfigKeys: ['clientId'], requiredSecretSlots: ['client_secret'], supportsSandbox: true,
   docsUrl: null, version: 1,
 } as unknown as IntegrationProviderRead
 
 const CONNECTION = {
   id: 'conn-1', providerId: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', environment: 'sandbox',
   status: 'connected', enabled: true, config: {}, lastVerifiedAt: null, lastError: null, version: 1,
-  secretSlots: [{ slot: 'password', rotatedAt: null }],
+  secretSlots: [{ slot: 'client_secret', rotatedAt: null }],
 } as unknown as IntegrationConnectionRead
 
 function install({ connected }: { connected: boolean }) {
@@ -47,14 +47,14 @@ describe('IntegrationDealerView — every settings input keeps what is typed (KA
 
     await user.click(await screen.findByRole('button', { name: i18n.t('integrationsList.actions.connect') }))
     const dialog = await screen.findByRole('dialog')
-    const username = within(dialog).getByLabelText(i18n.t('integrationEnums.configKey.username'))
-    const password = within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.password'))
+    const clientId = within(dialog).getByLabelText(i18n.t('integrationEnums.configKey.clientId'))
+    const secret = within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.client_secret'))
 
-    await user.type(username, 'garage-nord')
-    await user.type(password, 's3cret!')
+    await user.type(clientId, 'garage-nord')
+    await user.type(secret, 's3cret!')
 
-    expect(username).toHaveValue('garage-nord')
-    expect(password).toHaveValue('s3cret!')
+    expect(clientId).toHaveValue('garage-nord')
+    expect(secret).toHaveValue('s3cret!')
   })
 
   it('the rotate dialog keeps the typed secret', async () => {
@@ -65,10 +65,10 @@ describe('IntegrationDealerView — every settings input keeps what is typed (KA
     await user.click(await screen.findByRole('button', { name: i18n.t('common.rowActionsLabel') }))
     await user.click(await screen.findByRole('menuitem', { name: i18n.t('integrationsList.actions.rotateSecret') }))
     const dialog = await screen.findByRole('dialog')
-    const password = within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.password'))
+    const secret = within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.client_secret'))
 
-    await user.type(password, 'n3w-s3cret')
+    await user.type(secret, 'n3w-s3cret')
 
-    expect(password).toHaveValue('n3w-s3cret')
+    expect(secret).toHaveValue('n3w-s3cret')
   })
 })

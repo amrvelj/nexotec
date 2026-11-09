@@ -1,8 +1,10 @@
 """KAN-36 — the auto-i-dat account's required config, and `vin_decode`,
 which since KAN-549 follows the identAPI's licence option `vin` strictly
-(the DAT sub-account model is retired, ADR-113). All fixture values below
-are invented and read as such (KAN-491: «Testprojekt A», BenutzerNr 9001,
-username test-dealer) — never a value from a real account sheet.
+(the DAT sub-account model is retired, ADR-113). The provider row is the
+identAPI's (KAN-488, `6b98739fe743`): config key `clientId`, slot
+`client_secret` — the SOAP account shape (`benutzerNr`, `benutzerInfo`,
+`aes_key`) left with KAN-550. Fixture values are invented and read as such
+(KAN-491) — never a value from a real account sheet.
 """
 
 import uuid
@@ -46,10 +48,10 @@ def _make_auto_i_dat_provider(db_session, **overrides) -> IntegrationProvider:
         "provider_code": "auto_i_dat",
         "category": "vehicle_data",
         "display_name": "auto-i-dat",
-        "auth_type": "soap_password_aes",
-        "required_secret_slots": ["password", "aes_key"],
-        "required_config_keys": ["username", "benutzerNr", "benutzerInfo"],
-        "capability_codes": ["fahrzeuge", "optionen", "kontrollschild", "pneu", "bewertung", "vin", "vin_ident_db", "ins_tc"],
+        "auth_type": "oauth2_user_enrollment",
+        "required_secret_slots": ["client_secret"],
+        "required_config_keys": ["clientId"],
+        "capability_codes": ["ident_basis", "ausstattung", "bewertung", "vin", "pneu", "energielabel"],
     }
     defaults.update(overrides)
     provider = IntegrationProvider(**defaults)
@@ -62,22 +64,22 @@ def _make_auto_i_dat_provider(db_session, **overrides) -> IntegrationProvider:
 # --- required config keys ---------------------------------------------------
 
 
-def test_auto_i_dat_connection_without_benutzer_nr_is_refused(db_session):
+def test_auto_i_dat_connection_without_a_client_id_is_refused(db_session):
     provider = _make_auto_i_dat_provider(db_session)
     with pytest.raises(UnprocessableEntityError) as excinfo:
         connection_service.create_connection(
             db_session, tenant_id=uuid.uuid4(),
             data=ConnectionCreate(
                 provider_id=provider.id, display_name="Test", environment=ConnectionEnvironment.SANDBOX,
-                config={"username": "test-dealer"},  # benutzerNr/benutzerInfo missing
+                config={"note": "no clientId"},
             ),
             actor_id=uuid.uuid4(),
         )
-    assert "benutzerNr" in str(excinfo.value.details["missingConfigKeys"])
+    assert "clientId" in str(excinfo.value.details["missingConfigKeys"])
     assert excinfo.value.details["reason"] == "missing_config_fields"
 
 
-def test_auto_i_dat_connection_without_benutzer_nr_via_api_names_its_reason(client, db_session):
+def test_auto_i_dat_connection_without_a_client_id_via_api_names_its_reason(client, db_session):
     """KAN-472: through the route, the 422 carries a stable `details.reason`
     beside the missing keys."""
 
@@ -90,14 +92,14 @@ def test_auto_i_dat_connection_without_benutzer_nr_via_api_names_its_reason(clie
             "providerId": str(provider.id),
             "displayName": "Test",
             "environment": "sandbox",
-            "config": {"username": "test-dealer"},
+            "config": {"note": "no clientId"},
         },
         headers=_headers(_manager_token()),
     )
     assert response.status_code == 422, response.text
     details = response.json()["error"]["details"]
     assert details["reason"] == "missing_config_fields"
-    assert "benutzerNr" in details["missingConfigKeys"]
+    assert "clientId" in details["missingConfigKeys"]
 
 
 def test_auto_i_dat_connection_with_full_account_shape_succeeds(db_session):
@@ -106,12 +108,11 @@ def test_auto_i_dat_connection_with_full_account_shape_succeeds(db_session):
         db_session, tenant_id=uuid.uuid4(),
         data=ConnectionCreate(
             provider_id=provider.id, display_name="Test", environment=ConnectionEnvironment.SANDBOX,
-            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
+            config={"clientId": "test-client-0001"},
         ),
         actor_id=uuid.uuid4(),
     )
-    assert connection.config["benutzerNr"] == 9001
-    assert connection.config["benutzerInfo"] == "Testprojekt A"
+    assert connection.config["clientId"] == "test-client-0001"
 
 
 def test_update_dropping_a_required_config_key_is_refused(db_session):
@@ -120,14 +121,14 @@ def test_update_dropping_a_required_config_key_is_refused(db_session):
         db_session, tenant_id=uuid.uuid4(),
         data=ConnectionCreate(
             provider_id=provider.id, display_name="Test", environment=ConnectionEnvironment.SANDBOX,
-            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
+            config={"clientId": "test-client-0001"},
         ),
         actor_id=uuid.uuid4(),
     )
     with pytest.raises(UnprocessableEntityError):
         connection_service.update_connection(
             db_session, connection=connection,
-            data=ConnectionUpdate(config={"username": "test-dealer"}),  # drops benutzerNr/benutzerInfo
+            data=ConnectionUpdate(config={"note": "clientId dropped"}),
             actor_id=uuid.uuid4(),
         )
 
@@ -141,7 +142,7 @@ def _auto_i_dat_connection(db_session, tenant_id):
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(
             provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.PRODUCTION,
-            config={"username": "test-dealer", "benutzerNr": 9001, "benutzerInfo": "Testprojekt A"},
+            config={"clientId": "test-client-0001"},
         ),
         actor_id=uuid.uuid4(),
     )
