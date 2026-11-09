@@ -9,9 +9,9 @@ AutoScout24 feed's `password`. `SecretSlot.AES_KEY` is removed (Anto,
 
 **No row is deleted here.** KAN-488's `6b98739fe743` deleted every
 `auto_i_dat` connection's secret references — the provider that required the
-slot. Until this release `set_secret` did not check a slot against the
-provider's `required_secret_slots`, so another connection may have taken one;
-none is known. Should one exist, the upgrade **refuses** with the connections
+slot. `set_secret` does not check a slot against the provider's
+`required_secret_slots` (KAN-602), so until this release, which drops the slot
+from the enum, any connection could take `aes_key`; none is known. Should one exist, the upgrade **refuses** with the connections
 it names instead of dropping a reference to secret material it cannot reach
 (the secrets manager is outside the database). Clear it **on the release still
 running** (`DELETE /v1/integrations/connections/{id}/secrets/aes_key`, or delete
