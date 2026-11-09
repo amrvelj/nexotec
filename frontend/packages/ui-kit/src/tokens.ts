@@ -113,13 +113,25 @@ export const focusRing = {
   border: `1px solid var(--focus-bd)`,
 } as const;
 
-/** Stacking order for elements that stay on screen while content scrolls
- * under them (KAN-305). Above in-flow positioned content — Mantine's
- * NumberInput spinners are positioned, so without a stacking level of its
- * own a sticky bar is painted under them — and below Mantine's own layers
- * (app shell, overlays, popovers, modals start at 100). */
+/** The kit's stacking order, settled once against Mantine's own ladder
+ * (`getDefaultZIndex`: app 100, modal 200, popover 300, overlay 400 — the
+ * last one is Mantine's backdrop and notifications, not ours).
+ *
+ * - `stickyBar` (KAN-305) — elements that stay on screen while content
+ *   scrolls under them. Above in-flow positioned content (Mantine's
+ *   NumberInput spinners are positioned, so without a stacking level of its
+ *   own a sticky bar is painted under them) and below every Mantine layer.
+ * - `overlay` (KAN-594) — the ADR-059 Overlay's layers. Above the app shell
+ *   (100), so the screen underneath is covered, and **below** Mantine's modal
+ *   (200) and popover (300) layers: a popover, menu, select dropdown, tooltip
+ *   or modal opened from inside an overlay renders in Mantine's portal and
+ *   must paint above the overlay that opened it. At 1000 every one of them
+ *   opened behind it (the configurator's catalogue browse lost its views-and-
+ *   filters control). Each stacked layer adds its index; only the top one is
+ *   displayed, so the stack never climbs into the modal layer in practice. */
 export const zIndex = {
   stickyBar: 10,
+  overlay: 150,
 } as const;
 
 /** Layout dimensions (§ Layout dimensions) — the shell's own constants. */

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
-import { radius, shadow, slate, white } from "../tokens";
+import { radius, shadow, slate, white, zIndex } from "../tokens";
 import { closeAllEntries, popEntry, pushEntry } from "./overlayStack";
 
 export interface OverlayEntry {
@@ -109,7 +109,9 @@ export function OverlayProvider({
             display: index === stack.length - 1 ? "block" : "none",
             position: "fixed",
             inset: 0,
-            zIndex: 1000 + index,
+            // Below Mantine's modal and popover layers, so whatever the
+            // content opens in Mantine's portal paints above it (KAN-594).
+            zIndex: zIndex.overlay + index,
             backgroundColor: white,
             overflow: "auto",
           }}
@@ -125,7 +127,7 @@ export function OverlayProvider({
               position: "fixed",
               top: 16,
               right: 16,
-              zIndex: 1001 + index,
+              zIndex: zIndex.overlay + index + 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
