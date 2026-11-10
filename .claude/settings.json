@@ -46,6 +46,7 @@
       "Bash(scripts/dev/gate no-visual *)",
       "Bash(scripts/dev/gate evidence *)",
       "Bash(scripts/dev/gate close)",
+      "Bash(scripts/dev/api-type *)",
       "Bash(uvicorn app.main:app*)",
       "Bash(docker compose up -d db*)",
       "Bash(docker compose ps*)",
@@ -198,6 +199,16 @@
             "type": "command",
             "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" pre-edit",
             "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" pre-read",
+            "timeout": 10
           }
         ]
       },

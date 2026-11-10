@@ -9,10 +9,14 @@ On success it records "pass" for the exact git tree it verified (see
 .claude/hooks/nexotec_hooks.py). The push gate compares that tree with the
 commit being pushed, so a pass is only valid for the code it actually ran on.
 
-Lanes mirror .github/workflows/test.yml, including both migration jobs (the
-round trip with seed + downgrade, and the upgrade from main's heads with the
-seed verified). Not mirrored here (CI still runs them): secret-scan,
-docker-build, outbox-worker-smoke-test. A change to the workflow runs every lane.
+Route B (KAN-610, KAN-624): this check is the merge gate of a pull request.
+GitHub runs only pr.yml's one light job (`pr-light`: secret scan, ruff, mypy +
+render.yaml, import-linter, docker build) per ready PR, and the full suite of
+.github/workflows/test.yml once a night on main. The lanes mirror that nightly
+suite, including both migration jobs (the round trip with seed + downgrade, and
+the upgrade from main's heads with the seed verified). Not mirrored here:
+secret-scan and docker-build (pr-light runs them), outbox-worker-smoke-test
+(the nightly run does). A change to a workflow runs every lane.
 """
 
 import ast
@@ -235,6 +239,9 @@ def lane_config():
     if lines > 200:
         problems.append("CLAUDE.md has {} lines; keep it to at most 200 (move area detail into .claude/rules/)".format(lines))
     print("\n".join(problems) if problems else "ok")
+    # KAN-614: rule files <= 12,000 bytes, CLAUDE.md <= 16,000 - every size printed, no allowlist
+    # (a file already over on main may only shrink until KAN-615 cuts it; .claude/README.md).
+    ok &= step("rule budget (KAN-614)", [sys.executable, os.path.join(ROOT, "scripts", "rule_budget.py"), "check"])
     return ok and not problems
 
 

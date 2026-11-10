@@ -58,7 +58,7 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
   binary resolves another interpreter) · `lint-imports`
 - Frontend: `npm run lint --prefix frontend` · `npm run build --prefix frontend` ·
   `npx vitest run` in `frontend/apps/dms` or `frontend/packages/ui-kit`
-- API types: `make generate-frontend-types` — `schema.d.ts` is generated, never edited
+- API types: `make generate-frontend-types` — `schema.d.ts` is generated, never edited or read whole: `scripts/dev/api-type <Name|/v1/path>`
 - Run it: the desktop preview (`.claude/launch.json`; stop Docker's `app` first — both want port 8000), or `make up` in Docker
 - Gates: `scripts/dev/gate status` shows what the push and the hand-over still need
 

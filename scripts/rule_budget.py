@@ -151,7 +151,8 @@ def sizes(tree: Tree) -> dict[str, int]:
 
 
 def default_base() -> str | None:
-    rc = subprocess.run(("git", "merge-base", "HEAD", "origin/main"), cwd=ROOT, capture_output=True, text=True)
+    rc = subprocess.run(("git", "merge-base", "HEAD", "origin/main"), cwd=ROOT, capture_output=True, text=True,
+                        check=False)
     return rc.stdout.strip() or None
 
 
