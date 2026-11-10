@@ -26,6 +26,7 @@ class FakeSecretsBackend:
     def __init__(self):
         self.store: dict[str, str] = {}
         self.deleted: list[str] = []
+        self.deleted_folders: list = []
 
     def _key(self, connection_id, slot):
         return f"{connection_id}:{slot}"
@@ -41,6 +42,9 @@ class FakeSecretsBackend:
     def delete_secret(self, *, connection_id, slot):
         self.store.pop(self._key(connection_id, slot), None)
         self.deleted.append(self._key(connection_id, slot))
+
+    def delete_connection_folder(self, *, connection_id):
+        self.deleted_folders.append(connection_id)  # KAN-604
 
 
 def _make_provider(db_session, **overrides) -> IntegrationProvider:

@@ -26,6 +26,11 @@ Why this exists: scripts/dev/check chose lanes by path and nothing covered
 render.yaml, so a change to it recorded a PASS without running anything, and CI
 had no job for it either. The `deploy` lane and CI's mypy job both run this
 script.
+
+Beyond the schema (KAN-604): every service that runs the app (it declares
+`DMS_DATABASE_URL`) must declare the secrets manager's keys,
+`REQUIRED_APP_ENV_KEYS` — a deployment without them refuses every integration
+secret write, and staging ran so for weeks without anyone noticing.
 """
 
 from __future__ import annotations
@@ -65,7 +70,41 @@ def validate(blueprint: Path, schema_path: Path = SCHEMA_PATH) -> list[str]:
     for error in jsonschema.Draft202012Validator(schema).iter_errors(document):
         for path, message in _describe(error, declared):
             lines.add(f"{blueprint}: {path or '<root>'}: {message}")
+    for path, message in missing_required_env(document):
+        lines.add(f"{blueprint}: {path}: {message}")
     return sorted(lines)
+
+
+# KAN-604: the keys without which a deployment of the app has no secrets
+# manager — every integration connection's secret write then answers 409, and
+# staging ran so unnoticed until 2026-11-09. DMS_INFISICAL_ENVIRONMENT
+# (default `prod`) and DMS_INFISICAL_HOST (default the US cloud) are optional.
+REQUIRED_APP_ENV_KEYS = ("DMS_INFISICAL_PROJECT_ID", "DMS_INFISICAL_CLIENT_ID", "DMS_INFISICAL_CLIENT_SECRET")
+
+
+def missing_required_env(document: dict[str, object]) -> list[tuple[str, str]]:
+    """One (path, message) per service that runs the app and lacks a key of
+    `REQUIRED_APP_ENV_KEYS`. A service runs the app when it declares
+    `DMS_DATABASE_URL` — the one key no deployment of it starts without."""
+    problems: list[tuple[str, str]] = []
+    services = document.get("services")
+    if not isinstance(services, list):
+        return problems
+    for index, service in enumerate(services):
+        if not isinstance(service, dict) or not isinstance(service.get("envVars"), list):
+            continue
+        keys = {entry.get("key") for entry in service["envVars"] if isinstance(entry, dict)}
+        if "DMS_DATABASE_URL" not in keys:
+            continue
+        missing = [key for key in REQUIRED_APP_ENV_KEYS if key not in keys]
+        if missing:
+            name = service.get("name", f"services[{index}]")
+            message = (
+                f"{name}: runs the app but declares no {', '.join(missing)} — without the secrets manager "
+                "every integration secret write is refused (KAN-604); declare each with `sync: false`"
+            )
+            problems.append((f"services/{index}/envVars", message))
+    return problems
 
 
 def _declared_root_keys(schema: dict[str, object]) -> set[str]:

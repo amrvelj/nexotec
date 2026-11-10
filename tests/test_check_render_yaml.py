@@ -119,3 +119,29 @@ def test_vendored_schema_matches_its_sidecar() -> None:
     assert meta["source"] == check_render_yaml.SCHEMA_URL
     assert hashlib.sha256(raw).hexdigest() == meta["sha256"], "schema and sidecar were edited apart"
     assert json.loads(raw)["$id"] == check_render_yaml.SCHEMA_URL
+
+
+# --- KAN-604: a service that runs the app declares the secrets manager's keys ---
+
+
+@pytest.mark.parametrize("key", check_render_yaml.REQUIRED_APP_ENV_KEYS)
+def test_a_service_running_the_app_without_an_infisical_key_fails_and_names_it(tmp_path: Path, key: str) -> None:
+    broken = _blueprint_with(tmp_path, f"      - key: {key}\n", "      - key: DMS_UNRELATED_PLACEHOLDER\n")
+    problems = check_render_yaml.validate(broken)
+    assert len(problems) == 1, problems
+    assert "dms-staging" in problems[0]
+    assert key in problems[0]
+    assert check_render_yaml.main([str(broken)]) == 1
+
+
+def test_the_checked_in_staging_service_declares_every_infisical_key_unsynced() -> None:
+    document = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
+    (staging,) = [s for s in document["services"] if s["name"] == "dms-staging"]
+    entries = {e["key"]: e for e in staging["envVars"]}
+    for key in (*check_render_yaml.REQUIRED_APP_ENV_KEYS, "DMS_INFISICAL_ENVIRONMENT"):
+        assert entries[key] == {"key": key, "sync": False}, f"{key}: declared without a value, pasted in Render"
+
+
+def test_a_service_that_does_not_run_the_app_needs_no_infisical_key() -> None:
+    document = {"services": [{"name": "static-site", "type": "web", "envVars": [{"key": "NODE_VERSION", "value": "22"}]}]}
+    assert check_render_yaml.missing_required_env(document) == []

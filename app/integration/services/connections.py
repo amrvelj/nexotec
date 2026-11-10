@@ -365,6 +365,13 @@ def delete_connection(
         except SecretsBackendNotConfigured:
             pass  # no live Infisical project configured (every test run, most local dev)
         db.delete(ref)
+    # KAN-604: the connection's own folder goes with its last secret — no
+    # empty `/integrations/<id>` is left behind. A folder that never existed
+    # is no error (secrets_backend.delete_connection_folder).
+    try:
+        secrets_backend_module.delete_connection_folder(connection_id=connection.id)
+    except SecretsBackendNotConfigured:
+        pass
     db.execute(delete(IntegrationEntitlement).where(IntegrationEntitlement.connection_id == connection.id))
 
     record_audit_event(

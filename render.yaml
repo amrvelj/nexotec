@@ -185,6 +185,30 @@ services:
       # Notion › Nexotec › Runbooks › Google Places go-live (step 5 above).
       - key: DMS_GOOGLE_PLACES_BROWSER_KEY
         sync: false
+      # KAN-604: the secrets manager that holds every integration
+      # connection's credentials (app/integration/services/secrets_backend.py;
+      # app/core/secrets.py reads startup secrets from it after the
+      # environment). Infisical project `nexotec-staging`, US cloud,
+      # environment `staging`; machine identity `dms-staging` (Universal
+      # Auth). Without the first three, every connection secret write answers
+      # 409 «No Infisical project is configured» — staging ran so until
+      # 2026-11-09 and nobody noticed, which is why
+      # scripts/check_render_yaml.py now refuses a service that runs the app
+      # without them. Values are pasted in this service's Environment tab, never
+      # here. DMS_INFISICAL_HOST is optional (https://app.infisical.com).
+      - key: DMS_INFISICAL_PROJECT_ID
+        # The project's id (Project Settings), not its name.
+        sync: false
+      - key: DMS_INFISICAL_CLIENT_ID
+        # The `dms-staging` machine identity's Universal Auth client id.
+        sync: false
+      - key: DMS_INFISICAL_CLIENT_SECRET
+        # That identity's client secret — a credential.
+        sync: false
+      - key: DMS_INFISICAL_ENVIRONMENT
+        # The environment slug inside the project: `staging` here. Unset,
+        # the app writes to `prod`, which nexotec-staging does not have.
+        sync: false
 
   # ---------------------------------------------------------------------
   # Outbox worker — NOT PROVISIONED ON STAGING (KAN-234).
