@@ -279,6 +279,17 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     assert label("less +/Mueller app/y.py") == ("read", "Bash view app/y.py")
     assert label("sed -n '1,40p' /r/app/x.py") == ("read", "Bash view app/x.py")
     assert label("head -n 20 notes.md 2>/dev/null") == ("read", "Bash view notes.md")
+    # an option's value is never the file, and `&` separates commands
+    assert label("less -p anto@example.com app/y.py") == ("read", "Bash view app/y.py")
+    assert label("less -P X.AG app/y.py") == ("read", "Bash view app/y.py")
+    assert label("nl -s X.AG app/y.py") == ("read", "Bash view app/y.py")
+    assert label("head -c 1.5k app/x.py") == ("read", "Bash view app/x.py")
+    assert label("cat x & git config user.email anto@example.com") == ("read", "Bash view ?")
+    assert label("tail -f /tmp/x.log") == ("read", "Bash view <outside repo>/x.log")
+    assert label("cat -e app/x.py") == ("read", "Bash view app/x.py")
+    # a line that only assigns variables is skipped like a bare `cd`
+    assert label("W=/x\ncat app/a.py") == ("read", "Bash view app/a.py")
+    assert module.Paths("/repo").show("/repo/../x") == "<outside repo>/x"
     # what a command carries does not classify it: a commit message naming pytest is not a test run
     assert label("git commit -m 'run pytest later'") == ("shell", "Bash (git)")
     assert label("cd /r && DMS_X=1 pytest -q") == ("tests", "Bash (pytest)")
@@ -288,9 +299,12 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
 def test_a_call_without_a_final_usage_record_is_reported_as_a_lower_bound(tmp_path):
     # Session A's calls carry no stop reason (a streaming snapshot, as in older transcripts);
     # session B's carry one.
-    a = _run(tmp_path)
-    assert "main: 7 of 7 call(s) recorded only a streaming snapshot of their usage" in a.stdout
-    assert "streaming snapshot" not in _run_b(tmp_path).stdout
+    a = _run(tmp_path, "--summary-only")
+    assert "| aaaaaaaa | 2026-11-02 | KAN-7 | 12,755 * |" in a.stdout  # marked in the summary too
+    assert "* Some calls recorded only a streaming snapshot" in a.stdout
+    assert "main: 7 of 7 call(s) recorded only a streaming snapshot of their usage" in _run(tmp_path / "full").stdout
+    b = _run_b(tmp_path)
+    assert "streaming snapshot" not in b.stdout and " * |" not in b.stdout
 
 
 def test_the_measured_rate_ignores_a_small_reminder_beside_the_item():
@@ -308,3 +322,16 @@ def test_the_measured_rate_ignores_a_small_reminder_beside_the_item():
     stream.add(_call("c6", ctx, []))
     stream.finish()
     assert stream.chars_per_token == 2.0
+
+
+def test_fewer_than_five_measured_steps_fall_back_to_the_default_rate():
+    module = _module()
+    stream = module.Stream("main", module.Paths("/r"))
+    ctx = 10000
+    for i in range(4):  # four one-item steps at 2.0: too few to trust
+        stream.add(_call(f"c{i}", ctx, [("Read", {"file_path": f"/r/app/{i}.py"})]))
+        stream.add(_results(f"c{i}", [1000]))
+        ctx += 500
+    stream.add(_call("c4", ctx, []))
+    stream.finish()
+    assert stream.chars_per_token == module.CHARS_PER_TOKEN == 2.25

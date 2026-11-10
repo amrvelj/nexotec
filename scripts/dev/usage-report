@@ -39,8 +39,8 @@ the schemas the ToolSearch loaded, when there was one, else "growth with no reco
 (system prompt, tool schemas, CLAUDE.md, the opening prompt) is not measured step by step:
 there CLAUDE.md and the prompt are estimated at the agent's own measured characters per
 token (the median of its steps that added one item of 500+ characters, a reminder beside it
-aside; 2.25 when it has fewer than five, the median of 2,130 such steps measured on
-2026-11-10) and the rest is "session start".
+aside; 2.25 when it has fewer than five - the median over every local session measured
+2.25 to 2.28 on 2026-11-10, depending on which steps count) and the rest is "session start".
 
 A sub-agent's type comes from its .meta.json, else from the main session's Agent call
 that started it (the call's result names the agent id the transcript file carries).
@@ -78,7 +78,7 @@ import subprocess
 import sys
 import tempfile
 
-CHARS_PER_TOKEN = 2.25  # an agent with fewer than three one-item steps (median measured 2026-11-10)
+CHARS_PER_TOKEN = 2.25  # an agent with fewer than five one-item steps (median measured 2026-11-10)
 MIN_CHARS_PER_TOKEN = 1.4  # no item is denser (1 in 100 measured results is below 1.49)
 IMAGE_TOKENS = 1500  # weight of an image when one step's growth is split
 IMAGE_CAP = 2000
@@ -119,7 +119,7 @@ HEREDOC = re.compile(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
 # A Bash result is labelled by its program only when the program is one of these: the first
 # word of a command can be text when a command is not what it seems.
 KNOWN_PROGRAMS = frozenset((
-    "alembic", "api-type", "awk", "basename", "bash", "black", "bootstrap", "brew", "cat", "cd", "check",
+    "alembic", "api-type", "awk", "basename", "bash", "black", "bootstrap", "brew", "cat", "check",
     "chmod", "cloud-postgres", "code", "cp", "createdb", "curl", "date", "defaults", "df", "diff", "dirname",
     "docker", "dropdb", "du", "echo", "env", "eslint", "export", "false", "file", "find", "for", "gate", "gh",
     "git", "grep", "head", "if", "jq", "kill", "launchctl", "less", "ln", "ls", "lsof", "make", "md5", "mkdir",
@@ -151,6 +151,8 @@ class Paths:
     def show(self, path):
         if not isinstance(path, str) or not path:
             return "?"
+        if path.startswith("/"):
+            path = os.path.normpath(path)
         m = re.search(r"/\.claude/worktrees/[^/]+/(.*)$", path)
         if m:
             return m.group(1)
@@ -263,34 +265,55 @@ def bash_skeleton(command):
     return re.sub(r"(^|\s)#[^\n]*", r"\1", text)
 
 
+ASSIGNMENTS = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*=\S*\s*)+$")
+# The options of the view programs that take the next word as their value (so the word is
+# never taken for the file): GNU and BSD spellings both.
+VIEW_VALUE_OPTIONS = {
+    "cat": set(),
+    "head": {"-n", "-c", "--lines", "--bytes"},
+    "tail": {"-n", "-c", "-b", "--lines", "--bytes", "--pid", "--sleep-interval", "-s"},
+    "nl": {"-b", "-d", "-f", "-h", "-i", "-l", "-n", "-s", "-v", "-w", "--body-numbering", "--section-delimiter",
+           "--footer-numbering", "--header-numbering", "--line-increment", "--join-blank-lines",
+           "--number-format", "--number-separator", "--starting-line-number", "--number-width"},
+    "less": {"-p", "-P", "-o", "-O", "-t", "-T", "-x", "-y", "-z", "-j", "-b", "-h", "-k", "--pattern",
+             "--prompt", "--log-file", "--LOG-FILE", "--tag", "--tag-file", "--tabs", "--max-forw-scroll",
+             "--window", "--jump-target", "--buffers", "--max-back-scroll", "--lesskey-file"},
+    "sed": {"-e", "-f", "-l", "--expression", "--file", "--line-length"},
+}
+
+
 def first_command(skeleton):
-    """The first simple command of a skeleton that is not a bare `cd`."""
-    for part in re.split(r"\n|&&|\|\||;|\|", skeleton):
+    """The first simple command of a skeleton that is neither a bare `cd` nor only variable
+    assignments. `&` (background) separates commands like `;`."""
+    for part in re.split(r"\n|&&|\|\||;|\||&", skeleton):
         part = part.strip()
-        if part and not re.match(r"^cd(\s|$)", part):
+        if part and not re.match(r"^cd(\s|$)", part) and not ASSIGNMENTS.match(part):
             return part
     return ""
 
 
 def view_target(command, paths):
-    """The first file a cat/head/sed command names - a word shaped like a path, nothing else.
+    """The first file a cat/head/tail/nl/less/sed command names - a word shaped like a path,
+    nothing else.
 
-    Called with one command of a skeleton (no heredoc, no quoted text with spaces). sed's
-    script - its first argument, or what follows -e/-f - and less's +commands are skipped,
-    so neither text nor an expression is ever printed as a file name."""
+    Called with one command of a skeleton (no heredoc, no quoted text with spaces). Every
+    option is skipped together with its value (VIEW_VALUE_OPTIONS); sed's script - its first
+    argument unless -e/-f gave one - and +commands (less +/pattern, tail +5) are skipped, so
+    neither text, an option's value nor an expression is ever printed as a file name."""
     try:
         words = shlex.split(command)
     except ValueError:
         return "?"
-    if not words:
+    if not words or words[0] not in VIEW_VALUE_OPTIONS:
         return "?"
-    flags = ("-e", "-f", "--expression", "--file")
-    scripted = any(w in flags or w.startswith(("-e", "-f", "--expression=", "--file=")) for w in words[1:])
+    takes_value = VIEW_VALUE_OPTIONS[words[0]]
+    scripted = any(w in ("-e", "-f", "--expression", "--file") or w.startswith(("--expression=", "--file="))
+                   or re.match(r"^-[a-zA-Z]*[ef]", w) for w in words[1:])
     args, skip = [], False
     for word in words[1:]:
         if skip:
             skip = False
-        elif word in flags:
+        elif word in takes_value:
             skip = True
         elif not word.startswith(("-", "+")):
             args.append(word)
@@ -766,10 +789,12 @@ def print_summary(sessions, large, out):
           file=out)
     print("|" + "---|" * 11, file=out)
     numbers = [headline(s, large) for s in sessions]
-    for s, h in zip(sessions, numbers):
+    partial = [any(st.totals()["partial"] for st in s.streams()) for s in sessions]
+    for s, h, lower in zip(sessions, numbers, partial):
         t = h["total"]
         print("| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
-            s.sid[:8], s.start[:10], ", ".join(s.tickets) or "-", mega(t), pct(h["main"], t), pct(h["subs"], t),
+            s.sid[:8], s.start[:10], ", ".join(s.tickets) or "-", mega(t) + (" *" if lower else ""),
+            pct(h["main"], t), pct(h["subs"], t),
             pct(h["reviewer"], t), pct(h["rules"], t), pct(h["reads"], t), pct(h["notion"], t), pct(h["ci"], t)),
             file=out)
     if not numbers:
@@ -791,6 +816,9 @@ def print_summary(sessions, large, out):
     worst = sessions[totals.index(max(totals))]
     print("\nLargest session: {} ({}, {} tokens). {} session(s).".format(
         worst.sid[:8], ", ".join(worst.tickets) or "no ticket", num(max(totals)), len(sessions)), file=out)
+    if any(partial):
+        print("* Some calls recorded only a streaming snapshot of their usage: the session's output tokens, and"
+              " so its total, are a lower bound (the input side is complete).", file=out)
 
 
 # ---------------------------------------------------------------- main
@@ -838,7 +866,7 @@ def run(argv, out):
         sessions = sessions[-args.last:]
 
     print(f"# Claude usage per session - {len(sessions)} session(s) from {len(folders)} transcript folder(s), read {datetime.datetime.now().astimezone().date().isoformat()}", file=out)
-    print("Tokens as the transcripts recorded the API's usage (see each session's notes). Desktop and terminal"
+    print("Tokens as the transcripts recorded the API's usage (* in the summary: a lower bound). Desktop and terminal"
           " sessions only: cloud sessions keep their transcripts on Anthropic's machines.", file=out)
     if not sessions:
         print("No matching session.", file=out)
@@ -972,7 +1000,8 @@ def selftest(out):
         if MARKER in text:
             failures.append("transcript content printed")
         for needle in ("Read app/x.py", "notion-fetch " + "a" * 32, "Bash (CI poll)", "reviewer (1)",
-                       "| 7,070 | 95.5% | 4.5% | 4.5% | 18.5% | 17.0% | 1.3% | 24.2% |"):
+                       "| 7,070 * | 95.5% | 4.5% | 4.5% | 18.5% | 17.0% | 1.3% | 24.2% |",
+                       "* Some calls recorded only a streaming snapshot"):
             if needle not in text:
                 failures.append("missing from the report: " + needle)
     for failure in failures:
