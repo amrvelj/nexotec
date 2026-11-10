@@ -58,9 +58,13 @@ This prints counts, tool names, agent types, ticket ids, session ids, branch nam
 page ids and file paths (repository-relative; a file outside the repository by its base
 name). A Bash command is read only through its skeleton - heredoc bodies, comments and
 quoted text with a space in it removed - and labelled by a program from a fixed list
-(KNOWN_PROGRAMS, else "other") or, for a view, by a word shaped like a path (never a sed
-script, a less command or a heredoc). It never prints what a transcript says - no prompt,
-result, command or answer text - and it opens no network connection. Standard library only.
+(KNOWN_PROGRAMS, else "other") or, for a view (cat, head, tail, nl, less, sed -n), by the
+file it reads - and that only when the word names a file that exists on this machine now
+(else "?"), so no misread option value, sed script or heredoc can be printed. A file read
+with Read is named by the path the call was given. It never prints what a transcript says -
+no prompt, result, command or answer text - and it opens no network connection (it reads
+the filesystem only: the transcripts, and whether a viewed file exists). Standard library
+only.
 """
 
 import argparse
@@ -107,12 +111,18 @@ CATEGORIES = [
     ("unattributed", "growth with no recorded source"),
 ]
 
-CI_BASH = re.compile(r"\bgh\s+(pr\s+checks|run\s+(watch|view|list)|api\b[^\n]*(check-runs|check-suites|actions/runs|/status\b))")
+def _word(name):
+    """`name` as a whole word of a command (a program or an argument), with any directory in
+    front (.venv/bin/pytest) - never a part of a longer word or path (/tmp/pytest-of-anto/)."""
+    return r"(?:^|(?<=[\s;&|(`]))(?:[^\s;&|]*/)?" + name + r"(?=[\s;&|)`]|$)"
+
+
+CI_BASH = re.compile(_word("gh") + r"\s+(pr\s+checks|run\s+(watch|view|list)|api\b[^\n]*(check-runs|check-suites|actions/runs|/status\b))")
 CI_WORDS = re.compile(r"check-runs|check-suites|gh\s+pr\s+checks|gh\s+run\b|\bCI\b")
-TEST_BASH = [("scripts/dev/check", r"scripts/dev/check\b"), ("pytest", r"\bpytest\b"),
-             ("vitest", r"\bvitest\b"), ("npm lint/build/test", r"\bnpm\b[^\n]*\b(lint|build|test)\b"),
-             ("mypy", r"\bmypy\b"), ("ruff", r"\bruff\b"), ("lint-imports", r"\blint-imports\b"),
-             ("tsc", r"\btsc\b"), ("alembic", r"\balembic\b")]
+TEST_BASH = [("scripts/dev/check", _word("scripts/dev/check")), ("pytest", _word("pytest")),
+             ("vitest", _word("vitest")), ("npm lint/build/test", _word("npm") + r"[^\n;&|]*\b(lint|build|test)\b"),
+             ("mypy", _word("mypy")), ("ruff", _word("ruff")), ("lint-imports", _word("lint-imports")),
+             ("tsc", _word("tsc")), ("alembic", _word("alembic"))]
 VIEW_BASH = re.compile(r"^\s*(cat|head|tail|nl|less|sed\s+-n)\b")
 QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
 HEREDOC = re.compile(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
@@ -161,6 +171,21 @@ class Paths:
         if path.startswith(("/", "~")) or ".." in path.split("/"):
             return "<outside repo>/" + os.path.basename(path)
         return path
+
+    def exists(self, path):
+        """Whether `path` names a file on this machine now: as given when absolute (or under ~),
+        else - and for a worktree's path - relative to the repository's main checkout."""
+        if not isinstance(path, str) or not path or "\0" in path:
+            return False
+        candidates = []
+        if path.startswith(("/", "~")):
+            candidates.append(os.path.normpath(os.path.expanduser(path)))
+            m = re.search(r"/\.claude/worktrees/[^/]+/(.*)$", path)
+            if m and self.repo:
+                candidates.append(os.path.join(self.repo, m.group(1)))
+        elif self.repo:
+            candidates.append(os.path.normpath(os.path.join(self.repo, path)))
+        return any(os.path.isfile(candidate) for candidate in candidates)
 
 
 def size_of(content):
@@ -298,13 +323,14 @@ def view_target(command, paths):
     nothing else.
 
     Called with one command of a skeleton (no heredoc, no quoted text with spaces). Options
-    are read the way getopt reads them: in a group of short options (`-Ip`) the first letter
-    that takes a value (VIEW_VALUE_OPTIONS) ends the group, and its value is the rest of the
-    word or, when the letter is last, the next word; a long option takes `=value` or, when it
-    is in the table, the next word; `--` ends the options. Every value is skipped, as are
-    sed's script - its first argument unless -e/-f gave one - and +commands (less +/pattern,
-    tail +5), so neither text, an option's value nor an expression is ever printed as a file
-    name."""
+    are read much as getopt reads them, to find the right word: in a group of short options
+    (`-Ip`) the first letter that takes a value (VIEW_VALUE_OPTIONS) ends the group, and its
+    value is the rest of the word or, when the letter is last, the next word; a long option
+    takes `=value` or, when its full name is in the table, the next word; `--` ends the
+    options; sed's script - its first argument unless -e/-f gave one - and +commands (less
+    +/pattern, tail +5) are skipped. Abbreviated long options, process substitution and sed's
+    -i are not parsed. What makes the label safe is not the parsing but the last step: the
+    word is printed only when it names an existing file (Paths.exists), else "?"."""
     try:
         words = shlex.split(command)
     except ValueError:
@@ -336,7 +362,10 @@ def view_target(command, paths):
         args = args[1:]
     for word in args:
         if PATHLIKE.match(word) and ("/" in word or EXTENSION.search(word)) and not word.startswith("s/"):
-            return paths.show(word)
+            # The guarantee: a word is printed only when it names a file that exists on this
+            # machine. Whatever the parsing above misreads - an abbreviated long option, a
+            # process substitution, an option it does not know - costs at most a "?".
+            return paths.show(word) if paths.exists(word) else "?"
     return "?"
 
 

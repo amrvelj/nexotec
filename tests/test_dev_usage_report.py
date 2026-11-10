@@ -80,13 +80,34 @@ def _write_session(folder):
         (subagents / (name + ".meta.json")).write_text(json.dumps({"agentType": kind, "description": MARKER}))
 
 
+# The files the fixtures' commands view: a Bash view is named only when its file exists.
+REPO_FILES = ["app/a.py", "app/c.py", "app/d.py", "app/f.py", "app/x.py", "app/y.py", "app/x.log",
+              "app/config.py", "notes.md", "-weird.txt"]
+
+
+def _repo(tmp_path):
+    repo = tmp_path / "repo"
+    for name in REPO_FILES:
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text("x\n")
+    return repo
+
+
+def _localise(folder, repo):
+    """The fixtures name the repository /r; point them at the real folder `repo`."""
+    for path in folder.rglob("*.jsonl"):
+        path.write_text(path.read_text().replace("/r/", f"{repo}/").replace("cd /r\\n", f"cd {repo}\\n"))
+
+
 def _run(tmp_path, *args):
     folder = tmp_path / "projects" / "-r"
     folder.mkdir(parents=True)
     _write_session(folder)
+    repo = _repo(tmp_path)
+    _localise(folder, repo)
     (tmp_path / "sitecustomize.py").write_text(NO_NETWORK)
     env = dict(os.environ, PYTHONPATH=str(tmp_path))
-    return subprocess.run([sys.executable, str(SCRIPT), "--project-dir", str(folder), "--repo", "/r", *args],
+    return subprocess.run([sys.executable, str(SCRIPT), "--project-dir", str(folder), "--repo", str(repo), *args],
                           capture_output=True, text=True, env=env, cwd=str(tmp_path), check=False)
 
 
@@ -207,7 +228,9 @@ def _run_b(tmp_path):
     folder = tmp_path / "projects-b" / "-r"
     folder.mkdir(parents=True)
     _write_session_b(folder)
-    return subprocess.run([sys.executable, str(SCRIPT), "--project-dir", str(folder), "--repo", "/r"],
+    repo = _repo(tmp_path)
+    _localise(folder, repo)
+    return subprocess.run([sys.executable, str(SCRIPT), "--project-dir", str(folder), "--repo", str(repo)],
                           capture_output=True, text=True, check=False)
 
 
@@ -262,7 +285,11 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     result = _run_b(tmp_path)
     assert MARKER not in result.stdout + result.stderr
     module = _module()
-    paths = module.Paths("/r")
+    repo = _repo(tmp_path / "labels")
+    paths = module.Paths(str(repo))
+    outside = tmp_path / "outside" / "x.log"
+    outside.parent.mkdir()
+    outside.write_text("x\n")
 
     def label(command):
         return module.classify_tool("Bash", {"command": command}, paths)
@@ -277,7 +304,7 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     assert label("sed -n 's/password=hunter2/X/p' app/config.py") == ("read", "Bash view app/config.py")
     assert label("sed -n -e 'y/abc/xyz/' app/f.py") == ("read", "Bash view app/f.py")
     assert label("less +/Mueller app/y.py") == ("read", "Bash view app/y.py")
-    assert label("sed -n '1,40p' /r/app/x.py") == ("read", "Bash view app/x.py")
+    assert label(f"sed -n '1,40p' {repo}/app/x.py") == ("read", "Bash view app/x.py")
     assert label("head -n 20 notes.md 2>/dev/null") == ("read", "Bash view notes.md")
     # an option's value is never the file, and `&` separates commands
     assert label("less -p anto@example.com app/y.py") == ("read", "Bash view app/y.py")
@@ -285,7 +312,7 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     assert label("nl -s X.AG app/y.py") == ("read", "Bash view app/y.py")
     assert label("head -c 1.5k app/x.py") == ("read", "Bash view app/x.py")
     assert label("cat x & git config user.email anto@example.com") == ("read", "Bash view ?")
-    assert label("tail -f /tmp/x.log") == ("read", "Bash view <outside repo>/x.log")
+    assert label(f"tail -f {outside}") == ("read", "Bash view <outside repo>/x.log")
     assert label("cat -e app/x.py") == ("read", "Bash view app/x.py")
     # a line that only assigns variables is skipped like a bare `cd`
     assert label("W=/x\ncat app/a.py") == ("read", "Bash view app/a.py")
@@ -297,12 +324,21 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     assert label("sed -n -Ee y/abc/xyz/ app/x.py") == ("read", "Bash view app/x.py")
     assert label("head -n5 app/a.py") == ("read", "Bash view app/a.py")
     assert label("cat -- -weird.txt") == ("read", "Bash view -weird.txt")
+    # what the parser does not read (abbreviated long options, process substitution, sed -i)
+    # costs a "?": a word is printed only when it names an existing file
+    assert label("less --pat anto@example.com app/y.py") == ("read", "Bash view ?")
+    assert label("sed -n --expr p --expr y/abc/xyz/ app/x.py") == ("read", "Bash view ?")
+    assert label("cat <( echo anto@example.com )") == ("read", "Bash view ?")
+    assert label("sed -n -i .bak y/abc/xyz/ app/x.py") == ("read", "Bash view ?")
+    assert label("head -n 5 Mueller.AG") == ("read", "Bash view ?")  # path-shaped, but no such file
     # a redirection's `&` does not split a command
     assert label("cd /x 2>&1 && ls -la") == ("shell", "Bash (ls)")
     assert module.Paths("/repo").show("/repo/../x") == "<outside repo>/x"
     # what a command carries does not classify it: a commit message naming pytest is not a test run
     assert label("git commit -m 'run pytest later'") == ("shell", "Bash (git)")
     assert label("cd /r && DMS_X=1 pytest -q") == ("tests", "Bash (pytest)")
+    assert label(f"cat {tmp_path}/pytest-of-anto/pytest-1/notes.md")[0] == "read"  # a path is not a program
+    assert label("cd /r && .venv/bin/pytest tests/x.py") == ("tests", "Bash (pytest)")
     assert label("gh api 'repos/o/r/commits/abc/check-runs' --jq '.check_runs[] | .name'") == ("ci", "Bash (CI poll)")
 
 
@@ -348,10 +384,16 @@ def test_fewer_than_five_measured_steps_fall_back_to_the_default_rate():
 
 
 def test_a_long_run_of_assignments_is_read_in_linear_time():
-    import time
-
-    module = _module()
-    start = time.monotonic()
-    assert module.classify_tool("Bash", {"command": "X=" + "a=" * 40 + " python x.py"}, module.Paths("/r")) == (
-        "shell", "Bash (python)")
-    assert time.monotonic() - start < 1.0
+    # Run apart, with a deadline: a pattern that backtracks would hang the suite, not fail it.
+    code = (
+        "import importlib.machinery, importlib.util, sys\n"
+        f"loader = importlib.machinery.SourceFileLoader('usage_report', {str(SCRIPT)!r})\n"
+        "module = importlib.util.module_from_spec(importlib.util.spec_from_loader('usage_report', loader))\n"
+        "loader.exec_module(module)\n"
+        "print(module.classify_tool('Bash', {'command': 'X=' + 'a=' * 40 + ' python x.py'}, module.Paths('/r')))\n"
+    )
+    try:
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=20, check=False)
+    except subprocess.TimeoutExpired:
+        raise AssertionError("40 variable assignments took more than 20 seconds to read") from None
+    assert result.stdout.strip() == "('shell', 'Bash (python)')", result.stderr
