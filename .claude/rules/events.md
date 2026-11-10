@@ -17,8 +17,9 @@ paths:
   - "app/core/idempotent_route.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises rules 4–6, 10 and 12, ADR-006,
-ADR-046, ADR-047, ADR-081; also cites ADR-084. Verified against main@73baf3f on 2026-10-25 (every present-tense
-claim checked against the code). Fix this file in the same PR as any change to what it states. -->
+ADR-046, ADR-047, ADR-081; also cites ADR-084, ADR-126. Verified against main@73baf3f on 2026-10-25 (every present-tense
+claim checked against the code); the event-rename sentence re-checked against main@e37e36f on 2026-11-10
+for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it states. -->
 
 # Events, outbox, consumers and reconciliation
 
@@ -30,7 +31,8 @@ claim checked against the code). Fix this file in the same PR as any change to w
   Existing two-part names stay as they are (`customer.created`, `valuation.used`,
   `configuration.matched`, …): consumers subscribe by the name (`transport.register` in
   `app/worker.py`) and pending `outbox_message` rows carry it in `event_type`, so a rename is a
-  contract change for Anto to decide.
+  contract change: a technical decision (ADR-126) — an ADR naming every subscriber and how
+  pending rows migrate, and one sentence to Anto.
 - **Consumers are idempotent** by `eventId` against the processed-events table; delivery is
   at-least-once. Every consumer has a redelivery-idempotency test on the Postgres lane:
   `tests/test_consumer_redelivery_idempotency.py` takes the list from `register_handlers`,

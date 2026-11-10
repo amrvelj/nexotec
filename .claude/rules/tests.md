@@ -5,8 +5,9 @@ paths:
   - "frontend/**/*.test.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011, ADR-086, ADR-089 and the
-recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-091. Verified
-against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this file in the same PR
+recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-091, ADR-126. Verified
+against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code); the spec-disagreement
+sentence re-checked against main@e37e36f on 2026-11-10 for ADR-126 (KAN-638). Fix this file in the same PR
 as any change to what it states. -->
 
 # Tests
@@ -83,8 +84,9 @@ as any change to what it states. -->
   the case it is named after.
 - A new behaviour gets a test that fails without the change. For a new CI guard, prove it goes
   red before it goes green.
-- Never change a test to match broken behaviour. A test that disagrees with the spec is a
-  question for Anto, not an edit.
+- Never change a test to match broken behaviour. A test that disagrees with the spec is never
+  edited to pass: a business point (what a user sees, money, legal, a ruling of Anto's) is a
+  question for Anto; a technical one is decided and recorded as an ADR (ADR-126).
 - Frontend: render tests opt into jsdom per file (`// @vitest-environment jsdom`) and are named
   `*.render.test.tsx` — not always beside the component: find them with
   `git grep -l <Component> -- '*.render.test.tsx'`. In `frontend/apps/dms` a jsdom test never
