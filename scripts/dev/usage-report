@@ -131,7 +131,7 @@ KNOWN_PROGRAMS = frozenset((
 ))
 PROGRAM = re.compile(r"^[A-Za-z0-9_.-]{1,20}$")
 PATHLIKE = re.compile(r"^[A-Za-z0-9_./~@+-]{1,200}$")
-EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,8}$")
+EXTENSION = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,7}$")  # .py, .md, .json - not 1.5k
 ATTACHMENT_KIND = re.compile(r"^[a-z_]{1,40}$")
 NOTION_ID = re.compile(r"([0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
 TICKET_COMMAND = re.compile(r"<command-name>/?ticket</command-name>\s*<command-args>\s*(KAN-\d+(?:\s+close)?)", re.IGNORECASE)
@@ -265,7 +265,8 @@ def bash_skeleton(command):
     return re.sub(r"(^|\s)#[^\n]*", r"\1", text)
 
 
-ASSIGNMENTS = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*=\S*\s*)+$")
+ASSIGNMENTS = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*=\S*(?:\s+|$))+$")  # linear: one per space-separated word
+SEPARATORS = re.compile(r"\n|&&|\|\||;|\||(?<![<>&])&(?![>&])")  # `&` but not in 2>&1 or &>file
 # The options of the view programs that take the next word as their value (so the word is
 # never taken for the file): GNU and BSD spellings both.
 VIEW_VALUE_OPTIONS = {
@@ -285,7 +286,7 @@ VIEW_VALUE_OPTIONS = {
 def first_command(skeleton):
     """The first simple command of a skeleton that is neither a bare `cd` nor only variable
     assignments. `&` (background) separates commands like `;`."""
-    for part in re.split(r"\n|&&|\|\||;|\||&", skeleton):
+    for part in SEPARATORS.split(skeleton):
         part = part.strip()
         if part and not re.match(r"^cd(\s|$)", part) and not ASSIGNMENTS.match(part):
             return part
@@ -296,10 +297,14 @@ def view_target(command, paths):
     """The first file a cat/head/tail/nl/less/sed command names - a word shaped like a path,
     nothing else.
 
-    Called with one command of a skeleton (no heredoc, no quoted text with spaces). Every
-    option is skipped together with its value (VIEW_VALUE_OPTIONS); sed's script - its first
-    argument unless -e/-f gave one - and +commands (less +/pattern, tail +5) are skipped, so
-    neither text, an option's value nor an expression is ever printed as a file name."""
+    Called with one command of a skeleton (no heredoc, no quoted text with spaces). Options
+    are read the way getopt reads them: in a group of short options (`-Ip`) the first letter
+    that takes a value (VIEW_VALUE_OPTIONS) ends the group, and its value is the rest of the
+    word or, when the letter is last, the next word; a long option takes `=value` or, when it
+    is in the table, the next word; `--` ends the options. Every value is skipped, as are
+    sed's script - its first argument unless -e/-f gave one - and +commands (less +/pattern,
+    tail +5), so neither text, an option's value nor an expression is ever printed as a file
+    name."""
     try:
         words = shlex.split(command)
     except ValueError:
@@ -307,16 +312,26 @@ def view_target(command, paths):
     if not words or words[0] not in VIEW_VALUE_OPTIONS:
         return "?"
     takes_value = VIEW_VALUE_OPTIONS[words[0]]
-    scripted = any(w in ("-e", "-f", "--expression", "--file") or w.startswith(("--expression=", "--file="))
-                   or re.match(r"^-[a-zA-Z]*[ef]", w) for w in words[1:])
-    args, skip = [], False
+    short = {option[1] for option in takes_value if re.match(r"^-[A-Za-z]$", option)}
+    args, skip, scripted, options_done = [], False, False, False
     for word in words[1:]:
         if skip:
             skip = False
-        elif word in takes_value:
-            skip = True
-        elif not word.startswith(("-", "+")):
+        elif options_done or word == "-" or not word.startswith(("-", "+")):
             args.append(word)
+        elif word == "--":
+            options_done = True
+        elif word.startswith("--"):
+            name = word.split("=", 1)[0]
+            scripted = scripted or (words[0] == "sed" and name in ("--expression", "--file"))
+            skip = "=" not in word and name in takes_value
+        elif word.startswith("-"):
+            for i, letter in enumerate(word[1:], 1):
+                if letter in short:
+                    scripted = scripted or (words[0] == "sed" and letter in "ef")
+                    skip = i == len(word) - 1  # the value is the next word; else the rest of this one
+                    break
+        # a +command (less +/pattern, tail +5) is skipped
     if words[0] == "sed" and not scripted:
         args = args[1:]
     for word in args:

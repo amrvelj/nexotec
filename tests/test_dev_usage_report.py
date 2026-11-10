@@ -289,6 +289,16 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     assert label("cat -e app/x.py") == ("read", "Bash view app/x.py")
     # a line that only assigns variables is skipped like a bare `cd`
     assert label("W=/x\ncat app/a.py") == ("read", "Bash view app/a.py")
+    # grouped short options, read as getopt does: the value-taking letter ends the group
+    assert label("less -Ip anto@example.com app/y.py") == ("read", "Bash view app/y.py")
+    assert label("nl -ps X.AG app/y.py") == ("read", "Bash view app/y.py")
+    assert label("head -qc 1.5k app/x.py") == ("read", "Bash view app/x.py")
+    assert label("tail -fs 1.5 app/x.log") == ("read", "Bash view app/x.log")
+    assert label("sed -n -Ee y/abc/xyz/ app/x.py") == ("read", "Bash view app/x.py")
+    assert label("head -n5 app/a.py") == ("read", "Bash view app/a.py")
+    assert label("cat -- -weird.txt") == ("read", "Bash view -weird.txt")
+    # a redirection's `&` does not split a command
+    assert label("cd /x 2>&1 && ls -la") == ("shell", "Bash (ls)")
     assert module.Paths("/repo").show("/repo/../x") == "<outside repo>/x"
     # what a command carries does not classify it: a commit message naming pytest is not a test run
     assert label("git commit -m 'run pytest later'") == ("shell", "Bash (git)")
@@ -335,3 +345,13 @@ def test_fewer_than_five_measured_steps_fall_back_to_the_default_rate():
     stream.add(_call("c4", ctx, []))
     stream.finish()
     assert stream.chars_per_token == module.CHARS_PER_TOKEN == 2.25
+
+
+def test_a_long_run_of_assignments_is_read_in_linear_time():
+    import time
+
+    module = _module()
+    start = time.monotonic()
+    assert module.classify_tool("Bash", {"command": "X=" + "a=" * 40 + " python x.py"}, module.Paths("/r")) == (
+        "shell", "Bash (python)")
+    assert time.monotonic() - start < 1.0
