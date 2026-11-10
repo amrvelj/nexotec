@@ -95,10 +95,12 @@ def _call(operation: str, fn: Callable[[], _T]) -> _T:
 
     - `APIError` — Infisical answered with an HTTP error; `status` is it.
     - `InfisicalError` without a status — an answer that was not JSON.
-    - `requests.RequestException` / `OSError` — no answer at all (refused
-      connection, DNS, TLS, a timeout). The SDK sends its requests outside
-      the `try` that makes its own errors, and retries a network error four
-      times first, so these reach us as the `requests` library raised them.
+    - `OSError` — no answer at all (refused connection, DNS, TLS, a
+      timeout). The SDK sends its requests outside the `try` that makes its
+      own errors, and retries a network error four times first, so these
+      reach us as the `requests` library raised them; its
+      `RequestException` is an `OSError` subclass, so `requests` is not
+      imported here (KAN-550 keeps it out of `app/`).
 
     Each failure is logged at WARNING with the operation, the status and the
     exception's class — never its message, which can echo the secret's
@@ -106,12 +108,11 @@ def _call(operation: str, fn: Callable[[], _T]) -> _T:
     reports it (rule 10). The original exception stays on the traceback.
     """
 
-    import requests
     from infisical_sdk.infisical_requests import InfisicalError
 
     try:
         return fn()
-    except (InfisicalError, requests.RequestException, OSError) as exc:
+    except (InfisicalError, OSError) as exc:
         status = _status_of(exc)
         logger.warning(
             "secrets manager refused %s (status=%s, %s)", operation, status, type(exc).__name__
