@@ -62,9 +62,12 @@ findings".
 ## Output
 
 A markdown file in the Nexotec Drive folder (path in CLAUDE.md): `spec-review-<YYYY-MM-DD>.md`,
-with (1) the inventory, (2) cross-PRD contract findings, (3) all other findings, (4) decisions
-Anto must make — split into *decide now, blocks building* and *can defer, and until when* —
-with the options and your recommendation, (5) at most five things to keep exactly as they are.
+with (1) the inventory, (2) cross-PRD contract findings, (3) all other findings, (4) the
+**business** decisions Anto must make (CLAUDE.md, «How we work»; ADR-126) — split into *decide
+now, blocks building* and *can defer, and until when* — with the options and your
+recommendation, (5) the **technical** decisions, each with the decision you recommend: they are
+not his to make, the next `/architect` or `/ticket` session takes them and records the ADR,
+(6) at most five things to keep exactly as they are.
 
 Each finding:
 
@@ -79,5 +82,6 @@ Proposed replacement: <paste-ready Notion text — the actual wording>
 ```
 
 Sort by severity, then page. Do not edit Notion: Anto applies the text. If a whole page needs
-rewriting rather than patching, say so early. Stop and ask if the review depends on something
-nobody has told you.
+rewriting rather than patching, say so early. If the review depends on something nobody has
+told you: a business fact → stop and ask Anto (a pop-up choice); a technical one → choose the
+assumption yourself and state it in the finding.

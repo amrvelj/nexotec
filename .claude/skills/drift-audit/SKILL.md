@@ -62,5 +62,10 @@ every rule file has only `paths` in its frontmatter.
   repo, quote from Notion, ticket status), Why it matters, Exit criterion (each rule file
   corrected, its maintainer note updated to the new verified commit), Do not touch (code; spec
   pages), and a Prompt for Claude Code containing the **exact replacement text** for each file.
-- A finding that needs Anto's decision rather than a wording fix (Notion and the code disagree
-  on a rule) gets its own ticket in the same format, Status **AI Review**.
+- A finding that needs a decision rather than a wording fix (Notion and the code disagree on a
+  rule) gets its own ticket in the same format (CLAUDE.md, «How we work»; ADR-126):
+  - **technical** (which side is right is a question of structure, boundaries, patterns or
+    tooling): name the resolution you recommend, Status **AI Review**;
+  - **business** (what a dealer or user sees, scope, money, legal, retention, a ruling of
+    Anto's): the audit runs unattended, so the question goes in a callout at the top of the
+    ticket (the question, the options, your recommendation, the evidence), Status **Anto Review**.
