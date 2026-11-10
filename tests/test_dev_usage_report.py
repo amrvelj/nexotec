@@ -138,3 +138,115 @@ def test_a_folder_without_a_ticket_session_says_so(tmp_path):
     result = _run(tmp_path, "--exclude", "aaaaaaaa")
     assert result.returncode == 1
     assert "No matching session." in result.stdout
+
+
+# The review findings of 2026-11-10: a reviewer typed from its Agent call, growth beyond an
+# item's size not pinned on the largest result, the opening estimate at the measured rate,
+# and no sed script or heredoc printed as a file name.
+
+SID_B = "bbbbbbbb-0000-0000-0000-000000000002"
+
+
+def _call(mid, ctx, tools):
+    return {"type": "assistant", "timestamp": "2026-11-03T09:00:00Z", "gitBranch": "kan-8-y",
+            "message": {"id": mid, "model": "claude",
+                        "usage": {"input_tokens": ctx, "cache_read_input_tokens": 0,
+                                  "cache_creation_input_tokens": 0, "output_tokens": 0},
+                        "content": [{"type": "tool_use", "id": f"{mid}-{i}", "name": name, "input": data}
+                                    for i, (name, data) in enumerate(tools)]}}
+
+
+def _results(mid, sizes, agent_id=None):
+    record = {"type": "user", "message": {"content": [
+        {"type": "tool_result", "tool_use_id": f"{mid}-{i}", "content": ("x" * (size - len(MARKER))) + MARKER}
+        for i, size in enumerate(sizes)]}}
+    if agent_id:
+        record["toolUseResult"] = {"agentId": agent_id, "status": "async_launched"}
+    return record
+
+
+def _write_session_b(folder):
+    """Every call reads all of its input fresh and writes no output: each step's growth is
+    exactly what its tool results added."""
+    read = lambda name: ("Read", {"file_path": "/r/app/" + name})
+    lines = [
+        {"type": "attachment", "timestamp": "2026-11-03T08:59:59Z", "attachment": {"type": "instructions"},
+         "rendered": [{"type": "text", "text": MARKER * (1000 // len(MARKER)) + "x" * (1000 % len(MARKER))}]},
+        {"type": "user", "message": {"content": "<command-name>/ticket</command-name><command-args>KAN-8</command-args>"}},
+        _call("c0", 10000, [read("r1.py")]), _results("c0", [1000]),
+        _call("c1", 10500, [read("r2.py")]), _results("c1", [1000]),
+        _call("c2", 11000, [read("r3.py")]), _results("c2", [1000]),
+        _call("c3", 11500, [read("big.py"), ("ToolSearch", {"query": MARKER})]), _results("c3", [1400, 100]),
+        _call("c4", 16500, [read("big2.py")]), _results("c4", [1400]),
+        _call("c5", 21500, [("Agent", {"subagent_type": "reviewer", "prompt": MARKER})]),
+        _results("c5", [100], agent_id="abc123"),
+        _call("c6", 21550, [("Bash", {"command": f"sed -n 's/{MARKER}=x/y/p' app/d.py"})]), _results("c6", [100]),
+        _call("c7", 21600, [("Bash", {"command": f"cat <<EOF\n{MARKER}.AG\nEOF"})]), _results("c7", [100]),
+        _call("c8", 21650, []),
+    ]
+    (folder / (SID_B + ".jsonl")).write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    subagents = folder / SID_B / "subagents"
+    subagents.mkdir(parents=True)
+    (subagents / "agent-abc123.jsonl").write_text(json.dumps(  # no .meta.json beside it
+        {"type": "assistant", "isSidechain": True, "message": {
+            "id": "s1", "model": "claude", "usage": _usage(300, 20), "content": [{"type": "text", "text": MARKER}]}}) + "\n")
+
+
+def _run_b(tmp_path):
+    folder = tmp_path / "projects-b" / "-r"
+    folder.mkdir(parents=True)
+    _write_session_b(folder)
+    return subprocess.run([sys.executable, str(SCRIPT), "--project-dir", str(folder), "--repo", "/r"],
+                          capture_output=True, text=True, check=False)
+
+
+def _breakdown(text, label):
+    (line,) = [line for line in text.splitlines() if line.startswith("    " + label + " ")]
+    return line.split()[-2]
+
+
+def test_a_sub_agent_without_meta_is_typed_from_the_agent_call_that_started_it(tmp_path):
+    result = _run_b(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert _row(result.stdout, "reviewer (1)")[-1] == "320"
+    assert "sub-agent (1)" not in result.stdout
+
+
+def test_growth_an_item_cannot_hold_goes_to_toolsearch_or_no_recorded_source(tmp_path):
+    result = _run_b(tmp_path)
+    lines = result.stdout.splitlines()
+    start = lines.index("  largest single tool results (tokens added, x calls that carried them):")
+    top = [line.split(None, 4)[1:] for line in lines[start + 1:start + 6]]
+    # 1,400 characters hold at most 1,000 tokens: the 4,000 beyond are ToolSearch's schemas when
+    # a ToolSearch ran in that step, and growth with no recorded source when none did.
+    assert top == [
+        ["4,000", "x5", "main", "ToolSearch"],
+        ["1,000", "x5", "main", "Read app/big.py"],
+        ["1,000", "x4", "main", "Read app/big2.py"],
+        ["500", "x8", "main", "Read app/r1.py"],
+        ["500", "x7", "main", "Read app/r2.py"],
+    ]
+    assert _breakdown(result.stdout, "growth with no recorded source") == "16,000"
+
+
+def test_the_opening_context_is_estimated_at_the_measured_characters_per_token(tmp_path):
+    # Three one-item steps measured 2.0 characters per token (and one 0.28): the median is 2.0,
+    # so the 1,000-character CLAUDE.md before the first call is 500 tokens, carried by 9 calls.
+    result = _run_b(tmp_path)
+    assert _breakdown(result.stdout, "CLAUDE.md + MEMORY.md") == "4,500"
+
+
+def test_a_sed_script_or_a_heredoc_is_never_printed_as_a_file_name(tmp_path):
+    result = _run_b(tmp_path)
+    assert MARKER not in result.stdout + result.stderr
+    import importlib.machinery
+    import importlib.util
+
+    loader = importlib.machinery.SourceFileLoader("usage_report", str(SCRIPT))
+    module = importlib.util.module_from_spec(importlib.util.spec_from_loader("usage_report", loader))
+    loader.exec_module(module)
+    paths = module.Paths("/r")
+    assert module.view_target("sed -n 's/password=hunter2/X/p' app/config.py", paths) == "app/config.py"
+    assert module.view_target("sed -n '1,40p' /r/app/x.py", paths) == "app/x.py"
+    assert module.view_target("cat <<EOF\nMueller.AG\nEOF", paths) == "?"
+    assert module.view_target("head -n 20 notes.md 2>/dev/null", paths) == "notes.md"
