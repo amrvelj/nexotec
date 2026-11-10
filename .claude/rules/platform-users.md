@@ -4,6 +4,24 @@ paths:
   - "app/core/tenancy.py"
   - "app/core/ownership.py"
   - "app/ownership_registry.py"
+  - "app/platform/__init__.py"
+  - "app/platform/public.py"
+  - "app/platform/reconciliation.py"
+  - "app/platform/daily_jobs.py"
+  - "app/platform/api/__init__.py"
+  - "app/platform/api/health.py"
+  - "app/platform/models/__init__.py"
+  - "app/platform/services/__init__.py"
+  - "app/platform/services/actor_reference.py"
+  - "app/platform/schemas/__init__.py"
+  - "app/platform/schemas/user.py"
+  - "app/platform/schemas/membership.py"
+  - "app/platform/schemas/me.py"
+  - "app/platform/schemas/patch.py"
+  - "alembic/versions/platform/**"
+  - "tests/test_platform_concurrent_*.py"
+  - "tests/test_platform_idempotency.py"
+  - "tests/test_platform_chain_renders_offline.py"
   - "app/platform/api/dealerships.py"
   - "app/platform/api/dealer_groups.py"
   - "app/platform/api/me.py"
@@ -39,10 +57,8 @@ paths:
   - "frontend/apps/dms/src/pages/account/**"
   - "frontend/apps/dms/src/components/account/**"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-094, ADR-106 and the
-Dealer Administration PRD (D-A-01, D-A-03…D-A-05, D-A-24, D-A-35; FR-A-02, FR-A-10…FR-A-17).
-Cut from platform.md by KAN-614 (2026-11-10) to the invariants; platform.md was verified against
-main@73baf3f on 2026-10-25 - this cut was not re-verified against the code. -->
+<!-- Maintainer note. ADR-014/094/106; Dealer Administration D-A-01…05, D-A-24, D-A-35, FR-A-02…17. Cut from
+platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; not re-verified. -->
 
 # Users, roles and the organisation (ADR-014; Dealer Administration)
 
@@ -77,8 +93,8 @@ main@73baf3f on 2026-10-25 - this cut was not re-verified against the code. -->
   target. A manager sees only the sister Betriebe they manage themselves (the Users screen's
   «Weitere Betriebe»; a 404 reads «not yours to manage», an empty list never «no access»).
 - **Every route that writes a user's memberships, delegations or user row locks the user row first**
-  (`user_service.get_user_for_update_or_404`, FOR NO KEY UPDATE) before any child row — a source
-  test pins them; a new such route joins it. (Lock order: `platform-identity.md`.)
+  (`user_service.get_user_for_update_or_404`, FOR NO KEY UPDATE) before any child row —
+  `tests/test_platform_concurrent_first_grants.py` pins them; a new such route joins it. (Lock order: `platform-identity.md`.)
 - `LoginResponse.user.isDealerManager` is the **home** flag — never gate a screen on it; the
   session's own flag is `LoginResponse.isActiveDealershipManager`.
 
@@ -112,7 +128,8 @@ main@73baf3f on 2026-10-25 - this cut was not re-verified against the code. -->
   the module's unassigned queue (`GET /sales/deals?unassigned=true`, `GET /customers?unassigned=true`;
   an unassigned draft stays hidden like every draft). It cuts access first in platform's own commit,
   then each module hands over on a session of its own (ADR-047), with one `ownership_transferred`
-  audit row per group. `POST …/ownership/transfers` is the retry and the plain hand-over.
+  audit row per group carrying the reason (Customers also write one per customer; Sales bumps each
+  record's version and writes none — platform's row is the record). `POST …/ownership/transfers` is the retry and the plain hand-over.
 - A hand-over to a colleague who cannot act in one of those Betriebe is refused **as a whole** (422
   with a count, never which Betrieb). Customers judge it by the customer's group
   (`platform.public.list_user_dealer_group_ids`), Sales by `colleague_cannot_act_there`, under the
@@ -121,8 +138,9 @@ main@73baf3f on 2026-10-25 - this cut was not re-verified against the code. -->
 - A PATCH to `deactivated` (or an employment `terminated`) is 409 `use_deactivate_endpoint`; the
   last manager is 400 `last_manager` / `last_manager_elsewhere`, never naming the sister.
 - The nightly `platform.user_expiry` deactivates a user past `valid_to` (staff too), one at a time,
-  except a last active manager (FR-A-13 outranks expiry: logged at ERROR, tried the next night), and
-  retries a failed release for 30 days. Each module's reconciliation reports an open record owned
+  except a last active manager (FR-A-13 outranks expiry: logged at ERROR, tried the next night),
+  re-reading each user under the lock; its retry of a failed release (30 days) hands over only a
+  user still deactivated by the job. Each module's reconciliation reports an open record owned
   by a deactivated user.
 
 ## Lifecycle (Users → Lifecycle)

@@ -12,6 +12,12 @@ paths:
   - "app/platform/models/notification.py"
   - "app/platform/models/ui_translation.py"
   - "app/platform/models/user_preference.py"
+  - "app/platform/consumers.py"
+  - "app/platform/daily_jobs.py"
+  - "app/platform/schemas/notification.py"
+  - "app/platform/schemas/ui_translation.py"
+  - "app/platform/schemas/user_preference.py"
+  - "frontend/apps/dms/src/layout/DmsShell.tsx"
   - "tests/test_*notification*.py"
   - "tests/test_platform_ui_translations.py"
   - "tests/test_user_preference.py"
@@ -36,8 +42,9 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 ## Notifications (D-A-40) — built
 - Staff notifications are **in-app and push only, never e-mail** (no notification module reaches the
   mailer: `test_notifications_never_reach_the_mail_port.py`); the user decides everything; the
-  `security` family is always immediate and cannot be switched off. `in_app` cannot be switched off
-  while a family delivers (422 `in_app_is_the_record`).
+  `security` family is always immediate and cannot be switched off. No preference row means
+  immediate, in-app and push; `in_app` cannot be switched off while a family delivers (422
+  `in_app_is_the_record`).
 - `notification_event` is the catalogue: the code declaration (`services/notification_catalogue.py`)
   **and** a platform migration inserting its rows, in the PR that raises them
   (`tests/test_migrated_notification_catalogue.py` keeps the two equal). `notification` is the
@@ -56,7 +63,8 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 - The security family hangs on `auth_events.record` (`services/security_alerts.py`): new-device
   login, factor enrolled or removed, recovery code used, lockout, password reset or replaced, a
   session ended by someone else, connected account revoked, and staff recovery (the action as a
-  closed code, never the reason).
+  closed code, never the reason). Connected-account linking and impersonation start/end are in the
+  catalogue only — nothing raises them yet.
 - **Web Push is a port with no working adapter**: no VAPID key is configured — its home is
   `app/core/config.py`, a preserved file, so adding it is Anto's decision — so
   `GET /v1/me/push/config` says unavailable and nothing is pushed. Pushes carry title + link only,

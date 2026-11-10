@@ -2,6 +2,12 @@
 paths:
   - "app/core/auth*.py"
   - "app/core/nul_guard.py"
+  - "app/core/config.py"
+  - "app/main.py"
+  - "app/platform/consumers.py"
+  - "app/platform/schemas/auth.py"
+  - "app/platform/schemas/recovery.py"
+  - "frontend/apps/dms/src/components/ProtectedRoute.tsx"
   - "app/platform/session_guard.py"
   - "app/platform/api/auth.py"
   - "app/platform/api/recovery.py"
@@ -39,10 +45,8 @@ paths:
   - "scripts/benchmark_argon2.py"
   - "WORKSHOP_TERMINAL_AUTH_DESIGN.md"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises the Authentication & Identity PRD v1.1
-and the Dealer Administration PRD's D-A-07…D-A-16, D-A-28, D-A-36, D-A-37; ADR-028, ADR-099, ADR-110,
-ADR-118. Cut from platform.md by KAN-614 (2026-11-10) to the invariants; platform.md was verified
-against main@73baf3f on 2026-10-25 - this cut was not re-verified against the code. -->
+<!-- Maintainer note. Auth & Identity PRD v1.1; D-A-07…D-A-37; ADR-028/099/110/118. Cut from platform.md
+(verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; the cut was not re-verified. -->
 
 # Identity and sign-in (Authentication & Identity; D-A-07…D-A-16, D-A-36)
 
@@ -61,8 +65,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
 
 ## Login
 - Nexotec owns authentication (D-A-07). `LocalPasswordProvider` behind the `IdentityProvider` seam
-  is the only implementation (D-A-08, D-A-11; Entra OIDC is [P3]); a local user's
-  `auth_identity_id` is `local:<user id>`.
+  is the only implementation (D-A-08, D-A-11; Entra OIDC is [P3]).
 - **Every refusal is the same 401 body with the same argon2 work** (a dummy verify for an unknown
   address) — never a reason-specific message (`tests/test_identity_login_policy.py` counts the
   verifies). A NUL in path, query or JSON/form body is 422 `nul_character` before any route
@@ -84,8 +87,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   the one bootstrap exception.
 - Password policy: ≥ 12 characters, no composition rules; the Betrieb's and the user's names and the
   e-mail local part refused; Have I Been Pwned at set-time **fails open and flags**
-  (`breach_check_pending`). Tests turn HIBP off (autouse) and patch
-  `password_policy.hibp_breach_count` where they test it.
+  (`breach_check_pending`; tests: `tests.md`).
 - argon2id parameters are settings (`DMS_ARGON2_*`; target ~250 ms a verify on the login instance,
   `scripts/benchmark_argon2.py`); a hash below them is rehashed on the next login.
 
@@ -106,17 +108,19 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   one secret in the database (`EncryptedString`, ADR-099).
 - `dealership_auth_config.mfa_enforced` (default **on**, the manager's switch) decides per Betrieb;
   **platform staff are always enforced** — `require_mfa_session()` refuses a staff principal whose
-  token's `mfa` claim is false.
+  token's `mfa` claim is false (the recovery door has its own gate; the impersonation endpoints
+  will carry it).
 - A session that owes a factor reaches only `/v1/auth/*`, `/v1/me/preferences` and its own
   Betrieb's `auth-config` (never a staff session); the rest of `/v1/` is 403
   `details.mfaEnrolmentRequired`, and the SPA sends it to `/account/security`. The guard reads the
   factor from the **session row**, so the enrolling session is free at once; the token's `mfa`
   claim changes only at the next sign-in or switch.
-- Five answers per challenge; every wrong answer counts on the account axis like a wrong password,
-  the password step does not reset that counter and the MFA step honours the lock — fresh
-  challenges buy nothing. A session that never proved a factor ends once its user holds one;
+- Five answers per challenge, spent on success only; every wrong answer counts on the account
+  axis like a wrong password (a lock reached so is a `locked_out` event), the password step does not
+  reset that counter and the MFA step honours the lock — fresh challenges buy nothing. A session that never proved a factor ends once its user holds one;
   removing the last factor ends the user's other sessions; staff's reset ends them all and always
-  writes `mfa_removed` naming the actor (FR-AU-12).
+  writes `mfa_removed` naming the actor (FR-AU-12); a user removing their own never-confirmed
+  enrolment ends no session and writes none.
 - Passkeys are verified by the `webauthn` library over `mfa.PASSKEY_ALGORITHMS`; a builtin
   exception it raises at registration is 422 `passkey_not_verified`; `mfa.py`'s key policy (its
   comments say which check is the spec's and which Nexotec's) refuses weak or malformed keys. The
@@ -129,7 +133,8 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   (staff, a factor in the session, never an impersonation — `Principal.acting_for`). Each needs a
   **reason** and writes its own `recovery_*` auth event (the Betrieb's manager reads it), an audit
   row and a `security` notice to the user. Staff never recover their own account (403) nor a
-  deactivated one (409); every refusal of the service carries a stable `details.rule`. The screen
+  deactivated one (409); every refusal of the service carries a stable `details.rule`. Grant-manager
+  takes an active home user at **any** time, not only after the last manager left. The screen
   (Administration › Account recovery) is never role-hidden.
 - Nothing in recovery sets or reads a password (`test_recovery_never_touches_a_password.py`), and
   no `/v1/platform/` route carries a password-shaped field.
@@ -145,7 +150,7 @@ Invitations, resets and alerts leave through Nexotec's own sender (`PlatformMail
 (the link in the log; refused at startup outside `development`, ADR-099) or `smtp`
 (`DMS_PLATFORM_MAIL_*`, verifying STARTTLS). A failed delivery is a `mail_delivery_failed` auth
 event and an ERROR line. Texts in the user's UI language, else the home Betrieb's correspondence
-language (`user_preference.ui_language_of`). Tests use the `mailbox` fixture.
+language (`user_preference.ui_language_of`).
 
 ## Auth events (FR-AU-21)
 Every login outcome, lock, token, factor and session change, read by the manager at
@@ -161,9 +166,11 @@ Every login outcome, lock, token, factor and session change, read by the manager
   the consumer `platform.connected_account_provider_revocation` (ADR-118): a revoker registered with
   `platform.public.register_grant_revoker` **in the worker's composition root** (`app/worker.py`;
   the consumer runs only there), given plain `RevokedGrant` data; it must be idempotent, raise on a
-  refusal, and never put token material in its exception text. None is registered yet. An outage
-  longer than the outbox's retries dead-letters the revocation (an alert; manual replay; KAN-559).
-  Reconciliation reports a revoked grant still holding a reference after 24 h.
+  refusal, and never put token material in its exception text. None is registered yet: then the
+  consumer records nothing (WARNING) — the grant ends in Nexotec only. An outage longer than the
+  outbox's retries dead-letters it (alert; manual replay; KAN-559). Reconciliation reports a revoked
+  grant still holding a reference after 24 h, **whatever its provider** — a missing registration is a
+  finding.
 
 ## Realms (D-A-13, D-A-14)
 staff (this) · terminal (ADR-028, ADR-110) · customer (reserved, `aud=portal`, never a `user`

@@ -11,6 +11,9 @@ paths:
   - "app/vehicle/models/spec_block.py"
   - "app/vehicle/models/plate_lookup_cache.py"
   - "app/sales/services/snapshot.py"
+  - "app/vehicle/schemas/configuration.py"
+  - "app/vehicle/schemas/identification.py"
+  - "app/vehicle/schemas/spec_block.py"
   - "tests/test_configuration*.py"
   - "tests/configuration_test_support.py"
   - "tests/test_configurator_*.py"
@@ -44,7 +47,8 @@ re-verified against the code. -->
 - **ADR-072** — packages, exclusions and extra conditions are stored and shown, never enforced: a
   conflict warns, never blocks.
 - The configurator is a Sales-module surface: every route of `api/configuration.py` and
-  `api/identification.py` is behind the router-level `sales` entitlement (404 without it).
+  `api/identification.py` is behind the router-level `sales` entitlement (404 without it;
+  `test_sales_routers_carry_entitlement_gate.py`).
 
 ## Retention (Anto)
 A configuration no host ever took is deleted 30 days after creation; one a host took is kept for
@@ -55,8 +59,10 @@ also asks Sales, Stock and Valuation through their read-only `referenced_configu
 one linked to a registered car as held, stamps every held one, and deletes the rest past 30 days —
 each in its own transaction, with an audit row and `vehicle.configuration.discarded` — then blanks
 the personal values earlier audit rows copied through `app.core.audit.redact_audit_values`, the
-log's one sanctioned rewrite (ADR-121). A copy (FR-C-11) is a new configuration, unstamped until
-taken.
+log's one sanctioned rewrite (ADR-121); discarding a host's failed copy does the same. A copy
+(FR-C-11) is a new configuration, unstamped until taken. Residual race (the service's docstring): one
+past 30 days that a host attaches while the job runs is deleted under it, and the host's
+reconciliation reports the dangling reference.
 
 ## Hosts and modes (PRD v1.4, + the pending contract of ADR-083)
 - Stock → add to pipeline: both (`build` factory order, `record` bought in) · Stock → «Konfiguration
@@ -101,6 +107,7 @@ taken.
   `coded_fields_required`) and cannot clear one. They and the spec-block reference fields take only
   an active value of their reference list.
 - Every other nullable field clears with an explicit `null` on PATCH; an absent field is left alone.
+  The configure phase's VIN field, emptied, saves `vin: null`, which drops the vehicle link.
   `catalogueVariantId`, `catalogueMatchStatus` and `spec: null` still mean "leave alone".
 - **Re-sync (FR-C-16)** is only ever the advisor's request: disagreeing fields listed, overrides
   marked, only chosen fields applied.

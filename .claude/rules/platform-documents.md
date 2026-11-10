@@ -10,6 +10,10 @@ paths:
   - "app/platform/models/document_template.py"
   - "app/platform/models/standard_text*.py"
   - "app/platform/models/number_range.py"
+  - "app/platform/public.py"
+  - "app/platform/schemas/document_*.py"
+  - "app/platform/schemas/standard_text.py"
+  - "app/platform/schemas/number_range.py"
   - "tests/test_document_*.py"
   - "tests/test_standard_texts.py"
   - "tests/test_platform_standard_text_seeds.py"
@@ -69,7 +73,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
 - Carried-over footers: each non-empty `document_template` footer became the Betrieb's **default**
   offer and contract footer (`offer|contract.footer.carried_over`) and an invoice text that is not
   the default (`invoice.footer.carried_over`), so documents keep printing what they printed; an
-  unprintable one was removed and printing falls back to the seed footer (Anto, KAN-519 option C).
+  unprintable one was removed and printing falls back to the seed footer (Anto).
   Sales prints the offer's intro and footer and the contract's footer.
 
 ## Number ranges (D-A-17, A-RULE-3, ADR-109) — built
@@ -83,8 +87,8 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
 - **Platform hands the number out inside the caller's transaction** —
   `platform.public.allocate_number(...)`, `SELECT … FOR UPDATE` on the range row, never a commit —
   so a document write that fails consumes no number. **ADR-109** is the ruled exception to ADR-047
-  (CLAUDE.md rule 12), classified in `test_adr_047_no_shared_transaction.py`. No other cross-context
-  write may share a transaction.
+  (CLAUDE.md rule 12), classified in `test_adr_047_no_shared_transaction.py`; number allocation is
+  the only shared transaction it rules (the other is ADR-091's backfill).
 - The first number freezes the range (audit `number_range_frozen`); after that a change is 409
   `number_range_frozen` for everyone but a `platform_admin`, who must give a reason.
 - The screen shows the ranges of the modules the Betrieb holds, the next number as an example and

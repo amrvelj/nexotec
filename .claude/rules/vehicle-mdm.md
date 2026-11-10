@@ -14,6 +14,11 @@ paths:
   - "app/vehicle/models/plate.py"
   - "app/vehicle/consumers.py"
   - "app/vehicle/public.py"
+  - "app/vehicle/__init__.py"
+  - "app/vehicle/*/__init__.py"
+  - "app/vehicle/reconciliation.py"
+  - "app/vehicle/schemas/vehicle*.py"
+  - "app/vehicle/schemas/lookup.py"
   - "app/core/validators.py"
   - "alembic/versions/vehicle/**"
   - "tests/test_vehicle.py"
@@ -55,7 +60,8 @@ re-verified against the code. -->
   for a value that is no VIN — a read, never 422. A refused VIN is named on screen
   (`common.invalidVin`).
 - **A pre-1981 chassis number** (Anto): 1–17 letters and digits, accepted on a valuation or
-  configuration only with a first registration before 1981-01-01 (else 422
+  configuration only with a first registration before 1981-01-01 — on a configuration PATCH the
+  stored VIN and date count for whichever the PATCH leaves out (else 422
   `chassis_number_requires_pre_1981_registration`); stored and printed normalised like a VIN — one
   spelling per car — and **never** finds, creates or links a vehicle-mdm record
   (`is_chassis_number`). `scripts/repair_configuration_vins.py` (dry run unless `--commit`) cleans
@@ -105,8 +111,10 @@ re-verified against the code. -->
 ## Changes and audits
 - **A changed label is an event** (ADR-119): `update_vehicle_mdm` publishes
   `vehicle.vehicle_mdm.summary_changed` in its own transaction whenever a field
-  `vehicle.public.VehicleSummary` carries changes — and only then; `tenant_id` null (vehicle-mdm is
-  global). Any new writer of a summary field calls `publish_summary_changed_if_changed` with the
+  `vehicle.public.VehicleSummary` carries changes — and only then (a Stammnummer, a status, a first
+  registration in the same year, a refused write publish nothing); payload `vehicleId`, `version`,
+  `changedFields` and the whole `summary`; `tenant_id` null (vehicle-mdm is global). Nothing writes a
+  record's `catalogue_variant_id` after creation yet. Any new writer of a summary field calls `publish_summary_changed_if_changed` with the
   summary read before its write. **Ruled exception:** a brand rename publishes nothing; customers'
   Vehicles tabs catch up by the nightly label refresh (Anto;
   `test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning`).

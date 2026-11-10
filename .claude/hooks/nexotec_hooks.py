@@ -73,8 +73,9 @@ GENERATED_FILES = {
         "`make generate-frontend-types`."
     ),
 }
-# KAN-618: generated files far larger than a context window. `.claude/settings.json` denies
-# `Read` on them; the shell may not print them whole either - a lookup or `grep -n` instead.
+# KAN-618: generated files far larger than a context window. The `Read` hook (`pre-read`) and the
+# pre-bash hook refuse printing them whole - a lookup or `grep -n` instead. Not a `Read(...)` deny
+# rule in settings.json: Claude Code applies one to `grep` on the same path too.
 WHOLE_READ_GUARDED = {
     "frontend/apps/dms/src/api/schema.d.ts": "~800 KB of generated API types",
     "frontend/apps/dms/openapi.json": "the generated OpenAPI document",
@@ -1224,8 +1225,8 @@ def _prints_too_much(verb, args):
                 if not part.endswith("p"):
                     continue
                 address = part[:-1].strip()
-                if not address:
-                    return True  # a bare `p` prints every line
+                if not address or "~" in address or "!" in address:
+                    return True  # a bare `p`, a step (`1~1p`) or a negation (`$!p`) has no line bound
                 m = re.match(r"^(\d+)\s*,\s*(\d+|\$|\+\d+)$", address)
                 if m:
                     start, end = int(m.group(1)), m.group(2)
@@ -1706,12 +1707,16 @@ def ci_problem(pr, head):
     return None
 
 
+NIGHTLY_RED = ("failure", "timed_out", "startup_failure")
+
+
 def close_ci_problem(merged_pr, nightly_run):
     """KAN-619: `close` sets nothing Done on red CI. `merged_pr` is `pr_from_rest` of the merged PR
     (its head's and its merge commit's checks); `nightly_run` the latest completed nightly run of
-    test.yml on main (a workflow-run dict, or None). Returns the refusal, or None."""
+    test.yml on main (a workflow-run dict, or None). A cancelled run is no verdict. Returns the
+    refusal, or None."""
     failed = ci_state(merged_pr)[1]
-    if nightly_run and (nightly_run.get("conclusion") or "") not in ("success", "skipped", "neutral"):
+    if nightly_run and (nightly_run.get("conclusion") or "") in NIGHTLY_RED:
         failed.append("the nightly run of {} on main ({}: {})".format(
             (nightly_run.get("head_sha") or "?")[:10], nightly_run.get("conclusion"), nightly_run.get("html_url")))
     if not failed:
@@ -1876,11 +1881,25 @@ def merged_ci(root, branch):
         return problem + " - the nightly run cannot be read.", ""
     latest = ((nightly or {}).get("workflow_runs") or [None])[0]
     merged = pr_from_rest(pull, runs, latest_statuses(statuses))
-    pending = ci_state(merged)[0]
-    note = "Still running on the merged work: {}.".format(", ".join(pending)) if pending else ""
-    if latest is None:
-        note = (note + " No nightly run on main has completed yet.").strip()
-    return close_ci_problem(merged, latest), note
+    return close_ci_problem(merged, latest), close_ci_note(merged, latest, pull.get("merged_at"))
+
+
+def close_ci_note(merged_pr, nightly_run, merged_at):
+    """What `close` prints beside its verdict: checks still running, a cancelled nightly, and a
+    nightly run that started before the merge - it then says nothing about the merged code yet."""
+    notes = []
+    pending = ci_state(merged_pr)[0]
+    if pending:
+        notes.append("Still running on the merged work: {}.".format(", ".join(pending)))
+    if nightly_run is None:
+        notes.append("No nightly run on main has completed yet - the merged code has had no full run.")
+    else:
+        if (nightly_run.get("conclusion") or "") == "cancelled":
+            notes.append("The latest nightly run was cancelled - no verdict.")
+        if merged_at and (nightly_run.get("created_at") or "") < merged_at:
+            notes.append("The latest nightly run ({}) started before the merge ({}): it does not cover the merged "
+                         "code yet - say so in the Done callout.".format(nightly_run.get("created_at"), merged_at))
+    return " ".join(notes)
 
 
 def cli(argv):
@@ -2130,6 +2149,11 @@ def selftest():
     assert red and "ruff" in red and "not Done" in red and "Bug ticket" in red
     assert "nightly run of aaaaaaaaaa" in close_ci_problem(merged_green, nightly_red)
     assert close_ci_problem(pr_from_rest(pull_merged, pending, []), nightly_green) is None  # still running: not red
+    assert close_ci_problem(merged_green, dict(nightly_green, conclusion="cancelled")) is None  # no verdict
+    assert "cancelled" in close_ci_note(merged_green, dict(nightly_green, conclusion="cancelled"), None)
+    early = dict(nightly_green, created_at="2026-10-06T02:17:00Z")
+    assert "started before the merge" in close_ci_note(merged_green, early, "2026-10-06T05:51:51Z")
+    assert close_ci_note(merged_green, dict(early, created_at="2026-10-07T02:17:00Z"), "2026-10-06T05:51:51Z") == ""
     # --- KAN-618: generated files are never printed whole; grep and a bounded range still work
     gen = "frontend/apps/dms/src/api/schema.d.ts"
 
@@ -2137,6 +2161,7 @@ def selftest():
         return [whole_read_problem(w, r, where, "/r") for w, r in shell_commands(command)]
     for refused in ("cat " + gen, "less " + gen, "head -n 500 " + gen, "head -500 " + gen, "head --lines=300 " + gen,
                     "tail -n +1 " + gen, "sed -n '1,$p' " + gen, "sed -n p " + gen, "sed 's/a/b/' " + gen,
+                    "sed -n '1~1p' " + gen, "sed -n '$!p' " + gen,
                     "sed -n '1,400p' " + gen, "cat < " + gen, "head -c 99999 " + gen, "cat frontend/package-lock.json",
                     "cat ../api/schema.d.ts"):
         where = "/r/frontend/apps/dms/src/x" if refused.startswith("cat ../") else "/r"

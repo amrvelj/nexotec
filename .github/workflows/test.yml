@@ -83,9 +83,8 @@ jobs:
       - run: lint-imports
 
   ruff:
-    # Covers scripts/ too since KAN-184, but the name stays: "ruff (app/, tests/)"
-    # is a required status check on main by this exact string, and renaming the
-    # job would leave every PR waiting on a check that never reports.
+    # Covers scripts/ too since KAN-184. The name is kept from before Route B (KAN-624), when
+    # it was a PR check; nothing requires it by name now (main has no branch protection).
     name: ruff (app/, tests/)
     needs: freshness
     if: ${{ needs.freshness.outputs.skip != 'true' }}
@@ -99,9 +98,8 @@ jobs:
       - run: ruff check app tests scripts
 
   mypy:
-    # Covers scripts/ too since KAN-142, but the name stays: "mypy (app/)" is a
-    # required status check on main by this exact string, and renaming the job
-    # would leave every PR waiting on a check that never reports.
+    # Covers scripts/ too since KAN-142. The name is kept from before Route B (KAN-624), when
+    # it was a PR check; nothing requires it by name now (main has no branch protection).
     name: mypy (app/)
     needs: freshness
     if: ${{ needs.freshness.outputs.skip != 'true' }}
@@ -116,11 +114,9 @@ jobs:
       # service signature change once broke it with nothing to notice.
       - run: mypy app scripts
       # KAN-236: render.yaml validated against the vendored copy of Render's Blueprint
-      # schema — the same script scripts/dev/check's `deploy` lane runs. It lives in
-      # this required job rather than a job of its own so a red result blocks the
-      # merge; a new job name would not be a required status check until someone
-      # adds it to main's branch protection. `!cancelled()` (KAN-281): it still
-      # reports when mypy above fails; the job is red either way.
+      # schema — the same script scripts/dev/check's `deploy` lane runs, and per PR pr.yml's
+      # pr-light. `!cancelled()` (KAN-281): it still reports when mypy above fails; the job is
+      # red either way.
       - run: python scripts/check_render_yaml.py
         if: ${{ !cancelled() }}
 
@@ -474,6 +470,8 @@ jobs:
   # present; this goes further and removes it from CI entirely). It still
   # exists as a fast, opt-in *local* convenience — see .pre-commit-
   # config.yaml — which is genuinely optional and runs on no one's push.
+  # Route B (KAN-624): the job name is kept, but what gates a merge now is the session's
+  # scripts/dev/check, whose Postgres lane runs this same suite; this job is the nightly proof.
   postgres:
     name: pytest (postgres — the only lane that gates a merge, ADR-011)
     needs: freshness
@@ -606,7 +604,9 @@ jobs:
           set -euo pipefail
           failed=$(jq -r '[to_entries[] | select(.value.result == "failure") | .key] | join(", ")' <<<"$NEEDS")
           day=$(date -u +%F)
-          title="Nightly CI red ${day}: ${failed}"
+          where=""
+          [ "$GITHUB_REF_NAME" = "main" ] || where=" (${GITHUB_REF_NAME}, dispatched)"
+          title="Nightly CI red ${day}${where}: ${failed}"
           body="The nightly run on \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA} failed: ${failed}.
 
           Run: ${RUN_URL}

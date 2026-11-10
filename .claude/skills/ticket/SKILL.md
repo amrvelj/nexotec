@@ -171,8 +171,9 @@ reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's s
    the merged PR's checks (its head and its merge commit) and the latest completed nightly run of
    `test.yml` on `main`. A check that **failed** (exit 3, the jobs named): do **not** set Done — file
    a Bug ticket on the board (Status Backlog, the board's format) naming the failing job and the
-   run, tell Anto, and stop; the ticket stays In Review. A check still running is printed and does
-   not hold the close.
+   run, tell Anto, and stop; the ticket stays In Review. A check still running, a cancelled nightly
+   run, or a nightly run that started before the merge is printed and does not hold the close — the
+   Done callout then says the nightly run has not covered the merge yet.
 3. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`
    and the CI line to what `close` confirmed.
 4. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the

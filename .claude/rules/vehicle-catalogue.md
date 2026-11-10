@@ -10,6 +10,8 @@ paths:
   - "app/vehicle/models/energy_rating.py"
   - "app/vehicle/models/provider.py"
   - "app/vehicle/daily_jobs.py"
+  - "app/vehicle/schemas/catalogue.py"
+  - "app/vehicle/schemas/spec_block.py"
   - "tests/test_catalogue_*.py"
   - "tests/catalogue_lookup_support.py"
   - "tests/test_vehicle_catalogue*.py"
@@ -64,7 +66,8 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   is the user's 422 **before the gateway** — no breaker charge, no call-log row.
 - Filters are the identAPI's own: a canonical code is translated through `ProviderCodeMap` (an
   unmapped value is 422; a facet value the map does not know is a gap and not offered); numbers only
-  on the fields the identAPI marks filterable; there is no «is not».
+  on the fields the identAPI marks filterable (`kw`, `displacement`, `doors`, `seats`, `co2` — never
+  `ps`, the list price or the production years); there is no «is not».
 - **States, never errors** (Anto): no connection → `notConfigured`, a 403 or `ident_basis` not
   granted → `notInContract`, failure or timeout → `unavailable` — each a 200 with `state`.
 - The demo provider needs the real code map copied (`scripts/seed_demo_provider_code_map.py`) or

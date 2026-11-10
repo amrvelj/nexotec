@@ -72,16 +72,19 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   each in `services/metering.py::provider_request`; the breaker stays per `call_capability` block.
   **Nexotec enforces no quota and sends no usage warning** (Anto: auto-i-dat limits its own access).
 - **The test access never runs in production** (§1): it is a `sandbox` connection, and on any
-  `DMS_ENVIRONMENT` but `development`, `local`, `test` or `staging` (fails closed; production must
-  set it) the gateway refuses every sandbox call before the provider (`SandboxConnectionOnProductionError`,
-  audited). There are no licence types or end dates: a switched-off connection shows as failing.
+  `DMS_ENVIRONMENT` but `development`, `local`, `test` or `staging` the gateway refuses every sandbox
+  call before the provider (`SandboxConnectionOnProductionError`, audited). **An unset variable reads
+  as `development`** — so production must set it, or the refusal never fires. The Connect dialog
+  says: a service account only, never the personal token, test environments only. There are no
+  licence types or end dates: a switched-off connection shows as failing.
 - **VIN queries are not in the licence** (§8): the `vin` option is probed and its `granted = False`
   row — or no row — keeps the VIN rung from ever calling it. `integration.public.vin_decode_granted`
   reads that row strictly (no row = not granted, the opposite of every other option).
 - **No MCP for provider data** (§3): never exposed through an MCP server, tool manifest or
   agent-facing API (`test_no_mcp_server.py`, which also refuses an MCP dependency its
   `ALLOWED_MCP_DEPENDENCIES` does not name — empty: Anto's ruling by name). An AI prompt hook may use
-  provider data only inside the tenant's own request. `.claude/` is not the application.
+  provider data only inside the tenant's own request and response, never as a tool the model can
+  call to fetch more. `.claude/` is not the application.
 - **Specification excerpts never leave this private repository** (§5, §12): never pasted into a
   public issue, gist, other repo or chat. Fixtures and the mock use values that read as invented,
   never an account value or a specification example (`test_no_real_provider_account_values.py`);
