@@ -202,6 +202,8 @@ const REASON_KEYS: Record<string, string> = {
       'provider_quote_stale',
       'provider_quote_inputs_missing',
       'provider_not_configured',
+      // KAN-604 — the secrets manager refused a connection secret write or delete.
+      'secrets_backend_failed',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

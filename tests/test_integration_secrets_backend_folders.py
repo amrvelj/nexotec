@@ -16,10 +16,12 @@ that does not exist is a 404 `APIError`, creating a folder that exists is a
 400 `APIError`, and deleting something that is not there is a 404.
 """
 
+import logging
 import uuid
 from types import SimpleNamespace
 
 import pytest
+import requests
 from infisical_sdk.infisical_requests import APIError
 
 from app.core.auth import create_access_token
@@ -75,13 +77,17 @@ class _Folders:
         self._fake.folders.add(target)
         return SimpleNamespace(name=name, path=target)
 
-    def delete_folder(self, *, folder_id_or_name, environment_slug, project_id, path="/", **_):
+    def delete_folder(self, *, folder_id_or_name, environment_slug, project_id, path="/", force_delete=False, **_):
         self._fake.check(project_id, environment_slug)
         target = _join(_norm(path), folder_id_or_name)
         if target not in self._fake.folders:
             raise _api_error(f"Folder with path '{target}' not found", 404)
+        held = [k for k in self._fake.secrets if k[0] == target]
+        if held and not force_delete:
+            # Infisical refuses to delete a folder that still holds anything.
+            raise _api_error(f"Cannot delete folder {folder_id_or_name} because it contains resources", 400)
         self._fake.folders.discard(target)
-        for key in [k for k in self._fake.secrets if k[0] == target]:
+        for key in held:
             del self._fake.secrets[key]
 
 
@@ -97,6 +103,9 @@ class _Secrets:
 
     def create_secret_by_name(self, *, secret_name, secret_path, environment_slug, project_id, secret_value, **_):
         self._fake.check(project_id, environment_slug)
+        if self._fake.unreachable:
+            # What the SDK lets through when no answer came: `requests`' own error.
+            raise requests.exceptions.ConnectionError(f"cannot reach host for {secret_path}{secret_name}")
         if self._fake.fail_secret_writes is not None:
             raise _api_error(f"refused {secret_path}{secret_name}", self._fake.fail_secret_writes)
         folder = self._folder(secret_path)
@@ -133,6 +142,7 @@ class FakeInfisical:
         self.create_folder_calls: list[str] = []
         self.create_folder_race: str | None = None
         self.fail_secret_writes: int | None = None
+        self.unreachable = False
         self.folders_api = _Folders(self)
         self.secrets_api = _Secrets(self)
 
@@ -266,6 +276,21 @@ def test_deleting_the_connection_removes_its_folder_and_keeps_the_others(db_sess
     assert infisical.secrets[(f"/integrations/{kept.id}", "client_secret")] == "s3cr3t-value"
 
 
+def test_a_secret_the_database_does_not_know_does_not_block_deleting_the_connection(db_session, infisical):
+    """A secret in the connection's folder with no reference row — a write
+    whose commit then failed, one added by hand — is deleted with the folder
+    instead of leaving the connection undeletable."""
+
+    connection = _connection(db_session, _provider(db_session))
+    _set(db_session, connection)
+    infisical.secrets[(f"/integrations/{connection.id}", "certificate")] = "stray"
+
+    connection_service.delete_connection(db_session, connection=connection, confirm=True, actor_id=uuid.uuid4())
+
+    assert f"/integrations/{connection.id}" not in infisical.folders
+    assert not [key for key in infisical.secrets if key[0] == f"/integrations/{connection.id}"]
+
+
 def test_deleting_a_connection_that_never_had_a_secret_is_not_an_error(db_session, infisical):
     connection = _connection(db_session, _provider(db_session))
 
@@ -299,6 +324,30 @@ def test_an_infisical_refusal_on_write_is_a_typed_refusal_not_a_500(db_session, 
     # Neither the value nor the secret's path reaches the message.
     assert "s3cr3t-value" not in raised.value.message
     assert str(connection.id) not in raised.value.message
+
+
+def test_an_unreachable_secrets_manager_is_a_typed_refusal_not_a_500(db_session, infisical):
+    connection = _connection(db_session, _provider(db_session))
+    infisical.unreachable = True
+
+    with pytest.raises(secrets_backend.SecretsBackendError) as raised:
+        _set(db_session, connection)
+
+    assert raised.value.details == {"reason": "secrets_backend_failed", "operation": "create_secret", "status": None}
+    assert str(connection.id) not in raised.value.message
+
+
+def test_a_refusal_is_logged_for_the_operator_without_the_value_or_the_path(db_session, infisical, caplog):
+    connection = _connection(db_session, _provider(db_session))
+    infisical.fail_secret_writes = 403
+
+    with caplog.at_level(logging.WARNING, logger=secrets_backend.__name__), pytest.raises(secrets_backend.SecretsBackendError):
+        _set(db_session, connection)
+
+    lines = [r.getMessage() for r in caplog.records if r.name == secrets_backend.__name__]
+    assert lines == ["secrets manager refused create_secret (status=403, APIError)"]
+    assert "s3cr3t-value" not in caplog.text
+    assert str(connection.id) not in caplog.text
 
 
 def test_an_infisical_refusal_reaches_the_dealer_as_409_with_the_standard_body(client, db_session, infisical):
@@ -360,19 +409,32 @@ def test_the_first_secret_through_the_api_answers_200_without_a_hand_made_folder
 
 
 def test_a_refused_login_is_a_typed_refusal_and_is_not_cached(monkeypatch):
+    """The real `_login`, its SDK client swapped for one whose login is
+    refused: each call is a typed refusal, and the next call logs in again
+    rather than reusing a cached failure."""
+
+    import infisical_sdk
+
     monkeypatch.setenv("DMS_INFISICAL_PROJECT_ID", PROJECT)
     monkeypatch.setenv("DMS_INFISICAL_CLIENT_ID", "test-client-0001")
     monkeypatch.setenv("DMS_INFISICAL_CLIENT_SECRET", "test-client-secret-0001")
-    attempts: list[int] = []
+    attempts: list[str] = []
 
-    def refused_login():
-        attempts.append(1)
-        raise _api_error("Invalid credentials", 401)
+    class RefusingClient:
+        def __init__(self, host: str) -> None:
+            def login(*, client_id: str, client_secret: str) -> None:
+                attempts.append(client_id)
+                raise _api_error("Invalid credentials", 401)
 
-    monkeypatch.setattr(secrets_backend, "_login", refused_login)
+            self.auth = SimpleNamespace(universal_auth=SimpleNamespace(login=login))
 
-    for _ in range(2):
-        with pytest.raises(secrets_backend.SecretsBackendError) as raised:
-            secrets_backend.create_secret(connection_id=uuid.uuid4(), slot="client_secret", value="v")
-        assert raised.value.details == {"reason": "secrets_backend_failed", "operation": "login", "status": 401}
-    assert len(attempts) == 2
+    monkeypatch.setattr(infisical_sdk, "InfisicalSDKClient", RefusingClient)
+    secrets_backend._login.cache_clear()
+    try:
+        for _ in range(2):
+            with pytest.raises(secrets_backend.SecretsBackendError) as raised:
+                secrets_backend.create_secret(connection_id=uuid.uuid4(), slot="client_secret", value="v")
+            assert raised.value.details == {"reason": "secrets_backend_failed", "operation": "login", "status": 401}
+    finally:
+        secrets_backend._login.cache_clear()
+    assert attempts == ["test-client-0001", "test-client-0001"]

@@ -58,6 +58,13 @@
 #      (KAN-451, ADR-101), created and restricted by the runbook Notion ›
 #      Nexotec › Runbooks › Google Places go-live. Optional: while unset the
 #      address forms are plain inputs and Business › Adresseingabe says so.
+#   6. DMS_INFISICAL_PROJECT_ID, DMS_INFISICAL_CLIENT_ID,
+#      DMS_INFISICAL_CLIENT_SECRET, DMS_INFISICAL_ENVIRONMENT (KAN-604) — the
+#      secrets manager: project `nexotec-staging` (US cloud), environment
+#      `staging`, machine identity `dms-staging` (Universal Auth; project role
+#      Developer suffices — it creates and deletes folders and secrets under
+#      /integrations). Without them every integration connection's secret
+#      write answers 409 «No Infisical project is configured».
 
 databases:
   - name: dms-staging-db
@@ -194,7 +201,8 @@ services:
       # 409 «No Infisical project is configured» — staging ran so until
       # 2026-11-09 and nobody noticed, which is why
       # scripts/check_render_yaml.py now refuses a service that runs the app
-      # without them. Values are pasted in this service's Environment tab, never
+      # and does not declare them. It cannot see a value left empty in the
+      # dashboard: values are pasted in this service's Environment tab, never
       # here. DMS_INFISICAL_HOST is optional (https://app.infisical.com).
       - key: DMS_INFISICAL_PROJECT_ID
         # The project's id (Project Settings), not its name.

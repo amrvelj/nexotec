@@ -153,6 +153,7 @@ def test_delete_connection_deletes_every_secret_slot_from_the_backend(db_session
     )
     assert backend.store == {}
     assert len(backend.deleted) == 2
+    assert backend.deleted_folders == [connection.id]  # KAN-604
 
 
 # --- sandbox/production, scope, tenant partitioning -------------------------

@@ -28,6 +28,7 @@ field names are registered in `app/core/redact.py::SECRET_FIELDS` so an
 accidental `extra={}` log elsewhere still redacts them.
 """
 
+import logging
 import os
 import uuid
 from collections.abc import Callable
@@ -37,6 +38,8 @@ from typing import TypeVar
 from app.core.errors import ConflictError
 
 _T = TypeVar("_T")
+
+logger = logging.getLogger(__name__)
 
 _ENV_PROJECT_ID = "DMS_INFISICAL_PROJECT_ID"
 _ENV_CLIENT_ID = "DMS_INFISICAL_CLIENT_ID"
@@ -72,7 +75,7 @@ class SecretsBackendError(ConflictError):
     """
 
     def __init__(self, *, operation: str, status: int | None) -> None:
-        answered = f"HTTP {status}" if status is not None else "no answer"
+        answered = f"HTTP {status}" if status is not None else "no usable answer"
         super().__init__(
             f"The secrets manager refused '{operation}' ({answered}).",
             details={"reason": "secrets_backend_failed", "operation": operation, "status": status},
@@ -87,16 +90,33 @@ def _status_of(exc: Exception) -> int | None:
 
 
 def _call(operation: str, fn: Callable[[], _T]) -> _T:
-    """Every Infisical SDK call goes through here: whatever the SDK raises
-    (its `APIError` for an answer, `InfisicalError` for a request that got
-    none) becomes a `SecretsBackendError` naming `operation`."""
+    """Every Infisical SDK call goes through here, and whatever it raises
+    becomes a `SecretsBackendError` naming `operation`:
 
+    - `APIError` — Infisical answered with an HTTP error; `status` is it.
+    - `InfisicalError` without a status — an answer that was not JSON.
+    - `requests.RequestException` / `OSError` — no answer at all (refused
+      connection, DNS, TLS, a timeout). The SDK sends its requests outside
+      the `try` that makes its own errors, and retries a network error four
+      times first, so these reach us as the `requests` library raised them.
+
+    Each failure is logged at WARNING with the operation, the status and the
+    exception's class — never its message, which can echo the secret's
+    path — so a misconfigured deployment shows in its log before a dealer
+    reports it (rule 10). The original exception stays on the traceback.
+    """
+
+    import requests
     from infisical_sdk.infisical_requests import InfisicalError
 
     try:
         return fn()
-    except InfisicalError as exc:
-        raise SecretsBackendError(operation=operation, status=_status_of(exc)) from exc
+    except (InfisicalError, requests.RequestException, OSError) as exc:
+        status = _status_of(exc)
+        logger.warning(
+            "secrets manager refused %s (status=%s, %s)", operation, status, type(exc).__name__
+        )
+        raise SecretsBackendError(operation=operation, status=status) from exc
 
 
 def _configured() -> bool:
@@ -246,7 +266,13 @@ def delete_connection_folder(*, connection_id: uuid.UUID) -> None:
     """Remove `/integrations/<connection id>` once the connection is deleted
     (KAN-604: no empty folder left behind). A folder that never existed —
     the connection never got a secret — is no error. `/integrations` itself
-    stays: every other connection's folder lives under it."""
+    stays: every other connection's folder lives under it.
+
+    `force_delete`: Infisical refuses to delete a folder that still holds
+    anything. The folder is wholly this connection's, and a secret the
+    database holds no reference to (a write whose commit then failed, one
+    added by hand) would otherwise block the connection's deletion for
+    good."""
 
     if not _configured():
         raise SecretsBackendNotConfigured()
@@ -259,6 +285,7 @@ def delete_connection_folder(*, connection_id: uuid.UUID) -> None:
                 environment_slug=_environment_slug(),
                 project_id=os.environ[_ENV_PROJECT_ID],
                 path=_SECRET_PATH_PREFIX,
+                force_delete=True,
             ),
         )
     except SecretsBackendError as exc:
