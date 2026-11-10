@@ -207,6 +207,9 @@ class FakeSecretsBackend:
     def delete_secret(self, *, connection_id, slot):
         self.values.pop((connection_id, slot), None)
 
+    def delete_connection_folder(self, *, connection_id):
+        pass  # KAN-604: the real backend removes /integrations/<id>; nothing to remove in memory
+
 
 def install(monkeypatch, fake: FakeAutoi, secrets: FakeSecretsBackend) -> None:
     """The real, registered identAPI adapter over the fake hosts and the

@@ -42,6 +42,9 @@ class FakeSecretsBackend:
         self.store.pop(self._key(connection_id, slot), None)
         self.deleted.append(self._key(connection_id, slot))
 
+    def delete_connection_folder(self, *, connection_id):
+        pass  # KAN-604: the real backend removes /integrations/<id>; nothing to remove in memory
+
 
 def _make_auto_i_dat_provider(db_session, **overrides) -> IntegrationProvider:
     defaults = {

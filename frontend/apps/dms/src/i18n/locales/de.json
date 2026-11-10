@@ -338,7 +338,8 @@
       "provider_quote_mismatch": "Diese auto-i-dat-Bewertung gehört zu einer anderen Konfiguration.",
       "provider_quote_stale": "Erstinverkehrsetzung oder Kilometerstand weichen von der auto-i-dat-Bewertung ab. Bitte erneut holen.",
       "provider_quote_inputs_missing": "Für die auto-i-dat-Bewertung braucht es Erstinverkehrsetzung und Kilometerstand.",
-      "provider_not_configured": "Die Verbindung zu auto-i-dat ist nicht vollständig eingerichtet — in der Betriebsverwaltung unter Integrationen prüfen."
+      "provider_not_configured": "Die Verbindung zu auto-i-dat ist nicht vollständig eingerichtet — in der Betriebsverwaltung unter Integrationen prüfen.",
+      "secrets_backend_failed": "Der sichere Speicher für Zugangsdaten hat die Anfrage nicht ausgeführt — nichts wurde gespeichert. Bitte später erneut versuchen; bleibt der Fehler, den Nexotec-Support informieren."
     },
     "accessWindow": {
       "between": "gültig vom {{from}} bis {{to}}",
