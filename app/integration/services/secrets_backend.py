@@ -22,8 +22,9 @@ call it. Everyone outside the context is structurally blocked from
 `app.integration.services` by the reciprocal import-linter contract
 regardless of what this module exports.
 
-No secret value is ever logged here (this module doesn't log at all —
-same posture as `app/core/secrets.py`'s own docstring), and the slot
+No secret value is ever logged here: the one log line is a failure's
+WARNING (KAN-604), naming the operation, the HTTP status and the
+exception's class — never a value, a path or the SDK's message — and the slot
 field names are registered in `app/core/redact.py::SECRET_FIELDS` so an
 accidental `extra={}` log elsewhere still redacts them.
 """
@@ -82,6 +83,7 @@ class SecretsBackendError(ConflictError):
         )
         self.operation = operation
         self.status = status
+        self.cause = "unknown"  # the SDK exception's class name, set by `_call`
 
 
 def _status_of(exc: Exception) -> int | None:
@@ -89,7 +91,7 @@ def _status_of(exc: Exception) -> int | None:
     return status if isinstance(status, int) else None
 
 
-def _call(operation: str, fn: Callable[[], _T]) -> _T:
+def _call(operation: str, fn: Callable[[], _T], *, quiet: bool = False) -> _T:
     """Every Infisical SDK call goes through here, and whatever it raises
     becomes a `SecretsBackendError` naming `operation`:
 
@@ -102,10 +104,12 @@ def _call(operation: str, fn: Callable[[], _T]) -> _T:
       `RequestException` is an `OSError` subclass, so `requests` is not
       imported here (KAN-550 keeps it out of `app/`).
 
-    Each failure is logged at WARNING with the operation, the status and the
-    exception's class — never its message, which can echo the secret's
-    path — so a misconfigured deployment shows in its log before a dealer
-    reports it (rule 10). The original exception stays on the traceback.
+    Each failure is logged at WARNING (`_warn`) so a misconfigured deployment
+    shows in its log before a dealer reports it (rule 10) — unless `quiet`:
+    a caller that may absorb the answer (a 404 on a delete is «already
+    gone», a create a concurrent request beat is fine) logs only what it
+    finally raises, so the log never reads «refused» for a success. The
+    original exception stays on the traceback.
     """
 
     from infisical_sdk.infisical_requests import InfisicalError
@@ -113,11 +117,18 @@ def _call(operation: str, fn: Callable[[], _T]) -> _T:
     try:
         return fn()
     except (InfisicalError, OSError) as exc:
-        status = _status_of(exc)
-        logger.warning(
-            "secrets manager refused %s (status=%s, %s)", operation, status, type(exc).__name__
-        )
-        raise SecretsBackendError(operation=operation, status=status) from exc
+        error = SecretsBackendError(operation=operation, status=_status_of(exc))
+        error.cause = type(exc).__name__
+        if not quiet:
+            _warn(error)
+        raise error from exc
+
+
+def _warn(error: SecretsBackendError) -> None:
+    """The operator's line: operation, status, the exception's class — never
+    its message, which can echo the secret's path, and never a value."""
+
+    logger.warning("secrets manager refused %s (status=%s, %s)", error.operation, error.status, error.cause)
 
 
 def _configured() -> bool:
@@ -191,10 +202,12 @@ def _ensure_folder(client, *, name: str, parent_path: str) -> None:
                 project_id=os.environ[_ENV_PROJECT_ID],
                 path=parent_path,
             ),
+            quiet=True,
         )
-    except SecretsBackendError:
+    except SecretsBackendError as exc:
         if _folder_exists(client, name=name, parent_path=parent_path):
             return
+        _warn(exc)
         raise
 
 
@@ -257,9 +270,11 @@ def delete_secret(*, connection_id: uuid.UUID, slot: str) -> None:
                 environment_slug=_environment_slug(),
                 project_id=os.environ[_ENV_PROJECT_ID],
             ),
+            quiet=True,
         )
     except SecretsBackendError as exc:
         if exc.status != 404:
+            _warn(exc)
             raise
 
 
@@ -288,9 +303,11 @@ def delete_connection_folder(*, connection_id: uuid.UUID) -> None:
                 path=_SECRET_PATH_PREFIX,
                 force_delete=True,
             ),
+            quiet=True,
         )
     except SecretsBackendError as exc:
         if exc.status != 404:
+            _warn(exc)
             raise
 
 

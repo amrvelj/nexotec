@@ -350,6 +350,24 @@ def test_a_refusal_is_logged_for_the_operator_without_the_value_or_the_path(db_s
     assert str(connection.id) not in caplog.text
 
 
+def test_an_answer_the_backend_absorbs_logs_no_refusal(db_session, infisical, caplog):
+    """A delete of what is already gone and a folder a concurrent request
+    created first are successes: the operator's log says nothing."""
+
+    provider = _provider(db_session)
+    raced = _connection(db_session, provider)
+    never_had_one = _connection(db_session, provider)
+    infisical.create_folder_race = "/integrations"
+
+    with caplog.at_level(logging.WARNING, logger=secrets_backend.__name__):
+        _set(db_session, raced)
+        del infisical.secrets[(f"/integrations/{raced.id}", "client_secret")]
+        connection_service.delete_connection(db_session, connection=raced, confirm=True, actor_id=uuid.uuid4())
+        connection_service.delete_connection(db_session, connection=never_had_one, confirm=True, actor_id=uuid.uuid4())
+
+    assert [r for r in caplog.records if r.name == secrets_backend.__name__] == []
+
+
 def test_an_infisical_refusal_reaches_the_dealer_as_409_with_the_standard_body(client, db_session, infisical):
     provider = _provider(db_session)
     tenant_id = uuid.uuid4()
