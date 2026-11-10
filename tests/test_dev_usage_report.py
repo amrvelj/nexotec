@@ -342,6 +342,18 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path, monkeypatch):
     assert label("cat app/x.py/.") == ("read", "Bash view ?")
     assert label("cat ~/.notes.md") == ("read", "Bash view <outside repo>/.notes.md")
     assert label("cat ~/Mueller.AG/../.notes.md") == ("read", "Bash view ?")
+    # the label is made from the file the OS found, never from the text: text hidden in a
+    # second worktree segment, or a symlink's `..`, cannot reach it
+    assert label(f"cat {repo}/.claude/./worktrees/W/Mueller.AG/.claude/worktrees/x/app/x.py") == (
+        "read", "Bash view app/x.py")
+    assert label("cat /.claude//worktrees/W/anto@example.com/.claude/worktrees/w/app/x.py") == (
+        "read", "Bash view app/x.py")
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "inner").mkdir(parents=True)
+    (elsewhere / "Mueller.AG").mkdir()
+    (elsewhere / "Mueller.AG" / "y.md").write_text("x\n")
+    (repo / "link").symlink_to(elsewhere / "inner")
+    assert label(f"cat {repo}/link/../Mueller.AG/y.md") == ("read", "Bash view <outside repo>/y.md")
     # a worktree's absolute path falls back to the main checkout once the worktree is gone
     assert label(f"cat {tmp_path}/gone/.claude/worktrees/w2/app/x.py") == ("read", "Bash view app/x.py")
     # a redirection's `&` does not split a command

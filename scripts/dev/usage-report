@@ -59,8 +59,9 @@ page ids and file paths (repository-relative; a file outside the repository by i
 name). A Bash command is read only through its skeleton - heredoc bodies, comments and
 quoted text with a space in it removed - and labelled by a program from a fixed list
 (KNOWN_PROGRAMS, else "other") or, for a view (cat, head, tail, nl, less, sed -n), by the
-file it reads - and that only when the word names a file that exists on this machine now
-(else "?"), so no misread option value, sed script or heredoc can be printed. A file read
+file it reads - and that only when the word names a file that exists on this machine now,
+the label made from the path the operating system resolved to that file (else "?"), so no
+misread option value, sed script or heredoc can be printed. A file read
 with Read is named by the path the call was given. It never prints what a transcript says -
 no prompt, result, command or answer text - and it opens no network connection (it reads
 the filesystem only: the transcripts, and whether a viewed file exists). Standard library
@@ -157,6 +158,7 @@ class Paths:
 
     def __init__(self, repo):
         self.repo = repo.rstrip("/") if repo else ""
+        self.real_repo = os.path.realpath(self.repo) if self.repo else ""
 
     def show(self, path):
         if not isinstance(path, str) or not path:
@@ -166,20 +168,23 @@ class Paths:
         m = re.search(r"/\.claude/worktrees/[^/]+/(.*)$", path)
         if m:
             return m.group(1)
-        if self.repo and (path == self.repo or path.startswith(self.repo + "/")):
-            return os.path.relpath(path, self.repo)
+        for repo in {self.repo, self.real_repo} - {""}:
+            if path == repo or path.startswith(repo + "/"):
+                return os.path.relpath(path, repo)
         if path.startswith(("/", "~")) or ".." in path.split("/"):
             return "<outside repo>/" + os.path.basename(path)
         return path
 
-    def exists(self, path):
-        """Whether `path` names a file on this machine now: as given when absolute (or under ~),
-        else - and for a worktree's path - relative to the repository's main checkout.
+    def view_label(self, path):
+        """The printable name of the file `path` names on this machine now, else "?".
 
-        The operating system resolves the path, never a text normalisation: `x/../f` exists
-        only when `x` does, so made-up text before a `..` never passes."""
+        `path` is looked up as given when absolute (or under ~), else - and, for a worktree's
+        path, also - relative to the repository's main checkout. The label is then made from
+        the file the operating system found (os.path.realpath: `.`, `..` and symlinks resolved
+        as the OS resolves them), never from the text: every component printed is a real
+        folder or file. On a case-insensitive volume the letter case is as the command wrote it."""
         if not isinstance(path, str) or not path or "\0" in path:
-            return False
+            return "?"
         candidates = []
         if path.startswith(("/", "~")):
             candidates.append(os.path.expanduser(path))
@@ -188,7 +193,10 @@ class Paths:
                 candidates.append(os.path.join(self.repo, m.group(1)))
         elif self.repo:
             candidates.append(os.path.join(self.repo, path))
-        return any(os.path.isfile(candidate) for candidate in candidates)
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return self.show(os.path.realpath(candidate))
+        return "?"
 
 
 def size_of(content):
@@ -253,7 +261,10 @@ def classify_tool(name, data, paths):
     if name == "mcp__ccd_pr__get_status":
         return "ci", "PR status"
     if name == "Bash":
-        command = data.get("command") if isinstance(data.get("command"), str) else ""
+        # The first 50,000 characters classify a command (the longest real one measured 46,696 on
+        # 2026-11-11); reading a longer one whole only costs time - some patterns scan to the end
+        # of the text once per possible start.
+        command = (data.get("command") if isinstance(data.get("command"), str) else "")[:50000]
         skeleton = bash_skeleton(command)
         if CI_BASH.search(skeleton):
             return "ci", "Bash (CI poll)"
@@ -333,7 +344,8 @@ def view_target(command, paths):
     options; sed's script - its first argument unless -e/-f gave one - and +commands (less
     +/pattern, tail +5) are skipped. Abbreviated long options, process substitution and sed's
     -i are not parsed. What makes the label safe is not the parsing but the last step: the
-    word is printed only when it names an existing file (Paths.exists), else "?"."""
+    word becomes a label only when it names an existing file, and the label is made from the
+    path the operating system resolved to it (Paths.view_label), else "?"."""
     try:
         words = shlex.split(command)
     except ValueError:
@@ -368,7 +380,7 @@ def view_target(command, paths):
             # The guarantee: a word is printed only when it names a file that exists on this
             # machine. Whatever the parsing above misreads - an abbreviated long option, a
             # process substitution, an option it does not know - costs at most a "?".
-            return paths.show(word) if paths.exists(word) else "?"
+            return paths.view_label(word)
     return "?"
 
 
