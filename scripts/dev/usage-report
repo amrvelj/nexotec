@@ -19,8 +19,11 @@ several folders; they are read as one session. Cloud sessions run on Anthropic's
 their transcripts are not on this Mac and are not reported.
 
 What is counted, per agent (the main session and each sub-agent): API calls, then input,
-cache-read, cache-write and output tokens as the API reported them. A response is written
-as several records that share one message id; each call is counted once.
+cache-read, cache-write and output tokens as the transcript recorded the API's usage. A
+response is written as several records that share one message id; each call is counted once.
+A call none of whose records carries a stop reason has only a streaming snapshot of its
+usage (older transcripts, sub-agents especially): its input side is complete, its output is
+a lower bound, and the report says how many such calls each agent has.
 
 Where the input went: every call re-reads the whole context, so what a call reads is the
 previous call's context plus whatever entered since - the model's previous output and the
@@ -29,14 +32,15 @@ measured (the API's token counts), its first part is the model's own output, and
 is split among what entered in that step in proportion to its size. An item then costs its
 tokens once for every later call that still carries it, until a compaction. These shares
 add up exactly to the input-side total. No item is given more than one token per 1.4
-characters (an image: 2,000 tokens) - denser than 99 in 100 measured results; growth beyond
-that is schemas a ToolSearch loaded in that step, when there was one, else "growth with no
-recorded source" (system reminders the harness does not log). Only the part before a
-segment's first call (system prompt, tool schemas, CLAUDE.md, the opening prompt) is not
-measured step by step: there CLAUDE.md and the prompt are estimated at the agent's own
-measured characters per token (the median of its steps that added one item; 2.25 when it
-has fewer than three, the median of 2,130 such steps measured on 2026-11-10) and the rest
-is "session start".
+characters (an image: 2,000 tokens) - denser than 99 in 100 measured results - and, in a
+step where a ToolSearch ran, no more than the agent's measured rate; growth beyond that is
+the schemas the ToolSearch loaded, when there was one, else "growth with no recorded source"
+(system reminders the harness does not log). Only the part before a segment's first call
+(system prompt, tool schemas, CLAUDE.md, the opening prompt) is not measured step by step:
+there CLAUDE.md and the prompt are estimated at the agent's own measured characters per
+token (the median of its steps that added one item of 500+ characters, a reminder beside it
+aside; 2.25 when it has fewer than five, the median of 2,130 such steps measured on
+2026-11-10) and the rest is "session start".
 
 A sub-agent's type comes from its .meta.json, else from the main session's Agent call
 that started it (the call's result names the agent id the transcript file carries).
@@ -52,9 +56,11 @@ and output), which overlap by design:
 
 This prints counts, tool names, agent types, ticket ids, session ids, branch names, Notion
 page ids and file paths (repository-relative; a file outside the repository by its base
-name; for a Bash view only a word shaped like a path, never a sed script or a heredoc). It
-never prints what a transcript says - no prompt, result, command or answer text - and it
-opens no network connection. Standard library only.
+name). A Bash command is read only through its skeleton - heredoc bodies, comments and
+quoted text with a space in it removed - and labelled by a program from a fixed list
+(KNOWN_PROGRAMS, else "other") or, for a view, by a word shaped like a path (never a sed
+script, a less command or a heredoc). It never prints what a transcript says - no prompt,
+result, command or answer text - and it opens no network connection. Standard library only.
 """
 
 import argparse
@@ -108,6 +114,21 @@ TEST_BASH = [("scripts/dev/check", r"scripts/dev/check\b"), ("pytest", r"\bpytes
              ("mypy", r"\bmypy\b"), ("ruff", r"\bruff\b"), ("lint-imports", r"\blint-imports\b"),
              ("tsc", r"\btsc\b"), ("alembic", r"\balembic\b")]
 VIEW_BASH = re.compile(r"^\s*(cat|head|tail|nl|less|sed\s+-n)\b")
+QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
+HEREDOC = re.compile(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
+# A Bash result is labelled by its program only when the program is one of these: the first
+# word of a command can be text when a command is not what it seems.
+KNOWN_PROGRAMS = frozenset((
+    "alembic", "api-type", "awk", "basename", "bash", "black", "bootstrap", "brew", "cat", "cd", "check",
+    "chmod", "cloud-postgres", "code", "cp", "createdb", "curl", "date", "defaults", "df", "diff", "dirname",
+    "docker", "dropdb", "du", "echo", "env", "eslint", "export", "false", "file", "find", "for", "gate", "gh",
+    "git", "grep", "head", "if", "jq", "kill", "launchctl", "less", "ln", "ls", "lsof", "make", "md5", "mkdir",
+    "mv", "mypy", "nl", "node", "npm", "npx", "open", "osascript", "pg_ctl", "pg_isready", "pgrep", "pip",
+    "pip3", "pkill", "playwright", "printf", "ps", "psql", "pytest", "python", "python3", "readlink",
+    "realpath", "rg", "rm", "ruff", "run-api", "sed", "sh", "shasum", "sleep", "sort", "source", "sqlite3",
+    "stat", "tail", "tar", "tee", "test", "time", "touch", "tr", "true", "uniq", "usage-report", "uvicorn",
+    "wc", "which", "while", "xargs", "zsh",
+))
 PROGRAM = re.compile(r"^[A-Za-z0-9_.-]{1,20}$")
 PATHLIKE = re.compile(r"^[A-Za-z0-9_./~@+-]{1,200}$")
 EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,8}$")
@@ -203,17 +224,18 @@ def classify_tool(name, data, paths):
         return "ci", "PR status"
     if name == "Bash":
         command = data.get("command") if isinstance(data.get("command"), str) else ""
-        if CI_BASH.search(command):
+        skeleton = bash_skeleton(command)
+        if CI_BASH.search(skeleton):
             return "ci", "Bash (CI poll)"
         for label, pattern in TEST_BASH:
-            if re.search(pattern, command):
+            if re.search(pattern, skeleton):
                 return "tests", "Bash (" + label + ")"
-        body = re.sub(r"^\s*cd\s+[^;&|]+(&&|;)\s*", "", command)
+        body = first_command(skeleton)
         if VIEW_BASH.match(body):
-            return "read", "Bash view " + view_target(body, paths)
-        words = body.split()
+            return "read", "Bash view " + ("?" if "<<" in command else view_target(body, paths))
+        words = [w for w in body.split() if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", w)]
         program = os.path.basename(words[0]) if words else ""
-        return "shell", "Bash (" + (program if PROGRAM.match(program) else "other") + ")"
+        return "shell", "Bash (" + (program if program in KNOWN_PROGRAMS else "other") + ")"
     if name in ("Monitor", "ScheduleWakeup"):
         if CI_WORDS.search(json.dumps(data)):
             return "ci", name + " (CI)"
@@ -221,21 +243,58 @@ def classify_tool(name, data, paths):
     return "other", short if PROGRAM.match(short) else "mcp tool"
 
 
+def bash_skeleton(command):
+    """A command without what it carries: heredoc bodies, comments, and every quoted string
+    with a space in it (a commit message, an inline script) become ` _ `; a one-word quoted
+    string (a path, a sed range) keeps its word. What follows an unbalanced quote is dropped."""
+    kept, until = [], None
+    for line in command.split("\n"):
+        if until is not None:
+            if line.strip() == until:
+                until = None
+            continue
+        m = HEREDOC.search(line)
+        if m:
+            until = m.group(1)
+            line = line[: m.start()]
+        kept.append(line)
+    text = QUOTED.sub(lambda m: " _ " if re.search(r"\s", m.group(0)) else m.group(0)[1:-1], "\n".join(kept))
+    text = re.split(r"['\"]", text)[0]
+    return re.sub(r"(^|\s)#[^\n]*", r"\1", text)
+
+
+def first_command(skeleton):
+    """The first simple command of a skeleton that is not a bare `cd`."""
+    for part in re.split(r"\n|&&|\|\||;|\|", skeleton):
+        part = part.strip()
+        if part and not re.match(r"^cd(\s|$)", part):
+            return part
+    return ""
+
+
 def view_target(command, paths):
     """The first file a cat/head/sed command names - a word shaped like a path, nothing else.
 
-    A heredoc gives "?", and sed's script (its first argument without -e/-f) is skipped, so
-    neither text nor an expression is ever printed as a file name."""
-    if "<<" in command:
-        return "?"
+    Called with one command of a skeleton (no heredoc, no quoted text with spaces). sed's
+    script - its first argument, or what follows -e/-f - and less's +commands are skipped,
+    so neither text nor an expression is ever printed as a file name."""
     try:
-        words = shlex.split(re.split(r"\||&&|;|\n", command)[0])
+        words = shlex.split(command)
     except ValueError:
         return "?"
     if not words:
         return "?"
-    args = [w for w in words[1:] if not w.startswith("-")]
-    if words[0] == "sed" and not any(w.startswith(("-e", "-f", "--expression", "--file")) for w in words[1:]):
+    flags = ("-e", "-f", "--expression", "--file")
+    scripted = any(w in flags or w.startswith(("-e", "-f", "--expression=", "--file=")) for w in words[1:])
+    args, skip = [], False
+    for word in words[1:]:
+        if skip:
+            skip = False
+        elif word in flags:
+            skip = True
+        elif not word.startswith(("-", "+")):
+            args.append(word)
+    if words[0] == "sed" and not scripted:
         args = args[1:]
     for word in args:
         if PATHLIKE.match(word) and ("/" in word or EXTENSION.search(word)) and not word.startswith("s/"):
@@ -262,19 +321,22 @@ def classify_attachment(attachment, paths):
 # ---------------------------------------------------------------- one step's growth
 
 
-def split_growth(rest, items):
+def split_growth(rest, items, chars_per_token=CHARS_PER_TOKEN):
     """Split a step's growth (tokens, the model's output already taken off) among its items.
 
-    In proportion to size, none above its cap (MIN_CHARS_PER_TOKEN, IMAGE_CAP); what the
-    capped items cannot hold goes to the step's ToolSearch results (the schemas they load
-    are not in the transcript), else back as the second value: growth with no recorded source.
+    In proportion to size, none above its cap: one token per MIN_CHARS_PER_TOKEN characters
+    (an image IMAGE_CAP), or - when a ToolSearch ran in the step - one per `chars_per_token`
+    (the agent's measured rate), since the schemas a ToolSearch loads are not in the
+    transcript and are the likelier source. What the capped items cannot hold goes to the
+    step's ToolSearch results, else back as the second value: growth with no recorded source.
     Returns (one share per item, unattributed) - integers that add up to `rest`."""
     shares = [0] * len(items)
     if rest <= 0 or not items:
         return shares, max(rest, 0)
     loaders = [i for i, it in enumerate(items) if it["cat"] == "toolsearch"]
     open_ = [i for i in range(len(items)) if i not in loaders]
-    caps = {i: int(items[i]["chars"] / MIN_CHARS_PER_TOKEN) + items[i]["images"] * IMAGE_CAP for i in open_}
+    density = chars_per_token if loaders else MIN_CHARS_PER_TOKEN
+    caps = {i: int(items[i]["chars"] / density) + items[i]["images"] * IMAGE_CAP for i in open_}
     weight = {i: items[i]["chars"] + items[i]["images"] * IMAGE_TOKENS * 4 for i in range(len(items))}
     left = rest
     while open_ and left > 0:
@@ -287,8 +349,9 @@ def split_growth(rest, items):
             for i in open_:
                 shares[i] = left * weight[i] // total
                 given += shares[i]
-            biggest = max(open_, key=lambda i: weight[i])
-            shares[biggest] += left - given  # the rounding, at most len(open_) - 1 tokens
+            # the rounding, at most len(open_) - 1 tokens, to the item furthest below its cap
+            roomiest = max(open_, key=lambda i: caps[i] - shares[i])
+            shares[roomiest] += left - given
             left = 0
             break
         for i in full:
@@ -296,10 +359,11 @@ def split_growth(rest, items):
             left -= caps[i]
             open_.remove(i)
     if left > 0 and loaders:
-        total = sum(weight[i] for i in loaders) or len(loaders)
+        loader_weight = {i: weight[i] or 1 for i in loaders}
+        total = sum(loader_weight.values())
         given = 0
         for i in loaders:
-            shares[i] = left * (weight[i] or 1) // total
+            shares[i] = left * loader_weight[i] // total
             given += shares[i]
         shares[loaders[0]] += left - given
         left = 0
@@ -370,13 +434,15 @@ class Stream:
         }
         if not any(numbers.values()):
             return
+        final = message.get("stop_reason") is not None  # else the usage is a streaming snapshot
         if key in self.by_id:
             call = self.calls[self.by_id[key]]
             for k in ("input", "read", "write"):
                 call[k] = numbers[k]
             call["output"] = max(call["output"], numbers["output"])
+            call["final"] = call["final"] or final
             return
-        numbers.update({"pre": self.pending, "brk": self.brk})
+        numbers.update({"pre": self.pending, "brk": self.brk, "final": final})
         self.pending, self.brk = [], False
         self.by_id[key] = len(self.calls)
         self.calls.append(numbers)
@@ -459,7 +525,7 @@ class Stream:
             delta = call["ctx"] - self.calls[k - 1]["ctx"]
             model = min(self.calls[k - 1]["output"], delta)
             self.carried["model"] += model * carry
-            shares, sink = split_growth(delta - model, call["pre"])
+            shares, sink = split_growth(delta - model, call["pre"], self.chars_per_token)
             for it, tokens in zip(call["pre"], shares):
                 self._finish_item(it, tokens, carry)
             self.carried["unattributed"] += sink * carry
@@ -470,18 +536,22 @@ class Stream:
         self.carried = collections.Counter({k: v for k, v in self.carried.items() if v})
 
     def _measured_chars_per_token(self, starts):
-        """Median characters per token over the steps that added exactly one text item."""
+        """Median characters per token over the steps that added one text item of 500+
+        characters - beside it at most 2% as much (a token-count reminder), no image, no
+        ToolSearch. Fewer than five such steps: CHARS_PER_TOKEN."""
         ratios = []
         for k in range(1, len(self.calls)):
             call = self.calls[k]
-            if k in starts or len(call["pre"]) != 1:
+            if k in starts or not call["pre"]:
                 continue
-            it = call["pre"][0]
+            it = max(call["pre"], key=lambda item: item["chars"])
+            others = sum(item["chars"] for item in call["pre"]) - it["chars"]
             delta = call["ctx"] - self.calls[k - 1]["ctx"]
             rest = delta - min(self.calls[k - 1]["output"], delta)
-            if it["chars"] >= 500 and not it["images"] and rest > 0 and it["cat"] != "toolsearch":
+            if (it["chars"] >= 500 and others <= it["chars"] * 0.02 and rest > 0
+                    and not any(item["images"] or item["cat"] == "toolsearch" for item in call["pre"])):
                 ratios.append(it["chars"] / rest)
-        if len(ratios) < 3:
+        if len(ratios) < 5:
             return CHARS_PER_TOKEN
         return min(6.0, max(MIN_CHARS_PER_TOKEN, statistics.median(ratios)))
 
@@ -494,6 +564,7 @@ class Stream:
     def totals(self):
         t = {k: sum(c[k] for c in self.calls) for k in ("input", "read", "write", "output")}
         t["calls"] = len(self.calls)
+        t["partial"] = sum(1 for c in self.calls if not c["final"])
         t["input_side"] = t["input"] + t["read"] + t["write"]
         t["total"] = t["input_side"] + t["output"]
         return t
@@ -659,6 +730,12 @@ def print_session(session, out):
         notes.append(f"{session.main.compactions} compaction(s)")
     if session.skipped_sidechain:
         notes.append(f"{session.skipped_sidechain} inline sub-agent record(s) of an older format not counted")
+    for name, streams in rows[:-1]:
+        partial = sum(s.totals()["partial"] for s in streams)
+        if partial:
+            calls = sum(s.totals()["calls"] for s in streams)
+            notes.append(f"{name}: {partial} of {calls} call(s) recorded only a streaming snapshot of their usage,"
+                         " so their output is a lower bound")
     if notes:
         print("  note: " + "; ".join(notes), file=out)
 
@@ -760,9 +837,9 @@ def run(argv, out):
     if not args.session and args.last > 0:
         sessions = sessions[-args.last:]
 
-    print(f"# Claude usage per session - {len(sessions)} session(s) from {len(folders)} transcript folder(s), read {datetime.date.today().isoformat()}", file=out)
-    print("Tokens as the API reported them. Desktop and terminal sessions only: cloud sessions keep their"
-          " transcripts on Anthropic's machines.", file=out)
+    print(f"# Claude usage per session - {len(sessions)} session(s) from {len(folders)} transcript folder(s), read {datetime.datetime.now().astimezone().date().isoformat()}", file=out)
+    print("Tokens as the transcripts recorded the API's usage (see each session's notes). Desktop and terminal"
+          " sessions only: cloud sessions keep their transcripts on Anthropic's machines.", file=out)
     if not sessions:
         print("No matching session.", file=out)
         return 1
@@ -864,13 +941,24 @@ def selftest(out):
         # a step's growth beyond what its items can hold goes to ToolSearch, else to no recorded source
         read = {"cat": "read", "chars": 1400, "images": 0}
         loader = {"cat": "toolsearch", "chars": 100, "images": 0}
-        if split_growth(5000, [read, loader]) != ([1000, 4000], 0) or split_growth(5000, [read]) != ([1000], 4000):
+        # (beside a ToolSearch an item holds 1,400 / 2.25 = 622 tokens; alone, 1,400 / 1.4 = 1,000)
+        if split_growth(5000, [read, loader]) != ([622, 4378], 0) or split_growth(5000, [read]) != ([1000], 4000):
             failures.append(f"split_growth {split_growth(5000, [read, loader])} {split_growth(5000, [read])}")
         if split_growth(700, [read, dict(read)]) != ([350, 350], 0):
             failures.append(f"split_growth proportional {split_growth(700, [read, dict(read)])}")
-        for command in ("sed -n 's/" + MARKER + "=x/y/p' app/x.py", "cat <<EOF\n" + MARKER + ".AG\nEOF"):
-            if MARKER in view_target(command, Paths("/x")):
-                failures.append("a Bash view printed command text")
+        empty = {"cat": "toolsearch", "chars": 0, "images": 0}
+        if split_growth(900, [empty, empty, dict(loader, chars=1)]) != ([300, 300, 300], 0):
+            failures.append(f"split_growth empty loaders {split_growth(900, [empty, empty, dict(loader, chars=1)])}")
+        # no word of a command's text ever becomes a label
+        for command in ("sed -n 's/" + MARKER + "=x/y/p' app/x.py", "cat <<EOF\n" + MARKER + ".AG\nEOF",
+                        "cd /x\ngit commit -m \"Fix it; " + MARKER + " asked\"",
+                        "cd /x\npython3 - <<'EOF'\nx = 1; " + MARKER + " = 2\nEOF",
+                        "cd /x\ncat <<'EOF' > notes.txt\nhello; cat " + MARKER + ".AG\nEOF",
+                        "less +/" + MARKER + " app/x.py", "sed -n -e 'y/" + MARKER + "/b/' app/x.py",
+                        MARKER + " --flag", "cd /x\n" + MARKER + ".sh"):
+            _cat, label = classify_tool("Bash", {"command": command}, Paths("/x"))
+            if MARKER in label:
+                failures.append("a Bash label printed command text: " + repr(command[:30]))
         buffer = io.StringIO()
         saved = socket.socket.connect, socket.create_connection
         socket.socket.connect, socket.create_connection = refuse, refuse

@@ -148,8 +148,9 @@ SID_B = "bbbbbbbb-0000-0000-0000-000000000002"
 
 
 def _call(mid, ctx, tools):
+    """One API call with its final usage (a stop reason), reading `ctx` fresh, writing nothing."""
     return {"type": "assistant", "timestamp": "2026-11-03T09:00:00Z", "gitBranch": "kan-8-y",
-            "message": {"id": mid, "model": "claude",
+            "message": {"id": mid, "model": "claude", "stop_reason": "tool_use",
                         "usage": {"input_tokens": ctx, "cache_read_input_tokens": 0,
                                   "cache_creation_input_tokens": 0, "output_tokens": 0},
                         "content": [{"type": "tool_use", "id": f"{mid}-{i}", "name": name, "input": data}
@@ -167,29 +168,39 @@ def _results(mid, sizes, agent_id=None):
 
 def _write_session_b(folder):
     """Every call reads all of its input fresh and writes no output: each step's growth is
-    exactly what its tool results added."""
-    read = lambda name: ("Read", {"file_path": "/r/app/" + name})
+    exactly what its tool results added. Twelve calls, c0 to c11."""
+    def read(name):
+        return "Read", {"file_path": "/r/app/" + name}
+
     lines = [
         {"type": "attachment", "timestamp": "2026-11-03T08:59:59Z", "attachment": {"type": "instructions"},
          "rendered": [{"type": "text", "text": MARKER * (1000 // len(MARKER)) + "x" * (1000 % len(MARKER))}]},
         {"type": "user", "message": {"content": "<command-name>/ticket</command-name><command-args>KAN-8</command-args>"}},
+        # five one-item steps at 2.0 characters per token: the session's measured rate
         _call("c0", 10000, [read("r1.py")]), _results("c0", [1000]),
         _call("c1", 10500, [read("r2.py")]), _results("c1", [1000]),
         _call("c2", 11000, [read("r3.py")]), _results("c2", [1000]),
-        _call("c3", 11500, [read("big.py"), ("ToolSearch", {"query": MARKER})]), _results("c3", [1400, 100]),
-        _call("c4", 16500, [read("big2.py")]), _results("c4", [1400]),
-        _call("c5", 21500, [("Agent", {"subagent_type": "reviewer", "prompt": MARKER})]),
-        _results("c5", [100], agent_id="abc123"),
-        _call("c6", 21550, [("Bash", {"command": f"sed -n 's/{MARKER}=x/y/p' app/d.py"})]), _results("c6", [100]),
-        _call("c7", 21600, [("Bash", {"command": f"cat <<EOF\n{MARKER}.AG\nEOF"})]), _results("c7", [100]),
-        _call("c8", 21650, []),
+        _call("c3", 11500, [read("r4.py")]), _results("c3", [1000]),
+        _call("c4", 12000, [read("r5.py")]), _results("c4", [1000]),
+        # a read beside a ToolSearch, then a read alone, each step growing by 5,000
+        _call("c5", 12500, [read("big.py"), ("ToolSearch", {"query": MARKER})]), _results("c5", [1400, 100]),
+        _call("c6", 17500, [read("big2.py")]), _results("c6", [1400]),
+        _call("c7", 22500, [("Agent", {"subagent_type": "reviewer", "prompt": MARKER})]),
+        _results("c7", [100], agent_id="abc123"),
+        _call("c8", 22550, [("Bash", {"command": f'cd /r\ngit commit -m "Fix it; {MARKER} asked"'})]),
+        _results("c8", [100]),
+        _call("c9", 22600, [("Bash", {"command": f"sed -n 's/{MARKER}=x/y/p' app/d.py"})]), _results("c9", [100]),
+        _call("c10", 22650, [("Bash", {"command": f"cd /r\ncat <<'EOF' > notes.txt\nhi; cat {MARKER}.AG\nEOF"})]),
+        _results("c10", [100]),
+        _call("c11", 22700, []),
     ]
     (folder / (SID_B + ".jsonl")).write_text("\n".join(json.dumps(x) for x in lines) + "\n")
     subagents = folder / SID_B / "subagents"
     subagents.mkdir(parents=True)
     (subagents / "agent-abc123.jsonl").write_text(json.dumps(  # no .meta.json beside it
         {"type": "assistant", "isSidechain": True, "message": {
-            "id": "s1", "model": "claude", "usage": _usage(300, 20), "content": [{"type": "text", "text": MARKER}]}}) + "\n")
+            "id": "s1", "model": "claude", "stop_reason": "end_turn", "usage": _usage(300, 20),
+            "content": [{"type": "text", "text": MARKER}]}}) + "\n")
 
 
 def _run_b(tmp_path):
@@ -205,6 +216,16 @@ def _breakdown(text, label):
     return line.split()[-2]
 
 
+def _module():
+    import importlib.machinery
+    import importlib.util
+
+    loader = importlib.machinery.SourceFileLoader("usage_report", str(SCRIPT))
+    module = importlib.util.module_from_spec(importlib.util.spec_from_loader("usage_report", loader))
+    loader.exec_module(module)
+    return module
+
+
 def test_a_sub_agent_without_meta_is_typed_from_the_agent_call_that_started_it(tmp_path):
     result = _run_b(tmp_path)
     assert result.returncode == 0, result.stderr
@@ -217,36 +238,73 @@ def test_growth_an_item_cannot_hold_goes_to_toolsearch_or_no_recorded_source(tmp
     lines = result.stdout.splitlines()
     start = lines.index("  largest single tool results (tokens added, x calls that carried them):")
     top = [line.split(None, 4)[1:] for line in lines[start + 1:start + 6]]
-    # 1,400 characters hold at most 1,000 tokens: the 4,000 beyond are ToolSearch's schemas when
-    # a ToolSearch ran in that step, and growth with no recorded source when none did.
+    # Beside a ToolSearch, 1,400 characters hold 700 tokens at the session's measured 2.0: the
+    # 4,300 beyond are the schemas it loaded. Alone they hold at most 1,000 (one token per 1.4
+    # characters): the 4,000 beyond are growth with no recorded source.
     assert top == [
-        ["4,000", "x5", "main", "ToolSearch"],
-        ["1,000", "x5", "main", "Read app/big.py"],
-        ["1,000", "x4", "main", "Read app/big2.py"],
-        ["500", "x8", "main", "Read app/r1.py"],
-        ["500", "x7", "main", "Read app/r2.py"],
+        ["4,300", "x6", "main", "ToolSearch"],
+        ["1,000", "x5", "main", "Read app/big2.py"],
+        ["700", "x6", "main", "Read app/big.py"],
+        ["500", "x11", "main", "Read app/r1.py"],
+        ["500", "x10", "main", "Read app/r2.py"],
     ]
-    assert _breakdown(result.stdout, "growth with no recorded source") == "16,000"
+    assert _breakdown(result.stdout, "growth with no recorded source") == "20,000"
 
 
 def test_the_opening_context_is_estimated_at_the_measured_characters_per_token(tmp_path):
-    # Three one-item steps measured 2.0 characters per token (and one 0.28): the median is 2.0,
-    # so the 1,000-character CLAUDE.md before the first call is 500 tokens, carried by 9 calls.
+    # Five one-item steps measured 2.0 characters per token (and one 0.28): the median is 2.0,
+    # so the 1,000-character CLAUDE.md before the first call is 500 tokens, carried by 12 calls.
     result = _run_b(tmp_path)
-    assert _breakdown(result.stdout, "CLAUDE.md + MEMORY.md") == "4,500"
+    assert _breakdown(result.stdout, "CLAUDE.md + MEMORY.md") == "6,000"
 
 
-def test_a_sed_script_or_a_heredoc_is_never_printed_as_a_file_name(tmp_path):
+def test_no_word_of_a_command_becomes_a_label(tmp_path):
     result = _run_b(tmp_path)
     assert MARKER not in result.stdout + result.stderr
-    import importlib.machinery
-    import importlib.util
-
-    loader = importlib.machinery.SourceFileLoader("usage_report", str(SCRIPT))
-    module = importlib.util.module_from_spec(importlib.util.spec_from_loader("usage_report", loader))
-    loader.exec_module(module)
+    module = _module()
     paths = module.Paths("/r")
-    assert module.view_target("sed -n 's/password=hunter2/X/p' app/config.py", paths) == "app/config.py"
-    assert module.view_target("sed -n '1,40p' /r/app/x.py", paths) == "app/x.py"
-    assert module.view_target("cat <<EOF\nMueller.AG\nEOF", paths) == "?"
-    assert module.view_target("head -n 20 notes.md 2>/dev/null", paths) == "notes.md"
+
+    def label(command):
+        return module.classify_tool("Bash", {"command": command}, paths)
+
+    # a `cd` on its own line, then a `;` inside a commit message, an inline script or a heredoc
+    assert label('cd /r\ngit commit -m "Fix it; Mueller asked"') == ("shell", "Bash (git)")
+    assert label("cd /r\npython3 - <<'EOF'\nx = 1; customer_name = 2\nEOF") == ("shell", "Bash (python3)")
+    assert label("cd /r\ncat <<'EOF' > notes.txt\nhello; cat Mueller.AG\nEOF") == ("read", "Bash view ?")
+    # a program not on the known list is "other", whatever its first word
+    assert label("Mueller --verbose") == ("shell", "Bash (other)")
+    # sed scripts, less commands and heredocs are never file names
+    assert label("sed -n 's/password=hunter2/X/p' app/config.py") == ("read", "Bash view app/config.py")
+    assert label("sed -n -e 'y/abc/xyz/' app/f.py") == ("read", "Bash view app/f.py")
+    assert label("less +/Mueller app/y.py") == ("read", "Bash view app/y.py")
+    assert label("sed -n '1,40p' /r/app/x.py") == ("read", "Bash view app/x.py")
+    assert label("head -n 20 notes.md 2>/dev/null") == ("read", "Bash view notes.md")
+    # what a command carries does not classify it: a commit message naming pytest is not a test run
+    assert label("git commit -m 'run pytest later'") == ("shell", "Bash (git)")
+    assert label("cd /r && DMS_X=1 pytest -q") == ("tests", "Bash (pytest)")
+    assert label("gh api 'repos/o/r/commits/abc/check-runs' --jq '.check_runs[] | .name'") == ("ci", "Bash (CI poll)")
+
+
+def test_a_call_without_a_final_usage_record_is_reported_as_a_lower_bound(tmp_path):
+    # Session A's calls carry no stop reason (a streaming snapshot, as in older transcripts);
+    # session B's carry one.
+    a = _run(tmp_path)
+    assert "main: 7 of 7 call(s) recorded only a streaming snapshot of their usage" in a.stdout
+    assert "streaming snapshot" not in _run_b(tmp_path).stdout
+
+
+def test_the_measured_rate_ignores_a_small_reminder_beside_the_item():
+    # Older transcripts add a token-count reminder to nearly every step; a step whose only
+    # other item is 2% of the result or less still measures the rate.
+    module = _module()
+    stream = module.Stream("main", module.Paths("/r"))
+    ctx = 10000
+    for i in range(6):
+        stream.add(_call(f"c{i}", ctx, [("Read", {"file_path": f"/r/app/{i}.py"})]))
+        stream.add(_results(f"c{i}", [1000]))
+        stream.add({"type": "attachment", "attachment": {"type": "total_tokens_reminder"},
+                    "rendered": [{"type": "text", "text": "y" * 20}]})
+        ctx += 500
+    stream.add(_call("c6", ctx, []))
+    stream.finish()
+    assert stream.chars_per_token == 2.0
