@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Popover } from "@mantine/core";
+import { useEscapeClosesPanel } from "../shell/escapeOwnership";
 import { Columns3, GripVertical, Lock, Pin, PinOff, RotateCcw, Search } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
 import {
@@ -53,6 +54,11 @@ export interface ColumnConfigPanelLabels {
 export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, labels }: ColumnConfigPanelProps) {
   const L = labels;
   const [opened, setOpened] = useState(false);
+  // KAN-605 — Escape closes this panel wherever focus is, and never the
+  // Overlay a grid may sit in.
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const closePanel = useCallback(() => setOpened(false), []);
+  useEscapeClosesPanel(opened, closePanel, dropdownRef);
   const [query, setQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
@@ -74,7 +80,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
   };
 
   return (
-    <Popover opened={opened} onChange={setOpened} width={320} position="bottom-end" shadow="md" withinPortal trapFocus>
+    <Popover opened={opened} onChange={setOpened} width={320} position="bottom-end" shadow="md" withinPortal>
       <Popover.Target>
         <button
           type="button"
@@ -96,7 +102,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
           <Columns3 size={18} />
         </button>
       </Popover.Target>
-      <Popover.Dropdown style={{ padding: 0 }}>
+      <Popover.Dropdown ref={dropdownRef} style={{ padding: 0 }}>
         <div style={{ padding: spacing.sm, borderBottom: `1px solid ${slate[2]}`, position: "relative" }}>
           <Search size={14} color={slate[4]} style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)" }} />
           <input

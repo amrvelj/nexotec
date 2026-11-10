@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Popover } from "@mantine/core";
+import { useEscapeClosesPanel } from "../shell/escapeOwnership";
 import { Check, ChevronDown, Plus, Star, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, typography, white } from "../tokens";
 import { FilterBuilder, type FilterBuilderLabels, type FilterBuilderProps } from "./FilterBuilder";
@@ -87,6 +88,11 @@ export function ViewsAndFilters({
 }: ViewsAndFiltersProps) {
   const L = labels;
   const [opened, setOpened] = useState(false);
+  // KAN-605 — Escape closes this panel wherever focus is, and never the
+  // Overlay a grid may sit in.
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const closePanel = useCallback(() => setOpened(false), []);
+  useEscapeClosesPanel(opened, closePanel, dropdownRef);
   // The applied view is the one the trigger names (the list ticks it by
   // name too). Narrowed, it carries the unsaved-changes dot and no tick: the
   // grid is no longer showing that view as saved.
@@ -112,7 +118,7 @@ export function ViewsAndFilters({
   };
 
   return (
-    <Popover opened={opened} onChange={setOpened} position="bottom-start" shadow="md" width={340} withinPortal trapFocus>
+    <Popover opened={opened} onChange={setOpened} position="bottom-start" shadow="md" width={340} withinPortal>
       <Popover.Target>
         <button
           type="button"
@@ -167,7 +173,7 @@ export function ViewsAndFilters({
         </button>
       </Popover.Target>
 
-      <Popover.Dropdown style={{ padding: 0 }}>
+      <Popover.Dropdown ref={dropdownRef} style={{ padding: 0 }}>
         {/* KAN-2 — this "Views" section (heading, list, "save as…") must
             render unconditionally, never gated on `views.length`. The
             prototype's own equivalent (src/14-page.js) hid the whole

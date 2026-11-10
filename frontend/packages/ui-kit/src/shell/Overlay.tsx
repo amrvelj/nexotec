@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { X } from "lucide-react";
 import { radius, shadow, slate, white, zIndex } from "../tokens";
 import { closeAllEntries, popEntry, pushEntry } from "./overlayStack";
+import { escapeBelongsToAPopupInside } from "./escapeOwnership";
 
 export interface OverlayEntry {
   /** Unique per push — used as the React key and as the target of a
@@ -95,7 +96,7 @@ export function OverlayProvider({
     // time its input would already read closed. The bubble listener decides,
     // after content had its turn: content that handles Escape itself claims
     // it with `preventDefault()` (InlineEditField's cancel, the Action Bar's
-    // search clear).
+    // search clear, an open kit panel — `useEscapeClosesPanel`).
     let ownedByPopup = false;
     const onKeyDownCapture = (event: KeyboardEvent) => {
       if (event.key === "Escape") ownedByPopup = escapeBelongsToAPopupInside(event.target, topLayerRef.current);
@@ -177,42 +178,4 @@ export function useOverlay(): OverlayContextValue {
   const ctx = useContext(OverlayContext);
   if (!ctx) throw new Error("useOverlay must be used within an OverlayProvider");
   return ctx;
-}
-
-/**
- * KAN-605 — whether an Escape keydown is the dismissal of a popup opened
- * inside the top overlay layer rather than a request to close the layer.
- * Mantine's Popover, Combobox, Menu and Modal close themselves on Escape but
- * never stop the event or prevent its default, so it reaches the overlay's
- * window listener too; popping the layer then would discard the
- * configuration half-built in it (ADR-059). Read in the capture phase,
- * before the popup's own handler runs.
- *
- * - Focus inside Mantine's portal (`data-portal`): a popover's dropdown, a
- *   menu, a select's options, a modal — rendered outside the layer, above it
- *   (KAN-594).
- * - Focus inside a popup rendered in place in the layer: a `dialog`, `menu`
- *   or `listbox` that is not the layer itself.
- * - Focus on a popup's trigger in the layer while the popup is open: a
- *   Popover's or Menu's button (`aria-haspopup` + `aria-expanded="true"`),
- *   a Select's or Autocomplete's input (Mantine's Combobox marks it
- *   `aria-haspopup` + `data-expanded="true"` and
- *   `data-mantine-stop-propagation`, the flag Mantine's own Modal honours).
- *   A plain disclosure (`aria-expanded` without `aria-haspopup`) is not a
- *   popup: Escape never closes it, so it never takes the Escape.
- *
- * Anything else — focus in the layer with nothing open, on the page's
- * button that opened the overlay, or nowhere — leaves the decision to the
- * bubble phase.
- */
-const OPEN_POPUP_TRIGGER =
-  '[aria-haspopup][aria-expanded="true"], [aria-haspopup][data-expanded="true"], [data-mantine-stop-propagation="true"]';
-
-function escapeBelongsToAPopupInside(target: EventTarget | null, layer: HTMLElement | null): boolean {
-  if (!(target instanceof Element)) return false;
-  if (target.closest('[data-portal="true"]')) return true;
-  if (layer === null || !layer.contains(target)) return false;
-  const popup = target.closest('[role="dialog"], [role="menu"], [role="listbox"]');
-  if (popup !== null && popup !== layer && layer.contains(popup)) return true;
-  return target.closest(OPEN_POPUP_TRIGGER) !== null;
 }

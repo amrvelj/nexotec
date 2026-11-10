@@ -2,11 +2,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MantineProvider, Modal, Select } from "@mantine/core";
+import { MantineProvider, Modal, Popover, Select } from "@mantine/core";
 import { useEffect, useState, type ReactNode } from "react";
 import { testTheme } from "../test/testTheme";
 import { FR_ACTION_BAR_LABELS, FR_VIEWS_AND_FILTERS_LABELS } from "../test/frenchLabels";
 import { ActionBar } from "../datagrid/ActionBar";
+import { ColumnConfigPanel } from "../datagrid/ColumnConfigPanel";
 import { ViewsAndFilters } from "../datagrid/ViewsAndFilters";
 import { OverlayProvider, useOverlay } from "./Overlay";
 
@@ -83,9 +84,8 @@ describe("Overlay — Escape closes the innermost open thing (KAN-605)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("an open views-and-filters panel: focus moves into it, Escape closes the panel and returns focus, the next Escape the layer", async () => {
-    const user = userEvent.setup();
-    const onClose = mount(
+  function viewsPanel() {
+    return (
       <ViewsAndFilters
         currentViewName="Tous les véhicules"
         views={[]}
@@ -98,25 +98,110 @@ describe("Overlay — Escape closes the innermost open thing (KAN-605)", () => {
         onPredicatesChange={() => {}}
         onResetFilters={() => {}}
         labels={FR_VIEWS_AND_FILTERS_LABELS}
+      />
+    );
+  }
+  const panelOpen = () => screen.queryByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading) !== null;
+
+  // Wherever focus is once the panel is open — on its trigger (Chrome
+  // focuses a clicked button), nowhere (Safari and Firefox on macOS do not),
+  // inside the panel, or on <body> after a click that unmounted the focused
+  // control — the first Escape closes the panel and the layer stays.
+  for (const [where, moveFocus] of [
+    ["on its trigger", (trigger: HTMLElement) => trigger.focus()],
+    ["on <body>", () => (document.activeElement as HTMLElement | null)?.blur()],
+    ["inside the panel", () => (screen.getByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading).closest(".mantine-Popover-dropdown")!.querySelector("button") as HTMLElement).focus()],
+  ] as const) {
+    it(`an open views-and-filters panel, focus ${where}: Escape closes the panel only, the next Escape the layer`, async () => {
+      const user = userEvent.setup();
+      const onClose = mount(viewsPanel());
+      await screen.findByRole("button", { name: "Fermer" });
+      const trigger = screen.getByRole("button", { name: /Tous les véhicules/ });
+      await user.click(trigger);
+      await screen.findByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading);
+      moveFocus(trigger);
+
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(panelOpen()).toBe(false));
+      expect(layerOpen()).toBe(true);
+      expect(onClose).not.toHaveBeenCalled();
+
+      await user.keyboard("{Escape}");
+      expect(layerOpen()).toBe(false);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  }
+
+  it("after «Nouveau filtre…» (its button unmounts on click, focus falls to <body>): Escape closes the panel, never the layer", async () => {
+    const user = userEvent.setup();
+    const onClose = mount(viewsPanel());
+    await screen.findByRole("button", { name: "Fermer" });
+    await user.click(screen.getByRole("button", { name: /Tous les véhicules/ }));
+    await user.click(await screen.findByRole("button", { name: FR_VIEWS_AND_FILTERS_LABELS.filters.addFilter }));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(panelOpen()).toBe(false));
+    expect(layerOpen()).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("the Columns panel: Escape closes it only, focus anywhere", async () => {
+    const user = userEvent.setup();
+    const onClose = mount(
+      <ColumnConfigPanel
+        registry={[{ id: "vin", label: "NIV", defaultVisible: true }]}
+        layout={{ order: ["vin"], hidden: [], widths: {}, pinnedLeft: [] }}
+        onLayoutChange={() => {}}
+        labels={{
+          trigger: "Colonnes",
+          search: "Rechercher une colonne",
+          reset: "Réinitialiser",
+          presets: "Préréglages",
+          lockedTooltip: "Verrouillée",
+          pin: "Épingler",
+          unpin: "Désépingler",
+          moveUp: (c) => `Monter ${c}`,
+          moveDown: (c) => `Descendre ${c}`,
+        }}
       />,
     );
     await screen.findByRole("button", { name: "Fermer" });
-    const trigger = screen.getByRole("button", { name: /Tous les véhicules/ });
-    await user.click(trigger);
-    const panel = (await screen.findByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading)).closest(".mantine-Popover-dropdown") as HTMLElement;
-    // Opening the panel moves focus into it — whether or not the browser
-    // focused the trigger on click (Safari and Firefox on macOS do not).
-    await waitFor(() => expect(panel.contains(document.activeElement)).toBe(true));
+    await user.click(screen.getByRole("button", { name: "Colonnes" }));
+    expect(await screen.findByPlaceholderText("Rechercher une colonne")).toBeInTheDocument();
+    (document.activeElement as HTMLElement | null)?.blur();
 
     await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByText(FR_VIEWS_AND_FILTERS_LABELS.viewsHeading)).toBeNull());
+    await waitFor(() => expect(screen.queryByPlaceholderText("Rechercher une colonne")).toBeNull());
     expect(layerOpen()).toBe(true);
     expect(onClose).not.toHaveBeenCalled();
-    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("a popover rendered in place inside the layer: Escape inside it closes the popover only", async () => {
+    const user = userEvent.setup();
+    function InPlace() {
+      const [opened, setOpened] = useState(false);
+      return (
+        <Popover opened={opened} onChange={setOpened} withinPortal={false}>
+          <Popover.Target>
+            <button type="button" onClick={() => setOpened((o) => !o)}>
+              Options
+            </button>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <button type="button">Option A</button>
+          </Popover.Dropdown>
+        </Popover>
+      );
+    }
+    const onClose = mount(<InPlace />);
+    await screen.findByRole("button", { name: "Fermer" });
+    await user.click(screen.getByRole("button", { name: "Options" }));
+    (await screen.findByRole("button", { name: "Option A" })).focus();
 
     await user.keyboard("{Escape}");
-    expect(layerOpen()).toBe(false);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Option A" })).toBeNull());
+    expect(layerOpen()).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("a typed search in a grid's Action Bar: Escape clears it, the next Escape closes the layer", async () => {
