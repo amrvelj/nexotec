@@ -425,13 +425,13 @@ export function DataGrid<T>({
                         const isSelect = cell.column.id === "__select";
                         if (isSelect && selection) {
                           return (
-                            <Cell key={cell.id} pinned="left" width={SELECTION_COLUMN_WIDTH}>
+                            <SelectCell key={cell.id}>
                               <SelectRowCheckbox
                                 checked={isSelected}
                                 label={selection.selectRowLabel(row.original)}
                                 onChange={() => toggleOne(rowId)}
                               />
-                            </Cell>
+                            </SelectCell>
                           );
                         }
                         return (
@@ -818,8 +818,39 @@ function SelectHeaderCell({
   );
 }
 
+/** The body's selection cell — laid out like `SelectHeaderCell`: centred,
+ * no padding, no ellipsis (KAN-591). The generic `Cell` pads
+ * `spacing.sm spacing.md` and clips with `text-overflow: ellipsis`; in the
+ * 40 px column the padding plus the checkbox overflowed it, and the browser
+ * drew a stray «…» beside every row's checkbox. */
+function SelectCell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="cell"
+      style={{
+        position: "sticky",
+        left: 0,
+        backgroundColor: white,
+        width: SELECTION_COLUMN_WIDTH,
+        flex: `0 0 ${SELECTION_COLUMN_WIDTH}px`,
+        minWidth: SELECTION_COLUMN_WIDTH,
+        // The body row centres its cells (`alignItems: center`); the header
+        // row stretches them. Stretched, the sticky white column covers the
+        // row's whole height, as the padded Cell did, so content scrolled
+        // under it sideways never shows above or below the checkbox.
+        alignSelf: "stretch",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function SelectRowCheckbox({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }) {
-  // Sits in a pinned (`position: sticky`) Cell, which already paints above
+  // Sits in the sticky SelectCell (`position: sticky`), which already paints above
   // `.dg-row-link` — see Row's own comment. `stopPropagation` is a
   // defensive backstop, not what makes this clickable.
   return <input type="checkbox" checked={checked} onChange={onChange} aria-label={label} onClick={(e) => e.stopPropagation()} />;
