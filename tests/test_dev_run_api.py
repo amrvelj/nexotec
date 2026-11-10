@@ -12,6 +12,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -49,8 +50,15 @@ def _run_wrapper(tmp_path, uname, args=("--reload", "--port", "8000")):
     (checkout / ".venv" / "bin").mkdir(parents=True)
     shutil.copy2(WRAPPER, checkout / "scripts" / "dev" / "run-api")
     fake_uvicorn = checkout / ".venv" / "bin" / "uvicorn"
+    # The stand-in runs on this test's own interpreter, as the real .venv uvicorn does. A
+    # `#!/bin/sh` stand-in never saw the variable on a Mac with System Integrity Protection:
+    # /bin/sh is a protected binary, so dyld strips DYLD_* when it starts (KAN-641).
     fake_uvicorn.write_text(
-        '#!/bin/sh\necho "cwd=$(pwd)"\necho "dyld=${DYLD_FALLBACK_LIBRARY_PATH-unset}"\necho "args=$*"\n'
+        f"#!{sys.executable}\n"
+        "import os, sys\n"
+        'print("cwd=" + os.getcwd())\n'
+        'print("dyld=" + os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "unset"))\n'
+        'print("args=" + " ".join(sys.argv[1:]))\n'
     )
     fake_uvicorn.chmod(0o755)
     bin_dir = tmp_path / "bin"
