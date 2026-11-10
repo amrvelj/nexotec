@@ -1,0 +1,115 @@
+{
+  "title": "Offerte erstellen",
+  "requirement": {
+    "required": "Erforderlich",
+    "optional": "Optional"
+  },
+  "containers": {
+    "customer": "Kunde",
+    "vehicle": "Fahrzeug",
+    "pricing": "Preisaufbau",
+    "tradeIn": "Eintauschfahrzeug",
+    "leasing": "Leasing"
+  },
+  "customer": {
+    "emptyHint": "Kein Kunde ist vorausgewählt — eine Offerte trägt den Namen, der unterschrieben wird.",
+    "emptyHintContract": "Noch kein Käufer — ein Vertrag wird erst mit dem Kunden bestätigt, der unterschreibt.",
+    "search": "Kunde suchen",
+    "createNew": "Neu anlegen",
+    "creditBlockTitle": "Kreditsperre",
+    "creditBlockBody": "Dieser Kunde ist kreditgesperrt ({{reason}}) — eine Offerte ist möglich, ein Vertrag kann nicht bestätigt werden.",
+    "doNotContactTitle": "Nicht kontaktieren",
+    "doNotContactBody": "Dieser Kunde ist als \"nicht kontaktieren\" markiert — weder Offerte noch Vertrag können fortgeführt werden."
+  },
+  "vehicle": {
+    "emptyHint": "Aus dem eigenen Lagerbestand — Lagernummer, VIN oder Kontrollschild.",
+    "search": "Fahrzeug suchen",
+    "configure": "Konfigurieren",
+    "searchPlaceholder": "Lagernummer, VIN, Kontrollschild …",
+    "configured": "Konfiguriert",
+    "attachError": "Die Konfiguration konnte nicht übernommen werden.",
+    "stockNumber": "Lagernummer {{stockNumber}}"
+  },
+  "pricing": {
+    "emptyHint": "Der Preisaufbau beginnt beim Fahrzeug — wählen Sie zuerst eines aus.",
+    "noPriceTitle": "Kein Preis hinterlegt",
+    "noPriceBody": "Für dieses Fahrzeug ist noch kein Preis hinterlegt — legen Sie zuerst einen Preis im Lagerbestand fest.",
+    "noPriceLink": "Lagerbestand öffnen",
+    "readyHint": "Der Preisaufbau folgt (nächster Schritt).",
+    "manualBasePrice": "Basispreis",
+    "basePrice": "Grundpreis",
+    "optionsTotal": "Optionen total",
+    "listPrice": "Listenpreis",
+    "accessoriesTotal": "Zubehör total",
+    "discountType": "Rabattart",
+    "noDiscount": "Kein Rabatt",
+    "discountPercent": "Prozent",
+    "discountAmount": "Betrag",
+    "discountValue": "Rabattwert",
+    "grossPrice": "Verkaufspreis",
+    "internalOnly": "NUR INTERN — NICHT AUF DEM DOKUMENT",
+    "costBasis": "Einstandspreis",
+    "margin": "Marge"
+  },
+  "tradeIn": {
+    "emptyHint": "Wählen Sie zuerst den Kunden — dann werden dessen Fahrzeuge hier vorgeschlagen.",
+    "readyHint": "Eintauschfahrzeug folgt (nächster Schritt).",
+    "value": "Eintauschangebot",
+    "fromExistingValuation": "Aus bestehender Bewertung übernommen",
+    "vinLabel": "VIN",
+    "vinPlaceholder": "z. B. WVWZZZ1KZAW123456",
+    "labelLabel": "Fahrzeugbezeichnung",
+    "add": "Eintauschfahrzeug hinzufügen",
+    "valueWithConfigurator": "Identifizieren und bewerten",
+    "attachError": "Die Bewertung konnte nicht übernommen werden.",
+    "saveError": "Das Eintauschfahrzeug konnte nicht gespeichert werden.",
+    "customerMerged": "Der Kunde wurde in einen anderen Kunden zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde, und erfassen Sie das Eintauschfahrzeug erneut.",
+    "customerMergedInto": "Der Kunde wurde in {{name}} ({{customerNumber}}) zusammengeführt. Wählen Sie {{name}} als Kunden und erfassen Sie das Eintauschfahrzeug erneut."
+  },
+  "leasing": {
+    "hint": "Kein Leasingrechner in v1 (S-D03). Freie Eingaben, damit ein späterer Rechner ohne Umbau eingesetzt werden kann.",
+    "downPayment": "Anzahlung",
+    "termMonths": "Laufzeit (Monate)",
+    "kmPerYear": "Kilometer pro Jahr"
+  },
+  "missing": "Es fehlt noch",
+  "continue": "Offerte generieren",
+  "liveContract": {
+    "openContract": "Vertrag öffnen"
+  },
+  "continueDisabled": {
+    "doNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert: Es kann keine Offerte generiert werden.",
+    "saving": "Ihre letzten Änderungen werden noch gespeichert. „Offerte generieren“ ist verfügbar, sobald sie gespeichert sind."
+  },
+  "generate": {
+    "title": "Offerte generieren",
+    "buildHint": "Erzeugt eine Vorschau des Dokuments in der Korrespondenzsprache des Kunden.",
+    "build": "Dokument erzeugen",
+    "buildError": "Dokument konnte nicht erzeugt werden.",
+    "previewTitle": "Offerte {{number}}",
+    "regenerate": "Neu erzeugen",
+    "confirm": "Bestätigen",
+    "finalizeError": "Offerte konnte nicht bestätigt werden."
+  },
+  "lineItems": {
+    "factoryOptionsTitle": "Werksoptionen",
+    "accessoriesTitle": "Zubehör",
+    "accessoryLabel": "Bezeichnung",
+    "accessoryPrice": "Preis",
+    "accessoryQuantity": "Menge",
+    "accessoryDiscount": "Rabatt (Betrag)",
+    "add": "Hinzufügen",
+    "suppressedReason": "Begründung",
+    "suppressedReasonHint": "Bei Gebrauchtfahrzeugen ist ein Zeilenrabatt standardmässig gesperrt — eine Begründung hebt die Sperre auf.",
+    "error": "Änderung konnte nicht gespeichert werden.",
+    "noPackagesCapability": "Als flache Liste angezeigt — die Paketgruppierung ist für diesen Betrieb nicht verfügbar."
+  },
+  "errors": {
+    "saveRefused": {
+      "offerHasContract": "Zu dieser Offerte gibt es den Vertrag {{contractNumber}} – Änderungen bitte im Vertrag vornehmen.",
+      "staleVersion": "Die Offerte wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+      "generic": "Die Änderung konnte nicht gespeichert werden.",
+      "dismiss": "Meldung schliessen"
+    }
+  }
+}

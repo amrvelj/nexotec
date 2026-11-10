@@ -1,0 +1,278 @@
+{
+  "tabs": {
+    "overview": "Panoramica",
+    "vehicles": "Veicoli",
+    "offersContracts": "Offerte e contratti",
+    "history": "Cronologia",
+    "externalIds": "ID esterni"
+  },
+  "header": {
+    "failedToLoad": "Impossibile caricare il cliente",
+    "customerFallback": "Cliente"
+  },
+  "errors": {
+    "somethingWentWrong": "Si è verificato un errore.",
+    "conflict": "Qualcun altro ha modificato questo nel frattempo.",
+    "failedToSave": "Salvataggio non riuscito.",
+    "failedToLoadVehicles": "Impossibile caricare i veicoli.",
+    "failedToLoadOffersContracts": "Impossibile caricare offerte e contratti.",
+    "failedToLoadHistory": "Impossibile caricare la cronologia.",
+    "failedToLoadExternalIds": "Impossibile caricare gli ID esterni.",
+    "createOfferFailed": "Non è stato possibile creare l’offerta. Riprovare.",
+    "createContractFailed": "Non è stato possibile creare il contratto. Riprovare."
+  },
+  "overview": {
+    "cards": {
+      "identity": "Identità",
+      "status": "Stato",
+      "address": "Indirizzo",
+      "contactPoints": "Punti di contatto",
+      "record": "Record",
+      "commercialStanding": "Posizione commerciale",
+      "relationship": "Relazione"
+    },
+    "fields": {
+      "salutation": "Formula di cortesia",
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "dateOfBirth": "Data di nascita",
+      "nationality": "Nazionalità",
+      "companyName": "Ragione sociale",
+      "legalForm": "Forma giuridica",
+      "correspondenceLanguage": "Lingua di corrispondenza",
+      "preferredChannel": "Canale preferito",
+      "lifecycleStatus": "Stato del ciclo di vita",
+      "source": "Origine",
+      "marketingConsent": "Consenso marketing",
+      "address": "Indirizzo",
+      "canton": "Cantone",
+      "cantonDerived": "Cantone (derivato)",
+      "customerNumber": "Numero cliente",
+      "created": "Creato",
+      "lastChanged": "Ultima modifica",
+      "title": "Titolo",
+      "gender": "Genere",
+      "paymentTerms": "Condizioni di pagamento",
+      "creditLimit": "Limite di credito (indicativo)",
+      "iban": "IBAN",
+      "vatRegistered": "Soggetto a IVA",
+      "vatStatusConfirmed": "Stato IVA confermato",
+      "advisor": "Consulente",
+      "customerSince": "Cliente dal",
+      "nextFollowUp": "Prossimo contatto",
+      "website": "Sito web",
+      "newsletter": "Newsletter",
+      "tags": "Tag",
+      "notes": "Note"
+    },
+    "notSet": "Non impostato",
+    "addressRequiredForContract": "Nessun indirizzo registrato — necessario prima di poter confermare un contratto.",
+    "addressForm": {
+      "street": "Via",
+      "line2": "Complemento indirizzo (c/o, casella postale, ...)",
+      "houseNumber": "N.",
+      "postalCode": "CAP",
+      "locality": "Località",
+      "save": "Salva",
+      "cancel": "Annulla",
+      "reload": "Ricarica",
+      "country": "Paese"
+    },
+    "blockingStrip": {
+      "creditBlockTitle": "Blocco creditizio",
+      "doNotContactTitle": "Non contattare",
+      "doNotContactNote": "Nessun contatto commerciale. L’assistenza e la corrispondenza obbligatoria per legge restano consentite; un’offerta o un contratto no."
+    }
+  },
+  "contactPoints": {
+    "phoneNumbers": "Numeri di telefono",
+    "emailAddresses": "Indirizzi e-mail",
+    "addPhone": "Aggiungi telefono",
+    "addEmail": "Aggiungi e-mail",
+    "none": "Nessuno aggiunto ancora.",
+    "primary": "Primario",
+    "new": "Nuovo",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "removeAriaLabel": "Rimuovi {{label}}",
+    "former": "Contatti precedenti",
+    "noLongerValid": "Non più valido",
+    "doesNotWork": "Non funziona",
+    "doesNotWorkReasonPlaceholder": "Motivo (es. non raggiungibile, respinto)",
+    "delete": "Elimina",
+    "consent": "Consenso",
+    "confirm": "Conferma",
+    "typeColumn": "Tipo",
+    "labelColumn": "Denominazione",
+    "labelHint": "Indica di quale numero o indirizzo si tratta – p. es. Ufficio, Contabilità, Officina Winterthur. Facoltativo, al massimo 60 caratteri.",
+    "consentHint": "Registra se il cliente ha acconsentito a essere contattato proprio a questo numero o indirizzo. Vale solo per questo canale.",
+    "phoneValueColumn": "Numero",
+    "emailValueColumn": "Indirizzo",
+    "preferredChannelHeading": "Canale preferito",
+    "preferredMark": "Canale preferito",
+    "noPreferred": "Nessun canale preferito",
+    "consentScope": "Ambito",
+    "consentSource": "Fonte",
+    "rowActions": "Azioni riga {{label}}"
+  },
+  "phoneInput": {
+    "country": "Paese",
+    "number": "Numero"
+  },
+  "countries": {
+    "switzerland": "Svizzera",
+    "germany": "Germania",
+    "france": "Francia",
+    "italy": "Italia",
+    "austria": "Austria",
+    "liechtenstein": "Liechtenstein",
+    "unitedKingdom": "Regno Unito",
+    "unitedStates": "Stati Uniti"
+  },
+  "externalIds": {
+    "columns": {
+      "system": "Sistema",
+      "externalId": "ID esterno",
+      "linked": "Collegato"
+    },
+    "maintainedBy": "Questi collegamenti con i sistemi OEM e CRM sono gestiti da Nexotec e dai sistemi collegati; puoi consultarli qui.",
+    "emptyState": {
+      "title": "Nessun ID esterno",
+      "description": "Nessun sistema OEM o CRM è ancora collegato a questo cliente. Questi collegamenti vengono creati da Nexotec o da un sistema collegato."
+    },
+    "add": "Aggiungi ID esterno",
+    "remove": "Rimuovi",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "systemLabel": "Sistema",
+    "externalIdLabel": "ID esterno"
+  },
+  "vehicles": {
+    "columns": {
+      "vin": "VIN",
+      "vehicle": "Veicolo",
+      "role": "Ruolo",
+      "since": "Dal",
+      "until": "Fino al",
+      "otherParties": "Altre parti"
+    },
+    "emptyState": {
+      "title": "Nessun veicolo",
+      "description": "Nessuna relazione con veicoli registrata per questo cliente."
+    },
+    "addAction": "Collega veicolo",
+    "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}",
+    "specification": "Specifica",
+    "unknownVehicle": "Veicolo non presente nel registro",
+    "mergedInto": "Unito",
+    "mergedIntoTitle": "Conservato qui in un'unione di clienti — apri il cliente di destinazione"
+  },
+  "offersContracts": {
+    "emptyState": {
+      "title": "Nessuna offerta o contratto",
+      "description": "Questo cliente non ha ancora offerte o contratti presso questa azienda."
+    }
+  },
+  "history": {
+    "emptyState": {
+      "title": "Nessuna cronologia ancora",
+      "description": "Le modifiche a questo cliente appariranno qui."
+    },
+    "you": "Tu",
+    "system": "Sistema",
+    "unknownReference": "record sconosciuto",
+    "unknownUser": "Utente sconosciuto",
+    "actions": {
+      "create": "Cliente creato",
+      "update": "Cliente modificato",
+      "merge": "Cliente unito",
+      "merge_survivor_repointed": "Cliente di destinazione dell’unione aggiornato",
+      "phone_add": "Telefono aggiunto",
+      "phone_update": "Telefono modificato",
+      "phone_remove": "Telefono rimosso",
+      "email_add": "Indirizzo e-mail aggiunto",
+      "email_update": "Indirizzo e-mail modificato",
+      "email_remove": "Indirizzo e-mail rimosso",
+      "address_add": "Indirizzo aggiunto",
+      "address_update": "Indirizzo modificato",
+      "address_remove": "Indirizzo rimosso",
+      "external_id_add": "ID esterno aggiunto",
+      "external_id_update": "ID esterno modificato",
+      "external_id_remove": "ID esterno rimosso",
+      "vehicle_party_add": "Veicolo collegato",
+      "vehicle_party_update": "Collegamento al veicolo modificato",
+      "vehicle_party_remove": "Collegamento al veicolo terminato",
+      "credit_block_changed": "Blocco creditizio modificato"
+    },
+    "otherAction": "Modifica registrata",
+    "fields": {
+      "dealershipId": "Azienda",
+      "phoneType": "Tipo di telefono",
+      "emailType": "Tipo di e-mail",
+      "addressType": "Tipo di indirizzo",
+      "phoneE164": "Numero di telefono",
+      "emailAddress": "Indirizzo e-mail",
+      "consentGranted": "Consenso dato",
+      "consentScope": "Ambito del consenso",
+      "consentSource": "Fonte del consenso",
+      "consentTimestamp": "Consenso dato il",
+      "mergedIntoCustomerId": "Unito nel cliente",
+      "duplicateOfCustomerId": "Duplicato del cliente",
+      "creditBlock": "Blocco creditizio",
+      "creditBlockReason": "Motivo del blocco creditizio",
+      "vehiclePartiesRepointed": "Collegamenti veicolo trasferiti",
+      "vehiclePartiesKeptClosed": "Collegamenti veicolo mantenuti chiusi",
+      "vehiclePartiesKeptClosedIds": "Collegamenti veicolo mantenuti chiusi (veicoli)",
+      "earlierMergesRepointedIds": "Unioni precedenti reindirizzate",
+      "transactionsRepointed": "Transazioni trasferite",
+      "phonesRepointed": "Numeri di telefono trasferiti",
+      "phonesDropped": "Numeri di telefono scartati",
+      "emailsRepointed": "Indirizzi e-mail trasferiti",
+      "emailsDropped": "Indirizzi e-mail scartati",
+      "addressesRepointed": "Indirizzi trasferiti",
+      "addressesDropped": "Indirizzi scartati",
+      "externalIdsRepointed": "ID esterni trasferiti",
+      "externalIdsDropped": "ID esterni scartati",
+      "tagsRepointed": "Tag trasferiti",
+      "tagsDropped": "Tag scartati"
+    }
+  },
+  "linkVehicle": {
+    "title": "Collega veicolo",
+    "search": "Cerca veicolo",
+    "searchPlaceholder": "VIN, numero veicolo, targa…",
+    "role": "Ruolo",
+    "confirm": "Collega",
+    "error": "Non è stato possibile collegare il veicolo."
+  },
+  "linkVehicleRefused": {
+    "customerMerged": "Questo cliente è stato unito a un altro. Collega il veicolo al cliente in cui è stato unito.",
+    "roleAlreadyHeld": "Questo cliente ha già questo ruolo su questo veicolo a partire da questa data.",
+    "notFound": "Il veicolo o il cliente non esiste più. Ricarica la pagina e cerca di nuovo."
+  },
+  "merge": {
+    "title": "Unisci cliente duplicato",
+    "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
+    "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero cliente…",
+    "noMatches": "Nessun risultato.",
+    "searchFailed": "La ricerca non è riuscita. Riprovare.",
+    "chooseDifferent": "← Scegli un altro cliente da mantenere",
+    "duplicateColumn": "Questo cliente — verrà unito",
+    "survivorColumn": "Cliente mantenuto — resterà",
+    "survivorContactsFailed": "Non è stato possibile caricare telefono ed e-mail del cliente che rimane. Sceglierlo di nuovo o sceglierne un altro.",
+    "irreversibleTitle": "Questa operazione non può essere annullata",
+    "irreversibleBody": "Veicoli, transazioni, numeri di telefono, e-mail e ID esterni passano al cliente mantenuto. Questo cliente diventa di sola lettura e non compare più nella ricerca.",
+    "confirm": "Ho capito che l'operazione è definitiva",
+    "submitting": "Unione in corso…",
+    "submit": "Unisci clienti",
+    "error": "Impossibile unire i clienti."
+  },
+  "mergeRefused": {
+    "intoSelf": "Un cliente non può essere unito a sé stesso.",
+    "targetMerged": "Il cliente scelto è già stato unito a un altro. Scegli il cliente in cui è stato unito.",
+    "alreadyMerged": "Questo cliente è già stato unito.",
+    "survivorConflict": "L'unione è in conflitto con un record del cliente che resta. Ricarica entrambi i clienti e riprova.",
+    "vehiclePartyBusy": "Un veicolo di questo cliente è in fase di modifica. Invia di nuovo l'unione.",
+    "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova."
+  }
+}

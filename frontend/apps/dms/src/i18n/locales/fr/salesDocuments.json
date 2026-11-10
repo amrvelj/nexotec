@@ -1,0 +1,14 @@
+{
+  "title": "Documents",
+  "generate": "Générer un document",
+  "empty": "Aucun document généré pour le moment.",
+  "previewError": "Impossible de charger l’aperçu.",
+  "download": "Télécharger",
+  "version": "Version {{version}}",
+  "liveContract": "Cette offre a le contrat {{contractNumber}} – les documents sont générés dans le contrat.",
+  "errors": {
+    "missingVehicle": "Impossible de générer un document de contrat sans véhicule. Veuillez d'abord saisir un véhicule.",
+    "missingPrice": "Impossible de générer un document de contrat sans prix. Veuillez d'abord compléter la composition du prix.",
+    "generic": "Le document n'a pas pu être généré."
+  }
+}

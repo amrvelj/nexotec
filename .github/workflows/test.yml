@@ -1,13 +1,64 @@
 name: test
 
+# Route B (KAN-610, KAN-624): the full suite runs once a night on main, not on every
+# pull request or push. Per PR, pr.yml runs one light job (`pr-light`) and the session's
+# own `scripts/dev/check` is the merge gate. What each job below proves is unchanged.
+# A night whose main head already has a green run is skipped (`freshness`); a red night
+# opens a GitHub issue labelled `nightly-red`, or comments on the open one (`alert`).
+# There is no `push` trigger. The job names stay as they were (none is a required
+# check: main has no branch protection - KAN-626 adds it for `pr-light`).
+
 on:
-  push:
-    branches: [main]
-  pull_request:
+  schedule:
+    # 02:17 UTC every night (03:17 / 04:17 in Zurich), off the busy full hour.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Run even when this commit already has a green nightly run
+        type: boolean
+        default: false
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
+  # A green nightly run (scheduled or dispatched) for this exact commit already proves
+  # it: skip the night. `previous` is the newest commit with a green nightly run - the
+  # starting point of migration-upgrade-from-previous.
+  freshness:
+    name: skip when this commit already has a green nightly run
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.look.outputs.skip }}
+      previous: ${{ steps.look.outputs.previous }}
+    steps:
+      - id: look
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          green=$(gh api "repos/${{ github.repository }}/actions/workflows/test.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=50" \
+            --jq '[.workflow_runs[] | select(.event == "schedule" or .event == "workflow_dispatch") | select(.id != ${{ github.run_id }}) | .head_sha]')
+          previous=$(jq -r '.[0] // ""' <<<"$green")
+          if [ "$FORCE" != "true" ] && jq -e --arg sha "${{ github.sha }}" 'any(.[]; . == $sha)' <<<"$green" >/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "${{ github.sha }} already has a green nightly run - nothing to do tonight."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+
   secret-scan:
     name: secret scan (WP-2 PR-4, closes G-10)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +71,8 @@ jobs:
 
   import-linter:
     name: import-linter (context seams)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +83,11 @@ jobs:
       - run: lint-imports
 
   ruff:
-    # Covers scripts/ too since KAN-184, but the name stays: "ruff (app/, tests/)"
-    # is a required status check on main by this exact string, and renaming the
-    # job would leave every PR waiting on a check that never reports.
+    # Covers scripts/ too since KAN-184. The name is kept from before Route B (KAN-624), when
+    # it was a PR check; nothing requires it by name now (main has no branch protection).
     name: ruff (app/, tests/)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,10 +98,11 @@ jobs:
       - run: ruff check app tests scripts
 
   mypy:
-    # Covers scripts/ too since KAN-142, but the name stays: "mypy (app/)" is a
-    # required status check on main by this exact string, and renaming the job
-    # would leave every PR waiting on a check that never reports.
+    # Covers scripts/ too since KAN-142. The name is kept from before Route B (KAN-624), when
+    # it was a PR check; nothing requires it by name now (main has no branch protection).
     name: mypy (app/)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,16 +114,16 @@ jobs:
       # service signature change once broke it with nothing to notice.
       - run: mypy app scripts
       # KAN-236: render.yaml validated against the vendored copy of Render's Blueprint
-      # schema — the same script scripts/dev/check's `deploy` lane runs. It lives in
-      # this required job rather than a job of its own so a red result blocks the
-      # merge; a new job name would not be a required status check until someone
-      # adds it to main's branch protection. `!cancelled()` (KAN-281): it still
-      # reports when mypy above fails; the job is red either way.
+      # schema — the same script scripts/dev/check's `deploy` lane runs, and per PR pr.yml's
+      # pr-light. `!cancelled()` (KAN-281): it still reports when mypy above fails; the job is
+      # red either way.
       - run: python scripts/check_render_yaml.py
         if: ${{ !cancelled() }}
 
   frontend:
     name: frontend (oxlint, tsc, vitest, build)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,6 +159,8 @@ jobs:
 
   docker-build:
     name: docker image builds (WP-2 PR-3)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,6 +169,8 @@ jobs:
 
   migration-smoke-test:
     name: alembic migration smoke test (postgres)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -204,6 +263,8 @@ jobs:
 
   migration-upgrade-from-previous:
     name: alembic upgrade from previously-deployed revision (postgres)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -269,17 +330,30 @@ jobs:
       # An upgrade from empty (see migration-smoke-test above) proves the
       # DDL is syntactically valid; it never proves anything about the path
       # a real deploy actually takes, which starts from whatever's already
-      # applied. That's `main`'s current alembic heads, computed here
-      # rather than hardcoded — main gains new heads as more migrations
+      # applied. Before Route B this job ran on every PR and started from
+      # `origin/main`'s alembic heads. Nightly on main (KAN-624) it starts
+      # from the heads of the newest commit with a green nightly run - every
+      # migration merged since then is upgraded over seeded data in one go,
+      # the path a deploy of tonight's main takes from the last proven one.
+      # Without such a run (the first night), or when it is this very commit
+      # (a forced run), it starts from the previous commit, HEAD~1. Computed
+      # here rather than hardcoded — main gains new heads as more migrations
       # land, and a hardcoded revision would silently stop testing the
       # real path the day it went stale. get_heads() is pure static
       # analysis of the revision files in that worktree; app.* is resolved
       # from this job's own editable install regardless of which directory
       # it's run from, so this doesn't need its own dependency install.
-      - name: determine main's current alembic heads (the previously-deployed revision(s))
+      - name: determine the previously-proven commit's alembic heads (the previously-deployed revision(s))
         id: previous
+        env:
+          PREVIOUS: ${{ needs.freshness.outputs.previous }}
         run: |
-          git worktree add /tmp/main-heads-checkout origin/main
+          base="$PREVIOUS"
+          if [ -z "$base" ] || [ "$base" = "$GITHUB_SHA" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=$(git rev-parse HEAD~1)
+          fi
+          echo "upgrading from the alembic heads of $base"
+          git worktree add /tmp/main-heads-checkout "$base"
           cd /tmp/main-heads-checkout
           HEADS=$(alembic heads | awk '{print $1}')
           cd "$GITHUB_WORKSPACE"
@@ -306,6 +380,8 @@ jobs:
 
   outbox-worker-smoke-test:
     name: outbox worker entrypoint smoke test (postgres)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -394,8 +470,12 @@ jobs:
   # present; this goes further and removes it from CI entirely). It still
   # exists as a fast, opt-in *local* convenience — see .pre-commit-
   # config.yaml — which is genuinely optional and runs on no one's push.
+  # Route B (KAN-624): the job name is kept, but what gates a merge now is the session's
+  # scripts/dev/check, whose Postgres lane runs this same suite; this job is the nightly proof.
   postgres:
     name: pytest (postgres — the only lane that gates a merge, ADR-011)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -444,6 +524,8 @@ jobs:
   # on migration-smoke-test).
   frontend-openapi-drift:
     name: frontend API types match the backend schema (KAN-35)
+    needs: freshness
+    if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     env:
       DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
@@ -499,3 +581,46 @@ jobs:
           npx openapi-typescript ./openapi.json -o ./src/api/schema.d.ts --default-non-nullable false
       - name: fail if schema.d.ts is not what's checked in
         run: git diff --exit-code -- frontend/apps/dms/src/api/schema.d.ts
+
+  # KAN-624: a red night opens a GitHub issue titled with the date and the failing
+  # jobs, or comments on the one still open (label `nightly-red`), with the
+  # workflow's own token. `failure()` is true when any job above failed; a skipped
+  # night (freshness) is not a failure. The issue is closed by hand once main is green.
+  alert:
+    name: open an issue when the nightly run is red
+    needs: [freshness, secret-scan, import-linter, ruff, mypy, frontend, docker-build, migration-smoke-test,
+            migration-upgrade-from-previous, outbox-worker-smoke-test, postgres, frontend-openapi-drift]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          failed=$(jq -r '[to_entries[] | select(.value.result == "failure") | .key] | join(", ")' <<<"$NEEDS")
+          day=$(date -u +%F)
+          where=""
+          [ "$GITHUB_REF_NAME" = "main" ] || where=" (${GITHUB_REF_NAME}, dispatched)"
+          title="Nightly CI red ${day}${where}: ${failed}"
+          body="The nightly run on \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA} failed: ${failed}.
+
+          Run: ${RUN_URL}
+
+          Route B (KAN-610): main is only fully tested at night, so this break may have landed with any merge since the last green nightly run. File a Bug ticket on the Kanban board naming the failing job, fix it on a branch, and close this issue once a nightly run is green again."
+          gh api "repos/${REPO}/labels" -f name=nightly-red -f color=B60205 \
+            -f description="The nightly full CI run on main is red (KAN-624)" >/dev/null 2>&1 || true
+          open=$(gh api "repos/${REPO}/issues?labels=nightly-red&state=open&per_page=1" --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh api "repos/${REPO}/issues/${open}/comments" -f body="**${title}**
+
+          ${body}" >/dev/null
+            echo "Commented on the open issue #${open}."
+          else
+            gh api "repos/${REPO}/issues" -f title="$title" -f body="$body" -f "labels[]=nightly-red" >/dev/null
+            echo "Opened an issue: ${title}"
+          fi

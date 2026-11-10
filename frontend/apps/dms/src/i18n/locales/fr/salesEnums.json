@@ -1,0 +1,19 @@
+{
+  "entityType": {
+    "offer": "Offre",
+    "contract": "Contrat"
+  },
+  "dealStatus": {
+    "draft": "Brouillon",
+    "open": "Ouvert",
+    "pending": "Ouvert",
+    "confirmed": "Confirmé",
+    "cancelled": "Annulé",
+    "invoiced": "Facturé"
+  },
+  "financing": {
+    "cash": "Comptant",
+    "leasing": "Leasing",
+    "credit": "Crédit"
+  }
+}

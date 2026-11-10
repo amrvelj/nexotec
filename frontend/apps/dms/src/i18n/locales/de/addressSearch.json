@@ -1,0 +1,7 @@
+{
+  "label": "Adresse suchen",
+  "placeholder": "Strasse, Hausnummer, Ort …",
+  "hint": "Vorschlag wählen – Strasse, Hausnummer, PLZ und Ort werden ausgefüllt und bleiben änderbar. Nur die gewählte Adresse wird gespeichert.",
+  "noResults": "Keine Vorschläge",
+  "attribution": "Google Maps"
+}

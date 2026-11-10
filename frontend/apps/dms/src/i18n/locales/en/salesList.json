@@ -1,0 +1,42 @@
+{
+  "title": "Offers & Contracts",
+  "newOffer": "New offer",
+  "searchPlaceholder": "Plate, VIN, customer, offer …",
+  "loadError": "Offers and contracts could not be loaded.",
+  "allDealsView": "All offers and contracts",
+  "columns": {
+    "number": "Number",
+    "type": "Type",
+    "customer": "Customer",
+    "vehicle": "Vehicle",
+    "grossPrice": "Sale price",
+    "status": "Status",
+    "margin": "Margin",
+    "changed": "Changed",
+    "owner": "Responsible",
+    "stockNumber": "Stock number"
+  },
+  "chips": {
+    "all": "All",
+    "offers": "Offers",
+    "contracts": "Contracts",
+    "unassigned": "Unassigned"
+  },
+  "emptyState": {
+    "title": "No offers or contracts",
+    "description": "Create an offer to get started."
+  },
+  "emptyFilteredState": {
+    "title": "No matches",
+    "description": "Adjust your search.",
+    "action": "Reset search"
+  },
+  "rowActions": {
+    "open": "Open"
+  },
+  "selection": {
+    "count": "{{count, number}} selected",
+    "clear": "Clear selection",
+    "copyIds": "Copy IDs"
+  }
+}

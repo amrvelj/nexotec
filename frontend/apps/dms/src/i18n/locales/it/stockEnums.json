@@ -1,0 +1,35 @@
+{
+  "lifecycleStatus": {
+    "pipeline": "Pipeline",
+    "in_stock": "A magazzino",
+    "storno_pending": "Storno in corso"
+  },
+  "condition": {
+    "new": "Nuovo",
+    "used": "Occasione",
+    "demo": "Vettura dimostrativa",
+    "tagesz": "Immatricolazione giornaliera"
+  },
+  "reservationState": {
+    "none": "Libero",
+    "reserved": "Riservato"
+  },
+  "ledgerCategory": {
+    "einstandspreis": "Prezzo di costo",
+    "landed_cost": "Costi di trasporto",
+    "aufbereitung": "Preparazione",
+    "reparatur": "Riparazione",
+    "gutachten": "Perizia",
+    "standkosten": "Costi di giacenza",
+    "werbung": "Pubblicità",
+    "garantie": "Garanzia",
+    "abwertung": "Svalutazione",
+    "promotion": "Promozione",
+    "sonstige_kosten": "Altri costi",
+    "verkaufserloes": "Ricavo di vendita",
+    "kickback": "Retrocessione",
+    "zusatzerloes": "Ricavo accessorio",
+    "foerderung": "Incentivo",
+    "sonstige_ertraege": "Altri ricavi"
+  }
+}

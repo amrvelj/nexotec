@@ -1,0 +1,83 @@
+{
+  "customerType": {
+    "individual": "Privato",
+    "business": "Azienda"
+  },
+  "lifecycleStatus": {
+    "prospect": "Potenziale",
+    "active": "Attivo",
+    "inactive": "Inattivo",
+    "merged": "Unito",
+    "do_not_contact": "Non contattare"
+  },
+  "salutation": {
+    "herr": "Signor",
+    "frau": "Signora",
+    "firma": "Azienda",
+    "neutral": "Neutro"
+  },
+  "preferredChannel": {
+    "email": "E-mail",
+    "phone": "Telefono",
+    "post": "Posta",
+    "whatsapp": "WhatsApp",
+    "message": "Messaggio (obsoleto)"
+  },
+  "source": {
+    "walk_in": "Cliente di passaggio",
+    "phone": "Telefono",
+    "web_lead": "Lead web",
+    "marketplace": "Marketplace",
+    "other": "Altro"
+  },
+  "addressType": {
+    "domicile": "Domicilio",
+    "billing": "Fatturazione",
+    "delivery": "Consegna"
+  },
+  "vehiclePartyRole": {
+    "owner": "Proprietario",
+    "keeper": "Detentore",
+    "driver": "Conducente"
+  },
+  "contactType": {
+    "mobile": "Cellulare",
+    "landline": "Fisso",
+    "work": "Aziendale",
+    "fax": "Fax",
+    "personal": "Privato",
+    "invoicing": "Fatturazione"
+  },
+  "gender": {
+    "female": "Femmina",
+    "male": "Maschio",
+    "other": "Altro",
+    "unspecified": "Non specificato"
+  },
+  "paymentTerms": {
+    "prepayment": "Pagamento anticipato",
+    "net_10": "Netto 10 giorni",
+    "net_30": "Netto 30 giorni",
+    "net_60": "Netto 60 giorni",
+    "on_delivery": "Alla consegna"
+  },
+  "consentScope": {
+    "marketing": "Marketing",
+    "invoicing": "Fatturazione",
+    "service": "Servizio"
+  },
+  "consentSource": {
+    "form": "Modulo",
+    "counter": "Sportello",
+    "web": "Web",
+    "phone": "Telefono"
+  },
+  "legalForm": {
+    "ag": "SA",
+    "gmbh": "Sagl",
+    "einzelfirma": "Ditta individuale",
+    "verein": "Associazione",
+    "genossenschaft": "Società cooperativa",
+    "weitere": "Altra"
+  }
+}

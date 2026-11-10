@@ -1,0 +1,8 @@
+{
+  "status": {
+    "draft": "Draft",
+    "valid": "Valid",
+    "expired": "Expired",
+    "used": "Used"
+  }
+}

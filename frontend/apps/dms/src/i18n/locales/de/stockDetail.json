@@ -1,0 +1,198 @@
+{
+  "header": {
+    "stockFallback": "Lagerfahrzeug"
+  },
+  "leftStock": {
+    "badge": "Bestand verlassen am {{date}}"
+  },
+  "tabs": {
+    "details": "Details",
+    "wagenbuch": "Wagenbuch",
+    "publishing": "Publikation",
+    "evaluation": "Bewertung"
+  },
+  "actions": {
+    "createOffer": "Offerte erstellen",
+    "createContract": "Vertrag erstellen",
+    "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
+  },
+  "headline": {
+    "listPriceCaption": "Listenpreis – Verkaufspreis noch nicht aufgebaut"
+  },
+  "spec": {
+    "firstRegistrationDate": "Erstzulassung",
+    "odometerKm": "Kilometerstand",
+    "stockNumber": "Lagernummer",
+    "vin": "VIN"
+  },
+  "commercial": {
+    "title": "Kommerziell",
+    "odometerKm": "Kilometerstand",
+    "listPrice": "Listenpreis",
+    "effectivePrice": "Effektivpreis"
+  },
+  "identity": {
+    "title": "Fahrzeug",
+    "vehicleLabel": "Bezeichnung",
+    "vehicleLabelFollowsConfiguration": "Die Bezeichnung folgt der Konfiguration des Fahrzeugs.",
+    "vehicleId": "Fahrzeug-ID"
+  },
+  "errors": {
+    "failedToLoad": "Laden fehlgeschlagen",
+    "somethingWentWrong": "Etwas ist schiefgelaufen.",
+    "createOfferFailed": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+    "createContractFailed": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
+  },
+  "purchase": {
+    "title": "Einkauf",
+    "recordButton": "Einkauf erfassen",
+    "dialogTitle": "Einkauf erfassen",
+    "submit": "Erfassen",
+    "fields": {
+      "supplierName": "Lieferant",
+      "supplierIsVatRegistered": "Lieferant ist MWST-pflichtig",
+      "purchasePrice": "Einkaufspreis",
+      "purchaseDate": "Einkaufsdatum",
+      "purchaseInvoiceRef": "Rechnungsreferenz",
+      "vin": "VIN",
+      "vinHint": "Ein Fahrzeug in der Pipeline wird mit seiner VIN eingekauft und kommt damit an Lager."
+    },
+    "notionalInputTax": "Fiktiver Vorsteuerabzug",
+    "notionalInputTaxNotApplicable": "Nicht anwendbar",
+    "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
+    "isInvoiceable": "Fakturierbar",
+    "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
+    "notRecorded": "Noch kein Einkauf erfasst.",
+    "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab.",
+    "storno": {
+      "button": "Einkauf stornieren",
+      "title": "Einkauf stornieren",
+      "body": "Der Einkauf von {{stockNumber}} wird rückgängig gemacht: Der Einstandspreis wird im Wagenbuch gegengebucht, das Fahrzeug geht mit seiner VIN zurück in die Pipeline und ist erst nach einem neuen Einkauf wieder fakturierbar. Eine Reservation bleibt bestehen.",
+      "reasonLabel": "Grund",
+      "reasonRequired": "Bitte geben Sie einen Grund an.",
+      "submit": "Einkauf stornieren",
+      "cancel": "Abbrechen",
+      "failed": "Der Einkauf konnte nicht storniert werden.",
+      "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
+      "returnedToCustomer": "Das Fahrzeug geht an den Kunden zurück",
+      "returnedToCustomerHint": "Der Kunde, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
+    }
+  },
+  "wagenbuch": {
+    "result": "Ergebnis",
+    "recordButton": "Buchung erfassen",
+    "empty": "Keine Buchungen erfasst",
+    "dialogTitle": "Buchung erfassen",
+    "submit": "Erfassen",
+    "fields": {
+      "category": "Kategorie",
+      "amount": "Betrag",
+      "occurredAt": "Datum"
+    },
+    "columns": {
+      "occurredAt": "Datum",
+      "category": "Kategorie",
+      "amount": "Betrag",
+      "source": "Herkunft"
+    },
+    "auto": "Automatisch",
+    "manual": "Manuell",
+    "error": "Die Kosten konnten nicht erfasst werden. Bitte erneut versuchen.",
+    "closed": "Wagenbuch seit {{date}} geschlossen: Das Fahrzeug hat den Bestand verlassen."
+  },
+  "publishing": {
+    "blockingBannerTitle": "{{count, number}} Punkt(e) verhindern die Publikation",
+    "blockingCondition": {
+      "Lagerstatus": "Eine Werksbestellung steht noch nicht am Lager.",
+      "Bilder": "Keine eigenen Fotografien vorhanden.",
+      "Preis": "Kein Effektivpreis hinterlegt.",
+      "Aussenfarbe": "Keine Farbe hinterlegt.",
+      "Aufbau": "Keine Karosserieform hinterlegt.",
+      "Kilometer": "Kein Kilometerstand hinterlegt.",
+      "InvSetzJahr": "Keine Erstzulassung hinterlegt.",
+      "Energieetikette": "Energieetikette fehlt für Neuwagen unter 2'000 km.",
+      "other": "Diese Angabe fehlt für den Marktplatz."
+    },
+    "channelsTitle": "Kanäle",
+    "published": "Publiziert",
+    "notPublished": "Nicht publiziert",
+    "lastPublishedAt": "Zuletzt publiziert: {{date}}",
+    "neverPublished": "Noch nie publiziert",
+    "transmissionPending": "Wird publiziert…",
+    "transmissionFailed": "Publikation fehlgeschlagen",
+    "publishTo": "Auf {{channel}} publizieren",
+    "unpublish": "Von {{channel}} depublizieren",
+    "unpublishConfirmTitle": "Depublizieren bestätigen",
+    "unpublishConfirmSubmit": "Depublizieren",
+    "unpublishConfirmBody": "Das Inserat auf {{channel}} wird zusammen mit seiner Statistik und der Inserate-URL gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "listingTextTitle": "Inseratetexte",
+    "listingTextConflict": "Der Inseratetext wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+    "listingTextError": "Der Inseratetext konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "listingTextLoadError": "Die Inseratetexte konnten nicht geladen werden.",
+    "titleDisplayLimit": "Auf der Ergebnisliste werden {{count, number}} Zeichen angezeigt.",
+    "haendlerbemerkungenHint": "Nur für den Betrieb sichtbar — erscheint nicht im Inserat.",
+    "fields": {
+      "zusatztitel": "Zusatztitel",
+      "bemerkungen": "Bemerkungen",
+      "zustandsbeschreibung": "Zustandsbeschreibung",
+      "haendlerbemerkungen": "Händlerbemerkungen"
+    },
+    "media": {
+      "title": "Bilder",
+      "addPrompt": "Bild-URL",
+      "mainImage": "Hauptbild",
+      "moveLeft": "Nach links verschieben",
+      "moveRight": "Nach rechts verschieben",
+      "remove": "Entfernen",
+      "addPhoto": "Foto hinzufügen",
+      "countOf": "{{count, number}} / {{max, number}}",
+      "addError": "Das Foto konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+      "removeError": "Das Foto konnte nicht entfernt werden. Bitte erneut versuchen.",
+      "reorderError": "Die neue Reihenfolge der Fotos konnte nicht gespeichert werden. Bitte erneut versuchen."
+    },
+    "equipment": {
+      "title": "Ausstattung",
+      "ausstattung": "Ausstattung (suchbar)",
+      "extras": "Extras",
+      "eigenschaften": "Eigenschaften",
+      "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
+    },
+    "publishError": "Das Inserat konnte nicht publiziert werden. Bitte erneut versuchen.",
+    "unpublishError": "Das Inserat konnte nicht depubliziert werden. Bitte erneut versuchen."
+  },
+  "evaluation": {
+    "title": "Bewertung",
+    "empty": "Keine Bewertung vorhanden.",
+    "amount": "Betrag",
+    "valuedAt": "Bewertet am",
+    "source": "Quelle",
+    "hint": "Bewertungen werden im Modul Bewertungen erstellt und verwaltet — dieser Bereich zeigt nur den aktuellen Stand."
+  },
+  "configuration": {
+    "title": "Konfiguration",
+    "missing": "Diesem Fahrzeug ist keine Konfiguration zugeordnet. Ohne sie fehlen die technischen Daten.",
+    "attach": "Konfiguration zuordnen",
+    "attachError": "Die Konfiguration konnte nicht zugeordnet werden. Bitte erneut versuchen.",
+    "edit": "Konfiguration bearbeiten",
+    "editContract": "Vertrag bearbeiten",
+    "reservedByContract": "Ein Vertrag reserviert dieses Fahrzeug. Solange er es reserviert, bleibt die Konfiguration unverändert: Sie lässt sich erst ändern, wenn der Vertrag storniert ist.",
+    "reloadDetails": "Neu laden",
+    "reloadDetailsHint": "Fragt Optionen, Farben, Reifendaten, Bilder und Energieetikette bei auto-i-dat neu ab und ersetzt die gespeicherten Daten dieses Betriebs.",
+    "reloadDetailsError": "Die Katalogdaten konnten nicht neu geladen werden.",
+    "reloadDetailsDone": "Neu geladen am {{date}}"
+  },
+  "rowMenu": {
+    "changeCondition": "Zustand ändern",
+    "purchaseAlreadyBooked": "Der Einkauf ist bereits erfasst.",
+    "purchaseNotBooked": "Noch kein Einkauf erfasst.",
+    "creatingDeal": "Wird gerade erstellt …"
+  },
+  "condition": {
+    "title": "Zustand ändern",
+    "body": "Neuer Zustand für {{stockNumber}}:",
+    "label": "Zustand",
+    "submit": "Speichern",
+    "cancel": "Abbrechen",
+    "failed": "Der Zustand konnte nicht geändert werden."
+  }
+}

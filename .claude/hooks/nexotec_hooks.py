@@ -29,6 +29,7 @@ session-start  (SessionStart)  | start KAN-n <notion url|id>   active ticket
 session-sync   (async)         | status                        what gates want
 pre-bash       (PreToolUse)    | waive <gate> "<reason>"       (asks Anto)
 pre-edit       (PreToolUse)    | no-visual "<why>"             no screen exists
+pre-read       (PreToolUse)    |
 pre-notion     (PreToolUse)    | evidence screenshot <file>    register a file
 post-tool      (PostToolUse)   | close [--abandon]             after the merge
 subagent-stop  (SubagentStop)  | fingerprint / stamp-checks    used by check
@@ -72,6 +73,15 @@ GENERATED_FILES = {
         "`make generate-frontend-types`."
     ),
 }
+# KAN-618: generated files far larger than a context window. The `Read` hook (`pre-read`) and the
+# pre-bash hook refuse printing them whole - a lookup or `grep -n` instead. Not a `Read(...)` deny
+# rule in settings.json: Claude Code applies one to `grep` on the same path too.
+WHOLE_READ_GUARDED = {
+    "frontend/apps/dms/src/api/schema.d.ts": "~800 KB of generated API types",
+    "frontend/apps/dms/openapi.json": "the generated OpenAPI document",
+    "frontend/package-lock.json": "~120 KB of lockfile",
+}
+WHOLE_READ_MAX_LINES = 200
 GENERATED_SUFFIXES = {
     "nexotec-prototype.html": (
         "nexotec-prototype.html is a built file, and the prototype is maintained from the spec side "
@@ -1172,6 +1182,114 @@ def cmd_session_sync(data):
 VENV_TOOLS = ("python", "python3", "pytest", "alembic", "mypy", "lint-imports", "uvicorn")
 
 
+def _line_count(value):
+    """`200`, `+5`, `-5` -> (int, sign) for a head/tail count; None when it is no count."""
+    m = re.match(r"^([+-]?)(\d+)$", value or "")
+    return (int(m.group(2)), m.group(1)) if m else None
+
+
+def _prints_too_much(verb, args):
+    """Whether `verb args` prints more than WHOLE_READ_MAX_LINES lines of its file argument (KAN-618)."""
+    if verb in ("cat", "less", "more", "bat", "batcat", "nl", "tac"):
+        return True
+    if verb in ("head", "tail"):
+        count, i = (10, ""), 0
+        while i < len(args):
+            a = args[i]
+            if a in ("-n", "--lines") and i + 1 < len(args):
+                count, i = _line_count(args[i + 1]) or (WHOLE_READ_MAX_LINES + 1, ""), i + 2
+                continue
+            if a.startswith("--lines="):
+                count = _line_count(a.split("=", 1)[1]) or (WHOLE_READ_MAX_LINES + 1, "")
+            elif a.startswith("-n") and len(a) > 2:
+                count = _line_count(a[2:]) or (WHOLE_READ_MAX_LINES + 1, "")
+            elif re.match(r"^-\d+$", a):
+                count = (int(a[1:]), "")
+            elif a.startswith(("-c", "--bytes")):
+                return True  # bytes, not lines: no line bound
+            i += 1
+        n, sign = count
+        return (verb == "head" and sign == "-") or (verb == "tail" and sign == "+") or n > WHOLE_READ_MAX_LINES
+    if verb == "sed":
+        if any(a.startswith(("-i", "--in-place")) for a in args):
+            return False  # a write, judged as one
+        quiet = any(a in ("--quiet", "--silent") or re.match(r"^-[a-zA-Z]*n[a-zA-Z]*$", a) for a in args)
+        if not quiet:
+            return True  # without -n, sed prints every input line
+        scripts = [args[i + 1] for i, a in enumerate(args[:-1]) if a in ("-e", "--expression")]
+        if not scripts:
+            scripts = [a for a in args if not a.startswith("-")][:1]
+        for script in scripts:
+            for part in re.split(r"[;\n]", script):
+                part = part.strip()
+                if not part.endswith("p"):
+                    continue
+                address = part[:-1].strip()
+                if not address or "~" in address or "!" in address:
+                    return True  # a bare `p`, a step (`1~1p`) or a negation (`$!p`) has no line bound
+                m = re.match(r"^(\d+)\s*,\s*(\d+|\$|\+\d+)$", address)
+                if m:
+                    start, end = int(m.group(1)), m.group(2)
+                    if end == "$":
+                        return True
+                    span = int(end[1:]) + 1 if end.startswith("+") else int(end) - start + 1
+                    if span > WHOLE_READ_MAX_LINES:
+                        return True
+                elif "," in address:
+                    return True  # a range bounded by a pattern has no line bound
+        return False
+    return False
+
+
+def whole_read_problem(words, redirects, where, root):
+    """KAN-618: a shell command that would print a WHOLE_READ_GUARDED file whole."""
+    if not (words and root):
+        return None
+    verb = os.path.basename(words[0])
+    rootn = os.path.normpath(root)
+    hits = []
+    for tok in words[1:] + [t for op, t in redirects if op == "<"]:
+        if tok.startswith("-"):
+            continue
+        rel = os.path.relpath(os.path.normpath(os.path.join(where, os.path.expanduser(tok))), rootn)
+        if rel.replace(os.sep, "/") in WHOLE_READ_GUARDED:
+            hits.append(rel.replace(os.sep, "/"))
+    if not hits or not _prints_too_much(verb, words[1:]):
+        return None
+    return ("`{}` would print `{}` ({}) whole, or more than {} lines of it. Look a schema or operation up with "
+            "`scripts/dev/api-type <SchemaName | /v1/path>`, or find the lines with `grep -n` and print at most "
+            "{} of them (`sed -n 'A,Bp'`).".format(verb, hits[0], WHOLE_READ_GUARDED[hits[0]],
+                                                   WHOLE_READ_MAX_LINES, WHOLE_READ_MAX_LINES))
+
+
+def whole_read_tool_problem(root, tool_input):
+    """KAN-618: the Read tool on a WHOLE_READ_GUARDED file needs a `limit` of at most
+    WHOLE_READ_MAX_LINES. Not a `Read(...)` deny rule in settings.json: Claude Code applies such a
+    rule to `grep` and Grep on the same path too, and searching the file must keep working."""
+    path = (tool_input or {}).get("file_path") or ""
+    if not (root and path):
+        return None
+    rel = os.path.relpath(os.path.normpath(path), os.path.normpath(root)).replace(os.sep, "/")
+    if rel not in WHOLE_READ_GUARDED:
+        return None
+    limit = (tool_input or {}).get("limit")
+    if isinstance(limit, int) and 0 < limit <= WHOLE_READ_MAX_LINES:
+        return None
+    return ("`{}` is {} - never read it whole. Look a schema or operation up with `scripts/dev/api-type "
+            "<SchemaName | /v1/path>`, or find the lines with `grep -n` and Read them with an `offset` and a "
+            "`limit` of at most {}.".format(rel, WHOLE_READ_GUARDED[rel], WHOLE_READ_MAX_LINES))
+
+
+def cmd_pre_read(data):
+    path = ((data.get("tool_input") or {}).get("file_path") or "")
+    if not path.replace(os.sep, "/").endswith(tuple(WHOLE_READ_GUARDED)):
+        return  # every other Read: no git call, nothing to say
+    root = toplevel(os.path.dirname(path))
+    problem = whole_read_tool_problem(root, data.get("tool_input"))
+    if problem:
+        pre_decision("deny", problem)
+
+
 def cmd_pre_bash(data):
     start = data.get("cwd") or os.getcwd()
     session_root = toplevel(start)
@@ -1193,6 +1311,9 @@ def cmd_pre_bash(data):
                 any("nexotec-gates" in w for w in words[1:]):
             denies.append("The gate state is written only by the hooks and `scripts/dev/gate`; read it with "
                           "`scripts/dev/gate status`.")
+        problem = whole_read_problem(words, redirects, where, root)
+        if problem:
+            denies.append(problem)
         if reviewer:
             problem = reviewer_problem(words, redirects, where, root)
             if problem:
@@ -1550,15 +1671,10 @@ def latest_statuses(statuses):
     return latest
 
 
-def ci_problem(pr, head):
-    if pr.get("headRefOid") and head and pr["headRefOid"] != head:
-        return "The PR's head ({}) is not your local HEAD ({}) - push the latest commit.".format(
-            pr["headRefOid"][:10], head[:10])
-    checks = pr.get("statusCheckRollup") or []
-    if not checks:
-        return "CI has not reported on the PR yet - wait for its check runs before handing over."
+def ci_state(pr):
+    """(pending, failed) check names of a PR, from `pr_from_rest`'s rollup."""
     pending, failed = [], []
-    for c in checks:
+    for c in pr.get("statusCheckRollup") or []:
         name = c.get("name") or c.get("context") or "?"
         if c.get("__typename") == "StatusContext":
             state = (c.get("state") or "").upper()
@@ -1571,12 +1687,42 @@ def ci_problem(pr, head):
                 pending.append(name)
             elif (c.get("conclusion") or "").upper() not in ("SUCCESS", "NEUTRAL", "SKIPPED"):
                 failed.append(name)
+    return pending, failed
+
+
+def ci_problem(pr, head):
+    """The hand-over happens when the PR opens (KAN-619; Anto, 2026-11-10): it needs the PR open for
+    the local HEAD and no check that has already FAILED. A check still running, or none reported yet
+    (a draft PR, which pr-light skips), does not hold it - green CI is a condition of merging, which
+    `scripts/dev/gate close` reads (`close_ci_problem`)."""
+    if pr.get("state") not in ("OPEN", "MERGED"):
+        return "The pull request #{} is {} - open one for this branch.".format(
+            pr.get("number"), (pr.get("state") or "unknown").lower())
+    if pr.get("headRefOid") and head and pr["headRefOid"] != head:
+        return "The PR's head ({}) is not your local HEAD ({}) - push the latest commit.".format(
+            pr["headRefOid"][:10], head[:10])
+    _pending, failed = ci_state(pr)
     if failed:
-        return "CI failed: {}. Fix it, re-run `scripts/dev/check`, push, and wait again.".format(", ".join(failed))
-    if pending:
-        return "CI is still running ({}). Wait for it to finish before handing over.".format(
-            ", ".join(pending[:6]))
+        return "CI failed: {}. Fix it, re-run `scripts/dev/check`, and push again.".format(", ".join(failed))
     return None
+
+
+NIGHTLY_RED = ("failure", "timed_out", "startup_failure")
+
+
+def close_ci_problem(merged_pr, nightly_run):
+    """KAN-619: `close` sets nothing Done on red CI. `merged_pr` is `pr_from_rest` of the merged PR
+    (its head's and its merge commit's checks); `nightly_run` the latest completed nightly run of
+    test.yml on main (a workflow-run dict, or None). A cancelled run is no verdict. Returns the
+    refusal, or None."""
+    failed = ci_state(merged_pr)[1]
+    if nightly_run and (nightly_run.get("conclusion") or "") in NIGHTLY_RED:
+        failed.append("the nightly run of {} on main ({}: {})".format(
+            (nightly_run.get("head_sha") or "?")[:10], nightly_run.get("conclusion"), nightly_run.get("html_url")))
+    if not failed:
+        return None
+    return ("CI is red for the merged work: {}. The ticket is not Done: file a Bug ticket on the Kanban board "
+            "naming the failing job, and tell Anto.".format("; ".join(failed)))
 
 
 def handover_pushes(state, session_id):
@@ -1711,6 +1857,51 @@ def pr_merged(root, branch):
     return problem is None and pull is not None and bool(pull.get("merged_at"))
 
 
+def merged_ci(root, branch):
+    """(refusal or None, note) for `close` (KAN-619): the merged PR's checks - on its head and on the
+    merge commit - and the latest completed nightly run on main. A check that cannot be read is a
+    refusal too: Done needs the answer."""
+    pull, problem = branch_pull(root, branch)
+    if problem or pull is None:
+        return (problem or "No pull request for `{}`.".format(branch)) + " - CI cannot be confirmed.", ""
+    runs, statuses = [], []
+    for sha in dict.fromkeys(filter(None, [(pull.get("head") or {}).get("sha"), pull.get("merge_commit_sha")])):
+        found, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/check-runs".format(sha),
+                                      key="check_runs")
+        if problem:
+            return problem + " - CI cannot be confirmed.", ""
+        runs += found
+        found, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/statuses".format(sha))
+        if problem:
+            return problem + " - CI cannot be confirmed.", ""
+        statuses += latest_statuses(found)
+    nightly, problem = gh_api(root, "repos/{owner}/{repo}/actions/workflows/test.yml/runs"
+                                    "?branch=main&status=completed&per_page=1")
+    if problem:
+        return problem + " - the nightly run cannot be read.", ""
+    latest = ((nightly or {}).get("workflow_runs") or [None])[0]
+    merged = pr_from_rest(pull, runs, latest_statuses(statuses))
+    return close_ci_problem(merged, latest), close_ci_note(merged, latest, pull.get("merged_at"))
+
+
+def close_ci_note(merged_pr, nightly_run, merged_at):
+    """What `close` prints beside its verdict: checks still running, a cancelled nightly, and a
+    nightly run that started before the merge - it then says nothing about the merged code yet."""
+    notes = []
+    pending = ci_state(merged_pr)[0]
+    if pending:
+        notes.append("Still running on the merged work: {}.".format(", ".join(pending)))
+    if nightly_run is None:
+        notes.append("No nightly run on main has completed yet - the merged code has had no full run.")
+    else:
+        if (nightly_run.get("conclusion") or "") == "cancelled":
+            notes.append("The latest nightly run was cancelled - no verdict.")
+        if merged_at and (nightly_run.get("created_at") or "") < merged_at:
+            notes.append("The latest nightly run ({}) started before the merge ({}): it does not cover the merged "
+                         "code yet - say so in the Done callout.".format(nightly_run.get("created_at"), merged_at))
+    return " ".join(notes)
+
+
 def cli(argv):
     root = toplevel(os.getcwd())
     if not root:
@@ -1746,6 +1937,13 @@ def cli(argv):
                   "`close` is for after Anto merged it; to drop the ticket without a merge, Anto runs "
                   "`scripts/dev/gate close --abandon`.".format(branch), file=sys.stderr)
             return 2
+        if pending and not abandon:
+            refusal, note = merged_ci(root, branch)
+            if note:
+                print(note)
+            if refusal:
+                print(refusal, file=sys.stderr)
+                return 3
 
         def close(st):
             ticket = st.pop("ticket", None)
@@ -1925,19 +2123,60 @@ def selftest():
     assert pr["headRefOid"] == head_sha and pr["state"] == "OPEN" and pr["number"] == 7
     assert ci_problem(pr, head_sha) is None
     assert "not your local HEAD" in ci_problem(pr, "f" * 40)
-    assert "has not reported" in ci_problem(pr_from_rest(pull_open, [], []), head_sha)
+    # KAN-619: the hand-over waits for nothing GitHub has not decided yet - only a failure blocks
+    assert ci_problem(pr_from_rest(pull_open, [], []), head_sha) is None  # a draft: nothing reported
     pending = green + [{"name": "mypy", "status": "in_progress", "conclusion": None}]
-    assert "still running (mypy)" in ci_problem(pr_from_rest(pull_open, pending, []), head_sha)
+    assert ci_problem(pr_from_rest(pull_open, pending, []), head_sha) is None
+    assert ci_state(pr_from_rest(pull_open, pending, [])) == (["mypy"], [])
+    assert "is closed" in ci_problem(pr_from_rest(pull_old, green, []), "0" * 40)
     failed = green + [{"name": "ruff", "status": "completed", "conclusion": "failure"}]
     assert "CI failed: ruff" in ci_problem(pr_from_rest(pull_open, failed, []), head_sha)
     status_pending = [{"context": "deploy/preview", "state": "pending"}]
-    assert "deploy/preview" in ci_problem(pr_from_rest(pull_open, green, status_pending), head_sha)
+    assert ci_problem(pr_from_rest(pull_open, green, status_pending), head_sha) is None
     status_error = [{"context": "deploy/preview", "state": "error"}]
     assert "CI failed: deploy/preview" in ci_problem(pr_from_rest(pull_open, green, status_error), head_sha)
     assert pr_from_rest(pull_merged, green, [])["state"] == "MERGED"
-    # a required check that never reported holds the gate, as GraphQL's EXPECTED did
-    assert "still running (mypy)" in ci_problem(pr_from_rest(pull_open, green, [], ["pytest", "mypy"]), head_sha)
-    assert ci_problem(pr_from_rest(pull_open, green, [], ["pytest"]), head_sha) is None
+    # a required check that never reported counts as pending (GraphQL's EXPECTED) - it no longer holds the gate
+    assert ci_state(pr_from_rest(pull_open, green, [], ["pytest", "mypy"]))[0] == ["mypy"]
+    assert ci_problem(pr_from_rest(pull_open, green, [], ["pytest", "mypy"]), head_sha) is None
+    # close (KAN-619): green merged work and a green nightly close; a red check or a red nightly refuses Done
+    merged_green = pr_from_rest(pull_merged, green, [])
+    nightly_green = {"conclusion": "success", "head_sha": "a" * 40, "html_url": "https://x/runs/1"}
+    nightly_red = {"conclusion": "failure", "head_sha": "a" * 40, "html_url": "https://x/runs/2"}
+    assert close_ci_problem(merged_green, nightly_green) is None
+    assert close_ci_problem(merged_green, None) is None
+    red = close_ci_problem(pr_from_rest(pull_merged, failed, []), nightly_green)
+    assert red and "ruff" in red and "not Done" in red and "Bug ticket" in red
+    assert "nightly run of aaaaaaaaaa" in close_ci_problem(merged_green, nightly_red)
+    assert close_ci_problem(pr_from_rest(pull_merged, pending, []), nightly_green) is None  # still running: not red
+    assert close_ci_problem(merged_green, dict(nightly_green, conclusion="cancelled")) is None  # no verdict
+    assert "cancelled" in close_ci_note(merged_green, dict(nightly_green, conclusion="cancelled"), None)
+    early = dict(nightly_green, created_at="2026-10-06T02:17:00Z")
+    assert "started before the merge" in close_ci_note(merged_green, early, "2026-10-06T05:51:51Z")
+    assert close_ci_note(merged_green, dict(early, created_at="2026-10-07T02:17:00Z"), "2026-10-06T05:51:51Z") == ""
+    # --- KAN-618: generated files are never printed whole; grep and a bounded range still work
+    gen = "frontend/apps/dms/src/api/schema.d.ts"
+
+    def read_problem(command, where="/r"):
+        return [whole_read_problem(w, r, where, "/r") for w, r in shell_commands(command)]
+    for refused in ("cat " + gen, "less " + gen, "head -n 500 " + gen, "head -500 " + gen, "head --lines=300 " + gen,
+                    "tail -n +1 " + gen, "sed -n '1,$p' " + gen, "sed -n p " + gen, "sed 's/a/b/' " + gen,
+                    "sed -n '1~1p' " + gen, "sed -n '$!p' " + gen,
+                    "sed -n '1,400p' " + gen, "cat < " + gen, "head -c 99999 " + gen, "cat frontend/package-lock.json",
+                    "cat ../api/schema.d.ts"):
+        where = "/r/frontend/apps/dms/src/x" if refused.startswith("cat ../") else "/r"
+        found = [p for p in read_problem(refused, where) if p]
+        assert found and "scripts/dev/api-type" in found[0] and "grep -n" in found[0], refused
+    for allowed in ("grep -n CustomerRead " + gen, "head -n 50 " + gen, "head " + gen, "sed -n '6600,6700p' " + gen,
+                    "sed -n '/CustomerRead: {/p' " + gen, "tail -n 20 " + gen, "wc -l " + gen, "cat README.md",
+                    "grep -c x frontend/package-lock.json", "sed -i 's/a/b/' other.txt"):
+        assert not any(read_problem(allowed)), allowed
+    # the Read tool: a whole read is refused, a bounded one (offset + limit <= 200) is not; other files untouched
+    assert "scripts/dev/api-type" in whole_read_tool_problem("/r", {"file_path": "/r/" + gen})
+    assert whole_read_tool_problem("/r", {"file_path": "/r/" + gen, "limit": 500})
+    assert whole_read_tool_problem("/r", {"file_path": "/r/frontend/package-lock.json"})
+    assert whole_read_tool_problem("/r", {"file_path": "/r/" + gen, "offset": 6600, "limit": 120}) is None
+    assert whole_read_tool_problem("/r", {"file_path": "/r/frontend/apps/dms/src/api/types.ts"}) is None
     newest_first = [{"context": "deploy", "state": "success"}, {"context": "deploy", "state": "pending"}]
     assert latest_statuses(newest_first) == newest_first[:1]
     real_run = subprocess.run
@@ -1998,6 +2237,7 @@ HOOKS = {
     "session-start": cmd_session_start,
     "session-sync": cmd_session_sync,
     "pre-bash": cmd_pre_bash,
+    "pre-read": cmd_pre_read,
     "pre-edit": cmd_pre_edit,
     "pre-notion": cmd_pre_notion,
     "post-tool": cmd_post_tool,

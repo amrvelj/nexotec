@@ -1,0 +1,10 @@
+{
+  "sales": "Consulente di vendita",
+  "service_advisor": "Consulente di servizio",
+  "finance_manager": "Responsabile finanze",
+  "gm": "Direttore generale",
+  "admin": "Amministratore",
+  "technician": "Tecnico",
+  "parts": "Consulente ricambi",
+  "other": "Collaboratore"
+}

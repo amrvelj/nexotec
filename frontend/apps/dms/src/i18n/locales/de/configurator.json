@@ -1,0 +1,294 @@
+{
+  "vehicleLink": {
+    "unknownVehicle": "Fahrzeug nicht im Register",
+    "vin": "VIN",
+    "vinHint": "Leer gespeichert, löst das die Verknüpfung mit dem Fahrzeug.",
+    "clearVin": "VIN entfernen",
+    "linkedVehicle": "Verknüpftes Fahrzeug",
+    "noVehicle": "Kein Fahrzeug verknüpft"
+  },
+  "mode": {
+    "label": "Modus",
+    "build": "Neuwagen",
+    "record": "Gebrauchtwagen"
+  },
+  "find": {
+    "title": "Fahrzeug finden",
+    "idLabel": "Fahrzeug identifizieren",
+    "idHint": "VIN, Kontrollschild, Stammnummer, Typenschein oder Werkscode — ein Feld, das System erkennt die Art selbst.",
+    "manual": "Manuell konfigurieren",
+    "browse": "Katalog durchsuchen",
+    "unverifiedNote": "Manuelle Konfiguration — als «nicht verifiziert» markiert, bis sie einem Katalogeintrag zugeordnet ist. Keine Bewertung, keine Publikation, bis dahin."
+  },
+  "configure": {
+    "title": "Konfigurieren",
+    "back": "Zurück zur Auswahl"
+  },
+  "sections": {
+    "specification": "Spezifikation",
+    "options": "Optionen",
+    "colour": "Farbe & Räder",
+    "images": "Bilder",
+    "summary": "Zusammenfassung"
+  },
+  "spec": {
+    "overridden": "geändert",
+    "groups": {
+      "identity": "Bezeichnung",
+      "powertrain": "Antrieb",
+      "classification": "Klassierung",
+      "dimensions": "Masse & Gewichte",
+      "consumption": "Verbrauch & Energie",
+      "codes": "Codes",
+      "price": "Preis",
+      "vehicleType": "Fahrzeugtyp",
+      "colours": "Farben"
+    },
+    "fields": {
+      "modelTypeName": "Modelltyp",
+      "totalPs": "Gesamt-PS",
+      "totalKw": "Gesamt-kW",
+      "systemKw": "System-kW",
+      "valuationClassification": "Bewertungseinstufung",
+      "weightEmptyKg": "Leergewicht (kg)",
+      "weightTotalKg": "Gesamtgewicht (kg)",
+      "payloadKg": "Nutzlast (kg)",
+      "towingCapacityKg": "Anhängelast (kg)",
+      "wheelbaseMm": "Radstand (mm)",
+      "consumptionMixed": "Verbrauch gemischt",
+      "consumptionUrban": "Verbrauch Stadt",
+      "consumptionExtraUrban": "Verbrauch Land",
+      "consumptionNorm": "Verbrauchsnorm",
+      "energyConsumptionKwh": "Energieverbrauch (kWh)",
+      "batteryCapacityKwh": "Batteriekapazität (kWh)",
+      "rangeKm": "Reichweite (km)",
+      "tankCapacityL": "Tankinhalt (l)",
+      "werkscode": "Werkscode",
+      "importcode": "Importcode",
+      "basePriceYear": "Preisjahr",
+      "vehicleKind": "Fahrzeugart",
+      "priceIsNet": "Preis netto",
+      "drivetrain": "Antriebsart",
+      "energyLabel": "Energieetikette"
+    },
+    "retired": "Nicht mehr verfügbar — bitte einen aktuellen Wert wählen",
+    "retiredSaveError": "Nicht mehr verfügbar: {{fields}}. Bitte vor dem Speichern einen aktuellen Wert wählen.",
+    "codedRequiredSaveError": "Bitte vor dem Speichern wählen: {{fields}}.",
+    "codedLocked": "Aus dem Katalog übernommen — nicht änderbar.",
+    "listUnavailable": "Die Liste konnte nicht geladen werden",
+    "energyLabelValue": "{{category}} ({{year}})"
+  },
+  "options": {
+    "noCatalogueVariant": "Katalogoptionen sind für eine manuelle Konfiguration nicht verfügbar.",
+    "empty": "Für diese Variante sind keine Optionen im Katalogspiegel vorhanden.",
+    "loadError": "Optionen konnten nicht geladen werden.",
+    "unavailable": {
+      "title": "Paketdaten nicht verfügbar",
+      "body": "Paket- und Kompatibilitätsdaten sind für dieses Konto nicht verfügbar. Optionen werden als flache Preisliste angezeigt."
+    },
+    "included": "Inklusive",
+    "addFeature": "Merkmal hinzufügen",
+    "conflict": {
+      "title": "Diese Auswahl passt normalerweise nicht zusammen",
+      "body": "Die Daten von auto-i-dat beschreiben das Übliche, keine feste Regel — diese Auswahl kann trotzdem bestätigt werden.",
+      "dismiss": "Ausblenden"
+    },
+    "packageOffer": {
+      "body": "{{package}} enthält normalerweise {{contents}}. Auch hinzufügen?",
+      "add": "Hinzufügen",
+      "skip": "Überspringen"
+    },
+    "relations": {
+      "excludes": "Schliesst {{option}} aus",
+      "contains": "Enthält {{option}}",
+      "containedIn": "Enthalten in {{option}}",
+      "becomesStandardWith": "Wird serienmässig mit {{option}}",
+      "priceInCombinationWith": "{{price}} in Kombination mit {{option}}",
+      "notWith": "Nicht verfügbar mit {{option}}",
+      "onlyWith": "Nur verfügbar mit {{option}}",
+      "notInCombinationWith": "Nicht verfügbar in Kombination mit {{option}}",
+      "onlyInCombinationWith": "Nur verfügbar in Kombination mit {{option}}"
+    },
+    "searchPlaceholder": "Option oder Code suchen…",
+    "searchLabel": "Optionen durchsuchen",
+    "noMatches": "Keine Option passt zur Suche."
+  },
+  "colour": {
+    "exterior": "Aussenfarbe",
+    "interior": "Polsterfarbe",
+    "pickFromCatalogue": "Aus Katalog wählen",
+    "surcharge": "Aufpreis",
+    "exteriorType": "Farbtyp",
+    "interiorType": "Polsterart",
+    "pickType": "Wählen…",
+    "typeListUnavailable": "Die Liste konnte nicht geladen werden"
+  },
+  "wheels": {
+    "title": "Räder & Reifen",
+    "axle": "Achse",
+    "dimension": "Dimension",
+    "season": "Saison",
+    "remark": "Bemerkung",
+    "description": "Räder",
+    "axlePosition": {
+      "front": "Vorne",
+      "rear": "Hinten",
+      "both": "Vorne + hinten",
+      "unclassified": "Nicht zugeordnet"
+    },
+    "seasonLabel": {
+      "summer": "Sommer",
+      "winter": "Winter"
+    }
+  },
+  "images": {
+    "noCatalogueVariant": "Katalogbilder sind für eine manuelle Konfiguration nicht verfügbar.",
+    "unavailable": {
+      "title": "Bilder nicht verfügbar",
+      "body": "Bilder sind für dieses Konto nicht verfügbar.",
+      "uploadNote": "Ihr Betrieb kann hier eigene Fotos hinzufügen, sobald der manuelle Upload verfügbar ist."
+    },
+    "empty": "Für diese Variante sind keine Bilder im Katalogspiegel vorhanden.",
+    "bildArt": {
+      "exterior": "Aussen",
+      "interior": "Innen"
+    },
+    "bildTyp": {
+      "small": "Klein",
+      "large": "Gross"
+    }
+  },
+  "summary": {
+    "firstRegistration": "Erstinverkehrsetzung",
+    "mileage": "Kilometerstand",
+    "colour": "Farbe",
+    "untitled": "Ohne Bezeichnung",
+    "open": "Konfigurator öffnen",
+    "options": "Optionen",
+    "notesLabel": "Notizen",
+    "technicalData": "Technische Daten"
+  },
+  "badges": {
+    "unverified": "Nicht verifiziert",
+    "bestMatchConfirmed": "Bestmögliche Zuordnung bestätigt",
+    "manual": "Manuell"
+  },
+  "save": "Speichern",
+  "saveNew": "Konfiguration speichern",
+  "saveError": "Die Konfiguration konnte nicht gespeichert werden.",
+  "saveOptionsError": "Die Konfiguration wurde gespeichert, aber die Optionen konnten nicht gespeichert werden.",
+  "identify": {
+    "submit": "Identifizieren",
+    "error": "Die Identifikation ist fehlgeschlagen.",
+    "unrecognised": "Das ist weder eine VIN noch ein Kontrollschild, eine Stammnummer, ein Typenschein oder ein Werkscode.",
+    "recognisedAs": "Erkannt als: {{kind}}",
+    "kind": {
+      "vin": "VIN",
+      "kontrollschild": "Kontrollschild",
+      "stammnummer": "Stammnummer",
+      "typenschein": "Typenschein",
+      "werkscode": "Werkscode"
+    },
+    "existingVehicle": {
+      "title": "Fahrzeug bereits bekannt — {{number}}",
+      "reuse": "Seine Konfiguration übernehmen",
+      "noVariant": "Kein Katalogeintrag hinterlegt — im Katalog suchen oder manuell konfigurieren."
+    },
+    "reuseModeMismatch": "Diese Konfiguration ist im Modus «{{mode}}» erfasst und kann hier nicht verwendet werden.",
+    "variantsTitle": "Welche Variante ist es?",
+    "variantTitle": "Katalogtreffer",
+    "plateRecords": {
+      "wechselschild": "Wechselschild — das Kontrollschild ist mehreren Fahrzeugen zugeteilt. Wählen Sie das Fahrzeug vor Ort.",
+      "conflict": "Das Register meldet widersprüchliche Daten zu diesem Kontrollschild. Wählen Sie das richtige Fahrzeug; der Widerspruch wurde gemeldet.",
+      "several": "Mehrere frühere Abfragen nennen diese Stammnummer. Wählen Sie das Fahrzeug vor Ort."
+    },
+    "none": "Kein Katalogtreffer. Im Katalog unten suchen oder manuell konfigurieren.",
+    "pickerEmpty": "Keine Kandidaten",
+    "productionYears": "{{from}}–{{to}}",
+    "inProduction": "seit {{from}}",
+    "notes": {
+      "vin_decode_not_entitled": "VIN-Abfrage nicht im Vertrag – Fahrzeug über Kennzeichen, Stammnummer oder Typenschein identifizieren.",
+      "no_provider_connection": "Kein Fahrzeugdaten-Anbieter verbunden — im Katalog suchen oder manuell konfigurieren.",
+      "plate_lookup_not_entitled": "Die Kontrollschild-Abfrage ist in diesem Konto nicht freigeschaltet.",
+      "plate_lookup_failed": "Die Kontrollschild-Abfrage beim Anbieter ist fehlgeschlagen. Bitte später erneut versuchen.",
+      "plate_cache_hit": "Aus einer früheren Abfrage (nicht erneut verrechnet).",
+      "plate_not_found": "Zu diesem Kontrollschild ist kein Fahrzeug registriert.",
+      "provider_not_entitled": "Die Fahrzeugabfrage ist in diesem Konto nicht freigeschaltet — im Katalog suchen oder manuell konfigurieren.",
+      "provider_unavailable": "Der Fahrzeugdaten-Anbieter ist nicht erreichbar. Bekannte Fahrzeuge werden weiterhin gefunden; bitte später erneut versuchen."
+    }
+  },
+  "bestMatch": {
+    "title": "Bestmögliche Übereinstimmung",
+    "hint": "Benötigt den Neupreis für das Modelljahr dieses Fahrzeugs. Das Ergebnis ist ein Vorschlag, den Sie bestätigen.",
+    "newPrice": "Neupreis (CHF)",
+    "source": {
+      "label": "Quelle des Neupreises",
+      "catalogue": "Katalog (Modelljahr)",
+      "document": "Fahrzeugausweis / Importeurdokument",
+      "customer": "Angabe des Kunden"
+    },
+    "modelDescription": "Modellbezeichnung (optional)",
+    "ask": "Übereinstimmung suchen",
+    "error": "Für diesen Typenschein und Neupreis wurde keine Übereinstimmung gefunden.",
+    "proposal": "Vorschlag: {{label}}",
+    "matchCode": {
+      "1": "Eindeutige Übereinstimmung",
+      "2": "Bestmögliche Übereinstimmung — vor dem Bestätigen prüfen"
+    },
+    "fields": {
+      "typeApprovalNumber": "Typenschein",
+      "newPrice": "Neupreis",
+      "modelDescription": "Modellbezeichnung"
+    },
+    "entered": "Erfasst",
+    "matched": "Katalog",
+    "agrees": "stimmt überein",
+    "differs": "weicht ab",
+    "confirm": "Dieses Fahrzeug bestätigen",
+    "discard": "Verwerfen"
+  },
+  "resync": {
+    "open": "Aus dem Katalog aktualisieren",
+    "title": "Aus dem Katalog aktualisieren",
+    "hint": "Der Katalog weicht bei diesen Feldern ab. Es ändert sich nur, was Sie ankreuzen.",
+    "none": "Die Konfiguration entspricht dem Katalog.",
+    "field": "Feld",
+    "current": "Konfiguration",
+    "catalogue": "Katalog",
+    "overridden": "von Ihnen geändert",
+    "apply": "Ausgewählte übernehmen",
+    "error": "Die Aktualisierung ist fehlgeschlagen."
+  },
+  "details": {
+    "notInContract": {
+      "title": "Nicht in Ihrem Vertrag",
+      "body": "auto-i-dat liefert diese Daten für Ihren Zugang nicht: die Option ist nicht lizenziert. Sobald eine Verbindungsprüfung die Option als lizenziert feststellt, werden sie beim nächsten Öffnen geladen."
+    },
+    "unavailable": {
+      "title": "Vom Anbieter derzeit nicht verfügbar",
+      "body": "auto-i-dat hat diese Daten nicht geliefert. Beim nächsten Öffnen des Fahrzeugs werden sie erneut abgefragt."
+    },
+    "notLoaded": {
+      "title": "Noch nicht geladen",
+      "body": "Diese Daten wurden für diesen Betrieb noch nicht von auto-i-dat abgefragt."
+    },
+    "names": {
+      "options": "Optionen",
+      "colours": "Farben",
+      "tyreSpecs": "Reifendaten",
+      "images": "Bilder",
+      "energyLabel": "Energieetikette"
+    },
+    "state": {
+      "present": "Geladen",
+      "notInContract": "Nicht in Ihrem Vertrag",
+      "unavailable": "Nicht verfügbar",
+      "notLoaded": "Noch nicht geladen"
+    },
+    "notes": {
+      "entitlementAbsent": "Die Prüfung der Verbindung hat diese Option als nicht lizenziert festgestellt; auto-i-dat wurde nicht angefragt.",
+      "variantUnknownAtProvider": "auto-i-dat führt diese Variante nicht mehr; es gibt dazu nichts zu laden.",
+      "energyLabelAmbiguous": "auto-i-dat nennt für dieses Jahr je nach Getriebe verschiedene Klassen; es wurde keine übernommen."
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "title": "Standard texts",
+  "subtitle": "The wording of your documents and messages — in four languages, with placeholders.",
+  "disclaimer": "The texts provided are templates in standard Swiss wording, not legal advice. Please review them before you use them.",
+  "newText": "New text",
+  "loadError": "The standard texts could not be loaded.",
+  "readOnly": "You can read the texts of this category but not change them.",
+  "empty": "This category has no texts yet.",
+  "inactive": "Inactive",
+  "edit": "Edit",
+  "view": "View",
+  "category": {
+    "document": "Documents",
+    "email": "E-mail",
+    "sms": "SMS",
+    "whatsapp": "WhatsApp",
+    "internal_note": "Internal notes",
+    "workshop": "Workshop"
+  },
+  "appliesTo": {
+    "offer": "Offer",
+    "contract": "Purchase contract",
+    "invoice": "Invoice",
+    "appointment_reminder": "Appointment reminder",
+    "vehicle_ready": "Vehicle ready",
+    "workshop_order": "Workshop order",
+    "customer_note": "Customer note"
+  },
+  "slot": {
+    "header": "Header",
+    "intro": "Introduction",
+    "body": "Body",
+    "footer": "Footer",
+    "terms": "Terms",
+    "closing": "Closing"
+  },
+  "language": {
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "en": "English"
+  },
+  "columns": {
+    "title": "Name",
+    "appliesTo": "Used on",
+    "slot": "Position",
+    "source": "Origin",
+    "languages": "Languages",
+    "default": "Default"
+  },
+  "badge": {
+    "template": "Template — please review",
+    "adapted": "Adapted",
+    "own": "Own text",
+    "seedChanged": "Template changed — please review"
+  },
+  "fields": {
+    "appliesTo": "Used on",
+    "slot": "Position in the document",
+    "title": "Name",
+    "body": "Text",
+    "isDefault": "Default text for this position",
+    "active": "Active",
+    "templateApproved": "Template approved by the provider",
+    "providerTemplateId": "Provider's template ID"
+  },
+  "whatsapp": {
+    "approved": "Approved",
+    "notApproved": "Not approved — only within 24 hours of a customer message"
+  },
+  "editor": {
+    "title": "Edit standard text",
+    "newTitle": "New standard text",
+    "missingLanguage": "missing",
+    "templateHint": "This is the template provided. Save it to adopt it as your own text; the template itself stays unchanged.",
+    "templateHintReadOnly": "This is the template provided.",
+    "seedChangedTitle": "The template has changed — please review your text",
+    "seedChangedHint": "Your text stays as it is. The current template reads:",
+    "currentTemplate": "Current template",
+    "markReviewed": "Mark as reviewed",
+    "placeholders": "Insert placeholder",
+    "preview": "Preview",
+    "previewHint": "With sample data; your business's name and phone are real.",
+    "previewEmpty": "No text.",
+    "previewFailed": "This text cannot be printed as it is:",
+    "resetToTemplate": "Reset to template",
+    "deleteLanguage": "Delete this language",
+    "saved": "Saved.",
+    "adapt": "Adopt as own text",
+    "close": "Close"
+  },
+  "placeholder": {
+    "dealership_name": "Business name",
+    "location_phone": "Phone",
+    "customer_salutation": "Salutation",
+    "vehicle_make_model": "Make and model",
+    "document_number": "Document number",
+    "document_date": "Document date",
+    "user_full_name": "Adviser's name",
+    "payment_due_date": "Payment due date"
+  },
+  "problem": {
+    "unknown": "Unknown placeholder: {{token}}",
+    "not_valid_here": "Not available here: {{token}}",
+    "malformed": "A curly brace is not closed.",
+    "unresolved": "No value: {{token}}"
+  },
+  "errors": {
+    "saveFailed": "The text could not be saved.",
+    "previewFailed": "The preview could not be created."
+  }
+}

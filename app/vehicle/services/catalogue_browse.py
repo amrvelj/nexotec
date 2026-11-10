@@ -173,7 +173,7 @@ def _call(db: Session, provider: _Provider, *, actor_id: uuid.UUID | None, purpo
     refuse the user's input (a kind or a code the map does not know, an
     unscoped query) is decided before this** — a 422 raised inside the block
     would charge the breaker and write a call-log row for a request never
-    sent (the gateway rule, `vehicle.md`). The provider's 403 is
+    sent (the gateway rule, `vehicle-gateway.md`). The provider's 403 is
     `not_in_contract`; a transport failure or timeout is `unavailable`."""
 
     assert provider.connection is not None

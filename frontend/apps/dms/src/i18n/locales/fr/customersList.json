@@ -1,0 +1,91 @@
+{
+  "title": "Clients",
+  "newCustomer": "Nouveau client",
+  "searchPlaceholder": "Rechercher par nom, e-mail, téléphone…",
+  "loadError": "Impossible de charger les clients.",
+  "columns": {
+    "customerNumber": "N° client",
+    "name": "Nom",
+    "type": "Type",
+    "language": "Langue",
+    "status": "Statut",
+    "changed": "Modifié",
+    "creditBlock": "Blocage de crédit",
+    "contact": "Contact",
+    "salutation": "Civilité",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "companyName": "Entreprise",
+    "legalForm": "Forme juridique",
+    "birthDate": "Date de naissance",
+    "nationality": "Nationalité",
+    "phoneMobile": "Mobile",
+    "phoneLandline": "Fixe",
+    "phoneWork": "Téléphone prof.",
+    "email": "E-mail",
+    "emailSecondary": "E-mail secondaire",
+    "addressStreet": "Rue",
+    "addressHouseNumber": "N°",
+    "addressLine2": "Complément d'adresse",
+    "addressPostalCode": "NPA",
+    "addressLocality": "Localité",
+    "canton": "Canton",
+    "country": "Pays",
+    "preferredChannel": "Canal préféré",
+    "source": "Source",
+    "sourceRef": "Référence de source",
+    "marketingConsent": "Consentement marketing",
+    "created": "Créé",
+    "duplicateOf": "Doublon de",
+    "advisor": "Conseiller",
+    "tags": "Étiquettes",
+    "customerTitle": "Titre",
+    "gender": "Genre",
+    "website": "Site web",
+    "newsletter": "Newsletter",
+    "paymentTerms": "Conditions de paiement",
+    "creditLimit": "Limite de crédit",
+    "iban": "IBAN",
+    "vatRegistered": "Assujetti à la TVA",
+    "vatStatusConfirmed": "Statut TVA confirmé",
+    "creditBlockReason": "Motif du blocage de crédit",
+    "creditBlockedAt": "Bloqué depuis",
+    "customerSince": "Client depuis",
+    "nextFollowUp": "Prochaine relance",
+    "notes": "Notes"
+  },
+  "rowActions": {
+    "open": "Ouvrir",
+    "copyCustomerNumber": "Copier le numéro de client"
+  },
+  "emptyState": {
+    "title": "Aucun client pour l'instant",
+    "description": "Créez votre premier client pour commencer."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun résultat",
+    "description": "Essayez un autre terme de recherche ou filtre.",
+    "action": "Effacer la recherche et les filtres"
+  },
+  "filters": {
+    "customerType": "Type de client",
+    "lifecycleStatus": "Statut du cycle de vie",
+    "language": "Langue",
+    "canton": "Canton",
+    "changedSince": "Modifié depuis",
+    "changedSinceChip": "Modifié depuis {{date}}"
+  },
+  "allCustomersView": "Tous les clients",
+  "selection": {
+    "count": "{{count, number}} sélectionné(s)",
+    "clear": "Effacer la sélection",
+    "export": "Exporter",
+    "print": "Imprimer"
+  },
+  "createOfferError": "L’offre n’a pas pu être créée. Veuillez réessayer.",
+  "createContractError": "Le contrat n’a pas pu être créé. Veuillez réessayer.",
+  "doNotContactError": "« Ne pas contacter » n’a pas pu être enregistré. Veuillez réessayer.",
+  "advisorFilter": {
+    "unassigned": "Non attribué"
+  }
+}

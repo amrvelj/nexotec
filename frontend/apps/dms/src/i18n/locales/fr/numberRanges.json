@@ -1,0 +1,45 @@
+{
+  "title": "Plages de numéros",
+  "subtitle": "Comment votre entreprise numérote ses documents : une suite continue par type de document sur tous les sites.",
+  "freezeNotice": "Une plage de numéros est gelée dès qu'elle attribue son premier numéro. Ensuite, le modèle, la valeur de départ et le redémarrage annuel ne peuvent plus être modifiés — seulement par le support Nexotec, avec un motif. Vérifiez les modèles avant de créer le premier document.",
+  "loadError": "Les plages de numéros n'ont pas pu être chargées.",
+  "readOnly": "Seule la direction peut modifier les plages de numéros.",
+  "columns": {
+    "documentType": "Type de document",
+    "pattern": "Modèle",
+    "nextNumber": "Prochain numéro",
+    "currentValue": "Valeur actuelle",
+    "status": "Statut",
+    "actions": "Actions"
+  },
+  "status": {
+    "open": "Ouverte",
+    "frozen": "Gelée"
+  },
+  "frozenSince": "Gelée depuis le {{date}}",
+  "yearlyResetShort": "Recommence chaque année",
+  "edit": "Modifier",
+  "editTitle": "Plage de numéros {{type}}",
+  "pattern": "Modèle",
+  "patternHint": "Espaces réservés : {year} pour l'année, {location_code} pour le code du site, exactement un {counter:N} pour le compteur à N chiffres. Sinon, lettres, chiffres et - / . _ — au plus 16 caractères par numéro.",
+  "startValue": "Valeur de départ",
+  "yearlyReset": "Recommencer chaque année à la valeur de départ",
+  "reason": "Motif (consigné au journal)",
+  "frozenStaffNotice": "Cette plage a déjà attribué des numéros et est gelée. Une modification est une intervention du support et est consignée avec votre motif.",
+  "example": "Prochain numéro",
+  "previewError": "Aucun numéro ne peut être affiché pour ce modèle.",
+  "saveError": "La plage de numéros n'a pas pu être enregistrée.",
+  "documentType": {
+    "offer": "Offre",
+    "order_confirmation": "Confirmation de commande",
+    "sales_contract": "Contrat de vente",
+    "purchase_contract": "Contrat d'achat",
+    "invoice": "Facture",
+    "credit_note": "Note de crédit",
+    "dunning": "Rappel",
+    "service_order": "Ordre de service",
+    "parts_order": "Commande de pièces",
+    "workshop_job": "Ordre d'atelier",
+    "stock_number": "Numéro de stock"
+  }
+}

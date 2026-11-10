@@ -1,0 +1,40 @@
+{
+  "title": "Valutazioni",
+  "newValuation": "Crea valutazione",
+  "searchPlaceholder": "Numero valutazione, VIN, targa, cliente …",
+  "allView": "Tutte le valutazioni",
+  "noCustomer": "Senza cliente",
+  "loadError": "Impossibile caricare le valutazioni.",
+  "chips": {
+    "all": "Tutte",
+    "valid": "Valide",
+    "expiring_soon": "In scadenza",
+    "expired": "Scadute",
+    "unattached": "Senza cliente",
+    "mine": "Le mie"
+  },
+  "columns": {
+    "number": "Numero",
+    "vehicle": "Veicolo",
+    "customer": "Cliente",
+    "mileage": "Chilometraggio",
+    "finalOffer": "Offerta di permuta",
+    "source": "Fonte",
+    "status": "Stato",
+    "validUntil": "Valida fino al",
+    "configuration": "Configurazione"
+  },
+  "emptyState": {
+    "title": "Nessuna valutazione",
+    "description": "Crea una valutazione — con o senza cliente, offerta o veicolo registrato."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun risultato",
+    "description": "Nessuna valutazione corrisponde alla ricerca attuale.",
+    "action": "Reimposta ricerca"
+  },
+  "rowActions": {
+    "open": "Apri"
+  },
+  "markUsedError": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare."
+}

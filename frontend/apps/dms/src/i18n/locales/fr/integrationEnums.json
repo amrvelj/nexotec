@@ -1,0 +1,23 @@
+{
+  "environment": {
+    "sandbox": "Bac à sable",
+    "production": "Production"
+  },
+  "connectionStatus": {
+    "connected": "Connectée",
+    "not_configured": "Non configurée",
+    "error": "Erreur",
+    "expired": "Expirée",
+    "disabled": "Désactivée"
+  },
+  "secretSlot": {
+    "password": "Mot de passe",
+    "client_secret": "Secret client",
+    "refresh_token": "Jeton de rafraîchissement",
+    "certificate": "Certificat"
+  },
+  "configKey": {
+    "username": "Nom d'utilisateur",
+    "clientId": "Client-ID"
+  }
+}

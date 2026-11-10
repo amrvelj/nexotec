@@ -1,0 +1,35 @@
+{
+  "lifecycleStatus": {
+    "pipeline": "Pipeline",
+    "in_stock": "En stock",
+    "storno_pending": "Annulation en cours"
+  },
+  "condition": {
+    "new": "Neuf",
+    "used": "Occasion",
+    "demo": "Véhicule de démonstration",
+    "tagesz": "Immatriculation journalière"
+  },
+  "reservationState": {
+    "none": "Libre",
+    "reserved": "Réservé"
+  },
+  "ledgerCategory": {
+    "einstandspreis": "Prix de revient",
+    "landed_cost": "Coûts d'acheminement",
+    "aufbereitung": "Préparation",
+    "reparatur": "Réparation",
+    "gutachten": "Expertise",
+    "standkosten": "Frais de stockage",
+    "werbung": "Publicité",
+    "garantie": "Garantie",
+    "abwertung": "Dépréciation",
+    "promotion": "Promotion",
+    "sonstige_kosten": "Autres frais",
+    "verkaufserloes": "Produit de la vente",
+    "kickback": "Rétrocession",
+    "zusatzerloes": "Produit accessoire",
+    "foerderung": "Subvention",
+    "sonstige_ertraege": "Autres produits"
+  }
+}

@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import i18n from './index'
-import en from './locales/en.json'
+import en from './locales/en'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import { customer, customerPage } from '../test/fixtures'

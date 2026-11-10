@@ -1,0 +1,86 @@
+{
+  "title": "Il mio account",
+  "tabs": {
+    "profile": "Profilo",
+    "security": "Sicurezza",
+    "connectedAccounts": "Account collegati",
+    "signature": "Firma",
+    "notifications": "Notifiche"
+  },
+  "languages": {
+    "de": "Tedesco",
+    "fr": "Francese",
+    "it": "Italiano",
+    "en": "Inglese"
+  },
+  "profile": {
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "email": "Indirizzo e-mail",
+    "emailHint": "Il suo accesso e la via per recuperare l'account. La modifica la esegue il supporto Nexotec.",
+    "phone": "Cellulare",
+    "directDial": "Linea diretta",
+    "uiLanguage": "Lingua dell'applicazione",
+    "uiLanguageHint": "Vale subito, su tutti i suoi dispositivi.",
+    "correspondenceLanguage": "Lingua dei miei documenti",
+    "correspondenceLanguageHint": "Per i documenti che crea e che non hanno una lingua del cliente.",
+    "betriebDefault": "Come l'azienda ({{language}})",
+    "saved": "Salvato.",
+    "conflict": "Il suo account è stato modificato altrove nel frattempo. Con «Annulla» vede la nuova versione; i dati inseriti vanno persi.",
+    "invalid": "Controlli i dati: numeri con prefisso internazionale, p. es. +41 79 123 45 67."
+  },
+  "connected": {
+    "emptyTitle": "Nessun account collegato",
+    "emptyBody": "Qui compariranno la sua casella Microsoft 365 e il suo calendario non appena li collegherà: invierà le offerte dalla sua casella e gli appuntamenti finiranno nel suo calendario. Il collegamento sarà disponibile con l'integrazione Outlook.",
+    "privacy": "Un account collegato serve solo a inviare e pianificare a suo nome – mai ad accedere. Il suo manager vede che esiste un collegamento, mai il contenuto.",
+    "columns": {
+      "provider": "Fornitore",
+      "account": "Account",
+      "scopes": "Autorizzazioni",
+      "status": "Stato",
+      "linkedAt": "Collegato il",
+      "lastUsed": "Ultimo utilizzo"
+    },
+    "provider": {
+      "microsoft_365": "Microsoft 365"
+    },
+    "status": {
+      "active": "Attivo",
+      "error": "Errore",
+      "revoked": "Scollegato"
+    },
+    "neverUsed": "Mai",
+    "revoke": "Scollega",
+    "conflict": "Questo collegamento è stato modificato nel frattempo o è già scollegato.",
+    "confirmRevoke": "Sì, scollega",
+    "revokedBy": "{{when}} · {{who}}",
+    "revokedReason": {
+      "user": "da lei",
+      "manager": "da un manager",
+      "deactivated": "alla disattivazione"
+    }
+  },
+  "signature": {
+    "block": "Blocco firma",
+    "blockHint": "Le righe sotto il suo nome, p. es. funzione, reparto, telefono.",
+    "image": "Firma come immagine",
+    "current": "Firma attuale",
+    "noImage": "Nessuna immagine salvata.",
+    "upload": "Scegli immagine",
+    "imageHint": "PNG o JPEG, al massimo 1 MB.",
+    "uploadButton": "Carica",
+    "remove": "Rimuovi",
+    "saved": "Salvato.",
+    "invalid": "L'immagine deve essere un PNG o un JPEG di al massimo 1 MB.",
+    "conflict": "Il suo account è stato modificato altrove nel frattempo. Carichi la nuova versione – quanto inserito qui va perso.",
+    "loadLatest": "Carica la nuova versione"
+  },
+  "photo": {
+    "title": "Foto",
+    "choose": "Scegli foto",
+    "hint": "PNG o JPEG, al massimo 5 MB. Il tuo manager la vede nell'elenco utenti.",
+    "upload": "Carica",
+    "remove": "Rimuovi",
+    "failed": "Non è stato possibile salvare la foto. Riprova."
+  }
+}

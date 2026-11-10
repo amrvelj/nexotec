@@ -1,0 +1,13 @@
+{
+  "setTitle": "Kreditsperre setzen",
+  "clearTitle": "Kreditsperre aufheben",
+  "setBody": "Eine Kundensperre verhindert, dass ein Vertrag bestätigt wird. Eine Offerte ist weiterhin möglich — oft wird die Sperre gerade so geklärt.",
+  "clearBody": "Kreditsperre für {{number}} aufheben? Verträge können sofort wieder bestätigt werden.",
+  "reasonLabel": "Grund",
+  "reasonRequired": "Für eine Kreditsperre ist ein Grund erforderlich.",
+  "setSubmit": "Kunde sperren",
+  "clearSubmit": "Sperre aufheben",
+  "cancel": "Abbrechen",
+  "conflict": "Dieser Kunde wurde seit dem Öffnen geändert. Bitte neu laden und erneut versuchen.",
+  "failed": "Die Kreditsperre konnte nicht aktualisiert werden."
+}

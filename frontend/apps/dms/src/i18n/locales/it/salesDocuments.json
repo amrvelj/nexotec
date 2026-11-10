@@ -1,0 +1,14 @@
+{
+  "title": "Documenti",
+  "generate": "Genera documento",
+  "empty": "Nessun documento ancora generato.",
+  "previewError": "Impossibile caricare l’anteprima.",
+  "download": "Scarica",
+  "version": "Versione {{version}}",
+  "liveContract": "Questa offerta ha il contratto {{contractNumber}} – i documenti si generano nel contratto.",
+  "errors": {
+    "missingVehicle": "Senza veicolo non è possibile generare un documento di contratto. Registrare prima un veicolo.",
+    "missingPrice": "Senza prezzo non è possibile generare un documento di contratto. Completare prima la composizione del prezzo.",
+    "generic": "Non è stato possibile generare il documento."
+  }
+}

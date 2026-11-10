@@ -1,0 +1,15 @@
+{
+  "newOffer": "Neue Offerte",
+  "newOfferDisabledDoNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
+  "newContract": "Neuer Vertrag",
+  "newContractDisabledDoNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
+  "newContractDisabledBlocked": "Kreditgesperrt ({{reason}}) — eine Offerte ist weiterhin möglich; ein Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
+  "linkVehicle": "Fahrzeug verknüpfen…",
+  "setDoNotContact": "Nicht kontaktieren setzen",
+  "removeDoNotContact": "Nicht kontaktieren aufheben",
+  "setCreditBlock": "Kreditsperre setzen…",
+  "removeCreditBlock": "Kreditsperre aufheben",
+  "mergeInto": "In einen anderen Kunden zusammenführen…",
+  "mergeDisabledMerged": "Dieser Datensatz wurde bereits mit einem anderen zusammengeführt.",
+  "copyCustomerNumber": "Kundennummer kopieren"
+}

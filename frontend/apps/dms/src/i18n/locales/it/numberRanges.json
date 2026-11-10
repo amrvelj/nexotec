@@ -1,0 +1,45 @@
+{
+  "title": "Serie di numeri",
+  "subtitle": "Come la sua azienda numera i documenti: una sequenza continua per tipo di documento su tutte le sedi.",
+  "freezeNotice": "Una serie di numeri viene congelata con il primo numero assegnato. Dopo, modello, valore iniziale e ripartenza annuale non si possono più modificare — solo dal supporto Nexotec, con una motivazione. Controlli i modelli prima di creare il primo documento.",
+  "loadError": "Non è stato possibile caricare le serie di numeri.",
+  "readOnly": "Solo la direzione può modificare le serie di numeri.",
+  "columns": {
+    "documentType": "Tipo di documento",
+    "pattern": "Modello",
+    "nextNumber": "Prossimo numero",
+    "currentValue": "Valore attuale",
+    "status": "Stato",
+    "actions": "Azioni"
+  },
+  "status": {
+    "open": "Aperta",
+    "frozen": "Congelata"
+  },
+  "frozenSince": "Congelata dal {{date}}",
+  "yearlyResetShort": "Riparte ogni anno",
+  "edit": "Modifica",
+  "editTitle": "Serie di numeri {{type}}",
+  "pattern": "Modello",
+  "patternHint": "Segnaposto: {year} per l'anno, {location_code} per il codice della sede, esattamente un {counter:N} per il contatore a N cifre. Altrimenti lettere, cifre e - / . _ — al massimo 16 caratteri per numero.",
+  "startValue": "Valore iniziale",
+  "yearlyReset": "Ripartire ogni anno dal valore iniziale",
+  "reason": "Motivazione (registrata nel protocollo)",
+  "frozenStaffNotice": "Questa serie ha già assegnato numeri ed è congelata. Una modifica è un intervento del supporto e viene registrata con la sua motivazione.",
+  "example": "Prossimo numero",
+  "previewError": "Per questo modello non è possibile mostrare un numero.",
+  "saveError": "Non è stato possibile salvare la serie di numeri.",
+  "documentType": {
+    "offer": "Offerta",
+    "order_confirmation": "Conferma d'ordine",
+    "sales_contract": "Contratto di vendita",
+    "purchase_contract": "Contratto d'acquisto",
+    "invoice": "Fattura",
+    "credit_note": "Nota di credito",
+    "dunning": "Sollecito",
+    "service_order": "Ordine di servizio",
+    "parts_order": "Ordine ricambi",
+    "workshop_job": "Ordine di officina",
+    "stock_number": "Numero di stock"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "title": "Valuations",
+  "newValuation": "Create valuation",
+  "searchPlaceholder": "Valuation number, VIN, plate, customer …",
+  "allView": "All valuations",
+  "noCustomer": "No customer",
+  "loadError": "Valuations could not be loaded.",
+  "chips": {
+    "all": "All",
+    "valid": "Valid",
+    "expiring_soon": "Expiring soon",
+    "expired": "Expired",
+    "unattached": "No customer",
+    "mine": "Mine"
+  },
+  "columns": {
+    "number": "Number",
+    "vehicle": "Vehicle",
+    "customer": "Customer",
+    "mileage": "Mileage",
+    "finalOffer": "Trade-in offer",
+    "source": "Source",
+    "status": "Status",
+    "validUntil": "Valid until",
+    "configuration": "Configuration"
+  },
+  "emptyState": {
+    "title": "No valuations yet",
+    "description": "Create a valuation — with or without a customer, offer, or a registered vehicle."
+  },
+  "emptyFilteredState": {
+    "title": "No matches",
+    "description": "No valuation matches the current search.",
+    "action": "Reset search"
+  },
+  "rowActions": {
+    "open": "Open"
+  },
+  "markUsedError": "The valuation could not be marked as used. Please try again."
+}

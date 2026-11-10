@@ -1,0 +1,198 @@
+{
+  "header": {
+    "stockFallback": "Veicolo in magazzino"
+  },
+  "leftStock": {
+    "badge": "Uscito dallo stock il {{date}}"
+  },
+  "tabs": {
+    "details": "Dettagli",
+    "wagenbuch": "Registro veicolo",
+    "publishing": "Pubblicazione",
+    "evaluation": "Valutazione"
+  },
+  "actions": {
+    "createOffer": "Crea offerta",
+    "createContract": "Crea contratto",
+    "leftStock": "Questo veicolo è uscito dallo stock il {{date}} (venduto)."
+  },
+  "headline": {
+    "listPriceCaption": "Prezzo di listino – prezzo di vendita non ancora definito"
+  },
+  "spec": {
+    "firstRegistrationDate": "Prima immatricolazione",
+    "odometerKm": "Chilometraggio",
+    "stockNumber": "Numero di magazzino",
+    "vin": "VIN"
+  },
+  "commercial": {
+    "title": "Commerciale",
+    "odometerKm": "Chilometraggio",
+    "listPrice": "Prezzo di listino",
+    "effectivePrice": "Prezzo effettivo"
+  },
+  "identity": {
+    "title": "Veicolo",
+    "vehicleLabel": "Denominazione",
+    "vehicleLabelFollowsConfiguration": "La denominazione segue la configurazione del veicolo.",
+    "vehicleId": "ID veicolo"
+  },
+  "errors": {
+    "failedToLoad": "Caricamento non riuscito",
+    "somethingWentWrong": "Qualcosa è andato storto.",
+    "createOfferFailed": "Non è stato possibile creare l’offerta. Riprovare.",
+    "createContractFailed": "Non è stato possibile creare il contratto. Riprovare."
+  },
+  "purchase": {
+    "title": "Acquisto",
+    "recordButton": "Registra acquisto",
+    "dialogTitle": "Registra acquisto",
+    "submit": "Registra",
+    "fields": {
+      "supplierName": "Fornitore",
+      "supplierIsVatRegistered": "Il fornitore è soggetto a IVA",
+      "purchasePrice": "Prezzo di acquisto",
+      "purchaseDate": "Data di acquisto",
+      "purchaseInvoiceRef": "Riferimento fattura",
+      "vin": "VIN",
+      "vinHint": "Un veicolo della pipeline viene acquistato con il suo VIN, che lo mette in stock."
+    },
+    "notionalInputTax": "Deduzione fittizia dell'imposta precedente",
+    "notionalInputTaxNotApplicable": "Non applicabile",
+    "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
+    "isInvoiceable": "Fatturabile",
+    "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
+    "notRecorded": "Nessun acquisto ancora registrato.",
+    "configurationVinDiffers": "Il VIN è diverso da quello della configurazione.",
+    "storno": {
+      "button": "Stornare l'acquisto",
+      "title": "Stornare l'acquisto",
+      "body": "L'acquisto di {{stockNumber}} viene annullato: il prezzo di costo viene stornato nel registro veicolo, il veicolo torna nella pipeline con il suo VIN ed è di nuovo fatturabile solo dopo un nuovo acquisto. Una prenotazione rimane.",
+      "reasonLabel": "Motivo",
+      "reasonRequired": "Indicate un motivo.",
+      "submit": "Stornare l'acquisto",
+      "cancel": "Annulla",
+      "failed": "Non è stato possibile stornare l'acquisto.",
+      "leftStock": "Non possibile: il veicolo ha lasciato lo stock.",
+      "returnedToCustomer": "Il veicolo torna al cliente",
+      "returnedToCustomerHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
+    }
+  },
+  "wagenbuch": {
+    "result": "Risultato",
+    "recordButton": "Registra movimento",
+    "empty": "Nessun movimento registrato",
+    "dialogTitle": "Registra movimento",
+    "submit": "Registra",
+    "fields": {
+      "category": "Categoria",
+      "amount": "Importo",
+      "occurredAt": "Data"
+    },
+    "columns": {
+      "occurredAt": "Data",
+      "category": "Categoria",
+      "amount": "Importo",
+      "source": "Origine"
+    },
+    "auto": "Automatico",
+    "manual": "Manuale",
+    "error": "Non è stato possibile registrare i costi. Riprovare.",
+    "closed": "Registro veicolo chiuso dal {{date}}: il veicolo è uscito dallo stock."
+  },
+  "publishing": {
+    "blockingBannerTitle": "{{count, number}} punto/i impediscono la pubblicazione",
+    "blockingCondition": {
+      "Lagerstatus": "Un ordine di fabbrica non è ancora in stock.",
+      "Bilder": "Nessuna foto propria disponibile.",
+      "Preis": "Nessun prezzo effettivo inserito.",
+      "Aussenfarbe": "Nessun colore inserito.",
+      "Aufbau": "Nessuna forma di carrozzeria inserita.",
+      "Kilometer": "Nessun chilometraggio inserito.",
+      "InvSetzJahr": "Nessuna prima immatricolazione inserita.",
+      "Energieetikette": "Manca l'etichetta energetica per un'auto nuova sotto i 2'000 km.",
+      "other": "Questo dato manca per il marketplace."
+    },
+    "channelsTitle": "Canali",
+    "published": "Pubblicato",
+    "notPublished": "Non pubblicato",
+    "lastPublishedAt": "Ultima pubblicazione: {{date}}",
+    "neverPublished": "Mai pubblicato",
+    "transmissionPending": "Pubblicazione in corso…",
+    "transmissionFailed": "Pubblicazione non riuscita",
+    "publishTo": "Pubblica su {{channel}}",
+    "unpublish": "Rimuovi da {{channel}}",
+    "unpublishConfirmTitle": "Conferma rimozione",
+    "unpublishConfirmSubmit": "Rimuovi",
+    "unpublishConfirmBody": "L'annuncio su {{channel}} verrà eliminato insieme alle statistiche e all'URL. Questa azione è irreversibile.",
+    "listingTextTitle": "Testi dell'annuncio",
+    "listingTextConflict": "Il testo dell'annuncio è stato modificato nel frattempo. La versione attuale è caricata – ripetere la modifica.",
+    "listingTextError": "Non è stato possibile salvare il testo dell'annuncio. Riprovare.",
+    "listingTextLoadError": "Non è stato possibile caricare i testi dell'annuncio.",
+    "titleDisplayLimit": "Nella lista dei risultati vengono mostrati {{count, number}} caratteri.",
+    "haendlerbemerkungenHint": "Visibile solo internamente — non appare nell'annuncio.",
+    "fields": {
+      "zusatztitel": "Titolo aggiuntivo",
+      "bemerkungen": "Osservazioni",
+      "zustandsbeschreibung": "Descrizione dello stato",
+      "haendlerbemerkungen": "Note del concessionario"
+    },
+    "media": {
+      "title": "Immagini",
+      "addPrompt": "URL immagine",
+      "mainImage": "Immagine principale",
+      "moveLeft": "Sposta a sinistra",
+      "moveRight": "Sposta a destra",
+      "remove": "Rimuovi",
+      "addPhoto": "Aggiungi foto",
+      "countOf": "{{count, number}} / {{max, number}}",
+      "addError": "Non è stato possibile aggiungere la foto. Riprovare.",
+      "removeError": "Non è stato possibile rimuovere la foto. Riprovare.",
+      "reorderError": "Non è stato possibile salvare il nuovo ordine delle foto. Riprovare."
+    },
+    "equipment": {
+      "title": "Dotazione",
+      "ausstattung": "Dotazione (ricercabile)",
+      "extras": "Extra",
+      "eigenschaften": "Caratteristiche",
+      "hint": "AutoScout24 distingue tre concetti: dotazione (codici ricercabili), extra (caratteristiche) e particolarità (stati come veicolo incidentato)."
+    },
+    "publishError": "Non è stato possibile pubblicare l’annuncio. Riprovare.",
+    "unpublishError": "Non è stato possibile ritirare l’annuncio. Riprovare."
+  },
+  "evaluation": {
+    "title": "Valutazione",
+    "empty": "Nessuna valutazione disponibile.",
+    "amount": "Importo",
+    "valuedAt": "Valutato il",
+    "source": "Fonte",
+    "hint": "Le valutazioni vengono create e gestite nel modulo Valutazioni — quest'area mostra solo lo stato attuale."
+  },
+  "configuration": {
+    "title": "Configurazione",
+    "missing": "A questo veicolo non è assegnata alcuna configurazione. Senza di essa mancano i dati tecnici.",
+    "attach": "Assegna configurazione",
+    "attachError": "Non è stato possibile assegnare la configurazione. Riprovare.",
+    "edit": "Modifica configurazione",
+    "editContract": "Modifica contratto",
+    "reservedByContract": "Un contratto riserva questo veicolo. Finché lo riserva, la configurazione resta invariata: può essere modificata solo dopo l'annullamento del contratto.",
+    "reloadDetails": "Ricarica",
+    "reloadDetailsHint": "Richiede di nuovo ad auto-i-dat opzioni, colori, dati pneumatici, immagini ed etichetta energia e sostituisce i dati salvati di questa azienda.",
+    "reloadDetailsError": "I dati del catalogo non sono stati ricaricati.",
+    "reloadDetailsDone": "Ricaricato il {{date}}"
+  },
+  "rowMenu": {
+    "changeCondition": "Modifica stato",
+    "purchaseAlreadyBooked": "L'acquisto è già registrato.",
+    "purchaseNotBooked": "Nessun acquisto ancora registrato.",
+    "creatingDeal": "Creazione in corso …"
+  },
+  "condition": {
+    "title": "Modifica stato",
+    "body": "Nuovo stato per {{stockNumber}}:",
+    "label": "Stato",
+    "submit": "Salva",
+    "cancel": "Annulla",
+    "failed": "Non è stato possibile modificare lo stato."
+  }
+}

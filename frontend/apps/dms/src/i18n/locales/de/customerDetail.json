@@ -1,0 +1,278 @@
+{
+  "tabs": {
+    "overview": "Übersicht",
+    "vehicles": "Fahrzeuge",
+    "offersContracts": "Offerten & Verträge",
+    "history": "Verlauf",
+    "externalIds": "Externe IDs"
+  },
+  "header": {
+    "failedToLoad": "Kunde konnte nicht geladen werden",
+    "customerFallback": "Kunde"
+  },
+  "errors": {
+    "somethingWentWrong": "Etwas ist schiefgelaufen.",
+    "conflict": "Jemand anderes hat dies in der Zwischenzeit geändert.",
+    "failedToSave": "Speichern fehlgeschlagen.",
+    "failedToLoadVehicles": "Fahrzeuge konnten nicht geladen werden.",
+    "failedToLoadOffersContracts": "Offerten und Verträge konnten nicht geladen werden.",
+    "failedToLoadHistory": "Verlauf konnte nicht geladen werden.",
+    "failedToLoadExternalIds": "Externe IDs konnten nicht geladen werden.",
+    "createOfferFailed": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+    "createContractFailed": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
+  },
+  "overview": {
+    "cards": {
+      "identity": "Identität",
+      "status": "Status",
+      "address": "Adresse",
+      "contactPoints": "Kontaktpunkte",
+      "record": "Datensatz",
+      "commercialStanding": "Geschäftsbeziehung",
+      "relationship": "Beziehung"
+    },
+    "fields": {
+      "salutation": "Anrede",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "dateOfBirth": "Geburtsdatum",
+      "nationality": "Nationalität",
+      "companyName": "Firmenname",
+      "legalForm": "Rechtsform",
+      "correspondenceLanguage": "Korrespondenzsprache",
+      "preferredChannel": "Bevorzugter Kanal",
+      "lifecycleStatus": "Lebenszyklusstatus",
+      "source": "Quelle",
+      "marketingConsent": "Marketing-Einwilligung",
+      "address": "Adresse",
+      "canton": "Kanton",
+      "cantonDerived": "Kanton (abgeleitet)",
+      "customerNumber": "Kundennummer",
+      "created": "Erstellt",
+      "lastChanged": "Zuletzt geändert",
+      "title": "Titel",
+      "gender": "Geschlecht",
+      "paymentTerms": "Zahlungskonditionen",
+      "creditLimit": "Kreditlimite (Richtwert)",
+      "iban": "IBAN",
+      "vatRegistered": "MwSt-pflichtig",
+      "vatStatusConfirmed": "MwSt-Status bestätigt",
+      "advisor": "Betreuer",
+      "customerSince": "Kunde seit",
+      "nextFollowUp": "Nächster Kontakt",
+      "website": "Website",
+      "newsletter": "Newsletter",
+      "tags": "Tags",
+      "notes": "Notizen"
+    },
+    "notSet": "Nicht angegeben",
+    "addressRequiredForContract": "Keine Adresse hinterlegt — vor einem Vertragsabschluss erforderlich.",
+    "addressForm": {
+      "street": "Strasse",
+      "line2": "Adresszusatz (c/o, Postfach, ...)",
+      "houseNumber": "Hausnr.",
+      "postalCode": "PLZ",
+      "locality": "Ort",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "reload": "Neu laden",
+      "country": "Land"
+    },
+    "blockingStrip": {
+      "creditBlockTitle": "Kreditgesperrt",
+      "doNotContactTitle": "Nicht kontaktieren",
+      "doNotContactNote": "Kein kommerzieller Kontakt. Service und gesetzlich vorgeschriebene Korrespondenz sind weiterhin erlaubt; eine Offerte oder ein Vertrag nicht."
+    }
+  },
+  "contactPoints": {
+    "phoneNumbers": "Telefonnummern",
+    "emailAddresses": "E-Mail-Adressen",
+    "addPhone": "Telefon hinzufügen",
+    "addEmail": "E-Mail hinzufügen",
+    "none": "Noch keine hinzugefügt.",
+    "primary": "Primär",
+    "new": "Neu",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "removeAriaLabel": "{{label}} entfernen",
+    "former": "Frühere Kontaktdaten",
+    "noLongerValid": "Nicht mehr gültig",
+    "doesNotWork": "Funktioniert nicht",
+    "doesNotWorkReasonPlaceholder": "Grund (z. B. unerreichbar, zurückgewiesen)",
+    "delete": "Löschen",
+    "consent": "Einwilligung",
+    "confirm": "Bestätigen",
+    "typeColumn": "Typ",
+    "labelColumn": "Bezeichnung",
+    "labelHint": "Sagt, welche Nummer oder Adresse das ist – z. B. Geschäft, Buchhaltung, Werkstatt Winterthur. Freiwillig, höchstens 60 Zeichen.",
+    "consentHint": "Hält fest, ob der Kunde eingewilligt hat, über genau diese Nummer oder Adresse kontaktiert zu werden. Gilt nur für diesen Kanal.",
+    "phoneValueColumn": "Nummer",
+    "emailValueColumn": "Adresse",
+    "preferredChannelHeading": "Bevorzugter Kanal",
+    "preferredMark": "Bevorzugter Kanal",
+    "noPreferred": "Kein bevorzugter Kanal",
+    "consentScope": "Umfang",
+    "consentSource": "Quelle",
+    "rowActions": "Aktionen für {{label}}"
+  },
+  "phoneInput": {
+    "country": "Land",
+    "number": "Nummer"
+  },
+  "countries": {
+    "switzerland": "Schweiz",
+    "germany": "Deutschland",
+    "france": "Frankreich",
+    "italy": "Italien",
+    "austria": "Österreich",
+    "liechtenstein": "Liechtenstein",
+    "unitedKingdom": "Vereinigtes Königreich",
+    "unitedStates": "Vereinigte Staaten"
+  },
+  "externalIds": {
+    "columns": {
+      "system": "System",
+      "externalId": "Externe ID",
+      "linked": "Verknüpft"
+    },
+    "maintainedBy": "Diese Verknüpfungen mit OEM- und CRM-Systemen pflegen Nexotec und die angebundenen Systeme; Sie können sie hier einsehen.",
+    "emptyState": {
+      "title": "Keine externen IDs",
+      "description": "Mit diesem Kunden ist noch kein OEM- oder CRM-System verknüpft. Diese Verknüpfungen legen Nexotec oder ein angebundenes System an."
+    },
+    "add": "Externe ID hinzufügen",
+    "remove": "Entfernen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "systemLabel": "System",
+    "externalIdLabel": "Externe ID"
+  },
+  "vehicles": {
+    "columns": {
+      "vin": "VIN",
+      "vehicle": "Fahrzeug",
+      "role": "Rolle",
+      "since": "Seit",
+      "until": "Bis",
+      "otherParties": "Weitere Parteien"
+    },
+    "emptyState": {
+      "title": "Keine Fahrzeuge",
+      "description": "Für diesen Kunden sind keine Fahrzeugbeziehungen erfasst."
+    },
+    "addAction": "Fahrzeug verknüpfen",
+    "inStockTitle": "Im eigenen Lager der Gruppe — {{stockNumber}}",
+    "specification": "Spezifikation",
+    "unknownVehicle": "Fahrzeug nicht im Register",
+    "mergedInto": "Zusammengeführt",
+    "mergedIntoTitle": "Bei einer Kundenzusammenführung hier behalten — Zielkunden öffnen"
+  },
+  "offersContracts": {
+    "emptyState": {
+      "title": "Noch keine Offerten oder Verträge",
+      "description": "Für diesen Kunden gibt es bei diesem Betrieb noch keine Offerten oder Verträge."
+    }
+  },
+  "history": {
+    "emptyState": {
+      "title": "Noch kein Verlauf",
+      "description": "Änderungen an diesem Kunden werden hier angezeigt."
+    },
+    "you": "Sie",
+    "system": "System",
+    "unknownReference": "unbekannter Eintrag",
+    "unknownUser": "Unbekannter Benutzer",
+    "actions": {
+      "create": "Kunde angelegt",
+      "update": "Kunde geändert",
+      "merge": "Kunde zusammengeführt",
+      "merge_survivor_repointed": "Zielkunde der Zusammenführung aktualisiert",
+      "phone_add": "Telefonnummer hinzugefügt",
+      "phone_update": "Telefonnummer geändert",
+      "phone_remove": "Telefonnummer entfernt",
+      "email_add": "E-Mail-Adresse hinzugefügt",
+      "email_update": "E-Mail-Adresse geändert",
+      "email_remove": "E-Mail-Adresse entfernt",
+      "address_add": "Adresse hinzugefügt",
+      "address_update": "Adresse geändert",
+      "address_remove": "Adresse entfernt",
+      "external_id_add": "Externe ID hinzugefügt",
+      "external_id_update": "Externe ID geändert",
+      "external_id_remove": "Externe ID entfernt",
+      "vehicle_party_add": "Fahrzeug verknüpft",
+      "vehicle_party_update": "Fahrzeugverknüpfung geändert",
+      "vehicle_party_remove": "Fahrzeugverknüpfung beendet",
+      "credit_block_changed": "Kreditsperre geändert"
+    },
+    "otherAction": "Änderung erfasst",
+    "fields": {
+      "dealershipId": "Betrieb",
+      "phoneType": "Telefontyp",
+      "emailType": "E-Mail-Typ",
+      "addressType": "Adresstyp",
+      "phoneE164": "Telefonnummer",
+      "emailAddress": "E-Mail-Adresse",
+      "consentGranted": "Einwilligung erteilt",
+      "consentScope": "Einwilligungsumfang",
+      "consentSource": "Einwilligungsquelle",
+      "consentTimestamp": "Einwilligung erteilt am",
+      "mergedIntoCustomerId": "Zusammengeführt in Kunde",
+      "duplicateOfCustomerId": "Duplikat von Kunde",
+      "creditBlock": "Kreditsperre",
+      "creditBlockReason": "Grund der Kreditsperre",
+      "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
+      "vehiclePartiesKeptClosed": "Fahrzeugverknüpfungen geschlossen behalten",
+      "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (Fahrzeuge)",
+      "earlierMergesRepointedIds": "Frühere Zusammenführungen umgeleitet",
+      "transactionsRepointed": "Transaktionen übertragen",
+      "phonesRepointed": "Telefonnummern übertragen",
+      "phonesDropped": "Telefonnummern verworfen",
+      "emailsRepointed": "E-Mail-Adressen übertragen",
+      "emailsDropped": "E-Mail-Adressen verworfen",
+      "addressesRepointed": "Adressen übertragen",
+      "addressesDropped": "Adressen verworfen",
+      "externalIdsRepointed": "Externe IDs übertragen",
+      "externalIdsDropped": "Externe IDs verworfen",
+      "tagsRepointed": "Tags übertragen",
+      "tagsDropped": "Tags verworfen"
+    }
+  },
+  "linkVehicle": {
+    "title": "Fahrzeug verknüpfen",
+    "search": "Fahrzeug suchen",
+    "searchPlaceholder": "VIN, Fahrzeugnummer, Kennzeichen…",
+    "role": "Rolle",
+    "confirm": "Verknüpfen",
+    "error": "Das Fahrzeug konnte nicht verknüpft werden."
+  },
+  "linkVehicleRefused": {
+    "customerMerged": "Dieser Kunde wurde mit einem anderen zusammengeführt. Verknüpfen Sie das Fahrzeug mit dem Kunden, in den er zusammengeführt wurde.",
+    "roleAlreadyHeld": "Dieser Kunde hat diese Rolle für dieses Fahrzeug ab diesem Datum bereits.",
+    "notFound": "Das Fahrzeug oder der Kunde existiert nicht mehr. Laden Sie die Seite neu und suchen Sie erneut."
+  },
+  "merge": {
+    "title": "Doppelten Kunden zusammenführen",
+    "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
+    "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kundennummer suchen…",
+    "noMatches": "Keine Treffer.",
+    "searchFailed": "Die Suche ist fehlgeschlagen. Bitte erneut versuchen.",
+    "chooseDifferent": "← Anderen verbleibenden Kunden wählen",
+    "duplicateColumn": "Dieser Kunde — wird zusammengeführt",
+    "survivorColumn": "Verbleibender Kunde — bleibt bestehen",
+    "survivorContactsFailed": "Telefon und E-Mail des verbleibenden Kunden konnten nicht geladen werden. Bitte einen anderen wählen oder erneut versuchen.",
+    "irreversibleTitle": "Dies kann nicht rückgängig gemacht werden",
+    "irreversibleBody": "Fahrzeuge, Transaktionen, Telefonnummern, E-Mail-Adressen und externe IDs gehen auf den verbleibenden Kunden über. Dieser Kunde wird schreibgeschützt und in der Suche ausgeblendet.",
+    "confirm": "Ich verstehe, dass dies endgültig ist",
+    "submitting": "Wird zusammengeführt…",
+    "submit": "Kunden zusammenführen",
+    "error": "Die Kunden konnten nicht zusammengeführt werden."
+  },
+  "mergeRefused": {
+    "intoSelf": "Ein Kunde kann nicht mit sich selbst zusammengeführt werden.",
+    "targetMerged": "Der gewählte Kunde wurde selbst bereits zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde.",
+    "alreadyMerged": "Dieser Kunde wurde bereits zusammengeführt.",
+    "survivorConflict": "Die Zusammenführung kollidiert mit einem Datensatz beim verbleibenden Kunden. Laden Sie beide Kunden neu und versuchen Sie es erneut.",
+    "vehiclePartyBusy": "Ein Fahrzeug dieses Kunden wird gerade geändert. Senden Sie die Zusammenführung erneut.",
+    "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut."
+  }
+}

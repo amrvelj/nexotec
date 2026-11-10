@@ -3,6 +3,28 @@
 For Anto and any future developer. Claude does not load this file automatically — it opens it
 when it needs to explain or change the setup.
 
+## What a rule file may contain (KAN-614)
+
+`CLAUDE.md` loads in every session and a rule file whenever a matching file is read — in the
+builder and again in every reviewer pass — so each line costs on every ticket. A rule file holds
+**only what a session cannot learn from the code or from a failing test**:
+
+- **A ruling a test enforces:** one line, naming the test. The test is the rule; the line is the
+  pointer.
+- **A ruling stated in Notion:** the ruling in a sentence and its ADR or PRD reference — never the
+  reasoning, which lives at the reference.
+- **An invariant a session would otherwise get wrong** (a trap the code does not show, an open
+  question, "not built" where the code looks finished): kept, as short as it can be said.
+- **Never:** ticket history («KAN-n because …»), what the code already says (routes, columns,
+  function signatures), or a second copy of a PRD section.
+
+Budget: a rule file at most **12,000 bytes**, `CLAUDE.md` at most **16,000 bytes** (and 200 lines).
+`scripts/dev/check`'s `config` lane runs `scripts/rule_budget.py check`, which prints every file's
+size and fails over budget, with no allowlist: until KAN-615 has cut them, a file already over on
+`main` may only shrink. A file that outgrows its budget is split by sub-area, each part with globs
+for its own files only. `scripts/rule_budget.py scenarios` shows which rule files three typical
+tickets load, before and after a change.
+
 ## The pieces and their jobs
 
 | Piece | Loaded | Job |
@@ -20,6 +42,7 @@ when it needs to explain or change the setup.
 | `scripts/dev/run-api` | desktop preview (`nexotec-api`) | Starts this checkout's uvicorn with the macOS library path set |
 | `scripts/dev/check` | before every push | CI-equivalent lanes; records a pass for the exact tree |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
+| `scripts/dev/api-type` | any time | One schema or API path from the generated `schema.d.ts`, which is never read whole (KAN-618) |
 
 There is no `AGENTS.md` (only Claude Code works in this repository) and no `.mcp.json` (Notion
 comes from the claude.ai connector, GitHub goes through `gh api` (REST only — KAN-155), screenshots through the desktop
@@ -33,8 +56,8 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 | Gate | Hook | Blocks when |
 |---|---|---|
 | Push | PreToolUse `Bash` | the working copy differs from HEAD, `scripts/dev/check` has not passed for HEAD's tree, the target is `main` (also `HEAD` while on `main`, `--all`, `--mirror`), or the push is forced |
-| Hand-over | Stop | after a push in this session: no PR, CI not green, no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push |
-| Generated files | PreToolUse `Edit|Write` | editing `schema.d.ts` or the built prototype HTML |
+| Hand-over | Stop | after a push in this session: no open PR for HEAD, a CI check that has already **failed** (a pending one does not hold it — KAN-619), no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push. `gate close` then refuses while the merged PR's checks or the latest nightly run on `main` are red |
+| Generated files | PreToolUse `Edit|Write`, `Read`, `Bash` | editing `schema.d.ts` or the built prototype HTML; reading `schema.d.ts`, `openapi.json` or `frontend/package-lock.json` whole (KAN-618) — a `Read` without a `limit` of at most 200 lines, and `cat`, `less`, `sed` without a bounded range or `head`/`tail` over 200 lines, are refused with a pointer to `scripts/dev/api-type` and `grep -n`. Not a `Read(...)` deny rule: Claude Code applies one to `grep` on the same path too |
 | Applied migrations | PreToolUse `Edit|Write` | editing a migration file that exists on `origin/main` |
 | Preserved files and the setup | PreToolUse `Edit|Write`, `Bash` | a write to a CLAUDE.md preserve-verbatim file, `.claude/hooks/`, `.claude/agents/`, `.claude/settings.json` or `scripts/dev/`: asks Anto in an attended permission mode (`default`, `acceptEdits`, `plan`); **denied** in every other mode (`auto`, `bypassPermissions`, `dontAsk`, an unknown or missing mode), with a message to ask Anto in chat and stop — an unattended session never changes these files (KAN-255) |
 | Commit | PreToolUse `Bash` | committing on `main`, or `--no-verify` |
@@ -137,7 +160,8 @@ session. Several can run at once, each on its own machine, with the Mac closed.
   `dontAsk` the hook denies the edit (KAN-255). Everyone else gets a change
   once it is merged and their checkout is up to date.
 - `scripts/dev/check` runs the `config` lane whenever `.claude/`, `CLAUDE.md` or `scripts/dev/`
-  change: JSON validity, hook selftest, frontmatter, the CLAUDE.md line budget.
+  change: JSON validity, hook selftest, frontmatter, the CLAUDE.md line budget, the rule budget
+  (`scripts/rule_budget.py check`, top of this file).
 - Rule files carry a maintainer note (an HTML comment, stripped before Claude sees it) naming
   their Notion sources and the commit they were verified against. `/drift-audit` compares them
   weekly with Notion and the code and files tickets for what drifted.

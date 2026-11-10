@@ -16,7 +16,7 @@ an «expose the DMS to agents» change from doing it by accident. It fails when:
 An entry in that allow-list is Anto's ruling by name, never a way around the
 rule: KAN-227's prompt hook may use provider data only inside the tenant's own
 request and response, never as a tool the model can call to fetch more
-(`.claude/rules/vehicle.md`). The Claude Code tooling of this repository
+(`.claude/rules/vehicle-gateway.md`). The Claude Code tooling of this repository
 (`.claude/`) is not the application and is not scanned.
 """
 

@@ -1,0 +1,45 @@
+{
+  "title": "Number ranges",
+  "subtitle": "How your business numbers its documents: one continuous sequence per document type across all locations.",
+  "freezeNotice": "A number range is frozen with the first number it hands out. After that its pattern, start value and yearly restart cannot be changed — only by Nexotec support, with a reason. Check the patterns before you create the first document.",
+  "loadError": "The number ranges could not be loaded.",
+  "readOnly": "Only the management can change number ranges.",
+  "columns": {
+    "documentType": "Document type",
+    "pattern": "Pattern",
+    "nextNumber": "Next number",
+    "currentValue": "Current value",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "status": {
+    "open": "Open",
+    "frozen": "Frozen"
+  },
+  "frozenSince": "Frozen since {{date}}",
+  "yearlyResetShort": "Starts again every year",
+  "edit": "Edit",
+  "editTitle": "Number range {{type}}",
+  "pattern": "Pattern",
+  "patternHint": "Placeholders: {year} for the year, {location_code} for the location code, exactly one {counter:N} for the counter with N digits. Otherwise letters, digits and - / . _ are allowed — at most 16 characters per number.",
+  "startValue": "Start value",
+  "yearlyReset": "Start again at the start value every year",
+  "reason": "Reason (recorded in the audit log)",
+  "frozenStaffNotice": "This number range has handed out numbers already and is frozen. A change is a support intervention and is recorded with your reason.",
+  "example": "Next number",
+  "previewError": "No number can be shown for this pattern.",
+  "saveError": "The number range could not be saved.",
+  "documentType": {
+    "offer": "Offer",
+    "order_confirmation": "Order confirmation",
+    "sales_contract": "Sales contract",
+    "purchase_contract": "Purchase contract",
+    "invoice": "Invoice",
+    "credit_note": "Credit note",
+    "dunning": "Dunning letter",
+    "service_order": "Service order",
+    "parts_order": "Parts order",
+    "workshop_job": "Workshop job",
+    "stock_number": "Stock number"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Documents",
+  "generate": "Generate document",
+  "empty": "No document generated yet.",
+  "previewError": "Preview could not be loaded.",
+  "download": "Download",
+  "version": "Version {{version}}",
+  "liveContract": "This offer has contract {{contractNumber}} – documents are generated in the contract.",
+  "errors": {
+    "missingVehicle": "A contract document cannot be generated without a vehicle. Add a vehicle first.",
+    "missingPrice": "A contract document cannot be generated without a price. Complete the price build-up first.",
+    "generic": "The document could not be generated."
+  }
+}

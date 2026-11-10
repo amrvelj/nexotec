@@ -1,0 +1,40 @@
+{
+  "title": "Bewertungen",
+  "newValuation": "Bewertung erstellen",
+  "searchPlaceholder": "Bewertungsnummer, VIN, Kontrollschild, Kunde …",
+  "allView": "Alle Bewertungen",
+  "noCustomer": "Ohne Kunde",
+  "loadError": "Bewertungen konnten nicht geladen werden.",
+  "chips": {
+    "all": "Alle",
+    "valid": "Gültig",
+    "expiring_soon": "Läuft ab",
+    "expired": "Abgelaufen",
+    "unattached": "Ohne Kunde",
+    "mine": "Meine"
+  },
+  "columns": {
+    "number": "Nummer",
+    "vehicle": "Fahrzeug",
+    "customer": "Kunde",
+    "mileage": "Kilometerstand",
+    "finalOffer": "Eintauschangebot",
+    "source": "Quelle",
+    "status": "Status",
+    "validUntil": "Gültig bis",
+    "configuration": "Konfiguration"
+  },
+  "emptyState": {
+    "title": "Noch keine Bewertungen",
+    "description": "Erstellen Sie eine Bewertung — mit oder ohne Kunde, Offerte oder Fahrzeug im Bestand."
+  },
+  "emptyFilteredState": {
+    "title": "Keine Treffer",
+    "description": "Keine Bewertung entspricht der aktuellen Suche.",
+    "action": "Suche zurücksetzen"
+  },
+  "rowActions": {
+    "open": "Öffnen"
+  },
+  "markUsedError": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen."
+}

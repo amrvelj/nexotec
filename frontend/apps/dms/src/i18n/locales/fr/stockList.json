@@ -1,0 +1,52 @@
+{
+  "title": "Stock",
+  "newStockItem": "Ajouter un véhicule",
+  "searchPlaceholder": "Plaque, VIN, client, offre…",
+  "loadError": "Impossible de charger le stock.",
+  "groupLoadError": "Impossible de charger le stock du groupe.",
+  "allStockView": "Tous les véhicules",
+  "allGroupStockView": "Tous les véhicules du groupe",
+  "columns": {
+    "stockNumber": "N° de stock",
+    "vehicle": "Véhicule",
+    "condition": "État",
+    "lifecycleStatus": "Statut de stock",
+    "reservationState": "Réservation",
+    "odometerKm": "Kilométrage",
+    "effectivePrice": "Prix effectif",
+    "changed": "Modifié",
+    "vin": "VIN",
+    "listPrice": "Prix catalogue",
+    "dealership": "Entreprise",
+    "ageingBucket": "Voyant d'ancienneté",
+    "basePrice": "Prix de base",
+    "purchasePrice": "Prix d'achat",
+    "landedCost": "Coûts d'acheminement",
+    "notionalInputTaxAmount": "Déduction fictive de l'impôt préalable",
+    "isInvoiceable": "Facturable",
+    "supplierName": "Fournisseur",
+    "purchaseDate": "Date d'achat",
+    "orderDate": "Date de commande",
+    "expectedDelivery": "Livraison prévue",
+    "pipelineRef": "Référence pipeline",
+    "configuration": "Configuration"
+  },
+  "emptyState": {
+    "title": "Aucun véhicule en stock",
+    "description": "Ajoutez un véhicule au stock pour commencer.",
+    "descriptionReadOnly": "Les véhicules apparaissent ici dès que l'entreprise les ajoute au stock."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun résultat",
+    "description": "Ajustez la recherche ou les filtres.",
+    "action": "Réinitialiser les filtres"
+  },
+  "rowActions": {
+    "open": "Ouvrir"
+  },
+  "scope": {
+    "own": "Stock propre",
+    "group": "Stock du groupe"
+  },
+  "addToPipelineError": "Le véhicule n'a pas pu être ajouté au pipeline."
+}

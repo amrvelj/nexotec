@@ -1,0 +1,12 @@
+{
+  "untitled": "Neue Offerte",
+  "errors": {
+    "failedToLoad": "Offerte konnte nicht geladen werden.",
+    "somethingWentWrong": "Etwas ist schiefgelaufen.",
+    "copyFailed": "Die Offerte konnte nicht kopiert werden. Bitte erneut versuchen.",
+    "createFailed": "Die neue Offerte konnte nicht angelegt werden."
+  },
+  "actions": {
+    "copy": "Offerte kopieren"
+  }
+}

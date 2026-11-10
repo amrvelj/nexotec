@@ -46,10 +46,9 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
 ## Commands
 
 - Once per checkout (main checkout, worktree, every cloud session): `scripts/dev/bootstrap` — its own `.venv`,
-  `npm ci`, its own test database (in a worktree, a dev database copied from the main one; in a
-  cloud session, it first starts that machine's Postgres). The session already has this checkout's `.venv/bin` first on PATH and `pytest` pointed
-  at its test database, so the tools work as soon as bootstrap finishes. Never call another
-  checkout's `.venv`: its editable install runs that checkout's code.
+  `npm ci`, its own test database (a worktree also gets a dev database copied from the main one; a cloud session first
+  starts its Postgres). PATH and `pytest` already point at this checkout's `.venv` and test database, so the tools work
+  once it finishes. Never call another checkout's `.venv`: its editable install runs that checkout's code.
 - The check the push gate trusts: `scripts/dev/check` (lanes chosen from the diff;
   `--full` runs all; `--fast` is the SQLite lane and records nothing)
 - Tests: `pytest` — Postgres, the lane of record. One test: `pytest tests/test_customer.py::test_name`
@@ -59,12 +58,11 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
   binary resolves another interpreter) · `lint-imports`
 - Frontend: `npm run lint --prefix frontend` · `npm run build --prefix frontend` ·
   `npx vitest run` in `frontend/apps/dms` or `frontend/packages/ui-kit`
-- API types: `make generate-frontend-types` — `schema.d.ts` is generated, never edited
-- Run it: the desktop preview (`.claude/launch.json`: `nexotec-api`, `nexotec-frontend`,
-  `nexotec-prototype`; stop Docker's `app` first — both want port 8000), or `make up` in Docker
+- API types: `make generate-frontend-types` — `schema.d.ts` is generated, never edited or read whole: `scripts/dev/api-type <Name|/v1/path>`
+- Run it: the desktop preview (`.claude/launch.json`; stop Docker's `app` first — both want port 8000), or `make up` in Docker
 - Gates: `scripts/dev/gate status` shows what the push and the hand-over still need
 
-CI (`.github/workflows/test.yml`) runs eleven jobs; whether they block a merge is `main`'s branch protection.
+CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitHub runs `pr-light` (`pr.yml`) per ready PR and the full suite nightly on `main` (`test.yml`; a red night opens an issue).
 
 ## How we work
 
@@ -136,7 +134,7 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
    at-least-once.
 7. **Tenant scope comes from the token, never from a path or body parameter.** Cross-tenant
    reads return **404, never 403** — a 403 confirms the record exists. The one exception,
-   group-scoped reads (ADR-014), lives only in the files `tests/architecture/test_no_ambient_group_read.py`
+   group-scoped reads (ADR-014), lives only in the files `test_no_ambient_group_read.py`
    allow-lists (`get_group_read_or_404` in `app/core/tenancy.py` among them); a new one is an
    ADR plus an allowlist entry, never an ambient relaxation of the tenant filter.
 8. **Cross-cutting code lives in `app/core`**, written as if it were already an external
@@ -149,13 +147,14 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
     projection is missing, not that a call should be added.
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
-    shares one database; that is why it is forbidden. The import-linter cannot catch it, so it needs
-    its own test. Two exceptions are ruled by ADR: ADR-091 (the legacy transaction backfill, expiring
-    after its production run) and ADR-109 (number allocation alone: `platform.public.allocate_number`, KAN-207). No tracked debt remains (`tests/architecture/test_adr_047_no_shared_transaction.py`): a customer merge reaches Sales only through `customer.merged`.
+    shares one database; that is why it is forbidden. The import-linter cannot catch it; `test_adr_047_no_shared_transaction.py`
+    does. Two exceptions are ruled by ADR: ADR-091 (the legacy transaction backfill, expiring
+    after its production run) and ADR-109 (number allocation alone: `platform.public.allocate_number`). A customer merge
+    reaches Sales only through `customer.merged`.
 
 ## Preserve verbatim — already correct, do not "improve"
 
-Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes them.
+Edits to these `app/core/` files ask Anto first, whichever tool makes them.
 
 - `tenancy.py` — 404-not-403 scoping, and `get_group_read_or_404`, which authorises *before*
   the row lookup · `auth.py::get_current_principal` — tenant from token
@@ -166,12 +165,12 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`; one rewrite: ADR-121)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
-  `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099); D-A-22 moved `dealership.tax_id` off it to a plain `uid`
+  `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099)
 
 ## API conventions
 
-Path-versioned `/v1` · camelCase JSON and query parameters (KAN-477; legacy snake_case ones, `updated_since` for incremental sync
-among them, in `test_query_parameters_are_camel_case.py`, gain a camelCase alias when their endpoint is next touched) · cursor pagination · `If-Match` on every mutation of a versioned entity
+Path-versioned `/v1` · camelCase JSON and query parameters (KAN-477; the legacy snake_case ones, frozen in `test_query_parameters_are_camel_case.py`,
+gain a camelCase alias when their endpoint is next touched) · cursor pagination · `If-Match` on every mutation of a versioned entity
 (reasoned exceptions: `test_versioned_mutations_take_if_match.py`) · `Idempotency-Key` honoured, never required, on every POST — nine ratified
 `/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`) · OpenAPI per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
@@ -185,11 +184,11 @@ among them, in `test_query_parameters_are_camel_case.py`, gain a camelCase alias
 - **One administration surface (A-RULE-0):** every setting a dealership owns is configured in
   Dealer Administration. No module ships its own settings screen.
 - **Vehicle identity:** VIN is mandatory in vehicle-mdm; a licence plate is never an
-  identifier (details in `.claude/rules/vehicle.md`).
+  identifier (details in `.claude/rules/vehicle-mdm.md`).
 - **VAT** (ADR-057): one price — gross, CHF incl. MwSt; no net line or VAT breakdown on
   screen, VAT is one line on the printed document only. **There is no `vatTreatment`** — no
   field, enum, column, badge or switch, anywhere; `test_no_vat_treatment_field.py` enforces it
-  in `app/` and frontend sources (not `alembic/` or locale JSON). See the sales and inventory rules.
+  in `app/` and frontend sources (not `alembic/` or locale JSON).
 - **i18n:** DE, FR, IT, EN are all first class, reference data included. No user-visible
   string is hardcoded; every key is in all four bundles (`localeKeyParity.test.ts`), and a key in
   none renders a loud marker, never a German fallback; the customer's correspondence language is not the user's UI language.

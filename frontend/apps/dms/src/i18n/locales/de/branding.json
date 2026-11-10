@@ -1,0 +1,61 @@
+{
+  "title": "Logo und Farben",
+  "subtitle": "Das Logo und die Farben Ihres Betriebs – auf jedem Dokument, auf Preisschildern und in Inseraten. Die Vorschau zeigt den Briefkopf so, wie er gedruckt wird.",
+  "loadError": "Logo und Farben konnten nicht geladen werden.",
+  "logo": {
+    "title": "Logo",
+    "formatHint": "SVG bevorzugt, PNG mit mindestens 600 px an der langen Seite. JPEG wird nicht angenommen: Es hat keine Transparenz und druckt mit einem grauen Kasten.",
+    "kinds": {
+      "primary": "Hauptlogo",
+      "mono_dark": "Einfarbig dunkel",
+      "favicon": "Favicon"
+    },
+    "kindHints": {
+      "primary": "Pflicht. Die anderen Varianten verwenden es, solange sie keine eigene Datei haben.",
+      "mono_dark": "Für einen farbigen Briefkopf auf weissem Papier. Ohne eigene Datei wird das Hauptlogo verwendet.",
+      "favicon": "Das kleine Symbol im Browser-Tab der Website. Ohne eigene Datei wird das Hauptlogo verwendet."
+    },
+    "choose": "Datei wählen",
+    "upload": "Hochladen",
+    "remove": "Entfernen",
+    "none": "Noch kein Logo",
+    "usesPrimary": "Verwendet das Hauptlogo",
+    "svgFile": "SVG · in jeder Grösse scharf",
+    "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+    "failed": "Das Logo konnte nicht gespeichert werden."
+  },
+  "colours": {
+    "title": "Farben",
+    "primary": "Primärfarbe",
+    "primaryHint": "Die Farbe Ihres Betriebs auf Dokumenten, z. B. hinter dem Logo-Zeichen.",
+    "secondary": "Sekundärfarbe (optional)",
+    "secondaryHint": "Eine zweite Farbe für Akzente. Leer lassen, wenn Ihr Betrieb keine hat.",
+    "explanation": "Text auf Dokumenten braucht genug Kontrast, um lesbar zu sein: mindestens 4.5 : 1 nach WCAG AA. Eine helle Primärfarbe – etwa Gelb – macht weisse Schrift darauf auf jedem Dokument unleserlich.",
+    "pairs": {
+      "primary_on_white": "Primärfarbe und Weiss",
+      "secondary_on_white": "Sekundärfarbe und Weiss",
+      "secondary_on_primary": "Sekundärfarbe und Primärfarbe"
+    },
+    "ratio": "{{ratio}} : 1",
+    "passes": "AA erfüllt",
+    "fails": "Zu wenig Kontrast",
+    "savedWithWarning": "Gespeichert. Mindestens eine Farbkombination erreicht 4.5 : 1 nicht – Text darauf ist auf Dokumenten schwer lesbar.",
+    "invalid": "Eine Farbe wird als #RRGGBB geschrieben, z. B. #7C3AED.",
+    "failed": "Die Farben konnten nicht gespeichert werden."
+  },
+  "placements": {
+    "title": "Wo das Logo erscheint",
+    "documentHeader": "Briefkopf der Dokumente",
+    "priceTag": "Preisschild",
+    "listing": "Inserate",
+    "emailSignature": "E-Mail-Signatur",
+    "appHeader": "Kopfzeile der Anwendung",
+    "failed": "Die Einstellungen konnten nicht gespeichert werden."
+  },
+  "preview": {
+    "title": "Vorschau des Briefkopfs",
+    "loading": "Die Vorschau wird erstellt …",
+    "error": "Die Vorschau konnte nicht erstellt werden.",
+    "note": "Gespeicherter Stand, in der Korrespondenzsprache des Betriebs."
+  }
+}

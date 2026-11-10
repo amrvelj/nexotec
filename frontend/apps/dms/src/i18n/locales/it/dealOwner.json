@@ -1,0 +1,16 @@
+{
+  "label": "Venditore responsabile",
+  "unassigned": "Non assegnato",
+  "takeOver": "Prendere in carico",
+  "takeOverDisabled": {
+    "closed": "Solo bozze, offerte aperte e contratti in sospeso possono essere presi in carico.",
+    "yours": "Sei già il venditore responsabile.",
+    "assigned": "Già assegnato a {{owner}} – trasferire tramite «Venditore responsabile».",
+    "liveContract": "Questa offerta ha il contratto {{contractNumber}} – il venditore responsabile si cambia nel contratto."
+  },
+  "errors": {
+    "saveFailed": "Non è stato possibile salvare il venditore responsabile.",
+    "takeOverFailed": "Non è stato possibile prendere in carico la trattativa.",
+    "takenMeanwhile": "Già preso in carico da {{owner}} – l'elenco è stato aggiornato."
+  }
+}

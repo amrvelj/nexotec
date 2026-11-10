@@ -1,0 +1,72 @@
+{
+  "untitled": "Nouveau contrat",
+  "errors": {
+    "failedToLoad": "Le contrat n'a pas pu être chargé.",
+    "somethingWentWrong": "Un problème est survenu.",
+    "confirmRefused": {
+      "title": "Contrat non confirmé",
+      "missingAddress": "Aucune adresse n'est enregistrée pour ce client. Ajoutez une adresse de domicile actuelle à la fiche client avant de pouvoir confirmer le contrat.",
+      "missingCustomer": "Le contrat n’a pas encore de client. Choisissez d’abord l’acheteur.",
+      "missingVehicle": "Ce contrat n'a pas encore de véhicule. Ajoutez-en un avant de pouvoir confirmer le contrat.",
+      "missingPrice": "Ce contrat n'a pas encore de prix. Ajoutez-en un avant de pouvoir confirmer le contrat.",
+      "creditBlock": "Ce client fait l'objet d'un blocage de crédit ({{reason}}). Une offre reste possible ; le contrat requiert la libération du compte par la comptabilité.",
+      "doNotContact": "Ce client est marqué « ne pas contacter ». Le contrat ne peut pas être confirmé.",
+      "staleVersion": "Ce contrat a changé depuis le chargement de la page. Il a été rechargé — vérifiez-le et réessayez.",
+      "badStatus": "Ce contrat ne peut plus être confirmé depuis son statut actuel.",
+      "generic": "Le contrat n'a pas pu être confirmé.",
+      "tradeInValuationExpired": "L'évaluation de reprise de ce contrat a expiré ; le contrat ne peut donc pas être confirmé. Annulez-le et créez un nouveau contrat à partir d'une offre avec une évaluation à jour.",
+      "vehicleLeftStock": "Ce véhicule a déjà quitté le stock (vendu). Il ne peut pas être réservé à nouveau ; le contrat ne peut donc pas être confirmé."
+    },
+    "editRefused": {
+      "staleVersion": "Le contrat a été modifié entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
+      "notPending": "Le contrat n'est plus ouvert et ne peut plus être modifié.",
+      "generic": "La modification n'a pas pu être enregistrée."
+    },
+    "cancelRefused": {
+      "title": "Contrat non annulé",
+      "staleVersion": "Ce contrat a changé depuis le chargement de la page. Il a été rechargé — vérifiez-le et annulez-le à nouveau.",
+      "generic": "Le contrat n’a pas pu être annulé. Veuillez réessayer."
+    }
+  },
+  "actions": {
+    "confirm": "Confirmer le contrat",
+    "confirmDisabledReason": "Confirmable uniquement à l'état ouvert.",
+    "cancel": "Annuler …",
+    "cancelDisabledReason": "Déjà annulé ou facturé.",
+    "cancelDisabledReasonLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas, elle ne peut pas être annulée.",
+    "confirmDisabledReasonEmpty": "Véhicule et prix manquants.",
+    "confirmDisabledReasonNoBuyer": "Choisissez d’abord l’acheteur : un contrat n’est jamais confirmé sans client.",
+    "confirmDisabledReasonSaving": "Les modifications sont encore en cours d'enregistrement.",
+    "requestInvoice": "Demander la facture",
+    "requestInvoiceDisabledNotConfirmed": "Possible seulement une fois le contrat confirmé.",
+    "requestInvoiceDisabledNotPurchased": "Le véhicule n'est pas encore acheté — la facture peut être demandée dès que son achat est saisi dans le stock.",
+    "requestInvoiceDisabledAlreadyRequested": "La facture a déjà été demandée le {{date}}.",
+    "requestInvoiceDisabledLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas."
+  },
+  "requestInvoice": {
+    "title": "Demander la facture",
+    "hint": "Avec quelle plaque le véhicule est-il remis ? Elle est enregistrée sur le véhicule et retrouvée par la recherche.",
+    "withPlate": "Avec plaque",
+    "withoutPlate": "Sans plaque",
+    "submit": "Demander la facture",
+    "moveSubmit": "Déplacer et demander la facture",
+    "requested": "La facture est demandée.",
+    "requestedWithPlate": "La facture est demandée. {{plate}} est enregistrée sur le véhicule.",
+    "error": "La facture n'a pas pu être demandée.",
+    "moveBeforeStart": "La plaque n'est enregistrée sur l'autre véhicule qu'à partir d'un jour postérieur à la date de livraison de ce contrat ; elle ne peut donc pas être déplacée. Demandez la facture sans plaque et réglez la plaque dans la vue Véhicule 360."
+  },
+  "stats": {
+    "grossPrice": "Prix de vente",
+    "tradeIn": "Véhicule de reprise",
+    "payable": "À payer",
+    "margin": "Marge"
+  },
+  "financing": "Financement",
+  "cancelReasonPrompt": "Motif de l'annulation :",
+  "edit": {
+    "title": "Compléter le contrat",
+    "hint": "Tant que le contrat n'est pas confirmé, le client, le véhicule, la composition du prix et la reprise peuvent être complétés ou ajustés ici. La confirmation le fige.",
+    "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté.",
+    "pricedWithoutInputsNoBuyer": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Son prix ne peut plus être ajusté. Choisissez l'acheteur ci-dessous, puis il pourra être confirmé tel quel — ou annulez-le."
+  }
+}

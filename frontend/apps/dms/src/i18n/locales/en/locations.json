@@ -1,0 +1,137 @@
+{
+  "title": "Locations",
+  "subtitle": "The business's locations with address, contacts, opening hours, holidays and closures. A location is deactivated, never deleted.",
+  "loadError": "The locations could not be loaded.",
+  "notFound": "This location does not exist in this business.",
+  "readOnly": "Only a manager of this business changes its locations.",
+  "new": "New location",
+  "count": "{{count, number}} locations",
+  "saveError": "The location could not be saved.",
+  "columns": {
+    "name": "Name",
+    "code": "Code",
+    "types": "Type",
+    "address": "Address",
+    "canton": "Canton",
+    "phone": "Phone",
+    "leadEmail": "Enquiry e-mail",
+    "holidayCalendar": "Holiday calendar",
+    "status": "Status",
+    "validFrom": "Valid from",
+    "validTo": "Valid to",
+    "country": "Country",
+    "contactPerson": "Contact person",
+    "email": "E-mail",
+    "geo": "Coordinates",
+    "letterhead": "Letterhead address block",
+    "updatedAt": "Updated"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Deactivated"
+  },
+  "empty": {
+    "title": "No location yet",
+    "description": "Create the business's first location."
+  },
+  "actions": {
+    "open": "Open",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "lastActive": "The last active location stays active – a business always has at least one.",
+    "deactivateConfirm": "The location {{name}} will be deactivated. Documents that name it stay unchanged; it can no longer be assigned to new users."
+  },
+  "types": {
+    "showroom": "Showroom",
+    "workshop": "Workshop",
+    "body_shop": "Body shop",
+    "parts_warehouse": "Parts warehouse",
+    "storage": "Vehicle storage",
+    "admin": "Administration"
+  },
+  "create": {
+    "title": "New location",
+    "submit": "Create"
+  },
+  "master": {
+    "title": "Master data",
+    "name": "Name",
+    "code": "Code",
+    "codeHint": "A short, fixed code such as ZH-NORD – it appears in document numbers and marketplace mappings and cannot be changed once saved.",
+    "codeFixed": "The code is fixed.",
+    "types": "Location type",
+    "typesHint": "Several may apply – most locations are two of these, e.g. showroom and workshop.",
+    "validFrom": "Valid from",
+    "validTo": "Valid to"
+  },
+  "address": {
+    "title": "Address and map",
+    "geoLat": "Latitude",
+    "geoLng": "Longitude",
+    "geoHint": "WGS 84 in decimal degrees, e.g. 47.414100 and 8.546900 – for marketplaces and the website map.",
+    "pin": "Map pin",
+    "noGeo": "No coordinates recorded.",
+    "openMap": "Open in OpenStreetMap"
+  },
+  "contacts": {
+    "title": "Contacts",
+    "contactPerson": "Contact person",
+    "phone": "Phone",
+    "email": "E-mail",
+    "leadEmail": "Enquiry e-mail",
+    "leadEmailHint": "Marketplace enquiries for this location are sent here."
+  },
+  "hours": {
+    "title": "Opening hours",
+    "perDepartment": "Hours differ per department",
+    "perDepartmentHint": "Off: one set of hours for the whole location, stored alike for sales, service and parts.",
+    "departments": {
+      "sales": "Sales",
+      "service": "Service",
+      "parts": "Parts"
+    },
+    "weekdays": {
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "open": "Open",
+    "closed": "Closed",
+    "opensAt": "From",
+    "closesAt": "To",
+    "secondOpensAt": "Afternoon from",
+    "secondClosesAt": "Afternoon to",
+    "invalid": "Check the hours on {{day}}: each end after its start, the second interval after the first.",
+    "none": "No opening hours recorded yet."
+  },
+  "holidays": {
+    "title": "Holidays and closures",
+    "calendar": "Holiday calendar",
+    "calendarHint": "The cantonal holidays equal to Sundays and 1 August – per region where they differ within the canton. Maintained by Nexotec (source: SECO).",
+    "noCalendar": "No holiday calendar chosen.",
+    "year": "Holidays {{year}}",
+    "afternoonOnly": "from noon",
+    "closures": "Closures",
+    "closuresHint": "Company holidays and single closed days of this location – in addition to the public holidays.",
+    "noClosures": "No closures recorded.",
+    "addClosure": "Add closure",
+    "editClosure": "Edit closure",
+    "removeClosure": "Remove closure",
+    "startsOn": "From",
+    "endsOn": "To",
+    "reason": "Reason",
+    "period": "{{from}} – {{to}}"
+  },
+  "overrides": {
+    "title": "Overrides of the business",
+    "disclosure": "Letterhead and bank account of this location",
+    "letterhead": "Letterhead address block",
+    "letterheadHint": "Empty: the business's address block. Replaces only the address block of the shared template, never the template.",
+    "bankAccount": "Bank account",
+    "bankAccountInherit": "As the business (invoice account)"
+  }
+}

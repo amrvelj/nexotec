@@ -200,7 +200,7 @@ describe('StockDetailPage — what the role may never use is hidden (KAN-430)', 
 
 // KAN-211 (ADR-123): «Neu laden» of the car's catalogue details follows the
 // session's own manager flag — the ACTIVE Betrieb's — never the home flag on
-// the user row (platform.md). A home manager switched into a Betrieb they do
+// the user row (platform-users.md). A home manager switched into a Betrieb they do
 // not manage sees no button; a member who manages the active Betrieb does.
 describe('StockDetailPage — «Neu laden» follows the active Betrieb\'s manager flag (KAN-211)', () => {
   const CONFIGURED = { ...ITEM, configurationId: 'cfg-1', configurationLabel: 'Volkswagen Golf GTI' } as StockItemRead

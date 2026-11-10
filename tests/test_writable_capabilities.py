@@ -156,7 +156,7 @@ def test_switching_to_a_sister_betrieb_follows_the_manager_flag_held_there(clien
 # KAN-211: the session's own manager flag — the ACTIVE Betrieb's, as the
 # token carries it — on the session read, beside the capabilities. The SPA
 # gates «Neu laden» on it; `user.isDealerManager` is the home flag and must
-# not be used for that (platform.md).
+# not be used for that (platform-users.md).
 
 
 def test_the_session_read_carries_the_active_betriebs_manager_flag(client, login):

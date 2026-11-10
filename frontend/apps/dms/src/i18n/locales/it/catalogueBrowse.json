@@ -1,0 +1,103 @@
+{
+  "title": "Catalogo",
+  "subtitle": "Sfogliare le varianti — genere di veicolo, marca, modello, allestimento. In diretta dal fornitore, pagina per pagina.",
+  "tabs": {
+    "browse": "Sfoglia",
+    "mappingGaps": "Lacune di mappatura",
+    "brands": "Marche"
+  },
+  "mode": {
+    "label": "Modalità",
+    "build": "Veicolo nuovo",
+    "record": "Veicolo usato",
+    "tooltip": "Nuovo mostra solo le serie in produzione; usato mostra tutto."
+  },
+  "drilldown": {
+    "brand": "Marca",
+    "brandPlaceholder": "Scegliere una marca",
+    "modelGroup": "Gruppo di modelli",
+    "modelGroupPlaceholder": "Tutti i gruppi di modelli",
+    "modelGroupNeedsBrand": "Scegliere prima una marca",
+    "brandsLoadError": "Impossibile caricare le marche",
+    "vehicleKind": "Genere di veicolo"
+  },
+  "searchPlaceholder": "Cerca nella designazione…",
+  "labelsLoadError": {
+    "title": "Etichette non disponibili",
+    "body": "Non è stato possibile caricare le etichette dei valori del catalogo. I valori contrassegnati con ⚠ mostrano il loro codice."
+  },
+  "unavailable": {
+    "title": "auto-i-dat non raggiungibile",
+    "body": "Il fornitore al momento non risponde. Riprovare più tardi; l’identificazione dei veicoli noti continua a funzionare."
+  },
+  "columns": {
+    "brand": "Marca",
+    "modelGroup": "Gruppo di modelli",
+    "variant": "Variante",
+    "trim": "Allestimento",
+    "fuelType": "Carburante",
+    "bodyStyle": "Carrozzeria",
+    "drivetrain": "Trazione",
+    "transmission": "Cambio",
+    "ps": "CV",
+    "kw": "kW",
+    "displacementCcm": "Cilindrata (cm³)",
+    "cylinders": "Cilindri",
+    "gears": "Marce",
+    "doors": "Porte",
+    "seats": "Posti",
+    "co2Gkm": "CO₂ (g/km)",
+    "emissionStandard": "Norma antinquinamento",
+    "vehicleClass": "Classe del veicolo",
+    "engineCycle": "Tempi",
+    "basePrice": "Prezzo di listino",
+    "productionFrom": "Anno di produzione da",
+    "productionTo": "Anno di produzione a",
+    "modelYear": "Anno modello",
+    "inProduction": "In produzione",
+    "typeApprovals": "Approvazioni del tipo",
+    "updatedAt": "Modificato",
+    "trimName": "Allestimento"
+  },
+  "filters": {
+    "fuelType": "Carburante",
+    "bodyStyle": "Carrozzeria",
+    "drivetrain": "Trazione",
+    "transmission": "Cambio",
+    "vehicleClass": "Classe del veicolo",
+    "emissionStandard": "Norma antinquinamento",
+    "kw": "kW",
+    "displacementCcm": "Cilindrata (cm³)",
+    "doors": "Porte",
+    "seats": "Posti",
+    "co2Gkm": "CO₂ (g/km)"
+  },
+  "allVariantsView": "Tutte le varianti",
+  "loadError": "Impossibile caricare il catalogo.",
+  "emptyState": {
+    "title": "Nessuna variante",
+    "description": "Il fornitore non elenca alcuna variante per questa selezione."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun risultato",
+    "description": "Nessuna variante corrisponde a questi filtri.",
+    "action": "Reimposta i filtri"
+  },
+  "selection": {
+    "count": "{{count, number}} selezionati",
+    "clear": "Annulla selezione",
+    "copyIds": "Copia ID"
+  },
+  "needsBrand": {
+    "title": "Scegliere una marca",
+    "description": "Scegliere genere di veicolo e marca — il catalogo viene interrogato in diretta dal fornitore, pagina per pagina."
+  },
+  "notConfigured": {
+    "title": "Nessun accesso auto-i-dat",
+    "body": "Questa azienda non ha una connessione auto-i-dat attiva. Un veicolo si registra manualmente; l’accesso si configura sotto Integrazioni."
+  },
+  "notInContract": {
+    "title": "Catalogo non nel contratto",
+    "body": "auto-i-dat rifiuta la richiesta al catalogo: l’opzione «ident_basis» non è in licenza per questo accesso."
+  }
+}

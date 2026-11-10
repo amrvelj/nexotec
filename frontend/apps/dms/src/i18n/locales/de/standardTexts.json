@@ -1,0 +1,112 @@
+{
+  "title": "Standardtexte",
+  "subtitle": "Die Formulierungen Ihrer Dokumente und Nachrichten — in vier Sprachen, mit Platzhaltern.",
+  "disclaimer": "Die mitgelieferten Texte sind Vorlagen in Schweizer Standardformulierung, keine Rechtsberatung. Bitte prüfen Sie sie, bevor Sie sie verwenden.",
+  "newText": "Neuer Text",
+  "loadError": "Die Standardtexte konnten nicht geladen werden.",
+  "readOnly": "Sie können die Texte dieser Kategorie lesen, aber nicht ändern.",
+  "empty": "In dieser Kategorie gibt es noch keine Texte.",
+  "inactive": "Inaktiv",
+  "edit": "Bearbeiten",
+  "view": "Ansehen",
+  "category": {
+    "document": "Dokumente",
+    "email": "E-Mail",
+    "sms": "SMS",
+    "whatsapp": "WhatsApp",
+    "internal_note": "Interne Notizen",
+    "workshop": "Werkstatt"
+  },
+  "appliesTo": {
+    "offer": "Offerte",
+    "contract": "Kaufvertrag",
+    "invoice": "Rechnung",
+    "appointment_reminder": "Terminerinnerung",
+    "vehicle_ready": "Fahrzeug abholbereit",
+    "workshop_order": "Werkstattauftrag",
+    "customer_note": "Kundennotiz"
+  },
+  "slot": {
+    "header": "Kopf",
+    "intro": "Einleitung",
+    "body": "Text",
+    "footer": "Fusszeile",
+    "terms": "Bedingungen",
+    "closing": "Schluss"
+  },
+  "language": {
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "it": "Italienisch",
+    "en": "Englisch"
+  },
+  "columns": {
+    "title": "Bezeichnung",
+    "appliesTo": "Verwendet für",
+    "slot": "Position",
+    "source": "Herkunft",
+    "languages": "Sprachen",
+    "default": "Standard"
+  },
+  "badge": {
+    "template": "Vorlage — bitte prüfen",
+    "adapted": "Angepasst",
+    "own": "Eigener Text",
+    "seedChanged": "Vorlage geändert — bitte prüfen"
+  },
+  "fields": {
+    "appliesTo": "Verwendet für",
+    "slot": "Position im Dokument",
+    "title": "Bezeichnung",
+    "body": "Text",
+    "isDefault": "Standardtext für diese Position",
+    "active": "Aktiv",
+    "templateApproved": "Vom Anbieter genehmigte Vorlage",
+    "providerTemplateId": "Vorlagen-ID des Anbieters"
+  },
+  "whatsapp": {
+    "approved": "Genehmigt",
+    "notApproved": "Nicht genehmigt — nur innerhalb von 24 Stunden nach einer Kundennachricht"
+  },
+  "editor": {
+    "title": "Standardtext bearbeiten",
+    "newTitle": "Neuer Standardtext",
+    "missingLanguage": "fehlt",
+    "templateHint": "Dies ist die mitgelieferte Vorlage. Speichern Sie sie, um sie als Ihren eigenen Text zu übernehmen; die Vorlage selbst bleibt unverändert.",
+    "templateHintReadOnly": "Dies ist die mitgelieferte Vorlage.",
+    "seedChangedTitle": "Die Vorlage wurde geändert — bitte prüfen Sie Ihren Text",
+    "seedChangedHint": "Ihr Text bleibt, wie er ist. Die aktuelle Vorlage lautet:",
+    "currentTemplate": "Aktuelle Vorlage",
+    "markReviewed": "Als geprüft markieren",
+    "placeholders": "Platzhalter einfügen",
+    "preview": "Vorschau",
+    "previewHint": "Mit Beispieldaten; Name und Telefon Ihres Betriebs sind echt.",
+    "previewEmpty": "Kein Text.",
+    "previewFailed": "Dieser Text kann so nicht gedruckt werden:",
+    "resetToTemplate": "Auf Vorlage zurücksetzen",
+    "deleteLanguage": "Diese Sprache löschen",
+    "saved": "Gespeichert.",
+    "adapt": "Als eigenen Text übernehmen",
+    "close": "Schliessen"
+  },
+  "placeholder": {
+    "dealership_name": "Name des Betriebs",
+    "location_phone": "Telefon",
+    "customer_salutation": "Anrede",
+    "vehicle_make_model": "Marke und Modell",
+    "document_number": "Dokumentnummer",
+    "document_date": "Dokumentdatum",
+    "user_full_name": "Name des Beraters",
+    "payment_due_date": "Zahlungsfrist"
+  },
+  "problem": {
+    "unknown": "Unbekannter Platzhalter: {{token}}",
+    "not_valid_here": "Hier nicht verfügbar: {{token}}",
+    "malformed": "Eine geschweifte Klammer ist nicht geschlossen.",
+    "unresolved": "Ohne Wert: {{token}}"
+  },
+  "errors": {
+    "saveFailed": "Der Text konnte nicht gespeichert werden.",
+    "previewFailed": "Die Vorschau konnte nicht erstellt werden."
+  }
+}

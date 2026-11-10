@@ -1,6 +1,6 @@
 ---
 name: ticket
-description: Run one Nexotec Kanban ticket end to end - read it from Notion, plan, build, check, independent review, push, PR, green CI, Notion hand-over. Use when Anto asks to work on, implement or fix a KAN ticket (`/ticket KAN-71`), and with `close` after he has merged its PR (`/ticket KAN-71 close`).
+description: Run one Nexotec Kanban ticket end to end - read it from Notion, plan, build, check, independent review, push, PR, Notion hand-over (CI confirmed at close). Use when Anto asks to work on, implement or fix a KAN ticket (`/ticket KAN-71`), and with `close` after he has merged its PR (`/ticket KAN-71 close`).
 argument-hint: "KAN-<n> [close]"
 ---
 
@@ -12,8 +12,9 @@ about *what* to build still binds you.
 
 The gates in `.claude/hooks/` enforce the evidence at the end, bound to the exact code tree:
 the push needs a passing `scripts/dev/check` for the commit being pushed; the hand-over needs
-the PR, green CI, a reviewer `VERDICT: PASS`, a screenshot and a Notion update — all for the
-final code. Do the steps in order and you will never meet a gate by surprise.
+the PR open for the final commit with no check failed, a reviewer `VERDICT: PASS`, a screenshot
+and a Notion update — all for the final code. Green CI is a condition of merging, confirmed at
+`/ticket … close` (KAN-619). Do the steps in order and you will never meet a gate by surprise.
 
 Workspace when this skill was invoked:
 
@@ -131,15 +132,17 @@ Any code change after this point invalidates 2–4: redo them.
    -f base=main -F body=@<body file>`. The body: the ticket link; what changed; an
    exit-criteria table (met / **NOT met**, with the evidence for each); the verification commands
    and results; what you did not verify; follow-up tickets.
-3. Wait until CI finishes: poll `gh api 'repos/{owner}/{repo}/commits/<head sha>/check-runs'
-   --jq '.check_runs[] | [.name, .status, .conclusion] | @tsv'` (or the MCP tools' check runs)
-   until every run is `completed`; `scripts/dev/gate status` reads the same REST answer. Red: fix,
-   then check → commit → review → push again.
+3. **Do not wait for CI** (Anto, 2026-11-10; KAN-619). Route B: your `scripts/dev/check` is the
+   merge gate (once KAN-625 lands, the push writes it on the commit as `nexotec/check`); GitHub's
+   `pr-light` runs once the PR is marked ready, the full suite at night on `main`. Go on to step 7
+   at once — never poll. The hand-over gate stops only on a check that has **already failed**:
+   then fix, check → commit → review → push again.
 
 ## 7. Hand over
 
 1. Ticket Status → **In Review**. At the top of the page, a callout: `In Review — PR #<n>
-   (<branch>), head <sha>`; each exit criterion **met** or **NOT met** with its evidence; the
+   (<branch>), head <sha>`; one line `CI was pending at hand-over — <PR link>` (or what had
+   already reported); each exit criterion **met** or **NOT met** with its evidence; the
    verification run; the screenshot (attach the file when you have one).
 2. **Work is not done when the code merges.** Every time — whether or not the ticket names
    them — draft the module PRD's status (what shipped) and the Gap Analysis (citing the new
@@ -164,8 +167,15 @@ reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's s
 
 1. `gh api 'repos/{owner}/{repo}/pulls/<n>' --jq '{merged, merged_at, merge_commit_sha, html_url}'`
    (REST; or the MCP tools). Not merged → stop and say so.
-2. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`.
-3. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
-   ticket names — written directly; say what each one changed, as in step 7.
-4. `scripts/dev/gate close` (it refuses until the PR is merged), then tell Anto the worktree can
-   be removed. A cloud session has no worktree: the session can simply be archived.
+2. **Confirm CI** (KAN-619): `scripts/dev/gate close`. It refuses until the PR is merged, then reads
+   the merged PR's checks (its head and its merge commit) and the latest completed nightly run of
+   `test.yml` on `main`. A check that **failed** (exit 3, the jobs named): do **not** set Done — file
+   a Bug ticket on the board (Status Backlog, the board's format) naming the failing job and the
+   run, tell Anto, and stop; the ticket stays In Review. A check still running, a cancelled nightly
+   run, or a nightly run that started before the merge is printed and does not hold the close — the
+   Done callout then says the nightly run has not covered the merge yet.
+3. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`
+   and the CI line to what `close` confirmed.
+4. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
+   ticket names — written directly; say what each one changed, as in step 7. Then tell Anto the
+   worktree can be removed. A cloud session has no worktree: the session can simply be archived.

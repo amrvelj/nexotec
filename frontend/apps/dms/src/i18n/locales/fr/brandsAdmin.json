@@ -1,0 +1,28 @@
+{
+  "create": "Ajouter une marque",
+  "edit": "Modifier",
+  "createTitle": "Ajouter une marque",
+  "editTitle": "Modifier la marque",
+  "searchPlaceholder": "Rechercher une marque ou un code …",
+  "loadError": "Les marques n'ont pas pu être chargées.",
+  "saveFailed": "La marque n'a pas pu être enregistrée. Veuillez réessayer.",
+  "columns": {
+    "displayName": "Marque",
+    "code": "Code",
+    "updatedAt": "Modifié",
+    "createdAt": "Créé"
+  },
+  "fields": {
+    "code": "Code",
+    "displayName": "Nom"
+  },
+  "emptyState": {
+    "title": "Aucune marque pour l'instant",
+    "description": "Les marques proviennent du catalogue ou sont ajoutées ici."
+  },
+  "emptyFilteredState": {
+    "title": "Aucune marque trouvée",
+    "description": "Aucune marque ne correspond à la recherche.",
+    "action": "Effacer la recherche"
+  }
+}

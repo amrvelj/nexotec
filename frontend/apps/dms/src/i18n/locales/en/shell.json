@@ -1,0 +1,59 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "masterData": "Master Data",
+    "customers": "Customers",
+    "vehicles": "Vehicles",
+    "mappingGaps": "Mapping gaps",
+    "partners": "Partners",
+    "modules": "Modules",
+    "sales": "Sales",
+    "aftersales": "Aftersales",
+    "inventory": "Inventory",
+    "parts": "Parts",
+    "finance": "Finance",
+    "transactions": "Transactions",
+    "reporting": "Reporting",
+    "compliance": "Compliance",
+    "valuations": "Valuations",
+    "integrations": "Integrations",
+    "administration": "Administration",
+    "referenceData": "Reference data",
+    "catalogue": "Catalogue",
+    "users": "Users",
+    "accountRecovery": "Account recovery",
+    "business": "Business",
+    "translations": "Translations",
+    "locations": "Locations",
+    "branding": "Logo and colours",
+    "standardTexts": "Standard texts",
+    "numberRanges": "Number ranges"
+  },
+  "signOut": "Sign out",
+  "environmentNotice": {
+    "outboxWorkerAbsent": "This environment runs no background worker: events are not delivered and nightly jobs do not run here."
+  },
+  "sidebar": {
+    "mainNavigation": "Main navigation",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "soon": "SOON",
+    "notifications": "Notifications",
+    "notificationsSoon": "Notifications (soon)",
+    "accountMenu": "Account menu",
+    "language": "Language",
+    "switchDealership": "Switch business",
+    "accountSecurity": "My account"
+  },
+  "globalSearch": {
+    "placeholder": "Search…",
+    "recents": "Recent",
+    "noResults": "No matches",
+    "error": "Search failed — try again."
+  },
+  "switchDealershipError": {
+    "notAMember": "Switch refused: you are no longer a member of this business. You remain in the current business.",
+    "failed": "The business could not be switched. You remain in the current business. Please try again.",
+    "dismiss": "Dismiss message"
+  }
+}

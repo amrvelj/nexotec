@@ -1,0 +1,107 @@
+{
+  "header": {
+    "vehicleFallback": "Véhicule",
+    "failedToLoad": "Échec du chargement du véhicule",
+    "copyVin": "Copier le n° de châssis",
+    "merge": "Fusionner avec…",
+    "mergeDisabledReason": "Pas encore disponible",
+    "allocate": "Attribuer à un client",
+    "requestValuation": "Demander une évaluation",
+    "recordOdometer": "Saisir le kilométrage",
+    "recordAccessory": "Saisir un accessoire",
+    "resync": "Actualiser depuis le catalogue",
+    "resyncDisabledReason": "Pas encore disponible",
+    "recordPlate": "Saisir une plaque"
+  },
+  "errors": {
+    "somethingWentWrong": "Une erreur est survenue."
+  },
+  "tabs": {
+    "identity": "Identité",
+    "plates": "Plaques",
+    "odometer": "Kilométrage",
+    "accessories": "Accessoires",
+    "specification": "Spécification"
+  },
+  "identity": {
+    "title": "Identité",
+    "vin": "N° de châssis",
+    "vehicleNumber": "N° véhicule",
+    "stammnummer": "Numéro souche",
+    "typeApprovalNumber": "N° de réception",
+    "firstRegistrationDate": "Première mise en circulation",
+    "matchStatus": "Correspondance catalogue"
+  },
+  "parties": {
+    "title": "Parties",
+    "none": "Aucune partie attribuée",
+    "allocate": "Attribuer à un client",
+    "roleLabel": "Rôle",
+    "role": {
+      "owner": "Propriétaire",
+      "keeper": "Détenteur",
+      "driver": "Conducteur"
+    },
+    "searchCustomer": "Rechercher un client…",
+    "noCustomers": "Aucun client trouvé",
+    "unnamedCustomer": "Client sans nom",
+    "showFormer": "Afficher les anciennes parties",
+    "hideFormer": "Masquer les anciennes parties",
+    "allocateError": "Le client n'a pas pu être attribué."
+  },
+  "plates": {
+    "plate": "Plaque",
+    "canton": "Canton",
+    "validFrom": "Valide à partir de",
+    "validTo": "Valide jusqu’à",
+    "current": "actuelle",
+    "none": "Aucune plaque enregistrée",
+    "wechselschild": "Plaque interchangeable",
+    "limitReached": "Vous avez consulté les plaques de nombreux véhicules en peu de temps. Veuillez réessayer plus tard.",
+    "withheld": "Plaque masquée – limite atteinte",
+    "number": "Numéro",
+    "recordTitle": "Saisir une plaque",
+    "recordSubmit": "Enregistrer",
+    "moveConfirm": "Déplacer sur ce véhicule",
+    "onOtherVehicleTitle": "Plaque sur un autre véhicule",
+    "onOtherVehicle": "{{plate}} est enregistrée sur {{vehicle}} (VIN {{vin}}) depuis le {{since}}.",
+    "moveQuestion": "Le déplacement termine l'attribution sur l'autre véhicule la veille. Elle reste visible dans son historique.",
+    "formWechselschild": "Enregistrer plutôt comme plaque interchangeable",
+    "saveError": "La plaque n'a pas pu être enregistrée.",
+    "endTitle": "Terminer {{plate}}",
+    "end": "Terminer",
+    "endsOn": "Dernier jour sur ce véhicule"
+  },
+  "odometer": {
+    "value": "Relève",
+    "date": "Date",
+    "source": "Source",
+    "record": "Enregistrer",
+    "none": "Aucun relevé enregistré",
+    "implausible": "Invraisemblable",
+    "implausibleNotice": "Un ou plusieurs relevés sont inférieurs à un relevé précédent. Ils sont conservés et signalés, jamais masqués.",
+    "sourceLabel": {
+      "service_visit": "Visite d’entretien",
+      "sale": "Vente",
+      "valuation": "Évaluation",
+      "manual": "Manuel",
+      "import": "Importation"
+    },
+    "saveError": "Le relevé n'a pas pu être enregistré."
+  },
+  "accessories": {
+    "type": "Type",
+    "description": "Description",
+    "validFrom": "Valide à partir de",
+    "validTo": "Valide jusqu’à",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "none": "Aucun accessoire enregistré",
+    "saveError": "L'accessoire n'a pas pu être enregistré.",
+    "removeError": "L'accessoire n'a pas pu être retiré."
+  },
+  "specification": {
+    "empty": "Aucune configuration de ce véhicule dans cette entreprise.",
+    "loadError": "La spécification n'a pas pu être chargée."
+  }
+}

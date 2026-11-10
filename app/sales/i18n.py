@@ -8,7 +8,7 @@ tables) and not per-dealership wording (the header note on
 the standard-text library — the offer's introduction and footer — which a
 dealer DOES customize per language). UI chrome
 lives in the code repository as static data, same tier the frontend's own
-`frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json` already occupies
+`frontend/apps/dms/src/i18n/locales/{de,en,fr,it}/` already occupies
 — this is that same convention's backend, sales-owned counterpart, not a
 new pattern.
 

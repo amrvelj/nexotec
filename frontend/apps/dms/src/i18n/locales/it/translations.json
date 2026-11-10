@@ -1,0 +1,92 @@
+{
+  "title": "Traduzioni",
+  "subtitle": "I testi che Nexotec fornisce in quattro lingue: l'interfaccia, fornita in fase di esecuzione, e i modelli di testi standard. Una pubblicazione vale subito per tutte le aziende; le aziende non possono modificare i testi dell'interfaccia.",
+  "badge": "Piattaforma",
+  "sourcesLabel": "Origine",
+  "sources": {
+    "ui": "Testi dell'interfaccia",
+    "standardTexts": "Modelli di testi standard"
+  },
+  "search": {
+    "label": "Cerca",
+    "placeholder": "Chiave o testo"
+  },
+  "namespace": {
+    "label": "Ambito",
+    "all": "Tutti gli ambiti"
+  },
+  "editedOnly": "Solo modificati",
+  "count_one": "{{count, number}} chiave",
+  "count_other": "{{count, number}} chiavi",
+  "countEstimate": "Più di {{count, number}} chiavi",
+  "columns": {
+    "key": "Chiave",
+    "actions": "Azioni"
+  },
+  "languages": {
+    "de": "Tedesco",
+    "fr": "Francese",
+    "it": "Italiano",
+    "en": "Inglese"
+  },
+  "status": {
+    "seed": "Fornito",
+    "platform": "Modificato",
+    "absent": "Non fornito"
+  },
+  "open": "Modifica",
+  "view": "Visualizza",
+  "empty": "Nessuna chiave trovata.",
+  "noSeed": "Non è ancora stato importato alcun testo dell'interfaccia. L'importazione si avvia con scripts/import_ui_translation_bundles.py --commit.",
+  "loadError": "Non è stato possibile caricare le traduzioni.",
+  "loadMore": "Carica altri",
+  "editor": {
+    "keyLabel": "Chiave",
+    "seedLabel": "Fornito",
+    "sameAsSeed": "Uguale al testo fornito.",
+    "diffLabel": "Differenza rispetto al testo fornito",
+    "removed": "rimosso",
+    "added": "nuovo",
+    "placeholdersHint": "I segnaposto come {{example}} devono essere mantenuti.",
+    "publish": "Pubblica",
+    "discard": "Annulla le modifiche",
+    "close": "Chiudi",
+    "revert": "Ripristina il testo fornito",
+    "published": "Pubblicato. La modifica compare a ogni utente al prossimo caricamento dei testi.",
+    "readOnly": "Solo gli amministratori della piattaforma Nexotec possono modificare questi testi.",
+    "noRow": "Non fornito in questa lingua.",
+    "nothingChanged": "Nessuna modifica da pubblicare."
+  },
+  "missing": {
+    "title": "Chiavi mancanti segnalate",
+    "subtitle": "Chiavi che un browser non ha trovato né qui né nei testi forniti e che ha mostrato come segno di avviso.",
+    "empty": "Nessuna chiave mancante segnalata.",
+    "columns": {
+      "key": "Chiave",
+      "language": "Lingua",
+      "count": "Segnalazioni",
+      "last": "Ultima segnalazione"
+    }
+  },
+  "seeds": {
+    "subtitle": "I modelli che Nexotec fornisce a ogni azienda. Una modifica non sovrascrive mai l'adattamento di un'azienda; l'azienda vede che il modello è cambiato.",
+    "search": {
+      "label": "Cerca",
+      "placeholder": "Codice, titolo o testo"
+    },
+    "category": {
+      "label": "Categoria",
+      "all": "Tutte le categorie"
+    },
+    "count_one": "{{count, number}} modello",
+    "count_other": "{{count, number}} modelli",
+    "columns": {
+      "code": "Codice",
+      "target": "Utilizzo"
+    },
+    "fieldTitle": "Titolo",
+    "fieldBody": "Testo",
+    "empty": "Nessun modello trovato.",
+    "loadError": "Non è stato possibile caricare i modelli."
+  }
+}

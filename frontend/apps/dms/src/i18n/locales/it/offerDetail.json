@@ -1,0 +1,12 @@
+{
+  "untitled": "Nuova offerta",
+  "errors": {
+    "failedToLoad": "Impossibile caricare l'offerta.",
+    "somethingWentWrong": "Qualcosa è andato storto.",
+    "copyFailed": "Non è stato possibile copiare l’offerta. Riprovare.",
+    "createFailed": "Non è stato possibile creare la nuova offerta."
+  },
+  "actions": {
+    "copy": "Copia offerta"
+  }
+}

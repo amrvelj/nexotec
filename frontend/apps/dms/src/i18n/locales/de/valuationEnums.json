@@ -1,0 +1,8 @@
+{
+  "status": {
+    "draft": "Entwurf",
+    "valid": "Gültig",
+    "expired": "Abgelaufen",
+    "used": "Verwendet"
+  }
+}

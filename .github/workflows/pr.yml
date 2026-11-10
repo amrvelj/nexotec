@@ -1,0 +1,65 @@
+name: pr
+
+# Route B (KAN-610, KAN-624): the session's own `scripts/dev/check` is the merge gate.
+# GitHub runs only this one light, independent job per pull request; the full suite
+# (Postgres pytest, migrations, outbox smoke, frontend, API-types drift) runs nightly
+# on main in test.yml. One job, one checkout, one cached pip install: target under
+# five billed minutes. Draft PRs are skipped; marking one ready runs it. A newer push
+# to the same PR cancels the run still going.
+#
+# The job name `pr-light` is what branch protection is to require (KAN-626) - do not
+# rename it without changing that.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: pr-light-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pr-light:
+    name: pr-light
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # TruffleHog scans the PR's commits (base..head), so it needs the history.
+          fetch-depth: 0
+      # Every check below runs even when an earlier one failed (`!cancelled()`), so
+      # one red run shows every problem; the job is red if any step is.
+      - name: secret scan (TruffleHog, verified findings only)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+      - uses: actions/setup-python@v5
+        if: ${{ !cancelled() }}
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: pip install -e ".[dev]"
+        if: ${{ !cancelled() }}
+        run: pip install -e ".[dev]"
+      - name: ruff check app tests scripts
+        if: ${{ !cancelled() }}
+        run: ruff check app tests scripts
+      - name: mypy app scripts
+        if: ${{ !cancelled() }}
+        run: mypy app scripts
+      # KAN-236: render.yaml against the vendored copy of Render's Blueprint schema.
+      - name: render.yaml matches Render's Blueprint schema
+        if: ${{ !cancelled() }}
+        run: python scripts/check_render_yaml.py
+      - name: import-linter (context seams)
+        if: ${{ !cancelled() }}
+        run: lint-imports
+      - name: docker build
+        if: ${{ !cancelled() }}
+        run: docker build -t dms-platform:ci .

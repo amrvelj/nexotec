@@ -282,7 +282,7 @@ def test_option_relations_are_stored_from_the_answer_and_never_enforced(db_sessi
 def test_a_403_on_one_detail_keeps_the_others_and_marks_that_one_not_in_contract(db_session, monkeypatch):
     """KAN-212 (criterion 4): a refused detail never discards the car or the
     other details; the refusal is its own ERROR row and never charges the
-    breaker (`.claude/rules/vehicle.md`)."""
+    breaker (`.claude/rules/vehicle-gateway.md`)."""
 
     fake = FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.OPTIONS_PATH: 403})
     s, variant = _connected(db_session, monkeypatch, fake)

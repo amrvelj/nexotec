@@ -1,0 +1,42 @@
+{
+  "title": "Offerte e contratti",
+  "newOffer": "Nuova offerta",
+  "searchPlaceholder": "Targa, VIN, cliente, offerta …",
+  "loadError": "Impossibile caricare offerte e contratti.",
+  "allDealsView": "Tutte le offerte e i contratti",
+  "columns": {
+    "number": "Numero",
+    "type": "Tipo",
+    "customer": "Cliente",
+    "vehicle": "Veicolo",
+    "grossPrice": "Prezzo di vendita",
+    "status": "Stato",
+    "margin": "Margine",
+    "changed": "Modificato",
+    "owner": "Responsabile",
+    "stockNumber": "N. di magazzino"
+  },
+  "chips": {
+    "all": "Tutti",
+    "offers": "Offerte",
+    "contracts": "Contratti",
+    "unassigned": "Non assegnato"
+  },
+  "emptyState": {
+    "title": "Nessuna offerta o contratto",
+    "description": "Crea un'offerta per iniziare."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun risultato",
+    "description": "Modifica la ricerca.",
+    "action": "Reimposta ricerca"
+  },
+  "rowActions": {
+    "open": "Apri"
+  },
+  "selection": {
+    "count": "{{count, number}} selezionati",
+    "clear": "Deseleziona",
+    "copyIds": "Copia ID"
+  }
+}

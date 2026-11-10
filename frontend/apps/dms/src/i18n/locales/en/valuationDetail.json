@@ -1,0 +1,63 @@
+{
+  "untitled": "No vehicle given",
+  "errors": {
+    "failedToLoad": "The valuation could not be loaded.",
+    "somethingWentWrong": "Something went wrong.",
+    "markUsedFailed": "The valuation could not be marked as used. Please try again.",
+    "createOfferFailed": "The offer could not be created.",
+    "createOfferTradeInFailed": "Offer {{offerNumber}} was created, but the valuation could not be taken over as its trade-in: {{reason}}",
+    "openCreatedOffer": "Open offer"
+  },
+  "actions": {
+    "revalue": "Revalue",
+    "markUsed": "Mark as used",
+    "markUsedAlreadyUsed": "Already marked as used.",
+    "markUsedNoSignedContract": "Only possible when a signed contract carries this valuation as its trade-in.",
+    "openCustomer": "Open customer",
+    "openVehicle": "Open vehicle",
+    "revertUse": "Clear use",
+    "revertUseNotUsed": "Only for a valuation marked as used.",
+    "revertUseSignedContract": "Not possible: a signed contract carries this valuation as its trade-in.",
+    "revertUseTooRecent": "Possible only an hour after it was marked: the contract's confirmation may still be in progress.",
+    "createOffer": "Create offer from this valuation",
+    "createOfferExpired": "Not possible: the valuation has expired. Revalue it first.",
+    "createOfferUsed": "Not possible: the valuation is already marked as used.",
+    "createOfferNoSales": "Not possible: this business does not have the Sales module.",
+    "createOfferNoVin": "Not possible: the valuation names no car with a VIN that can be taken in trade."
+  },
+  "expiredBanner": {
+    "title": "Valuation expired",
+    "body": "This valuation is no longer valid. Create a new one via \"Revalue\" if needed."
+  },
+  "valueCard": {
+    "title": "Valuation",
+    "providerValue": "Raw value",
+    "netValue": "Net value",
+    "finalOffer": "Trade-in offer",
+    "finalOfferHint": "The trade-in offer may differ from the net value — that's the negotiation."
+  },
+  "vehicleCard": {
+    "title": "Vehicle",
+    "vin": "VIN",
+    "plate": "Plate",
+    "mileage": "Mileage",
+    "firstRegistration": "First registration",
+    "customer": "Customer"
+  },
+  "noteCard": {
+    "title": "Note"
+  },
+  "validityHelp": "Status is computed on read, never patched overnight — valid until {{validUntil}}.",
+  "configuration": {
+    "title": "Configuration"
+  },
+  "revertUseDialog": {
+    "title": "Clear use",
+    "body": "Valuation {{number}} is marked as used, but no signed contract stands behind it. Once cleared, it is valid or expired again. The reason is logged with the change.",
+    "reasonLabel": "Reason",
+    "reasonRequired": "Please state a reason.",
+    "submit": "Clear use",
+    "cancel": "Cancel",
+    "failed": "The use could not be cleared. Please try again."
+  }
+}

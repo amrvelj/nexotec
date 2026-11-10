@@ -1,0 +1,49 @@
+{
+  "title": "Fahrzeuge",
+  "newVehicle": "Neues Fahrzeug",
+  "searchPlaceholder": "VIN, Fahrzeugnummer, Stammnummer oder Kennzeichen suchen…",
+  "loadError": "Fahrzeuge konnten nicht geladen werden.",
+  "columns": {
+    "vehicleNumber": "Fahrzeugnr.",
+    "vin": "VIN",
+    "stammnummer": "Stammnummer",
+    "matchStatus": "Katalogabgleich",
+    "status": "Status"
+  },
+  "matchStatus": {
+    "matched": "Zugeordnet",
+    "unverified": "Unbestätigt"
+  },
+  "status": {
+    "active": "Aktiv",
+    "exported": "Exportiert",
+    "scrapped": "Verschrottet",
+    "stolen": "Gestohlen"
+  },
+  "resolved": {
+    "title": "Treffer gefunden",
+    "open": "Öffnen"
+  },
+  "picker": {
+    "wechselschildTitle": "Mehrere Fahrzeuge teilen dieses Wechselschild — bitte wählen",
+    "conflictTitle": "Dieses Kennzeichen passt zu mehreren Fahrzeugen ohne gemeinsame Zuordnung — bitte das richtige wählen",
+    "empty": "Keine Kandidaten gefunden"
+  },
+  "emptyState": {
+    "title": "Noch keine Fahrzeuge",
+    "description": "Erstellte oder migrierte Fahrzeuge erscheinen hier."
+  },
+  "emptyFilteredState": {
+    "title": "Keine passenden Fahrzeuge",
+    "description": "Kein Fahrzeug entspricht Ihrer Suche.",
+    "action": "Suche löschen"
+  },
+  "selection": {
+    "count": "{{count, number}} ausgewählt",
+    "clear": "Auswahl aufheben",
+    "copyIds": "IDs kopieren"
+  },
+  "rowActions": {
+    "open": "Öffnen"
+  }
+}

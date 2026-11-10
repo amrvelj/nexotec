@@ -1,0 +1,83 @@
+{
+  "customerType": {
+    "individual": "Privatperson",
+    "business": "Firma"
+  },
+  "lifecycleStatus": {
+    "prospect": "Interessent",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "merged": "Zusammengeführt",
+    "do_not_contact": "Nicht kontaktieren"
+  },
+  "salutation": {
+    "herr": "Herr",
+    "frau": "Frau",
+    "firma": "Firma",
+    "neutral": "Neutral"
+  },
+  "preferredChannel": {
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "post": "Post",
+    "whatsapp": "WhatsApp",
+    "message": "Nachricht (veraltet)"
+  },
+  "source": {
+    "walk_in": "Laufkundschaft",
+    "phone": "Telefon",
+    "web_lead": "Web-Lead",
+    "marketplace": "Marktplatz",
+    "other": "Sonstiges"
+  },
+  "addressType": {
+    "domicile": "Wohnsitz",
+    "billing": "Rechnung",
+    "delivery": "Lieferung"
+  },
+  "vehiclePartyRole": {
+    "owner": "Eigentümer",
+    "keeper": "Halter",
+    "driver": "Fahrzeugführer"
+  },
+  "contactType": {
+    "mobile": "Mobil",
+    "landline": "Festnetz",
+    "work": "Geschäftlich",
+    "fax": "Fax",
+    "personal": "Privat",
+    "invoicing": "Rechnung"
+  },
+  "gender": {
+    "female": "Weiblich",
+    "male": "Männlich",
+    "other": "Andere",
+    "unspecified": "Keine Angabe"
+  },
+  "paymentTerms": {
+    "prepayment": "Vorauszahlung",
+    "net_10": "10 Tage netto",
+    "net_30": "30 Tage netto",
+    "net_60": "60 Tage netto",
+    "on_delivery": "Bei Lieferung"
+  },
+  "consentScope": {
+    "marketing": "Marketing",
+    "invoicing": "Rechnungsstellung",
+    "service": "Service"
+  },
+  "consentSource": {
+    "form": "Formular",
+    "counter": "Schalter",
+    "web": "Web",
+    "phone": "Telefon"
+  },
+  "legalForm": {
+    "ag": "AG",
+    "gmbh": "GmbH",
+    "einzelfirma": "Einzelfirma",
+    "verein": "Verein",
+    "genossenschaft": "Genossenschaft",
+    "weitere": "Weitere"
+  }
+}

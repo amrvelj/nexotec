@@ -1,0 +1,72 @@
+{
+  "untitled": "New contract",
+  "errors": {
+    "failedToLoad": "The contract could not be loaded.",
+    "somethingWentWrong": "Something went wrong.",
+    "confirmRefused": {
+      "title": "Contract not confirmed",
+      "missingAddress": "This customer has no address on file. Add a current domicile address to the customer record before the contract can be confirmed.",
+      "missingCustomer": "The contract has no customer yet. Choose the buyer first.",
+      "missingVehicle": "This contract has no vehicle yet. Add one before the contract can be confirmed.",
+      "missingPrice": "This contract has no price yet. Add one before the contract can be confirmed.",
+      "creditBlock": "This customer has a credit block ({{reason}}). An offer is still possible; the contract needs the block cleared by accounting.",
+      "doNotContact": "This customer is marked do-not-contact. The contract cannot be confirmed.",
+      "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and try again.",
+      "badStatus": "This contract can no longer be confirmed from its current status.",
+      "generic": "The contract could not be confirmed.",
+      "tradeInValuationExpired": "The trade-in valuation on this contract has expired, so the contract cannot be confirmed. Cancel it and create a new contract from an offer with a current valuation.",
+      "vehicleLeftStock": "This vehicle has already left stock (sold). It cannot be reserved again, so the contract cannot be confirmed."
+    },
+    "editRefused": {
+      "staleVersion": "The contract was changed in the meantime. The current version is loaded – please make your change again.",
+      "notPending": "The contract is no longer open and can no longer be changed.",
+      "generic": "The change could not be saved."
+    },
+    "cancelRefused": {
+      "title": "Contract not cancelled",
+      "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and cancel again.",
+      "generic": "The contract could not be cancelled. Please try again."
+    }
+  },
+  "actions": {
+    "confirm": "Confirm contract",
+    "confirmDisabledReason": "Only confirmable while open.",
+    "cancel": "Cancel …",
+    "cancelDisabledReason": "Already cancelled or invoiced.",
+    "cancelDisabledReasonLegacy": "Sale migrated from the legacy system — already invoiced there, so it cannot be cancelled.",
+    "confirmDisabledReasonEmpty": "Still missing a vehicle and a price.",
+    "confirmDisabledReasonNoBuyer": "Choose the buyer first: a contract is never confirmed without a customer.",
+    "confirmDisabledReasonSaving": "Changes are still being saved.",
+    "requestInvoice": "Request invoice",
+    "requestInvoiceDisabledNotConfirmed": "Only possible once the contract is confirmed.",
+    "requestInvoiceDisabledNotPurchased": "The vehicle has not been purchased yet — the invoice can be requested once its purchase is booked in stock.",
+    "requestInvoiceDisabledAlreadyRequested": "The invoice was already requested on {{date}}.",
+    "requestInvoiceDisabledLegacy": "Sale migrated from the legacy system — already invoiced there."
+  },
+  "requestInvoice": {
+    "title": "Request invoice",
+    "hint": "Which licence plate is the vehicle handed over with? It is recorded on the vehicle and can be found by search.",
+    "withPlate": "With licence plate",
+    "withoutPlate": "Without licence plate",
+    "submit": "Request invoice",
+    "moveSubmit": "Move and request invoice",
+    "requested": "The invoice has been requested.",
+    "requestedWithPlate": "The invoice has been requested. {{plate}} is being recorded on the vehicle.",
+    "error": "The invoice could not be requested.",
+    "moveBeforeStart": "The plate is recorded on the other vehicle only from a day after this contract's delivery date, so it cannot be moved. Request the invoice without a plate and sort out the plate on Vehicle 360."
+  },
+  "stats": {
+    "grossPrice": "Sale price",
+    "tradeIn": "Trade-in vehicle",
+    "payable": "Payable",
+    "margin": "Margin"
+  },
+  "financing": "Financing",
+  "cancelReasonPrompt": "Reason for cancellation:",
+  "edit": {
+    "title": "Complete the contract",
+    "hint": "Until the contract is confirmed, its customer, vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
+    "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted.",
+    "pricedWithoutInputsNoBuyer": "This contract was priced before contracts kept their pricing inputs. Its price can no longer be adjusted. Pick its buyer below, then it can be confirmed as it stands — or cancel it."
+  }
+}

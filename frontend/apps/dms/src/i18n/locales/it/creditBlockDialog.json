@@ -1,0 +1,13 @@
+{
+  "setTitle": "Imposta blocco creditizio",
+  "clearTitle": "Rimuovi blocco creditizio",
+  "setBody": "Bloccare un cliente impedisce la conferma di qualsiasi contratto. Un’offerta resta possibile — spesso è così che il blocco viene risolto.",
+  "clearBody": "Rimuovere il blocco creditizio su {{number}}? I contratti possono essere confermati di nuovo immediatamente.",
+  "reasonLabel": "Motivo",
+  "reasonRequired": "È richiesto un motivo per applicare un blocco creditizio.",
+  "setSubmit": "Blocca cliente",
+  "clearSubmit": "Rimuovi blocco",
+  "cancel": "Annulla",
+  "conflict": "Questo cliente è cambiato dopo l’apertura. Ricarica e riprova.",
+  "failed": "Impossibile aggiornare il blocco creditizio."
+}

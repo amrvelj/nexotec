@@ -1,0 +1,15 @@
+{
+  "newOffer": "New offer",
+  "newOfferDisabledDoNotContact": "This customer is marked do-not-contact.",
+  "newContract": "New contract",
+  "newContractDisabledDoNotContact": "This customer is marked do-not-contact.",
+  "newContractDisabledBlocked": "Credit-blocked ({{reason}}) — an offer is still possible; a contract needs finance to release the account.",
+  "linkVehicle": "Link vehicle…",
+  "setDoNotContact": "Set do-not-contact",
+  "removeDoNotContact": "Remove do-not-contact",
+  "setCreditBlock": "Set credit block…",
+  "removeCreditBlock": "Remove credit block",
+  "mergeInto": "Merge into another customer…",
+  "mergeDisabledMerged": "This record has already been merged into another.",
+  "copyCustomerNumber": "Copy customer number"
+}

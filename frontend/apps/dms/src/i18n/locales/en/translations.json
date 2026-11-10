@@ -1,0 +1,92 @@
+{
+  "title": "Translations",
+  "subtitle": "The texts Nexotec ships in four languages: the user interface, served at runtime, and the standard-text seeds. A publish applies to every business at once; businesses cannot change UI strings.",
+  "badge": "Platform",
+  "sourcesLabel": "Source",
+  "sources": {
+    "ui": "UI strings",
+    "standardTexts": "Standard-text seeds"
+  },
+  "search": {
+    "label": "Search",
+    "placeholder": "Key or text"
+  },
+  "namespace": {
+    "label": "Area",
+    "all": "All areas"
+  },
+  "editedOnly": "Edited only",
+  "count_one": "{{count, number}} key",
+  "count_other": "{{count, number}} keys",
+  "countEstimate": "More than {{count, number}} keys",
+  "columns": {
+    "key": "Key",
+    "actions": "Actions"
+  },
+  "languages": {
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "en": "English"
+  },
+  "status": {
+    "seed": "Shipped",
+    "platform": "Edited",
+    "absent": "Not shipped"
+  },
+  "open": "Edit",
+  "view": "View",
+  "empty": "No keys found.",
+  "noSeed": "No UI strings have been imported yet. The import runs with scripts/import_ui_translation_bundles.py --commit.",
+  "loadError": "The translations could not be loaded.",
+  "loadMore": "Load more",
+  "editor": {
+    "keyLabel": "Key",
+    "seedLabel": "Shipped",
+    "sameAsSeed": "Same as the shipped text.",
+    "diffLabel": "Difference from the shipped text",
+    "removed": "removed",
+    "added": "new",
+    "placeholdersHint": "Placeholders such as {{example}} must be kept.",
+    "publish": "Publish",
+    "discard": "Discard changes",
+    "close": "Close",
+    "revert": "Restore the shipped text",
+    "published": "Published. Every user sees the change the next time the strings load.",
+    "readOnly": "Only Nexotec platform administrators can change these texts.",
+    "noRow": "Not shipped in this language.",
+    "nothingChanged": "Nothing changed to publish."
+  },
+  "missing": {
+    "title": "Reported missing keys",
+    "subtitle": "Keys a browser found neither here nor in the shipped strings and showed as the warning marker.",
+    "empty": "No missing keys reported.",
+    "columns": {
+      "key": "Key",
+      "language": "Language",
+      "count": "Reports",
+      "last": "Last reported"
+    }
+  },
+  "seeds": {
+    "subtitle": "The templates Nexotec ships to every business. An edit never overwrites a business's own adaptation; the business sees that the template has changed.",
+    "search": {
+      "label": "Search",
+      "placeholder": "Code, title or text"
+    },
+    "category": {
+      "label": "Category",
+      "all": "All categories"
+    },
+    "count_one": "{{count, number}} seed",
+    "count_other": "{{count, number}} seeds",
+    "columns": {
+      "code": "Code",
+      "target": "Used on"
+    },
+    "fieldTitle": "Title",
+    "fieldBody": "Text",
+    "empty": "No seeds found.",
+    "loadError": "The seeds could not be loaded."
+  }
+}

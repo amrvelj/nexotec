@@ -13,7 +13,7 @@ const gate = vi.hoisted(() => {
   })
   return { arrived, release: () => release() }
 })
-vi.mock('./locales/fr.json', async () => {
+vi.mock('./locales/fr', async () => {
   await gate.arrived
   return { default: { common: { retry: 'Réessayer' } } }
 })

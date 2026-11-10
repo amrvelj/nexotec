@@ -336,10 +336,12 @@ def test_import_is_idempotent_refreshes_seeds_and_never_touches_a_platform_value
 
 
 def test_import_script_dry_runs_by_default_then_commits(tmp_path, engine, capsys):
+    # KAN-616: locales/<language>/<namespace>.json, a top-level string a file of its own.
     for language, bundle in BUNDLES.items():
-        (tmp_path / f"{language.value}.json").write_text(json.dumps(bundle), encoding="utf-8")
-        bundle_with_skip = {**bundle, "stray": "a top-level string"}
-        (tmp_path / f"{language.value}.json").write_text(json.dumps(bundle_with_skip), encoding="utf-8")
+        folder = tmp_path / language.value
+        folder.mkdir()
+        for namespace, value in {**bundle, "stray": "a top-level string"}.items():
+            (folder / f"{namespace}.json").write_text(json.dumps(value), encoding="utf-8")
 
     from sqlalchemy.orm import sessionmaker
 
@@ -369,6 +371,18 @@ def test_import_reads_every_shipped_bundle(db_session):
         flat, skipped = service.flatten_bundle(bundle)
         assert skipped == [], language
         assert len(flat) > 1000
+
+
+def test_import_assembles_a_namespace_split_by_its_second_level(tmp_path):
+    """`<namespace>.<key>.json` (a namespace above the size cap, KAN-616) lands under its namespace."""
+
+    (tmp_path / "apiRefusal.json").write_text(json.dumps({"notFound": "Nicht gefunden"}), encoding="utf-8")
+    (tmp_path / "apiRefusal.reasons.json").write_text(json.dumps({"vin": "FIN ungültig"}), encoding="utf-8")
+    (tmp_path / "common.json").write_text(json.dumps({"retry": "Erneut"}), encoding="utf-8")
+    assert import_ui_translation_bundles.read_bundle(tmp_path) == {
+        "apiRefusal": {"notFound": "Nicht gefunden", "reasons": {"vin": "FIN ungültig"}},
+        "common": {"retry": "Erneut"},
+    }
 
 
 # --- the missing-key log ----------------------------------------------------------------------

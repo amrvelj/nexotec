@@ -115,7 +115,10 @@ describe('numbers and dates are formatted only through the shared formatters', (
   it('every count, max and days in the locale bundles is formatted with `, number`', () => {
     const localesDir = join(FRONTEND_ROOT, 'apps/dms/src/i18n/locales')
     const offenders: string[] = []
-    for (const file of readdirSync(localesDir).filter((f) => f.endsWith('.json'))) {
+    // KAN-616: locales/<language>/<namespace>.json
+    const files = readdirSync(localesDir, { recursive: true, encoding: 'utf-8' }).filter((f) => f.endsWith('.json'))
+    expect(files.length).toBeGreaterThan(100)
+    for (const file of files) {
       readFileSync(join(localesDir, file), 'utf-8')
         .split('\n')
         .forEach((line, index) => {

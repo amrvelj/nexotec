@@ -1,0 +1,107 @@
+{
+  "header": {
+    "vehicleFallback": "Vehicle",
+    "failedToLoad": "Failed to load vehicle",
+    "copyVin": "Copy VIN",
+    "merge": "Merge into…",
+    "mergeDisabledReason": "Not yet available",
+    "allocate": "Allocate to customer",
+    "requestValuation": "Request valuation",
+    "recordOdometer": "Record odometer reading",
+    "recordAccessory": "Record accessory",
+    "resync": "Re-sync from catalogue",
+    "resyncDisabledReason": "Not yet available",
+    "recordPlate": "Record plate"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong."
+  },
+  "tabs": {
+    "identity": "Identity",
+    "plates": "Plates",
+    "odometer": "Odometer",
+    "accessories": "Accessories",
+    "specification": "Specification"
+  },
+  "identity": {
+    "title": "Identity",
+    "vin": "VIN",
+    "vehicleNumber": "Vehicle no.",
+    "stammnummer": "Stammnummer",
+    "typeApprovalNumber": "Type approval no.",
+    "firstRegistrationDate": "First registration",
+    "matchStatus": "Catalogue match"
+  },
+  "parties": {
+    "title": "Parties",
+    "none": "No parties allocated",
+    "allocate": "Allocate to customer",
+    "roleLabel": "Role",
+    "role": {
+      "owner": "Owner",
+      "keeper": "Keeper",
+      "driver": "Driver"
+    },
+    "searchCustomer": "Search customer…",
+    "noCustomers": "No customers found",
+    "unnamedCustomer": "Unnamed customer",
+    "showFormer": "Show former parties",
+    "hideFormer": "Hide former parties",
+    "allocateError": "The customer could not be allocated."
+  },
+  "plates": {
+    "plate": "Plate",
+    "canton": "Canton",
+    "validFrom": "Valid from",
+    "validTo": "Valid to",
+    "current": "current",
+    "none": "No plates recorded",
+    "wechselschild": "Wechselschild",
+    "limitReached": "You have viewed many licence plates in a short time. Try again later.",
+    "withheld": "Plate hidden – limit reached",
+    "number": "Number",
+    "recordTitle": "Record plate",
+    "recordSubmit": "Record",
+    "moveConfirm": "Move to this vehicle",
+    "onOtherVehicleTitle": "Plate on another vehicle",
+    "onOtherVehicle": "{{plate}} has been on {{vehicle}} (VIN {{vin}}) since {{since}}.",
+    "moveQuestion": "Moving ends the assignment on the other vehicle the day before. It stays in that vehicle's history.",
+    "formWechselschild": "Record as an interchangeable plate instead",
+    "saveError": "The plate could not be saved.",
+    "endTitle": "End {{plate}}",
+    "end": "End",
+    "endsOn": "Last day on this vehicle"
+  },
+  "odometer": {
+    "value": "Reading",
+    "date": "Date",
+    "source": "Source",
+    "record": "Record",
+    "none": "No readings recorded",
+    "implausible": "Implausible",
+    "implausibleNotice": "One or more readings are lower than a previous reading. They are kept and flagged, never hidden.",
+    "sourceLabel": {
+      "service_visit": "Service visit",
+      "sale": "Sale",
+      "valuation": "Valuation",
+      "manual": "Manual",
+      "import": "Import"
+    },
+    "saveError": "The reading could not be saved."
+  },
+  "accessories": {
+    "type": "Type",
+    "description": "Description",
+    "validFrom": "Valid from",
+    "validTo": "Valid to",
+    "add": "Add",
+    "remove": "Remove",
+    "none": "No accessories recorded",
+    "saveError": "The accessory could not be saved.",
+    "removeError": "The accessory could not be removed."
+  },
+  "specification": {
+    "empty": "This business holds no configuration of this vehicle.",
+    "loadError": "The specification could not be loaded."
+  }
+}

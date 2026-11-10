@@ -1,0 +1,63 @@
+{
+  "untitled": "Nessun veicolo indicato",
+  "errors": {
+    "failedToLoad": "Impossibile caricare la valutazione.",
+    "somethingWentWrong": "Qualcosa è andato storto.",
+    "markUsedFailed": "Non è stato possibile contrassegnare la valutazione come utilizzata. Riprovare.",
+    "createOfferFailed": "Non è stato possibile creare l’offerta.",
+    "createOfferTradeInFailed": "L’offerta {{offerNumber}} è stata creata, ma la valutazione non è stata ripresa come permuta: {{reason}}",
+    "openCreatedOffer": "Apri offerta"
+  },
+  "actions": {
+    "revalue": "Rivaluta",
+    "markUsed": "Segna come utilizzata",
+    "markUsedAlreadyUsed": "Già segnata come utilizzata.",
+    "markUsedNoSignedContract": "Possibile solo se un contratto firmato contiene questa valutazione come permuta.",
+    "openCustomer": "Apri cliente",
+    "openVehicle": "Apri veicolo",
+    "revertUse": "Annulla utilizzo",
+    "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
+    "revertUseSignedContract": "Non possibile: un contratto firmato contiene questa valutazione come permuta.",
+    "revertUseTooRecent": "Possibile solo un'ora dopo la marcatura: la conferma del contratto potrebbe essere ancora in corso.",
+    "createOffer": "Crea offerta da questa valutazione",
+    "createOfferExpired": "Non possibile: la valutazione è scaduta. Rivalutare prima.",
+    "createOfferUsed": "Non possibile: la valutazione è già segnata come utilizzata.",
+    "createOfferNoSales": "Non possibile: questa azienda non dispone del modulo Vendita.",
+    "createOfferNoVin": "Non possibile: la valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
+  },
+  "expiredBanner": {
+    "title": "Valutazione scaduta",
+    "body": "Questa valutazione non è più valida. Se necessario, creane una nuova con \"Rivaluta\"."
+  },
+  "valueCard": {
+    "title": "Valutazione",
+    "providerValue": "Valore lordo",
+    "netValue": "Valore netto",
+    "finalOffer": "Offerta di permuta",
+    "finalOfferHint": "L’offerta di permuta può differire dal valore netto — è la trattativa."
+  },
+  "vehicleCard": {
+    "title": "Veicolo",
+    "vin": "VIN",
+    "plate": "Targa",
+    "mileage": "Chilometraggio",
+    "firstRegistration": "Prima immatricolazione",
+    "customer": "Cliente"
+  },
+  "noteCard": {
+    "title": "Nota"
+  },
+  "validityHelp": "Lo stato è calcolato in lettura, mai aggiornato di notte — valida fino al {{validUntil}}.",
+  "configuration": {
+    "title": "Configurazione"
+  },
+  "revertUseDialog": {
+    "title": "Annulla utilizzo",
+    "body": "La valutazione {{number}} è contrassegnata come utilizzata, ma nessun contratto firmato la giustifica. Annullato l'utilizzo, torna valida o scaduta. Il motivo viene registrato con la modifica.",
+    "reasonLabel": "Motivo",
+    "reasonRequired": "Indicare un motivo.",
+    "submit": "Annulla utilizzo",
+    "cancel": "Annulla",
+    "failed": "Non è stato possibile annullare l'utilizzo. Riprovare."
+  }
+}
