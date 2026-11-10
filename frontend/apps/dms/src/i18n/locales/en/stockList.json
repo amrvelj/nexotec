@@ -1,0 +1,52 @@
+{
+  "title": "Stock",
+  "newStockItem": "Add vehicle",
+  "searchPlaceholder": "Plate, VIN, customer, offer…",
+  "loadError": "Failed to load stock.",
+  "groupLoadError": "Failed to load group stock.",
+  "allStockView": "All stock",
+  "allGroupStockView": "All group stock",
+  "columns": {
+    "stockNumber": "Stock no.",
+    "vehicle": "Vehicle",
+    "condition": "Condition",
+    "lifecycleStatus": "Stock status",
+    "reservationState": "Reservation",
+    "odometerKm": "Odometer",
+    "effectivePrice": "Effective price",
+    "changed": "Changed",
+    "vin": "VIN",
+    "listPrice": "List price",
+    "dealership": "Business",
+    "ageingBucket": "Ageing indicator",
+    "basePrice": "Base price",
+    "purchasePrice": "Purchase price",
+    "landedCost": "Landed cost",
+    "notionalInputTaxAmount": "Notional input tax",
+    "isInvoiceable": "Invoiceable",
+    "supplierName": "Supplier",
+    "purchaseDate": "Purchase date",
+    "orderDate": "Order date",
+    "expectedDelivery": "Expected delivery",
+    "pipelineRef": "Pipeline reference",
+    "configuration": "Configuration"
+  },
+  "emptyState": {
+    "title": "No vehicles in stock",
+    "description": "Add a vehicle to stock to get started.",
+    "descriptionReadOnly": "Vehicles appear here once the business adds them to stock."
+  },
+  "emptyFilteredState": {
+    "title": "No results",
+    "description": "Adjust your search or filters.",
+    "action": "Reset filters"
+  },
+  "rowActions": {
+    "open": "Open"
+  },
+  "scope": {
+    "own": "Own stock",
+    "group": "Group stock"
+  },
+  "addToPipelineError": "The vehicle could not be added to the pipeline."
+}

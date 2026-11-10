@@ -1,0 +1,91 @@
+{
+  "title": "Kunden",
+  "newCustomer": "Neuer Kunde",
+  "searchPlaceholder": "Suche nach Name, E-Mail, Telefon…",
+  "loadError": "Kunden konnten nicht geladen werden.",
+  "columns": {
+    "customerNumber": "Kundennr.",
+    "name": "Name",
+    "type": "Typ",
+    "language": "Sprache",
+    "status": "Status",
+    "changed": "Geändert",
+    "creditBlock": "Kreditsperre",
+    "contact": "Kontakt",
+    "salutation": "Anrede",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "companyName": "Firma",
+    "legalForm": "Rechtsform",
+    "birthDate": "Geburtsdatum",
+    "nationality": "Nationalität",
+    "phoneMobile": "Mobil",
+    "phoneLandline": "Festnetz",
+    "phoneWork": "Telefon geschäftlich",
+    "email": "E-Mail",
+    "emailSecondary": "E-Mail (weitere)",
+    "addressStreet": "Strasse",
+    "addressHouseNumber": "Hausnummer",
+    "addressLine2": "Adresszusatz",
+    "addressPostalCode": "PLZ",
+    "addressLocality": "Ort",
+    "canton": "Kanton",
+    "country": "Land",
+    "preferredChannel": "Bevorzugter Kanal",
+    "source": "Quelle",
+    "sourceRef": "Quellenreferenz",
+    "marketingConsent": "Marketing-Einwilligung",
+    "created": "Erstellt",
+    "duplicateOf": "Dublette von",
+    "advisor": "Betreuer",
+    "tags": "Tags",
+    "customerTitle": "Titel",
+    "gender": "Geschlecht",
+    "website": "Website",
+    "newsletter": "Newsletter",
+    "paymentTerms": "Zahlungskonditionen",
+    "creditLimit": "Kreditlimite",
+    "iban": "IBAN",
+    "vatRegistered": "MWST-pflichtig",
+    "vatStatusConfirmed": "MWST-Status bestätigt",
+    "creditBlockReason": "Grund der Kreditsperre",
+    "creditBlockedAt": "Kreditsperre seit",
+    "customerSince": "Kunde seit",
+    "nextFollowUp": "Nächste Nachfassung",
+    "notes": "Notizen"
+  },
+  "rowActions": {
+    "open": "Öffnen",
+    "copyCustomerNumber": "Kundennummer kopieren"
+  },
+  "emptyState": {
+    "title": "Noch keine Kunden",
+    "description": "Erstellen Sie Ihren ersten Kunden, um zu beginnen."
+  },
+  "emptyFilteredState": {
+    "title": "Keine Treffer",
+    "description": "Versuchen Sie einen anderen Suchbegriff oder Filter.",
+    "action": "Suche und Filter zurücksetzen"
+  },
+  "filters": {
+    "customerType": "Kundentyp",
+    "lifecycleStatus": "Lebenszyklusstatus",
+    "language": "Sprache",
+    "canton": "Kanton",
+    "changedSince": "Geändert seit",
+    "changedSinceChip": "Geändert seit {{date}}"
+  },
+  "allCustomersView": "Alle Kunden",
+  "selection": {
+    "count": "{{count, number}} ausgewählt",
+    "clear": "Auswahl aufheben",
+    "export": "Exportieren",
+    "print": "Drucken"
+  },
+  "createOfferError": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+  "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen.",
+  "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "advisorFilter": {
+    "unassigned": "Nicht zugewiesen"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "title": "Évaluation auto-i-dat",
+  "exchange": "Valeur auto-i-dat (prix de reprise)",
+  "purchase": "Prix d’achat",
+  "sale": "Prix de vente",
+  "range": "Fourchette de reprise",
+  "kmCorrection": "Correction kilométrique (reprise)",
+  "kmExpected": "Kilométrage usuel pour cet âge",
+  "asked": "Évalué avec l’année modèle {{year}}, {{km}} km, première mise en circulation {{date}} — demandé le {{at}}",
+  "manualHint": "auto-i-dat recommande de vérifier cette valeur manuellement.",
+  "residualTitle": "Valeurs résiduelles (en % du prix neuf)",
+  "kmPerYear": "km/an",
+  "months": "{{months}} mois",
+  "residualState": {
+    "present": "Aucune valeur résiduelle fournie.",
+    "not_in_contract": "Valeurs résiduelles non comprises dans le contrat avec auto-i-dat.",
+    "unavailable": "Valeurs résiduelles actuellement indisponibles.",
+    "declined": "auto-i-dat ne fournit pas de valeurs résiduelles pour ce véhicule."
+  }
+}

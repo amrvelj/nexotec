@@ -1,0 +1,59 @@
+{
+  "title": "Intégrations",
+  "searchPlaceholder": "Rechercher des connexions",
+  "loadError": "Les connexions n'ont pas pu être chargées.",
+  "allView": "Toutes les connexions",
+  "notConnected": "Non connecté",
+  "connectError": "La connexion n'a pas pu être créée.",
+  "platformScoped": "Valable pour toute la plateforme",
+  "platformConnectionsTitle": "Connexions",
+  "categories": {
+    "marketplace": "Marketplace",
+    "vehicle_data": "Données véhicule"
+  },
+  "fields": {
+    "provider": "Fournisseur",
+    "environment": "Environnement",
+    "accountIdentifier": "Compte",
+    "lastVerified": "Dernière vérification"
+  },
+  "actions": {
+    "test": "Tester la connexion",
+    "viewUsage": "Voir l'utilisation",
+    "rotateSecret": "Renouveler le secret",
+    "rotateSecretDisabledReason": "Cette connexion n'a aucun secret à renouveler.",
+    "enable": "Activer",
+    "disable": "Désactiver",
+    "connect": "Connecter"
+  },
+  "connectModal": {
+    "title": "Connecter {{provider}}",
+    "testAccessHint": "Sandbox est votre accès de test : uniquement avec le compte de service d'auto-i-dat (Client-ID et Client-Secret), jamais avec le jeton personnel, et uniquement dans des environnements de test. Sur le serveur de production, Nexotec le refuse."
+  },
+  "usageModal": {
+    "title": "Utilisation — {{name}}",
+    "calls": "Appels (30 derniers jours)",
+    "cost": "Unités de coût (30 derniers jours)",
+    "indicative": "Indicatif uniquement — Nexotec ne facture jamais en plus de votre propre contrat fournisseur."
+  },
+  "rotateModal": {
+    "title": "Renouveler les secrets — {{name}}",
+    "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle."
+  },
+  "columns": {
+    "dealership": "Entreprise",
+    "displayName": "Connexion",
+    "provider": "Fournisseur",
+    "environment": "Environnement",
+    "status": "Statut",
+    "lastVerified": "Dernière vérification"
+  },
+  "emptyState": {
+    "title": "Aucune connexion pour l'instant",
+    "description": "Aucune entreprise n'a encore connecté de fournisseur."
+  },
+  "emptyFilteredState": {
+    "title": "Aucune connexion correspondante",
+    "description": "Essayez une autre recherche."
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "customerType": {
+    "individual": "Individual",
+    "business": "Business"
+  },
+  "lifecycleStatus": {
+    "prospect": "Prospect",
+    "active": "Active",
+    "inactive": "Inactive",
+    "merged": "Merged",
+    "do_not_contact": "Do not contact"
+  },
+  "salutation": {
+    "herr": "Mr",
+    "frau": "Ms",
+    "firma": "Company",
+    "neutral": "Neutral"
+  },
+  "preferredChannel": {
+    "email": "Email",
+    "phone": "Phone",
+    "post": "Post",
+    "whatsapp": "WhatsApp",
+    "message": "Message (legacy)"
+  },
+  "source": {
+    "walk_in": "Walk-in",
+    "phone": "Phone",
+    "web_lead": "Web lead",
+    "marketplace": "Marketplace",
+    "other": "Other"
+  },
+  "addressType": {
+    "domicile": "Domicile",
+    "billing": "Billing",
+    "delivery": "Delivery"
+  },
+  "vehiclePartyRole": {
+    "owner": "Owner",
+    "keeper": "Keeper",
+    "driver": "Driver"
+  },
+  "contactType": {
+    "mobile": "Mobile",
+    "landline": "Landline",
+    "work": "Work",
+    "fax": "Fax",
+    "personal": "Personal",
+    "invoicing": "Invoicing"
+  },
+  "gender": {
+    "female": "Female",
+    "male": "Male",
+    "other": "Other",
+    "unspecified": "Unspecified"
+  },
+  "paymentTerms": {
+    "prepayment": "Prepayment",
+    "net_10": "Net 10 days",
+    "net_30": "Net 30 days",
+    "net_60": "Net 60 days",
+    "on_delivery": "On delivery"
+  },
+  "consentScope": {
+    "marketing": "Marketing",
+    "invoicing": "Invoicing",
+    "service": "Service"
+  },
+  "consentSource": {
+    "form": "Form",
+    "counter": "Counter",
+    "web": "Web",
+    "phone": "Phone"
+  },
+  "legalForm": {
+    "ag": "AG (company limited by shares)",
+    "gmbh": "GmbH (limited liability company)",
+    "einzelfirma": "Sole proprietorship",
+    "verein": "Association",
+    "genossenschaft": "Cooperative",
+    "weitere": "Other"
+  }
+}

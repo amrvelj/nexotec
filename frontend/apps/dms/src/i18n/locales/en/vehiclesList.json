@@ -1,0 +1,49 @@
+{
+  "title": "Vehicles",
+  "newVehicle": "New vehicle",
+  "searchPlaceholder": "Search VIN, vehicle number, Stammnummer or plate…",
+  "loadError": "Failed to load vehicles.",
+  "columns": {
+    "vehicleNumber": "Vehicle no.",
+    "vin": "VIN",
+    "stammnummer": "Stammnummer",
+    "matchStatus": "Catalogue match",
+    "status": "Status"
+  },
+  "matchStatus": {
+    "matched": "Matched",
+    "unverified": "Unverified"
+  },
+  "status": {
+    "active": "Active",
+    "exported": "Exported",
+    "scrapped": "Scrapped",
+    "stolen": "Stolen"
+  },
+  "resolved": {
+    "title": "Match found",
+    "open": "Open"
+  },
+  "picker": {
+    "wechselschildTitle": "Multiple vehicles share this plate (Wechselschild) — pick one",
+    "conflictTitle": "This plate matches more than one vehicle without a shared assignment — pick the right one",
+    "empty": "No candidates found"
+  },
+  "emptyState": {
+    "title": "No vehicles yet",
+    "description": "Vehicles you create or migrate will appear here."
+  },
+  "emptyFilteredState": {
+    "title": "No matching vehicles",
+    "description": "No vehicle matches your search.",
+    "action": "Clear search"
+  },
+  "selection": {
+    "count": "{{count, number}} selected",
+    "clear": "Clear selection",
+    "copyIds": "Copy IDs"
+  },
+  "rowActions": {
+    "open": "Open"
+  }
+}

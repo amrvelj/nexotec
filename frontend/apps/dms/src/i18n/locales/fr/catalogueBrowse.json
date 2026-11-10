@@ -1,0 +1,103 @@
+{
+  "title": "Catalogue",
+  "subtitle": "Parcourir les variantes — genre de véhicule, marque, modèle, finition. En direct chez le fournisseur, page par page.",
+  "tabs": {
+    "browse": "Parcourir",
+    "mappingGaps": "Lacunes de correspondance",
+    "brands": "Marques"
+  },
+  "mode": {
+    "label": "Mode",
+    "build": "Véhicule neuf",
+    "record": "Véhicule d'occasion",
+    "tooltip": "Neuf n'affiche que les séries en production ; occasion affiche tout."
+  },
+  "drilldown": {
+    "brand": "Marque",
+    "brandPlaceholder": "Choisir une marque",
+    "modelGroup": "Groupe de modèles",
+    "modelGroupPlaceholder": "Tous les groupes de modèles",
+    "modelGroupNeedsBrand": "Choisir d’abord une marque",
+    "brandsLoadError": "Les marques n'ont pas pu être chargées",
+    "vehicleKind": "Genre de véhicule"
+  },
+  "searchPlaceholder": "Rechercher dans la désignation…",
+  "labelsLoadError": {
+    "title": "Libellés indisponibles",
+    "body": "Les libellés des valeurs du catalogue n'ont pas pu être chargés. Les valeurs marquées ⚠ affichent leur code."
+  },
+  "unavailable": {
+    "title": "auto-i-dat injoignable",
+    "body": "Le fournisseur ne répond pas pour le moment. Réessayer plus tard ; l’identification des véhicules connus continue de fonctionner."
+  },
+  "columns": {
+    "brand": "Marque",
+    "modelGroup": "Groupe de modèles",
+    "variant": "Variante",
+    "trim": "Finition",
+    "fuelType": "Carburant",
+    "bodyStyle": "Carrosserie",
+    "drivetrain": "Transmission",
+    "transmission": "Boîte de vitesses",
+    "ps": "ch",
+    "kw": "kW",
+    "displacementCcm": "Cylindrée (cm³)",
+    "cylinders": "Cylindres",
+    "gears": "Rapports",
+    "doors": "Portes",
+    "seats": "Places",
+    "co2Gkm": "CO₂ (g/km)",
+    "emissionStandard": "Norme d'émission",
+    "vehicleClass": "Classe de véhicule",
+    "engineCycle": "Temps",
+    "basePrice": "Prix catalogue",
+    "productionFrom": "Année de production dès",
+    "productionTo": "Année de production jusqu'à",
+    "modelYear": "Millésime",
+    "inProduction": "En production",
+    "typeApprovals": "Réceptions par type",
+    "updatedAt": "Modifié",
+    "trimName": "Finition"
+  },
+  "filters": {
+    "fuelType": "Carburant",
+    "bodyStyle": "Carrosserie",
+    "drivetrain": "Transmission",
+    "transmission": "Boîte de vitesses",
+    "vehicleClass": "Classe de véhicule",
+    "emissionStandard": "Norme d'émission",
+    "kw": "kW",
+    "displacementCcm": "Cylindrée (cm³)",
+    "doors": "Portes",
+    "seats": "Places",
+    "co2Gkm": "CO₂ (g/km)"
+  },
+  "allVariantsView": "Toutes les variantes",
+  "loadError": "Le catalogue n'a pas pu être chargé.",
+  "emptyState": {
+    "title": "Aucune variante",
+    "description": "Le fournisseur ne liste aucune variante pour cette sélection."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun résultat",
+    "description": "Aucune variante ne correspond à ces filtres.",
+    "action": "Réinitialiser les filtres"
+  },
+  "selection": {
+    "count": "{{count, number}} sélectionné(s)",
+    "clear": "Effacer la sélection",
+    "copyIds": "Copier les ID"
+  },
+  "needsBrand": {
+    "title": "Choisir une marque",
+    "description": "Choisir un genre de véhicule et une marque — le catalogue est interrogé en direct chez le fournisseur, page par page."
+  },
+  "notConfigured": {
+    "title": "Pas d’accès auto-i-dat",
+    "body": "Cette entreprise n’a pas de connexion auto-i-dat active. Un véhicule se saisit manuellement ; l’accès se configure sous Intégrations."
+  },
+  "notInContract": {
+    "title": "Catalogue hors contrat",
+    "body": "auto-i-dat refuse la requête catalogue : l’option « ident_basis » n’est pas sous licence pour cet accès."
+  }
+}

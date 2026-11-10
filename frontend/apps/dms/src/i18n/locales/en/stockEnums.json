@@ -1,0 +1,35 @@
+{
+  "lifecycleStatus": {
+    "pipeline": "Pipeline",
+    "in_stock": "In stock",
+    "storno_pending": "Storno pending"
+  },
+  "condition": {
+    "new": "New",
+    "used": "Used",
+    "demo": "Demo vehicle",
+    "tagesz": "Day registration"
+  },
+  "reservationState": {
+    "none": "Free",
+    "reserved": "Reserved"
+  },
+  "ledgerCategory": {
+    "einstandspreis": "Acquisition cost",
+    "landed_cost": "Landed cost",
+    "aufbereitung": "Reconditioning",
+    "reparatur": "Repair",
+    "gutachten": "Appraisal",
+    "standkosten": "Holding cost",
+    "werbung": "Advertising",
+    "garantie": "Warranty",
+    "abwertung": "Devaluation",
+    "promotion": "Promotion",
+    "sonstige_kosten": "Other costs",
+    "verkaufserloes": "Sale proceeds",
+    "kickback": "Kickback",
+    "zusatzerloes": "Additional proceeds",
+    "foerderung": "Incentive/subsidy",
+    "sonstige_ertraege": "Other revenue"
+  }
+}

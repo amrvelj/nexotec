@@ -1,0 +1,35 @@
+{
+  "title": "Zuordnungslücken",
+  "searchPlaceholder": "Nach Anbieter oder Code suchen…",
+  "resolve": "Zuordnen",
+  "loadError": "Zuordnungslücken konnten nicht geladen werden.",
+  "columns": {
+    "provider": "Anbieter",
+    "vehicleKind": "Fahrzeugart",
+    "codeGroup": "Codegruppe",
+    "providerCode": "Anbietercode",
+    "occurrences": "Vorkommen",
+    "lastSeen": "Zuletzt gesehen"
+  },
+  "emptyState": {
+    "title": "Keine Zuordnungslücken",
+    "description": "Jeder bisher gesehene Anbietercode lässt sich einem kanonischen Wert zuordnen."
+  },
+  "emptyFilteredState": {
+    "title": "Keine Treffer",
+    "description": "Keine Zuordnungslücken entsprechen Ihrer Suche.",
+    "action": "Suche zurücksetzen"
+  },
+  "resolveModal": {
+    "title": "Zuordnungslücke auflösen",
+    "listCode": "Referenzliste",
+    "valueCode": "Kanonischer Wert",
+    "confirm": "Zuordnen",
+    "valuePlaceholder": "Wert wählen",
+    "noValues": "Kein passender Wert",
+    "valuesLoadError": "Die Werte dieser Liste konnten nicht geladen werden.",
+    "error": "Die Lücke konnte nicht aufgelöst werden.",
+    "gapKey": "Anbieter · Fahrzeugart · Code",
+    "noList": "Die Codegruppe «{{codeGroup}}» hat keine Referenzliste. Diese Lücke kann erst aufgelöst werden, wenn es eine gibt."
+  }
+}

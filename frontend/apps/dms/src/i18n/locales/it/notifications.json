@@ -1,0 +1,119 @@
+{
+  "title": "Notifiche",
+  "bellLabel": "Notifiche, {{count, number}} non lette",
+  "filterAll": "Tutte",
+  "filterUnread": "Non lette",
+  "markAllRead": "Segna tutte come lette",
+  "markRead": "Segna come letta",
+  "markUnread": "Segna come non letta",
+  "open": "Apri",
+  "unread": "Non letta",
+  "emptyTitle": "Nessuna notifica",
+  "emptyBody": "Qui compaiono gli avvisi sul suo account, per esempio un accesso da un nuovo dispositivo. Restano conservati 90 giorni.",
+  "emptyUnread": "Nessuna notifica non letta.",
+  "loadMore": "Carica altre",
+  "retention": "Le notifiche restano conservate 90 giorni.",
+  "digest": {
+    "pushTitle": "Nuove notifiche"
+  },
+  "families": {
+    "security": {
+      "name": "Sicurezza",
+      "description": "Accessi, secondo fattore, password, sessioni e recuperi del suo account."
+    },
+    "administration": {
+      "name": "Amministrazione",
+      "description": "Avvisi sull'azienda per i manager, per esempio accessi in scadenza."
+    },
+    "assignment": {
+      "name": "Assegnazioni",
+      "description": "Ciò che le viene assegnato, per esempio un lead o un ordine."
+    }
+  },
+  "timings": {
+    "immediate": "Subito",
+    "digest": "Riepilogo giornaliero",
+    "off": "Disattivato"
+  },
+  "preferences": {
+    "title": "Notifiche",
+    "intro": "Le notifiche compaiono nella posta in arrivo e, se lo desidera, come push sui suoi dispositivi – mai per e-mail. Decide solo lei.",
+    "family": "Tipo",
+    "timing": "Recapito",
+    "push": "Push",
+    "locked": "Gli avvisi di sicurezza arrivano sempre subito, nella posta in arrivo e come push, e non si possono disattivare.",
+    "noEventsYet": "Ancora nessun avviso di questo tipo.",
+    "conflict": "L'impostazione è stata modificata nel frattempo altrove. Ora vede lo stato attuale.",
+    "failed": "Non è stato possibile salvare l'impostazione."
+  },
+  "device": {
+    "title": "Push su questo dispositivo",
+    "intro": "Un push mostra solo il titolo e porta alla posta in arrivo; il contenuto resta in Nexotec. Vale per questo dispositivo finché vi è connesso.",
+    "enable": "Attiva il push su questo dispositivo",
+    "disable": "Disattiva il push su questo dispositivo",
+    "active": "Il push è attivo su questo dispositivo.",
+    "inactive": "Il push non è attivo su questo dispositivo.",
+    "unavailable": "Il push non è ancora configurato su questa installazione.",
+    "unsupported": "Questo browser non supporta le notifiche push.",
+    "denied": "Il browser blocca le notifiche di Nexotec. Le consenta nelle impostazioni del browser.",
+    "failed": "Non è stato possibile configurare il push su questo dispositivo."
+  },
+  "events": {
+    "newDeviceLogin": {
+      "title": "Accesso da un nuovo dispositivo",
+      "body": "Al suo account è stato effettuato l'accesso da un dispositivo mai usato finora. Se non è stato lei, termini la sessione in Il mio account › Sicurezza e cambi la password."
+    },
+    "factorEnrolled": {
+      "title": "Secondo fattore aggiunto",
+      "body": "Al suo account è stato aggiunto un secondo fattore. Se non è stato lei, contatti subito il supporto Nexotec."
+    },
+    "factorRemoved": {
+      "title": "Secondo fattore rimosso",
+      "body": "Dal suo account è stato rimosso un secondo fattore. Se non è stato lei, contatti subito il supporto Nexotec."
+    },
+    "recoveryCodeUsed": {
+      "title": "Codice di recupero utilizzato",
+      "body": "Per un accesso è stato utilizzato uno dei suoi codici di recupero. Rimasti: {{remaining, number}}."
+    },
+    "accountLocked": {
+      "title": "Account temporaneamente bloccato",
+      "body": "Dopo diversi tentativi di accesso falliti il suo account è temporaneamente bloccato. Se non è stato lei, reimposti la password."
+    },
+    "passwordChanged": {
+      "title": "Password modificata",
+      "body": "La password del suo account è stata modificata. Se non è stato lei, la reimposti subito e contatti il supporto Nexotec."
+    },
+    "sessionRevokedByOther": {
+      "title": "Sessioni terminate da un'altra persona",
+      "body": "Una o più sessioni del suo account sono state terminate da un'altra persona. Acceda di nuovo per continuare."
+    },
+    "impersonationStarted": {
+      "title": "Il supporto Nexotec lavora nel suo account",
+      "body": "Un collaboratore del supporto Nexotec sta lavorando nel suo account. Può terminare la sessione in qualsiasi momento dal banner."
+    },
+    "impersonationEnded": {
+      "title": "Sessione di supporto terminata",
+      "body": "La sessione del supporto Nexotec nel suo account è terminata."
+    },
+    "connectedAccountLinked": {
+      "title": "Account collegato aggiunto",
+      "body": "Al suo account è stato collegato un account esterno. Se non è stato lei, lo scolleghi in Il mio account › Account collegati."
+    },
+    "connectedAccountRevoked": {
+      "title": "Account collegato scollegato",
+      "body": "Un account esterno collegato è stato scollegato. Nexotec non vi agisce più a suo nome."
+    },
+    "platformRecoveryAction": {
+      "title": "Recupero da parte del supporto Nexotec",
+      "body": "Il supporto Nexotec ha eseguito un recupero sul suo account: {{action}}."
+    }
+  },
+  "recoveryActions": {
+    "invitationReissued": "invito emesso di nuovo",
+    "mfaReset": "secondo fattore reimpostato",
+    "lockoutCleared": "blocco rimosso",
+    "sessionsRevoked": "tutte le sessioni terminate",
+    "managerGranted": "diritto di manager concesso",
+    "emailChanged": "indirizzo di accesso modificato"
+  }
+}

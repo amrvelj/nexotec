@@ -1,0 +1,13 @@
+{
+  "setTitle": "Set credit block",
+  "clearTitle": "Remove credit block",
+  "setBody": "Blocking a customer stops any contract from being confirmed. An offer can still be made — that is often how the block gets resolved.",
+  "clearBody": "Lift the credit block on {{number}}? Contracts can be confirmed again immediately.",
+  "reasonLabel": "Reason",
+  "reasonRequired": "A reason is required to place a credit block.",
+  "setSubmit": "Block customer",
+  "clearSubmit": "Lift block",
+  "cancel": "Cancel",
+  "conflict": "This customer changed since you opened this. Reload and try again.",
+  "failed": "Could not update the credit block."
+}

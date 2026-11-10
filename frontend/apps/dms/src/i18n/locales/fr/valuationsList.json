@@ -1,0 +1,40 @@
+{
+  "title": "Évaluations",
+  "newValuation": "Créer une évaluation",
+  "searchPlaceholder": "Numéro d’évaluation, VIN, plaque, client …",
+  "allView": "Toutes les évaluations",
+  "noCustomer": "Sans client",
+  "loadError": "Impossible de charger les évaluations.",
+  "chips": {
+    "all": "Toutes",
+    "valid": "Valides",
+    "expiring_soon": "Expirent bientôt",
+    "expired": "Expirées",
+    "unattached": "Sans client",
+    "mine": "Les miennes"
+  },
+  "columns": {
+    "number": "Numéro",
+    "vehicle": "Véhicule",
+    "customer": "Client",
+    "mileage": "Kilométrage",
+    "finalOffer": "Offre de reprise",
+    "source": "Source",
+    "status": "Statut",
+    "validUntil": "Valide jusqu’au",
+    "configuration": "Configuration"
+  },
+  "emptyState": {
+    "title": "Aucune évaluation",
+    "description": "Créez une évaluation — avec ou sans client, offre, ou véhicule enregistré."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun résultat",
+    "description": "Aucune évaluation ne correspond à la recherche actuelle.",
+    "action": "Réinitialiser la recherche"
+  },
+  "rowActions": {
+    "open": "Ouvrir"
+  },
+  "markUsedError": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer."
+}

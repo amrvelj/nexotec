@@ -1,0 +1,19 @@
+{
+  "entityType": {
+    "offer": "Offerte",
+    "contract": "Vertrag"
+  },
+  "dealStatus": {
+    "draft": "Entwurf",
+    "open": "Offen",
+    "pending": "Offen",
+    "confirmed": "Bestätigt",
+    "cancelled": "Storniert",
+    "invoiced": "Fakturiert"
+  },
+  "financing": {
+    "cash": "Barkauf",
+    "leasing": "Leasing",
+    "credit": "Kredit"
+  }
+}

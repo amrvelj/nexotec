@@ -1,0 +1,49 @@
+{
+  "title": "Véhicules",
+  "newVehicle": "Nouveau véhicule",
+  "searchPlaceholder": "Rechercher n° de châssis, n° de véhicule, numéro souche ou plaque…",
+  "loadError": "Échec du chargement des véhicules.",
+  "columns": {
+    "vehicleNumber": "N° véhicule",
+    "vin": "N° de châssis",
+    "stammnummer": "Numéro souche",
+    "matchStatus": "Correspondance catalogue",
+    "status": "Statut"
+  },
+  "matchStatus": {
+    "matched": "Correspondance trouvée",
+    "unverified": "Non vérifié"
+  },
+  "status": {
+    "active": "Actif",
+    "exported": "Exporté",
+    "scrapped": "Détruit",
+    "stolen": "Volé"
+  },
+  "resolved": {
+    "title": "Correspondance trouvée",
+    "open": "Ouvrir"
+  },
+  "picker": {
+    "wechselschildTitle": "Plusieurs véhicules partagent cette plaque interchangeable — choisissez-en un",
+    "conflictTitle": "Cette plaque correspond à plusieurs véhicules sans attribution partagée — choisissez le bon",
+    "empty": "Aucun candidat trouvé"
+  },
+  "emptyState": {
+    "title": "Aucun véhicule pour l’instant",
+    "description": "Les véhicules créés ou migrés apparaîtront ici."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun véhicule correspondant",
+    "description": "Aucun véhicule ne correspond à votre recherche.",
+    "action": "Effacer la recherche"
+  },
+  "selection": {
+    "count": "{{count, number}} sélectionné(s)",
+    "clear": "Effacer la sélection",
+    "copyIds": "Copier les ID"
+  },
+  "rowActions": {
+    "open": "Ouvrir"
+  }
+}

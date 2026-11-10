@@ -1,0 +1,107 @@
+{
+  "header": {
+    "vehicleFallback": "Veicolo",
+    "failedToLoad": "Impossibile caricare il veicolo",
+    "copyVin": "Copia telaio",
+    "merge": "Unisci con…",
+    "mergeDisabledReason": "Non ancora disponibile",
+    "allocate": "Assegna a cliente",
+    "requestValuation": "Richiedi una valutazione",
+    "recordOdometer": "Registra il chilometraggio",
+    "recordAccessory": "Registra un accessorio",
+    "resync": "Aggiorna dal catalogo",
+    "resyncDisabledReason": "Non ancora disponibile",
+    "recordPlate": "Registrare una targa"
+  },
+  "errors": {
+    "somethingWentWrong": "Qualcosa è andato storto."
+  },
+  "tabs": {
+    "identity": "Identità",
+    "plates": "Targhe",
+    "odometer": "Chilometraggio",
+    "accessories": "Accessori",
+    "specification": "Specifica"
+  },
+  "identity": {
+    "title": "Identità",
+    "vin": "Telaio",
+    "vehicleNumber": "N. veicolo",
+    "stammnummer": "Numero base",
+    "typeApprovalNumber": "N. omologazione",
+    "firstRegistrationDate": "Prima immatricolazione",
+    "matchStatus": "Corrispondenza catalogo"
+  },
+  "parties": {
+    "title": "Parti coinvolte",
+    "none": "Nessuna parte assegnata",
+    "allocate": "Assegna a cliente",
+    "roleLabel": "Ruolo",
+    "role": {
+      "owner": "Proprietario",
+      "keeper": "Detentore",
+      "driver": "Conducente"
+    },
+    "searchCustomer": "Cerca cliente…",
+    "noCustomers": "Nessun cliente trovato",
+    "unnamedCustomer": "Cliente senza nome",
+    "showFormer": "Mostra parti precedenti",
+    "hideFormer": "Nascondi parti precedenti",
+    "allocateError": "Impossibile assegnare il cliente."
+  },
+  "plates": {
+    "plate": "Targa",
+    "canton": "Cantone",
+    "validFrom": "Valido dal",
+    "validTo": "Valido fino al",
+    "current": "attuale",
+    "none": "Nessuna targa registrata",
+    "wechselschild": "Targa interscambiabile",
+    "limitReached": "Ha consultato le targhe di molti veicoli in poco tempo. Riprovi più tardi.",
+    "withheld": "Targa nascosta – limite raggiunto",
+    "number": "Numero",
+    "recordTitle": "Registrare una targa",
+    "recordSubmit": "Registrare",
+    "moveConfirm": "Spostare su questo veicolo",
+    "onOtherVehicleTitle": "Targa su un altro veicolo",
+    "onOtherVehicle": "{{plate}} è registrata su {{vehicle}} (VIN {{vin}}) dal {{since}}.",
+    "moveQuestion": "Lo spostamento termina l'assegnazione sull'altro veicolo il giorno prima. Resta visibile nel suo storico.",
+    "formWechselschild": "Registrare invece come targa trasferibile",
+    "saveError": "Non è stato possibile salvare la targa.",
+    "endTitle": "Terminare {{plate}}",
+    "end": "Terminare",
+    "endsOn": "Ultimo giorno su questo veicolo"
+  },
+  "odometer": {
+    "value": "Lettura",
+    "date": "Data",
+    "source": "Fonte",
+    "record": "Registra",
+    "none": "Nessuna lettura registrata",
+    "implausible": "Non plausibile",
+    "implausibleNotice": "Una o più letture sono inferiori a una lettura precedente. Vengono conservate e segnalate, mai nascoste.",
+    "sourceLabel": {
+      "service_visit": "Intervento di assistenza",
+      "sale": "Vendita",
+      "valuation": "Valutazione",
+      "manual": "Manuale",
+      "import": "Importazione"
+    },
+    "saveError": "Impossibile salvare la lettura."
+  },
+  "accessories": {
+    "type": "Tipo",
+    "description": "Descrizione",
+    "validFrom": "Valido dal",
+    "validTo": "Valido fino al",
+    "add": "Aggiungi",
+    "remove": "Rimuovi",
+    "none": "Nessun accessorio registrato",
+    "saveError": "Impossibile salvare l'accessorio.",
+    "removeError": "Impossibile rimuovere l'accessorio."
+  },
+  "specification": {
+    "empty": "Nessuna configurazione di questo veicolo in questa azienda.",
+    "loadError": "Non è stato possibile caricare la specifica."
+  }
+}

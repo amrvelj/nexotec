@@ -1,0 +1,23 @@
+{
+  "environment": {
+    "sandbox": "Sandbox",
+    "production": "Production"
+  },
+  "connectionStatus": {
+    "connected": "Connected",
+    "not_configured": "Not configured",
+    "error": "Error",
+    "expired": "Expired",
+    "disabled": "Disabled"
+  },
+  "secretSlot": {
+    "password": "Password",
+    "client_secret": "Client secret",
+    "refresh_token": "Refresh token",
+    "certificate": "Certificate"
+  },
+  "configKey": {
+    "username": "Username",
+    "clientId": "Client ID"
+  }
+}

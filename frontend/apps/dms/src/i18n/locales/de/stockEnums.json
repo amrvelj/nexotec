@@ -1,0 +1,35 @@
+{
+  "lifecycleStatus": {
+    "pipeline": "Pipeline",
+    "in_stock": "An Lager",
+    "storno_pending": "Storno ausstehend"
+  },
+  "condition": {
+    "new": "Neu",
+    "used": "Occasion",
+    "demo": "Vorführwagen",
+    "tagesz": "Tageszulassung"
+  },
+  "reservationState": {
+    "none": "Frei",
+    "reserved": "Reserviert"
+  },
+  "ledgerCategory": {
+    "einstandspreis": "Einstandspreis",
+    "landed_cost": "Landed Cost",
+    "aufbereitung": "Aufbereitung",
+    "reparatur": "Reparatur",
+    "gutachten": "Gutachten",
+    "standkosten": "Standkosten",
+    "werbung": "Werbung",
+    "garantie": "Garantie",
+    "abwertung": "Abwertung",
+    "promotion": "Promotion",
+    "sonstige_kosten": "Sonstige Kosten",
+    "verkaufserloes": "Verkaufserlös",
+    "kickback": "Kickback",
+    "zusatzerloes": "Zusatzerlös",
+    "foerderung": "Förderung",
+    "sonstige_ertraege": "Sonstige Erträge"
+  }
+}

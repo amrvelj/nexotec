@@ -3,7 +3,7 @@
 initial seed").
 
 A script, not a migration: the bundles live in the frontend tree
-(`frontend/apps/dms/src/i18n/locales/{de,fr,it,en}.json`), which the backend
+(`frontend/apps/dms/src/i18n/locales/{de,fr,it,en}/<namespace>.json`, KAN-616), which the backend
 image does not carry (the Dockerfile copies only the built SPA), and they
 keep changing in ordinary PRs — a migration reading them would write
 different rows depending on the day it ran, and an immutable migration could
@@ -42,13 +42,30 @@ from app.platform.services.ui_translation import ImportReport, import_bundles
 DEFAULT_BUNDLES_DIR = Path(__file__).resolve().parents[1] / "frontend" / "apps" / "dms" / "src" / "i18n" / "locales"
 
 
+def read_bundle(folder: Path) -> dict:
+    """One language's bundle from its namespace files (KAN-616): `<namespace>.json` is that top-level
+    namespace, `<namespace>.<key>.json` one child of it split off for size — the same assembly as the
+    generated `locales/<language>.ts` (scripts/split_locale_bundles.py)."""
+    bundle: dict = {}
+    for path in sorted(folder.glob("*.json")):
+        namespace, _, key = path.stem.partition(".")
+        content = json.loads(path.read_text(encoding="utf-8"))
+        if key:
+            bundle.setdefault(namespace, {})[key] = content
+        elif isinstance(content, dict):
+            bundle.setdefault(namespace, {}).update(content)
+        else:
+            bundle[namespace] = content
+    return bundle
+
+
 def read_bundles(directory: Path) -> dict[SwissLanguage, dict]:
     bundles: dict[SwissLanguage, dict] = {}
     for language in SwissLanguage:
-        path = directory / f"{language.value}.json"
-        if not path.is_file():
-            raise SystemExit(f"KAN-209 import: no bundle {path} — every language ships one; nothing was written.")
-        bundles[language] = json.loads(path.read_text(encoding="utf-8"))
+        folder = directory / language.value
+        if not folder.is_dir() or not any(folder.glob("*.json")):
+            raise SystemExit(f"KAN-209 import: no bundle in {folder} — every language ships one; nothing was written.")
+        bundles[language] = read_bundle(folder)
     return bundles
 
 

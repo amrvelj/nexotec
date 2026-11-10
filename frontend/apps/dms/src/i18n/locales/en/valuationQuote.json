@@ -1,0 +1,20 @@
+{
+  "title": "auto-i-dat valuation",
+  "exchange": "auto-i-dat value (trade-in price)",
+  "purchase": "Purchase price",
+  "sale": "Sale price",
+  "range": "Trade-in range",
+  "kmCorrection": "Mileage correction (trade-in)",
+  "kmExpected": "Usual mileage for this age",
+  "asked": "Valued with model year {{year}}, {{km}} km, first registration {{date}} — requested on {{at}}",
+  "manualHint": "auto-i-dat recommends checking this value by hand.",
+  "residualTitle": "Residual values (% of the new price)",
+  "kmPerYear": "km/year",
+  "months": "{{months}} mo.",
+  "residualState": {
+    "present": "No residual values delivered.",
+    "not_in_contract": "Residual values not in the contract with auto-i-dat.",
+    "unavailable": "Residual values currently unavailable.",
+    "declined": "auto-i-dat delivers no residual values for this vehicle."
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "title": "Clienti",
+  "newCustomer": "Nuovo cliente",
+  "searchPlaceholder": "Cerca per nome, e-mail, telefono…",
+  "loadError": "Impossibile caricare i clienti.",
+  "columns": {
+    "customerNumber": "N. cliente",
+    "name": "Nome",
+    "type": "Tipo",
+    "language": "Lingua",
+    "status": "Stato",
+    "changed": "Modificato",
+    "creditBlock": "Blocco creditizio",
+    "contact": "Contatto",
+    "salutation": "Formula di saluto",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "companyName": "Azienda",
+    "legalForm": "Forma giuridica",
+    "birthDate": "Data di nascita",
+    "nationality": "Nazionalità",
+    "phoneMobile": "Cellulare",
+    "phoneLandline": "Fisso",
+    "phoneWork": "Telefono ufficio",
+    "email": "E-mail",
+    "emailSecondary": "E-mail secondaria",
+    "addressStreet": "Via",
+    "addressHouseNumber": "N. civico",
+    "addressLine2": "Indirizzo (riga 2)",
+    "addressPostalCode": "CAP",
+    "addressLocality": "Località",
+    "canton": "Cantone",
+    "country": "Paese",
+    "preferredChannel": "Canale preferito",
+    "source": "Origine",
+    "sourceRef": "Riferimento origine",
+    "marketingConsent": "Consenso marketing",
+    "created": "Creato",
+    "duplicateOf": "Duplicato di",
+    "advisor": "Consulente",
+    "tags": "Tag",
+    "customerTitle": "Titolo",
+    "gender": "Genere",
+    "website": "Sito web",
+    "newsletter": "Newsletter",
+    "paymentTerms": "Condizioni di pagamento",
+    "creditLimit": "Limite di credito",
+    "iban": "IBAN",
+    "vatRegistered": "Soggetto a IVA",
+    "vatStatusConfirmed": "Stato IVA confermato",
+    "creditBlockReason": "Motivo del blocco creditizio",
+    "creditBlockedAt": "Bloccato dal",
+    "customerSince": "Cliente dal",
+    "nextFollowUp": "Prossimo richiamo",
+    "notes": "Note"
+  },
+  "rowActions": {
+    "open": "Apri",
+    "copyCustomerNumber": "Copia numero cliente"
+  },
+  "emptyState": {
+    "title": "Nessun cliente ancora",
+    "description": "Crea il tuo primo cliente per iniziare."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun risultato",
+    "description": "Prova un termine di ricerca o un filtro diverso.",
+    "action": "Cancella ricerca e filtri"
+  },
+  "filters": {
+    "customerType": "Tipo di cliente",
+    "lifecycleStatus": "Stato del ciclo di vita",
+    "language": "Lingua",
+    "canton": "Cantone",
+    "changedSince": "Modificato dal",
+    "changedSinceChip": "Modificato dal {{date}}"
+  },
+  "allCustomersView": "Tutti i clienti",
+  "selection": {
+    "count": "{{count, number}} selezionati",
+    "clear": "Deseleziona",
+    "export": "Esporta",
+    "print": "Stampa"
+  },
+  "createOfferError": "Non è stato possibile creare l’offerta. Riprovare.",
+  "createContractError": "Non è stato possibile creare il contratto. Riprovare.",
+  "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare.",
+  "advisorFilter": {
+    "unassigned": "Non assegnato"
+  }
+}

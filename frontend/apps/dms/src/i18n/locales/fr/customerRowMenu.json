@@ -1,0 +1,15 @@
+{
+  "newOffer": "Nouvelle offre",
+  "newOfferDisabledDoNotContact": "Ce client est marqué « ne pas contacter ».",
+  "newContract": "Nouveau contrat",
+  "newContractDisabledDoNotContact": "Ce client est marqué « ne pas contacter ».",
+  "newContractDisabledBlocked": "Blocage de crédit ({{reason}}) — une offre reste possible ; un contrat requiert la libération du compte par la comptabilité.",
+  "linkVehicle": "Lier un véhicule…",
+  "setDoNotContact": "Marquer « ne pas contacter »",
+  "removeDoNotContact": "Retirer « ne pas contacter »",
+  "setCreditBlock": "Définir un blocage de crédit…",
+  "removeCreditBlock": "Retirer le blocage de crédit",
+  "mergeInto": "Fusionner avec un autre client…",
+  "mergeDisabledMerged": "Cet enregistrement a déjà été fusionné avec un autre.",
+  "copyCustomerNumber": "Copier le numéro de client"
+}

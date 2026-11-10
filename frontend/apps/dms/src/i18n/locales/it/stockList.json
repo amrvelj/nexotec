@@ -1,0 +1,52 @@
+{
+  "title": "Magazzino",
+  "newStockItem": "Aggiungi veicolo",
+  "searchPlaceholder": "Targa, VIN, cliente, offerta…",
+  "loadError": "Impossibile caricare lo stock.",
+  "groupLoadError": "Impossibile caricare lo stock del gruppo.",
+  "allStockView": "Tutti i veicoli",
+  "allGroupStockView": "Tutti i veicoli del gruppo",
+  "columns": {
+    "stockNumber": "N. di magazzino",
+    "vehicle": "Veicolo",
+    "condition": "Condizione",
+    "lifecycleStatus": "Stato di magazzino",
+    "reservationState": "Riserva",
+    "odometerKm": "Chilometraggio",
+    "effectivePrice": "Prezzo effettivo",
+    "changed": "Modificato",
+    "vin": "VIN",
+    "listPrice": "Prezzo di listino",
+    "dealership": "Azienda",
+    "ageingBucket": "Indicatore di anzianità",
+    "basePrice": "Prezzo base",
+    "purchasePrice": "Prezzo di acquisto",
+    "landedCost": "Costi di trasporto",
+    "notionalInputTaxAmount": "Deduzione fittizia dell'imposta precedente",
+    "isInvoiceable": "Fatturabile",
+    "supplierName": "Fornitore",
+    "purchaseDate": "Data di acquisto",
+    "orderDate": "Data ordine",
+    "expectedDelivery": "Consegna prevista",
+    "pipelineRef": "Riferimento pipeline",
+    "configuration": "Configurazione"
+  },
+  "emptyState": {
+    "title": "Nessun veicolo a magazzino",
+    "description": "Aggiungi un veicolo al magazzino per iniziare.",
+    "descriptionReadOnly": "I veicoli appaiono qui non appena l'azienda li aggiunge al magazzino."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun risultato",
+    "description": "Modifica la ricerca o i filtri.",
+    "action": "Reimposta filtri"
+  },
+  "rowActions": {
+    "open": "Apri"
+  },
+  "scope": {
+    "own": "Magazzino proprio",
+    "group": "Magazzino del gruppo"
+  },
+  "addToPipelineError": "Non è stato possibile aggiungere il veicolo alla pipeline."
+}

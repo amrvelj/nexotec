@@ -1,0 +1,35 @@
+{
+  "title": "Lacune di mappatura",
+  "searchPlaceholder": "Cerca per fornitore o codice…",
+  "resolve": "Risolvi",
+  "loadError": "Impossibile caricare le lacune di mappatura.",
+  "columns": {
+    "provider": "Fornitore",
+    "vehicleKind": "Tipo di veicolo",
+    "codeGroup": "Gruppo di codici",
+    "providerCode": "Codice fornitore",
+    "occurrences": "Occorrenze",
+    "lastSeen": "Ultima rilevazione"
+  },
+  "emptyState": {
+    "title": "Nessuna lacuna di mappatura",
+    "description": "Ogni codice fornitore finora rilevato corrisponde a un valore canonico."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun risultato",
+    "description": "Nessuna lacuna di mappatura corrisponde alla ricerca.",
+    "action": "Cancella ricerca"
+  },
+  "resolveModal": {
+    "title": "Risolvi lacuna di mappatura",
+    "listCode": "Lista di riferimento",
+    "valueCode": "Valore canonico",
+    "confirm": "Risolvi",
+    "valuePlaceholder": "Scegli un valore",
+    "noValues": "Nessun valore corrispondente",
+    "valuesLoadError": "Impossibile caricare i valori di questa lista.",
+    "error": "Impossibile risolvere la lacuna.",
+    "gapKey": "Fornitore · tipo di veicolo · codice",
+    "noList": "Il gruppo di codici «{{codeGroup}}» non ha una lista di riferimento: questa lacuna potrà essere risolta solo quando ne esisterà una."
+  }
+}

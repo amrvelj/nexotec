@@ -1,0 +1,12 @@
+{
+  "untitled": "Nouvelle offre",
+  "errors": {
+    "failedToLoad": "L'offre n'a pas pu être chargée.",
+    "somethingWentWrong": "Un problème est survenu.",
+    "copyFailed": "L’offre n’a pas pu être copiée. Veuillez réessayer.",
+    "createFailed": "La nouvelle offre n’a pas pu être créée."
+  },
+  "actions": {
+    "copy": "Copier l'offre"
+  }
+}

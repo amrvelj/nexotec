@@ -1,0 +1,92 @@
+{
+  "title": "Übersetzungen",
+  "subtitle": "Die Texte, die Nexotec in vier Sprachen ausliefert: die Benutzeroberfläche, zur Laufzeit ausgeliefert, und die Standardtext-Vorlagen. Eine Veröffentlichung gilt sofort für alle Betriebe; Betriebe können UI-Texte nicht ändern.",
+  "badge": "Plattform",
+  "sourcesLabel": "Quelle",
+  "sources": {
+    "ui": "UI-Texte",
+    "standardTexts": "Standardtext-Vorlagen"
+  },
+  "search": {
+    "label": "Suchen",
+    "placeholder": "Schlüssel oder Text"
+  },
+  "namespace": {
+    "label": "Bereich",
+    "all": "Alle Bereiche"
+  },
+  "editedOnly": "Nur bearbeitete",
+  "count_one": "{{count, number}} Schlüssel",
+  "count_other": "{{count, number}} Schlüssel",
+  "countEstimate": "Mehr als {{count, number}} Schlüssel",
+  "columns": {
+    "key": "Schlüssel",
+    "actions": "Aktionen"
+  },
+  "languages": {
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "it": "Italienisch",
+    "en": "Englisch"
+  },
+  "status": {
+    "seed": "Ausgeliefert",
+    "platform": "Bearbeitet",
+    "absent": "Nicht ausgeliefert"
+  },
+  "open": "Bearbeiten",
+  "view": "Ansehen",
+  "empty": "Keine Schlüssel gefunden.",
+  "noSeed": "Es sind noch keine UI-Texte importiert. Der Import läuft mit scripts/import_ui_translation_bundles.py --commit.",
+  "loadError": "Die Übersetzungen konnten nicht geladen werden.",
+  "loadMore": "Weitere laden",
+  "editor": {
+    "keyLabel": "Schlüssel",
+    "seedLabel": "Ausgeliefert",
+    "sameAsSeed": "Entspricht dem ausgelieferten Text.",
+    "diffLabel": "Abweichung vom ausgelieferten Text",
+    "removed": "entfernt",
+    "added": "neu",
+    "placeholdersHint": "Platzhalter wie {{example}} müssen erhalten bleiben.",
+    "publish": "Veröffentlichen",
+    "discard": "Änderungen verwerfen",
+    "close": "Schliessen",
+    "revert": "Ausgelieferten Text wiederherstellen",
+    "published": "Veröffentlicht. Die Änderung erscheint bei jedem Benutzer beim nächsten Laden der Texte.",
+    "readOnly": "Nur Plattformadministratoren von Nexotec können diese Texte ändern.",
+    "noRow": "In dieser Sprache nicht ausgeliefert.",
+    "nothingChanged": "Keine Änderung zum Veröffentlichen."
+  },
+  "missing": {
+    "title": "Gemeldete fehlende Schlüssel",
+    "subtitle": "Schlüssel, die ein Browser weder hier noch in den ausgelieferten Texten fand und als Warnmarke anzeigte.",
+    "empty": "Keine fehlenden Schlüssel gemeldet.",
+    "columns": {
+      "key": "Schlüssel",
+      "language": "Sprache",
+      "count": "Meldungen",
+      "last": "Zuletzt gemeldet"
+    }
+  },
+  "seeds": {
+    "subtitle": "Die Vorlagen, die Nexotec jedem Betrieb mitliefert. Eine Änderung überschreibt nie die Anpassung eines Betriebs; der Betrieb sieht, dass sich die Vorlage geändert hat.",
+    "search": {
+      "label": "Suchen",
+      "placeholder": "Code, Titel oder Text"
+    },
+    "category": {
+      "label": "Kategorie",
+      "all": "Alle Kategorien"
+    },
+    "count_one": "{{count, number}} Vorlage",
+    "count_other": "{{count, number}} Vorlagen",
+    "columns": {
+      "code": "Code",
+      "target": "Verwendung"
+    },
+    "fieldTitle": "Titel",
+    "fieldBody": "Text",
+    "empty": "Keine Vorlagen gefunden.",
+    "loadError": "Die Vorlagen konnten nicht geladen werden."
+  }
+}

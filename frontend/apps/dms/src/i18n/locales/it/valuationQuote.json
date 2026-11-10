@@ -1,0 +1,20 @@
+{
+  "title": "Valutazione auto-i-dat",
+  "exchange": "Valore auto-i-dat (prezzo di permuta)",
+  "purchase": "Prezzo d’acquisto",
+  "sale": "Prezzo di vendita",
+  "range": "Fascia di permuta",
+  "kmCorrection": "Correzione chilometrica (permuta)",
+  "kmExpected": "Chilometraggio usuale per questa età",
+  "asked": "Valutato con anno modello {{year}}, {{km}} km, prima immatricolazione {{date}} — richiesto il {{at}}",
+  "manualHint": "auto-i-dat consiglia di verificare manualmente questo valore.",
+  "residualTitle": "Valori residui (in % del prezzo nuovo)",
+  "kmPerYear": "km/anno",
+  "months": "{{months}} mesi",
+  "residualState": {
+    "present": "Nessun valore residuo fornito.",
+    "not_in_contract": "Valori residui non compresi nel contratto con auto-i-dat.",
+    "unavailable": "Valori residui al momento non disponibili.",
+    "declined": "auto-i-dat non fornisce valori residui per questo veicolo."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "sales": "Sales consultant",
+  "service_advisor": "Service advisor",
+  "finance_manager": "Finance manager",
+  "gm": "General manager",
+  "admin": "Administrator",
+  "technician": "Technician",
+  "parts": "Parts advisor",
+  "other": "Staff member"
+}

@@ -1,0 +1,59 @@
+{
+  "title": "Integrazioni",
+  "searchPlaceholder": "Cerca connessioni",
+  "loadError": "Non è stato possibile caricare le connessioni.",
+  "allView": "Tutte le connessioni",
+  "notConnected": "Non connesso",
+  "connectError": "Non è stato possibile creare la connessione.",
+  "platformScoped": "A livello di piattaforma",
+  "platformConnectionsTitle": "Connessioni",
+  "categories": {
+    "marketplace": "Marketplace",
+    "vehicle_data": "Dati veicolo"
+  },
+  "fields": {
+    "provider": "Fornitore",
+    "environment": "Ambiente",
+    "accountIdentifier": "Account",
+    "lastVerified": "Ultima verifica"
+  },
+  "actions": {
+    "test": "Verifica connessione",
+    "viewUsage": "Visualizza utilizzo",
+    "rotateSecret": "Rinnova secret",
+    "rotateSecretDisabledReason": "Questa connessione non ha secret da rinnovare.",
+    "enable": "Attiva",
+    "disable": "Disattiva",
+    "connect": "Connetti"
+  },
+  "connectModal": {
+    "title": "Connetti {{provider}}",
+    "testAccessHint": "Sandbox è il vostro accesso di prova: solo con l'account di servizio di auto-i-dat (Client-ID e Client-Secret), mai con il token personale, e solo in ambienti di test. Sul server di produzione Nexotec lo rifiuta."
+  },
+  "usageModal": {
+    "title": "Utilizzo — {{name}}",
+    "calls": "Chiamate (ultimi 30 giorni)",
+    "cost": "Unità di costo (ultimi 30 giorni)",
+    "indicative": "Solo indicativo — Nexotec non addebita mai nulla oltre al proprio contratto con il fornitore."
+  },
+  "rotateModal": {
+    "title": "Rinnova secret — {{name}}",
+    "hint": "Inserire un nuovo valore solo per i campi da sostituire — il rinnovo sostituisce, non legge mai il valore attuale."
+  },
+  "columns": {
+    "dealership": "Azienda",
+    "displayName": "Connessione",
+    "provider": "Fornitore",
+    "environment": "Ambiente",
+    "status": "Stato",
+    "lastVerified": "Ultima verifica"
+  },
+  "emptyState": {
+    "title": "Nessuna connessione",
+    "description": "Nessuna azienda ha ancora collegato un fornitore."
+  },
+  "emptyFilteredState": {
+    "title": "Nessuna connessione corrispondente",
+    "description": "Prova una ricerca diversa."
+  }
+}

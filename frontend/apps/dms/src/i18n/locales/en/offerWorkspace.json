@@ -1,0 +1,115 @@
+{
+  "title": "Create offer",
+  "requirement": {
+    "required": "Required",
+    "optional": "Optional"
+  },
+  "containers": {
+    "customer": "Customer",
+    "vehicle": "Vehicle",
+    "pricing": "Pricing",
+    "tradeIn": "Trade-in vehicle",
+    "leasing": "Leasing"
+  },
+  "customer": {
+    "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
+    "emptyHintContract": "No buyer yet — a contract is confirmed only with the customer who signs it.",
+    "search": "Search customer",
+    "createNew": "Create new",
+    "creditBlockTitle": "Credit block",
+    "creditBlockBody": "This customer has a credit block ({{reason}}) — an offer is possible, a contract cannot be confirmed.",
+    "doNotContactTitle": "Do not contact",
+    "doNotContactBody": "This customer is marked do-not-contact — neither the offer nor a contract can proceed."
+  },
+  "vehicle": {
+    "emptyHint": "From your own stock — stock number, VIN or plate.",
+    "search": "Search vehicle",
+    "configure": "Configure",
+    "searchPlaceholder": "Stock number, VIN, plate …",
+    "configured": "Configured",
+    "attachError": "The configuration could not be attached.",
+    "stockNumber": "Stock number {{stockNumber}}"
+  },
+  "pricing": {
+    "emptyHint": "Pricing starts with the vehicle — choose one first.",
+    "noPriceTitle": "No price set",
+    "noPriceBody": "This vehicle has no price set yet — add one on the stock record first.",
+    "noPriceLink": "Open the stock record",
+    "readyHint": "Pricing follows (next step).",
+    "manualBasePrice": "Base price",
+    "basePrice": "Base price",
+    "optionsTotal": "Options total",
+    "listPrice": "List price",
+    "accessoriesTotal": "Accessories total",
+    "discountType": "Discount type",
+    "noDiscount": "No discount",
+    "discountPercent": "Percent",
+    "discountAmount": "Amount",
+    "discountValue": "Discount value",
+    "grossPrice": "Sale price",
+    "internalOnly": "INTERNAL ONLY — NOT ON THE DOCUMENT",
+    "costBasis": "Cost basis",
+    "margin": "Margin"
+  },
+  "tradeIn": {
+    "emptyHint": "Choose the customer first — their vehicles will be suggested here.",
+    "readyHint": "Trade-in follows (next step).",
+    "value": "Trade-in offer",
+    "fromExistingValuation": "Taken from an existing valuation",
+    "vinLabel": "VIN",
+    "vinPlaceholder": "e.g. WVWZZZ1KZAW123456",
+    "labelLabel": "Vehicle description",
+    "add": "Add trade-in vehicle",
+    "valueWithConfigurator": "Identify and value",
+    "attachError": "The valuation could not be attached.",
+    "saveError": "The trade-in could not be saved.",
+    "customerMerged": "The customer has been merged into another customer. Choose the customer it was merged into, then add the trade-in again.",
+    "customerMergedInto": "The customer has been merged into {{name}} ({{customerNumber}}). Choose {{name}} as the customer, then add the trade-in again."
+  },
+  "leasing": {
+    "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",
+    "downPayment": "Down payment",
+    "termMonths": "Term (months)",
+    "kmPerYear": "Kilometres per year"
+  },
+  "missing": "Still missing",
+  "continue": "Generate offer",
+  "liveContract": {
+    "openContract": "Open contract"
+  },
+  "continueDisabled": {
+    "doNotContact": "This customer is marked do-not-contact: no offer can be generated.",
+    "saving": "Your last changes are still being saved. “Generate offer” becomes available once they are saved."
+  },
+  "generate": {
+    "title": "Generate offer",
+    "buildHint": "Generates a preview of the document in the customer's correspondence language.",
+    "build": "Generate document",
+    "buildError": "The document could not be generated.",
+    "previewTitle": "Offer {{number}}",
+    "regenerate": "Regenerate",
+    "confirm": "Confirm",
+    "finalizeError": "The offer could not be confirmed."
+  },
+  "lineItems": {
+    "factoryOptionsTitle": "Factory options",
+    "accessoriesTitle": "Accessories",
+    "accessoryLabel": "Label",
+    "accessoryPrice": "Price",
+    "accessoryQuantity": "Quantity",
+    "accessoryDiscount": "Discount (amount)",
+    "add": "Add",
+    "suppressedReason": "Reason",
+    "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
+    "error": "The change could not be saved.",
+    "noPackagesCapability": "Shown as a flat list — package grouping is not available for this business."
+  },
+  "errors": {
+    "saveRefused": {
+      "offerHasContract": "This offer has contract {{contractNumber}} – please make changes in the contract.",
+      "staleVersion": "The offer was changed in the meantime. The current version is loaded – please make your change again.",
+      "generic": "The change could not be saved.",
+      "dismiss": "Dismiss message"
+    }
+  }
+}

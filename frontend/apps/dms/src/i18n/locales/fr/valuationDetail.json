@@ -1,0 +1,63 @@
+{
+  "untitled": "Aucun véhicule indiqué",
+  "errors": {
+    "failedToLoad": "L’évaluation n’a pas pu être chargée.",
+    "somethingWentWrong": "Une erreur est survenue.",
+    "markUsedFailed": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer.",
+    "createOfferFailed": "L’offre n’a pas pu être créée.",
+    "createOfferTradeInFailed": "L’offre {{offerNumber}} a été créée, mais l’évaluation n’a pas pu être reprise comme véhicule de reprise : {{reason}}",
+    "openCreatedOffer": "Ouvrir l’offre"
+  },
+  "actions": {
+    "revalue": "Réévaluer",
+    "markUsed": "Marquer comme utilisée",
+    "markUsedAlreadyUsed": "Déjà marquée comme utilisée.",
+    "markUsedNoSignedContract": "Possible uniquement si un contrat signé contient cette évaluation comme reprise.",
+    "openCustomer": "Ouvrir le client",
+    "openVehicle": "Ouvrir le véhicule",
+    "revertUse": "Annuler l'utilisation",
+    "revertUseNotUsed": "Uniquement pour une évaluation marquée comme utilisée.",
+    "revertUseSignedContract": "Impossible : un contrat signé contient cette évaluation comme reprise.",
+    "revertUseTooRecent": "Possible seulement une heure après le marquage : la confirmation du contrat est peut-être encore en cours.",
+    "createOffer": "Créer une offre à partir de cette évaluation",
+    "createOfferExpired": "Impossible : l’évaluation a expiré. Veuillez d’abord réévaluer.",
+    "createOfferUsed": "Impossible : l’évaluation est déjà marquée comme utilisée.",
+    "createOfferNoSales": "Impossible : cette entreprise ne dispose pas du module Vente.",
+    "createOfferNoVin": "Impossible : l’évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
+  },
+  "expiredBanner": {
+    "title": "Évaluation expirée",
+    "body": "Cette évaluation n’est plus valide. Créez-en une nouvelle via \"Réévaluer\" si nécessaire."
+  },
+  "valueCard": {
+    "title": "Évaluation",
+    "providerValue": "Valeur brute",
+    "netValue": "Valeur nette",
+    "finalOffer": "Offre de reprise",
+    "finalOfferHint": "L’offre de reprise peut différer de la valeur nette — c’est la négociation."
+  },
+  "vehicleCard": {
+    "title": "Véhicule",
+    "vin": "VIN",
+    "plate": "Plaque",
+    "mileage": "Kilométrage",
+    "firstRegistration": "Première immatriculation",
+    "customer": "Client"
+  },
+  "noteCard": {
+    "title": "Note"
+  },
+  "validityHelp": "Le statut est calculé à la lecture, jamais corrigé de nuit — valide jusqu’au {{validUntil}}.",
+  "configuration": {
+    "title": "Configuration"
+  },
+  "revertUseDialog": {
+    "title": "Annuler l'utilisation",
+    "body": "L'évaluation {{number}} est marquée comme utilisée, mais aucun contrat signé ne la justifie. Une fois l'utilisation annulée, elle est à nouveau valable ou expirée. Le motif est journalisé avec la modification.",
+    "reasonLabel": "Motif",
+    "reasonRequired": "Veuillez indiquer un motif.",
+    "submit": "Annuler l'utilisation",
+    "cancel": "Annuler",
+    "failed": "L'utilisation n'a pas pu être annulée. Veuillez réessayer."
+  }
+}

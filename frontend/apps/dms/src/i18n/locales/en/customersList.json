@@ -1,0 +1,91 @@
+{
+  "title": "Customers",
+  "newCustomer": "New customer",
+  "searchPlaceholder": "Search by name, email, phone…",
+  "loadError": "Customers could not be loaded.",
+  "columns": {
+    "customerNumber": "Customer #",
+    "name": "Name",
+    "type": "Type",
+    "language": "Language",
+    "status": "Status",
+    "changed": "Changed",
+    "creditBlock": "Credit block",
+    "contact": "Contact",
+    "salutation": "Salutation",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "companyName": "Company",
+    "legalForm": "Legal form",
+    "birthDate": "Date of birth",
+    "nationality": "Nationality",
+    "phoneMobile": "Mobile",
+    "phoneLandline": "Landline",
+    "phoneWork": "Work phone",
+    "email": "Email",
+    "emailSecondary": "Secondary email",
+    "addressStreet": "Street",
+    "addressHouseNumber": "House no.",
+    "addressLine2": "Address line 2",
+    "addressPostalCode": "Postal code",
+    "addressLocality": "Locality",
+    "canton": "Canton",
+    "country": "Country",
+    "preferredChannel": "Preferred channel",
+    "source": "Source",
+    "sourceRef": "Source reference",
+    "marketingConsent": "Marketing consent",
+    "created": "Created",
+    "duplicateOf": "Duplicate of",
+    "advisor": "Advisor",
+    "tags": "Tags",
+    "customerTitle": "Title",
+    "gender": "Gender",
+    "website": "Website",
+    "newsletter": "Newsletter",
+    "paymentTerms": "Payment terms",
+    "creditLimit": "Credit limit",
+    "iban": "IBAN",
+    "vatRegistered": "VAT registered",
+    "vatStatusConfirmed": "VAT status confirmed",
+    "creditBlockReason": "Credit block reason",
+    "creditBlockedAt": "Credit blocked since",
+    "customerSince": "Customer since",
+    "nextFollowUp": "Next follow-up",
+    "notes": "Notes"
+  },
+  "rowActions": {
+    "open": "Open",
+    "copyCustomerNumber": "Copy customer number"
+  },
+  "emptyState": {
+    "title": "No customers yet",
+    "description": "Create your first customer to get started."
+  },
+  "emptyFilteredState": {
+    "title": "No matches",
+    "description": "Try a different search term or filter.",
+    "action": "Clear search and filters"
+  },
+  "filters": {
+    "customerType": "Customer type",
+    "lifecycleStatus": "Lifecycle status",
+    "language": "Language",
+    "canton": "Canton",
+    "changedSince": "Changed since",
+    "changedSinceChip": "Changed since {{date}}"
+  },
+  "allCustomersView": "All customers",
+  "selection": {
+    "count": "{{count, number}} selected",
+    "clear": "Clear selection",
+    "export": "Export",
+    "print": "Print"
+  },
+  "createOfferError": "The offer could not be created. Please try again.",
+  "createContractError": "The contract could not be created. Please try again.",
+  "doNotContactError": "Do-not-contact could not be saved. Please try again.",
+  "advisorFilter": {
+    "unassigned": "Unassigned"
+  }
+}

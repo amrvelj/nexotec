@@ -172,16 +172,19 @@ second local combobox.
 
 ## i18n
 
-- Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json`. A new key goes into all
-  four in the same change; `localeKeyParity.test.ts` fails otherwise.
+- Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}/<namespace>.json`, one file per
+  top-level namespace (KAN-616). A new key goes into its screen's namespace file in all four
+  languages at once; a new namespace is four new files plus
+  `python3 scripts/split_locale_bundles.py index`, which writes the generated
+  `locales/<language>.ts`. `localeKeyParity.test.ts` fails on a key or file a language lacks, a stale
+  `<language>.ts`, or a file above 25'000 bytes (split it: `<namespace>.<key>.json`).
 - **Only `en` (the fallback) ships with the app** (KAN-438): `de`, `fr` and `it` are their own
   chunks (`i18n/index.ts`, `onDemandBundleLoaders`), fetched when first needed. i18next starts in
   the `ui` preference mirror's language (`storedUiLanguage`, else `de`; on a shared browser, the
   last user's) and `main.tsx` paints only once `i18nReady` resolves, so nobody sees another
   language first (`architecture/main-waits-for-i18n.test.ts`); a switch waits for its bundle, so
   it never shows keys. `src/test/setup.ts` waits for `i18nReady` too, so every test starts in
-  German; `i18n/index.ts` imports `formatNumber` from its own module, not the kit's barrel, so
-  that wait loads nothing a test file mocks. A bundle that cannot be fetched is asked for twice more (350 ms, 700 ms), then the
+  German. A bundle that cannot be fetched is asked for twice more (350 ms, 700 ms), then the
   language shows in English (the fallback) and the next switch fetches again — no reload screen.
   A test that reads `fr`/`it` text through `getFixedT` or `getResource` before anything switched
   to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.
@@ -224,8 +227,6 @@ second local combobox.
   `InlineEditField` takes a required `describeError` and, beside an `onReload`, a `reloadLabel` —
   the app's `useInlineEditRefusal()`; only a stale If-Match 409 (`isStaleVersion`) offers the
   reload. `RepeatableRowGroup` without a `describeError` shows its `genericError` label.
-- The customer's **correspondence language** is not the user's **UI language** — never the
-  same control, never the same stored field.
 - **DE, FR and IT person nouns use the generic masculine** (Anto, 2026-10-12, KAN-171; the
   UI/UX Specification's i18n row): "Verkaufsberater", "Conseiller de vente", "Amministratore" —
   no slash, pair, parenthesis or point-médian form in the bundles.
@@ -239,8 +240,7 @@ second local combobox.
   `ui` field (a language switch, the sidebar, density) stores it with the rest, as the user's own
   from then on. This applies to every user who never saved the `ui` scope, existing ones
   included. The platform mail texts and the push title follow the same rule
-  (`user_preference.ui_language_of`). Only the starting value is shared: the user's UI language
-  and a customer's correspondence language stay separate fields and controls.
+  (`user_preference.ui_language_of`). Only the starting value is shared (CLAUDE.md, i18n).
   `useUiPreferences.ts` keeps `'de'` as the offline fallback.
 
 ## Tests and evidence

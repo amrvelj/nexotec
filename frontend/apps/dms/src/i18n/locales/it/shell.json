@@ -1,0 +1,59 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "masterData": "Dati anagrafici",
+    "customers": "Clienti",
+    "vehicles": "Veicoli",
+    "mappingGaps": "Lacune di mappatura",
+    "partners": "Partner",
+    "modules": "Moduli",
+    "sales": "Vendite",
+    "aftersales": "Assistenza post-vendita",
+    "inventory": "Magazzino",
+    "parts": "Ricambi",
+    "finance": "Finanza",
+    "transactions": "Transazioni",
+    "reporting": "Reportistica",
+    "compliance": "Conformità",
+    "valuations": "Valutazioni",
+    "integrations": "Integrazioni",
+    "administration": "Amministrazione",
+    "referenceData": "Dati di riferimento",
+    "catalogue": "Catalogo",
+    "users": "Utenti",
+    "accountRecovery": "Recupero account",
+    "business": "Azienda",
+    "translations": "Traduzioni",
+    "locations": "Sedi",
+    "branding": "Logo e colori",
+    "standardTexts": "Testi standard",
+    "numberRanges": "Serie di numeri"
+  },
+  "signOut": "Disconnetti",
+  "environmentNotice": {
+    "outboxWorkerAbsent": "Questo ambiente non esegue alcun worker in background: gli eventi non vengono recapitati e i job notturni non vengono eseguiti."
+  },
+  "sidebar": {
+    "mainNavigation": "Navigazione principale",
+    "expandSidebar": "Espandi la barra laterale",
+    "collapseSidebar": "Comprimi la barra laterale",
+    "soon": "PRESTO",
+    "notifications": "Notifiche",
+    "notificationsSoon": "Notifiche (presto)",
+    "accountMenu": "Menu account",
+    "language": "Lingua",
+    "switchDealership": "Cambia azienda",
+    "accountSecurity": "Il mio account"
+  },
+  "globalSearch": {
+    "placeholder": "Cerca…",
+    "recents": "Recenti",
+    "noResults": "Nessun risultato",
+    "error": "Ricerca non riuscita — riprova."
+  },
+  "switchDealershipError": {
+    "notAMember": "Cambio rifiutato: non è più associato a questa azienda. Rimane nell’azienda attuale.",
+    "failed": "Impossibile cambiare azienda. Rimane nell’azienda attuale. Riprovi.",
+    "dismiss": "Chiudi messaggio"
+  }
+}

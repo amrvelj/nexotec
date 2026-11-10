@@ -780,7 +780,7 @@ def test_no_screen_or_readme_hints_a_demo_credential():
     sources = [
         root / "README.md",
         *sorted((root / "frontend/apps/dms/src").rglob("*.ts*")),
-        *sorted((root / "frontend/apps/dms/src/i18n/locales").glob("*.json")),
+        *sorted((root / "frontend/apps/dms/src/i18n/locales").rglob("*.json")),  # <language>/<namespace>.json
     ]
     for path in sources:
         text = path.read_text(encoding="utf-8")

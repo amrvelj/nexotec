@@ -1,0 +1,37 @@
+{
+  "breadcrumb": "Administration",
+  "title": "Reference data",
+  "subtitle": "Canonical reference data and the providers’ mapping gaps.",
+  "loadError": "Failed to load reference values.",
+  "empty": "This list has no values yet.",
+  "emptyFiltered": "No values match your filter.",
+  "required": "Required",
+  "missingTip": "This row cannot be saved while a language is missing.",
+  "missingTipReadOnly": "A language is missing in this row.",
+  "readOnly": "Nexotec maintains these lists for every business. You can view them here, but not change them.",
+  "maintainedBy": "Maintained by Nexotec",
+  "columns": {
+    "code": "Code",
+    "status": "Status"
+  },
+  "forbidden": {
+    "title": "No access",
+    "body": "Your role may not open these lists. Contact your administrator."
+  },
+  "list": {
+    "title": "Reference list {{code}}",
+    "help": "All four languages are mandatory. A missing language is a row error — never a silent fallback to German.",
+    "pickLabel": "Choose a list",
+    "filterLabel": "Filter by code or label",
+    "filterPlaceholder": "Filter…"
+  },
+  "create": {
+    "trigger": "New value",
+    "title": "New value in {{code}}",
+    "submit": "Create",
+    "allLanguagesHint": "All four languages are required.",
+    "error": "Could not create the value.",
+    "invalidField": "Check this entry: it is empty or too long.",
+    "duplicate": "The value code {{valueCode}} already exists in this list."
+  }
+}

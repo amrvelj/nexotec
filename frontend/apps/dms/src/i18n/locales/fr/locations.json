@@ -1,0 +1,137 @@
+{
+  "title": "Sites",
+  "subtitle": "Les sites de l'entreprise avec adresse, contacts, horaires, jours fériés et fermetures. Un site se désactive, il ne se supprime jamais.",
+  "loadError": "Les sites n'ont pas pu être chargés.",
+  "notFound": "Ce site n'existe pas dans cette entreprise.",
+  "readOnly": "Seul un manager de cette entreprise modifie ses sites.",
+  "new": "Nouveau site",
+  "count": "{{count, number}} sites",
+  "saveError": "Le site n'a pas pu être enregistré.",
+  "columns": {
+    "name": "Nom",
+    "code": "Code",
+    "types": "Type",
+    "address": "Adresse",
+    "canton": "Canton",
+    "phone": "Téléphone",
+    "leadEmail": "E-mail pour les demandes",
+    "holidayCalendar": "Calendrier des jours fériés",
+    "status": "Statut",
+    "validFrom": "Valable dès",
+    "validTo": "Valable jusqu'au",
+    "country": "Pays",
+    "contactPerson": "Personne de contact",
+    "email": "E-mail",
+    "geo": "Coordonnées",
+    "letterhead": "Bloc d'adresse de l'en-tête",
+    "updatedAt": "Modifié le"
+  },
+  "status": {
+    "active": "Actif",
+    "inactive": "Désactivé"
+  },
+  "empty": {
+    "title": "Aucun site",
+    "description": "Créez le premier site de l'entreprise."
+  },
+  "actions": {
+    "open": "Ouvrir",
+    "deactivate": "Désactiver",
+    "activate": "Activer",
+    "lastActive": "Le dernier site actif reste actif – une entreprise en a toujours au moins un.",
+    "deactivateConfirm": "Le site {{name}} sera désactivé. Les documents qui le mentionnent restent inchangés ; il ne peut plus être attribué à de nouveaux utilisateurs."
+  },
+  "types": {
+    "showroom": "Showroom",
+    "workshop": "Atelier",
+    "body_shop": "Carrosserie",
+    "parts_warehouse": "Magasin de pièces",
+    "storage": "Dépôt de véhicules",
+    "admin": "Administration"
+  },
+  "create": {
+    "title": "Nouveau site",
+    "submit": "Créer"
+  },
+  "master": {
+    "title": "Données de base",
+    "name": "Nom",
+    "code": "Code",
+    "codeHint": "Code court et fixe, p. ex. ZH-NORD – il figure dans les numéros de documents et les correspondances des places de marché et ne peut plus être modifié après l'enregistrement.",
+    "codeFixed": "Le code est fixé.",
+    "types": "Type de site",
+    "typesHint": "Choix multiple – la plupart des sites sont deux choses à la fois, p. ex. showroom et atelier.",
+    "validFrom": "Valable dès",
+    "validTo": "Valable jusqu'au"
+  },
+  "address": {
+    "title": "Adresse et carte",
+    "geoLat": "Latitude",
+    "geoLng": "Longitude",
+    "geoHint": "WGS 84 en degrés décimaux, p. ex. 47.414100 et 8.546900 – pour les places de marché et la carte du site web.",
+    "pin": "Repère sur la carte",
+    "noGeo": "Aucune coordonnée saisie.",
+    "openMap": "Ouvrir dans OpenStreetMap"
+  },
+  "contacts": {
+    "title": "Contacts",
+    "contactPerson": "Personne de contact",
+    "phone": "Téléphone",
+    "email": "E-mail",
+    "leadEmail": "E-mail pour les demandes",
+    "leadEmailHint": "Les demandes des places de marché pour ce site arrivent ici."
+  },
+  "hours": {
+    "title": "Heures d'ouverture",
+    "perDepartment": "Horaires différents par département",
+    "perDepartmentHint": "Désactivé : un seul horaire pour tout le site, enregistré à l'identique pour la vente, le service et les pièces.",
+    "departments": {
+      "sales": "Vente",
+      "service": "Service",
+      "parts": "Pièces"
+    },
+    "weekdays": {
+      "1": "Lundi",
+      "2": "Mardi",
+      "3": "Mercredi",
+      "4": "Jeudi",
+      "5": "Vendredi",
+      "6": "Samedi",
+      "7": "Dimanche"
+    },
+    "open": "Ouvert",
+    "closed": "Fermé",
+    "opensAt": "De",
+    "closesAt": "À",
+    "secondOpensAt": "Après-midi de",
+    "secondClosesAt": "Après-midi à",
+    "invalid": "Vérifiez les heures du {{day}} : chaque fin après son début, la deuxième plage après la première.",
+    "none": "Aucune heure d'ouverture saisie."
+  },
+  "holidays": {
+    "title": "Jours fériés et fermetures",
+    "calendar": "Calendrier des jours fériés",
+    "calendarHint": "Les jours fériés cantonaux assimilés aux dimanches et le 1er août – par région là où ils diffèrent au sein du canton. Tenus à jour par Nexotec (source : SECO).",
+    "noCalendar": "Aucun calendrier des jours fériés choisi.",
+    "year": "Jours fériés {{year}}",
+    "afternoonOnly": "dès midi",
+    "closures": "Fermetures",
+    "closuresHint": "Vacances annuelles et jours de fermeture isolés de ce site – en plus des jours fériés.",
+    "noClosures": "Aucune fermeture saisie.",
+    "addClosure": "Ajouter une fermeture",
+    "editClosure": "Modifier la fermeture",
+    "removeClosure": "Supprimer la fermeture",
+    "startsOn": "Du",
+    "endsOn": "Au",
+    "reason": "Motif",
+    "period": "{{from}} – {{to}}"
+  },
+  "overrides": {
+    "title": "Dérogations à l'entreprise",
+    "disclosure": "En-tête et compte bancaire de ce site",
+    "letterhead": "Bloc d'adresse de l'en-tête",
+    "letterheadHint": "Vide : le bloc d'adresse de l'entreprise. Remplace uniquement le bloc d'adresse du modèle commun, jamais le modèle.",
+    "bankAccount": "Compte bancaire",
+    "bankAccountInherit": "Comme l'entreprise (compte de facturation)"
+  }
+}

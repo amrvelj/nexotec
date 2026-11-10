@@ -1,0 +1,61 @@
+{
+  "title": "Logo e colori",
+  "subtitle": "Il logo e i colori della vostra azienda – su ogni documento, sui cartellini dei prezzi e negli annunci. L’anteprima mostra l’intestazione come viene stampata.",
+  "loadError": "Non è stato possibile caricare logo e colori.",
+  "logo": {
+    "title": "Logo",
+    "formatHint": "SVG preferito, PNG con almeno 600 px sul lato lungo. Il JPEG non è accettato: non ha trasparenza e viene stampato con un riquadro grigio.",
+    "kinds": {
+      "primary": "Logo principale",
+      "mono_dark": "Monocromo scuro",
+      "favicon": "Favicon"
+    },
+    "kindHints": {
+      "primary": "Obbligatorio. Le altre varianti lo usano finché non hanno un file proprio.",
+      "mono_dark": "Per un’intestazione a colori su carta bianca. Senza file proprio si usa il logo principale.",
+      "favicon": "La piccola icona nella scheda del browser del sito web. Senza file proprio si usa il logo principale."
+    },
+    "choose": "Scegli file",
+    "upload": "Carica",
+    "remove": "Rimuovi",
+    "none": "Ancora nessun logo",
+    "usesPrimary": "Usa il logo principale",
+    "svgFile": "SVG · nitido a ogni dimensione",
+    "pngFile": "PNG · {{width, number}} × {{height, number}} px",
+    "failed": "Non è stato possibile salvare il logo."
+  },
+  "colours": {
+    "title": "Colori",
+    "primary": "Colore primario",
+    "primaryHint": "Il colore della vostra azienda sui documenti, p. es. dietro il segno del logo.",
+    "secondary": "Colore secondario (facoltativo)",
+    "secondaryHint": "Un secondo colore per gli accenti. Lasciate vuoto se la vostra azienda non ne ha.",
+    "explanation": "Il testo sui documenti ha bisogno di contrasto sufficiente per essere leggibile: almeno 4.5 : 1 secondo il WCAG AA. Un colore primario chiaro – il giallo, per esempio – rende illeggibile il testo bianco su di esso in ogni documento.",
+    "pairs": {
+      "primary_on_white": "Colore primario e bianco",
+      "secondary_on_white": "Colore secondario e bianco",
+      "secondary_on_primary": "Colore secondario e colore primario"
+    },
+    "ratio": "{{ratio}} : 1",
+    "passes": "AA raggiunto",
+    "fails": "Contrasto insufficiente",
+    "savedWithWarning": "Salvato. Almeno una combinazione di colori non raggiunge 4.5 : 1 – il testo su di essa è difficile da leggere sui documenti.",
+    "invalid": "Un colore si scrive #RRGGBB, p. es. #7C3AED.",
+    "failed": "Non è stato possibile salvare i colori."
+  },
+  "placements": {
+    "title": "Dove appare il logo",
+    "documentHeader": "Intestazione dei documenti",
+    "priceTag": "Cartellino del prezzo",
+    "listing": "Annunci",
+    "emailSignature": "Firma e-mail",
+    "appHeader": "Intestazione dell’applicazione",
+    "failed": "Non è stato possibile salvare le impostazioni."
+  },
+  "preview": {
+    "title": "Anteprima dell’intestazione",
+    "loading": "L’anteprima è in preparazione …",
+    "error": "Non è stato possibile creare l’anteprima.",
+    "note": "Stato salvato, nella lingua di corrispondenza dell’azienda."
+  }
+}

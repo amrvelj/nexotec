@@ -1,0 +1,45 @@
+{
+  "title": "Nummernkreise",
+  "subtitle": "Wie Ihr Betrieb seine Dokumente nummeriert: eine fortlaufende Folge je Dokumentart über alle Standorte.",
+  "freezeNotice": "Ein Nummernkreis wird mit seiner ersten vergebenen Nummer eingefroren. Danach lassen sich Muster, Startwert und jährlicher Neubeginn nicht mehr ändern – nur noch durch den Nexotec-Support, mit Begründung. Prüfen Sie die Muster, bevor Sie das erste Dokument erstellen.",
+  "loadError": "Die Nummernkreise konnten nicht geladen werden.",
+  "readOnly": "Nur die Geschäftsführung kann Nummernkreise ändern.",
+  "columns": {
+    "documentType": "Dokumentart",
+    "pattern": "Muster",
+    "nextNumber": "Nächste Nummer",
+    "currentValue": "Aktueller Stand",
+    "status": "Status",
+    "actions": "Aktionen"
+  },
+  "status": {
+    "open": "Offen",
+    "frozen": "Eingefroren"
+  },
+  "frozenSince": "Eingefroren seit {{date}}",
+  "yearlyResetShort": "Beginnt jedes Jahr neu",
+  "edit": "Bearbeiten",
+  "editTitle": "Nummernkreis {{type}}",
+  "pattern": "Muster",
+  "patternHint": "Platzhalter: {year} für das Jahr, {location_code} für den Standortcode, genau ein {counter:N} für den Zähler mit N Stellen. Erlaubt sind sonst Buchstaben, Ziffern und - / . _ – höchstens 16 Zeichen pro Nummer.",
+  "startValue": "Startwert",
+  "yearlyReset": "Jedes Jahr wieder beim Startwert beginnen",
+  "reason": "Begründung (wird protokolliert)",
+  "frozenStaffNotice": "Dieser Nummernkreis hat bereits Nummern vergeben und ist eingefroren. Eine Änderung ist ein Eingriff durch den Support und wird mit Ihrer Begründung protokolliert.",
+  "example": "Nächste Nummer",
+  "previewError": "Für dieses Muster lässt sich keine Nummer anzeigen.",
+  "saveError": "Der Nummernkreis konnte nicht gespeichert werden.",
+  "documentType": {
+    "offer": "Offerte",
+    "order_confirmation": "Auftragsbestätigung",
+    "sales_contract": "Kaufvertrag",
+    "purchase_contract": "Ankaufsvertrag",
+    "invoice": "Rechnung",
+    "credit_note": "Gutschrift",
+    "dunning": "Mahnung",
+    "service_order": "Serviceauftrag",
+    "parts_order": "Teilebestellung",
+    "workshop_job": "Werkstattauftrag",
+    "stock_number": "Lagernummer"
+  }
+}

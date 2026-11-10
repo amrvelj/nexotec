@@ -1,0 +1,294 @@
+{
+  "vehicleLink": {
+    "unknownVehicle": "Vehicle not in the register",
+    "vin": "VIN",
+    "vinHint": "Saved empty, the link to the vehicle is removed.",
+    "clearVin": "Remove VIN",
+    "linkedVehicle": "Linked vehicle",
+    "noVehicle": "No vehicle linked"
+  },
+  "mode": {
+    "label": "Mode",
+    "build": "New vehicle",
+    "record": "Used vehicle"
+  },
+  "find": {
+    "title": "Find the car",
+    "idLabel": "Identify the car",
+    "idHint": "VIN, licence plate, Stammnummer, Typenschein or factory code — one field, the system recognises which.",
+    "manual": "Configure manually",
+    "browse": "Browse the catalogue",
+    "unverifiedNote": "Manual configuration — marked “unverified” until it is matched to a catalogue entry. No valuation, no publishing until then."
+  },
+  "configure": {
+    "title": "Configure",
+    "back": "Back to selection"
+  },
+  "sections": {
+    "specification": "Specification",
+    "options": "Options",
+    "colour": "Colour & wheels",
+    "images": "Images",
+    "summary": "Summary"
+  },
+  "spec": {
+    "overridden": "overridden",
+    "groups": {
+      "identity": "Labelling",
+      "powertrain": "Powertrain",
+      "classification": "Classification",
+      "dimensions": "Dimensions & weights",
+      "consumption": "Consumption & energy",
+      "codes": "Codes",
+      "price": "Price",
+      "vehicleType": "Vehicle type",
+      "colours": "Colours"
+    },
+    "fields": {
+      "modelTypeName": "Model type",
+      "totalPs": "Total PS",
+      "totalKw": "Total kW",
+      "systemKw": "System kW",
+      "valuationClassification": "Valuation classification",
+      "weightEmptyKg": "Kerb weight (kg)",
+      "weightTotalKg": "Gross weight (kg)",
+      "payloadKg": "Payload (kg)",
+      "towingCapacityKg": "Towing capacity (kg)",
+      "wheelbaseMm": "Wheelbase (mm)",
+      "consumptionMixed": "Consumption combined",
+      "consumptionUrban": "Consumption urban",
+      "consumptionExtraUrban": "Consumption extra-urban",
+      "consumptionNorm": "Consumption norm",
+      "energyConsumptionKwh": "Energy consumption (kWh)",
+      "batteryCapacityKwh": "Battery capacity (kWh)",
+      "rangeKm": "Range (km)",
+      "tankCapacityL": "Tank capacity (l)",
+      "werkscode": "Factory code",
+      "importcode": "Import code",
+      "basePriceYear": "Price year",
+      "vehicleKind": "Vehicle kind",
+      "priceIsNet": "Price is net",
+      "drivetrain": "Drive",
+      "energyLabel": "Energy label"
+    },
+    "retired": "No longer available — choose a current value",
+    "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving.",
+    "codedRequiredSaveError": "Choose before saving: {{fields}}.",
+    "codedLocked": "From the catalogue — cannot be changed.",
+    "listUnavailable": "The list could not be loaded",
+    "energyLabelValue": "{{category}} ({{year}})"
+  },
+  "options": {
+    "noCatalogueVariant": "Catalogue options are not available for a manual configuration.",
+    "empty": "This variant has no options in the catalogue mirror.",
+    "loadError": "Options could not be loaded.",
+    "unavailable": {
+      "title": "Package data unavailable",
+      "body": "Package and compatibility data is not available on this account. Options are shown as a flat priced list."
+    },
+    "included": "Included",
+    "addFeature": "Add feature",
+    "conflict": {
+      "title": "Selections don't usually go together",
+      "body": "auto-i-dat's data describes what's usual, not a hard rule — this selection can still be confirmed.",
+      "dismiss": "Dismiss"
+    },
+    "packageOffer": {
+      "body": "{{package}} normally includes {{contents}}. Add them too?",
+      "add": "Add",
+      "skip": "Skip"
+    },
+    "relations": {
+      "excludes": "Excludes {{option}}",
+      "contains": "Contains {{option}}",
+      "containedIn": "Contained in {{option}}",
+      "becomesStandardWith": "Becomes standard with {{option}}",
+      "priceInCombinationWith": "{{price}} in combination with {{option}}",
+      "notWith": "Not available with {{option}}",
+      "onlyWith": "Only available with {{option}}",
+      "notInCombinationWith": "Not available in combination with {{option}}",
+      "onlyInCombinationWith": "Only available in combination with {{option}}"
+    },
+    "searchPlaceholder": "Search an option or code…",
+    "searchLabel": "Search options",
+    "noMatches": "No option matches the search."
+  },
+  "colour": {
+    "exterior": "Exterior colour",
+    "interior": "Interior colour",
+    "pickFromCatalogue": "Pick from catalogue",
+    "surcharge": "Surcharge",
+    "exteriorType": "Paint type",
+    "interiorType": "Upholstery type",
+    "pickType": "Choose…",
+    "typeListUnavailable": "The list could not be loaded"
+  },
+  "wheels": {
+    "title": "Wheels & tyres",
+    "axle": "Axle",
+    "dimension": "Dimension",
+    "season": "Season",
+    "remark": "Remark",
+    "description": "Wheels",
+    "axlePosition": {
+      "front": "Front",
+      "rear": "Rear",
+      "both": "Front + rear",
+      "unclassified": "Not classified"
+    },
+    "seasonLabel": {
+      "summer": "Summer",
+      "winter": "Winter"
+    }
+  },
+  "images": {
+    "noCatalogueVariant": "Catalogue images are not available for a manual configuration.",
+    "unavailable": {
+      "title": "Images unavailable",
+      "body": "Images are not available on this account.",
+      "uploadNote": "Your business can add its own photos here once manual upload is available."
+    },
+    "empty": "This variant has no images in the catalogue mirror.",
+    "bildArt": {
+      "exterior": "Exterior",
+      "interior": "Interior"
+    },
+    "bildTyp": {
+      "small": "Small",
+      "large": "Large"
+    }
+  },
+  "summary": {
+    "firstRegistration": "First registration",
+    "mileage": "Mileage",
+    "colour": "Colour",
+    "untitled": "Untitled",
+    "open": "Open configurator",
+    "options": "Options",
+    "notesLabel": "Notes",
+    "technicalData": "Technical data"
+  },
+  "badges": {
+    "unverified": "Unverified",
+    "bestMatchConfirmed": "Best match confirmed",
+    "manual": "Manual"
+  },
+  "save": "Save",
+  "saveNew": "Save configuration",
+  "saveError": "The configuration could not be saved.",
+  "saveOptionsError": "The configuration was saved, but its options could not be saved.",
+  "identify": {
+    "submit": "Identify",
+    "error": "Identification failed.",
+    "unrecognised": "That is not a VIN, a licence plate, a Stammnummer, a Typenschein or a factory code.",
+    "recognisedAs": "Recognised as: {{kind}}",
+    "kind": {
+      "vin": "VIN",
+      "kontrollschild": "Licence plate",
+      "stammnummer": "Stammnummer",
+      "typenschein": "Typenschein",
+      "werkscode": "Factory code"
+    },
+    "existingVehicle": {
+      "title": "Vehicle already known — {{number}}",
+      "reuse": "Reuse its configuration",
+      "noVariant": "It has no catalogue entry — browse the catalogue or configure manually."
+    },
+    "reuseModeMismatch": "This configuration is in “{{mode}}” mode and cannot be used here.",
+    "variantsTitle": "Which variant is it?",
+    "variantTitle": "Catalogue match",
+    "plateRecords": {
+      "wechselschild": "Interchangeable plate — the plate is assigned to several vehicles. Pick the one in front of you.",
+      "conflict": "The register reports conflicting data for this plate. Pick the right vehicle; the conflict has been reported.",
+      "several": "Several earlier lookups name this Stammnummer. Pick the vehicle in front of you."
+    },
+    "none": "No catalogue match. Browse the catalogue below or configure manually.",
+    "pickerEmpty": "No candidates",
+    "productionYears": "{{from}}–{{to}}",
+    "inProduction": "since {{from}}",
+    "notes": {
+      "vin_decode_not_entitled": "VIN lookup not in the contract – identify the vehicle by plate, Stammnummer or Typenschein.",
+      "no_provider_connection": "No vehicle-data provider is connected — browse the catalogue or configure manually.",
+      "plate_lookup_not_entitled": "Plate lookup is not enabled on this account.",
+      "plate_lookup_failed": "The provider's plate lookup failed. Please try again later.",
+      "plate_cache_hit": "From an earlier lookup (not billed again).",
+      "plate_not_found": "No vehicle is registered under this plate.",
+      "provider_not_entitled": "Vehicle identification is not enabled for this account — search the catalogue or configure manually.",
+      "provider_unavailable": "The vehicle-data provider is unavailable. Known vehicles are still found; please try again later."
+    }
+  },
+  "bestMatch": {
+    "title": "Best match",
+    "hint": "Needs the new price for this car's model year. The result is a proposal you confirm.",
+    "newPrice": "New price (CHF)",
+    "source": {
+      "label": "Source of the new price",
+      "catalogue": "Catalogue (model year)",
+      "document": "Registration / importer document",
+      "customer": "Stated by the customer"
+    },
+    "modelDescription": "Model description (optional)",
+    "ask": "Find best match",
+    "error": "No match was found for this Typenschein and new price.",
+    "proposal": "Proposed: {{label}}",
+    "matchCode": {
+      "1": "Unique match",
+      "2": "Best possible match — check before confirming"
+    },
+    "fields": {
+      "typeApprovalNumber": "Typenschein",
+      "newPrice": "New price",
+      "modelDescription": "Model description"
+    },
+    "entered": "Entered",
+    "matched": "Catalogue",
+    "agrees": "matches",
+    "differs": "differs",
+    "confirm": "Confirm this vehicle",
+    "discard": "Discard"
+  },
+  "resync": {
+    "open": "Re-sync from catalogue",
+    "title": "Re-sync from the catalogue",
+    "hint": "The catalogue now differs on these fields. Nothing changes unless you tick it.",
+    "none": "The configuration matches the catalogue.",
+    "field": "Field",
+    "current": "Configuration",
+    "catalogue": "Catalogue",
+    "overridden": "overridden by you",
+    "apply": "Apply selected",
+    "error": "Re-sync failed."
+  },
+  "details": {
+    "notInContract": {
+      "title": "Not in your contract",
+      "body": "auto-i-dat does not deliver this data for your account: the option is not licensed. Once a connection test finds the option licensed, it is loaded on the next open."
+    },
+    "unavailable": {
+      "title": "Currently unavailable from the provider",
+      "body": "auto-i-dat did not deliver this data. It is asked for again the next time the car is opened."
+    },
+    "notLoaded": {
+      "title": "Not loaded yet",
+      "body": "This data has not been asked from auto-i-dat for this business yet."
+    },
+    "names": {
+      "options": "Options",
+      "colours": "Colours",
+      "tyreSpecs": "Tyre data",
+      "images": "Images",
+      "energyLabel": "Energy label"
+    },
+    "state": {
+      "present": "Loaded",
+      "notInContract": "Not in your contract",
+      "unavailable": "Unavailable",
+      "notLoaded": "Not loaded yet"
+    },
+    "notes": {
+      "entitlementAbsent": "The connection test found this option unlicensed; auto-i-dat was not asked.",
+      "variantUnknownAtProvider": "auto-i-dat no longer lists this variant; there is nothing to load.",
+      "energyLabelAmbiguous": "auto-i-dat names different classes for this year depending on the gearbox; none was taken over."
+    }
+  }
+}

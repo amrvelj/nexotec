@@ -1,0 +1,63 @@
+{
+  "untitled": "Ohne Fahrzeugangabe",
+  "errors": {
+    "failedToLoad": "Bewertung konnte nicht geladen werden.",
+    "somethingWentWrong": "Etwas ist schiefgelaufen.",
+    "markUsedFailed": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen.",
+    "createOfferFailed": "Die Offerte konnte nicht erstellt werden.",
+    "createOfferTradeInFailed": "Die Offerte {{offerNumber}} wurde erstellt, aber die Bewertung konnte nicht als Eintausch übernommen werden: {{reason}}",
+    "openCreatedOffer": "Offerte öffnen"
+  },
+  "actions": {
+    "revalue": "Neu bewerten",
+    "markUsed": "Als verwendet markieren",
+    "markUsedAlreadyUsed": "Bereits als verwendet markiert.",
+    "markUsedNoSignedContract": "Nur möglich, wenn ein unterschriebener Vertrag diese Bewertung als Eintausch enthält.",
+    "openCustomer": "Kunde öffnen",
+    "openVehicle": "Fahrzeug öffnen",
+    "revertUse": "Verwendung aufheben",
+    "revertUseNotUsed": "Nur für eine als verwendet markierte Bewertung.",
+    "revertUseSignedContract": "Nicht möglich: Ein unterschriebener Vertrag enthält diese Bewertung als Eintausch.",
+    "revertUseTooRecent": "Erst eine Stunde nach der Markierung möglich: Die Bestätigung des Vertrags läuft vielleicht noch.",
+    "createOffer": "Offerte aus dieser Bewertung erstellen",
+    "createOfferExpired": "Nicht möglich: Die Bewertung ist abgelaufen. Bitte zuerst neu bewerten.",
+    "createOfferUsed": "Nicht möglich: Die Bewertung ist bereits als verwendet markiert.",
+    "createOfferNoSales": "Nicht möglich: Dieser Betrieb hat das Modul Verkauf nicht.",
+    "createOfferNoVin": "Nicht möglich: Die Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
+  },
+  "expiredBanner": {
+    "title": "Bewertung abgelaufen",
+    "body": "Diese Bewertung ist nicht mehr gültig. Erstellen Sie bei Bedarf eine neue über \"Neu bewerten\"."
+  },
+  "valueCard": {
+    "title": "Bewertung",
+    "providerValue": "Rohwert",
+    "netValue": "Nettowert",
+    "finalOffer": "Eintauschangebot",
+    "finalOfferHint": "Das Eintauschangebot darf vom Nettowert abweichen — das ist die Verhandlung."
+  },
+  "vehicleCard": {
+    "title": "Fahrzeug",
+    "vin": "VIN",
+    "plate": "Kontrollschild",
+    "mileage": "Kilometerstand",
+    "firstRegistration": "Erstzulassung",
+    "customer": "Kunde"
+  },
+  "noteCard": {
+    "title": "Notiz"
+  },
+  "validityHelp": "Der Status wird beim Lesen berechnet, nicht über Nacht nachgeführt — gültig bis {{validUntil}}.",
+  "configuration": {
+    "title": "Konfiguration"
+  },
+  "revertUseDialog": {
+    "title": "Verwendung aufheben",
+    "body": "Bewertung {{number}} ist als verwendet markiert, aber kein unterschriebener Vertrag steht dahinter. Nach dem Aufheben gilt sie wieder als gültig oder abgelaufen. Der Grund wird mit der Änderung protokolliert.",
+    "reasonLabel": "Grund",
+    "reasonRequired": "Bitte einen Grund angeben.",
+    "submit": "Verwendung aufheben",
+    "cancel": "Abbrechen",
+    "failed": "Die Verwendung konnte nicht aufgehoben werden. Bitte erneut versuchen."
+  }
+}

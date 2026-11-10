@@ -1,0 +1,115 @@
+{
+  "title": "Crea offerta",
+  "requirement": {
+    "required": "Obbligatorio",
+    "optional": "Facoltativo"
+  },
+  "containers": {
+    "customer": "Cliente",
+    "vehicle": "Veicolo",
+    "pricing": "Struttura prezzo",
+    "tradeIn": "Veicolo permuta",
+    "leasing": "Leasing"
+  },
+  "customer": {
+    "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
+    "emptyHintContract": "Ancora nessun acquirente — un contratto si conferma solo con il cliente che lo firma.",
+    "search": "Cerca cliente",
+    "createNew": "Crea nuovo",
+    "creditBlockTitle": "Blocco creditizio",
+    "creditBlockBody": "Questo cliente ha un blocco creditizio ({{reason}}) — un’offerta è possibile, un contratto non può essere confermato.",
+    "doNotContactTitle": "Non contattare",
+    "doNotContactBody": "Questo cliente è contrassegnato come \"non contattare\" — né l’offerta né un contratto possono proseguire."
+  },
+  "vehicle": {
+    "emptyHint": "Dal proprio magazzino — numero di magazzino, VIN o targa.",
+    "search": "Cerca veicolo",
+    "configure": "Configura",
+    "searchPlaceholder": "Numero di magazzino, VIN, targa …",
+    "configured": "Configurato",
+    "attachError": "Non è stato possibile riprendere la configurazione.",
+    "stockNumber": "N. di magazzino {{stockNumber}}"
+  },
+  "pricing": {
+    "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
+    "noPriceTitle": "Nessun prezzo impostato",
+    "noPriceBody": "Per questo veicolo non è ancora stato impostato alcun prezzo — impostatene uno prima nella scheda di magazzino.",
+    "noPriceLink": "Apri la scheda di magazzino",
+    "readyHint": "La struttura prezzo segue (prossimo passo).",
+    "manualBasePrice": "Prezzo base",
+    "basePrice": "Prezzo base",
+    "optionsTotal": "Totale opzioni",
+    "listPrice": "Prezzo di listino",
+    "accessoriesTotal": "Totale accessori",
+    "discountType": "Tipo di sconto",
+    "noDiscount": "Nessuno sconto",
+    "discountPercent": "Percentuale",
+    "discountAmount": "Importo",
+    "discountValue": "Valore dello sconto",
+    "grossPrice": "Prezzo di vendita",
+    "internalOnly": "SOLO INTERNO — NON SUL DOCUMENTO",
+    "costBasis": "Prezzo di costo",
+    "margin": "Margine"
+  },
+  "tradeIn": {
+    "emptyHint": "Scegliete prima il cliente — i suoi veicoli verranno suggeriti qui.",
+    "readyHint": "La permuta segue (prossimo passo).",
+    "value": "Offerta di permuta",
+    "fromExistingValuation": "Ripreso da una valutazione esistente",
+    "vinLabel": "VIN",
+    "vinPlaceholder": "es. WVWZZZ1KZAW123456",
+    "labelLabel": "Descrizione del veicolo",
+    "add": "Aggiungi veicolo permuta",
+    "valueWithConfigurator": "Identificare e valutare",
+    "attachError": "Non è stato possibile riprendere la valutazione.",
+    "saveError": "Non è stato possibile salvare il veicolo in permuta.",
+    "customerMerged": "Il cliente è stato unito a un altro cliente. Scegli il cliente a cui è stato unito, poi registra di nuovo il veicolo in permuta.",
+    "customerMergedInto": "Il cliente è stato unito a {{name}} ({{customerNumber}}). Scegli {{name}} come cliente, poi registra di nuovo il veicolo in permuta."
+  },
+  "leasing": {
+    "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",
+    "downPayment": "Acconto",
+    "termMonths": "Durata (mesi)",
+    "kmPerYear": "Chilometri all'anno"
+  },
+  "missing": "Manca ancora",
+  "continue": "Genera offerta",
+  "liveContract": {
+    "openContract": "Apri il contratto"
+  },
+  "continueDisabled": {
+    "doNotContact": "Questo cliente è contrassegnato come «non contattare»: non è possibile generare un’offerta.",
+    "saving": "Le ultime modifiche sono ancora in fase di salvataggio. «Genera offerta» sarà disponibile non appena saranno salvate."
+  },
+  "generate": {
+    "title": "Genera offerta",
+    "buildHint": "Genera un’anteprima del documento nella lingua di corrispondenza del cliente.",
+    "build": "Genera documento",
+    "buildError": "Impossibile generare il documento.",
+    "previewTitle": "Offerta {{number}}",
+    "regenerate": "Rigenera",
+    "confirm": "Conferma",
+    "finalizeError": "Impossibile confermare l’offerta."
+  },
+  "lineItems": {
+    "factoryOptionsTitle": "Optional di fabbrica",
+    "accessoriesTitle": "Accessori",
+    "accessoryLabel": "Denominazione",
+    "accessoryPrice": "Prezzo",
+    "accessoryQuantity": "Quantità",
+    "accessoryDiscount": "Sconto (importo)",
+    "add": "Aggiungi",
+    "suppressedReason": "Motivo",
+    "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
+    "error": "Impossibile salvare la modifica.",
+    "noPackagesCapability": "Mostrate come elenco semplice — il raggruppamento in pacchetti non è disponibile per questa azienda."
+  },
+  "errors": {
+    "saveRefused": {
+      "offerHasContract": "Questa offerta ha il contratto {{contractNumber}} – apportare le modifiche nel contratto.",
+      "staleVersion": "L'offerta è stata modificata nel frattempo. È stata caricata la versione attuale – ripetere la modifica.",
+      "generic": "Non è stato possibile salvare la modifica.",
+      "dismiss": "Chiudi messaggio"
+    }
+  }
+}

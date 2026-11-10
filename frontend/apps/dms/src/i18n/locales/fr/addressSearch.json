@@ -1,0 +1,7 @@
+{
+  "label": "Rechercher une adresse",
+  "placeholder": "Rue, numéro, localité…",
+  "hint": "Choisissez une proposition : rue, numéro, NPA et localité sont remplis et restent modifiables. Seule l'adresse choisie est enregistrée.",
+  "noResults": "Aucune proposition",
+  "attribution": "Google Maps"
+}

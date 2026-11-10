@@ -1,0 +1,107 @@
+{
+  "header": {
+    "vehicleFallback": "Fahrzeug",
+    "failedToLoad": "Fahrzeug konnte nicht geladen werden",
+    "copyVin": "VIN kopieren",
+    "merge": "Zusammenführen mit…",
+    "mergeDisabledReason": "Noch nicht verfügbar",
+    "allocate": "Kunde zuordnen",
+    "requestValuation": "Bewertung anfordern",
+    "recordOdometer": "Kilometerstand erfassen",
+    "recordAccessory": "Zubehör erfassen",
+    "resync": "Aus dem Katalog aktualisieren",
+    "resyncDisabledReason": "Noch nicht verfügbar",
+    "recordPlate": "Kontrollschild erfassen"
+  },
+  "errors": {
+    "somethingWentWrong": "Etwas ist schiefgelaufen."
+  },
+  "tabs": {
+    "identity": "Identität",
+    "plates": "Kennzeichen",
+    "odometer": "Kilometerstand",
+    "accessories": "Zubehör",
+    "specification": "Spezifikation"
+  },
+  "identity": {
+    "title": "Identität",
+    "vin": "VIN",
+    "vehicleNumber": "Fahrzeugnr.",
+    "stammnummer": "Stammnummer",
+    "typeApprovalNumber": "Typengenehmigungsnr.",
+    "firstRegistrationDate": "Erstzulassung",
+    "matchStatus": "Katalogabgleich"
+  },
+  "parties": {
+    "title": "Beteiligte",
+    "none": "Keine Beteiligten zugeordnet",
+    "allocate": "Kunde zuordnen",
+    "roleLabel": "Rolle",
+    "role": {
+      "owner": "Eigentümer",
+      "keeper": "Halter",
+      "driver": "Fahrzeugführer"
+    },
+    "searchCustomer": "Kunde suchen…",
+    "noCustomers": "Keine Kunden gefunden",
+    "unnamedCustomer": "Kunde ohne Namen",
+    "showFormer": "Frühere Beteiligte anzeigen",
+    "hideFormer": "Frühere Beteiligte ausblenden",
+    "allocateError": "Der Kunde konnte nicht zugeordnet werden."
+  },
+  "plates": {
+    "plate": "Kennzeichen",
+    "canton": "Kanton",
+    "validFrom": "Gültig ab",
+    "validTo": "Gültig bis",
+    "current": "aktuell",
+    "none": "Keine Kennzeichen erfasst",
+    "wechselschild": "Wechselschild",
+    "limitReached": "Sie haben in kurzer Zeit die Kennzeichen vieler Fahrzeuge angesehen. Bitte versuchen Sie es später erneut.",
+    "withheld": "Kennzeichen ausgeblendet – Limite erreicht",
+    "number": "Nummer",
+    "recordTitle": "Kontrollschild erfassen",
+    "recordSubmit": "Erfassen",
+    "moveConfirm": "Auf dieses Fahrzeug verschieben",
+    "onOtherVehicleTitle": "Kontrollschild auf einem anderen Fahrzeug",
+    "onOtherVehicle": "{{plate}} ist seit {{since}} auf {{vehicle}} (VIN {{vin}}) erfasst.",
+    "moveQuestion": "Verschieben beendet die Zuordnung auf dem anderen Fahrzeug am Vortag. Sie bleibt in dessen Verlauf sichtbar.",
+    "formWechselschild": "Stattdessen als Wechselschild erfassen",
+    "saveError": "Das Kontrollschild konnte nicht gespeichert werden.",
+    "endTitle": "{{plate}} beenden",
+    "end": "Beenden",
+    "endsOn": "Letzter Tag auf diesem Fahrzeug"
+  },
+  "odometer": {
+    "value": "Kilometerstand",
+    "date": "Datum",
+    "source": "Quelle",
+    "record": "Erfassen",
+    "none": "Keine Werte erfasst",
+    "implausible": "Unplausibel",
+    "implausibleNotice": "Ein oder mehrere Werte liegen unter einem früheren Wert. Sie werden beibehalten und markiert, nie ausgeblendet.",
+    "sourceLabel": {
+      "service_visit": "Servicebesuch",
+      "sale": "Verkauf",
+      "valuation": "Bewertung",
+      "manual": "Manuell",
+      "import": "Import"
+    },
+    "saveError": "Der Kilometerstand konnte nicht gespeichert werden."
+  },
+  "accessories": {
+    "type": "Typ",
+    "description": "Beschreibung",
+    "validFrom": "Gültig ab",
+    "validTo": "Gültig bis",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "none": "Kein Zubehör erfasst",
+    "saveError": "Das Zubehör konnte nicht gespeichert werden.",
+    "removeError": "Das Zubehör konnte nicht entfernt werden."
+  },
+  "specification": {
+    "empty": "In diesem Betrieb gibt es keine Konfiguration dieses Fahrzeugs.",
+    "loadError": "Die Spezifikation konnte nicht geladen werden."
+  }
+}

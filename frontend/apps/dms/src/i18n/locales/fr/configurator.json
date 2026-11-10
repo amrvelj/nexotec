@@ -1,0 +1,294 @@
+{
+  "vehicleLink": {
+    "unknownVehicle": "Véhicule absent du registre",
+    "vin": "VIN",
+    "vinHint": "Enregistré vide, le lien avec le véhicule est supprimé.",
+    "clearVin": "Retirer le VIN",
+    "linkedVehicle": "Véhicule lié",
+    "noVehicle": "Aucun véhicule lié"
+  },
+  "mode": {
+    "label": "Mode",
+    "build": "Véhicule neuf",
+    "record": "Véhicule d'occasion"
+  },
+  "find": {
+    "title": "Trouver le véhicule",
+    "idLabel": "Identifier le véhicule",
+    "idHint": "VIN, plaque, numéro matricule, réception par type ou code usine — un seul champ, le système reconnaît lequel.",
+    "manual": "Configurer manuellement",
+    "browse": "Parcourir le catalogue",
+    "unverifiedNote": "Configuration manuelle — marquée « non vérifiée » jusqu'à ce qu'elle soit associée à une entrée du catalogue. Ni évaluation, ni publication d'ici là."
+  },
+  "configure": {
+    "title": "Configurer",
+    "back": "Retour à la sélection"
+  },
+  "sections": {
+    "specification": "Spécification",
+    "options": "Options",
+    "colour": "Couleur & roues",
+    "images": "Images",
+    "summary": "Récapitulatif"
+  },
+  "spec": {
+    "overridden": "modifié",
+    "groups": {
+      "identity": "Désignation",
+      "powertrain": "Motorisation",
+      "classification": "Classement",
+      "dimensions": "Dimensions & poids",
+      "consumption": "Consommation & énergie",
+      "codes": "Codes",
+      "price": "Prix",
+      "vehicleType": "Type de véhicule",
+      "colours": "Couleurs"
+    },
+    "fields": {
+      "modelTypeName": "Type de modèle",
+      "totalPs": "ch total",
+      "totalKw": "kW total",
+      "systemKw": "kW système",
+      "valuationClassification": "Classement d'évaluation",
+      "weightEmptyKg": "Poids à vide (kg)",
+      "weightTotalKg": "Poids total (kg)",
+      "payloadKg": "Charge utile (kg)",
+      "towingCapacityKg": "Charge remorquable (kg)",
+      "wheelbaseMm": "Empattement (mm)",
+      "consumptionMixed": "Consommation mixte",
+      "consumptionUrban": "Consommation urbaine",
+      "consumptionExtraUrban": "Consommation extra-urbaine",
+      "consumptionNorm": "Norme de consommation",
+      "energyConsumptionKwh": "Consommation d'énergie (kWh)",
+      "batteryCapacityKwh": "Capacité de la batterie (kWh)",
+      "rangeKm": "Autonomie (km)",
+      "tankCapacityL": "Capacité du réservoir (l)",
+      "werkscode": "Code usine",
+      "importcode": "Code d'importation",
+      "basePriceYear": "Année du prix",
+      "vehicleKind": "Genre de véhicule",
+      "priceIsNet": "Prix net",
+      "drivetrain": "Transmission",
+      "energyLabel": "Étiquette-énergie"
+    },
+    "retired": "N'est plus disponible — choisissez une valeur actuelle",
+    "retiredSaveError": "N'est plus disponible : {{fields}}. Choisissez une valeur actuelle avant d'enregistrer.",
+    "codedRequiredSaveError": "À choisir avant d'enregistrer : {{fields}}.",
+    "codedLocked": "Repris du catalogue — non modifiable.",
+    "listUnavailable": "La liste n'a pas pu être chargée",
+    "energyLabelValue": "{{category}} ({{year}})"
+  },
+  "options": {
+    "noCatalogueVariant": "Les options catalogue ne sont pas disponibles pour une configuration manuelle.",
+    "empty": "Cette variante n'a aucune option dans le miroir du catalogue.",
+    "loadError": "Les options n'ont pas pu être chargées.",
+    "unavailable": {
+      "title": "Données de pack indisponibles",
+      "body": "Les données de pack et de compatibilité ne sont pas disponibles pour ce compte. Les options sont affichées sous forme de liste tarifée à plat."
+    },
+    "included": "Inclus",
+    "addFeature": "Ajouter une caractéristique",
+    "conflict": {
+      "title": "Ces sélections ne vont normalement pas ensemble",
+      "body": "Les données auto-i-dat décrivent l'usage habituel, pas une règle stricte — cette sélection peut tout de même être confirmée.",
+      "dismiss": "Ignorer"
+    },
+    "packageOffer": {
+      "body": "{{package}} inclut normalement {{contents}}. Les ajouter aussi ?",
+      "add": "Ajouter",
+      "skip": "Ignorer"
+    },
+    "relations": {
+      "excludes": "Exclut {{option}}",
+      "contains": "Contient {{option}}",
+      "containedIn": "Contenue dans {{option}}",
+      "becomesStandardWith": "Devient de série avec {{option}}",
+      "priceInCombinationWith": "{{price}} en combinaison avec {{option}}",
+      "notWith": "Non disponible avec {{option}}",
+      "onlyWith": "Disponible uniquement avec {{option}}",
+      "notInCombinationWith": "Non disponible en combinaison avec {{option}}",
+      "onlyInCombinationWith": "Disponible uniquement en combinaison avec {{option}}"
+    },
+    "searchPlaceholder": "Rechercher une option ou un code…",
+    "searchLabel": "Rechercher dans les options",
+    "noMatches": "Aucune option ne correspond à la recherche."
+  },
+  "colour": {
+    "exterior": "Couleur extérieure",
+    "interior": "Couleur de sellerie",
+    "pickFromCatalogue": "Choisir dans le catalogue",
+    "surcharge": "Supplément",
+    "exteriorType": "Type de peinture",
+    "interiorType": "Type de sellerie",
+    "pickType": "Choisir…",
+    "typeListUnavailable": "La liste n'a pas pu être chargée"
+  },
+  "wheels": {
+    "title": "Roues & pneus",
+    "axle": "Essieu",
+    "dimension": "Dimension",
+    "season": "Saison",
+    "remark": "Remarque",
+    "description": "Roues",
+    "axlePosition": {
+      "front": "Avant",
+      "rear": "Arrière",
+      "both": "Avant + arrière",
+      "unclassified": "Non attribué"
+    },
+    "seasonLabel": {
+      "summer": "Été",
+      "winter": "Hiver"
+    }
+  },
+  "images": {
+    "noCatalogueVariant": "Les images du catalogue ne sont pas disponibles pour une configuration manuelle.",
+    "unavailable": {
+      "title": "Images indisponibles",
+      "body": "Les images ne sont pas disponibles pour ce compte.",
+      "uploadNote": "Votre entreprise pourra ajouter ses propres photos ici dès que le téléversement manuel sera disponible."
+    },
+    "empty": "Cette variante n'a aucune image dans le miroir du catalogue.",
+    "bildArt": {
+      "exterior": "Extérieur",
+      "interior": "Intérieur"
+    },
+    "bildTyp": {
+      "small": "Petite",
+      "large": "Grande"
+    }
+  },
+  "summary": {
+    "firstRegistration": "Première mise en circulation",
+    "mileage": "Kilométrage",
+    "colour": "Couleur",
+    "untitled": "Sans désignation",
+    "open": "Ouvrir le configurateur",
+    "options": "Options",
+    "notesLabel": "Notes",
+    "technicalData": "Données techniques"
+  },
+  "badges": {
+    "unverified": "Non vérifié",
+    "bestMatchConfirmed": "Meilleure correspondance confirmée",
+    "manual": "Manuel"
+  },
+  "save": "Enregistrer",
+  "saveNew": "Enregistrer la configuration",
+  "saveError": "La configuration n'a pas pu être enregistrée.",
+  "saveOptionsError": "La configuration a été enregistrée, mais ses options n'ont pas pu être enregistrées.",
+  "identify": {
+    "submit": "Identifier",
+    "error": "L'identification a échoué.",
+    "unrecognised": "Ce n'est ni un VIN, ni une plaque, ni un numéro matricule, ni une réception par type, ni un code usine.",
+    "recognisedAs": "Reconnu comme : {{kind}}",
+    "kind": {
+      "vin": "VIN",
+      "kontrollschild": "Plaque de contrôle",
+      "stammnummer": "Numéro matricule",
+      "typenschein": "Réception par type",
+      "werkscode": "Code usine"
+    },
+    "existingVehicle": {
+      "title": "Véhicule déjà connu — {{number}}",
+      "reuse": "Reprendre sa configuration",
+      "noVariant": "Aucune entrée de catalogue — parcourir le catalogue ou configurer manuellement."
+    },
+    "reuseModeMismatch": "Cette configuration est en mode « {{mode}} » et ne peut pas être utilisée ici.",
+    "variantsTitle": "De quelle variante s'agit-il ?",
+    "variantTitle": "Correspondance catalogue",
+    "plateRecords": {
+      "wechselschild": "Plaque interchangeable — la plaque est attribuée à plusieurs véhicules. Choisissez celui qui est devant vous.",
+      "conflict": "Le registre signale des données contradictoires pour cette plaque. Choisissez le bon véhicule ; la contradiction a été signalée.",
+      "several": "Plusieurs recherches antérieures citent ce numéro matricule. Choisissez le véhicule présent."
+    },
+    "none": "Aucune correspondance. Parcourez le catalogue ci-dessous ou configurez manuellement.",
+    "pickerEmpty": "Aucun candidat",
+    "productionYears": "{{from}}–{{to}}",
+    "inProduction": "depuis {{from}}",
+    "notes": {
+      "vin_decode_not_entitled": "Requête VIN non comprise dans le contrat – identifier le véhicule par la plaque, le numéro matricule ou la réception par type.",
+      "no_provider_connection": "Aucun fournisseur de données véhicule connecté — parcourez le catalogue ou configurez manuellement.",
+      "plate_lookup_not_entitled": "La recherche par plaque n'est pas activée pour ce compte.",
+      "plate_lookup_failed": "La recherche par plaque chez le fournisseur a échoué. Réessayez plus tard.",
+      "plate_cache_hit": "Issu d'une recherche antérieure (non refacturé).",
+      "plate_not_found": "Aucun véhicule n'est enregistré pour cette plaque.",
+      "provider_not_entitled": "L'identification de véhicules n'est pas activée pour ce compte — chercher dans le catalogue ou configurer manuellement.",
+      "provider_unavailable": "Le fournisseur de données véhicule est indisponible. Les véhicules connus restent trouvés ; réessayer plus tard."
+    }
+  },
+  "bestMatch": {
+    "title": "Meilleure correspondance",
+    "hint": "Nécessite le prix neuf pour l'année modèle de ce véhicule. Le résultat est une proposition que vous confirmez.",
+    "newPrice": "Prix neuf (CHF)",
+    "source": {
+      "label": "Source du prix neuf",
+      "catalogue": "Catalogue (année modèle)",
+      "document": "Permis de circulation / document importateur",
+      "customer": "Indication du client"
+    },
+    "modelDescription": "Désignation du modèle (facultatif)",
+    "ask": "Chercher la correspondance",
+    "error": "Aucune correspondance pour cette réception par type et ce prix neuf.",
+    "proposal": "Proposition : {{label}}",
+    "matchCode": {
+      "1": "Correspondance univoque",
+      "2": "Meilleure correspondance possible — à vérifier avant de confirmer"
+    },
+    "fields": {
+      "typeApprovalNumber": "Réception par type",
+      "newPrice": "Prix neuf",
+      "modelDescription": "Désignation du modèle"
+    },
+    "entered": "Saisi",
+    "matched": "Catalogue",
+    "agrees": "concorde",
+    "differs": "diffère",
+    "confirm": "Confirmer ce véhicule",
+    "discard": "Rejeter"
+  },
+  "resync": {
+    "open": "Actualiser depuis le catalogue",
+    "title": "Actualiser depuis le catalogue",
+    "hint": "Le catalogue diffère sur ces champs. Seuls les champs cochés changent.",
+    "none": "La configuration correspond au catalogue.",
+    "field": "Champ",
+    "current": "Configuration",
+    "catalogue": "Catalogue",
+    "overridden": "modifié par vous",
+    "apply": "Appliquer la sélection",
+    "error": "L'actualisation a échoué."
+  },
+  "details": {
+    "notInContract": {
+      "title": "Pas dans votre contrat",
+      "body": "auto-i-dat ne fournit pas ces données pour votre accès : l'option n'est pas sous licence. Dès qu'un test de la connexion constate que l'option est sous licence, elles sont chargées à la prochaine ouverture."
+    },
+    "unavailable": {
+      "title": "Indisponible chez le fournisseur pour le moment",
+      "body": "auto-i-dat n'a pas fourni ces données. Elles seront redemandées à la prochaine ouverture du véhicule."
+    },
+    "notLoaded": {
+      "title": "Pas encore chargé",
+      "body": "Ces données n'ont pas encore été demandées à auto-i-dat pour cette entreprise."
+    },
+    "names": {
+      "options": "Options",
+      "colours": "Couleurs",
+      "tyreSpecs": "Données de pneus",
+      "images": "Images",
+      "energyLabel": "Étiquette-énergie"
+    },
+    "state": {
+      "present": "Chargé",
+      "notInContract": "Pas dans votre contrat",
+      "unavailable": "Indisponible",
+      "notLoaded": "Pas encore chargé"
+    },
+    "notes": {
+      "entitlementAbsent": "Le test de la connexion a constaté que cette option n'est pas sous licence ; auto-i-dat n'a pas été interrogé.",
+      "variantUnknownAtProvider": "auto-i-dat ne répertorie plus cette variante ; il n'y a rien à charger.",
+      "energyLabelAmbiguous": "auto-i-dat indique pour cette année des classes différentes selon la boîte de vitesses ; aucune n'a été reprise."
+    }
+  }
+}

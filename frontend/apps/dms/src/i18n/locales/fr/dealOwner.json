@@ -1,0 +1,16 @@
+{
+  "label": "Vendeur responsable",
+  "unassigned": "Non attribué",
+  "takeOver": "Reprendre",
+  "takeOverDisabled": {
+    "closed": "Seuls les brouillons, les offres ouvertes et les contrats en attente peuvent être repris.",
+    "yours": "Vous êtes déjà le vendeur responsable.",
+    "assigned": "Déjà attribué à {{owner}} – transmettre via «Vendeur responsable».",
+    "liveContract": "Cette offre a le contrat {{contractNumber}} – le vendeur responsable est modifié dans le contrat."
+  },
+  "errors": {
+    "saveFailed": "Le vendeur responsable n'a pas pu être enregistré.",
+    "takeOverFailed": "L'affaire n'a pas pu être reprise.",
+    "takenMeanwhile": "Déjà repris par {{owner}} – la liste a été actualisée."
+  }
+}

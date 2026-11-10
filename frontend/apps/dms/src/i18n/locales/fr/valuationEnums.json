@@ -1,0 +1,8 @@
+{
+  "status": {
+    "draft": "Brouillon",
+    "valid": "Valide",
+    "expired": "Expirée",
+    "used": "Utilisée"
+  }
+}

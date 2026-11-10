@@ -1,0 +1,7 @@
+{
+  "label": "Cerca indirizzo",
+  "placeholder": "Via, numero, località…",
+  "hint": "Scegliere un suggerimento: via, numero, NPA e località vengono compilati e restano modificabili. Viene salvato solo l'indirizzo scelto.",
+  "noResults": "Nessun suggerimento",
+  "attribution": "Google Maps"
+}

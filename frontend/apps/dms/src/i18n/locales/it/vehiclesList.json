@@ -1,0 +1,49 @@
+{
+  "title": "Veicoli",
+  "newVehicle": "Nuovo veicolo",
+  "searchPlaceholder": "Cerca telaio, numero veicolo, numero base o targa…",
+  "loadError": "Impossibile caricare i veicoli.",
+  "columns": {
+    "vehicleNumber": "N. veicolo",
+    "vin": "Telaio",
+    "stammnummer": "Numero base",
+    "matchStatus": "Corrispondenza catalogo",
+    "status": "Stato"
+  },
+  "matchStatus": {
+    "matched": "Corrisposto",
+    "unverified": "Non verificato"
+  },
+  "status": {
+    "active": "Attivo",
+    "exported": "Esportato",
+    "scrapped": "Rottamato",
+    "stolen": "Rubato"
+  },
+  "resolved": {
+    "title": "Corrispondenza trovata",
+    "open": "Apri"
+  },
+  "picker": {
+    "wechselschildTitle": "Più veicoli condividono questa targa interscambiabile — selezionane uno",
+    "conflictTitle": "Questa targa corrisponde a più veicoli senza un'assegnazione condivisa — seleziona quello corretto",
+    "empty": "Nessun candidato trovato"
+  },
+  "emptyState": {
+    "title": "Ancora nessun veicolo",
+    "description": "I veicoli creati o migrati appariranno qui."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun veicolo corrispondente",
+    "description": "Nessun veicolo corrisponde alla tua ricerca.",
+    "action": "Cancella ricerca"
+  },
+  "selection": {
+    "count": "{{count, number}} selezionati",
+    "clear": "Deseleziona",
+    "copyIds": "Copia ID"
+  },
+  "rowActions": {
+    "open": "Apri"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "untitled": "New offer",
+  "errors": {
+    "failedToLoad": "The offer could not be loaded.",
+    "somethingWentWrong": "Something went wrong.",
+    "copyFailed": "The offer could not be copied. Please try again.",
+    "createFailed": "The new offer could not be created."
+  },
+  "actions": {
+    "copy": "Copy offer"
+  }
+}

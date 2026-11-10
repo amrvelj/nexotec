@@ -1,0 +1,37 @@
+{
+  "breadcrumb": "Administration",
+  "title": "Données de référence",
+  "subtitle": "Données de référence canoniques et lacunes de correspondance des fournisseurs.",
+  "loadError": "Impossible de charger les valeurs de référence.",
+  "empty": "Cette liste n’a pas encore de valeurs.",
+  "emptyFiltered": "Aucune valeur ne correspond au filtre.",
+  "required": "Champ obligatoire",
+  "missingTip": "Cette ligne ne peut pas être enregistrée tant qu’une langue manque.",
+  "missingTipReadOnly": "Une langue manque dans cette ligne.",
+  "readOnly": "Nexotec gère ces listes pour toutes les entreprises. Vous pouvez les consulter ici, mais pas les modifier.",
+  "maintainedBy": "Géré par Nexotec",
+  "columns": {
+    "code": "Code",
+    "status": "État"
+  },
+  "forbidden": {
+    "title": "Accès refusé",
+    "body": "Votre rôle ne permet pas d’ouvrir ces listes. Contactez votre administration."
+  },
+  "list": {
+    "title": "Liste de référence {{code}}",
+    "help": "Les quatre langues sont obligatoires. Une langue manquante est une erreur de ligne — jamais un repli silencieux sur l’allemand.",
+    "pickLabel": "Choisir une liste",
+    "filterLabel": "Filtrer par code ou libellé",
+    "filterPlaceholder": "Filtrer …"
+  },
+  "create": {
+    "trigger": "Nouvelle valeur",
+    "title": "Nouvelle valeur dans {{code}}",
+    "submit": "Créer",
+    "allLanguagesHint": "Les quatre langues sont requises.",
+    "error": "Impossible de créer la valeur.",
+    "invalidField": "Vérifiez cette saisie : elle est vide ou trop longue.",
+    "duplicate": "Le code de valeur {{valueCode}} existe déjà dans cette liste."
+  }
+}

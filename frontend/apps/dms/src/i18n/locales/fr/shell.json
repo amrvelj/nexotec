@@ -1,0 +1,59 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "masterData": "Données de base",
+    "customers": "Clients",
+    "vehicles": "Véhicules",
+    "mappingGaps": "Écarts de correspondance",
+    "partners": "Partenaires",
+    "modules": "Modules",
+    "sales": "Ventes",
+    "aftersales": "Après-vente",
+    "inventory": "Inventaire",
+    "parts": "Pièces",
+    "finance": "Finances",
+    "transactions": "Transactions",
+    "reporting": "Rapports",
+    "compliance": "Conformité",
+    "valuations": "Évaluations",
+    "integrations": "Intégrations",
+    "administration": "Administration",
+    "referenceData": "Données de référence",
+    "catalogue": "Catalogue",
+    "users": "Utilisateurs",
+    "accountRecovery": "Récupération de compte",
+    "business": "Entreprise",
+    "translations": "Traductions",
+    "locations": "Sites",
+    "branding": "Logo et couleurs",
+    "standardTexts": "Textes standard",
+    "numberRanges": "Plages de numéros"
+  },
+  "signOut": "Se déconnecter",
+  "environmentNotice": {
+    "outboxWorkerAbsent": "Cet environnement n’exécute aucun worker en arrière-plan : les événements n’y sont pas distribués et les tâches nocturnes ne s’exécutent pas."
+  },
+  "sidebar": {
+    "mainNavigation": "Navigation principale",
+    "expandSidebar": "Déplier la barre latérale",
+    "collapseSidebar": "Replier la barre latérale",
+    "soon": "BIENTÔT",
+    "notifications": "Notifications",
+    "notificationsSoon": "Notifications (bientôt)",
+    "accountMenu": "Menu du compte",
+    "language": "Langue",
+    "switchDealership": "Changer d'entreprise",
+    "accountSecurity": "Mon compte"
+  },
+  "globalSearch": {
+    "placeholder": "Rechercher…",
+    "recents": "Récents",
+    "noResults": "Aucun résultat",
+    "error": "La recherche a échoué — veuillez réessayer."
+  },
+  "switchDealershipError": {
+    "notAMember": "Changement refusé : vous n'êtes plus rattaché à cette entreprise. Vous restez dans l'entreprise actuelle.",
+    "failed": "Impossible de changer d'entreprise. Vous restez dans l'entreprise actuelle. Veuillez réessayer.",
+    "dismiss": "Fermer le message"
+  }
+}

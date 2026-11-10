@@ -1,0 +1,28 @@
+{
+  "create": "Marke erfassen",
+  "edit": "Bearbeiten",
+  "createTitle": "Marke erfassen",
+  "editTitle": "Marke bearbeiten",
+  "searchPlaceholder": "Marke oder Code suchen …",
+  "loadError": "Die Marken konnten nicht geladen werden.",
+  "saveFailed": "Die Marke konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "columns": {
+    "displayName": "Marke",
+    "code": "Code",
+    "updatedAt": "Geändert",
+    "createdAt": "Erfasst"
+  },
+  "fields": {
+    "code": "Code",
+    "displayName": "Name"
+  },
+  "emptyState": {
+    "title": "Noch keine Marken",
+    "description": "Marken kommen aus dem Katalog oder werden hier erfasst."
+  },
+  "emptyFilteredState": {
+    "title": "Keine Marke gefunden",
+    "description": "Keine Marke passt zur Suche.",
+    "action": "Suche zurücksetzen"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "create": "Add brand",
+  "edit": "Edit",
+  "createTitle": "Add brand",
+  "editTitle": "Edit brand",
+  "searchPlaceholder": "Search brand or code …",
+  "loadError": "The brands could not be loaded.",
+  "saveFailed": "The brand could not be saved. Please try again.",
+  "columns": {
+    "displayName": "Brand",
+    "code": "Code",
+    "updatedAt": "Changed",
+    "createdAt": "Created"
+  },
+  "fields": {
+    "code": "Code",
+    "displayName": "Name"
+  },
+  "emptyState": {
+    "title": "No brands yet",
+    "description": "Brands come from the catalogue or are added here."
+  },
+  "emptyFilteredState": {
+    "title": "No brand found",
+    "description": "No brand matches the search.",
+    "action": "Clear search"
+  }
+}

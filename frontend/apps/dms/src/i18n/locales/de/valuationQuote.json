@@ -1,0 +1,20 @@
+{
+  "title": "Bewertung auto-i-dat",
+  "exchange": "Wert auto-i-dat (Eintauschpreis)",
+  "purchase": "Einkaufspreis",
+  "sale": "Verkaufspreis",
+  "range": "Preisspanne Eintausch",
+  "kmCorrection": "Kilometerkorrektur (Eintausch)",
+  "kmExpected": "Üblicher Kilometerstand für dieses Alter",
+  "asked": "Bewertet mit Modelljahr {{year}}, {{km}} km, Erstinverkehrsetzung {{date}} — abgefragt am {{at}}",
+  "manualHint": "auto-i-dat empfiehlt, diesen Wert von Hand zu prüfen.",
+  "residualTitle": "Restwerte (in % des Neupreises)",
+  "kmPerYear": "km/Jahr",
+  "months": "{{months}} Mt.",
+  "residualState": {
+    "present": "Keine Restwerte geliefert.",
+    "not_in_contract": "Restwerte nicht im Vertrag mit auto-i-dat.",
+    "unavailable": "Restwerte derzeit nicht verfügbar.",
+    "declined": "auto-i-dat liefert für dieses Fahrzeug keine Restwerte."
+  }
+}

@@ -5,7 +5,7 @@ import { initReactI18next } from 'react-i18next'
 // barrel would load the kit's dependencies before a test file can mock them.
 import { formatNumber } from '@nexotec/ui-kit/src/format/swissNumber'
 import { readLocalMirror, UI_PREFERENCES_STORAGE_KEY } from '../hooks/persistedPreferenceStorage'
-import en from './locales/en.json'
+import en from './locales/en'
 
 export const SUPPORTED_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
@@ -22,9 +22,9 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 // is, and the next switch to it fetches again. Exported only so a render test
 // can hold one bundle back or fail it (onDemandBundles.render.test.tsx).
 export const onDemandBundleLoaders: Partial<Record<SupportedLanguage, () => Promise<{ default: ResourceKey }>>> = {
-  de: () => import('./locales/de.json'),
-  fr: () => import('./locales/fr.json'),
-  it: () => import('./locales/it.json'),
+  de: () => import('./locales/de'),
+  fr: () => import('./locales/fr'),
+  it: () => import('./locales/it'),
 }
 
 /** KAN-209 — the seams the runtime UI strings (`runtimeTranslations.ts`) plug

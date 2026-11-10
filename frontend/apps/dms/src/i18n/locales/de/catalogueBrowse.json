@@ -1,0 +1,103 @@
+{
+  "title": "Katalog",
+  "subtitle": "Fahrzeugvarianten durchsuchen — Fahrzeugart, Marke, Modell, Ausstattung. Live vom Anbieter, Seite für Seite.",
+  "tabs": {
+    "browse": "Durchsuchen",
+    "mappingGaps": "Zuordnungslücken",
+    "brands": "Marken"
+  },
+  "mode": {
+    "label": "Modus",
+    "build": "Neuwagen",
+    "record": "Gebrauchtwagen",
+    "tooltip": "Neuwagen zeigt nur laufende Baureihen; Gebrauchtwagen zeigt alle."
+  },
+  "drilldown": {
+    "brand": "Marke",
+    "brandPlaceholder": "Marke wählen",
+    "modelGroup": "Modellgruppe",
+    "modelGroupPlaceholder": "Alle Modellgruppen",
+    "modelGroupNeedsBrand": "Zuerst eine Marke wählen",
+    "brandsLoadError": "Marken konnten nicht geladen werden",
+    "vehicleKind": "Fahrzeugart"
+  },
+  "searchPlaceholder": "Nach Bezeichnung suchen…",
+  "labelsLoadError": {
+    "title": "Bezeichnungen nicht verfügbar",
+    "body": "Die Bezeichnungen der Katalogwerte konnten nicht geladen werden. Mit ⚠ markierte Werte zeigen ihren Code."
+  },
+  "unavailable": {
+    "title": "auto-i-dat nicht erreichbar",
+    "body": "Der Anbieter antwortet gerade nicht. Später erneut versuchen; die Identifikation bekannter Fahrzeuge funktioniert weiter."
+  },
+  "columns": {
+    "brand": "Marke",
+    "modelGroup": "Modellgruppe",
+    "variant": "Variante",
+    "trim": "Ausstattung",
+    "fuelType": "Treibstoff",
+    "bodyStyle": "Aufbau",
+    "drivetrain": "Antrieb",
+    "transmission": "Getriebe",
+    "ps": "PS",
+    "kw": "kW",
+    "displacementCcm": "Hubraum (cm³)",
+    "cylinders": "Zylinder",
+    "gears": "Gänge",
+    "doors": "Türen",
+    "seats": "Plätze",
+    "co2Gkm": "CO₂ (g/km)",
+    "emissionStandard": "Abgasnorm",
+    "vehicleClass": "Fahrzeugklasse",
+    "engineCycle": "Takt",
+    "basePrice": "Listenpreis",
+    "productionFrom": "Baujahr von",
+    "productionTo": "Baujahr bis",
+    "modelYear": "Modelljahr",
+    "inProduction": "Laufend",
+    "typeApprovals": "Typenscheine",
+    "updatedAt": "Geändert",
+    "trimName": "Ausstattung"
+  },
+  "filters": {
+    "fuelType": "Treibstoff",
+    "bodyStyle": "Aufbau",
+    "drivetrain": "Antrieb",
+    "transmission": "Getriebe",
+    "vehicleClass": "Fahrzeugklasse",
+    "emissionStandard": "Abgasnorm",
+    "kw": "kW",
+    "displacementCcm": "Hubraum (cm³)",
+    "doors": "Türen",
+    "seats": "Plätze",
+    "co2Gkm": "CO₂ (g/km)"
+  },
+  "allVariantsView": "Alle Varianten",
+  "loadError": "Der Katalog konnte nicht geladen werden.",
+  "emptyState": {
+    "title": "Keine Varianten",
+    "description": "Der Anbieter führt keine Variante für diese Auswahl."
+  },
+  "emptyFilteredState": {
+    "title": "Keine Treffer",
+    "description": "Keine Variante entspricht diesen Filtern.",
+    "action": "Filter zurücksetzen"
+  },
+  "selection": {
+    "count": "{{count, number}} ausgewählt",
+    "clear": "Auswahl aufheben",
+    "copyIds": "IDs kopieren"
+  },
+  "needsBrand": {
+    "title": "Marke wählen",
+    "description": "Fahrzeugart und Marke wählen — der Katalog wird live beim Anbieter abgefragt, Seite für Seite."
+  },
+  "notConfigured": {
+    "title": "Kein auto-i-dat-Zugang",
+    "body": "Für diesen Betrieb ist keine auto-i-dat-Verbindung aktiv. Ein Fahrzeug wird manuell erfasst; der Zugang wird unter Integrationen eingerichtet."
+  },
+  "notInContract": {
+    "title": "Katalog nicht im Vertrag",
+    "body": "auto-i-dat lehnt die Katalogabfrage ab: die Option «ident_basis» ist für diesen Zugang nicht lizenziert."
+  }
+}

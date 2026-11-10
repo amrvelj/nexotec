@@ -1,0 +1,42 @@
+{
+  "title": "Offerten & Verträge",
+  "newOffer": "Neue Offerte",
+  "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte …",
+  "loadError": "Offerten und Verträge konnten nicht geladen werden.",
+  "allDealsView": "Alle Offerten und Verträge",
+  "columns": {
+    "number": "Nummer",
+    "type": "Art",
+    "customer": "Kunde",
+    "vehicle": "Fahrzeug",
+    "grossPrice": "Verkaufspreis",
+    "status": "Status",
+    "margin": "Marge",
+    "changed": "Geändert",
+    "owner": "Verantwortlich",
+    "stockNumber": "Lagernummer"
+  },
+  "chips": {
+    "all": "Alle",
+    "offers": "Offerten",
+    "contracts": "Verträge",
+    "unassigned": "Nicht zugewiesen"
+  },
+  "emptyState": {
+    "title": "Keine Offerten oder Verträge",
+    "description": "Erstellen Sie eine Offerte, um zu beginnen."
+  },
+  "emptyFilteredState": {
+    "title": "Keine Treffer",
+    "description": "Passen Sie die Suche an.",
+    "action": "Suche zurücksetzen"
+  },
+  "rowActions": {
+    "open": "Öffnen"
+  },
+  "selection": {
+    "count": "{{count, number}} ausgewählt",
+    "clear": "Auswahl aufheben",
+    "copyIds": "IDs kopieren"
+  }
+}

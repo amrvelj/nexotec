@@ -1,0 +1,103 @@
+{
+  "title": "Catalogue",
+  "subtitle": "Browse vehicle variants — vehicle kind, brand, model, trim. Live from the provider, one page at a time.",
+  "tabs": {
+    "browse": "Browse",
+    "mappingGaps": "Mapping gaps",
+    "brands": "Brands"
+  },
+  "mode": {
+    "label": "Mode",
+    "build": "New vehicle",
+    "record": "Used vehicle",
+    "tooltip": "New shows only in-production ranges; used shows everything."
+  },
+  "drilldown": {
+    "brand": "Brand",
+    "brandPlaceholder": "Choose a brand",
+    "modelGroup": "Model group",
+    "modelGroupPlaceholder": "All model groups",
+    "modelGroupNeedsBrand": "Choose a brand first",
+    "brandsLoadError": "Brands could not be loaded",
+    "vehicleKind": "Vehicle kind"
+  },
+  "searchPlaceholder": "Search the description…",
+  "labelsLoadError": {
+    "title": "Labels unavailable",
+    "body": "The labels for the catalogue's values could not be loaded. Values marked ⚠ show their code instead."
+  },
+  "unavailable": {
+    "title": "auto-i-dat not reachable",
+    "body": "The provider is not answering right now. Try again later; identification of known vehicles keeps working."
+  },
+  "columns": {
+    "brand": "Brand",
+    "modelGroup": "Model group",
+    "variant": "Variant",
+    "trim": "Trim",
+    "fuelType": "Fuel",
+    "bodyStyle": "Body",
+    "drivetrain": "Drive",
+    "transmission": "Transmission",
+    "ps": "PS",
+    "kw": "kW",
+    "displacementCcm": "Displacement (cm³)",
+    "cylinders": "Cylinders",
+    "gears": "Gears",
+    "doors": "Doors",
+    "seats": "Seats",
+    "co2Gkm": "CO₂ (g/km)",
+    "emissionStandard": "Emission standard",
+    "vehicleClass": "Vehicle class",
+    "engineCycle": "Stroke",
+    "basePrice": "List price",
+    "productionFrom": "Production from",
+    "productionTo": "Production to",
+    "modelYear": "Model year",
+    "inProduction": "In production",
+    "typeApprovals": "Type approvals",
+    "updatedAt": "Changed",
+    "trimName": "Trim"
+  },
+  "filters": {
+    "fuelType": "Fuel",
+    "bodyStyle": "Body",
+    "drivetrain": "Drive",
+    "transmission": "Transmission",
+    "vehicleClass": "Vehicle class",
+    "emissionStandard": "Emission standard",
+    "kw": "kW",
+    "displacementCcm": "Displacement (cc)",
+    "doors": "Doors",
+    "seats": "Seats",
+    "co2Gkm": "CO₂ (g/km)"
+  },
+  "allVariantsView": "All variants",
+  "loadError": "The catalogue could not be loaded.",
+  "emptyState": {
+    "title": "No variants",
+    "description": "The provider lists no variant for this selection."
+  },
+  "emptyFilteredState": {
+    "title": "No results",
+    "description": "No variant matches these filters.",
+    "action": "Reset filters"
+  },
+  "selection": {
+    "count": "{{count, number}} selected",
+    "clear": "Clear selection",
+    "copyIds": "Copy IDs"
+  },
+  "needsBrand": {
+    "title": "Choose a brand",
+    "description": "Choose a vehicle kind and a brand — the catalogue is asked live from the provider, one page at a time."
+  },
+  "notConfigured": {
+    "title": "No auto-i-dat access",
+    "body": "This business has no active auto-i-dat connection. A vehicle is entered manually; the access is set up under Integrations."
+  },
+  "notInContract": {
+    "title": "Catalogue not in the contract",
+    "body": "auto-i-dat refuses the catalogue query: the «ident_basis» option is not licensed for this access."
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "untitled": "Neuer Vertrag",
+  "errors": {
+    "failedToLoad": "Vertrag konnte nicht geladen werden.",
+    "somethingWentWrong": "Etwas ist schiefgelaufen.",
+    "confirmRefused": {
+      "title": "Vertrag nicht bestätigt",
+      "missingAddress": "Für diesen Kunden ist keine Adresse hinterlegt. Erfassen Sie eine aktuelle Wohnadresse im Kundendatensatz, bevor der Vertrag bestätigt werden kann.",
+      "missingCustomer": "Der Vertrag hat noch keinen Kunden. Wählen Sie zuerst den Käufer.",
+      "missingVehicle": "Dieser Vertrag hat noch kein Fahrzeug. Fügen Sie ein Fahrzeug hinzu, bevor der Vertrag bestätigt werden kann.",
+      "missingPrice": "Für diesen Vertrag ist noch kein Preis hinterlegt. Erfassen Sie einen Preis, bevor der Vertrag bestätigt werden kann.",
+      "creditBlock": "Dieser Kunde ist kreditgesperrt ({{reason}}). Eine Offerte ist weiterhin möglich; der Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
+      "doNotContact": "Dieser Kunde ist als «nicht kontaktieren» markiert. Der Vertrag kann nicht bestätigt werden.",
+      "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut versuchen.",
+      "badStatus": "Dieser Vertrag kann aus seinem aktuellen Status nicht mehr bestätigt werden.",
+      "generic": "Der Vertrag konnte nicht bestätigt werden.",
+      "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen, daher kann der Vertrag nicht bestätigt werden. Stornieren Sie ihn und erstellen Sie einen neuen Vertrag aus einer Offerte mit einer aktuellen Bewertung.",
+      "vehicleLeftStock": "Dieses Fahrzeug hat den Bestand bereits verlassen (verkauft). Es kann nicht erneut reserviert werden — der Vertrag kann nicht bestätigt werden."
+    },
+    "editRefused": {
+      "staleVersion": "Der Vertrag wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+      "notPending": "Der Vertrag ist nicht mehr offen und kann nicht mehr geändert werden.",
+      "generic": "Die Änderung konnte nicht gespeichert werden."
+    },
+    "cancelRefused": {
+      "title": "Vertrag nicht storniert",
+      "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut stornieren.",
+      "generic": "Der Vertrag konnte nicht storniert werden. Bitte erneut versuchen."
+    }
+  },
+  "actions": {
+    "confirm": "Vertrag bestätigen",
+    "confirmDisabledReason": "Nur im Status Offen bestätigbar.",
+    "cancel": "Stornieren …",
+    "cancelDisabledReason": "Bereits storniert oder fakturiert.",
+    "cancelDisabledReasonLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert, kann nicht storniert werden.",
+    "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
+    "confirmDisabledReasonNoBuyer": "Zuerst den Käufer wählen: Ein Vertrag wird nie ohne Kunden bestätigt.",
+    "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert.",
+    "requestInvoice": "Rechnung anfordern",
+    "requestInvoiceDisabledNotConfirmed": "Erst nach der Bestätigung des Vertrags möglich.",
+    "requestInvoiceDisabledNotPurchased": "Das Fahrzeug ist noch nicht eingekauft – die Rechnung kann angefordert werden, sobald der Einkauf im Bestand erfasst ist.",
+    "requestInvoiceDisabledAlreadyRequested": "Die Rechnung wurde bereits am {{date}} angefordert.",
+    "requestInvoiceDisabledLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert."
+  },
+  "requestInvoice": {
+    "title": "Rechnung anfordern",
+    "hint": "Mit welchem Kontrollschild übergeben Sie das Fahrzeug? Es wird beim Fahrzeug erfasst und ist in der Suche auffindbar.",
+    "withPlate": "Mit Kontrollschild",
+    "withoutPlate": "Ohne Kontrollschild",
+    "submit": "Rechnung anfordern",
+    "moveSubmit": "Verschieben und Rechnung anfordern",
+    "requested": "Die Rechnung ist angefordert.",
+    "requestedWithPlate": "Die Rechnung ist angefordert. {{plate}} wird beim Fahrzeug erfasst.",
+    "error": "Die Rechnung konnte nicht angefordert werden.",
+    "moveBeforeStart": "Das Kontrollschild ist auf dem anderen Fahrzeug erst ab einem Tag nach dem Liefertermin dieses Vertrags erfasst und kann deshalb nicht verschoben werden. Fordern Sie die Rechnung ohne Kontrollschild an und klären Sie das Kontrollschild im Fahrzeug-360."
+  },
+  "stats": {
+    "grossPrice": "Verkaufspreis",
+    "tradeIn": "Eintauschfahrzeug",
+    "payable": "Zu bezahlen",
+    "margin": "Marge"
+  },
+  "financing": "Finanzierung",
+  "cancelReasonPrompt": "Grund für die Stornierung:",
+  "edit": {
+    "title": "Vertrag vervollständigen",
+    "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Kunde, Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
+    "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden.",
+    "pricedWithoutInputsNoBuyer": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Sein Preis kann nicht mehr angepasst werden. Wählen Sie unten den Käufer, dann kann er so bestätigt werden – oder stornieren Sie ihn."
+  }
+}

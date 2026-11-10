@@ -1,0 +1,59 @@
+{
+  "title": "Integrationen",
+  "searchPlaceholder": "Verbindungen suchen",
+  "loadError": "Die Verbindungen konnten nicht geladen werden.",
+  "allView": "Alle Verbindungen",
+  "notConnected": "Nicht verbunden",
+  "connectError": "Die Verbindung konnte nicht erstellt werden.",
+  "platformScoped": "Plattformweit",
+  "platformConnectionsTitle": "Verbindungen",
+  "categories": {
+    "marketplace": "Marktplatz",
+    "vehicle_data": "Fahrzeugdaten"
+  },
+  "fields": {
+    "provider": "Anbieter",
+    "environment": "Umgebung",
+    "accountIdentifier": "Konto",
+    "lastVerified": "Zuletzt geprüft"
+  },
+  "actions": {
+    "test": "Verbindung testen",
+    "viewUsage": "Nutzung anzeigen",
+    "rotateSecret": "Secret erneuern",
+    "rotateSecretDisabledReason": "Diese Verbindung hat keine Secrets zum Erneuern.",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "connect": "Verbinden"
+  },
+  "connectModal": {
+    "title": "{{provider}} verbinden",
+    "testAccessHint": "Sandbox ist Ihr Testzugang: nur mit dem Service-Account von auto-i-dat (Client-ID und Client-Secret), nie mit dem persönlichen Token, und nur in Testumgebungen. Auf dem Produktionsserver lehnt Nexotec ihn ab."
+  },
+  "usageModal": {
+    "title": "Nutzung — {{name}}",
+    "calls": "Aufrufe (letzte 30 Tage)",
+    "cost": "Kosteneinheiten (letzte 30 Tage)",
+    "indicative": "Nur indikativ — Nexotec verrechnet nie zusätzlich zu Ihrem eigenen Anbietervertrag."
+  },
+  "rotateModal": {
+    "title": "Secrets erneuern — {{name}}",
+    "hint": "Geben Sie nur für die zu ersetzenden Felder einen neuen Wert ein — eine Erneuerung ersetzt, sie liest den aktuellen Wert nie."
+  },
+  "columns": {
+    "dealership": "Betrieb",
+    "displayName": "Verbindung",
+    "provider": "Anbieter",
+    "environment": "Umgebung",
+    "status": "Status",
+    "lastVerified": "Zuletzt geprüft"
+  },
+  "emptyState": {
+    "title": "Noch keine Verbindungen",
+    "description": "Noch kein Betrieb hat einen Anbieter verbunden."
+  },
+  "emptyFilteredState": {
+    "title": "Keine passenden Verbindungen",
+    "description": "Versuchen Sie eine andere Suche."
+  }
+}

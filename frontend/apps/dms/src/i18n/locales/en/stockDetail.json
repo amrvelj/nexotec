@@ -1,0 +1,198 @@
+{
+  "header": {
+    "stockFallback": "Stock item"
+  },
+  "leftStock": {
+    "badge": "Left stock on {{date}}"
+  },
+  "tabs": {
+    "details": "Details",
+    "wagenbuch": "Wagenbuch",
+    "publishing": "Publishing",
+    "evaluation": "Evaluation"
+  },
+  "actions": {
+    "createOffer": "Create offer",
+    "createContract": "Create contract",
+    "leftStock": "This vehicle left stock on {{date}} (sold)."
+  },
+  "headline": {
+    "listPriceCaption": "List price – selling price not built yet"
+  },
+  "spec": {
+    "firstRegistrationDate": "First registration",
+    "odometerKm": "Odometer",
+    "stockNumber": "Stock number",
+    "vin": "VIN"
+  },
+  "commercial": {
+    "title": "Commercial",
+    "odometerKm": "Odometer",
+    "listPrice": "List price",
+    "effectivePrice": "Effective price"
+  },
+  "identity": {
+    "title": "Vehicle",
+    "vehicleLabel": "Label",
+    "vehicleLabelFollowsConfiguration": "The label follows the vehicle's configuration.",
+    "vehicleId": "Vehicle ID"
+  },
+  "errors": {
+    "failedToLoad": "Failed to load",
+    "somethingWentWrong": "Something went wrong.",
+    "createOfferFailed": "The offer could not be created. Please try again.",
+    "createContractFailed": "The contract could not be created. Please try again."
+  },
+  "purchase": {
+    "title": "Purchase",
+    "recordButton": "Record purchase",
+    "dialogTitle": "Record purchase",
+    "submit": "Record",
+    "fields": {
+      "supplierName": "Supplier",
+      "supplierIsVatRegistered": "Supplier is VAT-registered",
+      "purchasePrice": "Purchase price",
+      "purchaseDate": "Purchase date",
+      "purchaseInvoiceRef": "Invoice reference",
+      "vin": "VIN",
+      "vinHint": "A pipeline vehicle is purchased with its VIN, which puts it on stock."
+    },
+    "notionalInputTax": "Notional input tax deduction",
+    "notionalInputTaxNotApplicable": "Not applicable",
+    "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
+    "isInvoiceable": "Invoiceable",
+    "error": "The purchase could not be recorded. Please try again.",
+    "notRecorded": "No purchase recorded yet.",
+    "configurationVinDiffers": "The VIN differs from the configuration's.",
+    "storno": {
+      "button": "Cancel purchase",
+      "title": "Cancel purchase",
+      "body": "The purchase of {{stockNumber}} is reversed: the acquisition cost is posted back in the Wagenbuch, the vehicle returns to the pipeline with its VIN and can be invoiced again only after a new purchase. A reservation stays.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "Please give a reason.",
+      "submit": "Cancel purchase",
+      "cancel": "Back",
+      "failed": "The purchase could not be cancelled.",
+      "leftStock": "Not possible: the vehicle has left stock.",
+      "returnedToCustomer": "The car goes back to the customer",
+      "returnedToCustomerHint": "The customer who traded it in becomes its owner and keeper again. Unticked, their vehicle history stays as the purchase recorded it."
+    }
+  },
+  "wagenbuch": {
+    "result": "Result",
+    "recordButton": "Record entry",
+    "empty": "No entries recorded",
+    "dialogTitle": "Record entry",
+    "submit": "Record",
+    "fields": {
+      "category": "Category",
+      "amount": "Amount",
+      "occurredAt": "Date"
+    },
+    "columns": {
+      "occurredAt": "Date",
+      "category": "Category",
+      "amount": "Amount",
+      "source": "Source"
+    },
+    "auto": "Automatic",
+    "manual": "Manual",
+    "error": "The cost could not be recorded. Please try again.",
+    "closed": "Wagenbuch closed since {{date}}: the vehicle has left stock."
+  },
+  "publishing": {
+    "blockingBannerTitle": "{{count, number}} item(s) are blocking publication",
+    "blockingCondition": {
+      "Lagerstatus": "A factory order is not in stock yet.",
+      "Bilder": "No photos of your own yet.",
+      "Preis": "No effective price set.",
+      "Aussenfarbe": "No colour set.",
+      "Aufbau": "No body style set.",
+      "Kilometer": "No odometer reading set.",
+      "InvSetzJahr": "No first registration set.",
+      "Energieetikette": "The energy label is missing for a new car under 2'000 km.",
+      "other": "This is missing for the marketplace."
+    },
+    "channelsTitle": "Channels",
+    "published": "Published",
+    "notPublished": "Not published",
+    "lastPublishedAt": "Last published: {{date}}",
+    "neverPublished": "Never published",
+    "transmissionPending": "Publishing…",
+    "transmissionFailed": "Publishing failed",
+    "publishTo": "Publish to {{channel}}",
+    "unpublish": "Unpublish from {{channel}}",
+    "unpublishConfirmTitle": "Confirm unpublish",
+    "unpublishConfirmSubmit": "Unpublish",
+    "unpublishConfirmBody": "The listing on {{channel}} will be deleted along with its statistics and URL. This cannot be undone.",
+    "listingTextTitle": "Listing text",
+    "listingTextConflict": "The listing text was changed in the meantime. The current version is loaded – please make your change again.",
+    "listingTextError": "The listing text could not be saved. Please try again.",
+    "listingTextLoadError": "The listing texts could not be loaded.",
+    "titleDisplayLimit": "{{count, number}} characters shown on the results list.",
+    "haendlerbemerkungenHint": "Internal only — never appears in the listing.",
+    "fields": {
+      "zusatztitel": "Additional title",
+      "bemerkungen": "Remarks",
+      "zustandsbeschreibung": "Condition description",
+      "haendlerbemerkungen": "Dealer remarks"
+    },
+    "media": {
+      "title": "Pictures",
+      "addPrompt": "Image URL",
+      "mainImage": "Main image",
+      "moveLeft": "Move left",
+      "moveRight": "Move right",
+      "remove": "Remove",
+      "addPhoto": "Add photo",
+      "countOf": "{{count, number}} / {{max, number}}",
+      "addError": "The photo could not be added. Please try again.",
+      "removeError": "The photo could not be removed. Please try again.",
+      "reorderError": "The new photo order could not be saved. Please try again."
+    },
+    "equipment": {
+      "title": "Equipment",
+      "ausstattung": "Equipment (searchable)",
+      "extras": "Extras",
+      "eigenschaften": "Properties",
+      "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
+    },
+    "publishError": "The listing could not be published. Please try again.",
+    "unpublishError": "The listing could not be withdrawn. Please try again."
+  },
+  "evaluation": {
+    "title": "Evaluation",
+    "empty": "No valuation available.",
+    "amount": "Amount",
+    "valuedAt": "Valued at",
+    "source": "Source",
+    "hint": "Valuations are created and managed in the Valuations module — this area only shows the current pointer."
+  },
+  "configuration": {
+    "title": "Configuration",
+    "missing": "No configuration is assigned to this vehicle. Without one, the technical data are missing.",
+    "attach": "Assign configuration",
+    "attachError": "The configuration could not be assigned. Please try again.",
+    "edit": "Edit configuration",
+    "editContract": "Edit contract",
+    "reservedByContract": "A contract reserves this car. While it does, the configuration stays as it is: it can be changed only once that contract is cancelled.",
+    "reloadDetails": "Reload",
+    "reloadDetailsHint": "Asks auto-i-dat again for options, colours, tyre data, images and the energy label and replaces the data stored for this business.",
+    "reloadDetailsError": "The catalogue data could not be reloaded.",
+    "reloadDetailsDone": "Reloaded on {{date}}"
+  },
+  "rowMenu": {
+    "changeCondition": "Change condition",
+    "purchaseAlreadyBooked": "The purchase is already recorded.",
+    "purchaseNotBooked": "No purchase recorded yet.",
+    "creatingDeal": "Being created …"
+  },
+  "condition": {
+    "title": "Change condition",
+    "body": "New condition for {{stockNumber}}:",
+    "label": "Condition",
+    "submit": "Save",
+    "cancel": "Cancel",
+    "failed": "The condition could not be changed."
+  }
+}

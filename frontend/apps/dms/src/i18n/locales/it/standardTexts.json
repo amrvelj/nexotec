@@ -1,0 +1,112 @@
+{
+  "title": "Testi standard",
+  "subtitle": "Le formulazioni dei Suoi documenti e messaggi — in quattro lingue, con segnaposto.",
+  "disclaimer": "I testi forniti sono modelli redatti secondo l'uso svizzero, non una consulenza legale. La preghiamo di verificarli prima di utilizzarli.",
+  "newText": "Nuovo testo",
+  "loadError": "Non è stato possibile caricare i testi standard.",
+  "readOnly": "Può leggere i testi di questa categoria, ma non modificarli.",
+  "empty": "Questa categoria non contiene ancora testi.",
+  "inactive": "Inattivo",
+  "edit": "Modifica",
+  "view": "Visualizza",
+  "category": {
+    "document": "Documenti",
+    "email": "E-mail",
+    "sms": "SMS",
+    "whatsapp": "WhatsApp",
+    "internal_note": "Note interne",
+    "workshop": "Officina"
+  },
+  "appliesTo": {
+    "offer": "Offerta",
+    "contract": "Contratto di vendita",
+    "invoice": "Fattura",
+    "appointment_reminder": "Promemoria appuntamento",
+    "vehicle_ready": "Veicolo pronto",
+    "workshop_order": "Ordine d'officina",
+    "customer_note": "Nota cliente"
+  },
+  "slot": {
+    "header": "Intestazione",
+    "intro": "Introduzione",
+    "body": "Testo",
+    "footer": "Piè di pagina",
+    "terms": "Condizioni",
+    "closing": "Chiusura"
+  },
+  "language": {
+    "de": "Tedesco",
+    "fr": "Francese",
+    "it": "Italiano",
+    "en": "Inglese"
+  },
+  "columns": {
+    "title": "Denominazione",
+    "appliesTo": "Usato per",
+    "slot": "Posizione",
+    "source": "Origine",
+    "languages": "Lingue",
+    "default": "Predefinito"
+  },
+  "badge": {
+    "template": "Modello — da verificare",
+    "adapted": "Adattato",
+    "own": "Testo proprio",
+    "seedChanged": "Modello modificato — da verificare"
+  },
+  "fields": {
+    "appliesTo": "Usato per",
+    "slot": "Posizione nel documento",
+    "title": "Denominazione",
+    "body": "Testo",
+    "isDefault": "Testo predefinito per questa posizione",
+    "active": "Attivo",
+    "templateApproved": "Modello approvato dal fornitore",
+    "providerTemplateId": "ID del modello presso il fornitore"
+  },
+  "whatsapp": {
+    "approved": "Approvato",
+    "notApproved": "Non approvato — solo entro 24 ore da un messaggio del cliente"
+  },
+  "editor": {
+    "title": "Modifica testo standard",
+    "newTitle": "Nuovo testo standard",
+    "missingLanguage": "mancante",
+    "templateHint": "Questo è il modello fornito. Lo salvi per adottarlo come testo proprio; il modello stesso resta invariato.",
+    "templateHintReadOnly": "Questo è il modello fornito.",
+    "seedChangedTitle": "Il modello è stato modificato — verifichi il Suo testo",
+    "seedChangedHint": "Il Suo testo resta invariato. Il modello attuale è il seguente:",
+    "currentTemplate": "Modello attuale",
+    "markReviewed": "Segna come verificato",
+    "placeholders": "Inserisci segnaposto",
+    "preview": "Anteprima",
+    "previewHint": "Con dati di esempio; nome e telefono della Sua azienda sono reali.",
+    "previewEmpty": "Nessun testo.",
+    "previewFailed": "Questo testo non può essere stampato così:",
+    "resetToTemplate": "Ripristina il modello",
+    "deleteLanguage": "Elimina questa lingua",
+    "saved": "Salvato.",
+    "adapt": "Adotta come testo proprio",
+    "close": "Chiudi"
+  },
+  "placeholder": {
+    "dealership_name": "Nome dell'azienda",
+    "location_phone": "Telefono",
+    "customer_salutation": "Formula di saluto",
+    "vehicle_make_model": "Marca e modello",
+    "document_number": "Numero del documento",
+    "document_date": "Data del documento",
+    "user_full_name": "Nome del consulente",
+    "payment_due_date": "Scadenza di pagamento"
+  },
+  "problem": {
+    "unknown": "Segnaposto sconosciuto: {{token}}",
+    "not_valid_here": "Non disponibile qui: {{token}}",
+    "malformed": "Una parentesi graffa non è chiusa.",
+    "unresolved": "Senza valore: {{token}}"
+  },
+  "errors": {
+    "saveFailed": "Non è stato possibile salvare il testo.",
+    "previewFailed": "Non è stato possibile creare l'anteprima."
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "tabs": {
+    "overview": "Overview",
+    "vehicles": "Vehicles",
+    "offersContracts": "Offers & contracts",
+    "history": "History",
+    "externalIds": "External IDs"
+  },
+  "header": {
+    "failedToLoad": "Failed to load customer",
+    "customerFallback": "Customer"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong.",
+    "conflict": "Someone else changed this in the meantime.",
+    "failedToSave": "Failed to save.",
+    "failedToLoadVehicles": "Failed to load vehicles.",
+    "failedToLoadOffersContracts": "Failed to load offers and contracts.",
+    "failedToLoadHistory": "Failed to load history.",
+    "failedToLoadExternalIds": "Failed to load external IDs.",
+    "createOfferFailed": "The offer could not be created. Please try again.",
+    "createContractFailed": "The contract could not be created. Please try again."
+  },
+  "overview": {
+    "cards": {
+      "identity": "Identity",
+      "status": "Status",
+      "address": "Address",
+      "contactPoints": "Contact points",
+      "record": "Record",
+      "commercialStanding": "Commercial standing",
+      "relationship": "Relationship"
+    },
+    "fields": {
+      "salutation": "Salutation",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "dateOfBirth": "Date of birth",
+      "nationality": "Nationality",
+      "companyName": "Company name",
+      "legalForm": "Legal form",
+      "correspondenceLanguage": "Correspondence language",
+      "preferredChannel": "Preferred channel",
+      "lifecycleStatus": "Lifecycle status",
+      "source": "Source",
+      "marketingConsent": "Marketing consent",
+      "address": "Address",
+      "canton": "Canton",
+      "cantonDerived": "Canton (derived)",
+      "customerNumber": "Customer number",
+      "created": "Created",
+      "lastChanged": "Last changed",
+      "title": "Title",
+      "gender": "Gender",
+      "paymentTerms": "Payment terms",
+      "creditLimit": "Credit limit (advisory)",
+      "iban": "IBAN",
+      "vatRegistered": "VAT-registered",
+      "vatStatusConfirmed": "VAT status confirmed",
+      "advisor": "Advisor",
+      "customerSince": "Customer since",
+      "nextFollowUp": "Next follow-up",
+      "website": "Website",
+      "newsletter": "Newsletter",
+      "tags": "Tags",
+      "notes": "Notes"
+    },
+    "notSet": "Not set",
+    "addressRequiredForContract": "No address on file — needed before a contract can be confirmed.",
+    "addressForm": {
+      "street": "Street",
+      "line2": "Address line 2 (c/o, PO box, ...)",
+      "houseNumber": "House no.",
+      "postalCode": "Postal code",
+      "locality": "Locality",
+      "save": "Save",
+      "cancel": "Cancel",
+      "reload": "Reload",
+      "country": "Country"
+    },
+    "blockingStrip": {
+      "creditBlockTitle": "Credit-blocked",
+      "doNotContactTitle": "Do not contact",
+      "doNotContactNote": "No commercial contact. Service and legally required correspondence are still allowed; an offer or contract is not."
+    }
+  },
+  "contactPoints": {
+    "phoneNumbers": "Phone numbers",
+    "emailAddresses": "Email addresses",
+    "addPhone": "Add phone",
+    "addEmail": "Add email",
+    "none": "None added yet.",
+    "primary": "Primary",
+    "new": "New",
+    "save": "Save",
+    "cancel": "Cancel",
+    "removeAriaLabel": "Remove {{label}}",
+    "former": "Former contact details",
+    "noLongerValid": "No longer valid",
+    "doesNotWork": "Does not work",
+    "doesNotWorkReasonPlaceholder": "Reason (e.g. bounced, disconnected)",
+    "delete": "Delete",
+    "consent": "Consent",
+    "confirm": "Confirm",
+    "typeColumn": "Type",
+    "labelColumn": "Name",
+    "labelHint": "Says which number or address this is – e.g. Office, Accounting, Winterthur workshop. Optional, at most 60 characters.",
+    "consentHint": "Records whether the customer agreed to be contacted on this very number or address. Applies to this channel only.",
+    "phoneValueColumn": "Number",
+    "emailValueColumn": "Address",
+    "preferredChannelHeading": "Preferred channel",
+    "preferredMark": "Preferred channel",
+    "noPreferred": "No preferred channel",
+    "consentScope": "Scope",
+    "consentSource": "Source",
+    "rowActions": "{{label}} row actions"
+  },
+  "phoneInput": {
+    "country": "Country",
+    "number": "Number"
+  },
+  "countries": {
+    "switzerland": "Switzerland",
+    "germany": "Germany",
+    "france": "France",
+    "italy": "Italy",
+    "austria": "Austria",
+    "liechtenstein": "Liechtenstein",
+    "unitedKingdom": "United Kingdom",
+    "unitedStates": "United States"
+  },
+  "externalIds": {
+    "columns": {
+      "system": "System",
+      "externalId": "External ID",
+      "linked": "Linked"
+    },
+    "maintainedBy": "These links to OEM and CRM systems are maintained by Nexotec and the connected systems; you can read them here.",
+    "emptyState": {
+      "title": "No external IDs",
+      "description": "No OEM or CRM system has been linked to this customer yet. Nexotec or a connected system adds these links."
+    },
+    "add": "Add external ID",
+    "remove": "Remove",
+    "save": "Save",
+    "cancel": "Cancel",
+    "systemLabel": "System",
+    "externalIdLabel": "External ID"
+  },
+  "vehicles": {
+    "columns": {
+      "vin": "VIN",
+      "vehicle": "Vehicle",
+      "role": "Role",
+      "since": "Since",
+      "until": "Until",
+      "otherParties": "Other parties"
+    },
+    "emptyState": {
+      "title": "No vehicles",
+      "description": "This customer has no vehicle relationships on file."
+    },
+    "addAction": "Link vehicle",
+    "inStockTitle": "In the group's own stock — {{stockNumber}}",
+    "specification": "Specification",
+    "unknownVehicle": "Vehicle not in the register",
+    "mergedInto": "Merged",
+    "mergedIntoTitle": "Kept here by a customer merge — open the surviving customer"
+  },
+  "offersContracts": {
+    "emptyState": {
+      "title": "No offers or contracts yet",
+      "description": "This customer has no offers or contracts at this business yet."
+    }
+  },
+  "history": {
+    "emptyState": {
+      "title": "No history yet",
+      "description": "Changes to this customer will appear here."
+    },
+    "you": "You",
+    "system": "System",
+    "unknownReference": "unknown record",
+    "unknownUser": "Unknown user",
+    "actions": {
+      "create": "Customer created",
+      "update": "Customer updated",
+      "merge": "Customer merged",
+      "merge_survivor_repointed": "Merge target updated",
+      "phone_add": "Phone number added",
+      "phone_update": "Phone number updated",
+      "phone_remove": "Phone number removed",
+      "email_add": "Email address added",
+      "email_update": "Email address updated",
+      "email_remove": "Email address removed",
+      "address_add": "Address added",
+      "address_update": "Address updated",
+      "address_remove": "Address removed",
+      "external_id_add": "External ID added",
+      "external_id_update": "External ID updated",
+      "external_id_remove": "External ID removed",
+      "vehicle_party_add": "Vehicle linked",
+      "vehicle_party_update": "Vehicle link updated",
+      "vehicle_party_remove": "Vehicle link ended",
+      "credit_block_changed": "Credit block changed"
+    },
+    "otherAction": "Change recorded",
+    "fields": {
+      "dealershipId": "Business",
+      "phoneType": "Phone type",
+      "emailType": "Email type",
+      "addressType": "Address type",
+      "phoneE164": "Phone number",
+      "emailAddress": "Email address",
+      "consentGranted": "Consent given",
+      "consentScope": "Consent scope",
+      "consentSource": "Consent source",
+      "consentTimestamp": "Consent given on",
+      "mergedIntoCustomerId": "Merged into customer",
+      "duplicateOfCustomerId": "Duplicate of customer",
+      "creditBlock": "Credit block",
+      "creditBlockReason": "Credit block reason",
+      "vehiclePartiesRepointed": "Vehicle links moved",
+      "vehiclePartiesKeptClosed": "Vehicle links kept closed",
+      "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (vehicles)",
+      "earlierMergesRepointedIds": "Earlier merges re-pointed",
+      "transactionsRepointed": "Transactions moved",
+      "phonesRepointed": "Phone numbers moved",
+      "phonesDropped": "Phone numbers dropped",
+      "emailsRepointed": "Email addresses moved",
+      "emailsDropped": "Email addresses dropped",
+      "addressesRepointed": "Addresses moved",
+      "addressesDropped": "Addresses dropped",
+      "externalIdsRepointed": "External IDs moved",
+      "externalIdsDropped": "External IDs dropped",
+      "tagsRepointed": "Tags moved",
+      "tagsDropped": "Tags dropped"
+    }
+  },
+  "linkVehicle": {
+    "title": "Link vehicle",
+    "search": "Search vehicle",
+    "searchPlaceholder": "VIN, vehicle number, plate…",
+    "role": "Role",
+    "confirm": "Link",
+    "error": "The vehicle could not be linked."
+  },
+  "linkVehicleRefused": {
+    "customerMerged": "This customer has been merged into another. Link the vehicle to the customer it was merged into.",
+    "roleAlreadyHeld": "This customer already holds this role on this vehicle from this date.",
+    "notFound": "The vehicle or the customer no longer exists. Reload the page and search again."
+  },
+  "merge": {
+    "title": "Merge duplicate customer",
+    "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",
+    "searchPlaceholder": "Search by name, email, phone, customer number…",
+    "noMatches": "No matches.",
+    "searchFailed": "The search failed. Please try again.",
+    "chooseDifferent": "← Choose a different survivor",
+    "duplicateColumn": "This customer — will be merged",
+    "survivorColumn": "Survivor — will remain",
+    "survivorContactsFailed": "The surviving customer's phone and email could not be loaded. Choose again or try another survivor.",
+    "irreversibleTitle": "This cannot be undone",
+    "irreversibleBody": "Vehicles, transactions, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden from search.",
+    "confirm": "I understand this is permanent",
+    "submitting": "Merging…",
+    "submit": "Merge customers",
+    "error": "The customers could not be merged."
+  },
+  "mergeRefused": {
+    "intoSelf": "A customer cannot be merged into itself.",
+    "targetMerged": "The chosen survivor has itself been merged. Choose the customer it was merged into.",
+    "alreadyMerged": "This customer has already been merged.",
+    "survivorConflict": "The merge conflicts with a record on the survivor. Reload both customers and try again.",
+    "vehiclePartyBusy": "A vehicle of this customer is being changed right now. Send the merge again.",
+    "staleVersion": "This customer was changed in the meantime. Reload the page and try again."
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "title": "Integrations",
+  "searchPlaceholder": "Search connections",
+  "loadError": "The connections could not be loaded.",
+  "allView": "All connections",
+  "notConnected": "Not connected",
+  "connectError": "The connection could not be created.",
+  "platformScoped": "Platform-wide",
+  "platformConnectionsTitle": "Connections",
+  "categories": {
+    "marketplace": "Marketplace",
+    "vehicle_data": "Vehicle data"
+  },
+  "fields": {
+    "provider": "Provider",
+    "environment": "Environment",
+    "accountIdentifier": "Account",
+    "lastVerified": "Last verified"
+  },
+  "actions": {
+    "test": "Test connection",
+    "viewUsage": "View usage",
+    "rotateSecret": "Rotate secret",
+    "rotateSecretDisabledReason": "This connection has no secrets to rotate.",
+    "enable": "Enable",
+    "disable": "Disable",
+    "connect": "Connect"
+  },
+  "connectModal": {
+    "title": "Connect {{provider}}",
+    "testAccessHint": "Sandbox is your test access: only with the auto-i-dat service account (client ID and client secret), never with the personal token, and only in test environments. On the production server Nexotec refuses it."
+  },
+  "usageModal": {
+    "title": "Usage — {{name}}",
+    "calls": "Calls (last 30 days)",
+    "cost": "Cost units (last 30 days)",
+    "indicative": "Indicative only — Nexotec never bills on top of your own provider contract."
+  },
+  "rotateModal": {
+    "title": "Rotate secrets — {{name}}",
+    "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value."
+  },
+  "columns": {
+    "dealership": "Business",
+    "displayName": "Connection",
+    "provider": "Provider",
+    "environment": "Environment",
+    "status": "Status",
+    "lastVerified": "Last verified"
+  },
+  "emptyState": {
+    "title": "No connections yet",
+    "description": "No business has connected a provider yet."
+  },
+  "emptyFilteredState": {
+    "title": "No matching connections",
+    "description": "Try a different search."
+  }
+}

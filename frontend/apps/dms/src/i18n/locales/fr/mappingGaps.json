@@ -1,0 +1,35 @@
+{
+  "title": "Écarts de correspondance",
+  "searchPlaceholder": "Rechercher par fournisseur ou code…",
+  "resolve": "Résoudre",
+  "loadError": "Impossible de charger les écarts de correspondance.",
+  "columns": {
+    "provider": "Fournisseur",
+    "vehicleKind": "Type de véhicule",
+    "codeGroup": "Groupe de codes",
+    "providerCode": "Code fournisseur",
+    "occurrences": "Occurrences",
+    "lastSeen": "Vu pour la dernière fois"
+  },
+  "emptyState": {
+    "title": "Aucun écart de correspondance",
+    "description": "Chaque code fournisseur vu jusqu'ici correspond à une valeur canonique."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun résultat",
+    "description": "Aucun écart de correspondance ne correspond à votre recherche.",
+    "action": "Effacer la recherche"
+  },
+  "resolveModal": {
+    "title": "Résoudre l'écart de correspondance",
+    "listCode": "Liste de référence",
+    "valueCode": "Valeur canonique",
+    "confirm": "Résoudre",
+    "valuePlaceholder": "Choisir une valeur",
+    "noValues": "Aucune valeur correspondante",
+    "valuesLoadError": "Les valeurs de cette liste n'ont pas pu être chargées.",
+    "error": "L'écart n'a pas pu être résolu.",
+    "gapKey": "Fournisseur · type de véhicule · code",
+    "noList": "Le groupe de codes « {{codeGroup}} » n'a pas de liste de référence ; cet écart ne pourra être résolu qu'une fois la liste créée."
+  }
+}
