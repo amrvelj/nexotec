@@ -44,7 +44,7 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
    Review** → stop and ask Anto: the ticket may not be vetted yet. **Anto Review** → a business
    question waits for him: stop and show him the open question from the callout at the top of
    the page; continue only once the callout carries his answer (then Status → In Progress, and
-   build on the branch the callout names). **In Review** or **Done** → ask what he wants (a
+   build on the branch the callout names, if it names one). **In Review** or **Done** → ask what he wants (a
    follow-up ticket is usually right).
 3. Register it: `scripts/dev/gate start KAN-<n> <ticket url>`. From now on, writes to this
    ticket page count as the ticket's hand-over evidence. No Notion write asks Anto (his ruling,
@@ -67,8 +67,10 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
   - **Technical** — structure, a context boundary, patterns, a migration, tooling, a public API
     contract's shape, refactoring with no visible change, a technical departure from the
     ticket: decide it, write the ADR when it is a decision, say in one plain sentence what you
-    decided, and continue. Do not wait for approval. (A preserved file or the setup still
-    raises its permission prompt: that is a safety rail, not a question.)
+    decided, and continue. Do not wait for approval. (An edit to a preserved file or the setup
+    is a safety rail, not a question: it raises its permission prompt in an attended session
+    and is denied in auto, bypassPermissions or dontAsk — finish that part in an attended
+    session, KAN-255.)
   - **Business** — what a dealer or user sees or can do, scope or priority (a departure from
     what the ticket asks for included), price, cost or money, legal, tax, compliance or
     contract matters (the auto-i-dat agreement included), retention and privacy, anything that
@@ -79,8 +81,9 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
   session, or a question already asked and unanswered → first finish the work that does not
   depend on the answer, then put the question in a callout at the top of the ticket (the
   question, the options, your recommendation, what is done so far, the branch and head), set
-  Status → **Anto Review**, and stop that ticket: end your reply with a `DECISION NEEDED:` line
-  repeating the question. A run with several tickets carries on with the next one.
+  Status → **Anto Review**, and stop that ticket. A run with several tickets goes on with the
+  next one (`scripts/dev/gate start` for it); the run's final reply ends with a
+  `DECISION NEEDED:` line naming every parked ticket and its question.
 
 ## 4. Build
 
@@ -153,8 +156,9 @@ Notion is unreachable, the reply also carries the exact ticket text (status, cal
 table) for Anto to paste. If you need Anto's decision before you can finish (CI red for a
 reason outside the ticket, say), end your reply with a line starting `DECISION NEEDED:` and the
 question, and stop: the gate lets that through on the second attempt and keeps the hand-over
-open until it is complete. A ticket parked in **Anto Review** with its question callout (step 3)
-is the same legitimate stop. Never skip an update silently.
+open until it is complete. Parking a ticket in **Anto Review** (step 3) uses this path: the
+reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's status yet
+(KAN-639). Never skip an update silently.
 
 ## Close after merge (`/ticket KAN-<n> close`)
 

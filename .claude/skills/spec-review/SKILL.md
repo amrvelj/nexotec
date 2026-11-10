@@ -66,7 +66,7 @@ with (1) the inventory, (2) cross-PRD contract findings, (3) all other findings,
 **business** decisions Anto must make (CLAUDE.md, «How we work»; ADR-126) — split into *decide
 now, blocks building* and *can defer, and until when* — with the options and your
 recommendation, (5) the **technical** decisions, each with the decision you recommend: they are
-not his to make, the next `/architect` or `/ticket` session takes them and records the ADR,
+not his to make, the next `/architect` session takes them from this report and records the ADRs,
 (6) at most five things to keep exactly as they are.
 
 Each finding:

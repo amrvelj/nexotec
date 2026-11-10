@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Architecture decision session for Nexotec - close open architectural questions so the build never re-decides them mid-PR. Asks in batches with a recommendation each, challenges settled decisions honestly, and writes accepted decisions as ADRs into the Target Architecture. No code. Use as /architect <question or area>.
+description: Architecture decision session for Nexotec - close open architectural questions so the build never re-decides them mid-PR. Decides technical questions itself, asks Anto only business ones (ADR-126), challenges settled decisions honestly, and writes accepted decisions as ADRs into the Target Architecture. No code. Use as /architect <question or area>.
 argument-hint: "<question or area>"
 disable-model-invocation: true
 ---

@@ -72,11 +72,11 @@ CI (`.github/workflows/test.yml`) runs eleven jobs; whether they block a merge i
 - **Business questions go to Anto; technical decisions are yours, as architect** (Anto, 2026-11-10; ADR-126). Business: what a dealer or user sees or can do ·
   scope and priority · price, cost, money · legal, tax, compliance, contracts (auto-i-dat's included) · retention and privacy · anything changing a ruling of his.
   Technical: structure, boundaries, patterns, migrations, tooling, refactoring with no visible change — show the plan, decide, record it as an ADR in the Target
-  Architecture when it is one (never a PR comment), tell Anto in one plain sentence, do not wait. Mixed: decide the technical part, ask the business part. Asking: Anto present → a pop-up choice (AskUserQuestion: options, recommendation, what each costs);
+  Architecture when it is one, tell Anto in one plain sentence, do not wait. Mixed: decide the technical part, ask the business part. Asking: Anto present → a pop-up choice (AskUserQuestion: options, recommendation, what each costs);
   nobody present (scheduled run, cloud session, a question already unanswered) → the question as a callout atop the ticket (options, recommendation, work so far, branch), Status **Anto Review**, stop that ticket once the work not depending on the answer is done.
 - Small PRs. A large change ships as a numbered sequence, each mergeable with green CI.
 - Never suppress the import-linter; raise the boundary question instead.
-- A defect or open question found while building gets its own Kanban ticket, in that session.
+- A decision taken while building is an ADR in the Target Architecture, not a PR comment. A defect or open question found while building gets its own Kanban ticket, in that session.
 - **Work is not done when the code merges:** the module PRD's status says what shipped and the
   Gap Analysis cites the new head — every time, whether or not the ticket names them; make those edits in the same session.
 - **Notion writes need no click from Anto** (his ruling, 2026-10-11): write directly, and say in one plain sentence which page changed and how.
