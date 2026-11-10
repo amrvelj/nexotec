@@ -114,7 +114,7 @@ CATEGORIES = [
 def _word(name):
     """`name` as a whole word of a command (a program or an argument), with any directory in
     front (.venv/bin/pytest) - never a part of a longer word or path (/tmp/pytest-of-anto/)."""
-    return r"(?:^|(?<=[\s;&|(`]))(?:[^\s;&|]*/)?" + name + r"(?=[\s;&|)`]|$)"
+    return r"(?:^|(?<=[\s;&|(`]))(?:[^\s;&|(`]*/)?" + name + r"(?=[\s;&|)`]|$)"  # linear: ( and ` end a prefix
 
 
 CI_BASH = re.compile(_word("gh") + r"\s+(pr\s+checks|run\s+(watch|view|list)|api\b[^\n]*(check-runs|check-suites|actions/runs|/status\b))")
@@ -174,17 +174,20 @@ class Paths:
 
     def exists(self, path):
         """Whether `path` names a file on this machine now: as given when absolute (or under ~),
-        else - and for a worktree's path - relative to the repository's main checkout."""
+        else - and for a worktree's path - relative to the repository's main checkout.
+
+        The operating system resolves the path, never a text normalisation: `x/../f` exists
+        only when `x` does, so made-up text before a `..` never passes."""
         if not isinstance(path, str) or not path or "\0" in path:
             return False
         candidates = []
         if path.startswith(("/", "~")):
-            candidates.append(os.path.normpath(os.path.expanduser(path)))
+            candidates.append(os.path.expanduser(path))
             m = re.search(r"/\.claude/worktrees/[^/]+/(.*)$", path)
             if m and self.repo:
                 candidates.append(os.path.join(self.repo, m.group(1)))
         elif self.repo:
-            candidates.append(os.path.normpath(os.path.join(self.repo, path)))
+            candidates.append(os.path.join(self.repo, path))
         return any(os.path.isfile(candidate) for candidate in candidates)
 
 

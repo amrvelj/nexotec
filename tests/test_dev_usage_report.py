@@ -281,7 +281,7 @@ def test_the_opening_context_is_estimated_at_the_measured_characters_per_token(t
     assert _breakdown(result.stdout, "CLAUDE.md + MEMORY.md") == "6,000"
 
 
-def test_no_word_of_a_command_becomes_a_label(tmp_path):
+def test_no_word_of_a_command_becomes_a_label(tmp_path, monkeypatch):
     result = _run_b(tmp_path)
     assert MARKER not in result.stdout + result.stderr
     module = _module()
@@ -290,6 +290,10 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     outside = tmp_path / "outside" / "x.log"
     outside.parent.mkdir()
     outside.write_text("x\n")
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".notes.md").write_text("x\n")
+    monkeypatch.setenv("HOME", str(home))
 
     def label(command):
         return module.classify_tool("Bash", {"command": command}, paths)
@@ -331,6 +335,15 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path):
     assert label("cat <( echo anto@example.com )") == ("read", "Bash view ?")
     assert label("sed -n -i .bak y/abc/xyz/ app/x.py") == ("read", "Bash view ?")
     assert label("head -n 5 Mueller.AG") == ("read", "Bash view ?")  # path-shaped, but no such file
+    # the operating system resolves the path: made-up text before a `..` does not pass
+    (repo / ".claude" / "worktrees" / "w" / "app").mkdir(parents=True)
+    (repo / ".claude" / "worktrees" / "w" / "app" / "x.py").write_text("x\n")
+    assert label("cat ./.claude/worktrees/w/Mueller.AG/../app/x.py") == ("read", "Bash view ?")
+    assert label("cat app/x.py/.") == ("read", "Bash view ?")
+    assert label("cat ~/.notes.md") == ("read", "Bash view <outside repo>/.notes.md")
+    assert label("cat ~/Mueller.AG/../.notes.md") == ("read", "Bash view ?")
+    # a worktree's absolute path falls back to the main checkout once the worktree is gone
+    assert label(f"cat {tmp_path}/gone/.claude/worktrees/w2/app/x.py") == ("read", "Bash view app/x.py")
     # a redirection's `&` does not split a command
     assert label("cd /x 2>&1 && ls -la") == ("shell", "Bash (ls)")
     assert module.Paths("/repo").show("/repo/../x") == "<outside repo>/x"
