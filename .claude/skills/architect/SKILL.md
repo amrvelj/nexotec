@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Architecture decision session for Nexotec - close open architectural questions so the build never re-decides them mid-PR. Asks in batches with a recommendation each, challenges settled decisions honestly, and writes accepted decisions as ADRs into the Target Architecture. No code. Use as /architect <question or area>.
+description: Architecture decision session for Nexotec - close open architectural questions so the build never re-decides them mid-PR. Decides technical questions itself, asks Anto only business ones (ADR-126), challenges settled decisions honestly, and writes accepted decisions as ADRs into the Target Architecture. No code. Use as /architect <question or area>.
 argument-hint: "<question or area>"
 disable-model-invocation: true
 ---
@@ -26,7 +26,14 @@ Module features belong in their PRDs, not here. No code in this session.
 
 ## How to run the session
 
-- Ask in **batches**, each question with your recommendation and the trade-off.
+- **Technical questions are yours to decide** (CLAUDE.md, «How we work»; ADR-126): structure,
+  context boundaries, patterns, migrations, tooling. Decide each, write it as an ADR, and tell
+  Anto in one plain sentence what was decided and why — do not put it to him as a question.
+- **Business questions go to Anto** — what a dealer or user sees or can do, scope and priority,
+  price, cost or money, legal, tax, compliance and contracts, retention and privacy, anything
+  that changes a ruling of his. Ask them in **batches** of pop-up choices (AskUserQuestion), each
+  with your recommendation and what each option costs. A mixed question is split: decide the
+  technical part, ask the business part.
 - Flag every assumption. Never invent a number (volumes, costs, dealer counts) — ask for it.
 - When something is decided, write it as an ADR in the Target Architecture decision log: next
   number, context, decision, consequences including the bad ones, rejected alternatives with
@@ -36,7 +43,8 @@ Module features belong in their PRDs, not here. No code in this session.
 
 ## Definition of done
 
-1. Every question in scope answered, or explicitly deferred with a revisit trigger.
+1. Every technical question in scope decided, every business question answered by Anto — or
+   either explicitly deferred with a revisit trigger.
 2. The ADRs written; the Target Architecture version and the Build Sequence updated if
    sequencing changed.
 3. A Kanban ticket (Status **Backlog**) for updating CLAUDE.md and `.claude/rules/` to the new

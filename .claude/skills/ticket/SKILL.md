@@ -41,8 +41,11 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
    via the Notion query tool, then fetch the page and read **all** of it: What is wrong, Root
    cause, Why it matters, Exit criterion, Do not touch, the prompt block.
 2. Status gate: **Ready for Development** or **In Progress** → continue. **Backlog** or **AI
-   Review** → stop and ask Anto: the ticket may not be vetted yet. **In Review** or **Done** →
-   ask what he wants (a follow-up ticket is usually right).
+   Review** → stop and ask Anto: the ticket may not be vetted yet. **Anto Review** → a business
+   question waits for him: stop and show him the open question from the callout at the top of
+   the page; continue only once the callout carries his answer (then Status → In Progress, and
+   build on the branch the callout names, if it names one). **In Review** or **Done** → ask what he wants (a
+   follow-up ticket is usually right).
 3. Register it: `scripts/dev/gate start KAN-<n> <ticket url>`. From now on, writes to this
    ticket page count as the ticket's hand-over evidence. No Notion write asks Anto (his ruling,
    2026-10-11).
@@ -59,15 +62,35 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 - The plan names: files to change; the test that fails without the change; migrations; API
   contract changes; the Notion updates (below); how you will verify; what the screenshot will
   show.
-- **Stop for Anto's approval** — end your turn with the plan — when it touches a context
-  boundary, a migration, a preserved file or a public API contract, or when it departs from the
-  ticket in any way. Otherwise state the plan briefly and continue.
+- **Business questions go to Anto; technical decisions are yours, as architect** (CLAUDE.md,
+  «How we work»; ADR-126). State the plan, then sort every open point in it:
+  - **Technical** — structure, a context boundary, patterns, a migration, tooling, a public API
+    contract's shape, refactoring with no visible change, a technical departure from the
+    ticket: decide it, write the ADR when it is a decision, say in one plain sentence what you
+    decided, and continue. Do not wait for approval. (An edit to a preserved file or the setup
+    is a safety rail, not a question: it raises its permission prompt in an attended session
+    and is denied in auto, bypassPermissions or dontAsk — finish that part in an attended
+    session, KAN-255.)
+  - **Business** — what a dealer or user sees or can do, scope or priority (a departure from
+    what the ticket asks for included), price, cost or money, legal, tax, compliance or
+    contract matters (the auto-i-dat agreement included), retention and privacy, anything that
+    changes a ruling of Anto's: ask him — **Asking Anto** below.
+  - **Mixed** — split it: decide the technical part, ask only the business part.
+- **Asking Anto.** Present → one pop-up choice (AskUserQuestion) per question: the options, your
+  recommendation first, and what each option costs. Nobody present — a scheduled run, a cloud
+  session, or a question already asked and unanswered → first finish the work that does not
+  depend on the answer, then put the question in a callout at the top of the ticket (the
+  question, the options, your recommendation, what is done so far, the branch and head), set
+  Status → **Anto Review**, and stop that ticket. A run with several tickets goes on with the
+  next one (`scripts/dev/gate start` for it); the run's final reply ends with a
+  `DECISION NEEDED:` line naming every parked ticket and its question.
 
 ## 4. Build
 
 - Honest, small commits. Follow CLAUDE.md and the area rules. Respect "Do not touch".
-- A decision the spec does not make: ask Anto, or draft it as an ADR for his approval — never
-  settle it silently in code.
+- A decision the spec does not make is never settled silently in code. Technical: decide it,
+  write it as an ADR in the Target Architecture, and tell Anto in one plain sentence. Business:
+  **Asking Anto** (step 3) — work that depends on the answer waits; the rest goes on.
 - A defect or open question outside this ticket: create a new ticket on the board (Status
   **Backlog**) in the board's format — What is wrong (with paths and line numbers), Why it
   matters, Exit criterion, Do not touch, Prompt for Claude Code. Mention it in the hand-over.
@@ -133,7 +156,9 @@ Notion is unreachable, the reply also carries the exact ticket text (status, cal
 table) for Anto to paste. If you need Anto's decision before you can finish (CI red for a
 reason outside the ticket, say), end your reply with a line starting `DECISION NEEDED:` and the
 question, and stop: the gate lets that through on the second attempt and keeps the hand-over
-open until it is complete. Never skip an update silently.
+open until it is complete. Parking a ticket in **Anto Review** (step 3) uses this path: the
+reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's status yet
+(KAN-639). Never skip an update silently.
 
 ## Close after merge (`/ticket KAN-<n> close`)
 
