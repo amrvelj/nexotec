@@ -72,6 +72,7 @@ import argparse
 import collections
 import contextlib
 import datetime
+import fcntl
 import glob
 import io
 import json
@@ -165,10 +166,12 @@ class Paths:
             return "?"
         if path.startswith("/"):
             path = os.path.normpath(path)
-        m = re.search(r"/\.claude/worktrees/[^/]+/(.*)$", path)
-        if m:
-            return m.group(1)
-        for repo in {self.repo, self.real_repo} - {""}:
+        roots = sorted({self.repo, self.real_repo} - {""})
+        for repo in roots:  # this repository's worktrees only; another repository's are outside
+            if path.startswith(repo + "/.claude/worktrees/"):
+                inside = path[len(repo + "/.claude/worktrees/"):].split("/", 1)
+                return inside[1] if len(inside) == 2 and inside[1] else "?"
+        for repo in roots:
             if path == repo or path.startswith(repo + "/"):
                 return os.path.relpath(path, repo)
         if path.startswith(("/", "~")) or ".." in path.split("/"):
@@ -180,9 +183,10 @@ class Paths:
 
         `path` is looked up as given when absolute (or under ~), else - and, for a worktree's
         path, also - relative to the repository's main checkout. The label is then made from
-        the file the operating system found (os.path.realpath: `.`, `..` and symlinks resolved
-        as the OS resolves them), never from the text: every component printed is a real
-        folder or file. On a case-insensitive volume the letter case is as the command wrote it."""
+        the file the operating system found, never from the text: on macOS the kernel's own
+        path of the opened file (F_GETPATH - `.`, `..`, symlinks, firmlinks and letter case as
+        on disk), elsewhere os.path.realpath. Device and volume-id paths (/dev/, /.vol/), whose
+        names are numbers, are refused, as is a `~user` that names no user."""
         if not isinstance(path, str) or not path or "\0" in path:
             return "?"
         candidates = []
@@ -194,9 +198,30 @@ class Paths:
         elif self.repo:
             candidates.append(os.path.join(self.repo, path))
         for candidate in candidates:
-            if os.path.isfile(candidate):
-                return self.show(os.path.realpath(candidate))
+            if candidate.startswith(("~", "/dev/", "/.vol/")) or not os.path.isfile(candidate):
+                continue
+            resolved = canonical_path(candidate)
+            if resolved and not resolved.startswith(("/dev/", "/.vol/")):
+                return self.show(resolved)
         return "?"
+
+
+def canonical_path(path):
+    """The operating system's own path of the file at `path`, or None if it cannot say."""
+    if sys.platform == "darwin" and hasattr(fcntl, "F_GETPATH"):
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError:
+            return None
+        try:
+            raw = fcntl.fcntl(fd, fcntl.F_GETPATH, b"\0" * 1024)
+        except OSError:
+            return None
+        finally:
+            os.close(fd)
+        return raw.split(b"\0", 1)[0].decode("utf-8", "replace") or None
+    resolved = os.path.realpath(path)
+    return resolved if os.path.isfile(resolved) else None
 
 
 def size_of(content):

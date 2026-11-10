@@ -354,6 +354,19 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path, monkeypatch):
     (elsewhere / "Mueller.AG" / "y.md").write_text("x\n")
     (repo / "link").symlink_to(elsewhere / "inner")
     assert label(f"cat {repo}/link/../Mueller.AG/y.md") == ("read", "Bash view <outside repo>/y.md")
+    # device and volume-id paths (names that are numbers) are refused; letter case is never the
+    # command's own: the file's name as on disk (case-insensitive volume) or no file at all
+    stat = os.stat(repo / "app" / "x.py")
+    assert label(f"cat /.vol/{stat.st_dev}/{stat.st_ino}") == ("read", "Bash view ?")
+    fd = os.open(repo / "app" / "x.py", os.O_RDONLY)
+    try:
+        assert label(f"cat /dev/fd/{fd}") == ("read", "Bash view ?")
+    finally:
+        os.close(fd)
+    assert label("cat APP/X.PY") in (("read", "Bash view app/x.py"), ("read", "Bash view ?"))
+    assert label("cat ~nosuchuser-7f3a/notes.md") == ("read", "Bash view ?")
+    # another repository's worktree is outside this one
+    assert paths.show("/elsewhere/.claude/worktrees/x/Mueller.AG/n.md") == "<outside repo>/n.md"
     # a worktree's absolute path falls back to the main checkout once the worktree is gone
     assert label(f"cat {tmp_path}/gone/.claude/worktrees/w2/app/x.py") == ("read", "Bash view app/x.py")
     # a redirection's `&` does not split a command
