@@ -23,7 +23,7 @@ A refused or failed detail never discards the car or the other details
 is asked, the savepoint rolls back that detail's rows alone, and the next
 open asks again only for what is `unavailable`. The breaker is charged per
 failed block as for any other call; a 403 never charges it
-(`.claude/rules/vehicle.md`, gateway decision). What a provider sends is
+(`.claude/rules/vehicle-gateway.md`, gateway decision). What a provider sends is
 stored defensively: a key repeated in one answer is one row, a text longer
 than its column is cut, an image whose URL does not fit is left out and
 said so in the log.

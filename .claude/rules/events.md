@@ -88,6 +88,6 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
   `vehicle.configuration_taken_by_*`). Its daily job `vehicle.configurations.purge_unattached`
   (registered last; retention, not a repair) asks the hosts' read-only
   `referenced_configuration_ids` as a safety net before it deletes a configuration no host ever
-  took, 30 days after it was created (`.claude/rules/vehicle.md`).
+  took, 30 days after it was created (`vehicle-configurator.md`).
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

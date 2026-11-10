@@ -195,7 +195,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   while there is one, the offer's before and again after that contract is cancelled (KAN-409).
   A contract made from an offer takes the offer's seller only while that seller
   is active or invited (`inherited_owner`), else its creator's. `app/sales/services/ownership.py`
-  is Sales' ownership provider for the deactivation step (`.claude/rules/platform.md`, D-A-35):
+  is Sales' ownership provider for the deactivation step (`platform-users.md`, D-A-35):
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a
   deactivated user and an owner id naming no user. The label follows a rename within a day
@@ -280,7 +280,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   An edit publishes no event — except that an offer or contract starting to hold a configuration id
   (Path B, the trade-in valuation, a copied offer, a contract from its offer) publishes
   `sales.offer.configuration_attached` / `sales.contract.configuration_attached` in its own
-  transaction, so Vehicle keeps a configuration a host took (KAN-270, `.claude/rules/vehicle.md`);
+  transaction, so Vehicle keeps a configuration a host took (KAN-270, `vehicle-configurator.md`);
   `sales.public.referenced_configuration_ids` is Vehicle's read-only safety net. Never give the contract a
   second copy of a pricing rule.
 - **One set of bounds for the shared pricing fields** (Anto, 2026-10-28, KAN-482: no negatives):
@@ -329,7 +329,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   customer language renders in the Betrieb's own default for customers
   (`platform.public.get_dealership_default_correspondence_language`, Customers FR-13), never a
   silent German (Anto, 2026-11-03, KAN-104 decision 3 A; `document.py::_document_language`).
-- **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
+- **ADR-051** — one shared document template layer (platform); see `platform-documents.md`.
 - **The offer's wording is the Betrieb's standard text** (KAN-208): `generate_offer_document`
   resolves `offer` / `intro` (the first paragraph) and `offer` / `footer` (`footer_text`) through
   `platform.public.render_standard_text` in the document's language, with Sales' facts as values

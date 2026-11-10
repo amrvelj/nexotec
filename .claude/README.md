@@ -3,6 +3,28 @@
 For Anto and any future developer. Claude does not load this file automatically — it opens it
 when it needs to explain or change the setup.
 
+## What a rule file may contain (KAN-614)
+
+`CLAUDE.md` loads in every session and a rule file whenever a matching file is read — in the
+builder and again in every reviewer pass — so each line costs on every ticket. A rule file holds
+**only what a session cannot learn from the code or from a failing test**:
+
+- **A ruling a test enforces:** one line, naming the test. The test is the rule; the line is the
+  pointer.
+- **A ruling stated in Notion:** the ruling in a sentence and its ADR or PRD reference — never the
+  reasoning, which lives at the reference.
+- **An invariant a session would otherwise get wrong** (a trap the code does not show, an open
+  question, "not built" where the code looks finished): kept, as short as it can be said.
+- **Never:** ticket history («KAN-n because …»), what the code already says (routes, columns,
+  function signatures), or a second copy of a PRD section.
+
+Budget: a rule file at most **12,000 bytes**, `CLAUDE.md` at most **16,000 bytes** (and 200 lines).
+`scripts/dev/check`'s `config` lane runs `scripts/rule_budget.py check`, which prints every file's
+size and fails over budget, with no allowlist: until KAN-615 has cut them, a file already over on
+`main` may only shrink. A file that outgrows its budget is split by sub-area, each part with globs
+for its own files only. `scripts/rule_budget.py scenarios` shows which rule files three typical
+tickets load, before and after a change.
+
 ## The pieces and their jobs
 
 | Piece | Loaded | Job |

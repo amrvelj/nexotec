@@ -170,7 +170,7 @@ file in the same PR as any change to what it states. -->
   (`valuation.public.list_valid_valuations_for_vin`, compared normalised). A VIN-only trade-in counts
   as a trade-in (`priced_deal.has_trade_in`: the container, and `tradeIn` on
   `sales.contract.confirmed`), so it becomes a pipeline item whose purchase booking creates the record
-  (ADR-103). A pre-1981 chassis number in `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds or
+  (ADR-103). A pre-1981 chassis number in `vin` (KAN-353, `vehicle-mdm.md`) never finds or
   links a vehicle-mdm record, not even the configuration's. The record-mode
   trade-in path (configurator → valuation → the offer or pending contract references it,
   `.../trade-in/valuation`) is built (KAN-10, KAN-67).

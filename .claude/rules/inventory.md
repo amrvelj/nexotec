@@ -35,8 +35,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   «Konfiguration zuordnen»'s rule), before vehicle-mdm or the item is touched; a configuration
   without one (a factory order) takes the typed VIN, an item without a configuration is unchanged.
   `RecordPurchaseDialog` prefills it, and on a car no contract reserves the refusal offers
-  «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle.md, Host / mode
-  matrix; Anto, 2026-11-02, KAN-510 option A: every stock car, pipeline or in stock, trade-ins
+  «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle-configurator.md,
+  hosts; Anto, 2026-11-02, KAN-510 option A: every stock car, pipeline or in stock, trade-ins
   included). A reserved car — a signed manual configuration's pipeline item — gets «Vertrag
   bearbeiten» on its configuration card instead, disabled with the reason: its contract is signed and
   frozen, so a wrong VIN there is corrected only after that contract is cancelled. A pipeline item is never bought without its
@@ -90,7 +90,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   KAN-378). Every inventory write checks `require_write` on its own matrix row — `stock_items`
   for the item's own record, `stock_acquisition`, `stock_condition`, `marketplace_publishing`,
   `stock_reservation` (KAN-376; `tests/test_inventory_write_capabilities.py`), so widening one
-  row opens no other write. Details in `.claude/rules/platform.md`.
+  row opens no other write. Details: `platform-users.md`.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
   `inventory.stock_item.purchased` (published once per booking, by `mark_purchased_if_ready` —
   twice for a car bought, stornoed and bought again (KAN-146); the legacy
