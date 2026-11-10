@@ -236,8 +236,10 @@ async function openOverlay(user: ReturnType<typeof userEvent.setup>) {
 
 /** The live catalogue grid shows variants only once a brand is chosen
  * (KAN-548): pick Volkswagen in the embedded grid, then the Golf GTI row. The
- * option is looked up *inside* the dialog: the drill-down's dropdown renders
- * in place (no portal), or the overlay would cover it. */
+ * option is found inside the dialog only because `renderWithProviders` mounts
+ * Mantine with `env="test"`, which turns portals off; in the app the dropdown
+ * is portalled and paints above the overlay (KAN-594, the ui-kit's
+ * `Overlay.portalLayers` test guards that). */
 async function pickGolfGti(user: ReturnType<typeof userEvent.setup>, container: HTMLElement) {
   await user.click(await within(container).findByRole('textbox', { name: i18n.t('catalogueBrowse.drilldown.brand') }))
   await user.click(await within(container).findByRole('option', { name: 'Volkswagen' }))

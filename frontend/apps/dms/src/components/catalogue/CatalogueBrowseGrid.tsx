@@ -60,11 +60,6 @@ const SORTABLE_FIELDS = new Set(['kw', 'displacementCcm', 'co2Gkm', 'doors', 'se
 // window focus and none while fresh, so a page the user already saw costs no
 // second billed request (ADR-112 (4)).
 const PROVIDER_QUERY = { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } as const
-// The drill-down's dropdowns render in place, not in Mantine's portal: the
-// configurator overlay (ADR-059) sits above the portal's popover layer, and a
-// brand is now the least the live catalogue needs (KAN-548) — a dropdown
-// hidden behind the overlay would leave the browse unusable there.
-const DROPDOWN_IN_PLACE = { withinPortal: false } as const
 
 function parseSortParam(raw: string): SortSpec[] {
   return raw
@@ -495,7 +490,6 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           value={vehicleKind}
           onChange={(value) => updateUrl({ kind: value && value !== DEFAULT_VEHICLE_KIND ? value : null, brand: null, modelGroup: null })}
           allowDeselect={false}
-          comboboxProps={DROPDOWN_IN_PLACE}
           w={200}
         />
         <Select
@@ -505,7 +499,6 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           value={brand}
           onChange={(value) => updateUrl({ brand: value, modelGroup: null })}
           error={brandsQuery.isError ? t('catalogueBrowse.drilldown.brandsLoadError') : undefined}
-          comboboxProps={DROPDOWN_IN_PLACE}
           clearable
           searchable
           w={220}
@@ -521,7 +514,6 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           value={modelGroupKey}
           onChange={(value) => updateUrl({ modelGroup: value })}
           disabled={!brand}
-          comboboxProps={DROPDOWN_IN_PLACE}
           clearable
           searchable
           w={240}

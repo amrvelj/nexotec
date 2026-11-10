@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
-import { radius, shadow, slate, white } from "../tokens";
+import { radius, shadow, slate, white, zIndex } from "../tokens";
 import { closeAllEntries, popEntry, pushEntry } from "./overlayStack";
+import { escapeBelongsToAPopupInside } from "./escapeOwnership";
 
 export interface OverlayEntry {
   /** Unique per push — used as the React key and as the target of a
@@ -82,14 +83,36 @@ export function OverlayProvider({
 
   // Escape closes the top layer only — never a full closeAll from one
   // keypress, which would silently discard whatever the layers below were
-  // mid-way through too.
+  // mid-way through too. And only when nothing inside the layer takes the
+  // Escape for itself (KAN-605): an Escape that dismisses a popover,
+  // dropdown, menu or modal, clears a search or cancels an inline edit
+  // belongs to that, not to the overlay.
+  const topLayerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (stack.length === 0) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") pop();
+    // Two phases. The capture listener reads whether a popup inside the
+    // layer is open *before* any handler runs: a Select closes its dropdown
+    // in React's keydown handler, which flushes synchronously, so at bubble
+    // time its input would already read closed. The bubble listener decides,
+    // after content had its turn: content that handles Escape itself claims
+    // it with `preventDefault()` (InlineEditField's cancel, the Action Bar's
+    // search clear, an open kit panel — `useEscapeClosesPanel`).
+    let ownedByPopup = false;
+    const onKeyDownCapture = (event: KeyboardEvent) => {
+      if (event.key === "Escape") ownedByPopup = escapeBelongsToAPopupInside(event.target, topLayerRef.current);
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.isComposing) return;
+      const claimed = ownedByPopup || event.defaultPrevented;
+      ownedByPopup = false;
+      if (!claimed) pop();
+    };
+    window.addEventListener("keydown", onKeyDownCapture, { capture: true });
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDownCapture, { capture: true });
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [stack.length, pop]);
 
   return (
@@ -98,6 +121,7 @@ export function OverlayProvider({
       {stack.map((entry, index) => (
         <div
           key={entry.key}
+          ref={index === stack.length - 1 ? topLayerRef : undefined}
           role="dialog"
           aria-modal="true"
           // Every layer stays in the tree; only the top one paints and can
@@ -109,7 +133,9 @@ export function OverlayProvider({
             display: index === stack.length - 1 ? "block" : "none",
             position: "fixed",
             inset: 0,
-            zIndex: 1000 + index,
+            // Below Mantine's modal and popover layers, so whatever the
+            // content opens in Mantine's portal paints above it (KAN-594).
+            zIndex: zIndex.overlay + index,
             backgroundColor: white,
             overflow: "auto",
           }}
@@ -125,7 +151,7 @@ export function OverlayProvider({
               position: "fixed",
               top: 16,
               right: 16,
-              zIndex: 1001 + index,
+              zIndex: zIndex.overlay + index + 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
