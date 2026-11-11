@@ -391,6 +391,10 @@ def test_the_downgrade_puts_the_type_approval_class_back_and_takes_the_seed_away
     both_marked.overridden_fields = ["vehicle_class", "ps", "homologation_class"]
     mark_only.overridden_fields = ["homologation_class"]
     kept_value.overridden_fields = ["homologation_class"]
+    editor = uuid.uuid4()
+    untouched = _configuration(db_session, variant=None, overridden_fields=["ps"])
+    for row in (config, both_marked, mark_only, kept_value, untouched):
+        row.updated_by = editor
     db_session.commit()
 
     migration.revert_data(db_session.connection())
@@ -405,9 +409,105 @@ def test_the_downgrade_puts_the_type_approval_class_back_and_takes_the_seed_away
     assert mark_only.overridden_fields == ["vehicle_class"]
     # A value that is neither a size class nor a type-approval class is not the downgrade's to clear.
     assert (kept_value.vehicle_class, kept_value.overridden_fields) == ("m2", ["vehicle_class"])
+    # A row the downgrade changed is a system write; one it left alone keeps its editor.
+    assert [row.updated_by for row in (config, both_marked, mark_only, kept_value)] == [None] * 4
+    assert (untouched.updated_by, untouched.overridden_fields) == (editor, ["ps"])
     assert [_mapping(db_session, category) for category in "123456"] == [None] * 6
     gap = db_session.scalars(select(MappingGap).where(MappingGap.code_group == "vehicle_class")).one()
     assert (gap.resolved, gap.resolved_value_code) == (False, None)
+
+
+# One override mark becomes two. `m1` is a type-approval class (it moves), `m2` a class an admin
+# added to the old list (it stays). Each row: the variant's old class (or how the configuration
+# names a variant), the configuration's old class and marks → its class, type-approval class and marks.
+_NO_VARIANT, _GONE_VARIANT = "no variant", "a variant that no longer exists"
+_MARK_STATES = [
+    # the advisor cleared the catalogue's type-approval class: the size class is free to be filled
+    ("m1", None, ["vehicle_class"], (None, None, ["homologation_class"])),
+    # ... cleared a class nothing remembers: likewise
+    (None, None, ["vehicle_class"], (None, None, ["homologation_class"])),
+    (_NO_VARIANT, None, ["vehicle_class"], (None, None, ["homologation_class"])),
+    (_GONE_VARIANT, None, ["vehicle_class"], (None, None, ["homologation_class"])),
+    # ... cleared a class that stays on the variant: it stays cleared (FR-C-03)
+    ("m2", None, ["vehicle_class"], (None, None, ["vehicle_class"])),
+    # typed one type-approval class over another
+    ("m1", "n1", ["vehicle_class"], (None, "n1", ["homologation_class"])),
+    (None, "m1", ["ps", "vehicle_class", "doors"], (None, "m1", ["ps", "homologation_class", "doors"])),
+    # typed a type-approval class over a class that stays: both decisions are kept
+    ("m2", "m1", ["ps", "vehicle_class"], (None, "m1", ["ps", "vehicle_class", "homologation_class"])),
+    # typed a class that stays over a type-approval class: both decisions are kept
+    ("m1", "m2", ["vehicle_class", "ps"], ("m2", None, ["vehicle_class", "homologation_class", "ps"])),
+    # typed a class that stays where the catalogue had none: nothing to change
+    (None, "m2", ["vehicle_class"], ("m2", None, ["vehicle_class"])),
+    # no mark, no decision: the value moves and nothing is marked
+    ("m1", "m1", [], (None, "m1", [])),
+    ("m1", "m1", ["ps"], (None, "m1", ["ps"])),
+]
+
+
+@_postgres_only
+@pytest.mark.parametrize(("variant_class", "config_class", "marks", "expected"), _MARK_STATES)
+def test_the_override_mark_is_reset_for_two_fields(db_session, variant_class, config_class, marks, expected):
+    variant = None
+    if variant_class not in (_NO_VARIANT, _GONE_VARIANT):
+        variant = _bare_variant(db_session)
+        variant.vehicle_class = variant_class
+    configuration = _configuration(db_session, variant=variant, vehicle_class=config_class, overridden_fields=marks)
+    if variant_class == _GONE_VARIANT:
+        configuration.catalogue_variant_id = uuid.uuid4()  # no foreign key: the id may name nothing
+    db_session.commit()
+    before = (configuration.vehicle_class, configuration.homologation_class, configuration.overridden_fields)
+    version = configuration.version
+
+    _apply(db_session)
+
+    after = (configuration.vehicle_class, configuration.homologation_class, configuration.overridden_fields)
+    assert after == expected
+    assert configuration.version == version + (after != before), "a row moves its version only when it changes"
+
+    _apply(db_session)
+    again = (configuration.vehicle_class, configuration.homologation_class, configuration.overridden_fields)
+    assert again == expected and configuration.version == version + (after != before), "a second run changes nothing"
+
+
+@_postgres_only
+def test_a_class_the_advisor_typed_over_is_never_handed_back_by_the_fill(db_session):
+    """The variant keeps an admin-added class (`m2`, mapped from category 5).
+    The advisor had typed `m1` over it. The `m1` moves to its own field — and
+    the emptied `vehicle_class` must not then be "filled" with the very `m2`
+    the advisor replaced (the third review's case F)."""
+
+    variant = _bare_variant(db_session)
+    variant.vehicle_class = "m2"
+    _raw_category(db_session, variant, "5")
+    db_session.add(_map("5", "m2"))
+    typed_over = _configuration(db_session, variant=variant, vehicle_class="m1", overridden_fields=["vehicle_class"])
+    untouched_copy = _configuration(db_session, variant=variant, vehicle_class="m2")
+    db_session.commit()
+
+    result = _apply(db_session)
+
+    assert (variant.vehicle_class, variant.homologation_class) == ("m2", None)
+    assert (typed_over.vehicle_class, typed_over.homologation_class) == (None, "m1")
+    assert typed_over.overridden_fields == ["vehicle_class", "homologation_class"]
+    assert (untouched_copy.vehicle_class, untouched_copy.overridden_fields) == ("m2", [])
+    assert result.configurations_filled == 0
+
+
+def test_the_downgrade_renders_offline_with_its_values():
+    run = subprocess.run(
+        [sys.executable, "-m", "alembic", "downgrade", "8e2b6c4f1a97:bb6e760d9464", "--sql"],
+        cwd=_VERSIONS.parent.parent, env=dict(os.environ), capture_output=True, text=True, timeout=300, check=False,
+    )
+    assert run.returncode == 0, run.stderr[-3000:]
+    statements = [line for line in run.stdout.splitlines() if line.startswith(("UPDATE vehicle_", "DELETE", "ALTER"))]
+    assert sum(line.startswith("ALTER TABLE") and "DROP COLUMN homologation_class" in line for line in statements) == 2
+    data = [line for line in statements if not line.startswith("ALTER")]
+    assert len(data) == 9  # the gaps reopened, six seeded rows taken away, the two carriers restored
+    sizes = "IN ('micro', 'city', 'compact', 'large', 'executive', 'luxury')"
+    # The size classes are written out wherever a statement names them — twice in each carrier's UPDATE.
+    assert [line.count(sizes) for line in data if line.startswith(("UPDATE vehicle_model_variant", "UPDATE vehicle_configuration"))] == [2, 2]
+    assert not any("IN (NULL)" in line or ":size_codes" in line or ":code_group" in line for line in data), data
 
 
 def test_the_migration_renders_offline_with_its_values():

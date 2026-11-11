@@ -18,17 +18,22 @@ so an offline `--sql` render writes the values (KAN-174):
 1. **Stored type-approval classes move to the new field, never dropped.** A
    variant or configuration whose `vehicle_class` is `m1` / `n1` / `l3e` /
    `l1e` gets that value in `homologation_class` and `vehicle_class` NULL (a
-   row's version moves once per step that changes it). On a configuration, an
-   override mark on `vehicle_class` (`overridden_fields`: the advisor typed
-   the class over the catalogue's, or cleared it) moves with the value. The
-   mark of an **empty** `vehicle_class` moves too where what the advisor
-   cleared can only have been a type-approval class — the configuration's
-   variant holds no class once its own type-approval class has moved — since
-   left in place it would keep the size class from ever being filled below.
-   Where the variant still holds a class (a value an admin added to the list,
-   which stays), the advisor cleared *that*: the mark stays and the field is
-   never refilled (FR-C-03). A mark beside a value that stays is kept as well.
-   A configuration this step changes is a system write: `updated_by` NULL.
+   row's version moves once per step that changes it); any other value stays
+   (one an admin added to the list, which the platform migration reports).
+
+   A configuration's **override mark** on `vehicle_class`
+   (`overridden_fields`: the advisor typed a class over the catalogue's, or
+   cleared it) was one mark for what are now two fields. It is re-set so that
+   no later fill — step 5 below, a resolved gap, a re-sync — hands the
+   configuration a value its advisor replaced or cleared (FR-C-03), and no
+   field stays shut that the advisor never decided on. After the move, each
+   of the two fields is marked where the configuration **or its variant**
+   holds a value in it: the advisor's own value there, or the catalogue's
+   value they turned down. A mark with neither (the advisor cleared a class
+   nothing remembers) goes to `homologation_class`, so the size class — which
+   nobody could have cleared before today — is free to be filled. The marks
+   take the old mark's place in the list. A configuration this step changes
+   is a system write: `updated_by` NULL.
 2. **A code-map row that maps a `vehicle_class` code to a type-approval class
    goes, and its gap reopens.** Its target left the list, so no resolve could
    write it today (`resolve_mapping_gap` checks the list). An admin's mapping
@@ -45,8 +50,8 @@ so an offline `--sql` render writes the values (KAN-174):
 5. **What the gaps left NULL is filled** (the KAN-83 / KAN-240 rule a resolve
    follows): each variant whose recorded raw `category` is now mapped, then
    each provider configuration built from such a variant — its NULL only,
-   never a set value, never a field the advisor cleared (the marks step 1
-   left in place), never a host's frozen snapshot (ADR-041).
+   never a set value, never a field marked overridden (step 1's marks),
+   never a host's frozen snapshot (ADR-041).
 
 **What this does not do.** No audit row and no `configuration.updated` event
 for the configurations step 5 fills or step 1 moves: `audit_event` and the
@@ -63,9 +68,11 @@ are undone — deliberately lossy for the size class, which the next lookup
 records again as a gap. The code-map rows step 2 removed are not restored
 either (the upgrade's output names each one), and the gaps it reopened stay
 open: an admin resolves them again against the old list. A value that is
-neither a size class nor a type-approval class is left where it is. An
-override mark beside a size class the downgrade clears stays on
-`vehicle_class`, where it then reads as a cleared class.
+neither a size class nor a type-approval class is left where it is, unless
+the row also holds a type-approval class: the one old column can take only
+one, and the type-approval class is what it held before. The two override
+marks become the one again; beside a size class the downgrade clears, it
+then reads as a cleared class.
 
 Revision ID: 8e2b6c4f1a97
 Revises: bb6e760d9464
@@ -139,9 +146,50 @@ def _has_override_mark(field: str) -> str:
     )
 
 
+def _moved_configuration() -> tuple[str, str, str]:
+    """Step 1 for a configuration, as SQL over its **old** row: the new
+    `vehicle_class`, the new `homologation_class` and the new
+    `overridden_fields` (the module docstring's rule). The variant is read as
+    step 1 has already left it. Each is the row's own value where nothing
+    about it changes, so running it again changes nothing."""
+
+    row = "vehicle_configuration"
+    moves = f"{row}.vehicle_class IN :homologation_codes"
+    size_class = f"(CASE WHEN {moves} THEN NULL ELSE {row}.vehicle_class END)"
+    type_approval_class = f"(CASE WHEN {moves} THEN {row}.vehicle_class ELSE {row}.homologation_class END)"
+
+    def variant_holds(column: str) -> str:
+        return (
+            "EXISTS (SELECT 1 FROM vehicle_model_variant AS v"
+            f" WHERE v.id = {row}.catalogue_variant_id AND v.{column} IS NOT NULL)"
+        )
+
+    marks_size = f"({size_class} IS NOT NULL OR {variant_holds('vehicle_class')})"
+    marks_type_approval = (
+        f"({type_approval_class} IS NOT NULL OR {variant_holds('homologation_class')} OR NOT {marks_size})"
+    )
+    # Where the old `vehicle_class` mark sat in the list; no row when there is none.
+    old_mark = (
+        "(SELECT MIN(m.position) AS position"
+        f" FROM json_array_elements_text({row}.overridden_fields) WITH ORDINALITY AS m(field, position)"
+        " WHERE m.field = 'vehicle_class' HAVING MIN(m.position) IS NOT NULL) AS old_mark"
+    )
+    marks = (
+        "(SELECT COALESCE(json_agg(placed.field ORDER BY placed.position, placed.rank), '[]'::json) FROM ("
+        " SELECT marked.field, marked.position, 0 AS rank"
+        f"  FROM json_array_elements_text({row}.overridden_fields) WITH ORDINALITY AS marked(field, position)"
+        "  WHERE marked.field NOT IN ('vehicle_class', 'homologation_class')"
+        f" UNION ALL SELECT 'vehicle_class', old_mark.position, 1 FROM {old_mark} WHERE {marks_size}"
+        f" UNION ALL SELECT 'homologation_class', old_mark.position, 2 FROM {old_mark} WHERE {marks_type_approval}"
+        ") AS placed)"
+    )
+    overridden_fields = f"(CASE WHEN {_has_override_mark('vehicle_class')} THEN {marks} ELSE {row}.overridden_fields END)"
+    return size_class, type_approval_class, overridden_fields
+
+
 class Result(NamedTuple):
     variants_moved: int
-    configurations_moved: int  # a stored class moved, or the override mark of an empty one
+    configurations_moved: int  # a stored class moved, or an override mark was re-set
     stale_mappings_removed: int
     gaps_reopened: int
     seeded: int
@@ -183,18 +231,16 @@ def apply_data(conn: Connection) -> Result:
         "UPDATE vehicle_model_variant SET homologation_class = vehicle_class, vehicle_class = NULL,"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE vehicle_class IN :homologation_codes",
     )
+    # The variants first: a configuration's marks are judged against its variant as moved.
+    size_class, type_approval_class, overridden_fields = _moved_configuration()
     configurations_moved = _run(
         conn,
-        "UPDATE vehicle_configuration SET homologation_class = COALESCE(vehicle_class, homologation_class),"
-        " vehicle_class = NULL,"
-        f" overridden_fields = {_rename_override_mark('vehicle_class', 'homologation_class')},"
+        f"UPDATE vehicle_configuration SET vehicle_class = {size_class},"
+        f" homologation_class = {type_approval_class}, overridden_fields = {overridden_fields},"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = NULL"
+        # Only a row something changes on: its class moves, or its mark is re-set.
         " WHERE vehicle_class IN :homologation_codes"
-        # ... or the mark of a cleared class, unless the variant still holds one (moved above
-        # if it was a type-approval class): then that value is what the advisor cleared.
-        f" OR (vehicle_class IS NULL AND {_has_override_mark('vehicle_class')}"
-        "  AND NOT EXISTS (SELECT 1 FROM vehicle_model_variant AS v"
-        "   WHERE v.id = vehicle_configuration.catalogue_variant_id AND v.vehicle_class IS NOT NULL))",
+        f" OR vehicle_configuration.overridden_fields::jsonb IS DISTINCT FROM {overridden_fields}::jsonb",
     )
 
     # 2. A mapping onto a type-approval class names a value the list no longer has.
