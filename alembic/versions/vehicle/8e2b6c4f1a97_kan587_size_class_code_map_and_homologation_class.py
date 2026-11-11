@@ -24,9 +24,10 @@ so an offline `--sql` render writes the values (KAN-174):
    A configuration's **override mark** on `vehicle_class`
    (`overridden_fields`: the advisor typed a class over the catalogue's, or
    cleared it) was one mark for what are now two fields. It is re-set so that
-   no later fill — step 5 below, a resolved gap, a re-sync — hands the
-   configuration a value its advisor replaced or cleared (FR-C-03), and no
-   field stays shut that the advisor never decided on. After the move, each
+   no later fill — step 5 below, a resolved gap — hands the configuration a
+   value its advisor replaced or cleared (FR-C-03), and no field stays shut
+   that the advisor never decided on (a re-sync is the advisor's own choice
+   per field; there the mark only labels the field). After the move, each
    of the two fields is marked where the configuration **or its variant**
    holds a value in it: the advisor's own value there, or the catalogue's
    value they turned down. A mark with neither (the advisor cleared a class
