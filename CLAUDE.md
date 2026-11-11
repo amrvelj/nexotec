@@ -98,17 +98,21 @@ second database, service template, broker or top-level `services/` directory. A 
 
 ## The twelve bounded contexts
 
+Listed in layer order, lowest first (ADR-131): a context calls only the `public` of a context above
+it in this table. `parts` sits beside `inventory`, `aftersales` beside `sales`, `reporting` beside
+`compliance` — peers, which call each other in neither direction.
+
 | Context | Owns |
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates |
-| `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
-| `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
-| `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
-| `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
-| `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters |
-| `aftersales` | *(stub)* service orders, appointments, labour, technicians |
+| `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
+| `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
+| `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |
+| `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
 | `parts` | *(stub)* part master, stock, suppliers, purchase orders |
+| `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
+| `aftersales` | *(stub)* service orders, appointments, labour, technicians |
 | `finance` | *(stub)* invoicing and payment matching — **not a ledger** (ADR-037) |
 | `reporting` | *(stub)* projections from events |
 | `compliance` | *(stub)* audit, revDSG, retention |
@@ -125,7 +129,9 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
    import-linter gates CI with **no suppression mechanism** and forbids every top-level module of a
    context but `public`; `test_import_contracts_cover_every_module.py` fails when a new module is
-   not listed. Moving a boundary is an ADR, not an ignore entry.
+   not listed. Moving a boundary is an ADR, not an ignore entry. Calls go **down** the layer order
+   only (ADR-131; the table above, core below it) — `test_context_dependency_direction.py` fails on
+   an upward import, lazy ones included, outside its debt list, which may only shrink.
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not
