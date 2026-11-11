@@ -89,7 +89,7 @@ weekly. -->
   here advises the customers they create here by default, may be picked, and is listed by the
   advisor picker (`list_active_users_acting_in`); their deactivation then decides those customers
   too, and a hand-over refuses a colleague who works in no Betrieb of a customer's dealer group
-  (KAN-423, Sales' `colleague_cannot_act_there`; `ownership.py`). The check runs only when the advisor changes, so a customer still advised by a leaver
+  (KAN-423, Sales' `colleague_cannot_act_there`; `customer/ownership.py`). The check runs only when the advisor changes, so a customer still advised by a leaver
   stays editable. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,

@@ -1129,7 +1129,8 @@ def test_new_phone_never_takes_the_flag_from_a_usable_primary(client):
 # (`validTo: null`, `doNotUse: false`) in a group with no usable row must
 # elect it, the mirror of the KAN-46 re-election; before KAN-113 the group
 # came back with a usable row and no primary. A reopened row never takes the
-# flag from an existing usable primary, and `isPrimary: true` on a row that
+# flag from an existing usable primary unless the same PATCH says
+# `isPrimary: true` (KAN-349, below), and `isPrimary: true` on a row that
 # is unusable after the PATCH leaves the group's usable primary alone.
 
 _REOPEN_PATCHES = [
@@ -1277,58 +1278,66 @@ def test_is_primary_on_an_already_dead_address_keeps_the_usable_primary(client, 
 # request: the reopened row becomes the primary and the group's usable
 # primary is demoted, as for a moved row (KAN-102). A PATCH that only
 # reopens still leaves the flag where it is (KAN-113, above).
+# Both orders are pinned: when the reopened row is the older one,
+# `_fixup_single_primary`'s oldest-wins tiebreak alone would give it the
+# flag; only the younger case shows the current primary is really demoted.
+
+_REOPENED = [pytest.param(0, id="older-row-reopened"), pytest.param(1, id="younger-row-reopened")]
 
 
+@pytest.mark.parametrize("which", _REOPENED)
 @pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
-def test_a_reopened_phone_with_is_primary_takes_the_flag(client, kill, reopen):
+def test_a_reopened_phone_with_is_primary_takes_the_flag(client, kill, reopen, which):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    first = _add_phone(client, token, customer["id"], "+41791111111")
-    _add_phone(client, token, customer["id"], "+41792222222")
-    _kill(client, token, customer["id"], "phones", first["id"], kill)
-    # +41792222222 was re-elected when the first died (KAN-46).
+    numbers = ["+41791111111", "+41792222222"]
+    rows = [_add_phone(client, token, customer["id"], number) for number in numbers]
+    _kill(client, token, customer["id"], "phones", rows[which]["id"], kill)
+    # The other row is the usable primary now (KAN-46 re-election, or it already was).
 
-    reopened = _patch(client, token, customer["id"], "phones", first["id"], {**reopen, "isPrimary": True})
+    reopened = _patch(client, token, customer["id"], "phones", rows[which]["id"], {**reopen, "isPrimary": True})
 
     assert reopened["isPrimary"] is True
     assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
-        "mobile": ["+41791111111"],
+        "mobile": [numbers[which]],
     }
-    assert _projections(client, token, customer["id"])["phoneMobile"] == "+41791111111"
+    assert _projections(client, token, customer["id"])["phoneMobile"] == numbers[which]
 
 
+@pytest.mark.parametrize("which", _REOPENED)
 @pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
-def test_a_reopened_email_with_is_primary_takes_the_flag(client, kill, reopen):
+def test_a_reopened_email_with_is_primary_takes_the_flag(client, kill, reopen, which):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     # The fixture's customer already has a usable personal email, so the
     # group under test is `work`.
-    first = _add_email(client, token, customer["id"], "first@example.ch", email_type="work")
-    _add_email(client, token, customer["id"], "second@example.ch", email_type="work")
-    _kill(client, token, customer["id"], "emails", first["id"], kill)
+    addresses = ["first@example.ch", "second@example.ch"]
+    rows = [_add_email(client, token, customer["id"], address, email_type="work") for address in addresses]
+    _kill(client, token, customer["id"], "emails", rows[which]["id"], kill)
 
-    reopened = _patch(client, token, customer["id"], "emails", first["id"], {**reopen, "isPrimary": True})
+    reopened = _patch(client, token, customer["id"], "emails", rows[which]["id"], {**reopen, "isPrimary": True})
 
     assert reopened["isPrimary"] is True
     assert _primaries(client, token, customer["id"], "emails", "emailType", "emailAddress")["work"] == [
-        "first@example.ch"
+        addresses[which]
     ]
 
 
+@pytest.mark.parametrize("which", _REOPENED)
 @pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
-def test_a_reopened_address_with_is_primary_takes_the_flag(client, kill, reopen):
+def test_a_reopened_address_with_is_primary_takes_the_flag(client, kill, reopen, which):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    first = _add_address(client, token, customer["id"], "Altweg")
-    _add_address(client, token, customer["id"], "Neuweg")
-    _kill(client, token, customer["id"], "addresses", first["id"], kill)
+    streets = ["Altweg", "Neuweg"]
+    rows = [_add_address(client, token, customer["id"], street) for street in streets]
+    _kill(client, token, customer["id"], "addresses", rows[which]["id"], kill)
 
-    reopened = _patch(client, token, customer["id"], "addresses", first["id"], {**reopen, "isPrimary": True})
+    reopened = _patch(client, token, customer["id"], "addresses", rows[which]["id"], {**reopen, "isPrimary": True})
 
     assert reopened["isPrimary"] is True
     assert _primaries(client, token, customer["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
-        "Altweg"
+        streets[which]
     ]
