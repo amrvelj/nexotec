@@ -5,6 +5,7 @@
   "allView": "Tutte le connessioni",
   "notConnected": "Non connesso",
   "connectError": "Non è stato possibile creare la connessione.",
+  "rotateError": "Non è stato possibile rinnovare i secret.",
   "platformScoped": "A livello di piattaforma",
   "platformConnectionsTitle": "Connessioni",
   "categories": {
@@ -38,7 +39,8 @@
   },
   "rotateModal": {
     "title": "Rinnova secret — {{name}}",
-    "hint": "Inserire un nuovo valore solo per i campi da sostituire — il rinnovo sostituisce, non legge mai il valore attuale."
+    "hint": "Inserire un nuovo valore solo per i campi da sostituire — il rinnovo sostituisce, non legge mai il valore attuale.",
+    "savedBeforeRefusal": "Già rinnovati prima del rifiuto: {{slots}}. Gli altri campi non sono stati salvati."
   },
   "columns": {
     "dealership": "Azienda",
