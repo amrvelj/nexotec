@@ -289,7 +289,8 @@
     "notes": {
       "entitlementAbsent": "The connection test found this option unlicensed; auto-i-dat was not asked.",
       "variantUnknownAtProvider": "auto-i-dat no longer lists this variant; there is nothing to load.",
-      "energyLabelAmbiguous": "auto-i-dat names different classes for this year depending on the gearbox; none was taken over."
+      "energyLabelAmbiguous": "auto-i-dat names different classes for this year depending on the gearbox; none was taken over.",
+      "providerRequestRefused": "auto-i-dat refused the request; “Reload” asks again."
     }
   }
 }

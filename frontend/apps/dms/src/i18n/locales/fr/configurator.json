@@ -289,7 +289,8 @@
     "notes": {
       "entitlementAbsent": "Le test de la connexion a constaté que cette option n'est pas sous licence ; auto-i-dat n'a pas été interrogé.",
       "variantUnknownAtProvider": "auto-i-dat ne répertorie plus cette variante ; il n'y a rien à charger.",
-      "energyLabelAmbiguous": "auto-i-dat indique pour cette année des classes différentes selon la boîte de vitesses ; aucune n'a été reprise."
+      "energyLabelAmbiguous": "auto-i-dat indique pour cette année des classes différentes selon la boîte de vitesses ; aucune n'a été reprise.",
+      "providerRequestRefused": "auto-i-dat a refusé la requête ; « Recharger » la renvoie."
     }
   }
 }

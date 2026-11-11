@@ -95,7 +95,10 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   `price_in_combination_with`) are stored and shown, **never enforced** (ADR-072). The colour's
   name is shown as delivered; its type is the advisor's pick from the `colour_type` /
   `interior_colour_type` lists. A failure's class name never reaches the screen
-  (`DetailStateNotice`).
+  (`DetailStateNotice`); a detail the provider refused (400/422 — `present`, note
+  `ProviderRequestError`) reads as one translated line, «auto-i-dat hat die Anfrage abgelehnt;
+  «Neu laden» fragt erneut», on the options, colours, tyre, images and summary notices, never as a
+  clean empty load (Anto, 2026-11-11, KAN-598 option A).
 
 ## Codes (ADR-044)
 - Provider codes never appear in application code: canonical taxonomy + `ProviderCodeMap`, keyed

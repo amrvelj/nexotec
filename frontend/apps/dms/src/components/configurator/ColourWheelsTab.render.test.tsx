@@ -272,3 +272,20 @@ describe('ColourWheelsTab — per-detail state (KAN-211, KAN-212)', () => {
     expect(screen.queryByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))).not.toBeInTheDocument()
   })
 })
+
+// KAN-598 (Anto, 2026-11-11, option A): a refused request on colours or tyres is said.
+describe('ColourWheelsTab — a refused request (KAN-598)', () => {
+  it('says auto-i-dat refused the colour request', () => {
+    renderTab({ spec: buildSpec({ colours: [], details: { ...detailsPresent, colours: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderRequestError' } } }) })
+    const notice = screen.getByTestId('detail-state-colours')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.providerRequestRefused'))
+    expect(notice).not.toHaveTextContent('ProviderRequestError')
+  })
+
+  it('says auto-i-dat refused the tyre request', () => {
+    renderTab({ spec: buildSpec({ tyreSpecs: [], details: { ...detailsPresent, tyreSpecs: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderRequestError' } } }) })
+    const notice = screen.getByTestId('detail-state-tyreSpecs')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.providerRequestRefused'))
+    expect(notice).not.toHaveTextContent('ProviderRequestError')
+  })
+})

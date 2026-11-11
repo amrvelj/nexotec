@@ -289,7 +289,8 @@
     "notes": {
       "entitlementAbsent": "Il test della connessione ha rilevato che questa opzione non è in licenza; auto-i-dat non è stato interrogato.",
       "variantUnknownAtProvider": "auto-i-dat non elenca più questa variante; non c'è nulla da caricare.",
-      "energyLabelAmbiguous": "auto-i-dat indica per quest'anno classi diverse a seconda del cambio; nessuna è stata ripresa."
+      "energyLabelAmbiguous": "auto-i-dat indica per quest'anno classi diverse a seconda del cambio; nessuna è stata ripresa.",
+      "providerRequestRefused": "auto-i-dat ha rifiutato la richiesta; «Ricarica» la ripete."
     }
   }
 }

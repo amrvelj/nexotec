@@ -152,3 +152,14 @@ describe('ImagesTab', () => {
     expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
   })
 })
+
+// KAN-598 (Anto, 2026-11-11, option A): a refused request is said, never «keine Bilder».
+describe('ImagesTab — a refused request (KAN-598)', () => {
+  it('says auto-i-dat refused the image request instead of the empty state', () => {
+    renderTab({ spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderRequestError' } } }) })
+    const notice = screen.getByTestId('detail-state-images')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.providerRequestRefused'))
+    expect(notice).not.toHaveTextContent('ProviderRequestError')
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
+})

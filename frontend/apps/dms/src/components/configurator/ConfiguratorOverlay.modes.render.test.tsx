@@ -238,6 +238,28 @@ describe('ConfiguratorOverlay — colour type on a reopened configuration (KAN-2
     expect(notice).not.toHaveTextContent('energy_label_ambiguous')
   })
 
+  it('says on the summary that auto-i-dat refused the Energieetikette request (KAN-598)', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants\/v1\/specification$/,
+        handler: () => ({
+          hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false,
+          details: { ...detailsPresent, energyLabel: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderRequestError' } },
+          dealerCanUploadImages: true, options: [], colours: [], tyreSpecs: [], images: [], optionRelations: [],
+        }),
+      },
+      ...BASE_ROUTES,
+    ])
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} existing={configurationRead()} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByText(i18n.t('configurator.sections.summary')))
+    const notice = await screen.findByTestId('detail-state-energyLabel')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.providerRequestRefused'))
+    expect(notice).not.toHaveTextContent('ProviderRequestError')
+  })
+
   it('renders no energy-label notice on the summary when the label is simply loaded', async () => {
     const user = userEvent.setup()
     installFakeBackend(BASE_ROUTES)
