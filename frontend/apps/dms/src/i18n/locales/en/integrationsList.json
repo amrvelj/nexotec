@@ -5,6 +5,7 @@
   "allView": "All connections",
   "notConnected": "Not connected",
   "connectError": "The connection could not be created.",
+  "rotateError": "The secrets could not be rotated.",
   "platformScoped": "Platform-wide",
   "platformConnectionsTitle": "Connections",
   "categories": {
@@ -38,7 +39,8 @@
   },
   "rotateModal": {
     "title": "Rotate secrets — {{name}}",
-    "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value."
+    "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value.",
+    "savedBeforeRefusal": "Already rotated: {{slots}}. Refused for “{{refused}}”:"
   },
   "columns": {
     "dealership": "Business",

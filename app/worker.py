@@ -73,7 +73,12 @@ from app.sales.consumers import (
     handle_stock_item_purchased_message,
     handle_stock_item_storno_message,
 )
-from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
+from app.sales.public import (
+    oldest_customer_label_age_seconds,
+    oldest_owner_label_age_seconds,
+    refresh_customer_labels,
+    refresh_owner_labels,
+)
 from app.vehicle.consumers import handle_configuration_taken_message, handle_invoice_requested_message
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
 from app.vehicle.public import run_daily_plate_lookup_purge
@@ -269,6 +274,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("customer.advisor", advisor_label_age)
     owner_label_age = oldest_owner_label_age_seconds(db)
     record_label_age_seconds("sales.owner", owner_label_age)
+    customer_label_age = oldest_customer_label_age_seconds(db)
+    record_label_age_seconds("sales.customer", customer_label_age)
     configuration_label_age = oldest_configuration_label_age_seconds(db)
     record_label_age_seconds("inventory.configuration", configuration_label_age)
 
@@ -282,6 +289,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "vehiclePartyLabelAgeSeconds": vehicle_party_label_age,
             "advisorLabelAgeSeconds": advisor_label_age,
             "ownerLabelAgeSeconds": owner_label_age,
+            "salesCustomerLabelAgeSeconds": customer_label_age,
             "configurationLabelAgeSeconds": configuration_label_age,
         },
     )
@@ -302,6 +310,11 @@ def _refresh_owner_labels(db: Session) -> None:
     logger.info("sales.owner_labels: %d offer, contract or deal row(s) relabelled", changed)
 
 
+def _refresh_customer_labels(db: Session) -> None:
+    changed = refresh_customer_labels(db)
+    logger.info("sales.customer_labels: %d offer, contract or deal row(s) relabelled", changed)
+
+
 def _refresh_configuration_labels(db: Session) -> None:
     changed = refresh_configuration_labels(db)
     logger.info("inventory.configuration_labels: %d stock item(s) relabelled", changed)
@@ -315,7 +328,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Thirteen daily jobs, run in registration order once per day on this
+    """Fourteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -335,40 +348,47 @@ def register_daily_jobs() -> None:
        seller's name on every offer, contract and deal row (KAN-200's
        ``owner_label``), so a renamed seller's new name reaches the Sales grid
        within a day.
-    5. ``inventory.configuration_labels`` — KAN-534: the same for Stock's
+    5. ``sales.customer_labels`` — KAN-590: the same for the customer's
+       name (and correspondence language) on open work — an offer no
+       signed contract was made from, a pending contract and their deal
+       rows — through
+       app.customer.public, so a corrected name reaches the Sales list and the
+       next document within a day. A signed contract keeps the name the buyer
+       signed under (Anto, 2026-11-10).
+    6. ``inventory.configuration_labels`` — KAN-534: the same for Stock's
        copy of each stock item's configuration label, so a configuration
        edited after it was attached («Konfiguration bearbeiten», KAN-510)
        shows its new label in the stock list's «Konfiguration» column within
        a day. The item's own ``vehicle_label`` («Fahrzeug») is not touched.
-    6. ``reconciliation.run_all`` — the nightly cross-context reconciliation
+    7. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
        reference; this job walking every context's ReferenceCheck list is
        the entire compensating control. A finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run the same day.
-    7. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
+    8. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it
        (app.inventory.daily_jobs). A repair, so not part of the read-only
        reconciliation; after it, so that, when reconciliation ran first that
        day, a reservation naming a missing contract is recorded as a
        dangling reference before it is released.
-    8. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+    9. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
-    9. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
+    10. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
        records of HTTP requests older than 24 hours (KAN-119): a retry comes
        within minutes, and a stored response can carry personal data. The
        records a context keeps under its own path (inventory's
        ``inventory.reserve:<item>``) are left alone.
-    10. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
+    11. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
        ``valid_to`` has passed is deactivated and their open records released
        to the modules' queues; a release a module refused is retried for 30
        days (a repair of the owning step, after reconciliation like Stock's
        sweep, so the night's report still names the record first).
-    11. ``platform.notifications.digest`` — KAN-216 (FR-A-48): notifications
+    12. ``platform.notifications.digest`` — KAN-216 (FR-A-48): notifications
        held for a family set to ``digest`` reach the inbox; one push each.
-    12. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
+    13. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
        inbox keeps 90 days; no push subscription outlives a revoked session.
-    13. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    14. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -379,19 +399,20 @@ def register_daily_jobs() -> None:
     register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
     register_daily_job("customer.advisor_labels", _refresh_advisor_labels)
     register_daily_job("sales.owner_labels", _refresh_owner_labels)
+    register_daily_job("sales.customer_labels", _refresh_customer_labels)
     register_daily_job("inventory.configuration_labels", _refresh_configuration_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
     register_daily_job("core.idempotency_records.purge", run_daily_idempotency_record_purge)
-    # 9. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
+    # 11. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
     #    and their open records released to the modules' queues.
     register_daily_job("platform.user_expiry", run_daily_user_expiry)
-    # 10./11. KAN-216 (FR-A-48, FR-A-50): the day's digests reach the inbox
+    # 12./13. KAN-216 (FR-A-48, FR-A-50): the day's digests reach the inbox
     #    with one push each; the inbox keeps 90 days.
     register_daily_job("platform.notifications.digest", run_daily_notification_digest)
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
-    # 13. KAN-270: a configuration no host ever took goes after 30 days.
+    # 14. KAN-270: a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", run_daily_unattached_configuration_purge)
 
 

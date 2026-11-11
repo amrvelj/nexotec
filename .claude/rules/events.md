@@ -65,7 +65,7 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84;
-  `customer.advisor_labels`, KAN-403; `sales.owner_labels`, KAN-404; `inventory.configuration_labels`, KAN-534) is not
+  `customer.advisor_labels`, KAN-403; `sales.owner_labels`, KAN-404; `sales.customer_labels`, KAN-590; `inventory.configuration_labels`, KAN-534) is not
   a repair: the label is a copy, refreshed on purpose, and its age is a gauge
   (`dms.label.age_seconds`, alert threshold in README's alarm table). A label may also follow
   its owner's event — `vehicle.vehicle_mdm.summary_changed` →

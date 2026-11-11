@@ -68,7 +68,8 @@ def _make_provider(db_session, **overrides) -> IntegrationProvider:
 
 
 def test_secret_value_never_returned_on_set_or_rotate(db_session):
-    provider = _make_provider(db_session)
+    # KAN-602: a connection holds only the slots its provider declares.
+    provider = _make_provider(db_session, required_secret_slots=["password", "client_secret"])
     backend = FakeSecretsBackend()
     connection = connection_service.create_connection(
         db_session, tenant_id=uuid.uuid4(),
@@ -93,7 +94,8 @@ def test_secret_value_never_returned_on_set_or_rotate(db_session):
 
 
 def test_secret_ref_is_a_pointer_not_a_value_at_rest(db_session):
-    provider = _make_provider(db_session)
+    # KAN-602: a connection holds only the slots its provider declares.
+    provider = _make_provider(db_session, required_secret_slots=["password", "client_secret"])
     backend = FakeSecretsBackend()
     connection = connection_service.create_connection(
         db_session, tenant_id=uuid.uuid4(),
@@ -112,7 +114,8 @@ def test_secret_ref_is_a_pointer_not_a_value_at_rest(db_session):
 def test_multiple_secret_slots_per_connection(db_session):
     """One row per slot a connection holds — two slots, two rows."""
 
-    provider = _make_provider(db_session)
+    # KAN-602: a connection holds only the slots its provider declares.
+    provider = _make_provider(db_session, required_secret_slots=["password", "client_secret"])
     backend = FakeSecretsBackend()
     connection = connection_service.create_connection(
         db_session, tenant_id=uuid.uuid4(),
@@ -132,7 +135,8 @@ def test_multiple_secret_slots_per_connection(db_session):
 
 
 def test_delete_connection_deletes_every_secret_slot_from_the_backend(db_session):
-    provider = _make_provider(db_session)
+    # KAN-602: a connection holds only the slots its provider declares.
+    provider = _make_provider(db_session, required_secret_slots=["password", "client_secret"])
     backend = FakeSecretsBackend()
     connection = connection_service.create_connection(
         db_session, tenant_id=uuid.uuid4(),

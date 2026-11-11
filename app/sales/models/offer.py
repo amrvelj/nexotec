@@ -12,12 +12,15 @@ records over time).
 staleness class" rule established for this package: offer_number itself is
 an immutable business key and never refreshes; these three are genuinely
 mutable display fields and share ONE refresh timestamp. What keeps them
-current today: the buyer's attach (`offer.apply_customer_change`) and the
+current today: the buyer's attach (`offer.apply_customer_change`), the
 `sales.customer_merged` consumer, which writes the survivor's label onto
-every moved row (`services/customer_merge.py`, KAN-580). A
-customer renamed later is NOT followed (no `customer.updated` consumer and no
-nightly label job yet), and `customer_locality` is written by no path yet
-(both KAN-590).
+every moved row (`services/customer_merge.py`, KAN-580), and the nightly
+`sales.customer_labels` job (`services/customer_label.py`, KAN-590), which
+re-reads the label and the correspondence language of a renamed customer on
+open work — a draft or open offer no signed contract was made from, a pending
+contract and their deal rows — within a day; a signed contract and its offer
+keep the name the buyer signed under (Anto, 2026-11-10). `customer_locality` is written by no path at all and stays so
+(Anto, 2026-11-10: neither filled nor dropped).
 
 `vehicle_label` here is a plain mutable working field, distinct from the
 ADR-041 *frozen* `vehicle_snapshot` that PR-3 adds once pricing exists —

@@ -198,13 +198,13 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   is Sales' ownership provider for the deactivation step (`platform-users.md`, D-A-35):
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a
-  deactivated user and an owner id naming no user. The label follows a rename within a day
-  (KAN-404): the nightly `sales.owner_labels` job (`app/sales/services/owner_label.py`, after
-  `customer.advisor_labels`) re-reads every seller's name on offers, contracts and deal rows
-  through `platform.public.get_user_display_labels`, with the advisor job's rules — `version` not
-  bumped, a deactivated user's label kept, an id naming no user left alone, each batch
-  `FOR NO KEY UPDATE SKIP LOCKED` one table at a time (offer → contract → deal); gauge
-  `dms.label.age_seconds{label="sales.owner"}`.
+  deactivated user and an owner id naming no user. Both labels follow a rename overnight, by the
+  advisor job's rules (no `version` bump, unknown ids left alone, batches `FOR NO KEY UPDATE
+  SKIP LOCKED`, offer → contract → deal): `sales.owner_labels` (KAN-404; a deactivated
+  seller's kept) and `sales.customer_labels` (KAN-590, Anto 1A; see its docstring):
+  the buyer's name and language on open work only — signed work keeps its name, an offer
+  with a live contract of its own buyer mirrors it (rule 2). Gauges `sales.owner`,
+  `sales.customer`. `customer_locality` stays unfilled (ruled).
 
 ## Price and VAT (ADR-057)
 

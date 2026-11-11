@@ -50,6 +50,7 @@ from app.integration.errors import (
     ProviderRejectedError,
     ProviderTimeoutError,
     ProviderTransportError,
+    ProviderUserQuotaExceededError,
 )
 from app.integration.services.metering import provider_request
 from app.integration.services.resilience import DEFAULT_TIMEOUT_SECONDS, call_with_retry
@@ -321,7 +322,7 @@ def _accept_token_response(response: httpx.Response) -> AccessToken:
         error_code = _error_code(response)
         detail = f" ({error_code})" if error_code else ""
         if error_code == "user_quota_exceeded":
-            raise ProviderRejectedError(
+            raise ProviderUserQuotaExceededError(
                 "auto-i refused to enrol this user: the account's user quota is exceeded — "
                 "auto-i-dat has to raise it (token endpoint answered HTTP 400, user_quota_exceeded)."
             )

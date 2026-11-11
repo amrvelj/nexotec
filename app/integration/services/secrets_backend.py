@@ -34,7 +34,7 @@ import os
 import uuid
 from collections.abc import Callable
 from functools import lru_cache
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from app.core.errors import ConflictError
 
@@ -91,9 +91,9 @@ def _status_of(exc: Exception) -> int | None:
     return status if isinstance(status, int) else None
 
 
-def _call(operation: str, fn: Callable[[], _T], *, quiet: bool = False) -> _T:
-    """Every Infisical SDK call goes through here, and whatever it raises
-    becomes a `SecretsBackendError` naming `operation`:
+def _attempt(operation: str, fn: Callable[[], _T]) -> _T:
+    """One Infisical SDK call; whatever it raises becomes a
+    `SecretsBackendError` naming `operation`:
 
     - `APIError` — Infisical answered with an HTTP error; `status` is it.
     - `InfisicalError` without a status — an answer that was not JSON.
@@ -104,12 +104,7 @@ def _call(operation: str, fn: Callable[[], _T], *, quiet: bool = False) -> _T:
       `RequestException` is an `OSError` subclass, so `requests` is not
       imported here (KAN-550 keeps it out of `app/`).
 
-    Each failure is logged at WARNING (`_warn`) so a misconfigured deployment
-    shows in its log before a dealer reports it (rule 10) — unless `quiet`:
-    a caller that may absorb the answer (a 404 on a delete is «already
-    gone», a create a concurrent request beat is fine) logs only what it
-    finally raises, so the log never reads «refused» for a success. The
-    original exception stays on the traceback.
+    The original exception stays on the traceback; nothing is logged here.
     """
 
     from infisical_sdk.infisical_requests import InfisicalError
@@ -119,9 +114,43 @@ def _call(operation: str, fn: Callable[[], _T], *, quiet: bool = False) -> _T:
     except (InfisicalError, OSError) as exc:
         error = SecretsBackendError(operation=operation, status=_status_of(exc))
         error.cause = type(exc).__name__
+        raise error from exc
+
+
+def _call(operation: str, fn: Callable[[Any], _T], *, quiet: bool = False) -> _T:
+    """Every Infisical SDK call but the login goes through here: `fn` is
+    handed the process's logged-in client.
+
+    A refused login (`_client`) is the refusal at once: the credential is
+    wrong, and logging in again would only be refused again. A 401 on the
+    call itself means the client's access token is no longer accepted — Universal
+    Auth tokens expire (30 days by default) and the SDK never renews one
+    (KAN-606). The cached client is dropped, the process logs in once more and
+    `fn` runs once more with the fresh client; a second 401 is the refusal.
+    Nothing is retried for any other answer.
+
+    Each failure is logged at WARNING (`_warn`) so a misconfigured deployment
+    shows in its log before a dealer reports it (rule 10) — unless `quiet`:
+    a caller that may absorb the answer (a 404 on a delete is «already
+    gone», a create a concurrent request beat is fine) logs only what it
+    finally raises, so the log never reads «refused» for a success.
+    """
+
+    try:
+        client = _client()
+        try:
+            return _attempt(operation, lambda: fn(client))
+        except SecretsBackendError as exc:
+            if exc.status != 401:
+                raise
+            logger.info("secrets manager token refused on %s (status=401); logging in again", operation)
+            _login.cache_clear()
+            fresh = _client()
+            return _attempt(operation, lambda: fn(fresh))
+    except SecretsBackendError as error:
         if not quiet:
             _warn(error)
-        raise error from exc
+        raise
 
 
 def _warn(error: SecretsBackendError) -> None:
@@ -150,9 +179,11 @@ def _login():
 
 def _client():
     """The process's one logged-in client. A refused login is a
-    `SecretsBackendError` and is not cached: the next call logs in again."""
+    `SecretsBackendError` (logged by `_call`, which every caller goes through)
+    and is not cached: the next call logs in again. A client whose token
+    expired is dropped by `_call` on its first 401 (KAN-606)."""
 
-    return _call("login", _login)
+    return _attempt("login", _login)
 
 
 def _secret_path(connection_id: uuid.UUID) -> str:
@@ -171,17 +202,17 @@ def secret_ref_for(*, connection_id: uuid.UUID, slot: str) -> str:
     return f"{_secret_path(connection_id)}{slot}"
 
 
-def _folder_exists(client, *, name: str, parent_path: str) -> bool:
+def _folder_exists(*, name: str, parent_path: str) -> bool:
     listing = _call(
         "list_folders",
-        lambda: client.folders.list_folders(
+        lambda client: client.folders.list_folders(
             project_id=os.environ[_ENV_PROJECT_ID], environment_slug=_environment_slug(), path=parent_path
         ),
     )
     return any(folder.name == name for folder in listing.folders)
 
 
-def _ensure_folder(client, *, name: str, parent_path: str) -> None:
+def _ensure_folder(*, name: str, parent_path: str) -> None:
     """Create `parent_path/name` unless it exists — idempotently.
 
     Infisical creates no missing folder on a secret write (KAN-604: the first
@@ -191,12 +222,12 @@ def _ensure_folder(client, *, name: str, parent_path: str) -> None:
     the folder is listed again, and only a folder still missing re-raises.
     """
 
-    if _folder_exists(client, name=name, parent_path=parent_path):
+    if _folder_exists(name=name, parent_path=parent_path):
         return
     try:
         _call(
             "create_folder",
-            lambda: client.folders.create_folder(
+            lambda client: client.folders.create_folder(
                 name=name,
                 environment_slug=_environment_slug(),
                 project_id=os.environ[_ENV_PROJECT_ID],
@@ -205,7 +236,7 @@ def _ensure_folder(client, *, name: str, parent_path: str) -> None:
             quiet=True,
         )
     except SecretsBackendError as exc:
-        if _folder_exists(client, name=name, parent_path=parent_path):
+        if _folder_exists(name=name, parent_path=parent_path):
             return
         _warn(exc)
         raise
@@ -217,12 +248,11 @@ def create_secret(*, connection_id: uuid.UUID, slot: str, value: str) -> str:
 
     if not _configured():
         raise SecretsBackendNotConfigured()
-    client = _client()
-    _ensure_folder(client, name=_ROOT_FOLDER, parent_path="/")
-    _ensure_folder(client, name=str(connection_id), parent_path=_SECRET_PATH_PREFIX)
+    _ensure_folder(name=_ROOT_FOLDER, parent_path="/")
+    _ensure_folder(name=str(connection_id), parent_path=_SECRET_PATH_PREFIX)
     _call(
         "create_secret",
-        lambda: client.secrets.create_secret_by_name(
+        lambda client: client.secrets.create_secret_by_name(
             secret_name=slot,
             secret_path=_secret_path(connection_id),
             environment_slug=_environment_slug(),
@@ -239,10 +269,9 @@ def update_secret(*, connection_id: uuid.UUID, slot: str, value: str) -> str:
 
     if not _configured():
         raise SecretsBackendNotConfigured()
-    client = _client()
     _call(
         "update_secret",
-        lambda: client.secrets.update_secret_by_name(
+        lambda client: client.secrets.update_secret_by_name(
             current_secret_name=slot,
             secret_path=_secret_path(connection_id),
             environment_slug=_environment_slug(),
@@ -260,11 +289,10 @@ def delete_secret(*, connection_id: uuid.UUID, slot: str) -> None:
 
     if not _configured():
         raise SecretsBackendNotConfigured()
-    client = _client()
     try:
         _call(
             "delete_secret",
-            lambda: client.secrets.delete_secret_by_name(
+            lambda client: client.secrets.delete_secret_by_name(
                 secret_name=slot,
                 secret_path=_secret_path(connection_id),
                 environment_slug=_environment_slug(),
@@ -292,11 +320,10 @@ def delete_connection_folder(*, connection_id: uuid.UUID) -> None:
 
     if not _configured():
         raise SecretsBackendNotConfigured()
-    client = _client()
     try:
         _call(
             "delete_folder",
-            lambda: client.folders.delete_folder(
+            lambda client: client.folders.delete_folder(
                 folder_id_or_name=str(connection_id),
                 environment_slug=_environment_slug(),
                 project_id=os.environ[_ENV_PROJECT_ID],
@@ -319,10 +346,9 @@ def resolve_secret(*, connection_id: uuid.UUID, slot: str) -> str:
 
     if not _configured():
         raise SecretsBackendNotConfigured()
-    client = _client()
     secret = _call(
         "get_secret",
-        lambda: client.secrets.get_secret_by_name(
+        lambda client: client.secrets.get_secret_by_name(
             secret_name=slot,
             secret_path=_secret_path(connection_id),
             environment_slug=_environment_slug(),

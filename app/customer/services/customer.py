@@ -16,6 +16,7 @@ import datetime as dt
 import hashlib
 import logging
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -2803,6 +2804,50 @@ def customer_display_name(customer: Customer) -> str:
     if customer.company_name:
         return customer.company_name
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
+
+
+@dataclass(frozen=True)
+class CustomerSalesLabel:
+    """What Sales copies of a customer beside its `customer_id` (rule 2):
+    the display name (`customer_display_name`) and the correspondence
+    language. `merged` says the record was merged into another — Sales'
+    merge consumer moves its rows to the survivor (KAN-185), so a label job
+    leaves such a row as it is."""
+
+    label: str
+    language: str
+    merged: bool
+
+
+def get_customer_sales_labels(db: Session, customer_ids: set[uuid.UUID]) -> dict[uuid.UUID, CustomerSalesLabel]:
+    """KAN-590: the labels of `customer_ids`, for Sales' nightly
+    `sales.customer_labels` job — one read per batch, never a join into this
+    context's tables. An id that names no customer is absent from the answer.
+    Read by id only: each id was resolved in its caller's group when Sales
+    attached it."""
+
+    if not customer_ids:
+        return {}
+    # Only what the label needs: a whole row would decrypt `tax_id` for every
+    # customer on open work each night (as in list_vehicle_party_holders).
+    rows = db.scalars(
+        select(Customer)
+        .options(
+            load_only(
+                Customer.company_name, Customer.first_name, Customer.last_name, Customer.customer_number,
+                Customer.language, Customer.lifecycle_status,
+            )
+        )
+        .where(Customer.id.in_(customer_ids))
+    ).all()
+    return {
+        row.id: CustomerSalesLabel(
+            label=customer_display_name(row),
+            language=row.language.value,
+            merged=row.lifecycle_status == CustomerLifecycleStatus.MERGED,
+        )
+        for row in rows
+    }
 
 
 def list_other_vehicle_parties_batch(

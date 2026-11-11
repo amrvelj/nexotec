@@ -151,7 +151,8 @@
     "provider_quote_stale": "La prima immatricolazione o il chilometraggio differiscono dalla valutazione auto-i-dat. Ottenerla di nuovo.",
     "provider_quote_inputs_missing": "La valutazione auto-i-dat richiede la prima immatricolazione e il chilometraggio.",
     "provider_not_configured": "Il collegamento ad auto-i-dat non è configurato completamente — verificarlo nell’amministrazione dell’azienda, sotto Integrazioni.",
-    "secrets_backend_failed": "L’archivio sicuro delle credenziali non ha eseguito la richiesta — non è stato salvato nulla. Riprovare più tardi; se l’errore persiste, informare il supporto Nexotec."
+    "secrets_backend_failed": "L’archivio sicuro delle credenziali non ha eseguito la richiesta — non è stato salvato nulla. Riprovare più tardi; se l’errore persiste, informare il supporto Nexotec.",
+    "secret_slot_not_used_by_provider": "Questo fornitore non utilizza questa credenziale — non è stata salvata."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

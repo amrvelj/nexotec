@@ -61,6 +61,18 @@ class ProviderRejectedError(ProviderGatewayError):
     """
 
 
+class ProviderUserQuotaExceededError(ProviderRejectedError):
+    """auto-i refused to enrol the acting user (`user_quota_exceeded` at the
+    token endpoint, KAN-586): the service account has no user quota left for
+    one more Nexotec user. A refused login like any other for the caller — the
+    same message, the same handling — but it is this one user's answer, not
+    the connection's: the gateway never charges it to the circuit breaker, so
+    five users auto-i will not enrol cannot take the connection offline for
+    the users who hold a token. A wrong client secret (401) stays a plain,
+    charged `ProviderRejectedError`.
+    """
+
+
 class ProviderNotEntitledError(ProviderGatewayError):
     """The provider answered 403 (KAN-488): the account is valid but the
     licence does not include this operation. `gateway.test_connection`'s

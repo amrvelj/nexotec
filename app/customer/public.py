@@ -8,11 +8,13 @@ from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.ownership import CustomerOwnershipProvider
 from app.customer.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
 from app.customer.services.customer import (
+    CustomerSalesLabel,
     allocate_vehicle_party,
     channel_authorises_marketing,
     customer_display_name,
     customer_in_group,
     get_customer_or_404,
+    get_customer_sales_labels,
     has_usable_domicile_address,
     list_customer_vehicles,
     list_vehicle_parties,
@@ -30,6 +32,7 @@ __all__ = [
     "Customer",
     "CustomerLifecycleStatus",
     "CustomerOwnershipProvider",
+    "CustomerSalesLabel",
     "VehicleParty",
     "VehiclePartyRole",
     "allocate_vehicle_party",
@@ -38,6 +41,7 @@ __all__ = [
     "customer_display_name",
     "customer_in_group",
     "get_customer_or_404",
+    "get_customer_sales_labels",
     "has_any_basis_for_group",
     "has_usable_domicile_address",
     "list_customer_vehicles",

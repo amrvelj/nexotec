@@ -341,18 +341,50 @@ function RotateSecretModal({
   const { t } = useTranslation()
   const [values, setValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // KAN-607 — the slots this attempt replaced before a later one was refused,
+  // and the slot that was refused.
+  const [savedBeforeRefusal, setSavedBeforeRefusal] = useState<string[]>([])
+  const [refusedSlot, setRefusedSlot] = useState<string | null>(null)
+  // The modal stays mounted for every connection: closing it, or opening it
+  // for another connection, starts clean — no refusal, no typed value from
+  // an earlier attempt.
+  useEffect(() => {
+    setValues({})
+    setError(null)
+    setSavedBeforeRefusal([])
+    setRefusedSlot(null)
+  }, [connection?.id])
 
   if (!connection) return null
 
+  const slotLabel = (slot: string) => t(`integrationEnums.secretSlot.${slot}`, slot)
+
   const submit = async () => {
     setSubmitting(true)
+    setError(null)
+    setSavedBeforeRefusal([])
+    setRefusedSlot(null)
+    const saved: string[] = []
+    let current: string | null = null
     try {
       for (const slot of connection.secretSlots ?? []) {
         const value = values[slot.slot]
-        if (value) await api.put(`/integrations/connections/${connection.id}/secrets/${slot.slot}`, { secretValue: value })
+        if (!value) continue
+        current = slot.slot
+        await api.put(`/integrations/connections/${connection.id}/secrets/${slot.slot}`, { secretValue: value })
+        saved.push(slot.slot)
       }
       onRotated()
       onClose()
+    } catch (err) {
+      // KAN-607 — a refused write is said in the UI language, the dialog stays
+      // open with what was typed, and the slots already replaced are named:
+      // their rotation happened even though a later one was refused.
+      setError(apiRefusalText(t, err, 'integrationsList.rotateError'))
+      setSavedBeforeRefusal(saved)
+      setRefusedSlot(current)
+      if (saved.length > 0) onRotated()
     } finally {
       setSubmitting(false)
     }
@@ -361,11 +393,26 @@ function RotateSecretModal({
   return (
     <Modal opened onClose={onClose} title={t('integrationsList.rotateModal.title', { name: connection.displayName })}>
       <Stack gap="sm">
+        {error && (
+          <Stack gap={4} role="alert">
+            {/* With slots already saved, the refusal is said as the refused
+                slot's: its sentence («nothing was saved») is about that slot. */}
+            {savedBeforeRefusal.length > 0 && (
+              <Text size="sm">
+                {t('integrationsList.rotateModal.savedBeforeRefusal', {
+                  slots: savedBeforeRefusal.map(slotLabel).join(', '),
+                  refused: refusedSlot ? slotLabel(refusedSlot) : '—',
+                })}
+              </Text>
+            )}
+            <Text size="sm" c="red">{error}</Text>
+          </Stack>
+        )}
         <Text size="xs" c="dimmed">{t('integrationsList.rotateModal.hint')}</Text>
         {(connection.secretSlots ?? []).map((slot) => (
           <TextInput
             key={slot.slot}
-            label={t(`integrationEnums.secretSlot.${slot.slot}`, slot.slot)}
+            label={slotLabel(slot.slot)}
             type="password"
             value={values[slot.slot] ?? ''}
             onChange={(e) => {

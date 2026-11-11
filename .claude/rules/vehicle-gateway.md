@@ -50,11 +50,13 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
 - A call with no signed-in user, no `clientId` or no secret is a `ProviderConfigurationError` — the
   dealer's to fix: no breaker charge, no invented row. A 400/422 or 403 is the provider's coherent
   answer, logged `ERROR` and **never charged to the breaker** (one un-entitled option must not
-  switch off the others); a transport failure, a 5xx and a refused login charge it.
+  switch off the others), nor is auto-i refusing to enrol one more user (`user_quota_exceeded` →
+  `ProviderUserQuotaExceededError`, KAN-586: that user's answer, not the connection's); a transport
+  failure, a 5xx and any other refused login (a wrong client secret) charge it.
 - **«Test connection»** = discovery + token + captions + one documented probe per licence option
   (`ident_basis`, `ausstattung`, `bewertung`, `vin`, `pneu`, `energielabel`; 403 = not granted,
   200/404 = granted, anything else leaves the row), the clicking user as the actor; a refused login
-  charges the breaker once and stops the probes. It is the identAPI's go-live check.
+  stops the probes and charges the breaker once (an over-quota user's does not). It is the identAPI's go-live check.
 - What has run against the **real** service account (2026-11-07, outside the app): discovery, one
   token request, one caption call. Everything else ran against the mock or a fake transport — say
   so in any claim about real provider behaviour.

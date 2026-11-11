@@ -5,6 +5,7 @@
   "allView": "Toutes les connexions",
   "notConnected": "Non connecté",
   "connectError": "La connexion n'a pas pu être créée.",
+  "rotateError": "Les secrets n'ont pas pu être renouvelés.",
   "platformScoped": "Valable pour toute la plateforme",
   "platformConnectionsTitle": "Connexions",
   "categories": {
@@ -38,7 +39,8 @@
   },
   "rotateModal": {
     "title": "Renouveler les secrets — {{name}}",
-    "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle."
+    "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle.",
+    "savedBeforeRefusal": "Déjà renouvelés : {{slots}}. Refusé pour « {{refused}} » :"
   },
   "columns": {
     "dealership": "Entreprise",

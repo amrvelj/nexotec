@@ -77,10 +77,8 @@ def apply_customer_change(
     # services/document.py never has to reach back into customer
     # at generation time.
     deal.customer_language = customer.language.value
-    # customer_locality needs an address lookup app.customer.public
-    # doesn't expose yet — left None here rather than guessed;
-    # picked up once that surface exists (flagged, not silently
-    # dropped).
+    # customer_locality is written by no path, here or anywhere else, and
+    # stays as it is (Anto, 2026-11-10, KAN-590: neither filled nor dropped).
     deal.customer_denorm_refreshed_at = utcnow()
 
 

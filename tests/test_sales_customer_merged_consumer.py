@@ -155,8 +155,9 @@ def test_the_moved_rows_take_the_survivors_label(db_session):
     the Sales list and the detail screens kept naming the duplicate, a
     customer that no longer exists as a record (rule 2: a label follows its
     owner). The survivor is read from `customer.public`, never from the
-    payload. The correspondence language is left as it was until Anto rules
-    on it (KAN-580)."""
+    payload. The consumer leaves the correspondence language as it was; on
+    open work the nightly `sales.customer_labels` job (KAN-590) then gives it
+    the survivor's."""
 
     tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
     survivor = _customer(db_session, group_id, tenant_id, "Survivor")
@@ -176,7 +177,8 @@ def test_the_moved_rows_take_the_survivors_label(db_session):
     moved = [db_session.get(type(row), row.id) for row in (offer, contracted_offer, contract, *deals)]
     assert [row.customer_label for row in moved] == ["Survivor Keller"] * 5
     assert all(row.customer_denorm_refreshed_at is not None for row in moved)
-    # Unruled (KAN-580): a regenerated document keeps printing in the language it had.
+    # The consumer leaves the language; on open work the nightly sales.customer_labels
+    # job (KAN-590) then gives it the survivor's.
     assert [row.customer_language for row in moved[:3]] == ["de"] * 3
 
 

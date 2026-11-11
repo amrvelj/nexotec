@@ -5,6 +5,7 @@
   "allView": "Alle Verbindungen",
   "notConnected": "Nicht verbunden",
   "connectError": "Die Verbindung konnte nicht erstellt werden.",
+  "rotateError": "Die Secrets konnten nicht erneuert werden.",
   "platformScoped": "Plattformweit",
   "platformConnectionsTitle": "Verbindungen",
   "categories": {
@@ -38,7 +39,8 @@
   },
   "rotateModal": {
     "title": "Secrets erneuern — {{name}}",
-    "hint": "Geben Sie nur für die zu ersetzenden Felder einen neuen Wert ein — eine Erneuerung ersetzt, sie liest den aktuellen Wert nie."
+    "hint": "Geben Sie nur für die zu ersetzenden Felder einen neuen Wert ein — eine Erneuerung ersetzt, sie liest den aktuellen Wert nie.",
+    "savedBeforeRefusal": "Bereits erneuert: {{slots}}. Abgelehnt bei «{{refused}}»:"
   },
   "columns": {
     "dealership": "Betrieb",

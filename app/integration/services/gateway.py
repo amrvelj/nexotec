@@ -47,6 +47,7 @@ from app.integration.errors import (
     ProviderRequestError,
     ProviderTimeoutError,
     ProviderTransportError,
+    ProviderUserQuotaExceededError,
 )
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
@@ -373,8 +374,12 @@ def _record_failed_call(
     # but five such answers must not take the connection offline: a user
     # typing a wrong Stammnummer five times is not an outage, and one
     # un-entitled option must not switch off the others (the rule the probes
-    # already live by). A refused login, a transport failure and a 5xx charge.
-    if not isinstance(exc, (ProviderRequestError, ProviderNotEntitledError)):
+    # already live by). KAN-586: auto-i refusing to enrol one more user
+    # (`user_quota_exceeded`) is that user's answer, not the connection's —
+    # five such users must not lock out everyone who holds a token. A refused
+    # login otherwise (a wrong client secret), a transport failure and a 5xx
+    # charge.
+    if not isinstance(exc, (ProviderRequestError, ProviderNotEntitledError, ProviderUserQuotaExceededError)):
         resilience.record_failure(connection.id)
     if meter.requests:
         log = meter.last_log
@@ -579,7 +584,8 @@ def _probe_entitlements(
         except ProviderRejectedError:
             # KAN-488: the login was refused under the probes (the access check
             # had passed). The block charged the breaker once, as a refused
-            # login does anywhere; nothing is known about the remaining
+            # login does anywhere (an over-quota user's, KAN-586, does not);
+            # nothing is known about the remaining
             # options, and retrying the login once per option would open the
             # breaker for a connection whose card reads connected — so probing
             # stops here and the remaining rows stay as they were.
