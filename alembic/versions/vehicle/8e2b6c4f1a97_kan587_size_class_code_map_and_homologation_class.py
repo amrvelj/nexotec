@@ -19,8 +19,12 @@ so an offline `--sql` render writes the values (KAN-174):
    variant or configuration whose `vehicle_class` is `m1` / `n1` / `l3e` /
    `l1e` gets that value in `homologation_class` and `vehicle_class` NULL; its
    version moves once. On a configuration, an override mark on `vehicle_class`
-   (`overridden_fields`: the advisor typed the class over the catalogue's)
-   moves with the value, so the size class is free to be filled below.
+   (`overridden_fields`: the advisor typed the class over the catalogue's, or
+   cleared it) moves with it — also where the field is empty: every mark set
+   before this migration was a decision about the type-approval class, and
+   left in place it would keep the size class from ever being filled below. A
+   mark beside a value that stays (one an admin added to the list) stays too.
+   A configuration this step changes is a system write: `updated_by` NULL.
 2. **A code-map row that maps a `vehicle_class` code to a type-approval class
    goes, and its gap reopens.** Its target left the list, so no resolve could
    write it today (`resolve_mapping_gap` checks the list). An admin's mapping
@@ -37,8 +41,9 @@ so an offline `--sql` render writes the values (KAN-174):
 5. **What the gaps left NULL is filled** (the KAN-83 / KAN-240 rule a resolve
    follows): each variant whose recorded raw `category` is now mapped, then
    each provider configuration built from such a variant — its NULL only,
-   never a set value, never a field the advisor overrode, never a host's
-   frozen snapshot (ADR-041).
+   never a set value, never a host's frozen snapshot (ADR-041). There is no
+   override mark to respect here: after step 1 no empty `vehicle_class`
+   carries one.
 
 **What this does not do.** No audit row and no `configuration.updated` event
 for the configurations step 5 fills or step 1 moves: `audit_event` and the
@@ -52,7 +57,9 @@ The demo provider (`auto_i_dat_mock`) is not seeded here, as before:
 and drops the column. A size class has no place in the old list, so the stored
 size classes are cleared and the six seeded rows and their gaps' resolutions
 are undone — deliberately lossy for the size class, which the next lookup
-records again as a gap.
+records again as a gap. The code-map rows step 2 removed are not restored
+either (the upgrade's output names each one), and the gaps it reopened stay
+open: an admin resolves them again against the old list.
 
 Revision ID: 8e2b6c4f1a97
 Revises: bb6e760d9464
@@ -107,18 +114,28 @@ _VARIANT_SIZE_CLASS = (
 
 
 def _rename_override_mark(old: str, new: str) -> str:
-    """`overridden_fields` (a JSON array of field names) with `old` renamed to `new`, order kept."""
+    """`overridden_fields` (a JSON array of field names) with `old` renamed to
+    `new`: order kept, and a name the rename would list twice listed once."""
 
     return (
-        f"(SELECT COALESCE(json_agg(CASE WHEN marked.field = '{old}' THEN '{new}' ELSE marked.field END"
-        " ORDER BY marked.position), '[]'::json)"
-        " FROM json_array_elements_text(overridden_fields) WITH ORDINALITY AS marked(field, position))"
+        "(SELECT COALESCE(json_agg(renamed.field ORDER BY renamed.position), '[]'::json) FROM ("
+        " SELECT DISTINCT ON (named.field) named.field, named.position FROM ("
+        f"  SELECT CASE WHEN marked.field = '{old}' THEN '{new}' ELSE marked.field END AS field, marked.position"
+        "   FROM json_array_elements_text(overridden_fields) WITH ORDINALITY AS marked(field, position)"
+        " ) AS named ORDER BY named.field, named.position) AS renamed)"
+    )
+
+
+def _has_override_mark(field: str) -> str:
+    return (
+        "EXISTS (SELECT 1 FROM json_array_elements_text(overridden_fields) AS marked(field)"
+        f" WHERE marked.field = '{field}')"
     )
 
 
 class Result(NamedTuple):
     variants_moved: int
-    configurations_moved: int
+    configurations_moved: int  # a stored class moved, or the override mark of an empty one
     stale_mappings_removed: int
     gaps_reopened: int
     seeded: int
@@ -162,9 +179,12 @@ def apply_data(conn: Connection) -> Result:
     )
     configurations_moved = _run(
         conn,
-        "UPDATE vehicle_configuration SET homologation_class = vehicle_class, vehicle_class = NULL,"
+        "UPDATE vehicle_configuration SET homologation_class = COALESCE(vehicle_class, homologation_class),"
+        " vehicle_class = NULL,"
         f" overridden_fields = {_rename_override_mark('vehicle_class', 'homologation_class')},"
-        " version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE vehicle_class IN :homologation_codes",
+        " version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = NULL"
+        " WHERE vehicle_class IN :homologation_codes"
+        f" OR (vehicle_class IS NULL AND {_has_override_mark('vehicle_class')})",
     )
 
     # 2. A mapping onto a type-approval class names a value the list no longer has.
@@ -218,8 +238,6 @@ def apply_data(conn: Connection) -> Result:
         "  WHERE v.id = vehicle_configuration.catalogue_variant_id),"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = NULL"
         " WHERE source = 'provider' AND vehicle_class IS NULL"
-        " AND NOT EXISTS (SELECT 1 FROM json_array_elements_text(overridden_fields) AS marked(field)"
-        "  WHERE marked.field = 'vehicle_class')"
         " AND EXISTS (SELECT 1 FROM vehicle_model_variant AS v"
         "  JOIN vehicle_variant_provider_code AS c ON c.model_variant_id = v.id AND c.code_group = :code_group"
         "  WHERE v.id = vehicle_configuration.catalogue_variant_id AND v.vehicle_class IS NOT NULL)",
@@ -259,19 +277,40 @@ def revert_data(conn: Connection) -> None:
         "UPDATE vehicle_configuration SET vehicle_class = homologation_class,"
         f" overridden_fields = {_rename_override_mark('homologation_class', 'vehicle_class')},"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP"
-        " WHERE homologation_class IS NOT NULL OR vehicle_class IN :size_codes",
+        " WHERE homologation_class IS NOT NULL OR vehicle_class IN :size_codes"
+        f" OR {_has_override_mark('homologation_class')}",
     )
+
+
+def _report_stale_mappings(conn: Connection) -> None:
+    """Names each code-map row step 2 is about to remove: an admin's decision
+    is never dropped without a trace in the deploy log."""
+
+    stale = conn.execute(
+        _statement(
+            "SELECT provider, vehicle_kind, provider_code, canonical_value_code FROM vehicle_provider_code_map"
+            " WHERE code_group = :code_group AND canonical_value_code IN :homologation_codes"
+            " ORDER BY provider, vehicle_kind, provider_code"
+        )
+    )
+    for provider, vehicle_kind, provider_code, value_code in stale:
+        print(
+            f"KAN-587: removing the mapping {provider} / kind {vehicle_kind} / {CODE_GROUP} {provider_code} -> "
+            f"{value_code}: '{value_code}' is a type-approval class, no longer a value of '{CODE_GROUP}'."
+        )
 
 
 def upgrade() -> None:
     for table in _CARRIERS:
         op.add_column(table, sa.Column("homologation_class", sa.String(length=64), nullable=True))
+    if not context.is_offline_mode():
+        _report_stale_mappings(op.get_bind())
     result = apply_data(op.get_bind())
     if context.is_offline_mode():
         return
     print(
         f"KAN-587: moved {result.variants_moved} variant and {result.configurations_moved} configuration "
-        f"type-approval classes to homologation_class; removed {result.stale_mappings_removed} code-map rows "
+        f"type-approval classes (or their override marks) to homologation_class; removed {result.stale_mappings_removed} code-map rows "
         f"onto a type-approval class ({result.gaps_reopened} gaps reopened); seeded {result.seeded} of "
         f"{len(SIZE_CLASS_BY_CATEGORY)} size-class rows; resolved {result.gaps_resolved} gaps; filled "
         f"{result.variants_filled} variants and {result.configurations_filled} configurations."

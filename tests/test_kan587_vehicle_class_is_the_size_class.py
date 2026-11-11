@@ -19,6 +19,8 @@ against the test schema (the real `alembic upgrade heads` run is
 
 import importlib.util
 import os
+import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -227,9 +229,14 @@ def test_a_stored_type_approval_class_moves_to_its_own_field_and_is_never_droppe
     overridden = _configuration(
         db_session, variant=variant, vehicle_class="l3e", overridden_fields=["ps", "vehicle_class", "doors"]
     )
+    # The advisor cleared the class the catalogue gave: a decision about the type-approval class.
+    cleared = _configuration(db_session, variant=variant, vehicle_class=None, overridden_fields=["vehicle_class"])
     untouched = _configuration(db_session, variant=None, vehicle_class=None, overridden_fields=["ps"])
+    editor = uuid.uuid4()
+    for row in (manual, overridden, cleared, untouched):
+        row.updated_by = editor
     db_session.commit()
-    versions = (variant.version, manual.version, overridden.version, untouched.version)
+    versions = (variant.version, manual.version, overridden.version, cleared.version, untouched.version)
 
     result = _apply(db_session)
 
@@ -238,15 +245,22 @@ def test_a_stored_type_approval_class_moves_to_its_own_field_and_is_never_droppe
     assert (overridden.vehicle_class, overridden.homologation_class) == (None, "l3e")
     # The advisor's override travels with the value it marked, in place.
     assert overridden.overridden_fields == ["ps", "homologation_class", "doors"]
+    # ... and with a class they cleared: left on `vehicle_class`, it would keep the size class out for good.
+    assert (cleared.vehicle_class, cleared.homologation_class) == (None, None)
+    assert cleared.overridden_fields == ["homologation_class"]
     assert (untouched.homologation_class, untouched.overridden_fields) == (None, ["ps"])
-    assert (variant.version, manual.version, overridden.version, untouched.version) == (
-        versions[0] + 1, versions[1] + 1, versions[2] + 1, versions[3],
+    assert (variant.version, manual.version, overridden.version, cleared.version, untouched.version) == (
+        versions[0] + 1, versions[1] + 1, versions[2] + 1, versions[3] + 1, versions[4],
     ), "a moved row's version moves once; an untouched row's does not"
-    assert (result.variants_moved, result.configurations_moved) == (1, 2)
-    inverted = db_session.scalars(
+    # A row the migration changed is a system write (KAN-243); an untouched row keeps its editor.
+    assert (manual.updated_by, overridden.updated_by, cleared.updated_by, untouched.updated_by) == (
+        None, None, None, editor,
+    )
+    assert (result.variants_moved, result.configurations_moved) == (1, 3)
+    still_there = db_session.scalars(
         select(VehicleConfiguration.id).where(VehicleConfiguration.vehicle_class.in_(("m1", "n1", "l3e", "l1e")))
     ).all()
-    assert inverted == []
+    assert still_there == []
 
 
 @_postgres_only
@@ -285,7 +299,7 @@ def test_what_the_gap_left_null_is_filled_on_variants_and_their_provider_configu
     undocumented = _bare_variant(db_session, "A category nobody maps")
     _raw_category(db_session, undocumented, "9")
     null_config = _configuration(db_session, variant=variant)
-    cleared_on_purpose = _configuration(db_session, variant=variant, overridden_fields=["vehicle_class"])
+    cleared_before = _configuration(db_session, variant=variant, overridden_fields=["vehicle_class"])
     hand_typed = _configuration(db_session, variant=variant, vehicle_class="compact", overridden_fields=["vehicle_class"])
     of_other_variant = _configuration(db_session, variant=never_sent)
     manual = _configuration(db_session, variant=None)
@@ -298,10 +312,14 @@ def test_what_the_gap_left_null_is_filled_on_variants_and_their_provider_configu
     assert variant.vehicle_class == "large"
     assert never_sent.vehicle_class is None and undocumented.vehicle_class is None
     assert (null_config.vehicle_class, null_config.version, null_config.updated_by) == ("large", version + 1, None)
-    assert cleared_on_purpose.vehicle_class is None, "a field the advisor cleared is never filled (FR-C-03)"
-    assert hand_typed.vehicle_class == "compact", "a set value is never overwritten"
+    # What the advisor cleared before KAN-587 was the type-approval class: the mark went with it
+    # (step 1), so the size class — which nobody ever cleared — is filled.
+    assert (cleared_before.vehicle_class, cleared_before.overridden_fields) == ("large", ["homologation_class"])
+    assert (hand_typed.vehicle_class, hand_typed.overridden_fields) == ("compact", ["vehicle_class"]), (
+        "a set value is never overwritten, and its mark stays beside it"
+    )
     assert of_other_variant.vehicle_class is None and manual.vehicle_class is None
-    assert (result.variants_filled, result.configurations_filled) == (1, 1)
+    assert (result.variants_filled, result.configurations_filled) == (1, 2)
 
 
 @_postgres_only
@@ -349,11 +367,18 @@ def test_the_downgrade_puts_the_type_approval_class_back_and_takes_the_seed_away
     sized = _bare_variant(db_session, "Sized")
     _raw_category(db_session, sized, "4")
     config = _configuration(db_session, variant=variant, vehicle_class="n1", overridden_fields=["vehicle_class"])
+    both_marked = _configuration(db_session, variant=variant, vehicle_class="l3e")
+    mark_only = _configuration(db_session, variant=None)
     _gap(db_session, "4")
     db_session.commit()
     migration = _vehicle_migration()
     _apply(db_session)
     assert (variant.homologation_class, sized.vehicle_class) == ("m1", "large")
+    # After the upgrade an advisor overrides both classes on one car, and clears the new field on another.
+    both_marked.vehicle_class = "city"
+    both_marked.overridden_fields = ["vehicle_class", "ps", "homologation_class"]
+    mark_only.overridden_fields = ["homologation_class"]
+    db_session.commit()
 
     migration.revert_data(db_session.connection())
     db_session.commit()
@@ -362,9 +387,39 @@ def test_the_downgrade_puts_the_type_approval_class_back_and_takes_the_seed_away
     assert variant.vehicle_class == "m1"
     assert sized.vehicle_class is None, "a size class has no place in the old list"
     assert (config.vehicle_class, config.overridden_fields) == ("n1", ["vehicle_class"])
+    # One mark per field, never two — and no mark left naming the column the downgrade drops.
+    assert (both_marked.vehicle_class, both_marked.overridden_fields) == ("l3e", ["vehicle_class", "ps"])
+    assert mark_only.overridden_fields == ["vehicle_class"]
     assert [_mapping(db_session, category) for category in "123456"] == [None] * 6
     gap = db_session.scalars(select(MappingGap).where(MappingGap.code_group == "vehicle_class")).one()
     assert (gap.resolved, gap.resolved_value_code) == (False, None)
+
+
+def test_the_migration_renders_offline_with_its_values():
+    """KAN-174: `alembic upgrade bb6e760d9464:8e2b6c4f1a97 --sql` renders with
+    no database, and renders the steps' values — parameters passed beside the
+    statement would render as NULL and a script applied by hand would stamp
+    the revision while its steps matched nothing (the KAN-550 review)."""
+
+    run = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "bb6e760d9464:8e2b6c4f1a97", "--sql"],
+        cwd=_VERSIONS.parent.parent, env=dict(os.environ), capture_output=True, text=True, timeout=300, check=False,
+    )
+    assert run.returncode == 0, run.stderr[-3000:]
+    statements = [
+        line for line in run.stdout.splitlines() if line.startswith(("UPDATE vehicle_", "DELETE", "INSERT", "ALTER"))
+    ]
+    assert sum(line.startswith("ALTER TABLE") and "homologation_class" in line for line in statements) == 2
+    inserts = [line for line in statements if line.startswith("INSERT INTO vehicle_provider_code_map")]
+    assert len(inserts) == 6
+    for category, size_class in {"1": "micro", "2": "city", "3": "compact", "4": "large", "5": "executive", "6": "luxury"}.items():
+        assert any(f"'auto_i_dat', '01', 'vehicle_class', '{category}', 'vehicle_class', '{size_class}'" in line for line in inserts)
+    data = [line for line in statements if not line.startswith("ALTER")]
+    assert len(data) == 13  # two moves, a delete, a reopen, six inserts, a resolve, two fills
+    # ... each with its constants written out, none left as a NULL or a bare placeholder.
+    assert sum("IN ('m1', 'n1', 'l3e', 'l1e')" in line for line in data) == 4  # the moves, the delete, the reopen
+    assert sum("code_group = 'vehicle_class'" in line for line in data) == 11  # all but the two moves
+    assert not any("IN (NULL)" in line or "code_group = NULL" in line or ":code_group" in line for line in data), data
 
 
 # --- the exit criterion: an identAPI `category` resolves without a gap ---------------------------------------------

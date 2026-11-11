@@ -208,7 +208,7 @@ def _apply_spec_payload(config: VehicleConfiguration, spec: Any) -> None:
 
 def _validate_coded_spec_fields(db: Session, data: ConfigurationCreate | ConfigurationUpdate) -> None:
     """Every coded value the client sent — the five coded fields (KAN-96),
-    the spec block's five reference fields (KAN-245) and the two colour
+    the spec block's six reference fields (KAN-245, KAN-587) and the two colour
     types (KAN-211) — must be an active
     value of its reference list: otherwise one 422 naming every offending
     field; 500 if a list is missing (`validate_reference_codes`, the rule
