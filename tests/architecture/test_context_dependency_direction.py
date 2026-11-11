@@ -89,8 +89,6 @@ _TOP_LEVEL: dict[str, int] = {
 # (KAN-611's dependency strand). (file, imported module, imported name) ->
 # ticket. A plain `import app.x.y` has the name "".
 _DEBT: dict[tuple[str, str, str], str] = {
-    # platform -> customer
-    ("app/platform/services/dealership.py", "app.customer.public", "has_any_basis_for_group"): "KAN-629",
     # inventory -> sales
     ("app/inventory/services/purchase.py", "app.sales.public", "contract_with_invoice_requested_for_stock_item"): (
         "KAN-630"

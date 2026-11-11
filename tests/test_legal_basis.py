@@ -260,3 +260,23 @@ def test_group_read_returns_nothing_once_the_only_basis_is_withdrawn(client, db_
         get_customer_group_read_or_404(
             db_session, group_read_enabled=True, customer_id=customer_id, group_id=group_id
         )
+
+
+# --- KAN-629 (ADR-131): platform is told the answer, it never asks customer ----------
+
+
+def test_platform_refuses_the_flip_when_told_no_basis_was_recorded(client, db_session):
+    from app.core.errors import BadRequestError
+    from app.platform.public import enable_group_read, get_dealer_group_or_404
+
+    dealer = _create_dealer_full(client)
+    group = get_dealer_group_or_404(db_session, uuid.UUID(dealer["dealerGroupId"]))
+
+    with pytest.raises(BadRequestError):
+        enable_group_read(db_session, dealer_group=group, actor_id=uuid.uuid4(), legal_basis_recorded=False)
+    db_session.refresh(group)
+    assert group.group_read_enabled is False
+
+    enabled = enable_group_read(db_session, dealer_group=group, actor_id=uuid.uuid4(), legal_basis_recorded=True)
+    assert enabled.group_read_enabled is True
+
