@@ -456,3 +456,148 @@ def test_a_refused_login_is_a_typed_refusal_and_is_not_cached(monkeypatch):
     finally:
         secrets_backend._login.cache_clear()
     assert attempts == ["test-client-0001", "test-client-0001"]
+
+
+# KAN-606: the machine identity's access token expires, and the SDK never renews it.
+
+
+class _TokenGuard:
+    """One SDK resource (`secrets`, `folders`) of `_ExpiringSdkClient`: every
+    call answers 401, as Infisical does, unless the client's token is the one
+    Infisical currently accepts."""
+
+    def __init__(self, inner, owner: "_ExpiringSdkClient") -> None:
+        self._inner = inner
+        self._owner = owner
+
+    def __getattr__(self, name):
+        method = getattr(self._inner, name)
+
+        def guarded(**kwargs):
+            if self._owner.token is None or self._owner.token != self._owner.issuer.accepted_token:
+                raise _api_error("Token expired", 401)
+            return method(**kwargs)
+
+        return guarded
+
+
+class _TokenIssuer:
+    def __init__(self, fake: FakeInfisical) -> None:
+        self.fake = fake
+        self.logins = 0
+        self.accepted_token: str | None = None
+        self.refuse_logins = False
+        self.accept_new_tokens = True
+
+    def expire(self) -> None:
+        """The token's TTL runs out: Infisical no longer accepts it."""
+        self.accepted_token = None
+
+
+class _ExpiringSdkClient:
+    issuer: _TokenIssuer  # set per test
+
+    def __init__(self, host: str) -> None:
+        self.token: str | None = None
+
+        def login(*, client_id: str, client_secret: str) -> None:
+            self.issuer.logins += 1
+            if self.issuer.refuse_logins:
+                raise _api_error("Invalid credentials", 401)
+            self.token = f"token-{self.issuer.logins}"
+            if self.issuer.accept_new_tokens:
+                self.issuer.accepted_token = self.token
+
+        self.auth = SimpleNamespace(universal_auth=SimpleNamespace(login=login))
+        self.secrets = _TokenGuard(self.issuer.fake.secrets_api, self)
+        self.folders = _TokenGuard(self.issuer.fake.folders_api, self)
+
+
+@pytest.fixture
+def expiring_infisical(monkeypatch):
+    """The real `_login` and `_client`, the SDK client swapped for one whose
+    token Infisical can stop accepting, over the same in-memory Infisical."""
+
+    import infisical_sdk
+
+    issuer = _TokenIssuer(FakeInfisical())
+    monkeypatch.setenv("DMS_INFISICAL_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("DMS_INFISICAL_CLIENT_ID", "test-client-0001")
+    monkeypatch.setenv("DMS_INFISICAL_CLIENT_SECRET", "test-client-secret-0001")
+    monkeypatch.setenv("DMS_INFISICAL_ENVIRONMENT", ENVIRONMENT)
+    monkeypatch.setattr(_ExpiringSdkClient, "issuer", issuer, raising=False)
+    monkeypatch.setattr(infisical_sdk, "InfisicalSDKClient", _ExpiringSdkClient)
+    secrets_backend._login.cache_clear()
+    yield issuer
+    secrets_backend._login.cache_clear()
+
+
+def test_a_token_that_expires_between_two_calls_costs_one_login_not_a_refusal(db_session, expiring_infisical, caplog):
+    connection = _connection(db_session, _provider(db_session))
+    _set(db_session, connection)
+    assert expiring_infisical.logins == 1
+
+    expiring_infisical.expire()
+    with caplog.at_level(logging.INFO, logger=secrets_backend.__name__):
+        value = secrets_backend.resolve_secret(connection_id=connection.id, slot="client_secret")
+
+    assert value == "s3cr3t-value"
+    assert expiring_infisical.logins == 2
+    # The re-login is no refusal: nothing at WARNING, and no value or path anywhere.
+    assert [r for r in caplog.records if r.name == secrets_backend.__name__ and r.levelno >= logging.WARNING] == []
+    assert "s3cr3t-value" not in caplog.text
+    assert str(connection.id) not in caplog.text
+
+    # The fresh client is cached again: the next call logs in no more.
+    secrets_backend.resolve_secret(connection_id=connection.id, slot="client_secret")
+    assert expiring_infisical.logins == 2
+
+
+def test_every_write_survives_an_expired_token(db_session, expiring_infisical):
+    provider = _provider(db_session)
+    connection = _connection(db_session, provider)
+
+    _set(db_session, connection)  # create (folders + secret)
+    expiring_infisical.expire()
+    _set(db_session, connection, value="rotated-value")  # rotate
+    assert expiring_infisical.fake.secrets[(f"/integrations/{connection.id}", "client_secret")] == "rotated-value"
+
+    expiring_infisical.expire()
+    connection_service.delete_connection(db_session, connection=connection, confirm=True, actor_id=uuid.uuid4())
+    assert f"/integrations/{connection.id}" not in expiring_infisical.fake.folders
+    assert expiring_infisical.logins == 3
+
+
+def test_a_login_refused_on_the_retry_is_the_typed_refusal(db_session, expiring_infisical, caplog):
+    connection = _connection(db_session, _provider(db_session))
+    _set(db_session, connection)
+
+    expiring_infisical.expire()
+    expiring_infisical.refuse_logins = True
+    with caplog.at_level(logging.WARNING, logger=secrets_backend.__name__), pytest.raises(
+        secrets_backend.SecretsBackendError
+    ) as raised:
+        secrets_backend.resolve_secret(connection_id=connection.id, slot="client_secret")
+
+    assert raised.value.status_code == 409
+    assert raised.value.details == {"reason": "secrets_backend_failed", "operation": "login", "status": 401}
+    assert expiring_infisical.logins == 2  # the first login, and exactly one more
+    assert [r.getMessage() for r in caplog.records if r.name == secrets_backend.__name__] == [
+        "secrets manager refused login (status=401, APIError)"
+    ]
+    assert str(connection.id) not in caplog.text
+
+
+def test_a_second_401_after_a_fresh_login_is_the_typed_refusal_not_a_loop(db_session, expiring_infisical):
+    connection = _connection(db_session, _provider(db_session))
+    _set(db_session, connection)
+    # Infisical accepts no token at all any more (say, the identity lost the project).
+    expiring_infisical.expire()
+    expiring_infisical.accept_new_tokens = False
+
+    with pytest.raises(secrets_backend.SecretsBackendError) as raised:
+        secrets_backend.resolve_secret(connection_id=connection.id, slot="client_secret")
+
+    assert raised.value.details == {"reason": "secrets_backend_failed", "operation": "get_secret", "status": 401}
+    assert expiring_infisical.logins == 2
+
