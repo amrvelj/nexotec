@@ -55,6 +55,7 @@ from app.inventory.consumers import (
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
+from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
@@ -79,6 +80,8 @@ from app.sales.public import (
     refresh_customer_labels,
     refresh_owner_labels,
 )
+from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
+from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
 from app.vehicle.consumers import handle_configuration_taken_message, handle_invoice_requested_message
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
 from app.vehicle.public import run_daily_plate_lookup_purge
@@ -295,6 +298,22 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     )
 
 
+# KAN-633 (ADR-131): every context whose rows store a configuration id, handed
+# to vehicle's purge — vehicle sits below them and names none. A new host
+# (aftersales, parts) adds its `referenced_configuration_ids` here, its
+# `configuration_attached` fact, and the reconciliation check that its rows
+# name no configuration vehicle has not stamped as taken.
+CONFIGURATION_HOSTS = (
+    referenced_by_offers_and_contracts,
+    referenced_by_stock_items,
+    referenced_by_valuations,
+)
+
+
+def _purge_unattached_configurations(db: Session) -> None:
+    run_daily_unattached_configuration_purge(db, held_by_hosts=CONFIGURATION_HOSTS)
+
+
 def _refresh_vehicle_party_labels(db: Session) -> None:
     changed = refresh_vehicle_party_labels(db)
     logger.info("customer.vehicle_party_labels: %d party row(s) relabelled", changed)
@@ -392,7 +411,8 @@ def register_daily_jobs() -> None:
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
-       and kept for good (app.vehicle.daily_jobs). Retention, not a repair.
+       and kept for good (app.vehicle.daily_jobs; the hosts it asks are
+       ``CONFIGURATION_HOSTS``, KAN-633). Retention, not a repair.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
@@ -413,7 +433,7 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.notifications.digest", run_daily_notification_digest)
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
     # 14. KAN-270: a configuration no host ever took goes after 30 days.
-    register_daily_job("vehicle.configurations.purge_unattached", run_daily_unattached_configuration_purge)
+    register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 
 def run(*, max_iterations: int | None = None) -> None:

@@ -4,7 +4,6 @@ the VIN a valuation prints against the vehicle its vehicleId names.
 Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
-
 from sqlalchemy import Exists, func, select
 from sqlalchemy.orm import Session
 
@@ -46,7 +45,30 @@ def _carried_by_a_signed_contract() -> Exists:
     )
 
 
+def _names_an_untaken_configuration() -> StateCheck:
+    """KAN-633 (ADR-131, rule 10): the row names a configuration vehicle
+    still counts as never taken (`first_taken_at` null) — the host's
+    `configuration_attached` fact was not consumed (dead-lettered, or the
+    consumer is behind), so vehicle's purge could delete it the day the
+    safety net misses it. Vehicle names no host; each host reports its own
+    rows. A configuration that no longer exists is the reference check's
+    finding, not this one's."""
+
+    return StateCheck(
+        label="valuation.configuration_id names a configuration vehicle has not stamped as taken",
+        source_model=Valuation,
+        source_row_id_column=Valuation.id,
+        where=lambda: (
+            select(VehicleConfiguration.id)
+            .where(VehicleConfiguration.id == Valuation.configuration_id, VehicleConfiguration.first_taken_at.is_(None))
+            .correlate(Valuation)
+            .exists()
+        ),
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
+    _names_an_untaken_configuration(),
     ReferenceCheck(
         label="valuation.tenant_id -> dealership.id",
         source_model=Valuation,
@@ -92,9 +114,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         label="used valuation with no signed contract carrying it",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
-        where=lambda: Valuation.used_at.is_not(None)
-        & (Valuation.used_at < utcnow() - _CONFIRMATION_GRACE)
-        & ~_carried_by_a_signed_contract(),
+        where=lambda: (
+            Valuation.used_at.is_not(None)
+            & (Valuation.used_at < utcnow() - _CONFIRMATION_GRACE)
+            & ~_carried_by_a_signed_contract()
+        ),
     ),
     StateCheck(
         # KAN-449: a valuation names its car twice, by vehicleId and by the
@@ -106,16 +130,18 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         label="valuation.vehicle_vin differs from its vehicle_mdm.vin",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
-        where=lambda: select(VehicleMdm.id)
-        .where(
-            VehicleMdm.id == Valuation.vehicle_id,
-            Valuation.vehicle_vin.is_not(None),
-            # vehicle-mdm stores a VIN upper-cased; an old valuation row may
-            # not (FR-V-15), and a spelling is not a different car. (17
-            # characters leave no room for a space in a VIN.)
-            VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
-        )
-        .exists(),
+        where=lambda: (
+            select(VehicleMdm.id)
+            .where(
+                VehicleMdm.id == Valuation.vehicle_id,
+                Valuation.vehicle_vin.is_not(None),
+                # vehicle-mdm stores a VIN upper-cased; an old valuation row may
+                # not (FR-V-15), and a spelling is not a different car. (17
+                # characters leave no room for a space in a VIN.)
+                VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
+            )
+            .exists()
+        ),
     ),
     # KAN-552: a quote belongs to a Betrieb. Its configuration_id is not
     # checked: a quote the advisor never turned into a valuation names a

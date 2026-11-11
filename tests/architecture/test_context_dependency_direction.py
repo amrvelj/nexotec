@@ -104,10 +104,6 @@ _DEBT: dict[tuple[str, str, str], str] = {
     ("app/customer/consumers.py", "app.inventory.public", "purchase_booked_after"): "KAN-632",
     ("app/customer/consumers.py", "app.inventory.public", "standing_purchase_date"): "KAN-632",
     ("app/customer/api/customers.py", "app.inventory.public", "get_stock_items_for_vehicles"): "KAN-632",
-    # vehicle -> inventory, sales, valuation
-    ("app/vehicle/daily_jobs.py", "app.inventory.public", "referenced_configuration_ids"): "KAN-633",
-    ("app/vehicle/daily_jobs.py", "app.sales.public", "referenced_configuration_ids"): "KAN-633",
-    ("app/vehicle/daily_jobs.py", "app.valuation.public", "referenced_configuration_ids"): "KAN-633",
     # vehicle -> customer (customer is above vehicle, ADR-131)
     ("app/vehicle/api/vehicle_mdm.py", "app.customer.public", "allocate_vehicle_party"): "KAN-634",
     ("app/vehicle/api/vehicle_mdm.py", "app.customer.public", "customer_display_name"): "KAN-634",

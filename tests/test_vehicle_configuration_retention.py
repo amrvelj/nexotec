@@ -6,7 +6,8 @@ Vehicle learns that a host took one from the host's own past-tense fact,
 delivered here the way production delivers it: the real outbox row, through
 `consume_once` with the handler and consumer name `app.worker` registers. The
 daily job runs as the worker runs it (`run_daily_unattached_configuration_purge`,
-with every host context's read-only `referenced_configuration_ids`).
+with the host readers `app.worker.CONFIGURATION_HOSTS` hands in — vehicle
+names no host itself, KAN-633, ADR-131).
 """
 
 import datetime as dt
@@ -41,7 +42,7 @@ from app.vehicle.consumers import handle_configuration_taken_message
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
 from app.vehicle.models.configuration import VehicleConfiguration, VehicleConfigurationOption
 from app.vehicle.services.configuration_retention import purge_unattached_configurations
-from app.worker import register_daily_jobs
+from app.worker import CONFIGURATION_HOSTS, register_daily_jobs
 from tests.test_configurator_hosts import _build_configuration, _dealership, _record_configuration
 from tests.test_sales_contract_edit import _customer_born_contract
 from tests.vin_support import unique_vin
@@ -57,6 +58,10 @@ CONSUMERS = {
 
 
 # --- helpers ------------------------------------------------------------------
+
+
+def _run_job(db: Session) -> None:
+    run_daily_unattached_configuration_purge(db, held_by_hosts=CONFIGURATION_HOSTS)
 
 
 def _messages(db: Session, event_type: str, aggregate_id: uuid.UUID) -> list[OutboxMessage]:
@@ -225,7 +230,7 @@ def test_a_configuration_a_host_took_survives_its_release_past_30_days(db_sessio
 
     release()
     _age(db_session, configuration_id, days=45)
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
 
     kept = _config(db_session, configuration_id)
     assert kept is not None, "a configuration a host took and let go was deleted"
@@ -347,7 +352,7 @@ def test_a_never_taken_configuration_past_30_days_is_deleted_with_an_audit_row_a
         _age(db_session, configuration_id, days=31)
 
     with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
-        run_daily_unattached_configuration_purge(db_session)
+        _run_job(db_session)
 
     for configuration_id in (config.id, built.id):
         assert _config(db_session, configuration_id) is None
@@ -368,7 +373,7 @@ def test_a_configuration_under_30_days_stays_untouched(db_session):
     config = _record_configuration(db_session, dealership.id)
     _age(db_session, config.id, days=29)
 
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
 
     kept = _config(db_session, config.id)
     assert kept is not None and kept.first_taken_at is None
@@ -435,7 +440,7 @@ def test_a_held_but_unstamped_configuration_is_stamped_and_survives(db_session, 
     assert _config(db_session, configuration_id).first_taken_at is None  # its fact is not consumed
     _age(db_session, configuration_id, days=31)
 
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
 
     kept = _config(db_session, configuration_id)
     assert kept is not None and kept.first_taken_at is not None
@@ -450,12 +455,12 @@ def test_a_configuration_only_a_known_car_links_is_kept_for_good(db_session):
     dealership = _dealership(db_session)
     configuration_id = _linked_to_a_vehicle(db_session, dealership)
     _age(db_session, configuration_id, days=31)
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
     stamped_at = _config(db_session, configuration_id).first_taken_at
     assert stamped_at is not None
 
     _age(db_session, configuration_id, days=400)
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
 
     kept = _config(db_session, configuration_id)
     assert kept is not None and kept.first_taken_at == stamped_at
@@ -470,12 +475,12 @@ def test_a_young_held_configuration_is_stamped_too_so_a_later_release_keeps_it(d
     configuration_id = _held_by_stock_item(db_session, dealership)
     _age(db_session, configuration_id, days=3)
 
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
     assert _config(db_session, configuration_id).first_taken_at is not None
 
     _clear(db_session, StockItem, StockItem.configuration_id, configuration_id)
     _age(db_session, configuration_id, days=40)
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
     assert _config(db_session, configuration_id) is not None
 
 
@@ -488,7 +493,7 @@ def test_a_repeat_run_is_a_no_op(db_session, caplog):
     held = _held_by_valuation(db_session, dealership)
     for configuration_id in (doomed.id, held):
         _age(db_session, configuration_id, days=60)
-    run_daily_unattached_configuration_purge(db_session)
+    _run_job(db_session)
     outbox, audits = db_session.scalar(select(func.count()).select_from(OutboxMessage)), db_session.scalar(
         select(func.count()).select_from(AuditEvent)
     )
@@ -496,7 +501,7 @@ def test_a_repeat_run_is_a_no_op(db_session, caplog):
     caplog.clear()
 
     with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
-        run_daily_unattached_configuration_purge(db_session)
+        _run_job(db_session)
 
     [record] = [r for r in caplog.records if r.name == daily_jobs.__name__]
     assert record.getMessage() == "vehicle.configurations.purge_unattached: purged=0 stamped=0"
@@ -512,11 +517,7 @@ def test_batches_walk_every_unstamped_configuration_once(db_session):
     young = _record_configuration(db_session, dealership.id).id
     for configuration_id in [*doomed, *held]:
         _age(db_session, configuration_id, days=31)
-    from app.inventory.public import referenced_configuration_ids as stock
-    from app.sales.public import referenced_configuration_ids as sales
-    from app.valuation.public import referenced_configuration_ids as valuations
-
-    result = purge_unattached_configurations(db_session, held_by_hosts=(sales, stock, valuations), batch_size=2)
+    result = purge_unattached_configurations(db_session, held_by_hosts=CONFIGURATION_HOSTS, batch_size=2)
 
     assert (result.purged, result.stamped) == (3, 2)
     assert all(_config(db_session, configuration_id) is None for configuration_id in doomed)
@@ -536,3 +537,67 @@ def test_the_job_is_registered_last():
         daily_scheduler._REGISTRY.clear()
         daily_scheduler._REGISTRY.update(saved)
     assert names[-1] == "vehicle.configurations.purge_unattached"
+
+
+# --- KAN-633 (ADR-131): the hosts are handed in, vehicle names none -------------
+
+
+def test_the_worker_hands_every_host_context_to_the_purge():
+    from app.inventory.public import referenced_configuration_ids as stock
+    from app.sales.public import referenced_configuration_ids as sales
+    from app.valuation.public import referenced_configuration_ids as valuations
+
+    assert set(CONFIGURATION_HOSTS) == {sales, stock, valuations}
+
+
+def test_the_purge_refuses_to_run_without_a_host(db_session):
+    dealership = _dealership(db_session)
+    config = _record_configuration(db_session, dealership.id)
+    _age(db_session, config.id, days=31)
+
+    with pytest.raises(ValueError):
+        run_daily_unattached_configuration_purge(db_session, held_by_hosts=())
+
+    assert _config(db_session, config.id) is not None
+
+
+# KAN-633 criterion 4 (rule 10): each host's own reconciliation reports a row
+# naming a configuration vehicle still counts as never taken — the host's fact
+# was lost — and is silent once vehicle has stamped it.
+UNTAKEN = {
+    "offer": ("sales", "sales_offer.configuration_id names a configuration vehicle has not stamped as taken"),
+    "contract_trade_in": (
+        "sales",
+        "sales_contract.trade_in_configuration_id names a configuration vehicle has not stamped as taken",
+    ),
+    "stock_item": ("inventory", "stock_item.configuration_id names a configuration vehicle has not stamped as taken"),
+    "valuation": ("valuation", "valuation.configuration_id names a configuration vehicle has not stamped as taken"),
+}
+
+
+def _reconciliation_findings(db: Session, context: str, label: str) -> list:
+    from app.core.reconciliation import ReconciliationAlarm
+    from app.inventory import reconciliation as inventory_reconciliation
+    from app.sales import reconciliation as sales_reconciliation
+    from app.valuation import reconciliation as valuation_reconciliation
+
+    job = {"sales": sales_reconciliation, "inventory": inventory_reconciliation, "valuation": valuation_reconciliation}
+    try:
+        job[context].run(db)
+    except ReconciliationAlarm as alarm:
+        return [orphan for orphan in alarm.orphans if orphan.check_label == label]
+    return []
+
+
+@pytest.mark.parametrize("host", sorted(UNTAKEN))
+def test_a_host_reports_a_configuration_vehicle_believes_free(db_session, host):
+    dealership = _dealership(db_session)
+    configuration_id = SAFETY_NET[host](db_session, dealership)
+    assert _config(db_session, configuration_id).first_taken_at is None  # its fact is not consumed
+    context, label = UNTAKEN[host]
+
+    assert len(_reconciliation_findings(db_session, context, label)) == 1
+
+    _run_job(db_session)  # the safety net stamps it
+    assert _config(db_session, configuration_id).first_taken_at is not None
+    assert _reconciliation_findings(db_session, context, label) == []
