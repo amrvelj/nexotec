@@ -63,6 +63,8 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 - The plan names: files to change; the test that fails without the change; migrations; API
   contract changes; the Notion updates (below); how you will verify; what the screenshot will
   show.
+- **Effort (KAN-621):** sessions run at medium. When the change touches a context boundary, a migration with a backfill, a preserved
+  file or a public API contract, or the ticket is Severity High and Type Bug, plan at high: delegate the plan to the `Plan` agent with `effort: high`.
 - **Business questions go to Anto; technical decisions are yours, as architect** (CLAUDE.md,
   «How we work»; ADR-126). State the plan, then sort every open point in it:
   - **Technical** — structure, a context boundary, patterns, a migration, tooling, a public API
@@ -103,9 +105,17 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 3. **Independent review:** delegate to the `reviewer` agent with: the ticket URL, the exit
    criteria verbatim, the range `origin/main..HEAD`, and what you claim is met and not met. It
    ends with `REVIEWED: <sha>` and its verdict, and the verdict counts only for that commit.
-   Fix its findings (or explain in your reply why a finding is wrong), **commit, re-run
-   `scripts/dev/check`, then re-run the reviewer.** Only `VERDICT: PASS` on the final commit
-   satisfies the gate.
+   This first review is always a **full review**. Fix its findings (or explain in your reply why
+   a finding is wrong), **commit, re-run `scripts/dev/check`, then run the reviewer again** - as
+   a **re-review** when `scripts/dev/gate review-scope <previously reviewed sha>` allows it
+   (KAN-620): give it, on top of the above, the previous report in full, the previously reviewed
+   sha and the range `<that sha>..HEAD`. It then rules only on each previous finding, each
+   criterion clause not yet met and the scope of the new commits, and ends with
+   `RE-REVIEW OF: <previous sha>` before `REVIEWED:`. When `review-scope` answers `FULL REVIEW`
+   (the range touches a preserved file, a migration or a `public.py`, changes more than 150
+   lines, or the previous sha is not a reviewed ancestor), brief a full review as the first
+   time. Only `VERDICT: PASS` on the final commit satisfies the gate; a re-review the hook
+   refuses does not.
 4. **Screenshot:** run the app in the desktop preview (`.claude/launch.json`: `nexotec-api` +
    `nexotec-frontend`) and screenshot the changed screen — for a fix, the reproduction that no
    longer reproduces; for work without a screen of its own, the nearest visible artefact (the
@@ -133,7 +143,8 @@ Any code change after this point invalidates 2–4: redo them.
    exit-criteria table (met / **NOT met**, with the evidence for each); the verification commands
    and results; what you did not verify; follow-up tickets.
 3. **Do not wait for CI** (Anto, 2026-11-10; KAN-619). Route B: your `scripts/dev/check` is the
-   merge gate (once KAN-625 lands, the push writes it on the commit as `nexotec/check`); GitHub's
+   merge gate (the push hook writes it on the commit as the `nexotec/check` status, KAN-625 - a cloud
+   session's GitHub access refuses that write, and the hook then says so: repeat it in the PR); GitHub's
    `pr-light` runs once the PR is marked ready, the full suite at night on `main`. Go on to step 7
    at once — never poll. The hand-over gate stops only on a check that has **already failed**:
    then fix, check → commit → review → push again.

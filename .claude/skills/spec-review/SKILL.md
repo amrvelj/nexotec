@@ -3,6 +3,7 @@ name: spec-review
 description: Adversarial review of the Nexotec specification in Notion - Target Architecture and ADR log, Build Sequence, Gap Analysis, Risk Register and every PRD - for contradictions, gaps and unrealistic requirements. Produces findings with paste-ready replacement text; never edits Notion. Use as /spec-review or /spec-review <area>.
 argument-hint: "[area, e.g. sales or dealer-administration]"
 disable-model-invocation: true
+effort: high
 ---
 
 # /spec-review $ARGUMENTS

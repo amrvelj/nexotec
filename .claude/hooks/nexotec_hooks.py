@@ -119,6 +119,15 @@ COMPLETION_CLAIM = re.compile(
 )
 REVIEW_VERDICT = re.compile(r"VERDICT:\s*(PASS|FINDINGS)", re.IGNORECASE)
 REVIEWED_COMMIT = re.compile(r"REVIEWED:\s*`?([0-9a-fA-F]{7,40})\b")
+# The commit status that carries a session's check result to the PR (KAN-625). GitHub cuts a
+# status description at 140 characters.
+CHECK_STATUS_CONTEXT = "nexotec/check"
+CHECK_STATUS_MAX = 140
+# A re-review (KAN-620) names the commit the previous review ruled on. It is narrow, so it is
+# allowed only for a small range that touches nothing a full review must see. The marker is a
+# line of its own, as reviewer.md writes it: prose that says "re-review of <sha>" is not one.
+REREVIEW_OF = re.compile(r"^\W{0,4}RE-REVIEW OF:\W{0,4}([0-9a-fA-F]{7,40})\b", re.MULTILINE)
+REREVIEW_MAX_LINES = 150
 # After a push, a stop that needs Anto's decision says so with this marker.
 DECISION_NEEDED = re.compile(r"^\W{0,6}decision needed\W{0,3}:", re.IGNORECASE | re.MULTILINE)
 PG_HOST, PG_PORT = "localhost", 5432
@@ -990,8 +999,8 @@ def reviewer_problem(words, redirects, where, root):
     if any(t.endswith(("scripts/dev/check", "scripts/dev/bootstrap")) for t in words[:2]):
         return "it records evidence or rebuilds the environment - the builder runs it"
     gate_cmd = gate_cli_command(words)
-    if gate_cmd not in (None, "status"):
-        return "only `scripts/dev/gate status` is read-only"
+    if gate_cmd not in (None, "status", "review-scope"):
+        return "only `scripts/dev/gate status` and `scripts/dev/gate review-scope` are read-only"
     if base == "find" and any(a in ("-delete", "-exec", "-execdir", "-ok", "-okdir") for a in args):
         return "`find` may modify files"
     if base in ("make", "docker", "chmod", "chown", "mkdir", "touch", "patch"):
@@ -1314,6 +1323,10 @@ def cmd_pre_bash(data):
         problem = whole_read_problem(words, redirects, where, root)
         if problem:
             denies.append(problem)
+        if types_check_status(words):
+            denies.append("The `{}` commit status is posted by the push hook from the recorded check result, "
+                          "never by a command typed here (KAN-625). Run `scripts/dev/check`, then push."
+                          .format(CHECK_STATUS_CONTEXT))
         if reviewer:
             problem = reviewer_problem(words, redirects, where, root)
             if problem:
@@ -1471,7 +1484,151 @@ def cmd_post_tool(data):
                 if push_landed(pushed, args):
                     append_event(pushed, "push", session=data.get("session_id"), head=head_commit(pushed),
                                  tree=head_tree(pushed), branch=current_branch(pushed))
+                    # KAN-625: the check result goes onto each pushed commit, from the recorded evidence.
+                    notes = [check_status_note(post_check_status(pushed, src))
+                             for src, _dst in push_pairs(args, current_branch(pushed)) if src]
+                    if any(notes):
+                        emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
+                                                     "additionalContext": "\n".join(n for n in notes if n)}})
                 return
+
+
+# --------------------------------------------------------------------------
+# The check result as a commit status on the PR (KAN-625)
+# --------------------------------------------------------------------------
+
+# GitHub's two endpoints that write a check result onto a commit: `repos/<o>/<r>/statuses/<sha>`
+# and `repos/<o>/<r>/check-runs`. Both only write; reading goes through `commits/<ref>/statuses`
+# and `commits/<ref>/check-runs`, which this does not match.
+STATUS_WRITE_PATH = re.compile(r"(?:^|/)repos/[^/]+/[^/]+/(?:statuses/[^/?]+|check-runs)/?(?:\?|$)")
+
+
+def types_check_status(words):
+    """True for a typed command that would write a check result onto a commit itself: a `gh`,
+    `curl` or similar call to a commit-status or check-run write path - whatever the context,
+    and however the fields are passed (`-f k=v`, `-fk=v`, `--input file`, a variable) - or an
+    interpreter one-liner naming the `nexotec/check` context. Reading statuses, searching for the
+    name and naming it in a PR body stay allowed. A path built in a variable or a script file
+    is not seen: this is a rail against the plain mistake, not a boundary (ADR-129)."""
+    if not words:
+        return False
+    base = os.path.basename(words[0])
+    if base.startswith(INTERPRETERS):
+        return any(CHECK_STATUS_CONTEXT in w for w in words[1:])
+    return base in ("gh", "curl", "wget", "http", "https") and \
+        any(STATUS_WRITE_PATH.search(w) for w in words[1:])
+
+
+def check_status_payload(checks, tree):
+    """The `nexotec/check` status for a commit whose tree is `tree`, built from the recorded check
+    (`state["checks"]`) - or None when that record is not a pass for exactly this tree. A
+    lane-limited pass says which lanes ran («frontend only»), so a reader sees what did not."""
+    if not tree or not isinstance(checks, dict) or checks.get("result") != "pass" or checks.get("tree") != tree:
+        return None
+    lanes = [str(lane) for lane in checks.get("lanes") or []]
+    if not lanes:
+        scope = "no lane covers this change"
+    elif "not_run" not in checks:
+        scope = ", ".join(lanes)  # recorded by a check that did not say what it left out
+    elif checks["not_run"]:
+        scope = ", ".join(lanes) + " only"
+    else:
+        scope = "all lanes"
+    description = "{} · tree {} · {}".format(scope, tree[:12], checks.get("counts") or "no test counts recorded")
+    if len(description) > CHECK_STATUS_MAX:
+        description = description[:CHECK_STATUS_MAX - 1] + "…"
+    return {"state": "success", "context": CHECK_STATUS_CONTEXT, "description": description}
+
+
+def post_check_status(root, commit):
+    """Post `nexotec/check` on `commit` from the recorded evidence and record what happened as a
+    `check-status` event: posted, refused (GitHub's or the proxy's own words) or no-evidence. The
+    tree is read from the commit here, never taken from a caller. There is no other way to post
+    it: a refusal is recorded and reported, not worked around (KAN-625, criterion 4)."""
+    rc, sha = git(root, "rev-parse", "--verify", "--quiet", commit + "^{commit}")
+    rc2, tree = git(root, "rev-parse", "--verify", "--quiet", commit + "^{tree}")
+    if rc != 0 or rc2 != 0:
+        return None
+    payload = check_status_payload(load_state(root).get("checks"), tree)
+    if payload is None:
+        event = {"commit": sha, "tree": tree, "result": "no-evidence",
+                 "detail": "no recorded pass for tree {}".format(tree[:12])}
+    else:
+        _data, problem = gh_api(root, "repos/{owner}/{repo}/statuses/" + sha, fields=payload)
+        event = {"commit": sha, "tree": tree, "result": "refused" if problem else "posted",
+                 "detail": problem or payload["description"]}
+    append_event(root, "check-status", **event)
+    return event
+
+
+def check_status_note(event):
+    """What the session is told when the status did not reach GitHub; '' when it did."""
+    if not event or event.get("result") == "posted":
+        return ""
+    return ("The `{}` commit status was NOT posted on {} ({}): {} Say so in the PR and the hand-over; do not "
+            "post it any other way (KAN-625).".format(CHECK_STATUS_CONTEXT, (event.get("commit") or "?")[:10],
+                                                     event.get("result"), event.get("detail")))
+
+
+def ensure_check_status(root, state, pushes):
+    """At the hand-over: post the status for the last push when no attempt is on record or the
+    last one failed for a reason that may pass (a timeout). A refusal with an HTTP status, or a
+    push without evidence, is final and is not repeated at every stop."""
+    head = (pushes[-1] if pushes else {}).get("head")
+    if not head:
+        return
+    prior = latest(events(state, "check-status"), commit=head)
+    if prior and (prior.get("result") != "refused" or "(HTTP " in (prior.get("detail") or "")):
+        return
+    post_check_status(root, head)
+
+
+# --------------------------------------------------------------------------
+# Re-review after fixes (KAN-620)
+# --------------------------------------------------------------------------
+
+
+def rereview_full_reason(numstat):
+    """Why a range must have a full review, from `git diff --numstat --no-renames` lines, or None
+    when the narrow re-review is allowed: it touches no preserved file, no migration and no
+    `public.py`, and changes at most REREVIEW_MAX_LINES lines (added plus deleted)."""
+    changed = 0
+    for line in numstat:
+        parts = line.split("\t", 2)
+        if len(parts) != 3:
+            continue
+        added, deleted, path = parts
+        if path in PRESERVED_FILES or PRESERVED_PATTERN.match(path):
+            return "it touches the preserved file {}".format(path)
+        if path.startswith(MIGRATIONS_DIR):
+            return "it touches the migration {}".format(path)
+        if path.startswith("app/") and os.path.basename(path) == "public.py":
+            return "it touches a context's public door, {}".format(path)
+        if not (added.isdigit() and deleted.isdigit()):
+            return "it changes the binary file {}".format(path)
+        changed += int(added) + int(deleted)
+    if changed > REREVIEW_MAX_LINES:
+        return "it changes {} lines (more than {})".format(changed, REREVIEW_MAX_LINES)
+    return None
+
+
+def rereview_refusal(root, state, previous, commit):
+    """Why a re-review of `previous`..`commit` cannot stand, or None. The previous commit must be
+    an ancestor of the reviewed one and carry a recorded review of its own (so a chain of
+    re-reviews always starts at a full review), and the range must be one the narrow review may
+    cover (`rereview_full_reason`)."""
+    rc, prev = git(root, "rev-parse", "--verify", "--quiet", previous + "^{commit}")
+    if rc != 0:
+        return "the previous commit `{}` is not a commit in this checkout".format(previous)
+    if git(root, "merge-base", "--is-ancestor", prev, commit)[0] != 0:
+        return "the previous commit {} is not an ancestor of the reviewed commit {}".format(prev[:10], commit[:10])
+    if not any(r.get("commit") == prev and r.get("verdict") in ("PASS", "FINDINGS") for r in events(state, "review")):
+        return "no review of the previous commit {} is on record in this checkout".format(prev[:10])
+    rc, out = git(root, "diff", "--numstat", "--no-renames", prev + ".." + commit)
+    if rc != 0:
+        return "the range {}..{} cannot be read".format(prev[:10], commit[:10])
+    reason = rereview_full_reason(out.splitlines())
+    return "the range {}..{} needs a full review: {}".format(prev[:10], commit[:10], reason) if reason else None
 
 
 def handback_report(path):
@@ -1540,8 +1697,20 @@ def cmd_subagent_stop(data):
             tree = fp
             if verdict == "PASS":
                 verdict = "UNCOMMITTED"  # it may not have seen the uncommitted part
+    # KAN-620: a re-review covers only the fix and the criteria left open, so its verdict stands
+    # only on a reviewed ancestor and a range the narrow review may cover. A refused one is
+    # recorded as such - never as a PASS, and never as a base for the next re-review.
+    extra = {"mode": "full"}
+    previous = REREVIEW_OF.findall(message)
+    if previous and verdict in ("PASS", "FINDINGS"):
+        extra = {"mode": "re-review", "previous": previous[-1]}
+        refusal = rereview_refusal(root, load_state(root), previous[-1], commit) if commit else \
+            "the reviewed commit is not named"
+        if refusal:
+            extra.update(reason=refusal, stated=verdict)
+            verdict = "REREVIEW-REFUSED"
     append_event(root, "review", verdict=verdict, tree=tree, commit=commit,
-                 agent=data.get("agent_type"), session=data.get("session_id"))
+                 agent=data.get("agent_type"), session=data.get("session_id"), **extra)
 
 
 # --------------------------------------------------------------------------
@@ -1556,14 +1725,18 @@ def waived(state, tree, gate):
     return None
 
 
-def gh_api(root, path, timeout=40, missing_ok=False):
+def gh_api(root, path, timeout=40, missing_ok=False, fields=None):
     """`gh api <path>` over GitHub's REST API - GraphQL (`gh pr view`, `gh pr checks`) is refused
     from Claude Code cloud sessions (KAN-154/155), REST works there and on the Mac alike.
     `{owner}/{repo}` in `path` are filled in by `gh` from the checkout's remote.
     Returns (data or None, problem or None); a refusal is reported in GitHub's own words.
-    `missing_ok`: an HTTP 404 means "there is none" (e.g. an unprotected branch), not a problem."""
+    `missing_ok`: an HTTP 404 means "there is none" (e.g. an unprotected branch), not a problem.
+    `fields`: a dict sent as a POST body (the one write the gates make: the check status, KAN-625)."""
+    cmd = ["gh", "api", path]
+    if fields:
+        cmd += ["-X", "POST"] + [arg for key in sorted(fields) for arg in ("-f", "{}={}".format(key, fields[key]))]
     try:
-        proc = subprocess.run(["gh", "api", path], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        proc = subprocess.run(cmd, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               universal_newlines=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return None, "GitHub could not be reached through `gh api` ({}).".format(exc.__class__.__name__)
@@ -1761,6 +1934,9 @@ def handover_check(root, state, pushes):
         if verdict == "FINDINGS":
             problems.append(("review", "The reviewer's verdict on this exact code is FINDINGS - address the "
                                        "findings, commit, then run the reviewer again."))
+        elif verdict == "REREVIEW-REFUSED":
+            problems.append(("review", "The re-review's verdict was refused: {}. Run the reviewer again as a "
+                                       "full review (range `origin/main..HEAD`).".format(review.get("reason"))))
         elif verdict == "UNCOMMITTED":
             problems.append(("review", "The reviewer ran while there were uncommitted changes and did not name "
                                        "the commit it reviewed. Commit, then run the reviewer again; its reply "
@@ -1807,6 +1983,7 @@ def cmd_stop(data):
         return
     state = load_state(root)
     session = data.get("session_id")
+    ensure_check_status(root, state, handover_pushes(state, session))
     problems = handover_problems(root, state, session)
     if problems == []:
         tree = head_tree(root)
@@ -1990,12 +2167,30 @@ def cli(argv):
         return 0
     if cmd == "stamp-checks":
         if len(rest) < 2 or rest[1] not in ("pass", "fail"):
-            print("usage: stamp-checks <tree> pass|fail [lanes...]", file=sys.stderr)
+            print("usage: stamp-checks <tree> pass|fail [lanes...] [not-run=<lanes,>] [counts=<text>]",
+                  file=sys.stderr)
             return 2
-
-        def stamp(st):
-            st["checks"] = {"tree": rest[0], "result": rest[1], "lanes": rest[2:], "at": now()}
-        update_state(root, stamp)
+        # KAN-625: what the commit status says beside the lanes - the lanes left out and the test
+        # counts. A lane name never holds `=`.
+        extras = dict(a.split("=", 1) for a in rest[2:] if "=" in a)
+        record = {"tree": rest[0], "result": rest[1], "lanes": [a for a in rest[2:] if "=" not in a], "at": now()}
+        if "not-run" in extras:
+            record["not_run"] = [lane for lane in extras["not-run"].split(",") if lane]
+        if extras.get("counts"):
+            record["counts"] = extras["counts"]
+        update_state(root, lambda st: st.__setitem__("checks", record))
+        return 0
+    if cmd == "review-scope":
+        # KAN-620: may the next review be a re-review of <previous sha>..HEAD? Read-only.
+        if len(rest) != 1:
+            print("usage: scripts/dev/gate review-scope <previously reviewed sha>", file=sys.stderr)
+            return 2
+        refusal = rereview_refusal(root, state, rest[0], head_commit(root) or "HEAD")
+        if refusal:
+            print("FULL REVIEW: {}.".format(refusal))
+            return 1
+        print("RE-REVIEW allowed for {}..HEAD: the previous commit is a reviewed ancestor and the range is small "
+              "and touches no preserved file, migration or public.py.".format(rest[0][:10]))
         return 0
     if cmd == "status":
         tree, fp = head_tree(root), fingerprint(root)
@@ -2009,7 +2204,13 @@ def cli(argv):
         print("Check    : {} for tree {} ({})".format(checks.get("result", "never run"),
                                                       (checks.get("tree") or "-")[:12], checks.get("at", "-")))
         review = latest([r for r in events(state, "review") if r.get("tree") == fp])
-        print("Review   : {}".format(review.get("verdict") + " for this code" if review else "none for this code"))
+        print("Review   : {}".format(
+            "{} for this code{}".format(review.get("verdict"), " ({}: {})".format(review.get("mode"), review["reason"])
+                                        if review.get("reason") else "") if review else "none for this code"))
+        posted = latest(events(state, "check-status"))
+        if posted:
+            print("PR status: {} {} on {}: {}".format(CHECK_STATUS_CONTEXT, (posted.get("result") or "?").upper(),
+                                                      (posted.get("commit") or "?")[:10], posted.get("detail")))
         shots = [e for e in events(state, "screenshot") if e.get("tree") == fp]
         novisual = latest([e for e in events(state, "novisual") if e.get("tree") == fp])
         print("Screens  : {} for this code{}".format(len(shots), " (no-visual noted)" if novisual else ""))
@@ -2200,6 +2401,137 @@ def selftest():
         assert gh_api("/", "repos/{owner}/{repo}/branches/x/protection")[1].endswith("(HTTP 404)")
     finally:
         subprocess.run = real_run
+    # --- KAN-625: the check result as a commit status, only ever for the tree that passed
+    tree_a, tree_b = "a" * 40, "b" * 40
+    passed = {"tree": tree_a, "result": "pass", "lanes": ["frontend"], "not_run": ["backend", "migrations"],
+              "counts": "dms vitest 1890 passed", "at": "t"}
+    status = check_status_payload(passed, tree_a)
+    assert status == {"state": "success", "context": "nexotec/check",
+                      "description": "frontend only · tree aaaaaaaaaaaa · dms vitest 1890 passed"}, status
+    assert check_status_payload(passed, tree_b) is None  # another tree: nothing to post
+    assert check_status_payload(dict(passed, result="fail"), tree_a) is None
+    assert check_status_payload({}, tree_a) is None and check_status_payload(None, tree_a) is None
+    assert check_status_payload(passed, None) is None and check_status_payload(passed, "") is None
+    full = check_status_payload(dict(passed, lanes=["config", "backend"], not_run=[], counts="pytest 4213 passed"),
+                                tree_a)
+    assert full["description"] == "all lanes · tree aaaaaaaaaaaa · pytest 4213 passed", full
+    legacy = {k: v for k, v in passed.items() if k not in ("not_run", "counts")}
+    assert check_status_payload(legacy, tree_a)["description"] == \
+        "frontend · tree aaaaaaaaaaaa · no test counts recorded"  # never "all lanes" on a record that cannot say
+    assert check_status_payload(dict(passed, lanes=[]), tree_a)["description"].startswith("no lane covers")
+    assert len(check_status_payload(dict(passed, counts="x" * 300), tree_a)["description"]) == CHECK_STATUS_MAX
+    # the status is not typed: a write naming the context is refused, a read or a search is not
+    for typed in ("gh api -X POST repos/o/r/statuses/abc -f state=success -f context=nexotec/check",
+                  "gh api repos/o/r/statuses/abc --method POST --field context=nexotec/check",
+                  "curl -d '{\"context\": \"nexotec/check\"}' https://api.github.com/repos/o/r/statuses/abc",
+                  # the forms the first guard missed: an attached field, a file, a variable, a check run
+                  "gh api repos/o/r/statuses/abc -fcontext=nexotec/check -fstate=success",
+                  "gh api repos/{owner}/{repo}/statuses/abc --input status.json",
+                  "curl --data @status.json https://api.github.com/repos/o/r/statuses/abc",
+                  "gh api /repos/o/r/statuses/$SHA -f context=$C -f state=success",
+                  "gh api repos/o/r/check-runs -f name=nexotec/check -f head_sha=abc",
+                  "python3 -c 'post(\"nexotec/check\")'"):
+        assert any(types_check_status(w) for w in words(typed)), typed
+    for harmless in ("gh api repos/o/r/commits/abc/statuses --jq '.[] | select(.context==\"nexotec/check\")'",
+                     "gh api repos/o/r/commits/abc/check-runs", "gh api repos/o/r/commits/abc/status",
+                     "grep -rn nexotec/check .claude", "git commit -m 'post nexotec/check from the hook'",
+                     "gh api -X POST repos/{owner}/{repo}/pulls -f title=x -f body='nexotec/check was refused'",
+                     "gh api -X POST repos/o/r/pulls -f title=x"):
+        assert not any(types_check_status(w) for w in words(harmless)), harmless
+    # posting end to end in a throwaway repository, `gh` and git's commit lookup stubbed: the POST
+    # goes to the pushed commit with the recorded description; a commit of another tree, and a
+    # refusal, post nothing more and are recorded in GitHub's own words
+    real_run, real_git, real_load, real_append = subprocess.run, globals()["git"], globals()["load_state"], \
+        globals()["append_event"]
+    calls, recorded = [], []
+    try:
+        globals()["git"] = lambda root, *a, **k: (0, ("c" * 40) if a[-1].endswith("^{commit}") else
+                                                  (tree_a if a[-1].startswith("good") else tree_b))
+        globals()["load_state"] = lambda root: {"checks": passed}
+        globals()["append_event"] = lambda root, kind, **f: recorded.append(dict(f, kind=kind))
+        subprocess.run = lambda cmd, **k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0, "{}", "")
+        assert post_check_status("/", "good")["result"] == "posted"
+        assert calls == [["gh", "api", "repos/{owner}/{repo}/statuses/" + "c" * 40, "-X", "POST",
+                          "-f", "context=nexotec/check",
+                          "-f", "description=frontend only · tree aaaaaaaaaaaa · dms vitest 1890 passed",
+                          "-f", "state=success"]], calls
+        assert post_check_status("/", "other")["result"] == "no-evidence" and len(calls) == 1  # no POST at all
+        refusal = "gh: Write access to this GitHub API path is not permitted through this proxy. (HTTP 403)\n"
+        subprocess.run = lambda cmd, **k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 1, "", refusal)
+        refused = post_check_status("/", "good")
+        assert refused["result"] == "refused" and refused["detail"].endswith("through this proxy. (HTTP 403)")
+        assert "NOT posted" in check_status_note(refused) and check_status_note(recorded[0]) == ""
+        assert [e["result"] for e in recorded] == ["posted", "no-evidence", "refused"]
+        # the hand-over retries only what may still pass: not a posted one, not an HTTP refusal
+        before = len(calls)
+        ensure_check_status("/", {"events": [dict(recorded[2], commit="c" * 40)]}, [{"head": "c" * 40}])
+        ensure_check_status("/", {"events": [dict(recorded[0], commit="c" * 40)]}, [{"head": "c" * 40}])
+        assert len(calls) == before
+        ensure_check_status("/", {"events": []}, [{"head": "good"}])
+        assert len(calls) == before + 1
+    finally:
+        subprocess.run = real_run
+        globals().update(git=real_git, load_state=real_load, append_event=real_append)
+    # --- KAN-620: a re-review stands only on a reviewed ancestor and a small, plain range
+    assert REREVIEW_OF.findall("RE-REVIEW OF: 0123abc\nREVIEWED: 4567def\nVERDICT: PASS") == ["0123abc"]
+    assert REREVIEW_OF.findall("REVIEWED: 4567def\nVERDICT: PASS") == []
+    assert REREVIEW_OF.findall("**RE-REVIEW OF:** `0123abc`\nREVIEWED: 4567def") == ["0123abc"]
+    # prose is not the marker: a full review that mentions an earlier one stays a full review
+    assert REREVIEW_OF.findall("This is not a re-review of 0123abc.\nA full review, no RE-REVIEW OF: 0123abc line.") == []
+    assert rereview_full_reason(["3\t1\tapp/sales/services/offer.py", "10\t0\ttests/test_x.py"]) is None
+    assert "preserved file" in rereview_full_reason(["1\t0\tapp/core/tenancy.py"])
+    assert "preserved file" in rereview_full_reason(["1\t0\tapp/core/outbox_worker.py"])
+    assert "migration" in rereview_full_reason(["1\t0\talembic/versions/platform/abc_x.py"])
+    assert "public door" in rereview_full_reason(["1\t0\tapp/sales/public.py"])
+    assert rereview_full_reason(["1\t0\tfrontend/public.py"]) is None
+    assert "binary" in rereview_full_reason(["-\t-\tdocs/x.png"])
+    assert "151 lines" in rereview_full_reason(["100\t51\tapp/x.py"])
+    assert rereview_full_reason(["100\t50\tapp/x.py"]) is None
+    repo = tempfile.mkdtemp(prefix="nexotec-selftest-")
+    try:
+        ident = ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+
+        def commit_file(name, text):
+            with open(os.path.join(repo, name), "w") as fh:
+                fh.write(text)
+            git(repo, "add", "-A")
+            git(repo, *(ident + ["commit", "-q", "-m", name]))
+            return git(repo, "rev-parse", "HEAD")[1]
+        git(repo, "init", "-q")
+        first = commit_file("a.py", "a\n")
+        second = commit_file("b.py", "b\n")
+        git(repo, "checkout", "-q", "-b", "side", first)
+        side = commit_file("c.py", "c\n")
+        git(repo, "checkout", "-q", "-")
+        reviewed = {"events": [{"kind": "review", "commit": first, "verdict": "FINDINGS"}]}
+        assert rereview_refusal(repo, reviewed, first, second) is None
+        assert "no review" in rereview_refusal(repo, {"events": []}, first, second)
+        refused_base = {"events": [{"kind": "review", "commit": first, "verdict": "REREVIEW-REFUSED"}]}
+        assert "no review" in rereview_refusal(repo, refused_base, first, second)
+        assert "not an ancestor" in rereview_refusal(repo, {"events": [{"kind": "review", "commit": side,
+                                                                        "verdict": "PASS"}]}, side, second)
+        assert "not a commit" in rereview_refusal(repo, reviewed, "f" * 40, second)
+        big = commit_file("d.py", "x\n" * 151)
+        assert "needs a full review" in rereview_refusal(repo, reviewed, first, big)
+        # the SubagentStop handler: a valid re-review PASS is recorded for the new commit; one on
+        # an unreviewed or foreign base is recorded as refused, never as PASS
+        update_state(repo, lambda st: st.update(reviewed))
+
+        def stop(report):
+            cmd_subagent_stop({"cwd": repo, "agent_type": "reviewer", "last_assistant_message": report})
+            return events(load_state(repo), "review")[-1]
+        ok = stop("RE-REVIEW OF: {}\nREVIEWED: {}\nVERDICT: PASS".format(first, second))
+        assert (ok["verdict"], ok["mode"], ok["commit"]) == ("PASS", "re-review", second), ok
+        bad = stop("RE-REVIEW OF: {}\nREVIEWED: {}\nVERDICT: PASS".format(side, second))
+        assert bad["verdict"] == "REREVIEW-REFUSED" and "not an ancestor" in bad["reason"], bad
+        too_big = stop("RE-REVIEW OF: {}\nREVIEWED: {}\nVERDICT: PASS".format(first, big))
+        assert too_big["verdict"] == "REREVIEW-REFUSED" and "full review" in too_big["reason"], too_big
+        plain = stop("REVIEWED: {}\nVERDICT: PASS".format(big))
+        assert (plain["verdict"], plain["mode"]) == ("PASS", "full"), plain
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+    assert reviewer_problem(["scripts/dev/gate", "review-scope", "0123abc"], [], "/r", "/r") is None
+    assert reviewer_problem(["scripts/dev/gate", "waive", "ci", "x"], [], "/r", "/r")
     # --- Notion
     assert notion_id("https://app.notion.com/p/3cf3e79334dd80f69bb8c2e6a19481ef?pvs=4") == "3cf3e79334dd80f69bb8c2e6a19481ef"
     assert notion_id("3cf3e793-34dd-805c-9017-000b5a24915f") in KANBAN_IDS

@@ -85,7 +85,9 @@ def test_every_reserved_shape_is_refused_on_a_keyed_post(client, db_session, cra
 @pytest.mark.parametrize(
     "client_key",
     [
-        str(uuid.uuid4()),
+        # A fixed id: the value is new on every import, and pytest-xdist needs every worker to
+        # collect the same test ids (KAN-627).
+        pytest.param(str(uuid.uuid4()), id="a-uuid"),
         "abc:def",
         "my.key",
         "my.key:with-colon",  # `my` is not a context
