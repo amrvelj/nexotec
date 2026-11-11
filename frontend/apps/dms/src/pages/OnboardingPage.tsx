@@ -5,7 +5,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Wizard, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
-import type { AccessRole, DealerGroupOptionList, OnboardingRequest, OnboardingResult, UserRole } from '../api/types'
+import type { AccessRole, DealerGroupOptionList, FranchiseType, OnboardingRequest, OnboardingResult, UserRole } from '../api/types'
 import { useListOptions } from '../components/business/useListOptions'
 import { CANTON_OPTIONS } from '../customerOptions'
 import { FRANCHISE_TYPES } from '../businessOptions'
@@ -102,7 +102,7 @@ export function OnboardingPage() {
 
   const stepComplete = [
     form.groupMode === 'new' ? filled(form.newGroupName) : form.dealerGroupId !== null,
-    [form.legalName, form.franchiseType, form.uid, form.street, form.postalCode, form.locality, form.canton, form.phone].every(filled),
+    [form.legalName, form.franchiseType, form.uid, form.street, form.houseNumber, form.postalCode, form.locality, form.canton, form.phone].every(filled),
     true,
     [form.firstName, form.lastName, form.email, form.role].every(filled) && form.accessRoles.length > 0,
     true,
@@ -112,20 +112,21 @@ export function OnboardingPage() {
     setSubmitting(true)
     setError(null)
     try {
+      // Every step's required fields are filled before «Betrieb aufnehmen» is enabled (stepComplete).
       const body: OnboardingRequest = {
-        group: form.groupMode === 'new' ? { newGroupName: form.newGroupName.trim() } : { dealerGroupId: form.dealerGroupId },
+        group: form.groupMode === 'new' ? { newGroupName: form.newGroupName.trim() } : { dealerGroupId: form.dealerGroupId ?? '' },
         legalEntity: {
           legalName: form.legalName.trim(),
           tradeName: form.tradeName.trim() || null,
-          franchiseType: form.franchiseType,
+          franchiseType: form.franchiseType as FranchiseType,
           legalForm: form.legalForm,
           uid: form.uid.trim(),
           address: {
             street: form.street.trim(),
-            houseNumber: form.houseNumber.trim() || null,
+            houseNumber: form.houseNumber.trim(),
             postalCode: form.postalCode.trim(),
             locality: form.locality.trim(),
-            canton: form.canton,
+            canton: form.canton ?? '',
           },
           // E.164 at the API: «+41 44 123 45 67» as typed is sent as +41441234567.
           phone: form.phone.replace(/[\s\-/().]/g, ''),
@@ -135,7 +136,7 @@ export function OnboardingPage() {
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           email: form.email.trim(),
-          role: form.role,
+          role: form.role as UserRole,
           accessRoles: form.accessRoles,
         },
       }
@@ -266,7 +267,7 @@ export function OnboardingPage() {
               </Text>
               <SimpleGrid cols={{ base: 2, sm: 4 }}>
                 <TextInput label={t('business.addresses.street')} value={form.street} onChange={(e) => set('street', e.currentTarget.value)} required />
-                <TextInput label={t('business.addresses.houseNumber')} value={form.houseNumber} onChange={(e) => set('houseNumber', e.currentTarget.value)} />
+                <TextInput label={t('business.addresses.houseNumber')} value={form.houseNumber} onChange={(e) => set('houseNumber', e.currentTarget.value)} required />
                 <TextInput label={t('business.addresses.postalCode')} value={form.postalCode} onChange={(e) => set('postalCode', e.currentTarget.value)} required />
                 <TextInput label={t('business.addresses.locality')} value={form.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
                 <Select label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={form.canton} onChange={(v) => set('canton', v)} searchable required />
