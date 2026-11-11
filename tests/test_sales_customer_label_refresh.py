@@ -179,6 +179,65 @@ def test_an_offer_with_a_pending_contract_follows_with_it_and_keeps_the_name_onc
     assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Paul Frei"}
 
 
+def _contract_buyer(client, seller: dict, contract: dict, customer_id: str | None) -> dict:
+    current = client.get(f"/v1/sales/contracts/{contract['id']}", headers=_as(seller)).json()
+    response = client.patch(
+        f"/v1/sales/contracts/{contract['id']}",
+        json={"customerId": customer_id},
+        headers={**_as(seller), "If-Match": str(current["version"])},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_an_offer_whose_contract_names_another_buyer_keeps_its_own_customers_name(client, db_session):
+    """Review finding (round 5): a pending contract's buyer can be replaced
+    (ADR-083 amended) while the offer keeps its own; the offer's label stays
+    the copy of its own customer (rule 2), never the contract's buyer."""
+
+    seller, anna = _setup(client, firstName="Anna", lastName="Alt")
+    bruno = _customer_for(client, seller, firstName="Bruno", lastName="Neu", language="fr")
+    offer = _offer_with(client, seller, anna)
+    contract = _contract_from_offer(client, seller, offer)
+    _contract_buyer(client, seller, contract, bruno["id"])
+    _rename(db_session, anna["id"], last_name="Altmann")
+
+    refresh_customer_labels(db_session)
+
+    db_session.expire_all()
+    row = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
+    assert (str(row.customer_id), row.customer_label, row.customer_language) == (anna["id"], "Anna Altmann", "de")
+    assert db_session.get(SalesContract, uuid.UUID(contract["id"])).customer_label == "Bruno Neu"
+    body = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(seller)).json()
+    assert (body["customerId"], body["customerLabel"]) == (anna["id"], "Anna Altmann")
+
+
+def test_an_offer_whose_contract_lost_its_buyer_keeps_its_own_customers_name(client, db_session):
+    seller, anna = _setup(client, firstName="Anna", lastName="Alt")
+    offer = _offer_with(client, seller, anna)
+    contract = _contract_from_offer(client, seller, offer)
+    _contract_buyer(client, seller, contract, None)
+
+    refresh_customer_labels(db_session)
+
+    db_session.expire_all()
+    row = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
+    assert (row.customer_label, row.customer_language) == ("Anna Alt", "de")
+
+
+def test_an_offer_without_a_buyer_is_never_labelled_from_its_contract(client, db_session):
+    seller, bruno = _setup(client, firstName="Bruno", lastName="Neu")
+    offer = _offer_for(client, seller)  # no buyer
+    contract = _contract_from_offer(client, seller, offer)
+    _contract_buyer(client, seller, contract, bruno["id"])
+
+    refresh_customer_labels(db_session)
+
+    db_session.expire_all()
+    row = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
+    assert (row.customer_id, row.customer_label) == (None, None)
+
+
 def test_a_cancelled_offer_keeps_its_name(client, db_session):
     seller, customer = _setup(client, firstName="Nina", lastName="Gerber")
     offer = _offer_with(client, seller, customer)

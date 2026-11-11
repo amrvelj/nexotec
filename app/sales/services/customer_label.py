@@ -20,13 +20,15 @@ restamped («checked, kept on purpose»), as `sales.owner_labels` restamps
 every row it can resolve, so a row that comes back into open work (the offer
 a cancelled contract frees, a copied offer) never brings a stale stamp.
 
-**An offer with a live contract mirrors that contract** (KAN-408: the two
-never disagree): after the contract pass, such an offer takes its contract's
-committed label and language — the new name while the contract is pending,
+**An offer with a live contract of the same buyer mirrors that contract**
+(KAN-408: the two never disagree): after the contract pass, such an offer
+takes its contract's committed label and language — the new name while the contract is pending,
 the signed name once it is signed. Never the customer's directly: a contract
 a writer held when the job passed, or one signed between two passes, would
-otherwise leave the two apart for good. Deal rows follow their live entity
-the same way. Documents already generated are frozen and never touched.
+otherwise leave the two apart for good (a held offer is apart for one night
+at most). A contract whose buyer was replaced or cleared (ADR-083 amended)
+is never mirrored: the offer keeps following its own customer (rule 2). Deal
+rows follow their live entity the same way. Documents already generated are frozen and never touched.
 `customer_locality` is left as it is (ruling 2, revised): no path fills it.
 
 The correspondence language follows with the label (the plan Anto approved
@@ -49,7 +51,6 @@ from app.customer.public import get_customer_sales_labels
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
-from app.sales.services.ownership import offer_is_open
 
 _BATCH = 500
 _Labelled = TypeVar("_Labelled", SalesOffer, SalesContract, SalesDeal)
@@ -60,16 +61,17 @@ _OPEN_CONTRACT = (ContractStatus.PENDING,)
 
 def _follows(model: type[_Labelled]) -> Any:
     """The rows whose customer label follows the customer directly: open work
-    without a live contract above it.
+    without a live contract of the same buyer above it.
 
     An offer follows while it is draft or open and no live (not cancelled)
-    contract was made from it (`ownership.offer_is_open`, Sales' one
-    definition). An offer keeps its status when a contract is made from it;
-    such an offer mirrors its contract instead (`_mirror_offers_to_contracts`).
-    A cancelled contract frees its offer, which follows again."""
+    contract naming its own customer was made from it. An offer keeps its
+    status when a contract is made from it; such an offer mirrors that
+    contract instead (`_mirror_offers_to_contracts`). An offer whose contract
+    names another buyer, or none, follows its own customer (rule 2). A
+    cancelled contract frees its offer, which follows again."""
 
     if model is SalesOffer:
-        return offer_is_open()
+        return SalesOffer.status.in_(_OPEN_OFFER) & ~_live_contract_of_the_same_buyer()
     if model is SalesContract:
         return SalesContract.status.in_(_OPEN_CONTRACT)
     # A deal row shows its contract once one exists (`entity_type` flips),
@@ -80,10 +82,30 @@ def _follows(model: type[_Labelled]) -> Any:
     )
 
 
+def _live_contract_of_the_same_buyer() -> Any:
+    """A live (not cancelled) contract made from the offer that names the
+    offer's own customer. A pending contract's buyer can be replaced or
+    cleared (ADR-083 amended) while the offer keeps its own: then the offer
+    follows its own customer, never the contract's (rule 2: a label is the
+    copy of the id beside it)."""
+
+    return (
+        select(SalesContract.id)
+        .where(
+            SalesContract.offer_id == SalesOffer.id,
+            SalesContract.status != ContractStatus.CANCELLED,
+            SalesContract.customer_id == SalesOffer.customer_id,
+        )
+        .correlate(SalesOffer)
+        .exists()
+    )
+
+
 def refresh_customer_labels(db: Session) -> int:
     """Re-read the customer's label (and language) on open work — an offer
-    no signed contract was made from, a pending contract, and their deal
-    rows; returns how many rows changed. Signed work (and a cancelled offer)
+    without a live contract of its own buyer, a pending contract, then the
+    offers mirroring their contract, then the deal rows following their live
+    entity; returns how many rows changed. Signed work (and a cancelled offer)
     keeps its label and is only restamped, as `sales.owner_labels` restamps
     every row it can resolve. Walks each table in id order, one commit per
     batch.
@@ -115,22 +137,23 @@ def refresh_customer_labels(db: Session) -> int:
 
 
 def _mirror_offers_to_contracts(db: Session) -> int:
-    """Give each draft or open offer with a live contract that contract's
-    committed `customer_label` and `customer_language`; returns how many
-    offers changed. Same batch, lock and stamp rules as `_refresh_table`."""
+    """Give each draft or open offer with a live contract of the same buyer
+    that contract's committed `customer_label` and `customer_language`;
+    returns how many offers changed. An offer whose contract names another
+    buyer, or none, is not mirrored (it follows its own customer in the offer
+    pass); an offer without a buyer is never labelled. Same batch, lock and
+    stamp rules as `_refresh_table`."""
 
-    live_contract = (
-        select(SalesContract.id)
-        .where(SalesContract.offer_id == SalesOffer.id, SalesContract.status != ContractStatus.CANCELLED)
-        .correlate(SalesOffer)
-        .exists()
-    )
     changed = 0
     last_id: uuid.UUID | None = None
     while True:
         stmt = (
             select(SalesOffer)
-            .where(SalesOffer.status.in_(_OPEN_OFFER), live_contract)
+            .where(
+                SalesOffer.customer_id.is_not(None),
+                SalesOffer.status.in_(_OPEN_OFFER),
+                _live_contract_of_the_same_buyer(),
+            )
             .order_by(SalesOffer.id)
             .limit(_BATCH)
             .with_for_update(key_share=True, skip_locked=True)
@@ -143,9 +166,14 @@ def _mirror_offers_to_contracts(db: Session) -> int:
         last_id = batch[-1].id
 
         contracts = {
-            offer_id: (label, language)
-            for offer_id, label, language in db.execute(
-                select(SalesContract.offer_id, SalesContract.customer_label, SalesContract.customer_language).where(
+            (offer_id, customer_id): (label, language)
+            for offer_id, customer_id, label, language in db.execute(
+                select(
+                    SalesContract.offer_id,
+                    SalesContract.customer_id,
+                    SalesContract.customer_label,
+                    SalesContract.customer_language,
+                ).where(
                     SalesContract.offer_id.in_([offer.id for offer in batch]),
                     SalesContract.status != ContractStatus.CANCELLED,
                 )
@@ -154,7 +182,9 @@ def _mirror_offers_to_contracts(db: Session) -> int:
         now = utcnow()
         stamp_only: list[uuid.UUID] = []
         for offer in batch:
-            mirrored = contracts.get(offer.id)
+            # Re-checked on the committed contract: its buyer may have changed
+            # since the batch was read; then the offer waits for the next night.
+            mirrored = contracts.get((offer.id, offer.customer_id))
             if mirrored is None:
                 continue
             label, language = mirrored
@@ -205,7 +235,8 @@ def _refresh_table(db: Session, model: type[_Labelled]) -> int:
             if current is None or current.merged:
                 continue
             if not follows[row.id]:
-                # Signed work keeps the name it was signed under; it is only
+                # Signed work keeps the name it was signed under (and an offer
+                # with a live contract of its buyer waits for the mirror); it is only
                 # restamped («checked, kept on purpose»), so a row that comes
                 # back into open work — the offer a cancelled contract frees,
                 # a copy of a signed deal's offer — never brings a stale stamp.

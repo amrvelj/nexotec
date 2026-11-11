@@ -23,8 +23,8 @@ stands: no Sales path writes it (Anto, 2026-11-10, KAN-590). A later rename
 of the survivor reaches open work through the nightly
 `sales.customer_labels` job (KAN-590).
 `customer_language` (which language a regenerated document prints in) is
-left as it stands by this consumer; on open work (a draft or open offer, a
-pending contract) the nightly `sales.customer_labels` job then gives it
+left as it stands by this consumer; on open work (an offer without a signed
+contract, a pending contract) the nightly `sales.customer_labels` job then gives it
 the survivor's language, as for any customer whose language changed (KAN-590's
 approved plan). A signed contract keeps the language it had.
 
