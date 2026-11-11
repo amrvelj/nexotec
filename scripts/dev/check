@@ -74,10 +74,41 @@ def hooks_cli(*args):
                           universal_newlines=True).stdout.strip()
 
 
-def step(title, cmd, cwd=ROOT, env=None):
+# Test counts of this run, e.g. "pytest 4213 passed, 12 skipped": recorded with the result so the
+# push hook can put them in the `nexotec/check` commit status (KAN-625).
+COUNTS = []
+
+
+def test_counts(output):
+    """'4213 passed, 12 skipped' from the summary line of pytest or vitest, or None."""
+    lines = [l for l in re.sub(r"\x1b\[[0-9;]*m", "", output).splitlines() if re.search(r"\b\d+ passed\b", l)]
+    if not lines:
+        return None
+    found = [m.group(0) for word in ("passed", "skipped", "failed")
+             for m in [re.search(r"\b\d+ " + word + r"\b", lines[-1])] if m]
+    return ", ".join(found)
+
+
+def step(title, cmd, cwd=ROOT, env=None, count=None):
+    """Run one command. `count` names a test run: its output is passed through as it comes and
+    its summary line is kept in COUNTS under that name."""
     print("\n--- " + title + "\n$ " + " ".join(cmd), flush=True)
     start = time.time()
-    rc = subprocess.run(cmd, cwd=cwd, env=env or ENV).returncode
+    if count is None:
+        rc = subprocess.run(cmd, cwd=cwd, env=env or ENV).returncode
+    else:
+        proc = subprocess.Popen(cmd, cwd=cwd, env=env or ENV, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                universal_newlines=True, errors="replace")
+        tail = []
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            tail.append(line)
+            del tail[:-60]
+        rc = proc.wait()
+        found = test_counts("".join(tail))
+        if found:
+            COUNTS.append("{} {}".format(count, found))
     print("--- {} ({}s)".format("ok" if rc == 0 else "FAILED (exit {})".format(rc), int(time.time() - start)), flush=True)
     return rc == 0
 
@@ -272,7 +303,10 @@ def lane_backend(fast):
     if not recreate_db(name):
         return False
     env["DMS_TEST_DATABASE_URL"] = pg_url(name)
-    ok &= step("pytest - Postgres lane of record ({})".format(name), [PY, "-m", "pytest", "-q"], env=env)
+    # KAN-627: one worker per core, each on a database of its own (`<name>_gw0`, `_gw1` ...) that
+    # tests/conftest.py creates and drops; the same tests as plain `pytest`.
+    ok &= step("pytest - Postgres lane of record ({}, one database per worker)".format(name),
+               [PY, "-m", "pytest", "-q", "-n", "auto"], env=env, count="pytest")
     return ok
 
 
@@ -424,7 +458,7 @@ def lane_frontend():
         ("dms vitest", ["npx", "vitest", "run"], app),
         ("dms vite build", ["npx", "vite", "build"], app),
     ):
-        ok = ok and step(title, cmd, cwd=cwd)
+        ok = ok and step(title, cmd, cwd=cwd, count=title if title.endswith("vitest") else None)
     return ok
 
 
@@ -467,7 +501,10 @@ def main(argv):
     if fast:
         print("\n--fast: nothing recorded. Only a full-lane run counts for the push gate.")
         return 0 if passed else 1
-    hooks_cli("stamp-checks", tree_after, "pass" if passed else "fail", *lanes)
+    # KAN-625: beside the lanes, the lanes left out and the test counts - what the push hook
+    # writes into the `nexotec/check` commit status.
+    hooks_cli("stamp-checks", tree_after, "pass" if passed else "fail", *lanes,
+              "not-run=" + ",".join(l for l in ORDER if l not in lanes), "counts=" + "; ".join(COUNTS))
     print("\nRecorded: {} for tree {}.".format("PASS" if passed else "FAIL", tree_after[:12]))
     if passed:
         print("The push gate will accept a commit whose tree is exactly this one (commit everything first).")

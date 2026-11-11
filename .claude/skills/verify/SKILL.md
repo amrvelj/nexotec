@@ -40,7 +40,9 @@ this session's environment and imports this session's code.
 
 ## 3. Delegate the audit to the `reviewer` agent
 
-Give it everything from step 1 and the directory from step 2, plus this brief:
+An audit is always the reviewer's **full review** - never a re-review, whatever was reviewed
+before (KAN-620): give it no previous report and no previous sha. Give it everything from step 1
+and the directory from step 2, plus this brief:
 
 - Read all sources before writing a single finding. Notion is authoritative where it and
   CLAUDE.md or the rules differ.

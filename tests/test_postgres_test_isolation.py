@@ -151,12 +151,17 @@ def test_statistics_a_test_leaves_are_gone_even_if_it_truncated_the_table(engine
 def test_vacuum_state_a_test_leaves_is_gone_before_the_next(engine, db_session, _postgres_schema):
     """VACUUM alone: no statistics, but reltuples set, and the emptied table
     has no pages left, so no TRUNCATE would reach it (no seeded table's
-    CASCADE does either: dealer_group references none)."""
+    CASCADE does either: dealer_group references none).
+
+    The test empties the table with TRUNCATE, not DELETE: VACUUM frees a
+    deleted row's page only when no other transaction is open in the
+    database at that instant (an autovacuum worker reading the catalogs is
+    one), which a test cannot arrange (KAN-627)."""
     db_session.add(DealerGroup(name="vacuumed"))
     db_session.commit()
     with engine.connect() as conn:
         conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-        conn.execute(text("DELETE FROM dealer_group"))
+        conn.execute(text("TRUNCATE dealer_group CASCADE"))
         conn.execute(text("VACUUM dealer_group"))
         pages, reltuples = conn.execute(
             text("SELECT pg_relation_size(oid), reltuples FROM pg_class WHERE oid = 'dealer_group'::regclass")
