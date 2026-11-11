@@ -248,6 +248,7 @@
   "linkVehicleRefused": {
     "customerMerged": "Ce client a été fusionné avec un autre. Liez le véhicule au client dans lequel il a été fusionné.",
     "roleAlreadyHeld": "Ce client a déjà ce rôle sur ce véhicule à partir de cette date.",
+    "futureHolder": "{{customer}} est déjà enregistré comme {{role}} de ce véhicule à partir du {{date}} — terminez ou déplacez d’abord cette entrée.",
     "notFound": "Le véhicule ou le client n'existe plus. Rechargez la page et recherchez à nouveau."
   },
   "merge": {

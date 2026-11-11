@@ -45,6 +45,7 @@ const REASON_KEYS: Record<string, string> = {
   unknown_reference_code: 'business.errors.unknownReferenceCode',
   vehicle_not_changed: 'apiRefusal.reasons.vehicle_not_changed',
   vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
+  vehicle_party_future_holder: 'customerDetail.linkVehicleRefused.futureHolder',
   vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
   ...Object.fromEntries(
     [
@@ -267,6 +268,16 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   standard_text_placeholder_unresolved: (d) => ({ placeholders: placeholderTokens(d.placeholders) }),
   too_many_images: (d) => ({ max: typeof d.maxImages === 'number' ? d.maxImages : 16 }),
   vin_already_in_stock: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
+  // KAN-583: the future holder in the way — who, in which role, from when
+  // (a timestamp, as a day in the user's locale).
+  vehicle_party_future_holder: (d, t) => ({
+    customer: typeof d.customerName === 'string' && d.customerName ? d.customerName : '—',
+    role: typeof d.role === 'string' ? t(`customerEnums.vehiclePartyRole.${d.role}`) : '—',
+    date:
+      typeof d.effectiveFrom === 'string' && !Number.isNaN(Date.parse(d.effectiveFrom))
+        ? formatDate(d.effectiveFrom, toSwissLocale(i18n.language as SupportedLanguage))
+        : '—',
+  }),
 }
 
 const placeholderTokens = (value: unknown): string =>

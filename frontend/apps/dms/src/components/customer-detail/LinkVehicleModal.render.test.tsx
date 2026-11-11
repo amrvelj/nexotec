@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import i18n from '../../i18n'
+import i18n, { toSwissLocale } from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
+import { formatDate } from '../../utils/format'
 import { installFakeBackend, status } from '../../test/fakeBackend'
 import type { VehicleMdmRead, VehicleSearchResult } from '../../api/types'
 import { LinkVehicleModal } from './LinkVehicleModal'
@@ -222,4 +223,29 @@ describe('LinkVehicleModal — a refused link is translated (KAN-369)', () => {
       expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
     })
   }
+
+  // KAN-583 — a future holder in the way is named: who, in which role, from when.
+  it('names the future holder, its role and its start in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const message = 'Another customer is recorded in this role for this vehicle from a later date; end or move that entry first.'
+    installRefusal(409, message, {
+      reason: 'vehicle_party_future_holder', vehicleId: TARGET.id, role: 'owner', vehiclePartyId: 'party-9',
+      customerId: 'cust-9', customerName: 'Anna Meier', effectiveFrom: '2026-12-01T10:00:00+00:00', effectiveTo: null,
+    })
+
+    await type('ZH 12345')
+    await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+    const sentence = i18n.t('customerDetail.linkVehicleRefused.futureHolder', {
+      customer: 'Anna Meier',
+      role: i18n.t('customerEnums.vehiclePartyRole.owner'),
+      date: formatDate('2026-12-01T10:00:00+00:00', toSwissLocale('fr')),
+    })
+    expect(await screen.findByText(sentence)).toBeInTheDocument()
+    expect(sentence).toContain('Anna Meier')
+    expect(sentence).toContain(i18n.t('customerEnums.vehiclePartyRole.owner'))
+    expect(screen.queryByText(message)).toBeNull()
+    expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+  })
 })

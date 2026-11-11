@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
 import { ApiError } from '../api/client'
+import { apiRefusalText } from './apiRefusal'
 
 /**
  * KAN-369, KAN-389 — a refused vehicle-party allocation, said in the user's
@@ -18,6 +19,9 @@ export function vehiclePartyRefusalMessage(t: TFunction, err: unknown, fallbackK
       return t('customerDetail.linkVehicleRefused.customerMerged')
     case 'vehicle_party_exists':
       return t('customerDetail.linkVehicleRefused.roleAlreadyHeld')
+    case 'vehicle_party_future_holder':
+      // KAN-583: names the future holder and its start (apiRefusal's params).
+      return apiRefusalText(t, err, fallbackKey)
     default:
       return t(fallbackKey)
   }

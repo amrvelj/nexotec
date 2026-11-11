@@ -3140,14 +3140,25 @@ def update_customer_vehicle(
     new_effective_to = changes.get("effective_to", party.effective_to)
     _validate_effective_range(new_effective_from, new_effective_to)
 
+    # KAN-583: a future holder the reopened period overlaps refuses the PATCH
+    # before anything is changed.
+    to_close = (
+        _current_holders_refusing_future_overlap(
+            db,
+            _open_holders_in_group(
+                db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
+            ),
+            starts=new_effective_from, ends=new_effective_to,
+        )
+        if holds_after
+        else []
+    )
+
     for field, value in changes.items():
         setattr(party, field, value)
 
-    if holds_after:
-        for other in _open_holders_in_group(
-            db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
-        ):
-            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
+    for other in to_close:
+        _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
 
     try:
         db.flush()
@@ -3324,7 +3335,10 @@ def allocate_vehicle_party(
     _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
     effective_from = effective_from or utcnow()
-    incumbents = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    incumbents = _current_holders_refusing_future_overlap(
+        db, _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id),
+        starts=effective_from, ends=effective_to,
+    )
     if effective_to is None and len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
         incumbent = incumbents[0]
         # KAN-84: a re-confirmed row written before KAN-84 has no label yet;
@@ -3619,6 +3633,54 @@ def _open_holders_in_group(
     if excluding is not None:
         stmt = stmt.where(VehicleParty.id != excluding)
     return list(db.scalars(stmt).all())
+
+
+def _current_holders_refusing_future_overlap(
+    db: Session, holders: list[VehicleParty], *, starts: dt.datetime, ends: dt.datetime | None
+) -> list[VehicleParty]:
+    """KAN-583 (Anto, 2026-11-10, option A): of `_open_holders_in_group`'s
+    rows, those holding the role now — the ones an allocation or a reopen
+    closes (KAN-148). A row whose start is still to come does not hold it yet:
+    closing it at now would end it before it began (`effective_to <
+    effective_from`, a period that never existed). When the new period
+    [`starts`, `ends`) overlaps such a future holder, the write is refused,
+    409 `vehicle_party_future_holder` naming that holder and its start: the
+    user ends or moves one of the two entries — nothing changes behind their
+    back. A future holder the new period ends before is left as it is.
+
+    A row with an empty period (closed at its own start — the copy a merge
+    kept, KAN-177) holds nothing, now or later, and is neither closed nor in
+    the way. The caller holds the (vehicle, role, group) advisory lock, so no
+    holder appears behind this check."""
+
+    now = utcnow()
+    current: list[VehicleParty] = []
+    for holder in holders:
+        if holder.effective_to is not None and holder.effective_to <= holder.effective_from:
+            continue
+        if holder.effective_from <= now:
+            current.append(holder)
+            continue
+        overlaps = (ends is None or holder.effective_from < ends) and (
+            holder.effective_to is None or holder.effective_to > starts
+        )
+        if overlaps:
+            future = db.get(Customer, holder.customer_id)
+            raise ConflictError(
+                "Another customer is recorded in this role for this vehicle from a later date; "
+                "end or move that entry first.",
+                details={
+                    "reason": "vehicle_party_future_holder",
+                    "vehicleId": str(holder.vehicle_id),
+                    "role": holder.role.value,
+                    "vehiclePartyId": str(holder.id),
+                    "customerId": str(holder.customer_id),
+                    "customerName": customer_display_name(future) if future is not None else None,
+                    "effectiveFrom": holder.effective_from.isoformat(),
+                    "effectiveTo": holder.effective_to.isoformat() if holder.effective_to else None,
+                },
+            )
+    return current
 
 
 def _refuse_merged_customer(db: Session, customer_id: uuid.UUID) -> None:

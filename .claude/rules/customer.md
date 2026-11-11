@@ -175,8 +175,8 @@ weekly. -->
   recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
   recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
   promptly and in order, the returned customer does not get that role back and the role has no current
-  holder until the future holder starts (never ended before it began; KAN-583 is the same question
-  for allocations).
+  holder until the future holder starts (never ended before it began; allocations and reopens
+  refuse such an overlap, KAN-583).
   **Accepted residual**
   (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
   whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
@@ -197,7 +197,11 @@ weekly. -->
   refuses a merged customer the same way (KAN-370). A PATCH whose `effectiveTo` leaves the
   row holding its role (`null` or still to come) takes the same advisory lock and closes every
   other open holder in the group; a reopen publishes `customer.vehicle_party.linked`, and a PATCH
-  that ends a holding row (`effectiveTo` now or past) publishes `unlinked` (KAN-352). Disconnect
+  that ends a holding row (`effectiveTo` now or past) publishes `unlinked` (KAN-352).
+  **A holder whose start is still to come is not closed** (KAN-583; Anto, 2026-11-10, option A):
+  an allocation or a reopen whose period overlaps it is 409 `vehicle_party_future_holder` (naming
+  it and its start) and changes nothing; one ending before it starts leaves it alone. A row closed
+  at its own start (a merge's kept copy) holds nothing and is skipped. Disconnect
   locks and re-reads its row, so a race closes it once (one `unlinked`). Lock order is advisory,
   then row. The copy a customer merge kept (KAN-177) is never reopened (409 `merged_party_row`).
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
