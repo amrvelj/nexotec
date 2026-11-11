@@ -124,10 +124,9 @@ Stubs keep every context in the contract: never delete one or put its concerns e
    plain `GUID` with an owner comment, a denormalised label and `labelRefreshedAt` (the three-column
    pattern); its data comes from a `public` function — in `app/` only `reconciliation.py` reads across (ADR-107).
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
-   import-linter enforces it in CI with **no suppression mechanism**;
-   `test_import_contracts_cover_every_module.py` fails on a module its contract omits. Moving a
-   boundary is an ADR, not an ignore entry. Calls go only **down** the layers
-   (`test_context_dependency_direction.py`).
+   import-linter enforces it in CI with **no suppression mechanism**; `test_import_contracts_cover_every_module.py`
+   fails on a module its contract omits. Moving a boundary is an ADR, not an ignore entry. Calls go
+   only **down** the layers (`test_context_dependency_direction.py`).
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not
