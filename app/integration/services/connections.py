@@ -393,7 +393,21 @@ def set_secret(
 ) -> IntegrationSecretRef:
     """Upsert = create-or-rotate. Never returns or logs `value` itself —
     only the resulting pointer.
+
+    KAN-602 (Anto, 2026-11-10, option A): a connection holds only the slots
+    its provider declares in `required_secret_slots`. Any other slot is
+    refused before anything reaches the secrets manager — a credential no
+    adapter ever resolves only widens the stored-credential surface.
+    `remove_secret` still clears any slot, so a stray reference stored
+    before this rule can be removed.
     """
+
+    allowed = list(provider_service.get_provider_or_404(db, connection.provider_id).required_secret_slots or [])
+    if slot.value not in allowed:
+        raise UnprocessableEntityError(
+            f"This connection's provider does not use the '{slot.value}' credential.",
+            details={"reason": "secret_slot_not_used_by_provider", "slot": slot.value, "allowedSlots": allowed},
+        )
 
     existing = db.scalar(
         select(IntegrationSecretRef).where(

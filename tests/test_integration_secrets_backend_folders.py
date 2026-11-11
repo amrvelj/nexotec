@@ -163,13 +163,14 @@ def infisical(monkeypatch) -> FakeInfisical:
     return fake
 
 
-def _provider(db_session) -> IntegrationProvider:
+def _provider(db_session, *, slots: tuple[str, ...] = ("client_secret",)) -> IntegrationProvider:
     provider = IntegrationProvider(
         provider_code="auto_i_dat",
         category="vehicle_data",
         display_name="auto-i-dat",
         auth_type="oauth2_user_enrollment",
-        required_secret_slots=["client_secret"],
+        # KAN-602: a connection holds only the slots its provider declares.
+        required_secret_slots=list(slots),
         capability_codes=["ident_basis"],
     )
     db_session.add(provider)
@@ -218,7 +219,7 @@ def test_a_second_connection_reuses_the_integrations_folder(db_session, infisica
 
 
 def test_a_second_slot_of_the_same_connection_creates_no_folder(db_session, infisical):
-    connection = _connection(db_session, _provider(db_session))
+    connection = _connection(db_session, _provider(db_session, slots=("client_secret", "password")))
     _set(db_session, connection, slot=SecretSlot.CLIENT_SECRET)
     calls_after_first = list(infisical.create_folder_calls)
 
@@ -261,7 +262,7 @@ def test_rotation_replaces_the_value_in_the_same_folder(db_session, infisical):
 
 
 def test_deleting_the_connection_removes_its_folder_and_keeps_the_others(db_session, infisical):
-    provider = _provider(db_session)
+    provider = _provider(db_session, slots=("client_secret", "password"))
     kept = _connection(db_session, provider)
     deleted = _connection(db_session, provider)
     _set(db_session, kept)

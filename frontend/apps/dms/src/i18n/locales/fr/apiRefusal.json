@@ -151,7 +151,8 @@
     "provider_quote_stale": "La première mise en circulation ou le kilométrage diffèrent de l’évaluation auto-i-dat. Veuillez l’obtenir à nouveau.",
     "provider_quote_inputs_missing": "L’évaluation auto-i-dat requiert la première mise en circulation et le kilométrage.",
     "provider_not_configured": "La connexion à auto-i-dat n’est pas entièrement configurée — vérifiez-la dans l’administration de l’entreprise, sous Intégrations.",
-    "secrets_backend_failed": "Le coffre-fort des identifiants n’a pas exécuté la demande — rien n’a été enregistré. Réessayez plus tard ; si l’erreur persiste, informez le support Nexotec."
+    "secrets_backend_failed": "Le coffre-fort des identifiants n’a pas exécuté la demande — rien n’a été enregistré. Réessayez plus tard ; si l’erreur persiste, informez le support Nexotec.",
+    "secret_slot_not_used_by_provider": "Ce fournisseur n’utilise pas cet identifiant — il n’a pas été enregistré."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",
