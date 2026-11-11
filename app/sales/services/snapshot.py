@@ -225,5 +225,6 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal, force: bool = Fals
     deal.vehicle_changed_at = None
     deal.vehicle_changed_fields = None
     deal.vehicle_change_dismissed_at = None
+    deal.vehicle_change_dismissed_prices = None
     db.flush()
     return True

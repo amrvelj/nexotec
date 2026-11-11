@@ -98,6 +98,8 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
   change (`vehicle_changed_at`/`_fields`, audit row, deal row; no version bump; a contract from a
   flagged offer takes it). `POST …/{offers|contracts}/{id}/vehicle-refresh[/dismiss]` need an editable
   deal and a flag (409 `vehicle_not_changed`); refresh re-freezes with `force=True`, keeping the
-  seller's line edits. Sales' reconciliation reports an open deal whose frozen price differs, unflagged.
+  seller's line edits; dismiss keeps the accepted prices. Reconciliation reports an open deal whose
+  frozen (or accepted) price differs, unflagged. After the deploy, run
+  `scripts/backfill_vehicle_changed_flags.py` (dry run, then `--commit`) once per environment.
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

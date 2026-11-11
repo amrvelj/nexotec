@@ -127,7 +127,8 @@ export function OnboardingPage() {
             locality: form.locality.trim(),
             canton: form.canton,
           },
-          phone: form.phone.trim(),
+          // E.164 at the API: «+41 44 123 45 67» as typed is sent as +41441234567.
+          phone: form.phone.replace(/[\s\-/().]/g, ''),
         },
         entitlements: form.modules,
         manager: {

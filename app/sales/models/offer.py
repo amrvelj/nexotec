@@ -139,6 +139,8 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     # «Ignorieren»: the seller kept the frozen car as of then; the nightly
     # check compares Stock's later changes only.
     vehicle_change_dismissed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # The car's {listPrice, effectivePrice} the seller accepted with «Ignorieren».
+    vehicle_change_dismissed_prices: Mapped[dict[str, str | None] | None] = mapped_column(JSON, nullable=True)
 
     # WP-8 PR-3 — pricing.build_up()'s materialized result. base -> options
     # -> list -> accessories -> total -> discount -> price (FR-S spec's own

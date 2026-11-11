@@ -31,7 +31,7 @@ async function fillAll(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('textbox', { name: /Markenbindung/ }))
   await user.click(await screen.findByRole('option', { name: 'Freier Händler' }))
   await user.type(screen.getByRole('textbox', { name: /^UID/ }), 'CHE-123.456.788')
-  await user.type(screen.getByRole('textbox', { name: /Telefon/ }), '+41441234567')
+  await user.type(screen.getByRole('textbox', { name: /Telefon/ }), '+41 44 123 45 67')
   await user.type(screen.getByRole('textbox', { name: /Strasse/ }), 'Bahnhofstrasse')
   await user.type(screen.getByRole('textbox', { name: /PLZ/ }), '8001')
   await user.type(screen.getByRole('textbox', { name: /^Ort/ }), 'Zürich')

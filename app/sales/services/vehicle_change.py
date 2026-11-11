@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import ConflictError
+from app.inventory.public import get_stock_item_pricing
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -139,6 +140,15 @@ def flag_deal(
     return True
 
 
+def _current_prices(db: Session, deal: PricedDeal) -> dict[str, str | None] | None:
+    if deal.stock_item_id is None:
+        return None
+    pricing = get_stock_item_pricing(db, tenant_id=deal.tenant_id, stock_item_id=deal.stock_item_id)
+    return {
+        name: (str(pricing[name]) if pricing[name] is not None else None) for name in ("listPrice", "effectivePrice")
+    }
+
+
 def _require_flag(deal: PricedDeal) -> None:
     if deal.vehicle_changed_at is None:
         raise ConflictError(
@@ -189,6 +199,9 @@ def dismiss_vehicle_change(db: Session, *, deal: DealT, version_seen: int, actor
     deal.vehicle_changed_at = None
     deal.vehicle_changed_fields = None
     deal.vehicle_change_dismissed_at = utcnow()
+    # What the seller accepted: the nightly check reports only a price that
+    # moves away from these (an unrelated write to the car is no finding).
+    deal.vehicle_change_dismissed_prices = _current_prices(db, deal)
     deal.updated_by = actor_id
     deal.version += 1
     db.flush()

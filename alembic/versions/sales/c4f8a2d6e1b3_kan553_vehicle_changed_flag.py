@@ -5,10 +5,12 @@ options, colour, odometer or configuration label changes; Sales' consumer
 flags every draft or open offer and every pending contract on that car:
 `vehicle_changed_at` (when Stock last changed it) and `vehicle_changed_fields`
 (the changed field names, merged). Refresh or dismiss clears both;
-dismiss stamps `vehicle_change_dismissed_at`, so the nightly check does not
-report the price the seller chose to keep. The deal
-grid carries `vehicle_changed_at` for its filter and marker. Nullable, no
-backfill: nothing was flagged before.
+dismiss stamps `vehicle_change_dismissed_at` and the car's prices the seller
+accepted (`vehicle_change_dismissed_prices`), so the nightly check reports
+only a price that moved after that. The deal
+grid carries `vehicle_changed_at` for its filter and marker. Nullable; the
+open deals whose stock price moved before this deploy are flagged afterwards
+by `scripts/backfill_vehicle_changed_flags.py` (dry run, then --commit).
 
 Revision ID: c4f8a2d6e1b3
 Revises: e7a3c5d1b9f4
@@ -34,12 +36,14 @@ def upgrade() -> None:
         op.add_column(table, sa.Column("vehicle_changed_at", sa.DateTime(timezone=True), nullable=True))
         op.add_column(table, sa.Column("vehicle_changed_fields", sa.JSON(), nullable=True))
         op.add_column(table, sa.Column("vehicle_change_dismissed_at", sa.DateTime(timezone=True), nullable=True))
+        op.add_column(table, sa.Column("vehicle_change_dismissed_prices", sa.JSON(), nullable=True))
     op.add_column("sales_deal", sa.Column("vehicle_changed_at", sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
     op.drop_column("sales_deal", "vehicle_changed_at")
     for table in ("sales_contract", "sales_offer"):
+        op.drop_column(table, "vehicle_change_dismissed_prices")
         op.drop_column(table, "vehicle_change_dismissed_at")
         op.drop_column(table, "vehicle_changed_fields")
         op.drop_column(table, "vehicle_changed_at")

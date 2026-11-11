@@ -295,26 +295,28 @@ def _stock_price_moved_unflagged(deal: _Deal, is_open: Callable[[], ColumnElemen
     effective or list price differs from the car's current one, with no
     «Fahrzeug im Lager geändert» flag — Stock's
     `inventory.stock_item.commercial_changed` was lost or not consumed, so
-    the seller could send a price the car no longer has. The car must have
-    changed after the freeze and more than the outbox-lag grace ago; a deal
-    re-frozen since is no finding. Read-only, like every check here."""
+    the seller could send a price the car no longer has. After «Ignorieren»
+    the comparison is with the prices the seller accepted then
+    (`vehicle_change_dismissed_prices`), so an unrelated write to the car is
+    no finding. The car must have changed after the freeze and more than the
+    outbox-lag grace ago. Read-only, like every check here."""
+
+    def _differs(prices: Any) -> ColumnElement[bool]:
+        return or_(
+            cast(prices["effectivePrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.effective_price),
+            cast(prices["listPrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.list_price),
+        )
 
     def where() -> ColumnElement[bool]:
-        snapshot = deal.vehicle_snapshot
         moved = (
             select(StockItem.id)
             .where(
                 StockItem.id == deal.stock_item_id,
                 StockItem.tenant_id == deal.tenant_id,
-                # Changes after the freeze — or after the seller's «Ignorieren».
-                StockItem.updated_at > func.coalesce(deal.vehicle_change_dismissed_at, deal.vehicle_snapshot_frozen_at),
+                StockItem.updated_at > deal.vehicle_snapshot_frozen_at,
                 StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
-                or_(
-                    cast(snapshot["effectivePrice"].as_string(), Numeric(12, 2)).is_distinct_from(
-                        StockItem.effective_price
-                    ),
-                    cast(snapshot["listPrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.list_price),
-                ),
+                _differs(deal.vehicle_snapshot),
+                or_(deal.vehicle_change_dismissed_at.is_(None), _differs(deal.vehicle_change_dismissed_prices)),
             )
             .correlate(deal)
             .exists()

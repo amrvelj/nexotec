@@ -445,27 +445,26 @@ def test_a_sent_offer_is_flagged_too(db_session):
 
 def test_a_dismissed_change_is_no_reconciliation_finding(db_session):
     _dealership, item, offer = _flagged_offer(db_session)
-    dismiss_vehicle_change(db_session, deal=offer, version_seen=offer.version, actor_id=uuid.uuid4())
-    # Stock's change and the seller's «Ignorieren» both lie over an hour back.
+    offer = dismiss_vehicle_change(db_session, deal=offer, version_seen=offer.version, actor_id=uuid.uuid4())
+    assert offer.vehicle_change_dismissed_prices == {"listPrice": "36800.00", "effectivePrice": None}
+    # Afterwards, a write to the car that changes no price (it moves
+    # `updated_at`), and all of it over an hour back.
+    update_stock_item(db_session, item=db_session.get(StockItem, item.id), data=StockItemUpdate(body_style="kombi"), actor_id=uuid.uuid4())
     two_hours_ago = dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)
     db_session.execute(update(StockItem).where(StockItem.id == item.id).values(updated_at=two_hours_ago))
     db_session.execute(
         update(SalesOffer)
         .where(SalesOffer.id == offer.id)
-        .values(
-            vehicle_snapshot_frozen_at=two_hours_ago - dt.timedelta(hours=1),
-            vehicle_change_dismissed_at=two_hours_ago + dt.timedelta(minutes=5),
-        )
+        .values(vehicle_snapshot_frozen_at=two_hours_ago - dt.timedelta(hours=1))
     )
     db_session.commit()
 
     assert find_rows_in_state(db_session, _check(SalesOffer)) == []
 
-    # A later change than the dismissal is reported again (if its event is lost).
+    # A price that moves away from what the seller accepted is reported
+    # again when its event is lost.
     db_session.execute(
-        update(StockItem)
-        .where(StockItem.id == item.id)
-        .values(list_price=Decimal("30000.00"), updated_at=two_hours_ago + dt.timedelta(minutes=30))
+        update(StockItem).where(StockItem.id == item.id).values(list_price=Decimal("30000.00"), updated_at=two_hours_ago)
     )
     db_session.commit()
     assert [row for row, _ in find_rows_in_state(db_session, _check(SalesOffer))] == [offer.id]

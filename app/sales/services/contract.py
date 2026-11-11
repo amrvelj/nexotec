@@ -184,6 +184,9 @@ def create_contract(
         vehicle_changed_at=offer.vehicle_changed_at if offer is not None else None,
         vehicle_changed_fields=list(offer.vehicle_changed_fields or []) or None if offer is not None else None,
         vehicle_change_dismissed_at=offer.vehicle_change_dismissed_at if offer is not None else None,
+        vehicle_change_dismissed_prices=(
+            dict(offer.vehicle_change_dismissed_prices) if offer is not None and offer.vehicle_change_dismissed_prices else None
+        ),
         discount_type=offer.discount_type if offer is not None else None,
         discount_value=offer.discount_value if offer is not None else None,
         total_before_discount=offer.total_before_discount if offer is not None else None,
