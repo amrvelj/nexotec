@@ -93,13 +93,12 @@ paths:
 
 ## Sessions
 - One `session` row per login. `enforce_live_session` (app-level in `app/main.py`) 401s a revoked,
-  idle (`session_idle_minutes`) or expired row — the absolute end is **the next midnight
-  Europe/Zurich** — and touches the row at most once a minute, never for `X-DMS-Background`
+  idle or expired row — the absolute end is **the next midnight Europe/Zurich** — and touches the row at most once a minute, never for `X-DMS-Background`
   requests (an unattended tab still idles out). Logout is the one route a dead session reaches.
 - Every session of the user is revoked by: suspension or deactivation, a change of roles, manager
   flag or membership (the claims live for the day), a password reset, an accepted invitation,
-  staff `revoke-sessions` — each a `session_revoked` event. Per-Betrieb session policy (D-A-37) is
-  not built.
+  staff `revoke-sessions` — each a `session_revoked` event.
+- KAN-229: `dealership_auth_config.session_*` (15–120 min, 1–12 h) shorten it; not staff.
 - The reset request is 202 whether or not the address exists, its mail sent after the response.
 
 ## MFA (D-A-36)

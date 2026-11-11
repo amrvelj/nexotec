@@ -137,6 +137,7 @@ def _project_contract(db: Session, contract: SalesContract) -> SalesDeal:
     deal.owner_label_refreshed_at = contract.owner_label_refreshed_at
     deal.gross_price = contract.gross_price
     deal.margin = contract.margin
+    deal.vehicle_changed_at = contract.vehicle_changed_at
     offer_docs = (
         count_documents(
             db, tenant_id=contract.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=contract.offer_id
@@ -178,6 +179,7 @@ def _project_offer(db: Session, offer: SalesOffer) -> SalesDeal:
     deal.owner_label = offer.owner_label
     deal.owner_label_refreshed_at = offer.owner_label_refreshed_at
     deal.gross_price = offer.gross_price
+    deal.vehicle_changed_at = offer.vehicle_changed_at
     # An offer's row has never carried a margin (the grid's margin is the
     # contract's); one handed back by a cancelled contract drops its figure.
     deal.margin = None

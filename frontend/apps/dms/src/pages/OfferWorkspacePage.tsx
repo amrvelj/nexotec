@@ -22,6 +22,7 @@ import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import type { SalesOfferRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
 
 /**
  * `/sales/offers/:id` while status=draft — the container-based generation
@@ -217,6 +218,19 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           </Group>
         </Alert>
       )}
+
+      {/* KAN-553 (ADR-115): the stock car changed after this offer was priced. */}
+      <VehicleChangedBanner
+        vehicleChangedAt={offer.vehicleChangedAt}
+        vehicleChangedFields={offer.vehicleChangedFields}
+        busy={pricingUnsaved || saves.pending > 0}
+        {...(readOnly
+          ? {}
+          : {
+              onRefresh: () => saves.save((current) => api.post<SalesOfferRead>(`/sales/offers/${id}/vehicle-refresh`, undefined, { 'If-Match': String(current.version) })),
+              onDismiss: () => saves.save((current) => api.post<SalesOfferRead>(`/sales/offers/${id}/vehicle-refresh/dismiss`, undefined, { 'If-Match': String(current.version) })),
+            })}
+      />
 
       {saveError && (
         <Alert

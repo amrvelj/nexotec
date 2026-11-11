@@ -11,13 +11,15 @@ import { BankingSection } from '../components/business/BankingSection'
 import { FiscalDefaultsSection } from '../components/business/FiscalDefaultsSection'
 import { LegalIdentitySection } from '../components/business/LegalIdentitySection'
 import { LicencesSection } from '../components/business/LicencesSection'
+import { SecuritySection } from '../components/business/SecuritySection'
 import { dealershipKey, settingsKey } from '../components/business/queryKeys'
 
 /**
  * Dealer Administration › Business (KAN-203; PRD "Dealership master data";
  * A-RULE-0: the one place the Betrieb's own master data is configured).
- * Six sections — Legal identity · Addresses · Address entry (KAN-37) ·
- * Banking · Commercial and fiscal defaults · Licences and memberships —
+ * Seven sections — Legal identity · Addresses · Address entry (KAN-37) ·
+ * Banking · Commercial and fiscal defaults · Licences and memberships ·
+ * Security (KAN-229: the MFA switch and the session policy) —
  * each saving on its own.
  * Any role reads; the writes are the manager's at the API (a 403 is said
  * beneath the section, the screen is never role-hidden — A-RULE-7); the
@@ -63,6 +65,7 @@ export function BusinessPage() {
           <BankingSection dealershipId={dealershipId} />
           {settings.data && <FiscalDefaultsSection dealership={dealership.data} settings={settings.data} />}
           <LicencesSection dealership={dealership.data} />
+          <SecuritySection dealershipId={dealershipId} />
         </>
       )}
     </Stack>

@@ -111,5 +111,22 @@
       "generic": "The change could not be saved.",
       "dismiss": "Dismiss message"
     }
+  },
+  "vehicleChanged": {
+    "title": "Vehicle changed in stock",
+    "fieldsLine": "Changed since this price was built: {{fields}}.",
+    "noFields": "The stock vehicle has changed since this price was built.",
+    "refresh": "Refresh",
+    "dismiss": "Ignore",
+    "readOnly": "This offer can no longer be changed and keeps the vehicle data it was priced with.",
+    "refused": "The vehicle's data could not be taken over.",
+    "fields": {
+      "listPrice": "List price",
+      "effectivePrice": "Selling price",
+      "options": "Equipment",
+      "exteriorColour": "Exterior colour",
+      "odometerKm": "Mileage",
+      "configurationLabel": "Name"
+    }
   }
 }

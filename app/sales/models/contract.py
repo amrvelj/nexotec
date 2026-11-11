@@ -116,6 +116,17 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     manual_base_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     vehicle_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     vehicle_snapshot_frozen_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-553 (ADR-115): Stock changed the car's commercial data after the
+    # freeze (`inventory.stock_item.commercial_changed`) — when it last did,
+    # and which fields (merged). The snapshot stays frozen (ADR-041); refresh
+    # or dismiss clears both.
+    vehicle_changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    vehicle_changed_fields: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    # «Ignorieren»: the seller kept the frozen car as of then; the nightly
+    # check compares Stock's later changes only.
+    vehicle_change_dismissed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # The car's {listPrice, effectivePrice} the seller accepted with «Ignorieren».
+    vehicle_change_dismissed_prices: Mapped[dict[str, str | None] | None] = mapped_column(JSON, nullable=True)
     discount_type: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "percent" | "amount"
     discount_value: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 

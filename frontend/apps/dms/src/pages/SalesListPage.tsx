@@ -7,6 +7,7 @@ import { Copy, ExternalLink, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
+  Badge as KitBadge,
   ColumnConfigPanel,
   defaultColumnLayout,
   DataGrid,
@@ -74,6 +75,9 @@ export function SalesListPage() {
   // KAN-200 (FR-A-37): the unassigned queue — deals whose seller left and
   // were handed to nobody — is one more equality predicate in the URL.
   const unassigned = searchParams.get('owner') === 'unassigned'
+  // KAN-553 (ADR-115): deals whose stock car changed after they were priced —
+  // one more equality predicate in the URL, applied by the server.
+  const vehicleChanged = searchParams.get('vehicle') === 'changed'
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -113,13 +117,14 @@ export function SalesListPage() {
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({
-      queryKey: ['sales-deals', GRID_KEY, debouncedQuery, sortParam, dealType, unassigned],
+      queryKey: ['sales-deals', GRID_KEY, debouncedQuery, sortParam, dealType, unassigned, vehicleChanged],
       queryFn: async ({ pageParam }: { pageParam: string | null }) => {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (sortParam) params.set('sort', sortParam)
         if (dealType !== 'all') params.set('entityType', dealType)
         if (unassigned) params.set('unassigned', 'true')
+        if (vehicleChanged) params.set('vehicleChanged', 'true')
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<SalesDealPage>(`/sales/deals?${params.toString()}`)
@@ -199,6 +204,16 @@ export function SalesListPage() {
             label={translatedSalesDealStatusLabel(t, row.original.status as never)}
           />
         ),
+      },
+      {
+        // KAN-553 (ADR-115): the marker of a deal whose stock car changed
+        // after it was priced (ADR-060: a stored field is a column).
+        id: 'vehicleChanged',
+        header: t('salesList.columns.vehicleChanged'),
+        cell: ({ row }) =>
+          row.original.vehicleChangedAt ? (
+            <KitBadge tone="warning">{t('salesList.vehicleChangedMarker')}</KitBadge>
+          ) : null,
       },
       {
         id: 'margin',
@@ -289,6 +304,13 @@ export function SalesListPage() {
           onClick={() => updateUrl({ owner: unassigned ? null : 'unassigned' })}
         >
           {t('salesList.chips.unassigned')}
+        </Button>
+        <Button
+          variant={vehicleChanged ? 'filled' : 'default'}
+          size="xs"
+          onClick={() => updateUrl({ vehicle: vehicleChanged ? null : 'changed' })}
+        >
+          {t('salesList.chips.vehicleChanged')}
         </Button>
       </Group>
 

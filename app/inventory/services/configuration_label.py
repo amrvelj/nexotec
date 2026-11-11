@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.inventory.models.stock_item import StockItem
+from app.inventory.services import commercial_change
 from app.vehicle.public import get_configuration_labels
 
 _BATCH = 500
@@ -77,8 +78,11 @@ def refresh_configuration_labels(db: Session) -> int:
             if current.label == item.configuration_label and current.label == item.vehicle_label:
                 stamp_only.append(item.id)
                 continue
+            # KAN-553 (ADR-115): «Bezeichnung» changed — open offers learn it.
+            commercial_before = commercial_change.commercial_state(db, item)
             item.configuration_label = current.label
             item.vehicle_label = current.label
+            commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=None)
             item.configuration_label_refreshed_at = now
             changed += 1
         db.flush()

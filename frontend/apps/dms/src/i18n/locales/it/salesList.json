@@ -14,13 +14,15 @@
     "margin": "Margine",
     "changed": "Modificato",
     "owner": "Responsabile",
-    "stockNumber": "N. di magazzino"
+    "stockNumber": "N. di magazzino",
+    "vehicleChanged": "Veicolo modificato"
   },
   "chips": {
     "all": "Tutti",
     "offers": "Offerte",
     "contracts": "Contratti",
-    "unassigned": "Non assegnato"
+    "unassigned": "Non assegnato",
+    "vehicleChanged": "Veicolo modificato"
   },
   "emptyState": {
     "title": "Nessuna offerta o contratto",
@@ -38,5 +40,6 @@
     "count": "{{count, number}} selezionati",
     "clear": "Deseleziona",
     "copyIds": "Copia ID"
-  }
+  },
+  "vehicleChangedMarker": "Veicolo modificato"
 }

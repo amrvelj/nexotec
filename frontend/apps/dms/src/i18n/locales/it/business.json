@@ -161,5 +161,23 @@
     "astraHint": "Requisito per il collegamento al registro dei veicoli.",
     "associations": "Affiliazioni ad associazioni",
     "associationsHint": "Compaiono nel piè di pagina dei documenti."
+  },
+  "security": {
+    "title": "Sicurezza",
+    "mfaEnforced": "Richiedere un secondo fattore a tutti gli utenti",
+    "mfaEnforcedHint": "Ogni utente di questa azienda deve accedere, oltre che con la password, con un'app di autenticazione o una passkey. Per il personale Nexotec vale sempre.",
+    "idleMinutes": "Disconnessione dopo un'inattività di",
+    "idleMinutesHint": "Tra {{min, number}} e {{max, number}} minuti. Lasciare vuoto per il valore di Nexotec.",
+    "idlePlaceholder": "{{minutes, number}} minuti (Nexotec)",
+    "absoluteHours": "Durata massima della sessione",
+    "absoluteHoursHint": "Tra {{min, number}} e {{max, number}} ore dall'accesso. Ogni sessione termina al più tardi a mezzanotte.",
+    "absolutePlaceholder": "Fino a mezzanotte (Nexotec)",
+    "minutes": "minuti",
+    "hours": "ore",
+    "appliesFromNextSignIn": "Le regole valgono per ogni accesso da ora in poi; le sessioni in corso mantengono i loro limiti fino al prossimo accesso o al prossimo cambio di azienda.",
+    "errors": {
+      "idleOutOfBounds": "La disconnessione per inattività deve essere tra 15 e 120 minuti.",
+      "absoluteOutOfBounds": "La durata massima della sessione deve essere tra 1 e 12 ore."
+    }
   }
 }

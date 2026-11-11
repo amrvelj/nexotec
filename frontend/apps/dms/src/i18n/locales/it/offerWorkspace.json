@@ -111,5 +111,22 @@
       "generic": "Non è stato possibile salvare la modifica.",
       "dismiss": "Chiudi messaggio"
     }
+  },
+  "vehicleChanged": {
+    "title": "Veicolo modificato in stock",
+    "fieldsLine": "Modificato da questo calcolo del prezzo: {{fields}}.",
+    "noFields": "Il veicolo in stock è stato modificato da questo calcolo del prezzo.",
+    "refresh": "Aggiorna",
+    "dismiss": "Ignora",
+    "readOnly": "Questa offerta non può più essere modificata e mantiene i dati del veicolo del suo calcolo del prezzo.",
+    "refused": "Non è stato possibile riprendere i dati del veicolo.",
+    "fields": {
+      "listPrice": "Prezzo di listino",
+      "effectivePrice": "Prezzo di vendita",
+      "options": "Equipaggiamento",
+      "exteriorColour": "Colore esterno",
+      "odometerKm": "Chilometraggio",
+      "configurationLabel": "Denominazione"
+    }
   }
 }

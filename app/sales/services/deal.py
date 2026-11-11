@@ -35,13 +35,15 @@ def list_deals(
     params: SortPageParams,
     owner_user_id: uuid.UUID | None = None,
     unassigned: bool = False,
+    vehicle_changed: bool | None = None,
 ) -> tuple[list[SalesDeal], str | None, int, bool]:
     """`owner_user_id` narrows to one seller's deals; `unassigned` to the
     queue FR-A-37 names — OPEN deals (an open offer, a pending contract) with
     no responsible seller, e.g. a leaver's handed to nobody (KAN-200). Drafts
     stay hidden here as everywhere on this grid (Anto, 2026-10-20): an
     unassigned draft is reached from its customer's tab. Both together is an
-    empty page, not an error."""
+    empty page, not an error. `vehicle_changed` (KAN-553): true keeps the
+    deals flagged «Fahrzeug im Lager geändert», false the others."""
 
     stmt = select(SalesDeal).where(
         SalesDeal.tenant_id == tenant_id,
@@ -60,6 +62,10 @@ def list_deals(
         stmt = stmt.where(SalesDeal.entity_type == entity_type)
     if owner_user_id is not None:
         stmt = stmt.where(SalesDeal.owner_user_id == owner_user_id)
+    if vehicle_changed is not None:
+        stmt = stmt.where(
+            SalesDeal.vehicle_changed_at.is_not(None) if vehicle_changed else SalesDeal.vehicle_changed_at.is_(None)
+        )
     if unassigned:
         # FR-A-37's queue: OPEN records nobody is responsible for — an open
         # offer or a pending contract. A signed, invoiced or cancelled deal

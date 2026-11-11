@@ -15,6 +15,7 @@ import { OfferWorkspaceContent } from './OfferWorkspacePage'
 import { StockDetailContent } from './StockDetailPage'
 import type { SalesOfferRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
 
 /** `/sales/offers/new` — the confirmed reference prototype allocates a
  * number and opens an empty draft before anything is chosen; this route
@@ -222,6 +223,8 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           {ownerError}
         </Alert>
       )}
+      {/* KAN-553 (ADR-115): a sent offer says it, without actions. */}
+      {offer.status === 'open' && <VehicleChangedBanner vehicleChangedAt={offer.vehicleChangedAt} vehicleChangedFields={offer.vehicleChangedFields} />}
       {offer.status === 'open' && (
         <DealOwnerSelect
           deal={offer}

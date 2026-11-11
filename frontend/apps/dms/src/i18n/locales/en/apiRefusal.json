@@ -153,7 +153,8 @@
     "provider_not_configured": "The auto-i-dat connection is not fully set up — check it under Integrations in the business administration.",
     "secrets_backend_failed": "The secure credential store did not carry out the request — nothing was saved. Please try again later; if the error persists, tell Nexotec support.",
     "secret_slot_not_used_by_provider": "This provider does not use this credential — it was not saved.",
-    "secret_store_not_configured": "No secure credential store is set up for this deployment — nothing was saved. This is not caused by what you entered: please tell Nexotec support."
+    "secret_store_not_configured": "No secure credential store is set up for this deployment — nothing was saved. This is not caused by what you entered: please tell Nexotec support.",
+    "vehicle_not_changed": "The stock vehicle has not changed since the price was built."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

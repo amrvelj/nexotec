@@ -1013,7 +1013,11 @@ export interface paths {
         /** List Dealerships */
         get: operations["list_dealerships_v1_dealerships_get"];
         put?: never;
-        /** Create Dealership */
+        /**
+         * Create Dealership
+         * @deprecated
+         * @description Deprecated (KAN-210): onboard a Betrieb with POST /v1/platform/onboarding — group, legal entity, entitlements and first manager in one transaction. Kept for API clients.
+         */
         post: operations["create_dealership_v1_dealerships_post"];
         delete?: never;
         options?: never;
@@ -1093,6 +1097,13 @@ export interface paths {
          * @description D-A-09 / FR-AU-11: the manager decides whether his Betrieb enforces a
          *     second factor. Platform staff are always enforced (D-A-36), whatever
          *     this says.
+         *
+         *     KAN-229 (D-A-37, FR-AU-28): the manager also sets the Betrieb's session
+         *     policy, stricter than the platform's, never looser (422 with a stable
+         *     `details.reason` outside the bounds). A field left out of the body is
+         *     unchanged; null sets it back to the platform value. It applies to
+         *     sessions minted from now on — a live session keeps the bounds it was
+         *     minted with until its next switch or sign-in.
          */
         put: operations["set_auth_config_v1_dealerships__dealership_id__auth_config_put"];
         post?: never;
@@ -2899,6 +2910,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/dealer-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Dealer Groups */
+        get: operations["list_dealer_groups_v1_platform_dealer_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/dealerships/{dealership_id}/recovery/grant-manager": {
         parameters: {
             query?: never;
@@ -2915,6 +2943,27 @@ export interface paths {
          *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Onboard Dealership
+         * @description Group, legal entity (UID unique: 409 `uid_already_onboarded`),
+         *     entitlements, first manager — one transaction, nothing commercial.
+         */
+        post: operations["onboard_dealership_v1_platform_onboarding_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3349,6 +3398,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sales/contracts/{contract_id}/vehicle-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Contract Vehicle
+         * @description KAN-553 (ADR-115) — «Aktualisieren» on a pending contract, under its
+         *     editability rules (`priced_deal.lock_editable`).
+         */
+        post: operations["refresh_contract_vehicle_v1_sales_contracts__contract_id__vehicle_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/contracts/{contract_id}/vehicle-refresh/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Contract Vehicle Change
+         * @description KAN-553 (ADR-115) — «Ignorieren» on a pending contract.
+         */
+        post: operations["dismiss_contract_vehicle_change_v1_sales_contracts__contract_id__vehicle_refresh_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sales/deals": {
         parameters: {
             query?: never;
@@ -3551,6 +3641,49 @@ export interface paths {
         put?: never;
         /** Attach Trade In Valuation */
         post: operations["attach_trade_in_valuation_v1_sales_offers__offer_id__trade_in_valuation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/offers/{offer_id}/vehicle-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Offer Vehicle
+         * @description KAN-553 (ADR-115) — «Aktualisieren»: the stock car changed since the
+         *     offer was priced; re-freeze it and re-price, a new version. A draft
+         *     only (409 otherwise, `require_editable`); 409 `vehicle_not_changed`
+         *     when nothing is flagged.
+         */
+        post: operations["refresh_offer_vehicle_v1_sales_offers__offer_id__vehicle_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/offers/{offer_id}/vehicle-refresh/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Offer Vehicle Change
+         * @description KAN-553 (ADR-115) — «Ignorieren»: the offer keeps its frozen car.
+         */
+        post: operations["dismiss_offer_vehicle_change_v1_sales_offers__offer_id__vehicle_refresh_dismiss_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4420,6 +4553,11 @@ export interface components {
             authMethod: string;
             /** Mfaenforced */
             mfaEnforced: boolean;
+            /** Sessionabsolutehours */
+            sessionAbsoluteHours: number | null;
+            sessionBounds: components["schemas"]["SessionPolicyBounds"];
+            /** Sessionidleminutes */
+            sessionIdleMinutes: number | null;
             /** Version */
             version: number;
         };
@@ -4427,6 +4565,10 @@ export interface components {
         AuthConfigUpdate: {
             /** Mfaenforced */
             mfaEnforced: boolean;
+            /** Sessionabsolutehours */
+            sessionAbsoluteHours?: number | null;
+            /** Sessionidleminutes */
+            sessionIdleMinutes?: number | null;
         };
         /** AuthEventList */
         AuthEventList: {
@@ -5902,6 +6044,10 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclechangedat */
+            vehicleChangedAt?: string | null;
+            /** Vehiclechangedfields */
+            vehicleChangedFields?: string[] | null;
             /** Vehiclecondition */
             vehicleCondition?: string | null;
             /** Vehiclelabel */
@@ -6918,8 +7064,25 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclechangedat */
+            vehicleChangedAt?: string | null;
             /** Vehiclelabel */
             vehicleLabel: string | null;
+        };
+        /** DealerGroupOption */
+        DealerGroupOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** DealerGroupOptionList */
+        DealerGroupOptionList: {
+            /** Items */
+            items: components["schemas"]["DealerGroupOption"][];
         };
         /** DealerGroupRead */
         DealerGroupRead: {
@@ -8736,6 +8899,10 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclechangedat */
+            vehicleChangedAt?: string | null;
+            /** Vehiclechangedfields */
+            vehicleChangedFields?: string[] | null;
             /** Vehiclecondition */
             vehicleCondition?: string | null;
             /** Vehiclelabel */
@@ -8786,6 +8953,96 @@ export interface components {
             vehicleLabel?: string | null;
             /** Vehiclesource */
             vehicleSource?: string | null;
+        };
+        /**
+         * OnboardingGroup
+         * @description Exactly one: an existing group, or a new one by name. A standalone
+         *     Betrieb is a new group of one.
+         */
+        OnboardingGroup: {
+            /** Dealergroupid */
+            dealerGroupId?: string | null;
+            /** Newgroupname */
+            newGroupName?: string | null;
+        };
+        /** OnboardingLegalEntity */
+        OnboardingLegalEntity: {
+            /** @description The registered seat; it becomes the first location. */
+            address: components["schemas"]["DealershipAddress"];
+            franchiseType: components["schemas"]["FranchiseType"];
+            /**
+             * Legalform
+             * @description A `legal_form` reference code.
+             */
+            legalForm?: string | null;
+            /** Legalname */
+            legalName: string;
+            /** Phone */
+            phone: string;
+            /** Tradename */
+            tradeName?: string | null;
+            /**
+             * Uid
+             * @description Swiss UID, CHE-123.456.789; unique across Nexotec.
+             */
+            uid: string;
+        };
+        /** OnboardingManager */
+        OnboardingManager: {
+            /** Accessroles */
+            accessRoles: components["schemas"]["AccessRole"][];
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Firstname */
+            firstName: string;
+            /** Lastname */
+            lastName: string;
+            /** @description The primary role (job title). */
+            role: components["schemas"]["UserRole"];
+        };
+        /** OnboardingRequest */
+        OnboardingRequest: {
+            /** Entitlements */
+            entitlements: components["schemas"]["ModuleCode"][];
+            group: components["schemas"]["OnboardingGroup"];
+            legalEntity: components["schemas"]["OnboardingLegalEntity"];
+            manager: components["schemas"]["OnboardingManager"];
+        };
+        /** OnboardingResult */
+        OnboardingResult: {
+            /**
+             * Dealergroupid
+             * Format: uuid
+             */
+            dealerGroupId: string;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Entitlements */
+            entitlements: string[];
+            /** Invitationdelivered */
+            invitationDelivered: boolean;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Manageremail */
+            managerEmail: string;
+            /** Managerstatus */
+            managerStatus: string;
+            /**
+             * Manageruserid
+             * Format: uuid
+             */
+            managerUserId: string;
+            /** Status */
+            status: string;
         };
         /**
          * OpeningHoursDay
@@ -9772,6 +10029,23 @@ export interface components {
         SessionList: {
             /** Items */
             items: components["schemas"]["SessionRead"][];
+        };
+        /**
+         * SessionPolicyBounds
+         * @description What a Betrieb may set (KAN-229, D-A-37; Anto 2026-11-11), and the
+         *     platform's own idle window — the value an unset field means.
+         */
+        SessionPolicyBounds: {
+            /** Absolutehoursmax */
+            absoluteHoursMax: number;
+            /** Absolutehoursmin */
+            absoluteHoursMin: number;
+            /** Idleminutesmax */
+            idleMinutesMax: number;
+            /** Idleminutesmin */
+            idleMinutesMin: number;
+            /** Platformidleminutes */
+            platformIdleMinutes: number;
         };
         /** SessionRead */
         SessionRead: {
@@ -19726,6 +20000,39 @@ export interface operations {
             };
         };
     };
+    list_dealer_groups_v1_platform_dealer_groups_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealerGroupOptionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post: {
         parameters: {
             query?: never;
@@ -19755,6 +20062,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    onboard_dealership_v1_platform_onboarding_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingResult"];
                 };
             };
             /** @description Validation Error */
@@ -20843,6 +21189,82 @@ export interface operations {
             };
         };
     };
+    refresh_contract_vehicle_v1_sales_contracts__contract_id__vehicle_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_contract_vehicle_change_v1_sales_contracts__contract_id__vehicle_refresh_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deals_v1_sales_deals_get: {
         parameters: {
             query?: {
@@ -20851,6 +21273,8 @@ export interface operations {
                 ownerUserId?: string | null;
                 /** @description KAN-200: deals handed to nobody when their seller left. */
                 unassigned?: boolean;
+                /** @description KAN-553: true = deals whose stock car changed after they were priced; false = the others. */
+                vehicleChanged?: boolean | null;
                 /** @description e.g. 'updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -21396,6 +21820,82 @@ export interface operations {
                 "application/json": components["schemas"]["AttachValuationRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_offer_vehicle_v1_sales_offers__offer_id__vehicle_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_offer_vehicle_change_v1_sales_offers__offer_id__vehicle_refresh_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

@@ -1,0 +1,57 @@
+{
+  "title": "Onboard a business",
+  "subtitle": "Group, legal entity, modules and first manager – created in one step. Nexotec sets nothing commercial: VAT, bank and terms are entered by the manager.",
+  "steps": {
+    "group": "Group",
+    "legal": "Legal entity",
+    "modules": "Modules",
+    "manager": "First manager",
+    "review": "Review"
+  },
+  "actions": {
+    "next": "Next",
+    "back": "Back",
+    "reset": "Start over",
+    "submit": "Onboard business"
+  },
+  "group": {
+    "mode": "Group",
+    "new": "New group (standalone business)",
+    "existing": "Existing group",
+    "newName": "Group name",
+    "pick": "Choose the group"
+  },
+  "legal": {
+    "seat": "Registered seat (becomes the first location)"
+  },
+  "modulesHint": "The modules Nexotec licenses to this business. Without sales it is a workshop-only business.",
+  "modules": {
+    "sales": "Sales",
+    "aftersales": "Aftersales",
+    "parts": "Parts",
+    "finance": "Finance",
+    "reporting": "Reporting"
+  },
+  "manager": {
+    "hint": "The manager receives an invitation by e-mail and sets their own password."
+  },
+  "review": {
+    "group": "Group",
+    "seat": "Registered seat",
+    "manager": "First manager",
+    "noModules": "None",
+    "nothingCommercial": "The business starts as «being onboarded». VAT rate, bank account and terms stay empty until the manager enters them in Administration."
+  },
+  "success": {
+    "title": "{{name}} is onboarded",
+    "pending": "Status: being onboarded – the business becomes active once its setup is complete.",
+    "invited": "The invitation to {{email}} has been sent; the manager is invited.",
+    "nextSteps": "The manager sets up VAT, bank, texts and number ranges in Administration.",
+    "another": "Onboard another business",
+    "invitationFailed": "The invitation to {{email}} could not be delivered. The manager exists; send the invitation again from Account recovery."
+  },
+  "errors": {
+    "generic": "The business could not be onboarded.",
+    "uidAlreadyOnboarded": "A business with this UID is already onboarded."
+  }
+}

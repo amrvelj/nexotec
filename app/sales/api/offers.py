@@ -27,6 +27,7 @@ from app.sales.schemas.offer import (
 from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
+from app.sales.services import vehicle_change
 from app.sales.services.deal_projection import live_contracts_of
 from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
@@ -181,6 +182,39 @@ def finalize_offer(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.finalize_offer(db, offer=offer, actor_id=principal.user_id)
+    return _offer_read(db, offer)
+
+
+@router.post("/sales/offers/{offer_id}/vehicle-refresh", response_model=OfferRead)
+def refresh_offer_vehicle(
+    offer_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    """KAN-553 (ADR-115) — «Aktualisieren»: the stock car changed since the
+    offer was priced; re-freeze it and re-price, a new version. A draft
+    only (409 otherwise, `require_editable`); 409 `vehicle_not_changed`
+    when nothing is flagged."""
+
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = vehicle_change.refresh_vehicle(db, deal=offer, version_seen=if_match, actor_id=principal.user_id)
+    return _offer_read(db, offer)
+
+
+@router.post("/sales/offers/{offer_id}/vehicle-refresh/dismiss", response_model=OfferRead)
+def dismiss_offer_vehicle_change(
+    offer_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    """KAN-553 (ADR-115) — «Ignorieren»: the offer keeps its frozen car."""
+
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = vehicle_change.dismiss_vehicle_change(db, deal=offer, version_seen=if_match, actor_id=principal.user_id)
     return _offer_read(db, offer)
 
 

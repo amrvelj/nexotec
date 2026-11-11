@@ -206,6 +206,32 @@ def _stock_item_storno(db_session, engine, monkeypatch):
     return message, removed_replicas
 
 
+def _stock_item_commercial_changed(db_session, engine, monkeypatch):
+    """KAN-553 — Stock reprices a car an open offer is priced on: Sales flags
+    the offer once (one `vehicle_changed_in_stock` audit row)."""
+
+    from app.core.audit_model import AuditEvent
+    from tests.test_sales_lifecycle_reservation import _dealership as _plain_dealership
+    from tests.test_sales_offer_refinements import _offer_with_vehicle
+    from tests.test_sales_offer_refinements import _stock_item as _priced_stock_item
+    from tests.test_sales_vehicle_changed_in_stock import _events, _reprice
+
+    dealership = _plain_dealership(db_session)
+    item = _priced_stock_item(db_session, dealership.id)
+    offer = _offer_with_vehicle(db_session, dealership.id, item)
+    _reprice(db_session, item, "36000.00")
+    message = _events(db_session, item.id)[-1]
+
+    def flags(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(AuditEvent.entity_id == offer.id, AuditEvent.action == "vehicle_changed_in_stock")
+        )
+
+    return message, flags
+
+
 def _trade_in_purchased(db_session, engine, monkeypatch):
     """KAN-189 — Stock books a trade-in's purchase: the customer context
     records the contract's customer as former owner and keeper, once."""
@@ -544,6 +570,7 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.stock_item_added": _stock_item_added,
     "sales.stock_item_purchased": _stock_item_purchased,
     "sales.stock_item_storno": _stock_item_storno,
+    "sales.stock_item_commercial_changed": _stock_item_commercial_changed,
     "customer.trade_in_purchased": _trade_in_purchased,
     "customer.trade_in_storno": _trade_in_storno,
     "sales.customer_merged": _customer_merged,

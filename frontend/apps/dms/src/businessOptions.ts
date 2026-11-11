@@ -24,6 +24,9 @@ const REASON_KEYS: Record<string, string> = {
   qr_iban_needs_qr_reference: 'business.errors.qrIbanNeedsQrReference',
   creditor_prefix_needs_scor: 'business.errors.creditorPrefixNeedsScor',
   default_conflict: 'business.errors.defaultConflict',
+  // KAN-229: the session policy outside the ruled bounds.
+  session_idle_minutes_out_of_bounds: 'business.security.errors.idleOutOfBounds',
+  session_absolute_hours_out_of_bounds: 'business.security.errors.absoluteOutOfBounds',
 }
 
 // The label key of each field the API may refuse at the schema level, so a

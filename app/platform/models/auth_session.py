@@ -11,7 +11,7 @@ and a change of roles or memberships revoke them all.
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -33,6 +33,9 @@ class AuthSession(PrimaryKeyMixin, Base):
     last_seen_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     idle_expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     absolute_expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # KAN-229 (D-A-37): the idle window fixed when the session was minted (or
+    # tightened by a switch) from the Betrieb's policy; NULL = the platform's.
+    idle_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     revoked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     revoked_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
 

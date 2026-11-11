@@ -161,5 +161,23 @@
     "astraHint": "Voraussetzung für die Anbindung an das Fahrzeugregister.",
     "associations": "Verbandsmitgliedschaften",
     "associationsHint": "Erscheinen in der Fusszeile der Dokumente."
+  },
+  "security": {
+    "title": "Sicherheit",
+    "mfaEnforced": "Zweiten Faktor für alle Benutzer verlangen",
+    "mfaEnforcedHint": "Jeder Benutzer dieses Betriebs muss sich zusätzlich zum Passwort mit einer Authenticator-App oder einem Passkey anmelden. Für Nexotec-Mitarbeitende gilt das immer.",
+    "idleMinutes": "Abmeldung bei Inaktivität nach",
+    "idleMinutesHint": "Zwischen {{min, number}} und {{max, number}} Minuten. Leer lassen für den Wert von Nexotec.",
+    "idlePlaceholder": "{{minutes, number}} Minuten (Nexotec)",
+    "absoluteHours": "Längste Sitzungsdauer",
+    "absoluteHoursHint": "Zwischen {{min, number}} und {{max, number}} Stunden ab der Anmeldung. Spätestens um Mitternacht endet jede Sitzung.",
+    "absolutePlaceholder": "Bis Mitternacht (Nexotec)",
+    "minutes": "Minuten",
+    "hours": "Stunden",
+    "appliesFromNextSignIn": "Die Regeln gelten für jede Anmeldung ab jetzt; laufende Sitzungen behalten ihre bisherigen Grenzen bis zur nächsten Anmeldung oder zum nächsten Betriebswechsel.",
+    "errors": {
+      "idleOutOfBounds": "Die Abmeldung bei Inaktivität muss zwischen 15 und 120 Minuten liegen.",
+      "absoluteOutOfBounds": "Die längste Sitzungsdauer muss zwischen 1 und 12 Stunden liegen."
+    }
   }
 }

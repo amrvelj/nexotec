@@ -53,7 +53,7 @@ import datetime as dt
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, Numeric, cast, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.base import utcnow
@@ -66,7 +66,7 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.line_item import SalesLineItem
-from app.sales.models.offer import SalesOffer
+from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
 from app.sales.services.ownership import offer_is_open
@@ -163,6 +163,7 @@ def _row_differs_from(entity: _Deal) -> ColumnElement[bool]:
         SalesDeal.vehicle_label.is_distinct_from(entity.vehicle_label),
         SalesDeal.stock_item_label.is_distinct_from(entity.stock_item_label),  # KAN-570
         SalesDeal.owner_user_id.is_distinct_from(entity.owner_user_id),
+        SalesDeal.vehicle_changed_at.is_distinct_from(entity.vehicle_changed_at),  # KAN-553
         SalesDeal.documents_count != documents,
     )
 
@@ -283,6 +284,53 @@ def _names_an_untaken_configuration(deal: _Deal, column: InstrumentedAttribute[A
 
     return StateCheck(
         label=f"{deal.__tablename__}.{column.key} names a configuration vehicle has not stamped as taken",
+        source_model=deal,
+        source_row_id_column=deal.id,
+        where=where,
+    )
+
+
+def _stock_price_moved_unflagged(deal: _Deal, is_open: Callable[[], ColumnElement[bool]]) -> StateCheck:
+    """KAN-553 (ADR-115, rule 10): an open deal on a stock car whose frozen
+    effective or list price differs from the car's current one, with no
+    «Fahrzeug im Lager geändert» flag — Stock's
+    `inventory.stock_item.commercial_changed` was lost or not consumed, so
+    the seller could send a price the car no longer has. After «Ignorieren»
+    the comparison is with the prices the seller accepted then
+    (`vehicle_change_dismissed_prices`), so an unrelated write to the car is
+    no finding. The car must have changed after the freeze and more than the
+    outbox-lag grace ago. Read-only, like every check here."""
+
+    def _differs(prices: Any) -> ColumnElement[bool]:
+        return or_(
+            cast(prices["effectivePrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.effective_price),
+            cast(prices["listPrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.list_price),
+        )
+
+    def where() -> ColumnElement[bool]:
+        moved = (
+            select(StockItem.id)
+            .where(
+                StockItem.id == deal.stock_item_id,
+                StockItem.tenant_id == deal.tenant_id,
+                StockItem.updated_at > deal.vehicle_snapshot_frozen_at,
+                StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
+                _differs(deal.vehicle_snapshot),
+                or_(deal.vehicle_change_dismissed_at.is_(None), _differs(deal.vehicle_change_dismissed_prices)),
+            )
+            .correlate(deal)
+            .exists()
+        )
+        return (
+            is_open()
+            & (deal.vehicle_source == "stock")
+            & deal.vehicle_snapshot_frozen_at.is_not(None)
+            & deal.vehicle_changed_at.is_(None)
+            & moved
+        )
+
+    return StateCheck(
+        label=f"{deal.__tablename__} on a stock car whose price changed after the freeze, without the vehicle-changed flag",
         source_model=deal,
         source_row_id_column=deal.id,
         where=where,
@@ -679,6 +727,9 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     _owned_by_a_deactivated_user(SalesOffer, offer_is_open),
     _owned_by_a_deactivated_user(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
+    # --- a stock car's price moved under an open deal, unflagged (KAN-553) ---
+    _stock_price_moved_unflagged(SalesOffer, lambda: SalesOffer.status.in_((OfferStatus.DRAFT, OfferStatus.OPEN))),
+    _stock_price_moved_unflagged(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
     # --- the deal grid against its live entity (KAN-408, KAN-409) ---
     *deal_row_checks(),
 ]

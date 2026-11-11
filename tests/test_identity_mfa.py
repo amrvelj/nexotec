@@ -326,7 +326,7 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
 
     config = client.get(f"/v1/dealerships/{dealership}/auth-config", headers=cookie_headers(cookie))
     assert config.status_code == 200, config.text
-    assert config.json() == {"authMethod": "local", "mfaEnforced": True, "version": 1}
+    assert {k: v for k, v in config.json().items() if k in ("authMethod", "mfaEnforced", "version")} == {"authMethod": "local", "mfaEnforced": True, "version": 1}
     stale = client.put(
         f"/v1/dealerships/{dealership}/auth-config",
         json={"mfaEnforced": False},
@@ -341,7 +341,7 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
         headers={**cookie_headers(cookie), "If-Match": "1"},
     )
     assert updated.status_code == 200, updated.text
-    assert updated.json() == {"authMethod": "local", "mfaEnforced": False, "version": 2}
+    assert {k: v for k, v in updated.json().items() if k in ("authMethod", "mfaEnforced", "version")} == {"authMethod": "local", "mfaEnforced": False, "version": 2}
     assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(cookie)).status_code == 200
     audit = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "auth_config_set")).one()
     assert (audit.before, audit.after) == ({"mfa_enforced": True}, {"mfa_enforced": False})

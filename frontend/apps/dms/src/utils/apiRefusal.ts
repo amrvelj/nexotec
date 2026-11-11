@@ -38,8 +38,12 @@ const REASON_KEYS: Record<string, string> = {
   plate_read_limit_reached: 'vehicleDetail.plates.limitReached',
   qr_iban_needs_qr_reference: 'business.errors.qrIbanNeedsQrReference',
   qr_reference_needs_qr_iban: 'business.errors.qrReferenceNeedsQrIban',
+  session_absolute_hours_out_of_bounds: 'business.security.errors.absoluteOutOfBounds',
+  session_idle_minutes_out_of_bounds: 'business.security.errors.idleOutOfBounds',
   trade_in_valuation_expired: 'contractDetail.errors.confirmRefused.tradeInValuationExpired',
+  uid_already_onboarded: 'onboarding.errors.uidAlreadyOnboarded',
   unknown_reference_code: 'business.errors.unknownReferenceCode',
+  vehicle_not_changed: 'apiRefusal.reasons.vehicle_not_changed',
   vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
   vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
   ...Object.fromEntries(

@@ -30,6 +30,7 @@ from app.sales.services import contract as contract_service
 from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
+from app.sales.services import vehicle_change
 from app.sales.services.invoice_handover import HandoverPlate
 from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
@@ -196,6 +197,39 @@ def replace_contract_line_items(
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = line_items_service.replace_line_items(db, deal=contract, data=body, actor_id=principal.user_id)
+    return _contract_read(contract)
+
+
+@router.post("/sales/contracts/{contract_id}/vehicle-refresh", response_model=ContractRead)
+def refresh_contract_vehicle(
+    contract_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_contracts")),
+    db: Session = Depends(get_db),
+):
+    """KAN-553 (ADR-115) — «Aktualisieren» on a pending contract, under its
+    editability rules (`priced_deal.lock_editable`)."""
+
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
+    check_version(contract.version, if_match, entity_name="SalesContract")
+    contract = vehicle_change.refresh_vehicle(db, deal=contract, version_seen=if_match, actor_id=principal.user_id)
+    return _contract_read(contract)
+
+
+@router.post("/sales/contracts/{contract_id}/vehicle-refresh/dismiss", response_model=ContractRead)
+def dismiss_contract_vehicle_change(
+    contract_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_contracts")),
+    db: Session = Depends(get_db),
+):
+    """KAN-553 (ADR-115) — «Ignorieren» on a pending contract."""
+
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
+    check_version(contract.version, if_match, entity_name="SalesContract")
+    contract = vehicle_change.dismiss_vehicle_change(
+        db, deal=contract, version_seen=if_match, actor_id=principal.user_id
+    )
     return _contract_read(contract)
 
 

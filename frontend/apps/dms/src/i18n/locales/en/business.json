@@ -161,5 +161,23 @@
     "astraHint": "Prerequisite for the vehicle registry connection.",
     "associations": "Association memberships",
     "associationsHint": "Appear in the document footer."
+  },
+  "security": {
+    "title": "Security",
+    "mfaEnforced": "Require a second factor for every user",
+    "mfaEnforcedHint": "Every user of this business signs in with an authenticator app or a passkey in addition to the password. Nexotec staff always do.",
+    "idleMinutes": "Sign out after inactivity of",
+    "idleMinutesHint": "Between {{min, number}} and {{max, number}} minutes. Leave empty for Nexotec's value.",
+    "idlePlaceholder": "{{minutes, number}} minutes (Nexotec)",
+    "absoluteHours": "Longest session",
+    "absoluteHoursHint": "Between {{min, number}} and {{max, number}} hours from sign-in. Every session ends at midnight at the latest.",
+    "absolutePlaceholder": "Until midnight (Nexotec)",
+    "minutes": "minutes",
+    "hours": "hours",
+    "appliesFromNextSignIn": "The rules apply to every sign-in from now on; sessions already running keep their limits until the next sign-in or the next switch of business.",
+    "errors": {
+      "idleOutOfBounds": "Sign-out after inactivity must be between 15 and 120 minutes.",
+      "absoluteOutOfBounds": "The longest session must be between 1 and 12 hours."
+    }
   }
 }

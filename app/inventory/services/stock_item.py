@@ -23,6 +23,7 @@ from app.inventory.models.stock_item import (
     StockNumberSequence,
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
+from app.inventory.services import commercial_change
 from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD, get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
@@ -465,12 +466,16 @@ def update_stock_item(
     # `change_condition`'s, so it publishes the same event, in this
     # transaction — consumers never miss a change made by either route.
     previous_condition = item.condition
+    # KAN-553 (ADR-115): a price, colour or odometer change reaches the open
+    # offers and pending contracts on this car.
+    commercial_before = commercial_change.commercial_state(db, item)
     for field, value in changes.items():
         setattr(item, field, value)
     item.updated_by = actor_id
     item.version += 1
     db.flush()
     _publish_condition_changed(db, item=item, previous=previous_condition)
+    commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=actor_id)
     db.commit()
     db.refresh(item)
     return item
@@ -507,6 +512,7 @@ def attach_configuration(
     # refreshed now — and the car's name follows it from now on (ADR-117 (2),
     # KAN-556), the text the retired hand-typed intake stored replaced.
     previous_vehicle_label = item.vehicle_label
+    commercial_before = commercial_change.commercial_state(db, item)
     item.configuration_label = configuration.label
     item.configuration_label_refreshed_at = utcnow()
     item.vehicle_label = configuration.label
@@ -539,6 +545,7 @@ def attach_configuration(
             payload={"stockNumber": item.stock_number, "configurationId": str(configuration.id)},
         ),
     )
+    commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=actor_id)
     db.commit()
     db.refresh(item)
     return item

@@ -108,6 +108,11 @@ class ContractRead(CamelModel):
     # KAN-67 — the pricing inputs and the full build-up, as on OfferRead.
     manual_base_price: Decimal | None = None
     vehicle_snapshot_frozen_at: dt.datetime | None = None
+    # KAN-553 (ADR-115): «Fahrzeug im Lager geändert» — when Stock last
+    # changed the car after the freeze, and which fields (listPrice,
+    # effectivePrice, options, exteriorColour, odometerKm, configurationLabel).
+    vehicle_changed_at: dt.datetime | None = None
+    vehicle_changed_fields: list[str] | None = None
     base_price: Decimal | None = None
     options_total: Decimal | None = None
     list_price: Decimal | None = None

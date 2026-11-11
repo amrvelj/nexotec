@@ -126,6 +126,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-209 — Platform Administration › Translations (D-A-23). Platform staff
         // write at the API; anyone reads. Never role-hidden (A-RULE-7).
         { label: t('shell.nav.translations'), href: '/platform/translations', icon: Globe, status: 'active' },
+        // KAN-210 — Platform Administration › Onboarding. Staff-only at the API;
+        // never role-hidden (A-RULE-7).
+        { label: t('shell.nav.onboarding'), href: '/platform/onboarding', icon: Building2, status: 'active' },
       ],
     },
   ]

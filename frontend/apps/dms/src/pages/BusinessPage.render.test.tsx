@@ -104,9 +104,19 @@ const list = (code: string, rows: [string, string][]) => ({
   }),
 })
 
+const AUTH_CONFIG = {
+  authMethod: 'local',
+  mfaEnforced: true,
+  sessionIdleMinutes: null,
+  sessionAbsoluteHours: null,
+  sessionBounds: { idleMinutesMin: 15, idleMinutesMax: 120, absoluteHoursMin: 1, absoluteHoursMax: 12, platformIdleMinutes: 120 },
+  version: 1,
+}
+
 function routes(extra: FakeRoute[] = []): FakeRoute[] {
   return [
     ...extra,
+    { method: 'GET', match: /\/dealerships\/dealership-1\/auth-config$/, handler: () => AUTH_CONFIG },
     { method: 'GET', match: /\/dealerships\/dealership-1$/, handler: () => DEALERSHIP },
     { method: 'GET', match: /\/dealerships\/dealership-1\/settings$/, handler: () => SETTINGS },
     {
@@ -353,5 +363,53 @@ describe('BusinessPage (KAN-203)', () => {
     expect(section.getByRole('switch', { name: (n) => n.startsWith('Adressvorschläge von Google Places') })).toBeChecked()
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Bankverbindungen' })).toBeInTheDocument())
     expect(section.queryByRole('note')).toBeNull()
+  })
+
+  // KAN-229 (D-A-37, FR-AU-28; Anto 2026-11-11): Business › Security holds the
+  // MFA switch and the Betrieb's session policy — empty fields are the
+  // platform's values; the save sends all three with the config's If-Match.
+  it('the security section saves the session policy with the auth-config If-Match', async () => {
+    const backend = installFakeBackend(
+      routes([{ method: 'PUT', match: /\/dealerships\/dealership-1\/auth-config$/, handler: (req) => ({ ...AUTH_CONFIG, ...(req.body as object), version: 2 }) }]),
+    )
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const user = userEvent.setup()
+
+    const section = within(await screen.findByRole('region', { name: 'Sicherheit' }))
+    expect(section.getByRole('switch', { name: (n) => n.startsWith('Zweiten Faktor für alle Benutzer verlangen') })).toBeChecked()
+    const idle = section.getByRole('textbox', { name: (n) => n.startsWith('Abmeldung bei Inaktivität nach') })
+    const hours = section.getByRole('textbox', { name: (n) => n.startsWith('Längste Sitzungsdauer') })
+    expect(idle).toHaveValue('')
+    expect(idle).toHaveAttribute('placeholder', '120 Minuten (Nexotec)')
+    expect(hours).toHaveAttribute('placeholder', 'Bis Mitternacht (Nexotec)')
+    expect(section.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+
+    await user.type(idle, '30')
+    await user.type(hours, '8')
+    await user.click(section.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/auth-config$/, 'PUT')).toHaveLength(1))
+    const call = backend.callsTo(/\/auth-config$/, 'PUT')[0]
+    expect(call.body).toEqual({ mfaEnforced: true, sessionIdleMinutes: 30, sessionAbsoluteHours: 8 })
+    expect(call.headers.get('If-Match')).toBe('1')
+    expect(await section.findByRole('status')).toHaveTextContent('Gespeichert.')
+  })
+
+  it('the security section says a refused bound in the UI language', async () => {
+    installFakeBackend(
+      routes([
+        {
+          method: 'PUT',
+          match: /\/dealerships\/dealership-1\/auth-config$/,
+          handler: () =>
+            status(422, { error: { code: 'unprocessable_entity', message: 'sessionIdleMinutes must be between 15 and 120.', details: { reason: 'session_idle_minutes_out_of_bounds' } } }),
+        },
+      ]),
+    )
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const user = userEvent.setup()
+    const section = within(await screen.findByRole('region', { name: 'Sicherheit' }))
+    await user.click(section.getByRole('switch', { name: (n) => n.startsWith('Zweiten Faktor für alle Benutzer verlangen') }))
+    await user.click(section.getByRole('button', { name: 'Speichern' }))
+    expect(await section.findByText('Die Abmeldung bei Inaktivität muss zwischen 15 und 120 Minuten liegen.')).toBeInTheDocument()
   })
 })

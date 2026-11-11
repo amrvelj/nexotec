@@ -153,7 +153,8 @@
     "provider_not_configured": "La connexion à auto-i-dat n’est pas entièrement configurée — vérifiez-la dans l’administration de l’entreprise, sous Intégrations.",
     "secrets_backend_failed": "Le coffre-fort des identifiants n’a pas exécuté la demande — rien n’a été enregistré. Réessayez plus tard ; si l’erreur persiste, informez le support Nexotec.",
     "secret_slot_not_used_by_provider": "Ce fournisseur n’utilise pas cet identifiant — il n’a pas été enregistré.",
-    "secret_store_not_configured": "Aucun stockage sécurisé des identifiants n'est configuré pour cette installation — rien n'a été enregistré. Votre saisie n'est pas en cause : veuillez informer le support Nexotec."
+    "secret_store_not_configured": "Aucun stockage sécurisé des identifiants n'est configuré pour cette installation — rien n'a été enregistré. Votre saisie n'est pas en cause : veuillez informer le support Nexotec.",
+    "vehicle_not_changed": "Le véhicule en stock n'a pas été modifié depuis le calcul du prix."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

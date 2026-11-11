@@ -74,8 +74,13 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - **Permissions are platform-defined (D-A-03); no policy limits in v1 (D-A-18).**
 - **Copy configuration from a sister Betrieb** (D-A-01, FR-A-01): a one-shot, audit-logged copy —
   never inheritance.
-- **Onboarding (D-A-06):** staff enter group, legal entity (UID unique), entitlements and one
+- **Onboarding (D-A-06) — built (KAN-210):** staff enter group, legal entity (UID unique), entitlements and one
   manager; **Nexotec sets nothing commercial** — no VAT rate, no bank details.
+  `POST /v1/platform/onboarding` (`services/onboarding.py`; staff with a factor) runs the create services with
+  `commit=False` in one transaction — group, `create_dealership` (seat location, number ranges, settings),
+  entitlements, the first manager invited, one `platform.dealership.onboarded` row — 409 `uid_already_onboarded`;
+  texts, template and MFA-on come from the platform defaults. Screen: `/platform/onboarding` (five steps).
+  `POST /v1/dealerships` is deprecated in OpenAPI.
 - **Activation gate (D-A-21):** `pending_onboarding` until every applicable checklist item is done
   and the manager accepted the current ToS and DPA (D-A-34); until then only Dealer Administration
   and My account. Only the status value exists — nothing enforces the gate yet.

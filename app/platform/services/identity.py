@@ -352,7 +352,9 @@ def _language_of(db: Session, user: User) -> str | None:
 
 def _deliver(
     db: Session, mailer: PlatformMailer, *, user: User, mail: Mail, actor_id: uuid.UUID | None, ip_address: str
-) -> None:
+) -> bool:
+    """Whether the sender took the mail (KAN-210: the onboarding says so)."""
+
     try:
         mailer.send(mail)
     except MailDeliveryError as exc:
@@ -368,13 +370,16 @@ def _deliver(
             ip_address=ip_address,
             details={"subject": mail.subject},
         )
+        return False
+    return True
 
 
 def issue_invitation(
     db: Session, mailer: PlatformMailer, *, user: User, actor_id: uuid.UUID | None, ip_address: str
-) -> None:
+) -> bool:
     """FR-AU-13: a single-use 14-day token, mailed by the platform sender.
-    The raw token lives in the mail only."""
+    The raw token lives in the mail only. Returns whether the mail went out
+    (a refused delivery is a `mail_delivery_failed` event, not an error)."""
 
     raw = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.INVITATION, actor_id=actor_id)
     user.invited_at = utcnow()  # KAN-200: when the (latest) invitation went out
@@ -394,7 +399,7 @@ def issue_invitation(
         actor_id=actor_id,
         ip_address=ip_address,
     )
-    _deliver(
+    return _deliver(
         db,
         mailer,
         user=user,

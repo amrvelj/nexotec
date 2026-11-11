@@ -31,6 +31,8 @@ const NOT_MONEY_LABELS = new Set([
   "t('business.fiscal.paymentTerms')", // days (KAN-203)
   "t('business.fiscal.vatRate')", // a percentage (KAN-203)
   "t('numberRanges.startValue')", // a counter's start (KAN-207)
+  "t('business.security.idleMinutes')", // minutes (KAN-229)
+  "t('business.security.absoluteHours')", // hours (KAN-229)
   // PriceBuildUp: the discount value as a percentage (or disabled with no
   // discount type); an amount discount renders a ChfInput instead — the label
   // is shared, so the last test below pins the ChfInput branch.
