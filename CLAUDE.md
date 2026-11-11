@@ -1,7 +1,7 @@
 # Nexotec — working rules
 
 Swiss automotive Dealer Management System. FastAPI + Postgres + React SPA (Mantine,
-TanStack Query/Table/Virtual, Lucide). One deployable today.
+TanStack Query/Table/Virtual, Lucide).
 
 **Quality before speed.** This product is meant to last. Where a shortcut and a correct
 implementation disagree, take the correct one and say what it costs. Do not cut scope, skip
@@ -98,23 +98,24 @@ second database, service template, broker or top-level `services/` directory. A 
 
 ## The twelve bounded contexts
 
+Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales.
+
 | Context | Owns |
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates |
-| `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
-| `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
-| `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
-| `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
-| `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters |
-| `aftersales` | *(stub)* service orders, appointments, labour, technicians |
+| `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
+| `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
+| `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |
+| `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
 | `parts` | *(stub)* part master, stock, suppliers, purchase orders |
+| `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
+| `aftersales` | *(stub)* service orders, appointments, labour, technicians |
 | `finance` | *(stub)* invoicing and payment matching — **not a ledger** (ADR-037) |
 | `reporting` | *(stub)* projections from events |
 | `compliance` | *(stub)* audit, revDSG, retention |
 
-The stubs exist so the import-linter contract enumerates every context from day one. Do not
-delete them, and do not treat a stub as a licence to put its concerns somewhere else.
+Stubs keep every context in the contract: never delete one or put its concerns elsewhere.
 
 ## Non-negotiable rules
 
@@ -123,9 +124,9 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
    plain `GUID` with an owner comment, a denormalised label and `labelRefreshedAt` (the three-column
    pattern); its data comes from a `public` function — in `app/` only `reconciliation.py` reads across (ADR-107).
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
-   import-linter gates CI with **no suppression mechanism** and forbids every top-level module of a
-   context but `public`; `test_import_contracts_cover_every_module.py` fails when a new module is
-   not listed. Moving a boundary is an ADR, not an ignore entry.
+   import-linter enforces it in CI with **no suppression mechanism**; `test_import_contracts_cover_every_module.py`
+   fails on a module its contract omits. Moving a boundary is an ADR, not an ignore entry. Calls go
+   only **down** the layers (`test_context_dependency_direction.py`).
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not

@@ -204,6 +204,8 @@ const REASON_KEYS: Record<string, string> = {
       'provider_not_configured',
       // KAN-604 — the secrets manager refused a connection secret write or delete.
       'secrets_backend_failed',
+      // KAN-603 — this deployment has no secret store at all.
+      'secret_store_not_configured',
       // KAN-602 — a credential the connection's provider does not use is refused.
       'secret_slot_not_used_by_provider',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),

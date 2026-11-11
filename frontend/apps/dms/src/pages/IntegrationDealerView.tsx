@@ -5,7 +5,8 @@ import { Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
 import { api } from '../api/client'
-import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { buildConnectionRowMenu, connectionAccountIdentifier, settableSecretSlots } from '../components/connectionRowMenu'
+import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useFieldHint } from '../hooks/useFieldHint'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -25,7 +26,7 @@ import { apiRefusalText } from '../utils/apiRefusal'
  * provider. A provider with no connection yet shows a "Connect" card; a
  * connected one shows its status, account identifier (never a secret —
  * `config` never carries one, only `username`/non-secret settings) and
- * the shared row menu (Test/Rotate/Disable/Enable/View usage — see
+ * the shared row menu (Test/Secret/Disable/Enable/Delete/View usage — see
  * connectionRowMenu.tsx's own docstring for why this is a plain
  * RowMenuGroups rather than a full detail-screen action triple: no
  * connection has its own drill-in screen in this PR's scope).
@@ -34,19 +35,6 @@ import { apiRefusalText } from '../utils/apiRefusal'
  * (I-2/I-3) — never a billing artifact; the API's own `UsageRead.
  * indicative` flag is always true today, rendered as a caption.
  */
-/**
- * The account-identifier shown on a connected provider's card. auto-i-dat
- * (KAN-488, ADR-111) is an OAuth 2.0 client: its `clientId` is the identifier
- * (never the secret, which `config` never carries). Every other provider
- * falls back to its plain `username`. The SOAP-era `benutzerNr · benutzerInfo`
- * (KAN-36) is gone with the SOAP account shape.
- */
-function accountIdentifier(connection: IntegrationConnectionRead): string {
-  const { clientId, username } = connection.config
-  if (typeof clientId === 'string' && clientId !== '') return clientId
-  return typeof username === 'string' ? username : '—'
-}
-
 export function IntegrationDealerView() {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
@@ -64,6 +52,7 @@ export function IntegrationDealerView() {
   const [connectingProvider, setConnectingProvider] = useState<IntegrationProviderRead | null>(null)
   const [usageFor, setUsageFor] = useState<IntegrationConnectionRead | null>(null)
   const [rotatingFor, setRotatingFor] = useState<IntegrationConnectionRead | null>(null)
+  const [deletingFor, setDeletingFor] = useState<IntegrationConnectionRead | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['integrations'] })
   // KAN-266 — one key per kind, passed the request: a retry keeps its key and
@@ -77,6 +66,11 @@ export function IntegrationDealerView() {
     for (const c of connectionsQuery.data?.items ?? []) map.set(c.providerId, c)
     return map
   }, [connectionsQuery.data])
+
+  const providersById = useMemo(
+    () => new Map((providersQuery.data?.items ?? []).map((p) => [p.id, p] as const)),
+    [providersQuery.data]
+  )
 
   const providersByCategory = useMemo(() => {
     const groups = new Map<string, IntegrationProviderRead[]>()
@@ -128,7 +122,7 @@ export function IntegrationDealerView() {
                     {t(`integrationEnums.environment.${connection.environment}`, connection.environment)}
                   </KeyValueRow>
                   <KeyValueRow label={t('integrationsList.fields.accountIdentifier')}>
-                    {accountIdentifier(connection)}
+                    {connectionAccountIdentifier(connection)}
                   </KeyValueRow>
                   <KeyValueRow label={t('integrationsList.fields.lastVerified')}>
                     {connection.lastVerifiedAt ? formatDate(connection.lastVerifiedAt, locale) : '—'}
@@ -148,7 +142,8 @@ export function IntegrationDealerView() {
                           onViewUsage: () => setUsageFor(connection),
                           onRotateSecret: () => setRotatingFor(connection),
                           onToggleEnabled: () => void toggleEnabled(connection),
-                        })}
+                          onDelete: () => setDeletingFor(connection),
+                        }, provider.requiredSecretSlots)}
                       />
                     </Group>
                   </Group>
@@ -179,9 +174,21 @@ export function IntegrationDealerView() {
           setConnectingProvider(null)
           void invalidate()
         }}
+        onCreatedWithoutSecret={() => void invalidate()}
       />
       <UsageModal connection={usageFor} onClose={() => setUsageFor(null)} />
-      <RotateSecretModal connection={rotatingFor} onClose={() => setRotatingFor(null)} onRotated={() => void invalidate()} />
+      <RotateSecretModal
+        connection={rotatingFor}
+        requiredSecretSlots={rotatingFor ? providersById.get(rotatingFor.providerId)?.requiredSecretSlots ?? [] : []}
+        onClose={() => setRotatingFor(null)}
+        onRotated={() => void invalidate()}
+      />
+      <DeleteConnectionModal
+        connection={deletingFor}
+        providerName={deletingFor ? providersById.get(deletingFor.providerId)?.displayName ?? deletingFor.providerCode : ''}
+        onClose={() => setDeletingFor(null)}
+        onDeleted={() => void invalidate()}
+      />
     </Stack>
   )
 }
@@ -192,10 +199,12 @@ function ConnectDialog({
   provider,
   onClose,
   onConnected,
+  onCreatedWithoutSecret,
 }: {
   provider: IntegrationProviderRead | null
   onClose: () => void
   onConnected: () => void
+  onCreatedWithoutSecret: () => void
 }) {
   const { t } = useTranslation()
   const hint = useFieldHint()
@@ -204,10 +213,17 @@ function ConnectDialog({
   const [configValues, setConfigValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // KAN-266 — the create carries one key per connection attempt. It is kept
-  // until the secrets are written too: when a secret write fails after the
-  // create succeeded, "Verbinden" again replays the created connection
-  // instead of being refused as a duplicate. A new provider gets a new key.
+  // KAN-603 — the create succeeded and a secret write was refused: the
+  // connection exists without that secret. Said as such (never «konnte nicht
+  // erstellt werden»), and the dialog closes onto the card, whose «Secret
+  // setzen» repairs it.
+  const [secretFailure, setSecretFailure] = useState<string | null>(null)
+  useEffect(() => setSecretFailure(null), [provider])
+  // KAN-266 — the create carries one key per connection attempt: a retry of
+  // a failed create replays its first answer. Once the create succeeded the
+  // key is renewed (KAN-603): a refused secret write is said as such and the
+  // dialog closes onto the card, where «Secret setzen» repairs the connection
+  // — never a second create. A new provider gets a new key.
   const createKey = useIdempotencyKey()
   useEffect(() => {
     if (provider) createKey.renew()
@@ -218,20 +234,45 @@ function ConnectDialog({
   const submit = async () => {
     setSubmitting(true)
     setError(null)
+    let created: IntegrationConnectionRead
     try {
       const body = { providerId: provider.id, displayName: provider.displayName, environment, config: configValues }
-      const created = await api.post<IntegrationConnectionRead>('/integrations/connections', body, createKey.headers(body))
+      created = await api.post<IntegrationConnectionRead>('/integrations/connections', body, createKey.headers(body))
+    } catch (err) {
+      setError(apiRefusalText(t, err, 'integrationsList.connectError'))
+      setSubmitting(false)
+      return
+    }
+    // The connection exists from here on: a new attempt is a new submission.
+    createKey.renew()
+    try {
       for (const slot of provider.requiredSecretSlots) {
         const value = secrets[slot]
         if (value) await api.put(`/integrations/connections/${created.id}/secrets/${slot}`, { secretValue: value })
       }
-      createKey.renew()
       onConnected()
     } catch (err) {
-      setError(apiRefusalText(t, err, 'integrationsList.connectError'))
+      setSecretFailure(apiRefusalText(t, err, 'integrationsList.connectModal.secretFailedFallback'))
+      onCreatedWithoutSecret()
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (secretFailure !== null) {
+    return (
+      <Modal opened onClose={onClose} title={t('integrationsList.connectModal.title', { provider: provider.displayName })}>
+        <Stack gap="sm">
+          <Text size="sm" c="red" role="alert">
+            {t('integrationsList.connectModal.secretFailed', { reason: secretFailure })}
+          </Text>
+          <Text size="sm">{t('integrationsList.connectModal.secretFailedRepair')}</Text>
+          <Group justify="flex-end">
+            <Button onClick={onClose}>{t('integrationsList.connectModal.toConnection')}</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    )
   }
 
   return (
@@ -331,10 +372,12 @@ function UsageModal({ connection, onClose }: { connection: IntegrationConnection
 
 function RotateSecretModal({
   connection,
+  requiredSecretSlots,
   onClose,
   onRotated,
 }: {
   connection: IntegrationConnectionRead | null
+  requiredSecretSlots: readonly string[]
   onClose: () => void
   onRotated: () => void
 }) {
@@ -359,6 +402,11 @@ function RotateSecretModal({
   if (!connection) return null
 
   const slotLabel = (slot: string) => t(`integrationEnums.secretSlot.${slot}`, slot)
+  // KAN-603 — every slot the provider requires, set or not, so a connection
+  // whose first secret write failed can be given it here.
+  const slots = settableSecretSlots(connection, requiredSecretSlots)
+  const stored = new Set<string>((connection.secretSlots ?? []).map((s) => s.slot))
+  const nothingStored = stored.size === 0
 
   const submit = async () => {
     setSubmitting(true)
@@ -368,12 +416,12 @@ function RotateSecretModal({
     const saved: string[] = []
     let current: string | null = null
     try {
-      for (const slot of connection.secretSlots ?? []) {
-        const value = values[slot.slot]
+      for (const slot of slots) {
+        const value = values[slot]
         if (!value) continue
-        current = slot.slot
-        await api.put(`/integrations/connections/${connection.id}/secrets/${slot.slot}`, { secretValue: value })
-        saved.push(slot.slot)
+        current = slot
+        await api.put(`/integrations/connections/${connection.id}/secrets/${slot}`, { secretValue: value })
+        saved.push(slot)
       }
       onRotated()
       onClose()
@@ -391,7 +439,13 @@ function RotateSecretModal({
   }
 
   return (
-    <Modal opened onClose={onClose} title={t('integrationsList.rotateModal.title', { name: connection.displayName })}>
+    <Modal
+      opened
+      onClose={onClose}
+      title={t(nothingStored ? 'integrationsList.rotateModal.titleSet' : 'integrationsList.rotateModal.title', {
+        name: connection.displayName,
+      })}
+    >
       <Stack gap="sm">
         {error && (
           <Stack gap={4} role="alert">
@@ -409,22 +463,25 @@ function RotateSecretModal({
           </Stack>
         )}
         <Text size="xs" c="dimmed">{t('integrationsList.rotateModal.hint')}</Text>
-        {(connection.secretSlots ?? []).map((slot) => (
+        {slots.map((slot) => (
           <TextInput
-            key={slot.slot}
-            label={slotLabel(slot.slot)}
+            key={slot}
+            label={slotLabel(slot)}
             type="password"
-            value={values[slot.slot] ?? ''}
+            placeholder={stored.has(slot) ? undefined : t('integrationsList.rotateModal.notSet')}
+            value={values[slot] ?? ''}
             onChange={(e) => {
               // KAN-249 — read before the updater (see ConnectDialog).
               const value = e.currentTarget.value
-              setValues((prev) => ({ ...prev, [slot.slot]: value }))
+              setValues((prev) => ({ ...prev, [slot]: value }))
             }}
           />
         ))}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button onClick={() => void submit()} loading={submitting}>{t('integrationsList.actions.rotateSecret')}</Button>
+          <Button onClick={() => void submit()} loading={submitting}>
+            {t(nothingStored ? 'integrationsList.actions.setSecret' : 'integrationsList.actions.rotateSecret')}
+          </Button>
         </Group>
       </Stack>
     </Modal>

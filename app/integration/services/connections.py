@@ -49,8 +49,9 @@ _ENTITY_TYPE = "integration_connection"
 #               row is NOT granted, the opposite of the optimistic default.
 #   call label  What `call_capability(capability=...)` names a block by:
 #               `vehicle_data` (catalogue_sync's and identification's umbrella
-#               over the operations they call), `system_watermark` (the
-#               access check of «Test connection»),
+#               over the operations they call), `access_check` (the
+#               access check of «Test connection»; `system_watermark` on rows
+#               written before KAN-600 — the log is history, never rewritten),
 #               `marketplace_publish`, and a probe's own sheet line. Never an
 #               entitlement. Since KAN-486 the call log names each request
 #               by the provider's own operation (`caption_code`, `FtpUpload`, …)

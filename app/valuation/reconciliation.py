@@ -4,6 +4,7 @@ the VIN a valuation prints against the vehicle its vehicleId names.
 Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
+import datetime as dt
 
 from sqlalchemy import Exists, func, select
 from sqlalchemy.orm import Session
@@ -29,6 +30,8 @@ ACTOR_TABLES = (Valuation, ValuationDeduction, ValuationProviderQuote)
 # signed contract after this long is not a confirmation in progress.
 # «Verwendung aufheben» uses the same window (KAN-253).
 _CONFIRMATION_GRACE = CONFIRMATION_GRACE
+# KAN-633: how long the `valuation.created` fact may be in flight.
+_OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
 
 
 def _carried_by_a_signed_contract() -> Exists:
@@ -46,7 +49,31 @@ def _carried_by_a_signed_contract() -> Exists:
     )
 
 
+
+def _names_an_untaken_configuration() -> StateCheck:
+    """KAN-633 (ADR-131, rule 10): the row names a configuration vehicle
+    still counts as never taken (`first_taken_at` null) an hour after the
+    row last changed — the host's `configuration_attached` fact was not
+    consumed (dead-lettered, or the consumer is stuck), so vehicle's purge
+    could delete it the day its safety net misses it. The hour is the
+    outbox-lag grace: a fact in flight is not a finding. Vehicle names no
+    host; each host reports its own rows. A configuration that no longer
+    exists is the reference check's finding, not this one's."""
+
+    return StateCheck(
+        label="valuation.configuration_id names a configuration vehicle has not stamped as taken",
+        source_model=Valuation,
+        source_row_id_column=Valuation.id,
+        where=lambda: select(VehicleConfiguration.id)
+        .where(VehicleConfiguration.id == Valuation.configuration_id, VehicleConfiguration.first_taken_at.is_(None))
+        .correlate(Valuation)
+        .exists()
+        & (Valuation.updated_at < utcnow() - _OUTBOX_LAG_GRACE),
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
+    _names_an_untaken_configuration(),
     ReferenceCheck(
         label="valuation.tenant_id -> dealership.id",
         source_model=Valuation,

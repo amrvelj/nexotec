@@ -261,6 +261,34 @@ def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
     ]
 
 
+
+def _names_an_untaken_configuration(deal: _Deal, column: InstrumentedAttribute[Any]) -> StateCheck:
+    """KAN-633 (ADR-131, rule 10): the row names a configuration vehicle
+    still counts as never taken (`first_taken_at` null) an hour after the
+    row last changed — the host's `configuration_attached` fact was not
+    consumed (dead-lettered, or the consumer is stuck), so vehicle's purge
+    could delete it the day its safety net misses it. The hour is the
+    outbox-lag grace: a fact in flight is not a finding. Vehicle names no
+    host; each host reports its own rows. A configuration that no longer
+    exists is the reference check's finding, not this one's."""
+
+    def where() -> ColumnElement[bool]:
+        untaken = (
+            select(VehicleConfiguration.id)
+            .where(VehicleConfiguration.id == column, VehicleConfiguration.first_taken_at.is_(None))
+            .correlate(deal)
+            .exists()
+        )
+        return untaken & (deal.updated_at < utcnow() - _OUTBOX_LAG_GRACE)
+
+    return StateCheck(
+        label=f"{deal.__tablename__}.{column.key} names a configuration vehicle has not stamped as taken",
+        source_model=deal,
+        source_row_id_column=deal.id,
+        where=where,
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
         label="transaction.tenant_id -> dealership.id",
@@ -628,6 +656,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # --- each reference in the deal's own dealership or group (KAN-259) ---
     *_same_dealership_checks(SalesOffer),
     *_same_dealership_checks(SalesContract),
+    # --- every configuration a deal holds is one vehicle counts as taken (KAN-633) ---
+    *(
+        _names_an_untaken_configuration(deal, column)
+        for deal in (SalesOffer, SalesContract)
+        for column in (deal.configuration_id, deal.trade_in_configuration_id)
+    ),
     # --- who wrote each row (KAN-243) ---
     *actor_reference_checks(*ACTOR_TABLES),
     # --- the responsible seller (KAN-200): a platform User id on three tables ---

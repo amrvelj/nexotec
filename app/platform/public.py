@@ -8,6 +8,7 @@ from app.platform.models.number_range import NumberRangeDocumentType
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
 from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.user import User
+from app.platform.schemas.dealership import DealerGroupRead
 from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,
@@ -28,6 +29,8 @@ from app.platform.services.connected_account import (
     unregister_grant_revoker,
 )
 from app.platform.services.dealership import (
+    enable_group_read,
+    get_dealer_group_or_404,
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
     get_location_or_404,
@@ -98,6 +101,7 @@ __all__ = [
     "ConnectedAccountProvider",
     "ContentDefinition",
     "DealerGroup",
+    "DealerGroupRead",
     "Dealership",
     "DealershipRef",
     "DocumentLine",
@@ -124,8 +128,10 @@ __all__ = [
     "actor_reference_checks",
     "allocate_number",
     "continue_sequence",
+    "enable_group_read",
     "get_active_reference_value_codes",
     "get_active_user_acting_in",
+    "get_dealer_group_or_404",
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
     "get_group_display_labels",

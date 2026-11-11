@@ -159,3 +159,23 @@ def test_a_stray_slot_stored_before_the_rule_can_still_be_deleted(client, db_ses
     assert response.status_code == 204, response.text
     assert backend.calls == [("delete", "certificate")]
     assert _refs(db_session, connection_id) == []
+
+
+def test_a_deployment_without_a_secret_store_refuses_with_its_own_reason(client, db_session):
+    """KAN-603: no Infisical project configured (every test run without the
+    `backend` fixture) — the 409 names the deployment as the cause, so the
+    screen never reads it as the dealer's input."""
+
+    provider = _provider(db_session, slots=["password"])
+    headers = _headers(uuid.uuid4())
+    connection_id = _connection(client, provider, headers)
+
+    response = client.put(
+        f"/v1/integrations/connections/{connection_id}/secrets/password",
+        json={"secretValue": "pw-not-stored"},
+        headers=headers,
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {"reason": "secret_store_not_configured"}
+    assert "pw-not-stored" not in response.text

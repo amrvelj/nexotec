@@ -112,7 +112,9 @@ def get_dealer_group_or_404(db: Session, dealer_group_id: uuid.UUID) -> DealerGr
     return group
 
 
-def enable_group_read(db: Session, *, dealer_group: DealerGroup, actor_id: uuid.UUID) -> DealerGroup:
+def enable_group_read(
+    db: Session, *, dealer_group: DealerGroup, actor_id: uuid.UUID, legal_basis_recorded: bool
+) -> DealerGroup:
     """ADR-030 (2): platform_admin may flip this ONLY once at least one
     legal_basis row has ever been recorded for the group. This is a
     fail-fast admin UX check, not the actual security boundary — the
@@ -120,18 +122,15 @@ def enable_group_read(db: Session, *, dealer_group: DealerGroup, actor_id: uuid.
     get_customer_group_read_or_404) re-checks a LIVE basis per customer on
     every call regardless of this flag, since a basis can be withdrawn
     later without this flag being touched again.
+
+    Whether a basis was ever recorded is customer's fact, and customer sits
+    above platform (ADR-131): platform never asks it. The caller that
+    orchestrates the flip — the composition root's route,
+    `app/api/v1/dealer_groups.py` — asks `customer.public.
+    has_any_basis_for_group` and passes the answer in (KAN-629).
     """
 
-    # Import deferred to call time, not module top-level: app.platform.public
-    # is imported (directly or transitively) by nearly every other context
-    # at their own module top-level, and app.customer.public itself imports
-    # app.customer.services.customer, which imports app.vehicle.public,
-    # which imports app.platform.public — a top-level import here would
-    # complete that cycle. Both edges are still visible to import-linter,
-    # which walks the whole AST, not just top-level imports.
-    from app.customer.public import has_any_basis_for_group
-
-    if not has_any_basis_for_group(db, group_id=dealer_group.id):
+    if not legal_basis_recorded:
         raise BadRequestError(
             "Cannot enable group-read for a group with no legal_basis recorded yet — "
             "record a signed joint-controller agreement first."

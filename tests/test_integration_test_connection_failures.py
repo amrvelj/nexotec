@@ -11,8 +11,7 @@ OAuth 2.0 discovery and User Enrollment Grant against `www.autoi.ch`, json:api
 calls against `api.ident.autoi.ch`. These tests drive it against the fake hosts
 in `tests/identapi_support.py` and assert on what the dealer sees — the
 connection's own row and the HTTP status — not on which exception class the
-adapter happens to raise. The SOAP adapter's own failure tests live with its
-unit tests until KAN-550 removes it.
+adapter happens to raise.
 """
 
 import uuid
@@ -215,6 +214,52 @@ def test_a_programmer_error_is_not_dressed_up_as_a_connection_failure(db_session
 
     db_session.refresh(connection)
     assert connection.status == ConnectionStatus.NOT_CONFIGURED  # untouched
+
+
+def test_an_access_check_that_metered_no_request_is_logged_as_access_check(db_session, monkeypatch):
+    """KAN-600: the block's own row — written only when the access check
+    failed before metering a request — is labelled `access_check`, not the
+    retired SOAP watermark's `system_watermark`."""
+
+    from sqlalchemy import select
+
+    from app.integration.errors import ProviderTransportError
+
+    class _UnreachableAdapter(MockAutoIDatAdapter):
+        def fetch_captions(self, lang):
+            raise ProviderTransportError("connection refused")
+
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    provider = IntegrationProvider(
+        provider_code="auto_i_dat_mock",
+        category="vehicle_data",
+        display_name="auto-i-dat (mock)",
+        auth_type="none",
+        required_secret_slots=[],
+        capability_codes=[],
+    )
+    db_session.add(provider)
+    db_session.commit()
+    connection = connection_service.create_connection(
+        db_session,
+        tenant_id=uuid.uuid4(),
+        data=ConnectionCreate(
+            provider_id=provider.id, display_name="mock", environment=ConnectionEnvironment.SANDBOX
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    monkeypatch.setitem(
+        gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", lambda db, conn, actor_id, purpose: _UnreachableAdapter()
+    )
+
+    gateway.test_connection(db_session, connection=connection)
+
+    db_session.refresh(connection)
+    assert connection.status == ConnectionStatus.ERROR
+    labels = db_session.scalars(
+        select(IntegrationCallLog.capability).where(IntegrationCallLog.connection_id == connection.id)
+    ).all()
+    assert labels == ["access_check"]
 
 
 # --- through the HTTP endpoint ----------------------------------------------------------

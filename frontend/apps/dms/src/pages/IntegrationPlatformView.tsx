@@ -15,6 +15,7 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
@@ -26,6 +27,7 @@ import type {
   DealershipPage,
   IntegrationConnectionPage,
   IntegrationConnectionRead,
+  IntegrationProviderPage,
 } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
 import { useDataGridLabels } from '../hooks/useDataGridLabels'
@@ -64,6 +66,18 @@ export function IntegrationPlatformView() {
     for (const d of dealershipsQuery.data?.items ?? []) map.set(d.id, d.legalName)
     return map
   }, [dealershipsQuery.data])
+
+  const providersQuery = useQuery({
+    queryKey: ['integrations', 'providers'],
+    queryFn: () => api.get<IntegrationProviderPage>('/integrations/providers'),
+  })
+  // KAN-603 — the provider's name for the delete confirmation and its secret
+  // slots for the row menu, so «Secret setzen» reads the same as on the card.
+  const providersById = useMemo(
+    () => new Map((providersQuery.data?.items ?? []).map((p) => [p.id, p] as const)),
+    [providersQuery.data]
+  )
+  const [deletingFor, setDeletingFor] = useState<IntegrationConnectionRead | null>(null)
 
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, 250)
@@ -212,11 +226,18 @@ export function IntegrationPlatformView() {
                 onViewUsage: () => {},
                 onRotateSecret: () => {},
                 onToggleEnabled: () => void toggleEnabled(row),
-              })
+                onDelete: () => setDeletingFor(row),
+              }, providersById.get(row.providerId)?.requiredSecretSlots)
             }
           />
         </OverviewShellRegion>
       </Stack>
+      <DeleteConnectionModal
+        connection={deletingFor}
+        providerName={deletingFor ? providersById.get(deletingFor.providerId)?.displayName ?? deletingFor.providerCode : ''}
+        onClose={() => setDeletingFor(null)}
+        onDeleted={() => void invalidate()}
+      />
 
     </Stack>
   )

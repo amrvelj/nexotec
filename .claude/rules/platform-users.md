@@ -23,7 +23,7 @@ paths:
   - "tests/test_platform_idempotency.py"
   - "tests/test_platform_chain_renders_offline.py"
   - "app/platform/api/dealerships.py"
-  - "app/platform/api/dealer_groups.py"
+  - "app/api/v1/dealer_groups.py"
   - "app/platform/api/me.py"
   - "app/platform/services/user.py"
   - "app/platform/services/membership.py"
