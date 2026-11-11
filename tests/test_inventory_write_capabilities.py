@@ -134,7 +134,7 @@ _SALES_REFUSED = [
 @pytest.mark.parametrize(
     ("method", "suffix"),
     _SALES_REFUSED,
-    ids=[f"{m} {'/media/<a media id>' if s.startswith('/media/') else s}" for m, s in _SALES_REFUSED],
+    ids=[f"{m} {'/media/<a media id>' if m == 'DELETE' and s.startswith('/media/') else s}" for m, s in _SALES_REFUSED],
 )
 def test_a_sales_user_is_refused_the_writes_their_own_rows_reserve(client, stock_item, method, suffix):
     tenant_id, item = stock_item

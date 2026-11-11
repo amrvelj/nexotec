@@ -30,7 +30,7 @@ as any change to what it states. -->
   `Base.metadata` holds production tables only; conftest builds and resets both
   (`TEST_METADATA`; KAN-332, pinned by `tests/test_demo_models_off_production_base.py`).
 - **`pytest -n auto` gives every worker its own database** (`<name>_gw0`, `_gw1` …; KAN-627): conftest creates it, builds
-  the schema as for the single one and drops it at the end. A test never names a fixed database, port or file path.
+  the schema as for the single one and drops it at the end. A test takes its database from the `engine` fixture or `DMS_TEST_DATABASE_URL`, never from a fixed name, port or file path.
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, no bulk catalogue retrieval

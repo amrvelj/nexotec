@@ -119,15 +119,16 @@ COMPLETION_CLAIM = re.compile(
 )
 REVIEW_VERDICT = re.compile(r"VERDICT:\s*(PASS|FINDINGS)", re.IGNORECASE)
 REVIEWED_COMMIT = re.compile(r"REVIEWED:\s*`?([0-9a-fA-F]{7,40})\b")
-# After a push, a stop that needs Anto's decision says so with this marker.
 # The commit status that carries a session's check result to the PR (KAN-625). GitHub cuts a
 # status description at 140 characters.
 CHECK_STATUS_CONTEXT = "nexotec/check"
 CHECK_STATUS_MAX = 140
 # A re-review (KAN-620) names the commit the previous review ruled on. It is narrow, so it is
-# allowed only for a small range that touches nothing a full review must see.
-REREVIEW_OF = re.compile(r"RE-REVIEW OF:\s*`?([0-9a-fA-F]{7,40})\b", re.IGNORECASE)
+# allowed only for a small range that touches nothing a full review must see. The marker is a
+# line of its own, as reviewer.md writes it: prose that says "re-review of <sha>" is not one.
+REREVIEW_OF = re.compile(r"^\W{0,4}RE-REVIEW OF:\W{0,4}([0-9a-fA-F]{7,40})\b", re.MULTILINE)
 REREVIEW_MAX_LINES = 150
+# After a push, a stop that needs Anto's decision says so with this marker.
 DECISION_NEEDED = re.compile(r"^\W{0,6}decision needed\W{0,3}:", re.IGNORECASE | re.MULTILINE)
 PG_HOST, PG_PORT = "localhost", 5432
 
@@ -1496,22 +1497,26 @@ def cmd_post_tool(data):
 # The check result as a commit status on the PR (KAN-625)
 # --------------------------------------------------------------------------
 
-STATUS_WRITE_OPTIONS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input", "-d", "--data",
-                        "--data-raw", "--data-binary", "--json")
+# GitHub's two endpoints that write a check result onto a commit: `repos/<o>/<r>/statuses/<sha>`
+# and `repos/<o>/<r>/check-runs`. Both only write; reading goes through `commits/<ref>/statuses`
+# and `commits/<ref>/check-runs`, which this does not match.
+STATUS_WRITE_PATH = re.compile(r"(?:^|/)repos/[^/]+/[^/]+/(?:statuses/[^/?]+|check-runs)/?(?:\?|$)")
 
 
 def types_check_status(words):
-    """True for a typed command that would write the `nexotec/check` status itself: a `gh` or
-    `curl` call that names the context and sends something, or an interpreter one-liner naming it.
-    Reading statuses (`gh api .../statuses --jq ...`) and searching for the name stay allowed."""
-    if not words or not any(CHECK_STATUS_CONTEXT in w for w in words[1:]):
+    """True for a typed command that would write a check result onto a commit itself: a `gh`,
+    `curl` or similar call to a commit-status or check-run write path - whatever the context,
+    and however the fields are passed (`-f k=v`, `-fk=v`, `--input file`, a variable) - or an
+    interpreter one-liner naming the `nexotec/check` context. Reading statuses, searching for the
+    name and naming it in a PR body stay allowed. A path built in a variable or a script file
+    is not seen: this is a rail against the plain mistake, not a boundary (ADR-129)."""
+    if not words:
         return False
     base = os.path.basename(words[0])
     if base.startswith(INTERPRETERS):
-        return True
+        return any(CHECK_STATUS_CONTEXT in w for w in words[1:])
     return base in ("gh", "curl", "wget", "http", "https") and \
-        any(w in STATUS_WRITE_OPTIONS or w.startswith(("--data", "--field=", "--method=", "--json="))
-            for w in words[1:])
+        any(STATUS_WRITE_PATH.search(w) for w in words[1:])
 
 
 def check_status_payload(checks, tree):
@@ -2419,10 +2424,18 @@ def selftest():
     for typed in ("gh api -X POST repos/o/r/statuses/abc -f state=success -f context=nexotec/check",
                   "gh api repos/o/r/statuses/abc --method POST --field context=nexotec/check",
                   "curl -d '{\"context\": \"nexotec/check\"}' https://api.github.com/repos/o/r/statuses/abc",
+                  # the forms the first guard missed: an attached field, a file, a variable, a check run
+                  "gh api repos/o/r/statuses/abc -fcontext=nexotec/check -fstate=success",
+                  "gh api repos/{owner}/{repo}/statuses/abc --input status.json",
+                  "curl --data @status.json https://api.github.com/repos/o/r/statuses/abc",
+                  "gh api /repos/o/r/statuses/$SHA -f context=$C -f state=success",
+                  "gh api repos/o/r/check-runs -f name=nexotec/check -f head_sha=abc",
                   "python3 -c 'post(\"nexotec/check\")'"):
         assert any(types_check_status(w) for w in words(typed)), typed
     for harmless in ("gh api repos/o/r/commits/abc/statuses --jq '.[] | select(.context==\"nexotec/check\")'",
+                     "gh api repos/o/r/commits/abc/check-runs", "gh api repos/o/r/commits/abc/status",
                      "grep -rn nexotec/check .claude", "git commit -m 'post nexotec/check from the hook'",
+                     "gh api -X POST repos/{owner}/{repo}/pulls -f title=x -f body='nexotec/check was refused'",
                      "gh api -X POST repos/o/r/pulls -f title=x"):
         assert not any(types_check_status(w) for w in words(harmless)), harmless
     # posting end to end in a throwaway repository, `gh` and git's commit lookup stubbed: the POST
@@ -2462,6 +2475,9 @@ def selftest():
     # --- KAN-620: a re-review stands only on a reviewed ancestor and a small, plain range
     assert REREVIEW_OF.findall("RE-REVIEW OF: 0123abc\nREVIEWED: 4567def\nVERDICT: PASS") == ["0123abc"]
     assert REREVIEW_OF.findall("REVIEWED: 4567def\nVERDICT: PASS") == []
+    assert REREVIEW_OF.findall("**RE-REVIEW OF:** `0123abc`\nREVIEWED: 4567def") == ["0123abc"]
+    # prose is not the marker: a full review that mentions an earlier one stays a full review
+    assert REREVIEW_OF.findall("This is not a re-review of 0123abc.\nA full review, no RE-REVIEW OF: 0123abc line.") == []
     assert rereview_full_reason(["3\t1\tapp/sales/services/offer.py", "10\t0\ttests/test_x.py"]) is None
     assert "preserved file" in rereview_full_reason(["1\t0\tapp/core/tenancy.py"])
     assert "preserved file" in rereview_full_reason(["1\t0\tapp/core/outbox_worker.py"])

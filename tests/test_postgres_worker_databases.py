@@ -56,7 +56,9 @@ def test_where_am_i(engine, request):
 
 def test_a_parallel_run_gives_each_worker_a_database_and_leaves_none_behind(tmp_path):
     url = make_url(os.environ["DMS_TEST_DATABASE_URL"])
-    database = f"{url.database}_kan627_{uuid.uuid4().hex[:12]}"
+    # A short name of its own, not this checkout's database name plus a suffix: Postgres cuts a
+    # name at 63 bytes, and a long worktree name would lose the `_gw<n>` that tells workers apart.
+    database = f"dms_kan627_{uuid.uuid4().hex[:12]}"
     admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     module = tmp_path / "test_where.py"
     module.write_text(_WORKER_MODULE)
