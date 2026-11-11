@@ -509,7 +509,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends
           libglib2.0-0 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfontconfig1 fonts-dejavu-core
       - run: pip install -e ".[dev]"
-      - run: pytest
+      # KAN-627: one worker per core, each on a database of its own
+      # (dms_platform_test_gw0, _gw1 ...) that tests/conftest.py creates beside
+      # the service's and drops again; the same tests as plain `pytest`.
+      - run: pytest -n auto
         env:
           DMS_TEST_DATABASE_URL: postgresql+psycopg://dms:dms@localhost:5432/dms_platform_test
 

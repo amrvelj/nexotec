@@ -74,9 +74,63 @@ def _enforce_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
     cursor.close()
 
 
+# KAN-627: under pytest-xdist (`pytest -n auto`) every worker has a Postgres
+# database of its own, `<name>_gw0`, `<name>_gw1` ...: TRUNCATE before each
+# test would otherwise empty the tables under another worker's test. The
+# worker's name comes from pytest's own config (`workerinput`), not from the
+# PYTEST_XDIST_WORKER variable a subprocess inherits, so a pytest run a test
+# starts itself keeps the database it was given. DMS_TEST_DATABASE_URL is
+# rewritten too: tests that derive a scratch database from it then name it
+# after their worker's. Plain `pytest` has no worker and changes nothing.
+_WORKER_DATABASE = False
+
+
+def pytest_configure(config) -> None:
+    global _TEST_DATABASE_URL, _WORKER_DATABASE
+    worker = getattr(config, "workerinput", {}).get("workerid")
+    if not (_TEST_DATABASE_URL and worker):
+        return
+    url = make_url(_TEST_DATABASE_URL)
+    _TEST_DATABASE_URL = url.set(database=f"{url.database}_{worker}").render_as_string(hide_password=False)
+    _WORKER_DATABASE = True
+    os.environ["DMS_TEST_DATABASE_URL"] = _TEST_DATABASE_URL
+
+
+def _admin_engine():
+    """The server's maintenance database: CREATE and DROP DATABASE run outside a transaction."""
+    return create_engine(make_url(_TEST_DATABASE_URL).set(database="postgres"), isolation_level="AUTOCOMMIT")
+
+
+def _create_worker_database() -> None:
+    """An empty database, as bootstrap and CI hand the single one to a plain run. One a
+    killed run left behind is taken over: the schema build drops and recreates its tables."""
+    admin = _admin_engine()
+    name = make_url(_TEST_DATABASE_URL).database
+    try:
+        with admin.connect() as conn:
+            if not conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": name}).scalar():
+                conn.execute(text(f"CREATE DATABASE {conn.dialect.identifier_preparer.quote(name)}"))
+    finally:
+        admin.dispose()
+
+
+def _drop_worker_database() -> None:
+    admin = _admin_engine()
+    name = make_url(_TEST_DATABASE_URL).database
+    try:
+        with admin.connect() as conn:
+            conn.execute(text(f"DROP DATABASE IF EXISTS {conn.dialect.identifier_preparer.quote(name)} WITH (FORCE)"))
+    finally:
+        admin.dispose()
+
+
 def pytest_report_header(config) -> str:
     if _TEST_DATABASE_URL:
         url = make_url(_TEST_DATABASE_URL).render_as_string(hide_password=True)
+        if getattr(config.option, "numprocesses", None):
+            return (
+                f"test database: {url}_gw<n>, one per worker (Postgres, the lane of record, ADR-011; KAN-627)"
+            )
         return f"test database: {url} (Postgres, the lane of record, ADR-011)"
     return (
         "test database: SQLite in-memory: fast local lane, NOT the lane of record (ADR-011);"
@@ -331,10 +385,14 @@ def _postgres_schema():
     if not _TEST_DATABASE_URL:
         yield None
         return
+    if _WORKER_DATABASE:
+        _create_worker_database()
     schema = _PostgresSchema()
     schema.build()
     yield schema
     schema.drop()
+    if _WORKER_DATABASE:
+        _drop_worker_database()
 
 
 @pytest.fixture()

@@ -66,6 +66,9 @@ dependencies = [
 dev = [
     "pytest>=9.1,<10.0",
     "pytest-asyncio>=1.4,<2.0",
+    # KAN-627: `pytest -n auto` runs the Postgres lane on one database per worker
+    # (tests/conftest.py); plain `pytest` stays one process on the one database.
+    "pytest-xdist>=3.8,<4.0",
     # httpx is a runtime dependency (the Have I Been Pwned range check,
     # KAN-196) — kept out of this list to avoid a duplicate pin; dev installs
     # still get it transitively via [project.dependencies].

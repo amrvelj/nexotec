@@ -209,6 +209,11 @@ runs this lane there. **Never point `DMS_TEST_DATABASE_URL` at
 recreates every table in the database it is given — your dev data, the
 preview's log-in users included, would be gone.
 
+`pytest -n auto` runs the same tests in parallel, one worker per core. Each
+worker gets a database of its own beside the one named above (`dms_test_root_gw0`,
+`_gw1` …), which `tests/conftest.py` creates and drops again (KAN-627);
+`scripts/dev/check` and the nightly job run the lane this way.
+
 **SQLite is a fast, optional, local-only convenience** (ADR-011) — not a
 CI lane at all as of WP-2 PR-4, only a `pre-commit` hook you can opt into:
 
