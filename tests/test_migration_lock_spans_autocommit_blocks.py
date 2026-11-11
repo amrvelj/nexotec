@@ -142,10 +142,13 @@ def test_a_second_upgrader_waits_for_the_whole_run_across_an_autocommit_block(pr
         # the upgrade is held on the table across it (the point of CONCURRENTLY).
         watcher.execute("SET statement_timeout = '500ms'")
         watcher.execute("INSERT INTO kan179_probe (id) VALUES (2)")
-        # The second run is waiting for the migration lock, not migrating: the
-        # first run still holds the key, and the second has not finished.
+        # The first run still holds the migration key in this database after
+        # its opening transaction committed, so a second run cannot enter
+        # (whether it has reached its first poll yet or not). Other databases
+        # (parallel workers migrating their own) do not count.
         held = watcher.execute(
-            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted AND objid = %s",
+            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted AND objid = %s"
+            " AND database = (SELECT oid FROM pg_database WHERE datname = current_database())",
             (MIGRATION_ADVISORY_LOCK_KEY & 0xFFFFFFFF,),
         ).fetchone()
         assert held == (1,), "the first run holds the migration lock during its autocommit block"

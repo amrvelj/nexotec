@@ -39,7 +39,7 @@ def _callers_outside_reconciliation(sources: dict[str, str]) -> list[str]:
     ]
 
 
-def test_customer_in_group_is_used_only_by_reconciliation():
+def test_the_customer_predicates_are_used_only_by_reconciliation():
     offenders = _callers_outside_reconciliation(
         {str(path.relative_to(_REPO_ROOT)): path.read_text() for path in sorted(_APP.rglob("*.py"))}
     )

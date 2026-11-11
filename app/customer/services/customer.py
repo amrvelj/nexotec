@@ -2808,7 +2808,7 @@ def customer_is_merged(
     advisor-label refresh), and each such write restarts the grace. A
     finding is then reported a night later, never lost. Builds an EXISTS;
     reads nothing itself. Confined to reconciliation modules
-    (`test_customer_group_predicate_only_in_reconciliation.py`)."""
+    (`test_customer_predicates_only_in_reconciliation.py`)."""
 
     return (
         select(Customer.id)

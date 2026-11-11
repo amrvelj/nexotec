@@ -67,15 +67,15 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   Anto 2026-11-03, option A): copied once, when the car is put on the deal, from the `stockNumber`
   in `inventory.public.get_stock_item_pricing` that the snapshot freeze reads anyway; cleared
   with `stock_item_id` (`deal_editing`); a contract from an offer and a copied offer take the
-  offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py` fills the rows written before. **It is on screen** (KAN-570; Anto,
+  offer's; never refreshed (it never changes). `scripts/backfill_sales_stock_item_labels.py` fills the rows written before. **It is on screen** (KAN-570; Anto,
   2026-11-05, option A): `OfferRead`/`ContractRead.stockItemLabel` (additive); «Lagernummer S-…»
   beside the car (`StockNumberLink`) in the vehicle container of the offer workspace and the pending
   contract, and in the header of the sent offer and of a contract past editing, opening the stock
   detail as an overlay (ADR-059); and on the deal row, `sales_deal.stock_item_label` (Sales-chain
   migration `e7a3c5d1b9f4`, indexed), written by `upsert_deal_projection` from the live entity,
   compared by the deal-row StateChecks, filled for older rows by
-  `scripts/backfill_sales_deal_projection.py` (**run once per
-  environment after the deploy**) — the Sales grid's optional «Lagernummer» column, hidden by
+  `scripts/backfill_sales_deal_projection.py` (`--commit` **once per
+  environment after deploy**) — the Sales grid's optional «Lagernummer» column, hidden by
   default, sortable (`sort=stockItemLabel`).
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
   legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back", KAN-146) is
@@ -99,8 +99,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
   a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
-  the stock item. A Sales row naming a merged customer last written over an hour
-  ago is a `customer.merged` `sales.customer_merged` missed (KAN-581,
+  the stock item. A Sales row naming a merged customer last written over an
+  hour ago is a `customer.merged` `sales.customer_merged` missed (KAN-581,
   `customer_is_merged`). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
   context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
   `test_actor_columns_reconciled.py`).
@@ -370,6 +370,6 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   instance still on the old code during a rolling deploy never repeats a number; lock order Sales'
   counter → Platform's range; retired by KAN-540. The legacy transaction import keeps Sales' counter
   (`allocate_legacy_offer_number`) and never consumes or freezes the range.
-  `scripts/continue_offer_number_ranges.py` (**run once per environment
-  after the deploy**) shows each Betrieb's current value on the Number ranges screen before its next
+  `scripts/continue_offer_number_ranges.py` (`--commit` **once per environment
+  after deploy**) shows each Betrieb's current value on the Number ranges screen before its next
   offer.
