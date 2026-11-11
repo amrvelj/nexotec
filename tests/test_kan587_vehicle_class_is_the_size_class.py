@@ -47,8 +47,10 @@ _VERSIONS = Path(__file__).resolve().parent.parent / "alembic" / "versions"
 PROVIDER = "auto_i_dat"
 MOCK = "auto_i_dat_mock"
 
-# The vehicle migration's data steps are JSON SQL (`overridden_fields`), and a
-# migration only ever runs on Postgres (ADR-011).
+# A migration only ever runs on Postgres (ADR-011): the vehicle migration's data
+# steps are JSON SQL (`overridden_fields`), and the platform migration's tables
+# declare Postgres' UUID type, which SQLite does not store as the app's GUID
+# does. On the SQLite fast lane these tests skip; the two offline renders run.
 _postgres_only = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
 
@@ -92,6 +94,7 @@ def _seed_old_vehicle_class_list(db_session) -> dict[str, uuid.UUID]:
     return {code: row.id for code, row in values.items()}
 
 
+@_postgres_only
 def test_the_type_approval_classes_move_to_their_own_list_as_the_same_rows(db_session):
     ids = _seed_old_vehicle_class_list(db_session)
 
@@ -107,6 +110,7 @@ def test_the_type_approval_classes_move_to_their_own_list_as_the_same_rows(db_se
     assert (result.moved, result.duplicates_removed) == (4, 0)
 
 
+@_postgres_only
 def test_vehicle_class_holds_the_six_size_classes_in_all_four_languages(db_session):
     _seed_old_vehicle_class_list(db_session)
 
@@ -129,6 +133,7 @@ def test_vehicle_class_holds_the_six_size_classes_in_all_four_languages(db_sessi
     assert "m2" in sizes and result.left_in_size_list == ["m2"]
 
 
+@_postgres_only
 def test_the_list_migration_is_a_no_op_the_second_time_and_its_downgrade_restores_the_old_list(db_session):
     ids = _seed_old_vehicle_class_list(db_session)
     migration = _platform_migration()
@@ -148,6 +153,7 @@ def test_the_list_migration_is_a_no_op_the_second_time_and_its_downgrade_restore
     assert db_session.scalar(select(ReferenceList).where(ReferenceList.list_code == "homologation_class")) is None
 
 
+@_postgres_only
 def test_a_database_without_the_old_list_still_gets_both(db_session):
     """An environment where `6ba0a99ed5c4`'s rows were removed by hand: the
     migration creates what it needs rather than failing the deploy."""
