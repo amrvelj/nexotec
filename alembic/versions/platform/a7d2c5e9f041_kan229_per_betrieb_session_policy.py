@@ -10,7 +10,7 @@ switch), so `touch` never re-reads the Betrieb's config per request. NULL on
 an existing row is the platform's idle window, so no backfill is needed.
 
 Revision ID: a7d2c5e9f041
-Revises: 4c8e1f2a9d57
+Revises: 5d1f8a3c7e42
 Create Date: 2026-11-11 15:00:00.000000
 
 """
@@ -23,7 +23,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a7d2c5e9f041"
-down_revision: str | Sequence[str] | None = "4c8e1f2a9d57"
+down_revision: str | Sequence[str] | None = "5d1f8a3c7e42"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
