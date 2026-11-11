@@ -93,14 +93,14 @@ describe('IntegrationDealerView — a refused rotation is said, not swallowed (K
 
     const alert = await within(dialog).findByRole('alert')
     expect(alert).toHaveTextContent(i18n.t('apiRefusal.reasons.secrets_backend_failed'))
-    // The refusal is said as the refused slot's, so «nothing was saved» never
+    // The refusal is said as the refused slot's — the «already rotated / refused
+    // for» line first, then the refusal sentence — so «nothing was saved» never
     // reads as a contradiction of the slot already rotated.
-    expect(alert).toHaveTextContent(
-      i18n.t('integrationsList.rotateModal.savedBeforeRefusal', {
-        slots: i18n.t('integrationEnums.secretSlot.password'),
-        refused: i18n.t('integrationEnums.secretSlot.client_secret'),
-      }),
-    )
+    const savedLine = i18n.t('integrationsList.rotateModal.savedBeforeRefusal', {
+      slots: i18n.t('integrationEnums.secretSlot.password'),
+      refused: i18n.t('integrationEnums.secretSlot.client_secret'),
+    })
+    expect(alert.textContent).toBe(`${savedLine}${i18n.t('apiRefusal.reasons.secrets_backend_failed')}`)
     expect(within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.client_secret'))).toHaveValue('cs-1')
   })
 

@@ -2828,7 +2828,18 @@ def get_customer_sales_labels(db: Session, customer_ids: set[uuid.UUID]) -> dict
 
     if not customer_ids:
         return {}
-    rows = db.scalars(select(Customer).where(Customer.id.in_(customer_ids))).all()
+    # Only what the label needs: a whole row would decrypt `tax_id` for every
+    # customer on open work each night (as in list_vehicle_party_holders).
+    rows = db.scalars(
+        select(Customer)
+        .options(
+            load_only(
+                Customer.company_name, Customer.first_name, Customer.last_name, Customer.customer_number,
+                Customer.language, Customer.lifecycle_status,
+            )
+        )
+        .where(Customer.id.in_(customer_ids))
+    ).all()
     return {
         row.id: CustomerSalesLabel(
             label=customer_display_name(row),

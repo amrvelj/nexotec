@@ -136,6 +136,46 @@ def test_a_signed_contract_and_its_deal_row_keep_the_name_the_buyer_signed_under
             assert row.customer_language == "de"
 
 
+def _contract_from_offer(client, seller: dict, offer: dict) -> dict:
+    response = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(seller))
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_the_offer_behind_a_signed_contract_keeps_the_signed_name_too(client, db_session):
+    """Review finding: an offer keeps its status when a contract is made from
+    it, so the status alone would relabel the read-only offer while its signed
+    contract keeps the signed name (KAN-408: the two never disagree)."""
+
+    seller, customer = _setup(client, firstName="Anna", lastName="Byron")
+    offer = _offer_with(client, seller, customer)
+    contract = _contract_from_offer(client, seller, offer)
+    _sign(db_session, contract["id"], ContractStatus.CONFIRMED)
+
+    _rename(db_session, customer["id"], last_name="Umbenannt")
+    assert refresh_customer_labels(db_session) == 0
+
+    for row in _rows(db_session, customer["id"]):
+        assert row.customer_label == "Anna Byron", type(row).__name__
+
+
+def test_an_offer_with_a_pending_contract_follows_with_it(client, db_session):
+    seller, customer = _setup(client, firstName="Paul", lastName="Frey")
+    offer = _offer_with(client, seller, customer)
+    _contract_from_offer(client, seller, offer)
+
+    _rename(db_session, customer["id"], last_name="Frei")
+    refresh_customer_labels(db_session)
+
+    rows = _rows(db_session, customer["id"])
+    # The offer has a live (pending) contract: the contract and its deal row
+    # follow; the offer is read-only behind it and keeps what it had.
+    assert {type(r).__name__: r.customer_label for r in rows if not isinstance(r, SalesOffer)} == {
+        "SalesContract": "Paul Frei", "SalesDeal": "Paul Frei",
+    }
+    assert {r.customer_label for r in rows if isinstance(r, SalesOffer)} == {"Paul Frey"}
+
+
 def test_a_cancelled_offer_keeps_its_name(client, db_session):
     seller, customer = _setup(client, firstName="Nina", lastName="Gerber")
     offer = _offer_with(client, seller, customer)
@@ -271,6 +311,12 @@ def test_an_offer_another_writer_holds_is_skipped_until_the_next_night(engine, c
     db_session.expire_all()
     assert db_session.get(SalesOffer, uuid.UUID(free["id"])).customer_label == "Eva Kurz"
     assert db_session.get(SalesOffer, uuid.UUID(held["id"])).customer_label == "Eva Lang"
+    # The held offer's deal row waits with it: the row shows its live entity,
+    # so the night's reconciliation never finds the two apart.
+    held_deal = db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == uuid.UUID(held["id"]))).one()
+    assert held_deal.customer_label == "Eva Lang"
     refresh_customer_labels(db_session)
     db_session.expire_all()
     assert db_session.get(SalesOffer, uuid.UUID(held["id"])).customer_label == "Eva Kurz"
+    held_deal = db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == uuid.UUID(held["id"]))).one()
+    assert held_deal.customer_label == "Eva Kurz"

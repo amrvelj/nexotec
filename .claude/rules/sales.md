@@ -207,10 +207,12 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   `dms.label.age_seconds{label="sales.owner"}`. **The buyer's label follows a rename the same way**
   (KAN-590; Anto, 2026-11-10, 1A): `sales.customer_labels` (`services/customer_label.py`, after
   `sales.owner_labels`) re-reads `customer_label` and `customer_language` through
-  `customer.public.get_customer_sales_labels` on open work only — draft and open offers, pending
-  contracts and their deal rows; a confirmed, invoiced or cancelled contract (and its row) keeps the
-  name the buyer signed under, a merged customer's rows are the merge consumer's; gauge
-  `sales.customer` over open work. `customer_locality` is written by no path (ruled: left as it is).
+  `customer.public.get_customer_sales_labels` on open work only — an offer still being worked on
+  (`ownership.offer_is_open`: draft or open, no live contract), a pending contract, and their deal
+  rows, a deal row only once its live entity carries the new label; a confirmed, invoiced or
+  cancelled contract (its offer and its row too) keeps the name the buyer signed under, a merged
+  customer's rows are the merge consumer's — then take the survivor's language the next night;
+  gauge `sales.customer` over open work. `customer_locality` is written by no path (ruled: left as it is).
 
 ## Price and VAT (ADR-057)
 

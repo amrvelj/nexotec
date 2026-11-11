@@ -11,12 +11,19 @@ generated document's addressee. This job re-reads the label through
 context's tables) and commits per batch in this context alone (ADR-047) —
 the rules of `sales.owner_labels` (KAN-404, `owner_label.py`).
 
-**Which rows follow** (Anto, 2026-11-10, ruling 1A): open work only — a
-draft or open offer, a pending contract, and the deal rows showing one of
-them. A confirmed, invoiced or cancelled contract keeps the name the buyer
+**Which rows follow** (Anto, 2026-11-10, ruling 1A): open work only — an
+offer still being worked on (draft or open, no live contract made from it),
+a pending contract, and the deal rows showing one of them. A confirmed, invoiced or cancelled contract keeps the name the buyer
 signed under, and so does its deal row; a cancelled offer keeps its name
 too. Documents already generated are frozen and never touched.
-`customer_locality` is left as it is (ruling 2, revised): no path writes it.
+`customer_locality` is left as it is (ruling 2, revised): no path fills it.
+
+The correspondence language follows with the label (the plan Anto approved
+on 2026-11-10 re-reads "label, language and locality"; locality was then
+dropped). For a merged customer's open work this means: the merge consumer
+moves the rows and leaves their language (KAN-580), and the next night this
+job gives them the survivor's language, so the next document prints in the
+survivor's language. Signed contracts keep theirs.
 """
 
 import datetime as dt
@@ -31,6 +38,7 @@ from app.customer.public import get_customer_sales_labels
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
+from app.sales.services.ownership import offer_is_open
 
 _BATCH = 500
 _Labelled = TypeVar("_Labelled", SalesOffer, SalesContract, SalesDeal)
@@ -40,10 +48,17 @@ _OPEN_CONTRACT = (ContractStatus.PENDING,)
 
 
 def _follows(model: type[_Labelled]) -> Any:
-    """The rows whose customer label follows the customer: open work only."""
+    """The rows whose customer label follows the customer: open work only.
+
+    An offer follows while it is still being worked on — draft or open AND no
+    live contract made from it (`ownership.offer_is_open`, Sales' one
+    definition). An offer keeps its status when a contract is made from it,
+    so the status alone would relabel the read-only offer behind a signed
+    contract while the contract keeps the signed name (KAN-408: the two never
+    disagree). A cancelled contract frees its offer, which follows again."""
 
     if model is SalesOffer:
-        return SalesOffer.status.in_(_OPEN_OFFER)
+        return offer_is_open()
     if model is SalesContract:
         return SalesContract.status.in_(_OPEN_CONTRACT)
     # A deal row shows its contract once one exists (`entity_type` flips),
@@ -100,11 +115,18 @@ def _refresh_table(db: Session, model: type[_Labelled]) -> int:
         last_id = batch[-1].id
 
         labels = get_customer_sales_labels(db, {row.customer_id for row in batch if row.customer_id is not None})
+        entity_labels = _live_entity_labels(db, batch) if model is SalesDeal else {}
         now = utcnow()
         stamp_only: list[uuid.UUID] = []
         for row in batch:
             current = labels.get(row.customer_id) if row.customer_id is not None else None
             if current is None or current.merged:
+                continue
+            if isinstance(row, SalesDeal) and entity_labels.get(row.id) != current.label:
+                # The deal row shows its live entity (deal_projection.py). An
+                # offer or contract a writer held when the job passed kept its
+                # old label; its row waits with it for the next night, so the
+                # night's reconciliation never finds the two apart.
                 continue
             # A deal row carries no language (deal_projection copies the label only).
             same_language = isinstance(row, SalesDeal) or row.customer_language == current.language
@@ -125,6 +147,24 @@ def _refresh_table(db: Session, model: type[_Labelled]) -> int:
                 .execution_options(synchronize_session=False)
             )
         db.commit()
+
+
+def _live_entity_labels(db: Session, deals: list[Any]) -> dict[uuid.UUID, str | None]:
+    """Each deal row's live entity's `customer_label` as committed now: the
+    contract's for a contract row, else the offer's. A plain read; the job
+    has already committed the offer and contract passes."""
+
+    offer_ids = {d.offer_id for d in deals if d.entity_type == "offer" and d.offer_id is not None}
+    contract_ids = {d.contract_id for d in deals if d.entity_type == "contract" and d.contract_id is not None}
+    offers = dict(db.execute(select(SalesOffer.id, SalesOffer.customer_label).where(SalesOffer.id.in_(offer_ids))).tuples().all()) if offer_ids else {}
+    contracts = (
+        dict(db.execute(select(SalesContract.id, SalesContract.customer_label).where(SalesContract.id.in_(contract_ids))).tuples().all())
+        if contract_ids
+        else {}
+    )
+    return {
+        d.id: (contracts.get(d.contract_id) if d.entity_type == "contract" else offers.get(d.offer_id)) for d in deals
+    }
 
 
 def oldest_customer_label_age_seconds(db: Session) -> float | None:
