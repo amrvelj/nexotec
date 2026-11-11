@@ -12,8 +12,8 @@ context's tables) and commits per batch in this context alone (ADR-047) —
 the rules of `sales.owner_labels` (KAN-404, `owner_label.py`).
 
 **Which rows follow** (Anto, 2026-11-10, ruling 1A): open work only — a
-draft or open offer no live contract was made from, a pending contract, and
-the deal rows showing one of them. A confirmed, invoiced or cancelled
+draft or open offer with no live contract of its own buyer, a pending
+contract, and the deal rows showing one of them. A confirmed, invoiced or cancelled
 contract keeps the name the buyer signed under, and so does its deal row; a
 cancelled offer keeps its name too. Rows that do not follow are only
 restamped («checked, kept on purpose»), as `sales.owner_labels` restamps
@@ -141,8 +141,9 @@ def _mirror_offers_to_contracts(db: Session) -> int:
     that contract's committed `customer_label` and `customer_language`;
     returns how many offers changed. An offer whose contract names another
     buyer, or none, is not mirrored (it follows its own customer in the offer
-    pass); an offer without a buyer is never labelled. Same batch, lock and
-    stamp rules as `_refresh_table`."""
+    pass); an offer without a buyer is never labelled; an offer whose customer
+    id names no customer, or a merged one, is left untouched, stamp included
+    (KAN-646). Same batch, lock and stamp rules as `_refresh_table`."""
 
     changed = 0
     last_id: uuid.UUID | None = None
@@ -179,9 +180,17 @@ def _mirror_offers_to_contracts(db: Session) -> int:
                 )
             ).tuples()
         }
+        labels = get_customer_sales_labels(db, {offer.customer_id for offer in batch if offer.customer_id is not None})
         now = utcnow()
         stamp_only: list[uuid.UUID] = []
         for offer in batch:
+            # As in `_refresh_table` (KAN-646): a customer id that names no
+            # customer, or a merged customer, leaves the offer untouched —
+            # its contract and deal row were left too, and the stale stamp
+            # is what the sync-age alarm shows.
+            current = labels.get(offer.customer_id) if offer.customer_id is not None else None
+            if current is None or current.merged:
+                continue
             # Re-checked on the committed contract: its buyer may have changed
             # since the batch was read; then the offer waits for the next night.
             mirrored = contracts.get((offer.id, offer.customer_id))
