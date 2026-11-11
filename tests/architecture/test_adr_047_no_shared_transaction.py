@@ -261,6 +261,7 @@ _READS = {
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
     "app.customer.public.customer_in_group",
     "app.customer.public.get_customer_or_404",
+    "app.customer.public.get_customer_sales_labels",  # KAN-590: label read for sales.customer_labels
     "app.customer.public.has_any_basis_for_group",
     "app.customer.public.has_usable_domicile_address",
     # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.

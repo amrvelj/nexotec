@@ -19,7 +19,9 @@ duplicate's name, so the Sales list named a customer that no longer exists
 as a record. The consumer reads the survivor through `customer.public`,
 never from the event's payload (delivery is unordered; the payload's
 survivor may be merged itself by now). `customer_locality` is left as it
-stands: no Sales path writes it yet (`offer.apply_customer_change`; KAN-590).
+stands: no Sales path writes it (Anto, 2026-11-10, KAN-590). A later rename
+of the survivor reaches open work through the nightly
+`sales.customer_labels` job (KAN-590).
 `customer_language` (which language a regenerated document prints in) is
 left as it stands too, until Anto rules whether it follows a merge (KAN-580).
 

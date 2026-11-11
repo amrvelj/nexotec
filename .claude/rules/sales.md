@@ -204,7 +204,13 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   through `platform.public.get_user_display_labels`, with the advisor job's rules — `version` not
   bumped, a deactivated user's label kept, an id naming no user left alone, each batch
   `FOR NO KEY UPDATE SKIP LOCKED` one table at a time (offer → contract → deal); gauge
-  `dms.label.age_seconds{label="sales.owner"}`.
+  `dms.label.age_seconds{label="sales.owner"}`. **The buyer's label follows a rename the same way**
+  (KAN-590; Anto, 2026-11-10, 1A): `sales.customer_labels` (`services/customer_label.py`, after
+  `sales.owner_labels`) re-reads `customer_label` and `customer_language` through
+  `customer.public.get_customer_sales_labels` on open work only — draft and open offers, pending
+  contracts and their deal rows; a confirmed, invoiced or cancelled contract (and its row) keeps the
+  name the buyer signed under, a merged customer's rows are the merge consumer's; gauge
+  `sales.customer` over open work. `customer_locality` is written by no path (ruled: left as it is).
 
 ## Price and VAT (ADR-057)
 

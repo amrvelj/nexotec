@@ -8,6 +8,9 @@ reaches it only through that registry.
 
 `refresh_owner_labels` / `oldest_owner_label_age_seconds` (KAN-404) are the
 worker's nightly responsible-seller label refresh and its sync-age gauge.
+`refresh_customer_labels` / `oldest_customer_label_age_seconds` (KAN-590) are
+the same for the customer's label on open offers, pending contracts and their
+deal rows.
 
 `get_contract_statuses` (KAN-122) is Stock's read for its nightly
 reservation sweep: plain statuses, never an ORM row, and the caller runs it
@@ -32,6 +35,7 @@ from app.sales.services.contract_status import (
     contract_with_invoice_requested_for_stock_item,
     get_contract_statuses,
 )
+from app.sales.services.customer_label import oldest_customer_label_age_seconds, refresh_customer_labels
 from app.sales.services.numbering import legacy_offer_counters
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
@@ -52,8 +56,10 @@ __all__ = [
     "get_contract_statuses",
     "get_trade_in_seller",
     "legacy_offer_counters",
+    "oldest_customer_label_age_seconds",
     "oldest_owner_label_age_seconds",
     "referenced_configuration_ids",
+    "refresh_customer_labels",
     "refresh_owner_labels",
     "valuations_carried_by_pending_contracts",
     "valuations_carried_by_signed_contracts",
