@@ -2029,7 +2029,9 @@ def _prepare_primary_change(
     too (KAN-113), the mirror of the KAN-46 re-election: a group that had
     no usable primary elects the reopened row; one that has a usable
     primary keeps it — a reopened row never takes the flag unless the same
-    PATCH says `isPrimary: true`.
+    PATCH says `isPrimary: true`, which then wins as an explicit request and
+    demotes that primary (Anto, 2026-11-11, KAN-349, option A; pinned for
+    phone, email and address in tests/test_customer_contact_channels.py).
     """
 
     type_column = _CONTACT_TYPE_COLUMN[model]
