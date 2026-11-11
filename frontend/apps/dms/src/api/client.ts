@@ -134,5 +134,7 @@ export const api = {
       // without it).
       ...(options?.keepalive ? { keepalive: true } : {}),
     }),
-  delete: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, { method: 'DELETE', headers: extraHeaders }),
+  // KAN-603 — a DELETE may carry a body: the connection delete's `{ confirm: true }`.
+  delete: <T>(path: string, extraHeaders?: HeadersInit, body?: unknown) =>
+    request<T>(path, { method: 'DELETE', headers: extraHeaders, body: body ? JSON.stringify(body) : undefined }),
 }

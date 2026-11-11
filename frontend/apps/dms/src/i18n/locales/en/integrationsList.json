@@ -22,14 +22,20 @@
     "test": "Test connection",
     "viewUsage": "View usage",
     "rotateSecret": "Rotate secret",
-    "rotateSecretDisabledReason": "This connection has no secrets to rotate.",
+    "rotateSecretDisabledReason": "This provider uses no secrets.",
     "enable": "Enable",
     "disable": "Disable",
-    "connect": "Connect"
+    "connect": "Connect",
+    "setSecret": "Set secret",
+    "delete": "Delete connection"
   },
   "connectModal": {
     "title": "Connect {{provider}}",
-    "testAccessHint": "Sandbox is your test access: only with the auto-i-dat service account (client ID and client secret), never with the personal token, and only in test environments. On the production server Nexotec refuses it."
+    "testAccessHint": "Sandbox is your test access: only with the auto-i-dat service account (client ID and client secret), never with the personal token, and only in test environments. On the production server Nexotec refuses it.",
+    "secretFailed": "Connection created, the secret could not be saved: {{reason}}",
+    "secretFailedRepair": "Set the secret on the connection’s card with “Set secret”.",
+    "secretFailedFallback": "The request was not carried out.",
+    "toConnection": "Go to the connection"
   },
   "usageModal": {
     "title": "Usage — {{name}}",
@@ -40,7 +46,9 @@
   "rotateModal": {
     "title": "Rotate secrets — {{name}}",
     "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value.",
-    "savedBeforeRefusal": "Already rotated: {{slots}}. Refused for “{{refused}}”:"
+    "savedBeforeRefusal": "Already rotated: {{slots}}. Refused for “{{refused}}”:",
+    "titleSet": "Set secrets — {{name}}",
+    "notSet": "not set"
   },
   "columns": {
     "dealership": "Business",
@@ -57,5 +65,12 @@
   "emptyFilteredState": {
     "title": "No matching connections",
     "description": "Try a different search."
+  },
+  "deleteModal": {
+    "title": "Delete connection — {{name}}",
+    "body": "The connection to {{provider}} ({{environment}}, account {{account}}) will be deleted.",
+    "warning": "The stored secrets are deleted too. This cannot be undone.",
+    "confirm": "Delete permanently",
+    "error": "The connection could not be deleted."
   }
 }

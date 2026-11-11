@@ -22,14 +22,20 @@
     "test": "Tester la connexion",
     "viewUsage": "Voir l'utilisation",
     "rotateSecret": "Renouveler le secret",
-    "rotateSecretDisabledReason": "Cette connexion n'a aucun secret à renouveler.",
+    "rotateSecretDisabledReason": "Ce fournisseur n'utilise aucun secret.",
     "enable": "Activer",
     "disable": "Désactiver",
-    "connect": "Connecter"
+    "connect": "Connecter",
+    "setSecret": "Définir le secret",
+    "delete": "Supprimer la connexion"
   },
   "connectModal": {
     "title": "Connecter {{provider}}",
-    "testAccessHint": "Sandbox est votre accès de test : uniquement avec le compte de service d'auto-i-dat (Client-ID et Client-Secret), jamais avec le jeton personnel, et uniquement dans des environnements de test. Sur le serveur de production, Nexotec le refuse."
+    "testAccessHint": "Sandbox est votre accès de test : uniquement avec le compte de service d'auto-i-dat (Client-ID et Client-Secret), jamais avec le jeton personnel, et uniquement dans des environnements de test. Sur le serveur de production, Nexotec le refuse.",
+    "secretFailed": "Connexion créée, le secret n'a pas pu être enregistré : {{reason}}",
+    "secretFailedRepair": "Définissez le secret sur la carte de la connexion via « Définir le secret ».",
+    "secretFailedFallback": "La requête n'a pas été exécutée.",
+    "toConnection": "Vers la connexion"
   },
   "usageModal": {
     "title": "Utilisation — {{name}}",
@@ -40,7 +46,9 @@
   "rotateModal": {
     "title": "Renouveler les secrets — {{name}}",
     "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle.",
-    "savedBeforeRefusal": "Déjà renouvelés : {{slots}}. Refusé pour « {{refused}} » :"
+    "savedBeforeRefusal": "Déjà renouvelés : {{slots}}. Refusé pour « {{refused}} » :",
+    "titleSet": "Définir les secrets — {{name}}",
+    "notSet": "non défini"
   },
   "columns": {
     "dealership": "Entreprise",
@@ -57,5 +65,12 @@
   "emptyFilteredState": {
     "title": "Aucune connexion correspondante",
     "description": "Essayez une autre recherche."
+  },
+  "deleteModal": {
+    "title": "Supprimer la connexion — {{name}}",
+    "body": "La connexion à {{provider}} ({{environment}}, compte {{account}}) sera supprimée.",
+    "warning": "Les secrets enregistrés seront également supprimés. Cette action est irréversible.",
+    "confirm": "Supprimer définitivement",
+    "error": "La connexion n'a pas pu être supprimée."
   }
 }

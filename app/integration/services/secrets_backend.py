@@ -62,7 +62,12 @@ class SecretsBackendNotConfigured(ConflictError):
     """
 
     def __init__(self) -> None:
-        super().__init__("No Infisical project is configured for this deployment.")
+        # KAN-603: its own reason, so the screen names the deployment, not
+        # the dealer's input, as the cause.
+        super().__init__(
+            "No Infisical project is configured for this deployment.",
+            details={"reason": "secret_store_not_configured"},
+        )
 
 
 class SecretsBackendError(ConflictError):

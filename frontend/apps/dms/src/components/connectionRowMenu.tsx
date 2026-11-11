@@ -1,4 +1,4 @@
-import { Ban, Gauge, Play, RefreshCw, Zap } from 'lucide-react'
+import { Ban, Gauge, KeyRound, Play, RefreshCw, Trash2, Zap } from 'lucide-react'
 import type { RowMenuGroups } from '@nexotec/ui-kit'
 import type { IntegrationConnectionRead } from '../api/types'
 
@@ -7,6 +7,21 @@ export interface ConnectionRowMenuActions {
   onViewUsage: () => void
   onRotateSecret: () => void
   onToggleEnabled: () => void
+  onDelete: () => void
+}
+
+/**
+ * The secret slots a connection's secret dialog offers (KAN-603): every slot
+ * its provider requires, set or not, plus any slot already stored. A
+ * connection whose first secret write failed has no stored slot and must
+ * still be repairable from its card.
+ */
+export function settableSecretSlots(
+  connection: Pick<IntegrationConnectionRead, 'secretSlots'>,
+  requiredSecretSlots: readonly string[] = []
+): string[] {
+  const stored = (connection.secretSlots ?? []).map((s) => s.slot)
+  return [...new Set([...requiredSecretSlots, ...stored])]
 }
 
 /**
@@ -15,35 +30,45 @@ export interface ConnectionRowMenuActions {
  * in this PR's own scope (cards on the dealer side, a grid row on the
  * platform side — never a drill-in page), so this returns a plain
  * `RowMenuGroups` rather than a full primary/alternative/overflow triple:
- * the ONE function both surfaces call, so Test/Rotate/Disable/Enable
+ * the ONE function both surfaces call, so Test/Secret/Disable/Enable/Delete
  * never carry a different enabled state or reason on the two of them.
  * No "Connect" action here — that's a create flow (a brand-new
  * connection has no row yet), never a row-menu item on an existing one.
+ *
+ * KAN-603 — the secret item is enabled whenever the provider uses a secret
+ * slot (`requiredSecretSlots`), labelled «Secret setzen» while none is
+ * stored and «Secret erneuern» once one is; «Verbindung löschen» is the
+ * destructive item, behind a confirmation (`DeleteConnectionModal`).
  */
 export function buildConnectionRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
   connection: Pick<IntegrationConnectionRead, 'enabled' | 'secretSlots'>,
-  actions: ConnectionRowMenuActions
+  actions: ConnectionRowMenuActions,
+  requiredSecretSlots?: readonly string[]
 ): RowMenuGroups {
-  const hasSecrets = (connection.secretSlots ?? []).length > 0
+  const hasStoredSecret = (connection.secretSlots ?? []).length > 0
+  const hasSettableSlot = settableSecretSlots(connection, requiredSecretSlots).length > 0
 
   return {
     edit: [
       { label: t('integrationsList.actions.test'), icon: <Zap size={16} />, onClick: actions.onTest },
       { label: t('integrationsList.actions.viewUsage'), icon: <Gauge size={16} />, onClick: actions.onViewUsage },
       {
-        label: t('integrationsList.actions.rotateSecret'),
-        icon: <RefreshCw size={16} />,
+        label: hasStoredSecret ? t('integrationsList.actions.rotateSecret') : t('integrationsList.actions.setSecret'),
+        icon: hasStoredSecret ? <RefreshCw size={16} /> : <KeyRound size={16} />,
         onClick: actions.onRotateSecret,
-        disabled: !hasSecrets,
-        disabledReason: !hasSecrets ? t('integrationsList.actions.rotateSecretDisabledReason') : undefined,
+        disabled: !hasSettableSlot,
+        disabledReason: !hasSettableSlot ? t('integrationsList.actions.rotateSecretDisabledReason') : undefined,
       },
       ...(connection.enabled
         ? []
         : [{ label: t('integrationsList.actions.enable'), icon: <Play size={16} />, onClick: actions.onToggleEnabled }]),
     ],
-    destructive: connection.enabled
-      ? [{ label: t('integrationsList.actions.disable'), icon: <Ban size={16} />, onClick: actions.onToggleEnabled }]
-      : [],
+    destructive: [
+      ...(connection.enabled
+        ? [{ label: t('integrationsList.actions.disable'), icon: <Ban size={16} />, onClick: actions.onToggleEnabled }]
+        : []),
+      { label: t('integrationsList.actions.delete'), icon: <Trash2 size={16} />, onClick: actions.onDelete },
+    ],
   }
 }
