@@ -62,7 +62,10 @@ export const SPEC_FIELD_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] =
   {
     titleKey: 'configurator.spec.groups.classification',
     fields: [
+      // KAN-587: «Fahrzeugklasse» is the size class (Kleinwagen … Luxusklasse);
+      // the type-approval class (M1, N1 …) is its own field and list.
       { key: 'vehicleClass', kind: 'ref', listCode: 'vehicle_class' },
+      { key: 'homologationClass', kind: 'ref', listCode: 'homologation_class' },
       { key: 'valuationClassification', kind: 'ref', listCode: 'valuation_classification' },
       { key: 'emissionStandard', kind: 'ref', listCode: 'emission_standard' },
     ],

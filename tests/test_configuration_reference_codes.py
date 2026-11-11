@@ -289,23 +289,29 @@ def test_a_patch_without_coded_fields_needs_no_reference_list(client, db_session
     assert (r.json()["mileageKm"], r.json()["fuelType"]) == (12000, "hydrogen")
 
 
-# --- KAN-245: the spec block's five reference fields ---------------------
+# --- KAN-245: the spec block's reference fields --------------------------
 #
-# `engineCycle`, `vehicleClass`, `valuationClassification`,
-# `emissionStandard` and `consumptionNorm` inside `spec` are reference-list
-# codes too (lists seeded by migrations a3d9c1e58f27 and 6ba0a99ed5c4; each
+# `engineCycle`, `vehicleClass`, `homologationClass`,
+# `valuationClassification`, `emissionStandard` and `consumptionNorm` inside
+# `spec` are reference-list codes too (lists seeded by migrations
+# a3d9c1e58f27, 6ba0a99ed5c4 and — KAN-587: `vehicle_class` is the size
+# class, `homologation_class` the type-approval class — 5d1f8a3c7e42; each
 # list code is the field's own name). The KAN-96 rule applies unchanged: an
 # active value of the list, or a 422 naming every bad field — coded and
 # spec in one response; a missing list is a 500; a PATCH echoing a retired
 # value is refused (Anto, 2026-10-12, R5); codes a provider configuration
 # copied from its variant at capture are not re-validated.
 
-_SPEC_LISTS = ("engine_cycle", "vehicle_class", "valuation_classification", "emission_standard", "consumption_norm")
+_SPEC_LISTS = (
+    "engine_cycle", "vehicle_class", "homologation_class", "valuation_classification", "emission_standard",
+    "consumption_norm",
+)
 
 
 def _seed_spec_lists(db_session) -> None:
     _seed_list(db_session, "engine_cycle", "four_stroke", inactive=("two_stroke",))
-    _seed_list(db_session, "vehicle_class", "m1", "n1")
+    _seed_list(db_session, "vehicle_class", "compact", "large")
+    _seed_list(db_session, "homologation_class", "m1", "n1")
     _seed_list(db_session, "valuation_classification", "standard")
     _seed_list(db_session, "emission_standard", "euro_6d", inactive=("euro_4",))
     _seed_list(db_session, "consumption_norm", "wltp", "nedc")
@@ -316,14 +322,44 @@ def test_manual_create_stores_active_values_of_the_spec_reference_lists(client, 
     _seed_spec_lists(db_session)
 
     r = _post(client, uuid.uuid4(), _manual(spec={
-        "engineCycle": "four_stroke", "vehicleClass": "m1", "valuationClassification": "standard",
+        "engineCycle": "four_stroke", "vehicleClass": "compact", "valuationClassification": "standard",
         "emissionStandard": "euro_6d", "consumptionNorm": "wltp",
     }))
 
     assert r.status_code == 201, r.text
     spec = r.json()["spec"]
     assert (spec["engineCycle"], spec["vehicleClass"], spec["valuationClassification"], spec["emissionStandard"],
-            spec["consumptionNorm"]) == ("four_stroke", "m1", "standard", "euro_6d", "wltp")
+            spec["consumptionNorm"]) == ("four_stroke", "compact", "standard", "euro_6d", "wltp")
+
+
+def test_the_size_class_and_the_type_approval_class_are_two_fields_with_two_lists(client, db_session):
+    """KAN-587: «Fahrzeugklasse» takes a size class, the type-approval class
+    its own field — and neither takes the other's value."""
+
+    _seed_coded_lists(db_session)
+    _seed_spec_lists(db_session)
+    tenant_id = uuid.uuid4()
+
+    created = _post(client, tenant_id, _manual(spec={"vehicleClass": "compact", "homologationClass": "m1"}))
+
+    assert created.status_code == 201, created.text
+    assert (created.json()["spec"]["vehicleClass"], created.json()["spec"]["homologationClass"]) == ("compact", "m1")
+
+    swapped = _post(client, tenant_id, _manual(spec={"vehicleClass": "m1", "homologationClass": "compact"}))
+
+    assert swapped.status_code == 422, swapped.text
+    assert swapped.json()["error"]["details"]["invalid"] == {"vehicleClass": "m1", "homologationClass": "compact"}
+    assert "homologationClass='compact' (reference list 'homologation_class')" in swapped.json()["error"]["message"]
+
+    cid, version = created.json()["id"], created.json()["version"]
+    patched = client.patch(
+        f"/v1/configurations/{cid}",
+        json={"spec": {"homologationClass": "n1"}},
+        headers=_headers(tenant_id, **{"If-Match": str(version)}),
+    )
+
+    assert patched.status_code == 200, patched.text
+    assert (patched.json()["spec"]["vehicleClass"], patched.json()["spec"]["homologationClass"]) == ("compact", "n1")
 
 
 def test_manual_create_with_bad_spec_codes_is_one_422_naming_every_field_value_and_list(client, db_session):
@@ -331,7 +367,7 @@ def test_manual_create_with_bad_spec_codes_is_one_422_naming_every_field_value_a
     _seed_spec_lists(db_session)
 
     r = _post(client, uuid.uuid4(), _manual(fuelType="diesle", spec={
-        "engineCycle": "rotary", "vehicleClass": "m1", "valuationClassification": "exotic",
+        "engineCycle": "rotary", "vehicleClass": "compact", "valuationClassification": "exotic",
         "emissionStandard": "euro_4", "consumptionNorm": "epa", "ps": 29,
     }))
 
@@ -362,7 +398,7 @@ def test_patching_a_spec_reference_field_to_a_bad_code_is_refused_and_changes_no
     _seed_coded_lists(db_session)
     _seed_spec_lists(db_session)
     tenant_id = uuid.uuid4()
-    created = _post(client, tenant_id, _manual(spec={"vehicleClass": "m1"}))
+    created = _post(client, tenant_id, _manual(spec={"vehicleClass": "compact"}))
     assert created.status_code == 201, created.text
     cid, version = created.json()["id"], created.json()["version"]
 
@@ -376,7 +412,7 @@ def test_patching_a_spec_reference_field_to_a_bad_code_is_refused_and_changes_no
     assert r.json()["error"]["details"]["invalid"] == {"vehicleClass": "z9", "emissionStandard": "euro_7"}
     after = client.get(f"/v1/configurations/{cid}", headers=_headers(tenant_id)).json()
     assert (after["spec"]["vehicleClass"], after["spec"]["ps"], after["mileageKm"], after["version"]) == (
-        "m1", None, None, version
+        "compact", None, None, version
     )
 
 
@@ -384,17 +420,17 @@ def test_patching_a_spec_reference_field_to_an_active_code_is_stored(client, db_
     _seed_coded_lists(db_session)
     _seed_spec_lists(db_session)
     tenant_id = uuid.uuid4()
-    created = _post(client, tenant_id, _manual(spec={"vehicleClass": "m1"}))
+    created = _post(client, tenant_id, _manual(spec={"vehicleClass": "compact"}))
     cid, version = created.json()["id"], created.json()["version"]
 
     r = client.patch(
         f"/v1/configurations/{cid}",
-        json={"spec": {"vehicleClass": "n1", "consumptionNorm": "nedc"}},
+        json={"spec": {"vehicleClass": "large", "consumptionNorm": "nedc"}},
         headers=_headers(tenant_id, **{"If-Match": str(version)}),
     )
 
     assert r.status_code == 200, r.text
-    assert (r.json()["spec"]["vehicleClass"], r.json()["spec"]["consumptionNorm"]) == ("n1", "nedc")
+    assert (r.json()["spec"]["vehicleClass"], r.json()["spec"]["consumptionNorm"]) == ("large", "nedc")
 
 
 def test_a_patch_echoing_a_retired_spec_value_is_refused(client, db_session):

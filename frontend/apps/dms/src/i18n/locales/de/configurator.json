@@ -49,6 +49,7 @@
       "totalPs": "Gesamt-PS",
       "totalKw": "Gesamt-kW",
       "systemKw": "System-kW",
+      "homologationClass": "Typengenehmigungsklasse",
       "valuationClassification": "Bewertungseinstufung",
       "weightEmptyKg": "Leergewicht (kg)",
       "weightTotalKg": "Gesamtgewicht (kg)",

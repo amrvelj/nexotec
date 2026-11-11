@@ -38,8 +38,10 @@ _UNSUPPLIED = {
     "battery_capacity_kwh", "range_km",
     # not on a catalogue row (a built vehicle's), in production (NULL end), a car has no engine cycle
     "model_year", "production_to", "engine_cycle",
-    # codes the seeded map lacks: mapping gaps (asserted below)
+    # codes this file's seed lacks: mapping gaps (asserted below)
     "vehicle_class", "emission_standard",
+    # no provider sends the type-approval class: entered by hand (KAN-587)
+    "homologation_class",
 }
 
 
@@ -86,8 +88,9 @@ def test_codes_the_map_lacks_become_gaps_and_leave_the_field_null(db_session):
 
     variant = _upsert(db_session, fix.catalog_variant())
 
-    # `category` (FzKlasse) has no seeded rows (the reference list holds homologation classes — a
-    # follow-up ticket), and the Euro norm string is not mapped: both are gaps, never guesses.
+    # `7c4e9a2b6d13` alone — this file's seed — maps neither `category` (FzKlasse: its six size classes
+    # are seeded by KAN-587's `8e2b6c4f1a97`, proven in test_kan587_vehicle_class_is_the_size_class.py)
+    # nor the Euro norm string: both are gaps, never guesses.
     gaps = {(g.code_group, g.provider_code) for g in db_session.scalars(select(MappingGap).where(MappingGap.provider == PROVIDER))}
     assert gaps == {("vehicle_class", "4"), ("emission_standard", "6d")}
     assert variant.vehicle_class is None and variant.emission_standard is None

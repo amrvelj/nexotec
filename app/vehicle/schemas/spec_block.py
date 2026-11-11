@@ -29,6 +29,7 @@ class VehicleSpecBlockRead(CamelModel):
     system_kw: int | None = None
     # classification
     vehicle_class: str | None = None
+    homologation_class: str | None = None
     valuation_classification: str | None = None
     emission_standard: str | None = None
     # dimensions / weights

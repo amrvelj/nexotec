@@ -948,6 +948,9 @@ def _seed_catalogue_type_approval(db: Session) -> None:
          `vehicle_model_variant` does not yet have KAN-39's spec block, so
          the `ModelVariant` ORM class (which now carries ~38 extra columns)
          cannot insert here; raw-insert just the pre-C-A variant columns;
+         the same holds for any later column the class gains that main's
+         schema lacks (KAN-587's `homologation_class`), so the test is
+         "does the table hold every column the class maps";
       3. post-C-A (this PR's own heads) — schema and code agree, full ORM.
     `migration-upgrade-from-previous` hits state 2; `migration-smoke-test`
     hits state 3.
@@ -1041,9 +1044,11 @@ def _seed_catalogue_type_approval(db: Session) -> None:
     # State 2 vs 3: the m2m link table exists either way, but KAN-39's spec
     # block on `vehicle_model_variant` may not — `migration-upgrade-from-
     # previous` seeds against main's schema before this PR's columns land.
-    variant_has_spec_block = "model_type_name" in {
-        col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_model_variant")
-    }
+    # Judged by every column the ORM class maps, not one marker: a later PR
+    # that adds a spec-block column (KAN-587's `homologation_class`) meets
+    # main's schema without it in exactly the same way.
+    variant_columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_model_variant")}
+    variant_has_spec_block = {column.name for column in ModelVariant.__table__.columns} <= variant_columns
 
     if not variant_has_spec_block:
         # State 2 — Brand/ModelGroup/TypeApproval ORM classes are unchanged

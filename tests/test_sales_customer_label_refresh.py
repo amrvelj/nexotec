@@ -18,7 +18,7 @@ import datetime as dt
 import uuid
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import event, select, text
 from sqlalchemy.orm import sessionmaker
 
 from app import worker
@@ -333,6 +333,143 @@ def test_a_contract_held_when_the_job_passes_keeps_its_offer_in_step_even_when_s
     _sign(db_session, contract["id"], ContractStatus.CONFIRMED)
     refresh_customer_labels(db_session)
     assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Paul Frey"}
+
+
+# --- the mirror pass, pinned (KAN-646) ---------------------------------------------------
+#
+# `_mirror_offers_to_contracts` is the one piece that keeps an offer and its
+# contract on one name (KAN-408). KAN-590's review found by mutation that no
+# test failed when it stopped copying the language, let `updated_at` move on
+# its stamp-only path, stopped after one batch or dropped the
+# (offer, customer) re-check. Each test below fails without its behaviour.
+
+
+def _offer_row(db, offer: dict) -> SalesOffer:
+    db.expire_all()
+    return db.get(SalesOffer, uuid.UUID(offer["id"]))
+
+
+def test_the_mirror_copies_the_language_even_when_the_name_did_not_change(client, db_session):
+    seller, customer = _setup(client, firstName="Lea", lastName="Favre")
+    offer = _offer_with(client, seller, customer)
+    contract = _contract_from_offer(client, seller, offer)
+    assert _offer_row(db_session, offer).customer_language == "de"
+
+    _rename(db_session, customer["id"], last_name="Favre", language=Language.FR)  # the language alone
+    refresh_customer_labels(db_session)
+
+    assert db_session.get(SalesContract, uuid.UUID(contract["id"])).customer_language == "fr"
+    row = _offer_row(db_session, offer)
+    # The next document of the offer prints in the language its contract's does.
+    assert (row.customer_label, row.customer_language) == ("Lea Favre", "fr")
+
+
+def test_the_mirror_restamps_an_offer_already_in_step_without_moving_updated_at(client, db_session):
+    seller, customer = _setup(client, firstName="Rey", lastName="Ortiz")
+    offer = _offer_with(client, seller, customer)
+    _contract_from_offer(client, seller, offer)
+    then = _backdate(db_session, _rows(db_session, customer["id"]), hours=30)
+
+    assert refresh_customer_labels(db_session) == 0
+
+    row = _offer_row(db_session, offer)
+    assert row.customer_label == "Rey Ortiz"
+    assert row.customer_denorm_refreshed_at > then, "checked tonight"
+    # Nothing the API returns changed, so the row does not read as edited tonight.
+    assert abs((row.updated_at.replace(tzinfo=dt.UTC) - then).total_seconds()) < 1
+
+
+def test_the_mirror_walks_more_than_one_batch(client, db_session, monkeypatch):
+    """Stopping after the first batch would leave every mirrored offer past
+    the first 500 on its old name for good."""
+
+    from app.sales.services import customer_label
+
+    monkeypatch.setattr(customer_label, "_BATCH", 2)
+    seller, customer = _setup(client, firstName="Ben", lastName="Roth")
+    offers = [_offer_with(client, seller, customer) for _ in range(5)]
+    for offer in offers:
+        _contract_from_offer(client, seller, offer)
+    _rename(db_session, customer["id"], last_name="Rothen")
+
+    refresh_customer_labels(db_session)
+
+    assert [_offer_row(db_session, offer).customer_label for offer in offers] == ["Ben Rothen"] * 5
+
+
+def test_a_buyer_replaced_after_the_mirror_locked_the_offer_is_never_copied_onto_it(engine, client, db_session):
+    """The mirror picks its offers, then reads their contracts as committed
+    now. A seller who replaces the pending contract's buyer between the two
+    (ADR-083 amended) must not put the new buyer's name on the offer, which
+    still names its own customer (rule 2): the (offer, customer) re-check."""
+
+    _postgres_only(engine)
+    seller, anna = _setup(client, firstName="Anna", lastName="Alt")
+    bruno = _customer_for(client, seller, firstName="Bruno", lastName="Neu", language="fr")
+    offer = _offer_with(client, seller, anna)
+    contract = _contract_from_offer(client, seller, offer)
+    replaced: list[bool] = []
+
+    def replace_the_buyer(conn, cursor, statement, parameters, context, executemany):
+        # Fires once, just before the mirror reads the contracts of the
+        # offers it has locked. The writer touches the contract alone, as the
+        # job holds no contract row.
+        if replaced or not statement.startswith("SELECT sales_contract.offer_id, sales_contract.customer_id"):
+            return
+        replaced.append(True)
+        writer = sessionmaker(bind=engine)()
+        try:
+            row = writer.get(SalesContract, uuid.UUID(contract["id"]))
+            row.customer_id = uuid.UUID(bruno["id"])
+            row.customer_label = "Bruno Neu"
+            row.customer_language = "fr"
+            writer.commit()
+        finally:
+            writer.close()
+
+    event.listen(engine, "before_cursor_execute", replace_the_buyer)
+    try:
+        refresh_customer_labels(db_session)
+    finally:
+        event.remove(engine, "before_cursor_execute", replace_the_buyer)
+
+    assert replaced, "the mirror's contract read was never seen: the test no longer exercises the re-check"
+    assert db_session.get(SalesContract, uuid.UUID(contract["id"])).customer_label == "Bruno Neu"
+    row = _offer_row(db_session, offer)
+    assert (str(row.customer_id), row.customer_label, row.customer_language) == (anna["id"], "Anna Alt", "de")
+
+
+def test_the_mirror_leaves_a_merged_or_unknown_customers_offer_untouched(client, db_session):
+    """As the table passes do: Sales' merge consumer moves a merged
+    customer's rows (KAN-185), and the stale stamp is what the sync-age alarm
+    shows meanwhile. The mirror used to restamp such an offer while its
+    contract and deal row stayed untouched."""
+
+    seller, merged_customer = _setup(client, firstName="Merged", lastName="Kunde")
+    merged_offer = _offer_with(client, seller, merged_customer)
+    _contract_from_offer(client, seller, merged_offer)
+    gone_customer = _customer_for(client, seller, firstName="Gone", lastName="Kunde")
+    gone_offer = _offer_with(client, seller, gone_customer)
+    gone_contract = _contract_from_offer(client, seller, gone_offer)
+
+    merged = db_session.get(Customer, uuid.UUID(merged_customer["id"]))
+    merged.lifecycle_status = CustomerLifecycleStatus.MERGED
+    nobody = uuid.uuid4()  # the offer and its contract still name the same buyer: one that no longer exists
+    for model, row_id in ((SalesOffer, gone_offer["id"]), (SalesContract, gone_contract["id"])):
+        db_session.get(model, uuid.UUID(row_id)).customer_id = nobody
+    for deal in db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == uuid.UUID(gone_offer["id"]))).all():
+        deal.customer_id = nobody
+    db_session.commit()
+    rows = [*_rows(db_session, merged_customer["id"]), *_rows(db_session, str(nobody))]
+    assert {type(row) for row in rows} == {SalesOffer, SalesContract, SalesDeal}
+    then = _backdate(db_session, rows, hours=30)
+
+    assert refresh_customer_labels(db_session) == 0
+
+    for row in [*_rows(db_session, merged_customer["id"]), *_rows(db_session, str(nobody))]:
+        stamp = row.customer_denorm_refreshed_at.replace(tzinfo=dt.UTC)
+        assert abs((stamp - then).total_seconds()) < 1, f"{type(row).__name__} was restamped"
+        assert row.customer_label in ("Merged Kunde", "Gone Kunde")
 
 
 # --- the sync-age alarm (rule 10) --------------------------------------------------------

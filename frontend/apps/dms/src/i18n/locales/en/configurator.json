@@ -49,6 +49,7 @@
       "totalPs": "Total PS",
       "totalKw": "Total kW",
       "systemKw": "System kW",
+      "homologationClass": "Type-approval class",
       "valuationClassification": "Valuation classification",
       "weightEmptyKg": "Kerb weight (kg)",
       "weightTotalKg": "Gross weight (kg)",

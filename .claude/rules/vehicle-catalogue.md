@@ -108,8 +108,10 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   by the **resolved** `vehicle_kind`, never a raw code; while the kind is a gap it is recorded as
   `drivetrain`. The seeded map (`7c4e9a2b6d13`, asserted by `tests/test_provider_code_map_seed.py`)
   is the identAPI's live map. The spec block's reference fields are code-mapped too; `euronorm` has
-  no seeded rows yet, and `category` waits on the `vehicle_class` list question (that list holds
-  homologation classes) — both are gaps on every lookup until mapped.
+  no seeded rows yet — a gap on every lookup until mapped. `category` is the **size class**
+  (`vehicle_class`: micro … luxury, seeded for passenger cars by `8e2b6c4f1a97`; Anto, KAN-587); the
+  type-approval class (M1, N1 …) is `homologation_class`, its own list and spec field, which no
+  provider sends — entered by hand.
 - Provider text (option and colour names) is stored and rendered **as delivered**, never translated;
   only our canonical reference data is translated.
 - Typenschein ↔ variant is many-to-many (`type_approval_number` indexed, not unique; use

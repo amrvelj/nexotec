@@ -75,9 +75,17 @@ _CODED_SPEC_FIELDS = ("vehicle_kind", "fuel_type", "body_style", "drivetrain", "
 _ALL_SPEC_FIELDS = (*SPEC_BLOCK_FIELDS, *_CODED_SPEC_FIELDS)
 # KAN-245 — the spec block's own reference fields. Each holds a value of the
 # reference list of the same name (migrations a3d9c1e58f27: engine_cycle,
-# valuation_classification; 6ba0a99ed5c4: vehicle_class, emission_standard,
-# consumption_norm) and is checked exactly like a coded field.
-_SPEC_REFERENCE_FIELDS = ("engine_cycle", "vehicle_class", "valuation_classification", "emission_standard", "consumption_norm")
+# valuation_classification; 6ba0a99ed5c4: emission_standard, consumption_norm;
+# 5d1f8a3c7e42 (KAN-587): vehicle_class — the size class — and
+# homologation_class) and is checked exactly like a coded field.
+_SPEC_REFERENCE_FIELDS = (
+    "engine_cycle",
+    "vehicle_class",
+    "homologation_class",
+    "valuation_classification",
+    "emission_standard",
+    "consumption_norm",
+)
 # KAN-211 (Anto, 2026-11-08): the colour types the advisor names by hand. The
 # paint finish is the existing `colour_type` list (6ba0a99ed5c4), so the field
 # does not carry its list's name; the upholstery has its own list.
@@ -200,7 +208,7 @@ def _apply_spec_payload(config: VehicleConfiguration, spec: Any) -> None:
 
 def _validate_coded_spec_fields(db: Session, data: ConfigurationCreate | ConfigurationUpdate) -> None:
     """Every coded value the client sent — the five coded fields (KAN-96),
-    the spec block's five reference fields (KAN-245) and the two colour
+    the spec block's six reference fields (KAN-245, KAN-587) and the two colour
     types (KAN-211) — must be an active
     value of its reference list: otherwise one 422 naming every offending
     field; 500 if a list is missing (`validate_reference_codes`, the rule
