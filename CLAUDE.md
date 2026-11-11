@@ -98,9 +98,7 @@ second database, service template, broker or top-level `services/` directory. A 
 
 ## The twelve bounded contexts
 
-Listed in layer order, lowest first (ADR-131): a context calls only the `public` of a context listed
-before it. `parts` sits beside `inventory`, `aftersales` beside `sales`, `reporting` beside
-`compliance` — peers, which call each other in neither direction.
+Lowest layer first (ADR-131).
 
 | Context | Owns |
 |---|---|
@@ -117,8 +115,8 @@ before it. `parts` sits beside `inventory`, `aftersales` beside `sales`, `report
 | `reporting` | *(stub)* projections from events |
 | `compliance` | *(stub)* audit, revDSG, retention |
 
-The stubs exist so the import-linter contract enumerates every context from day one. Do not
-delete them, and do not treat a stub as a licence to put its concerns somewhere else.
+The stubs let the import-linter contract name every context from day one: never delete one, nor
+move its concerns elsewhere.
 
 ## Non-negotiable rules
 
@@ -127,11 +125,9 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
    plain `GUID` with an owner comment, a denormalised label and `labelRefreshedAt` (the three-column
    pattern); its data comes from a `public` function — in `app/` only `reconciliation.py` reads across (ADR-107).
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
-   import-linter gates CI with **no suppression mechanism** and forbids every top-level module of a
-   context but `public`; `test_import_contracts_cover_every_module.py` fails when a new module is
-   not listed. Moving a boundary is an ADR, not an ignore entry. Calls go **down** the layer order
-   only (ADR-131; the table above, core below it) — `test_context_dependency_direction.py` fails on
-   an upward import, lazy ones included, outside its debt list, which may only shrink.
+   import-linter gates CI with **no suppression mechanism**; `test_import_contracts_cover_every_module.py`
+   fails when a new module is not listed. Moving a boundary is an ADR, not an ignore entry. Calls go only **down**
+   the layers (`test_context_dependency_direction.py`).
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not
