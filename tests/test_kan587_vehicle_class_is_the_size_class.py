@@ -303,6 +303,13 @@ def test_what_the_gap_left_null_is_filled_on_variants_and_their_provider_configu
     hand_typed = _configuration(db_session, variant=variant, vehicle_class="compact", overridden_fields=["vehicle_class"])
     of_other_variant = _configuration(db_session, variant=never_sent)
     manual = _configuration(db_session, variant=None)
+    # A class an admin added to the old list and mapped a category onto: it stays a value of
+    # `vehicle_class`, on the variant too. An advisor cleared it on one configuration.
+    kept = _bare_variant(db_session, "Holds a class an admin added")
+    kept.vehicle_class = "m2"
+    _raw_category(db_session, kept, "5")
+    db_session.add(_map("5", "m2"))
+    cleared_kept_value = _configuration(db_session, variant=kept, overridden_fields=["vehicle_class"])
     _gap(db_session, "4")
     db_session.commit()
     version = null_config.version
@@ -310,6 +317,10 @@ def test_what_the_gap_left_null_is_filled_on_variants_and_their_provider_configu
     result = _apply(db_session)
 
     assert variant.vehicle_class == "large"
+    # FR-C-03: what the advisor cleared here was `m2`, which is still there to be cleared. The mark
+    # stays, and the field is not handed the same value back.
+    assert (kept.vehicle_class, kept.homologation_class) == ("m2", None)
+    assert (cleared_kept_value.vehicle_class, cleared_kept_value.overridden_fields) == (None, ["vehicle_class"])
     assert never_sent.vehicle_class is None and undocumented.vehicle_class is None
     assert (null_config.vehicle_class, null_config.version, null_config.updated_by) == ("large", version + 1, None)
     # What the advisor cleared before KAN-587 was the type-approval class: the mark went with it
@@ -369,15 +380,17 @@ def test_the_downgrade_puts_the_type_approval_class_back_and_takes_the_seed_away
     config = _configuration(db_session, variant=variant, vehicle_class="n1", overridden_fields=["vehicle_class"])
     both_marked = _configuration(db_session, variant=variant, vehicle_class="l3e")
     mark_only = _configuration(db_session, variant=None)
+    kept_value = _configuration(db_session, variant=None, vehicle_class="m2")  # an admin-added class
     _gap(db_session, "4")
     db_session.commit()
     migration = _vehicle_migration()
     _apply(db_session)
     assert (variant.homologation_class, sized.vehicle_class) == ("m1", "large")
-    # After the upgrade an advisor overrides both classes on one car, and clears the new field on another.
+    # After the upgrade an advisor overrides both classes on one car, and clears the new field on two others.
     both_marked.vehicle_class = "city"
     both_marked.overridden_fields = ["vehicle_class", "ps", "homologation_class"]
     mark_only.overridden_fields = ["homologation_class"]
+    kept_value.overridden_fields = ["homologation_class"]
     db_session.commit()
 
     migration.revert_data(db_session.connection())
@@ -390,6 +403,8 @@ def test_the_downgrade_puts_the_type_approval_class_back_and_takes_the_seed_away
     # One mark per field, never two — and no mark left naming the column the downgrade drops.
     assert (both_marked.vehicle_class, both_marked.overridden_fields) == ("l3e", ["vehicle_class", "ps"])
     assert mark_only.overridden_fields == ["vehicle_class"]
+    # A value that is neither a size class nor a type-approval class is not the downgrade's to clear.
+    assert (kept_value.vehicle_class, kept_value.overridden_fields) == ("m2", ["vehicle_class"])
     assert [_mapping(db_session, category) for category in "123456"] == [None] * 6
     gap = db_session.scalars(select(MappingGap).where(MappingGap.code_group == "vehicle_class")).one()
     assert (gap.resolved, gap.resolved_value_code) == (False, None)

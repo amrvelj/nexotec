@@ -17,13 +17,17 @@ so an offline `--sql` render writes the values (KAN-174):
 
 1. **Stored type-approval classes move to the new field, never dropped.** A
    variant or configuration whose `vehicle_class` is `m1` / `n1` / `l3e` /
-   `l1e` gets that value in `homologation_class` and `vehicle_class` NULL; its
-   version moves once. On a configuration, an override mark on `vehicle_class`
-   (`overridden_fields`: the advisor typed the class over the catalogue's, or
-   cleared it) moves with it — also where the field is empty: every mark set
-   before this migration was a decision about the type-approval class, and
-   left in place it would keep the size class from ever being filled below. A
-   mark beside a value that stays (one an admin added to the list) stays too.
+   `l1e` gets that value in `homologation_class` and `vehicle_class` NULL (a
+   row's version moves once per step that changes it). On a configuration, an
+   override mark on `vehicle_class` (`overridden_fields`: the advisor typed
+   the class over the catalogue's, or cleared it) moves with the value. The
+   mark of an **empty** `vehicle_class` moves too where what the advisor
+   cleared can only have been a type-approval class — the configuration's
+   variant holds no class once its own type-approval class has moved — since
+   left in place it would keep the size class from ever being filled below.
+   Where the variant still holds a class (a value an admin added to the list,
+   which stays), the advisor cleared *that*: the mark stays and the field is
+   never refilled (FR-C-03). A mark beside a value that stays is kept as well.
    A configuration this step changes is a system write: `updated_by` NULL.
 2. **A code-map row that maps a `vehicle_class` code to a type-approval class
    goes, and its gap reopens.** Its target left the list, so no resolve could
@@ -41,9 +45,8 @@ so an offline `--sql` render writes the values (KAN-174):
 5. **What the gaps left NULL is filled** (the KAN-83 / KAN-240 rule a resolve
    follows): each variant whose recorded raw `category` is now mapped, then
    each provider configuration built from such a variant — its NULL only,
-   never a set value, never a host's frozen snapshot (ADR-041). There is no
-   override mark to respect here: after step 1 no empty `vehicle_class`
-   carries one.
+   never a set value, never a field the advisor cleared (the marks step 1
+   left in place), never a host's frozen snapshot (ADR-041).
 
 **What this does not do.** No audit row and no `configuration.updated` event
 for the configurations step 5 fills or step 1 moves: `audit_event` and the
@@ -59,7 +62,10 @@ size classes are cleared and the six seeded rows and their gaps' resolutions
 are undone — deliberately lossy for the size class, which the next lookup
 records again as a gap. The code-map rows step 2 removed are not restored
 either (the upgrade's output names each one), and the gaps it reopened stay
-open: an admin resolves them again against the old list.
+open: an admin resolves them again against the old list. A value that is
+neither a size class nor a type-approval class is left where it is. An
+override mark beside a size class the downgrade clears stays on
+`vehicle_class`, where it then reads as a cleared class.
 
 Revision ID: 8e2b6c4f1a97
 Revises: bb6e760d9464
@@ -184,7 +190,11 @@ def apply_data(conn: Connection) -> Result:
         f" overridden_fields = {_rename_override_mark('vehicle_class', 'homologation_class')},"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = NULL"
         " WHERE vehicle_class IN :homologation_codes"
-        f" OR (vehicle_class IS NULL AND {_has_override_mark('vehicle_class')})",
+        # ... or the mark of a cleared class, unless the variant still holds one (moved above
+        # if it was a type-approval class): then that value is what the advisor cleared.
+        f" OR (vehicle_class IS NULL AND {_has_override_mark('vehicle_class')}"
+        "  AND NOT EXISTS (SELECT 1 FROM vehicle_model_variant AS v"
+        "   WHERE v.id = vehicle_configuration.catalogue_variant_id AND v.vehicle_class IS NOT NULL))",
     )
 
     # 2. A mapping onto a type-approval class names a value the list no longer has.
@@ -238,6 +248,7 @@ def apply_data(conn: Connection) -> Result:
         "  WHERE v.id = vehicle_configuration.catalogue_variant_id),"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = NULL"
         " WHERE source = 'provider' AND vehicle_class IS NULL"
+        f" AND NOT {_has_override_mark('vehicle_class')}"
         " AND EXISTS (SELECT 1 FROM vehicle_model_variant AS v"
         "  JOIN vehicle_variant_provider_code AS c ON c.model_variant_id = v.id AND c.code_group = :code_group"
         "  WHERE v.id = vehicle_configuration.catalogue_variant_id AND v.vehicle_class IS NOT NULL)",
@@ -266,17 +277,19 @@ def revert_data(conn: Connection) -> None:
             category=category,
             size_class=size_class,
         )
+    # The type-approval class comes back; a size class goes; any other value stays where it is.
+    restored = "COALESCE(homologation_class, CASE WHEN vehicle_class IN :size_codes THEN NULL ELSE vehicle_class END)"
     _run(
         conn,
-        "UPDATE vehicle_model_variant SET vehicle_class = homologation_class,"
+        f"UPDATE vehicle_model_variant SET vehicle_class = {restored},"
         " version = version + 1, updated_at = CURRENT_TIMESTAMP"
         " WHERE homologation_class IS NOT NULL OR vehicle_class IN :size_codes",
     )
     _run(
         conn,
-        "UPDATE vehicle_configuration SET vehicle_class = homologation_class,"
+        f"UPDATE vehicle_configuration SET vehicle_class = {restored},"
         f" overridden_fields = {_rename_override_mark('homologation_class', 'vehicle_class')},"
-        " version = version + 1, updated_at = CURRENT_TIMESTAMP"
+        " version = version + 1, updated_at = CURRENT_TIMESTAMP, updated_by = NULL"
         " WHERE homologation_class IS NOT NULL OR vehicle_class IN :size_codes"
         f" OR {_has_override_mark('homologation_class')}",
     )
