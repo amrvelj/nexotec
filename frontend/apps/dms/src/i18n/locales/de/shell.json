@@ -27,7 +27,8 @@
     "locations": "Standorte",
     "branding": "Logo und Farben",
     "standardTexts": "Standardtexte",
-    "numberRanges": "Nummernkreise"
+    "numberRanges": "Nummernkreise",
+    "onboarding": "Betrieb aufnehmen"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

@@ -27,7 +27,8 @@
     "locations": "Sites",
     "branding": "Logo et couleurs",
     "standardTexts": "Textes standard",
-    "numberRanges": "Plages de numéros"
+    "numberRanges": "Plages de numéros",
+    "onboarding": "Intégrer une entreprise"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

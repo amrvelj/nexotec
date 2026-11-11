@@ -1013,7 +1013,11 @@ export interface paths {
         /** List Dealerships */
         get: operations["list_dealerships_v1_dealerships_get"];
         put?: never;
-        /** Create Dealership */
+        /**
+         * Create Dealership
+         * @deprecated
+         * @description Deprecated (KAN-210): onboard a Betrieb with POST /v1/platform/onboarding — group, legal entity, entitlements and first manager in one transaction. Kept for API clients.
+         */
         post: operations["create_dealership_v1_dealerships_post"];
         delete?: never;
         options?: never;
@@ -2906,6 +2910,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/dealer-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Dealer Groups */
+        get: operations["list_dealer_groups_v1_platform_dealer_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/dealerships/{dealership_id}/recovery/grant-manager": {
         parameters: {
             query?: never;
@@ -2922,6 +2943,27 @@ export interface paths {
          *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Onboard Dealership
+         * @description Group, legal entity (UID unique: 409 `uid_already_onboarded`),
+         *     entitlements, first manager — one transaction, nothing commercial.
+         */
+        post: operations["onboard_dealership_v1_platform_onboarding_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7027,35 +7069,10 @@ export interface components {
             /** Vehiclelabel */
             vehicleLabel: string | null;
         };
-        /** DealerGroupRead */
-        DealerGroupRead: {
-            /** Contactemail */
-            contactEmail: string | null;
-            /** Contactname */
-            contactName: string | null;
-            /** Contactphone */
-            contactPhone: string | null;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /** Groupreadenabled */
-            groupReadEnabled: boolean;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /** Version */
-            version: number;
+        /** DealerGroupList */
+        DealerGroupList: {
+            /** Items */
+            items: components["schemas"]["app__platform__schemas__onboarding__DealerGroupRead"][];
         };
         /**
          * DealershipAddress
@@ -8896,6 +8913,94 @@ export interface components {
             vehicleLabel?: string | null;
             /** Vehiclesource */
             vehicleSource?: string | null;
+        };
+        /**
+         * OnboardingGroup
+         * @description Exactly one: an existing group, or a new one by name. A standalone
+         *     Betrieb is a new group of one.
+         */
+        OnboardingGroup: {
+            /** Dealergroupid */
+            dealerGroupId?: string | null;
+            /** Newgroupname */
+            newGroupName?: string | null;
+        };
+        /** OnboardingLegalEntity */
+        OnboardingLegalEntity: {
+            /** @description The registered seat; it becomes the first location. */
+            address: components["schemas"]["DealershipAddress"];
+            franchiseType: components["schemas"]["FranchiseType"];
+            /**
+             * Legalform
+             * @description A `legal_form` reference code.
+             */
+            legalForm?: string | null;
+            /** Legalname */
+            legalName: string;
+            /** Phone */
+            phone: string;
+            /** Tradename */
+            tradeName?: string | null;
+            /**
+             * Uid
+             * @description Swiss UID, CHE-123.456.789; unique across Nexotec.
+             */
+            uid: string;
+        };
+        /** OnboardingManager */
+        OnboardingManager: {
+            /** Accessroles */
+            accessRoles: components["schemas"]["AccessRole"][];
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Firstname */
+            firstName: string;
+            /** Lastname */
+            lastName: string;
+            /** @description The primary role (job title). */
+            role: components["schemas"]["UserRole"];
+        };
+        /** OnboardingRequest */
+        OnboardingRequest: {
+            /** Entitlements */
+            entitlements: components["schemas"]["ModuleCode"][];
+            group: components["schemas"]["OnboardingGroup"];
+            legalEntity: components["schemas"]["OnboardingLegalEntity"];
+            manager: components["schemas"]["OnboardingManager"];
+        };
+        /** OnboardingResult */
+        OnboardingResult: {
+            /**
+             * Dealergroupid
+             * Format: uuid
+             */
+            dealerGroupId: string;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Entitlements */
+            entitlements: string[];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Manageremail */
+            managerEmail: string;
+            /** Managerstatus */
+            managerStatus: string;
+            /**
+             * Manageruserid
+             * Format: uuid
+             */
+            managerUserId: string;
+            /** Status */
+            status: string;
         };
         /**
          * OpeningHoursDay
@@ -12101,6 +12206,46 @@ export interface components {
             /** Vehicletype */
             vehicleType?: string | null;
         };
+        /** DealerGroupRead */
+        app__platform__schemas__dealership__DealerGroupRead: {
+            /** Contactemail */
+            contactEmail: string | null;
+            /** Contactname */
+            contactName: string | null;
+            /** Contactphone */
+            contactPhone: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Groupreadenabled */
+            groupReadEnabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
+        };
+        /** DealerGroupRead */
+        app__platform__schemas__onboarding__DealerGroupRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /**
          * VehicleStatus
          * @enum {string}
@@ -14512,7 +14657,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DealerGroupRead"];
+                    "application/json": components["schemas"]["app__platform__schemas__dealership__DealerGroupRead"];
                 };
             };
             /** @description Validation Error */
@@ -19849,6 +19994,39 @@ export interface operations {
             };
         };
     };
+    list_dealer_groups_v1_platform_dealer_groups_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealerGroupList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post: {
         parameters: {
             query?: never;
@@ -19878,6 +20056,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    onboard_dealership_v1_platform_onboarding_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingResult"];
                 };
             };
             /** @description Validation Error */

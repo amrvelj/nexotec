@@ -49,7 +49,7 @@ set_entitlement_version_reader(read_entitlements_version)
 
 
 def set_entitlements(
-    db: Session, *, dealership: Dealership, modules: set[ModuleCode], actor_id: uuid.UUID
+    db: Session, *, dealership: Dealership, modules: set[ModuleCode], actor_id: uuid.UUID, commit: bool = True
 ) -> frozenset[str]:
     """Replace the dealership's entitlement set (platform_admin only — the
     API checks). Ends the rows no longer wanted (valid_to), reopens or adds
@@ -97,6 +97,10 @@ def set_entitlements(
             before={"modules": before},
             after={"modules": after},
         )
+    if not commit:
+        # KAN-210: the onboarding's one transaction commits it.
+        db.flush()
+        return frozenset(after)
     db.commit()
     db.refresh(dealership)
     return frozenset(after)

@@ -29,6 +29,7 @@ import ns_notifications from './de/notifications.json'
 import ns_numberRanges from './de/numberRanges.json'
 import ns_offerDetail from './de/offerDetail.json'
 import ns_offerWorkspace from './de/offerWorkspace.json'
+import ns_onboarding from './de/onboarding.json'
 import ns_recovery from './de/recovery.json'
 import ns_referenceData from './de/referenceData.json'
 import ns_salesDocuments from './de/salesDocuments.json'
@@ -81,6 +82,7 @@ const bundle = {
   numberRanges: ns_numberRanges,
   offerDetail: ns_offerDetail,
   offerWorkspace: ns_offerWorkspace,
+  onboarding: ns_onboarding,
   recovery: ns_recovery,
   referenceData: ns_referenceData,
   salesDocuments: ns_salesDocuments,

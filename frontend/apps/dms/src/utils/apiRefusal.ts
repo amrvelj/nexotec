@@ -41,6 +41,7 @@ const REASON_KEYS: Record<string, string> = {
   session_absolute_hours_out_of_bounds: 'business.security.errors.absoluteOutOfBounds',
   session_idle_minutes_out_of_bounds: 'business.security.errors.idleOutOfBounds',
   trade_in_valuation_expired: 'contractDetail.errors.confirmRefused.tradeInValuationExpired',
+  uid_already_onboarded: 'onboarding.errors.uidAlreadyOnboarded',
   unknown_reference_code: 'business.errors.unknownReferenceCode',
   vehicle_not_changed: 'apiRefusal.reasons.vehicle_not_changed',
   vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',

@@ -216,9 +216,14 @@ def create_dealership(
     data: DealershipCreate,
     actor_id: uuid.UUID | None,
     system_reason: str | None = None,
+    commit: bool = True,
 ) -> Dealership:
     """`actor_id=None` with a `system_reason` is the system path for seeds and
-    scripts only (KAN-345, `actor_reference.system_write_reason`)."""
+    scripts only (KAN-345, `actor_reference.system_write_reason`).
+
+    With `commit=False` everything is flushed, not committed: the onboarding
+    (KAN-210, `services/onboarding.py`) writes the Betrieb, its entitlements
+    and its first manager in one transaction."""
 
     audit_reason = system_write_reason(actor_id, system_reason)
     dealer_group_id = data.dealer_group_id
@@ -286,6 +291,9 @@ def create_dealership(
             "status": _plain(dealership.status),
         },
     )
+    if not commit:
+        db.flush()
+        return dealership
     db.commit()
     db.refresh(dealership)
     return dealership

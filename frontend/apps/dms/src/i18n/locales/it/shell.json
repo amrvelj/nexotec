@@ -27,7 +27,8 @@
     "locations": "Sedi",
     "branding": "Logo e colori",
     "standardTexts": "Testi standard",
-    "numberRanges": "Serie di numeri"
+    "numberRanges": "Serie di numeri",
+    "onboarding": "Integrare un'azienda"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

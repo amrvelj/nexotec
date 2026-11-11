@@ -104,7 +104,14 @@ router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 # --- Dealership ------------------------------------------------------------
 
 
-@router.post("/dealerships", response_model=DealershipRead, status_code=201)
+@router.post(
+    "/dealerships",
+    response_model=DealershipRead,
+    status_code=201,
+    deprecated=True,
+    description="Deprecated (KAN-210): onboard a Betrieb with POST /v1/platform/onboarding — group, legal entity, "
+    "entitlements and first manager in one transaction. Kept for API clients.",
+)
 def create_dealership(
     body: DealershipCreate,
     principal: Principal = Depends(require_access_role()),  # platform_admin only

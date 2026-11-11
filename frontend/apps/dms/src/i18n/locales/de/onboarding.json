@@ -1,0 +1,56 @@
+{
+  "title": "Betrieb aufnehmen",
+  "subtitle": "Gruppe, Rechtsträger, Module und erster Manager – in einem Schritt angelegt. Nexotec legt nichts Kaufmännisches fest: Mehrwertsteuer, Bank und Konditionen erfasst der Manager selbst.",
+  "steps": {
+    "group": "Gruppe",
+    "legal": "Rechtsträger",
+    "modules": "Module",
+    "manager": "Erster Manager",
+    "review": "Prüfen"
+  },
+  "actions": {
+    "next": "Weiter",
+    "back": "Zurück",
+    "reset": "Neu beginnen",
+    "submit": "Betrieb aufnehmen"
+  },
+  "group": {
+    "mode": "Gruppe",
+    "new": "Neue Gruppe (eigenständiger Betrieb)",
+    "existing": "Bestehende Gruppe",
+    "newName": "Name der Gruppe",
+    "pick": "Gruppe wählen"
+  },
+  "legal": {
+    "seat": "Sitz (wird zum ersten Standort)"
+  },
+  "modulesHint": "Welche Module Nexotec diesem Betrieb lizenziert. Ohne Verkauf ist ein reiner Werkstattbetrieb.",
+  "modules": {
+    "sales": "Verkauf",
+    "aftersales": "Aftersales",
+    "parts": "Teile",
+    "finance": "Finanzen",
+    "reporting": "Auswertungen"
+  },
+  "manager": {
+    "hint": "Der Manager erhält eine Einladung per E-Mail und setzt sein Passwort selbst."
+  },
+  "review": {
+    "group": "Gruppe",
+    "seat": "Sitz",
+    "manager": "Erster Manager",
+    "noModules": "Keine",
+    "nothingCommercial": "Der Betrieb startet als «in Aufnahme». Mehrwertsteuersatz, Bankverbindung und Konditionen bleiben leer, bis der Manager sie in der Verwaltung erfasst."
+  },
+  "success": {
+    "title": "{{name}} ist aufgenommen",
+    "pending": "Status: in Aufnahme – der Betrieb wird aktiv, sobald die Einrichtung abgeschlossen ist.",
+    "invited": "Die Einladung an {{email}} ist verschickt; der Manager ist eingeladen.",
+    "nextSteps": "Mehrwertsteuer, Bank, Texte und Nummernkreise richtet der Manager in der Verwaltung ein.",
+    "another": "Weiteren Betrieb aufnehmen"
+  },
+  "errors": {
+    "generic": "Der Betrieb konnte nicht aufgenommen werden.",
+    "uidAlreadyOnboarded": "Ein Betrieb mit dieser UID ist bereits aufgenommen."
+  }
+}

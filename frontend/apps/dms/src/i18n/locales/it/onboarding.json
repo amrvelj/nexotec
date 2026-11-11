@@ -1,0 +1,56 @@
+{
+  "title": "Integrare un'azienda",
+  "subtitle": "Gruppo, entità giuridica, moduli e primo responsabile – creati in un solo passo. Nexotec non stabilisce nulla di commerciale: IVA, banca e condizioni le inserisce il responsabile.",
+  "steps": {
+    "group": "Gruppo",
+    "legal": "Entità giuridica",
+    "modules": "Moduli",
+    "manager": "Primo responsabile",
+    "review": "Verificare"
+  },
+  "actions": {
+    "next": "Avanti",
+    "back": "Indietro",
+    "reset": "Ricominciare",
+    "submit": "Integrare l'azienda"
+  },
+  "group": {
+    "mode": "Gruppo",
+    "new": "Nuovo gruppo (azienda indipendente)",
+    "existing": "Gruppo esistente",
+    "newName": "Nome del gruppo",
+    "pick": "Scegliere il gruppo"
+  },
+  "legal": {
+    "seat": "Sede (diventa la prima ubicazione)"
+  },
+  "modulesHint": "I moduli che Nexotec concede in licenza a questa azienda. Senza vendita è un'officina pura.",
+  "modules": {
+    "sales": "Vendita",
+    "aftersales": "Assistenza",
+    "parts": "Ricambi",
+    "finance": "Finanze",
+    "reporting": "Analisi"
+  },
+  "manager": {
+    "hint": "Il responsabile riceve un invito per e-mail e imposta lui stesso la password."
+  },
+  "review": {
+    "group": "Gruppo",
+    "seat": "Sede",
+    "manager": "Primo responsabile",
+    "noModules": "Nessuno",
+    "nothingCommercial": "L'azienda parte «in integrazione». Aliquota IVA, conto bancario e condizioni restano vuoti finché il responsabile non li inserisce nell'amministrazione."
+  },
+  "success": {
+    "title": "{{name}} è integrata",
+    "pending": "Stato: in integrazione – l'azienda diventa attiva non appena la configurazione è conclusa.",
+    "invited": "L'invito a {{email}} è stato inviato; il responsabile è invitato.",
+    "nextSteps": "Il responsabile configura IVA, banca, testi e intervalli di numeri nell'amministrazione.",
+    "another": "Integrare un'altra azienda"
+  },
+  "errors": {
+    "generic": "Non è stato possibile integrare l'azienda.",
+    "uidAlreadyOnboarded": "Un'azienda con questo IDI è già integrata."
+  }
+}

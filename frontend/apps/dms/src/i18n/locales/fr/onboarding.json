@@ -1,0 +1,56 @@
+{
+  "title": "Intégrer une entreprise",
+  "subtitle": "Groupe, entité juridique, modules et premier responsable – créés en une seule étape. Nexotec ne fixe rien de commercial : TVA, banque et conditions sont saisies par le responsable.",
+  "steps": {
+    "group": "Groupe",
+    "legal": "Entité juridique",
+    "modules": "Modules",
+    "manager": "Premier responsable",
+    "review": "Vérifier"
+  },
+  "actions": {
+    "next": "Suivant",
+    "back": "Retour",
+    "reset": "Recommencer",
+    "submit": "Intégrer l'entreprise"
+  },
+  "group": {
+    "mode": "Groupe",
+    "new": "Nouveau groupe (entreprise indépendante)",
+    "existing": "Groupe existant",
+    "newName": "Nom du groupe",
+    "pick": "Choisir le groupe"
+  },
+  "legal": {
+    "seat": "Siège (devient le premier site)"
+  },
+  "modulesHint": "Les modules que Nexotec accorde sous licence à cette entreprise. Sans vente, c'est un atelier pur.",
+  "modules": {
+    "sales": "Vente",
+    "aftersales": "Après-vente",
+    "parts": "Pièces",
+    "finance": "Finances",
+    "reporting": "Analyses"
+  },
+  "manager": {
+    "hint": "Le responsable reçoit une invitation par e-mail et définit lui-même son mot de passe."
+  },
+  "review": {
+    "group": "Groupe",
+    "seat": "Siège",
+    "manager": "Premier responsable",
+    "noModules": "Aucun",
+    "nothingCommercial": "L'entreprise démarre « en intégration ». Taux de TVA, compte bancaire et conditions restent vides jusqu'à ce que le responsable les saisisse dans l'administration."
+  },
+  "success": {
+    "title": "{{name}} est intégrée",
+    "pending": "Statut : en intégration – l'entreprise devient active dès que la configuration est terminée.",
+    "invited": "L'invitation à {{email}} est envoyée ; le responsable est invité.",
+    "nextSteps": "Le responsable configure la TVA, la banque, les textes et les plages de numéros dans l'administration.",
+    "another": "Intégrer une autre entreprise"
+  },
+  "errors": {
+    "generic": "L'entreprise n'a pas pu être intégrée.",
+    "uidAlreadyOnboarded": "Une entreprise avec cet IDE est déjà intégrée."
+  }
+}
