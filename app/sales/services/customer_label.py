@@ -38,27 +38,36 @@ from app.customer.public import get_customer_sales_labels
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
-from app.sales.services.ownership import offer_is_open
 
 _BATCH = 500
 _Labelled = TypeVar("_Labelled", SalesOffer, SalesContract, SalesDeal)
 
 _OPEN_OFFER = (OfferStatus.DRAFT, OfferStatus.OPEN)
 _OPEN_CONTRACT = (ContractStatus.PENDING,)
+_SIGNED_CONTRACT = (ContractStatus.CONFIRMED, ContractStatus.INVOICED)
 
 
 def _follows(model: type[_Labelled]) -> Any:
     """The rows whose customer label follows the customer: open work only.
 
-    An offer follows while it is still being worked on — draft or open AND no
-    live contract made from it (`ownership.offer_is_open`, Sales' one
-    definition). An offer keeps its status when a contract is made from it,
-    so the status alone would relabel the read-only offer behind a signed
-    contract while the contract keeps the signed name (KAN-408: the two never
-    disagree). A cancelled contract frees its offer, which follows again."""
+    An offer follows while it is draft or open and no contract made from it
+    is signed (confirmed or invoiced). An offer keeps its status when a
+    contract is made from it, so the status alone would relabel the read-only
+    offer behind a signed contract while the contract keeps the signed name;
+    excluding every offer with a live contract would leave the offer behind
+    a pending one on the old name for good once it is signed. This way the
+    offer and its contract carry the same name in both phases (KAN-408: the
+    two never disagree). A cancelled contract frees its offer, which follows
+    again."""
 
     if model is SalesOffer:
-        return offer_is_open()
+        signed_contract = (
+            select(SalesContract.id)
+            .where(SalesContract.offer_id == SalesOffer.id, SalesContract.status.in_(_SIGNED_CONTRACT))
+            .correlate(SalesOffer)
+            .exists()
+        )
+        return SalesOffer.status.in_(_OPEN_OFFER) & ~signed_contract
     if model is SalesContract:
         return SalesContract.status.in_(_OPEN_CONTRACT)
     # A deal row shows its contract once one exists (`entity_type` flips),
@@ -70,9 +79,12 @@ def _follows(model: type[_Labelled]) -> Any:
 
 
 def refresh_customer_labels(db: Session) -> int:
-    """Re-read the customer's label (and language) on every open offer,
-    pending contract and their deal rows; returns how many rows changed.
-    Walks each table in id order, one commit per batch.
+    """Re-read the customer's label (and language) on open work — an offer
+    no signed contract was made from, a pending contract, and their deal
+    rows; returns how many rows changed. Signed work (and a cancelled offer)
+    keeps its label and is only restamped, as `sales.owner_labels` restamps
+    every row it can resolve. Walks each table in id order, one commit per
+    batch.
 
     A changed label is written through the ORM (updated_at moves: what the API
     returns changed); `version` is not bumped — the label is a copy no client
@@ -101,26 +113,35 @@ def _refresh_table(db: Session, model: type[_Labelled]) -> int:
     last_id: uuid.UUID | None = None
     while True:
         stmt = (
-            select(model)
-            .where(model.customer_id.is_not(None), _follows(model))
+            select(model, _follows(model).label("follows"))
+            .where(model.customer_id.is_not(None))
             .order_by(model.id)
             .limit(_BATCH)
             .with_for_update(key_share=True, skip_locked=True)
         )
         if last_id is not None:
             stmt = stmt.where(model.id > last_id)
-        batch = list(db.scalars(stmt).all())
-        if not batch:
+        fetched = db.execute(stmt).all()
+        if not fetched:
             return changed
+        batch = [row for row, _ in fetched]
+        follows = {row.id: bool(flag) for row, flag in fetched}
         last_id = batch[-1].id
 
         labels = get_customer_sales_labels(db, {row.customer_id for row in batch if row.customer_id is not None})
-        entity_labels = _live_entity_labels(db, batch) if model is SalesDeal else {}
+        entity_labels = _live_entity_labels(db, [row for row in batch if follows[row.id]]) if model is SalesDeal else {}
         now = utcnow()
         stamp_only: list[uuid.UUID] = []
         for row in batch:
             current = labels.get(row.customer_id) if row.customer_id is not None else None
             if current is None or current.merged:
+                continue
+            if not follows[row.id]:
+                # Signed work keeps the name it was signed under; it is only
+                # restamped («checked, kept on purpose»), so a row that comes
+                # back into open work — the offer a cancelled contract frees,
+                # a copy of a signed deal's offer — never brings a stale stamp.
+                stamp_only.append(row.id)
                 continue
             if isinstance(row, SalesDeal) and entity_labels.get(row.id) != current.label:
                 # The deal row shows its live entity (deal_projection.py). An
@@ -168,14 +189,14 @@ def _live_entity_labels(db: Session, deals: list[Any]) -> dict[uuid.UUID, str | 
 
 
 def oldest_customer_label_age_seconds(db: Session) -> float | None:
-    """Age of the stalest customer label on open work across the three
-    tables — what the worker heartbeat records as
-    `dms.label.age_seconds{label="sales.customer"}` (CLAUDE.md rule 10). Only
-    rows the job follows count: a signed contract keeps its name on purpose
-    and is never restamped. A value well past a day means the job has stopped,
-    a customer id names no customer or a merged one whose rows the merge
+    """Age of the stalest customer label across the three tables — what the
+    worker heartbeat records as `dms.label.age_seconds{label="sales.customer"}`
+    (CLAUDE.md rule 10). The nightly job restamps every row whose customer it
+    can resolve and whose row it can lock — signed work too, whose label it
+    keeps on purpose — so a value well past a day means the job has stopped, a
+    customer id names no customer or a merged one whose rows the merge
     consumer has not moved, or a row was held by a writer when the job passed
-    (that one clears itself the next night). None when no open row names a
+    (that one clears itself the next night). None when no row names a
     customer."""
 
     stamps = [_oldest_stamp(db, SalesOffer), _oldest_stamp(db, SalesContract), _oldest_stamp(db, SalesDeal)]
@@ -188,6 +209,6 @@ def oldest_customer_label_age_seconds(db: Session) -> float | None:
 def _oldest_stamp(db: Session, model: type[_Labelled]) -> dt.datetime | None:
     return db.scalar(
         select(func.min(model.customer_denorm_refreshed_at)).where(
-            model.customer_id.is_not(None), model.customer_denorm_refreshed_at.is_not(None), _follows(model)
+            model.customer_id.is_not(None), model.customer_denorm_refreshed_at.is_not(None)
         )
     )

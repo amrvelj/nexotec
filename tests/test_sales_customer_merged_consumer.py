@@ -155,8 +155,9 @@ def test_the_moved_rows_take_the_survivors_label(db_session):
     the Sales list and the detail screens kept naming the duplicate, a
     customer that no longer exists as a record (rule 2: a label follows its
     owner). The survivor is read from `customer.public`, never from the
-    payload. The correspondence language is left as it was until Anto rules
-    on it (KAN-580)."""
+    payload. The consumer leaves the correspondence language as it was; on
+    open work the nightly `sales.customer_labels` job (KAN-590) then gives it
+    the survivor's."""
 
     tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
     survivor = _customer(db_session, group_id, tenant_id, "Survivor")

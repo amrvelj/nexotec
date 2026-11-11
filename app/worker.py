@@ -349,8 +349,9 @@ def register_daily_jobs() -> None:
        ``owner_label``), so a renamed seller's new name reaches the Sales grid
        within a day.
     5. ``sales.customer_labels`` — KAN-590: the same for the customer's
-       name (and correspondence language) on open work — an offer still
-       being worked on, a pending contract and their deal rows — through
+       name (and correspondence language) on open work — an offer no
+       signed contract was made from, a pending contract and their deal
+       rows — through
        app.customer.public, so a corrected name reaches the Sales list and the
        next document within a day. A signed contract keeps the name the buyer
        signed under (Anto, 2026-11-10).

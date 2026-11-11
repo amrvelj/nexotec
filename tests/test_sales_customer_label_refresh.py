@@ -131,7 +131,9 @@ def test_a_signed_contract_and_its_deal_row_keep_the_name_the_buyer_signed_under
 
     for row in _rows(db_session, customer["id"]):
         assert row.customer_label == "Clara Brunner"
-        assert abs((row.customer_denorm_refreshed_at.replace(tzinfo=dt.UTC) - then).total_seconds()) < 1
+        # Checked and kept on purpose: restamped, updated_at held.
+        assert row.customer_denorm_refreshed_at > then
+        assert abs((row.updated_at.replace(tzinfo=dt.UTC) - then).total_seconds()) < 1
         if isinstance(row, SalesContract):
             assert row.customer_language == "de"
 
@@ -159,21 +161,22 @@ def test_the_offer_behind_a_signed_contract_keeps_the_signed_name_too(client, db
         assert row.customer_label == "Anna Byron", type(row).__name__
 
 
-def test_an_offer_with_a_pending_contract_follows_with_it(client, db_session):
+def test_an_offer_with_a_pending_contract_follows_with_it_and_keeps_the_name_once_signed(client, db_session):
+    """Review finding (round 3): the offer behind a pending contract follows
+    with it, so the two carry the same name when the contract is signed."""
+
     seller, customer = _setup(client, firstName="Paul", lastName="Frey")
     offer = _offer_with(client, seller, customer)
-    _contract_from_offer(client, seller, offer)
+    contract = _contract_from_offer(client, seller, offer)
 
     _rename(db_session, customer["id"], last_name="Frei")
     refresh_customer_labels(db_session)
+    assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Paul Frei"}
 
-    rows = _rows(db_session, customer["id"])
-    # The offer has a live (pending) contract: the contract and its deal row
-    # follow; the offer is read-only behind it and keeps what it had.
-    assert {type(r).__name__: r.customer_label for r in rows if not isinstance(r, SalesOffer)} == {
-        "SalesContract": "Paul Frei", "SalesDeal": "Paul Frei",
-    }
-    assert {r.customer_label for r in rows if isinstance(r, SalesOffer)} == {"Paul Frey"}
+    _sign(db_session, contract["id"], ContractStatus.CONFIRMED)
+    _rename(db_session, customer["id"], last_name="Freiherr")
+    refresh_customer_labels(db_session)
+    assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Paul Frei"}
 
 
 def test_a_cancelled_offer_keeps_its_name(client, db_session):
@@ -245,21 +248,24 @@ def test_the_job_walks_more_than_one_batch(client, db_session, monkeypatch):
 # --- the sync-age alarm (rule 10) --------------------------------------------------------
 
 
-def test_label_age_counts_open_work_only(client, db_session):
+def test_label_age_is_the_stalest_stamp_and_signed_work_is_restamped_not_relabelled(client, db_session):
     assert oldest_customer_label_age_seconds(db_session) is None
 
-    seller, customer = _setup(client)
-    signed = _contract_for(client, seller, customer)
+    seller, customer = _setup(client, firstName="Ida", lastName="Moser")
+    offer = _offer_with(client, seller, customer)
+    signed = _contract_from_offer(client, seller, offer)
     _sign(db_session, signed["id"], ContractStatus.CONFIRMED)
-    _backdate(db_session, _rows(db_session, customer["id"]), hours=300)
-    # A signed contract keeps its name on purpose and is never restamped: it
-    # must not keep the alarm firing.
-    assert oldest_customer_label_age_seconds(db_session) is None
-
-    pending = _contract_for(client, seller, customer)
-    _backdate(db_session, [db_session.get(SalesContract, uuid.UUID(pending["id"]))], hours=30)
+    _backdate(db_session, _rows(db_session, customer["id"]), hours=30)
     age = oldest_customer_label_age_seconds(db_session)
     assert 30 * 3600 <= age < 31 * 3600
+
+    _rename(db_session, customer["id"], last_name="Meier")
+    refresh_customer_labels(db_session)
+
+    # Signed work keeps its name but is restamped, so the alarm is quiet — and
+    # the offer a cancelled contract frees comes back with a fresh stamp.
+    assert oldest_customer_label_age_seconds(db_session) < 60
+    assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Ida Moser"}
 
 
 def test_the_worker_heartbeat_records_the_customer_label_age(client, db_session, monkeypatch):
