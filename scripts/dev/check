@@ -11,7 +11,7 @@ commit being pushed, so a pass is only valid for the code it actually ran on.
 
 Route B (KAN-610, KAN-624): this check is the merge gate of a pull request.
 GitHub runs only pr.yml's one light job (`pr-light`: secret scan, ruff, mypy +
-render.yaml, import-linter, docker build) per ready PR, and the full suite of
+render.yaml, import-linter, docker build) per PR, drafts included (KAN-653), and the full suite of
 .github/workflows/test.yml once a night on main. The lanes mirror that nightly
 suite, including both migration jobs (the round trip with seed + downgrade, and
 the upgrade from main's heads with the seed verified). Not mirrored here:

@@ -4,15 +4,17 @@ name: pr
 # GitHub runs only this one light, independent job per pull request; the full suite
 # (Postgres pytest, migrations, outbox smoke, frontend, API-types drift) runs nightly
 # on main in test.yml. One job, one checkout, one cached pip install: target under
-# five billed minutes. Draft PRs are skipped; marking one ready runs it. A newer push
-# to the same PR cancels the run still going.
+# five billed minutes. Draft PRs run it too (KAN-653; Anto, 2026-11-11: the result is on
+# the PR before it is marked ready), so `ready_for_review` is not a trigger - the head
+# already has its run, and marking a draft ready would only repeat it. A newer push to
+# the same PR cancels the run still going.
 #
 # The job name `pr-light` is what branch protection is to require (KAN-626) - do not
 # rename it without changing that.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: pr-light-${{ github.event.pull_request.number }}
@@ -24,7 +26,6 @@ permissions:
 jobs:
   pr-light:
     name: pr-light
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
