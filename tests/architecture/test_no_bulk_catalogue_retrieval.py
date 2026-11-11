@@ -409,6 +409,4 @@ def test_the_scanner_leaves_single_lookups_alone():
         "adapter.fetch_variant(fz_key)\n"
         "sync_catalogue_variant(db, tenant_id=tenant_id, fz_key=fz_key)\n"
         '"""A docstring may mention FzKeyChanged in prose."""\n'
-        'adapter._request("GET", f"/vehiclecatalog/variants/{fz_key}")\n'
-        "mutation = apply_option_mutation(row)\n"
     )

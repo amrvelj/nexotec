@@ -924,3 +924,27 @@ def test_reload_is_the_dealer_managers_and_platform_staffs_only(client, db_sessi
         f"/v1/catalogue/variants/{uuid.uuid4()}/details/reload", headers=_bearer(_token(tenant_id, manager=True))
     )
     assert unknown.status_code == 404
+
+
+def test_every_note_a_present_detail_can_carry_has_its_line_on_screen():
+    """KAN-598: the SPA translates a `present` detail's note through
+    `DETAIL_NOTE_I18N_KEY` (frontend/apps/dms/src/components/configurator/
+    detailState.ts). Each note the loader writes on purpose — and the 400/422
+    refusal's class name, which `_load_one` writes as the note — must be a key
+    there, or a renamed constant or exception class silently reads on screen
+    as a clean empty load."""
+
+    from pathlib import Path
+
+    from app.integration.errors import ProviderRequestError
+
+    source = (
+        Path(__file__).resolve().parent.parent / "frontend/apps/dms/src/components/configurator/detailState.ts"
+    ).read_text()
+    for note in (
+        catalogue_details.ENTITLEMENT_ABSENT,
+        catalogue_details.VARIANT_UNKNOWN_AT_PROVIDER,
+        catalogue_details.ENERGY_LABEL_AMBIGUOUS,
+        ProviderRequestError.__name__,
+    ):
+        assert f"  {note}: 'configurator.details.notes." in source, f"{note} has no line in DETAIL_NOTE_I18N_KEY"

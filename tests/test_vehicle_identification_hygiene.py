@@ -155,12 +155,16 @@ def test_a_variant_another_session_is_storing_is_re_read_not_a_failure(db_sessio
                 outcome["error"] = exc
 
     second = threading.Thread(target=_second, name="second")
-    second.start()
-    second.join(timeout=1.0)
-    assert second.is_alive(), "the second session should wait on the first's uncommitted insert"
-    holder.commit()
-    second.join(timeout=20)
-    holder.close()
+    try:
+        second.start()
+        second.join(timeout=1.0)
+        assert second.is_alive(), "the second session should wait on the first's uncommitted insert"
+        holder.commit()
+        second.join(timeout=20)
+    finally:
+        holder.rollback()  # a no-op after the commit; releases the lock if the assertion failed
+        holder.close()
+        second.join(timeout=20)
 
     assert "error" not in outcome, outcome.get("error")
     assert outcome["variant_id"] == held.id

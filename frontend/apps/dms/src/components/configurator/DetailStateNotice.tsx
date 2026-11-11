@@ -15,8 +15,9 @@ export interface DetailStateNoticeProps {
  * when the request failed (the next open asks again), «noch nicht geladen»
  * when this Betrieb never asked. A loaded detail renders nothing — unless
  * its note says the provider answered a coherent «nothing» (a key it no
- * longer lists), which reads as an information line. Every note is
- * translated or left out: a failure's class name is for the call log.
+ * longer lists, a request it refused with a 400/422 — KAN-598), which reads
+ * as an information line. Every note is translated or left out: a failure's
+ * class name never reaches the screen.
  */
 export function DetailStateNotice({ detail, state }: DetailStateNoticeProps) {
   const { t } = useTranslation()
