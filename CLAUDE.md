@@ -62,7 +62,7 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
 - Run it: the desktop preview (`.claude/launch.json`; stop Docker's `app` first — both want port 8000), or `make up` in Docker
 - Gates: `scripts/dev/gate status` shows what the push and the hand-over still need
 
-CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitHub runs `pr-light` (`pr.yml`) per ready PR and the full suite nightly on `main` (`test.yml`; a red night opens an issue).
+CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitHub runs `pr-light` (`pr.yml`) per PR, drafts included (KAN-653), and the full suite nightly on `main` (`test.yml`; a red night opens an issue).
 
 ## How we work
 
