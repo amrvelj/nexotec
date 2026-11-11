@@ -175,6 +175,12 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   items: `update_offer`/`update_contract` write the offer or contract before re-freezing its
   factory-option lines, and `replace_line_items` locks it (`priced_deal.lock_editable`) before
   touching a line (KAN-287).
+- **A customer merge reaches Sales only through `customer.merged`** (KAN-185): the consumer
+  `sales.customer_merged` (`services/customer_merge.py`) moves the duplicate's legacy
+  transactions, offers, contracts and deals to the survivor in its own transaction. Nightly
+  reconciliation reports each such row still naming a customer merged more than an hour ago
+  (four StateChecks, `customer.public.customer_is_merged`; KAN-581) — a dead-lettered or never
+  run delivery (staging has no worker) is found, not only alerted.
 
 ## The responsible seller (KAN-200, Anto 2026-10-19)
 

@@ -1132,3 +1132,93 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/integrations/connections/{connection_id}",
         "/v1/integrations/connections/{connection_id}/secrets/{slot}",
     }
+
+
+# --- a customer merge Sales never followed (KAN-581) ------------------------
+
+
+def _merge(client, dealer_id: str, duplicate: dict, survivor: dict) -> None:
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=_real_actor(client, dealer_id))
+    response = client.post(
+        f"/v1/customers/{duplicate['id']}/merge",
+        json={"duplicateOfCustomerId": survivor["id"]},
+        headers={**_bearer(token), "If-Match": str(duplicate["version"])},
+    )
+    assert response.status_code == 200, response.text
+
+
+def _sales_rows_naming(client, db_session, dealer_id: str, customer: dict) -> dict[str, uuid.UUID]:
+    customer_id = uuid.UUID(customer["id"])
+    transaction = _create_transaction(
+        db_session, dealer_id, _create_user(client, dealer_id), customer, _create_vehicle(client, dealer_id)
+    )
+    return {
+        "transaction": uuid.UUID(transaction["id"]),
+        "sales_offer": _offer(db_session, dealer_id, customer_id=customer_id).id,
+        "sales_contract": _contract(db_session, dealer_id, customer_id=customer_id).id,
+        "sales_deal": _deal(db_session, dealer_id, customer_id=customer_id).id,
+    }
+
+
+def _merged_customer_findings(db_session) -> list[tuple[str, uuid.UUID]]:
+    try:
+        sales_reconciliation.run(db_session)
+    except ReconciliationAlarm as alarm:
+        return sorted(
+            (o.check_label, o.source_row_id) for o in alarm.orphans if o.check_label.endswith("names a merged customer")
+        )
+    return []
+
+
+def test_sales_reconciliation_reports_every_row_still_naming_a_merged_customer(client, db_session):
+    """KAN-581 — the merge reaches Sales only through `customer.merged`
+    (KAN-185). Here no worker delivers it (as on staging, or after a dead
+    letter): within outbox lag the rows are left alone, after it each of the
+    four tables' rows still naming the duplicate is reported."""
+
+    dealer_id = _create_dealer(client)
+    survivor = _create_customer(client, dealer_id)
+    duplicate = _create_customer(client, dealer_id)
+    rows = _sales_rows_naming(client, db_session, dealer_id, duplicate)
+    _merge(client, dealer_id, duplicate, survivor)
+
+    assert _merged_customer_findings(db_session) == [], "a merge still within outbox lag is no finding"
+
+    db_session.execute(
+        update(Customer)
+        .where(Customer.id == uuid.UUID(duplicate["id"]))
+        .values(updated_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=2))
+    )
+    db_session.commit()
+
+    assert _merged_customer_findings(db_session) == sorted(
+        (f"{table}.customer_id names a merged customer", row_id) for table, row_id in rows.items()
+    )
+
+
+def test_sales_reconciliation_finds_nothing_once_the_merge_reached_sales(client, db_session):
+    """KAN-581 — after the consumer moved the rows to the survivor, the check
+    is quiet, and a live customer's rows never count."""
+
+    from app.sales.services.customer_merge import SurvivorLabel, repoint_merged_customer_records
+
+    dealer_id = _create_dealer(client)
+    survivor = _create_customer(client, dealer_id)
+    duplicate = _create_customer(client, dealer_id)
+    _sales_rows_naming(client, db_session, dealer_id, duplicate)
+    _sales_rows_naming(client, db_session, dealer_id, survivor)
+    _merge(client, dealer_id, duplicate, survivor)
+    db_session.execute(
+        update(Customer)
+        .where(Customer.id == uuid.UUID(duplicate["id"]))
+        .values(updated_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=2))
+    )
+    repoint_merged_customer_records(
+        db_session,
+        duplicate_id=uuid.UUID(duplicate["id"]),
+        target_id=uuid.UUID(survivor["id"]),
+        survivor=SurvivorLabel(label="Anna Muster"),
+    )
+    db_session.commit()
+
+    assert _merged_customer_findings(db_session) == []

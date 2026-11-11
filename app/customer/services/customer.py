@@ -2795,6 +2795,27 @@ def customer_in_group(
     return select(Customer.id).where(Customer.id == customer_id, Customer.group_id == group_id).exists()
 
 
+def customer_is_merged(
+    customer_id: ColumnElement[Any] | InstrumentedAttribute[Any], *, merged_before: dt.datetime
+) -> Exists:
+    """KAN-581 — a SQL predicate, for another context's nightly
+    reconciliation (Sales'): the customer `customer_id` names was merged into
+    another, at least as long ago as `merged_before`. A merged customer is
+    terminal and never edited again, so its `updated_at` is the merge's
+    time; the bound lets the caller leave a merge whose `customer.merged`
+    is still within outbox lag alone. Builds an EXISTS; reads nothing itself."""
+
+    return (
+        select(Customer.id)
+        .where(
+            Customer.id == customer_id,
+            Customer.lifecycle_status == CustomerLifecycleStatus.MERGED,
+            Customer.updated_at < merged_before,
+        )
+        .exists()
+    )
+
+
 def customer_display_name(customer: Customer) -> str:
     """Company name, else first+last, else customer number — the same
     precedence `resolve_customer_label` uses in `sales`, which keeps its own

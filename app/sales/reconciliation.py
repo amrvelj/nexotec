@@ -59,7 +59,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import Customer, customer_in_group
+from app.customer.public import Customer, customer_in_group, customer_is_merged
 from app.inventory.public import StockItem
 from app.platform.public import Dealership, User, actor_reference_checks
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -127,6 +127,26 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
         return customer_exists & dealership_exists & ~in_group
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _names_a_merged_customer(model: _Deal | type[SalesDeal] | type[Transaction]) -> StateCheck:
+    """KAN-581 — a customer merge reaches Sales only through `customer.merged`
+    (KAN-185): the consumer `sales.customer_merged` moves every legacy
+    transaction, offer, contract and deal row of the duplicate to the
+    survivor. A row still naming a merged customer after outbox lag means
+    that delivery failed — dead-lettered after its last attempt, or never
+    run (staging has no worker, ADR-081) — and the row is invisible from the
+    survivor's Offers & Contracts tab. Read through `customer.public`."""
+
+    def where() -> ColumnElement[bool]:
+        return customer_is_merged(model.customer_id, merged_before=utcnow() - _OUTBOX_LAG_GRACE).correlate(model)
+
+    return StateCheck(
+        label=f"{model.__tablename__}.customer_id names a merged customer",
+        source_model=model,
+        source_row_id_column=model.id,
+        where=where,
+    )
 
 
 def _documents(entity: _Deal, owner_type: DocumentOwnerType, owner_id: Any) -> Any:
@@ -732,6 +752,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     _stock_price_moved_unflagged(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
     # --- the deal grid against its live entity (KAN-408, KAN-409) ---
     *deal_row_checks(),
+    # --- a customer merge Sales never followed (KAN-581) ---
+    *(_names_a_merged_customer(model) for model in (Transaction, SalesOffer, SalesContract, SalesDeal)),
 ]
 
 
