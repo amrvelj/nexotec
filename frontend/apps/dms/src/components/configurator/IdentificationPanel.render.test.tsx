@@ -126,6 +126,31 @@ describe('IdentificationPanel', () => {
     expect(screen.queryByText(i18n.t('configurator.identify.plateRecords.wechselschild'))).not.toBeInTheDocument()
   })
 
+  it('offers a plate record whose Stammnummer the account may not see, without an empty line (KAN-593)', async () => {
+    // The identAPI's `vrn` depends on the account's user group: a record may
+    // come without it. The car is still offered by its Typenschein; its
+    // sublabel shows the first registration alone — no «null», no stray «·».
+    const user = userEvent.setup()
+    setup([
+      {
+        method: 'GET',
+        match: /^\/vehicle-identification$/,
+        handler: () => ({
+          ...WECHSELSCHILD,
+          plateRecords: [WECHSELSCHILD.plateRecords[0], { ...WECHSELSCHILD.plateRecords[1], stammnummer: null }],
+        }),
+      },
+    ])
+
+    await identify(user, 'ZH999999')
+    const alert = await screen.findByTestId('plate-records-interchangeable')
+    expect(within(alert).getByText('Volkswagen Golf GTI')).toBeInTheDocument()
+    expect(alert).not.toHaveTextContent('null')
+    expect(alert).not.toHaveTextContent(/·\s*·|^·|·$/)
+    expect(alert).toHaveTextContent('111222333')
+    expect(alert).not.toHaveTextContent('444555666')
+  })
+
   it('applies a best match only when the advisor confirms it', async () => {
     const user = userEvent.setup()
     const { backend, onStart } = setup([

@@ -92,8 +92,10 @@ reconciliation reports the dangling reference.
 - The cache is filled by a plate lookup only, **whole or not at all** — a part would later read as
   the whole truth about the plate; a `vrn` answer never fills it. A hit answers from stored variants
   and calls only when none are stored (keeping the FzKey is a migration, Anto's call — KAN-592).
-- Every variant a rung returns is stored (master data, each upsert in a savepoint); the stored rows
-  are a cache of what was seen, never the source.
+- Every variant a rung returns is stored (master data, each upsert in a savepoint, a lost race
+  re-read in a fresh savepoint up to four attempts — KAN-593); the stored rows are a cache of
+  what was seen, never the source. `vehicle.plate_lookup.conflicted` names only records carrying
+  a Stammnummer, once per provider answer (no per-day dedupe, KAN-593).
 - Refusals and failures are **notes, never errors** (`provider_not_entitled`, `provider_unavailable`,
   `plate_lookup_*`; `configurator.identify.notes.*`); the rung falls through to what we hold.
   **Several hits are a picker, never a choice**; the best match (`find_best_match`) is a proposal,

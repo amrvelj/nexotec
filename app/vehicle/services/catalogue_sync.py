@@ -204,20 +204,35 @@ def store_seen_variants(db: Session, *, provider_code: str, masters: list[Varian
     Each upsert runs in a savepoint: two Betriebe can see one new variant (or
     one new brand) at the same moment, and the loser's unique violation is
     answered by re-reading the row the winner wrote — a lookup never fails
-    because another dealer saw the same car first (KAN-547)."""
+    because another dealer saw the same car first (KAN-547). One upsert
+    writes up to four shared rows (brand, model group, variant, its key), so
+    a second writer can win the next of them too: every retry runs in a
+    savepoint of its own, up to `_CONCURRENT_UPSERT_ATTEMPTS` in all, and only
+    a violation that survives them all is raised (KAN-593)."""
 
     variants: list[ModelVariant] = []
     for master in masters:
-        try:
-            with db.begin_nested():
-                variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-        except IntegrityError:
-            logger.info("variant %s was stored concurrently; re-reading", master.fz_key)
-            variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-        variants.append(variant)
+        variants.append(_upsert_in_savepoints(db, provider_code=provider_code, master=master))
     if variants:
         db.commit()
     return variants
+
+
+# One attempt per shared row an upsert can lose a race on (brand, model group,
+# variant with its key), plus the first: a bound, never an open loop.
+_CONCURRENT_UPSERT_ATTEMPTS: Final = 4
+
+
+def _upsert_in_savepoints(db: Session, *, provider_code: str, master: VariantMasterData) -> ModelVariant:
+    for attempt in range(1, _CONCURRENT_UPSERT_ATTEMPTS + 1):
+        try:
+            with db.begin_nested():
+                return upsert_model_variant(db, provider_code=provider_code, master=master)
+        except IntegrityError:
+            if attempt == _CONCURRENT_UPSERT_ATTEMPTS:
+                raise
+            logger.info("variant %s was stored concurrently (attempt %d); re-reading", master.fz_key, attempt)
+    raise AssertionError("unreachable")  # pragma: no cover - the loop returns or raises
 
 
 def find_variant_by_fz_key(db: Session, *, provider_code: str, fz_key: str) -> ModelVariant | None:
