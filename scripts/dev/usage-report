@@ -1,0 +1,1099 @@
+#!/usr/bin/env python3
+"""What a session cost in Claude usage, from Claude Code's local transcripts (KAN-613).
+
+    scripts/dev/usage-report                  the last ten ticket sessions of this repository
+    scripts/dev/usage-report --last 20        the last twenty
+    scripts/dev/usage-report --all            every session, ticket or not
+    scripts/dev/usage-report --session 2c20e3ae --session d81bd30b
+    scripts/dev/usage-report --since 2026-11-01 --exclude b0b03e77
+    scripts/dev/usage-report --selftest       checks this script against a built transcript
+
+Where the transcripts are: Claude Code writes one JSON-lines file per session to
+`~/.claude/projects/<folder>/<session id>.jsonl` (`$CLAUDE_CONFIG_DIR/projects` when that
+is set). The folder is the session's working directory with every character that is not a
+letter or digit replaced by `-`, so this repository's main checkout and each worktree under
+`.claude/worktrees/` have folders of their own. A sub-agent's transcript sits in
+`<folder>/<session id>/subagents/` (workflows one level further down), next to a
+`.meta.json` naming its agent type. A session that moved between worktrees has parts in
+several folders; they are read as one session. Cloud sessions run on Anthropic's machines:
+their transcripts are not on this Mac and are not reported.
+
+What is counted, per agent (the main session and each sub-agent): API calls, then input,
+cache-read, cache-write and output tokens as the transcript recorded the API's usage. A
+response is written as several records that share one message id; each call is counted once.
+A call none of whose records carries a stop reason has only a streaming snapshot of its
+usage (older transcripts, sub-agents especially): its input side is complete, its output is
+a lower bound, and the report says how many such calls each agent has.
+
+Where the input went: every call re-reads the whole context, so what a call reads is the
+previous call's context plus whatever entered since - the model's previous output and the
+tool results, attachments and prompts recorded in between. The growth between two calls is
+measured (the API's token counts), its first part is the model's own output, and the rest
+is split among what entered in that step in proportion to its size. An item then costs its
+tokens once for every later call that still carries it, until a compaction. These shares
+add up exactly to the input-side total. No item is given more than one token per 1.4
+characters (an image: 2,000 tokens) - denser than 99 in 100 measured results - and, in a
+step where a ToolSearch ran, no more than the agent's measured rate; growth beyond that is
+the schemas the ToolSearch loaded, when there was one, else "growth with no recorded source"
+(system reminders the harness does not log). Only the part before a segment's first call
+(system prompt, tool schemas, CLAUDE.md, the opening prompt) is not measured step by step:
+there CLAUDE.md and the prompt are estimated at the agent's own measured characters per
+token (the median of its steps that added one item of 500+ characters, a reminder beside it
+aside; 2.25 when it has fewer than five - the median over every local session measured
+2.25 to 2.28 on 2026-11-10, depending on which steps count) and the rest is "session start".
+
+A sub-agent's type comes from its .meta.json, else from the main session's Agent call
+that started it (the call's result names the agent id the transcript file carries).
+
+The summary's columns, each a share of the session's total tokens (every agent, input side
+and output), which overlap by design:
+  Rules       .claude/rules files and CLAUDE.md/MEMORY.md, carried, in every agent
+  Large reads single file reads (Read, or cat/sed/head in Bash) that added >= 5,000 tokens
+  Reviewer    everything the reviewer sub-agents spent
+  Notion      Notion tool results, carried, in every agent
+  CI polling  the calls spent reacting to a CI poll (gh pr checks, check-runs, gh run, the
+              PR-status tool): each re-reads the whole context
+
+This prints counts, tool names, agent types, ticket ids, session ids, branch names, Notion
+page ids and file paths (repository-relative; a file outside the repository by its base
+name). A Bash command is read only through its skeleton - heredoc bodies, comments and
+quoted text with a space in it removed - and labelled by a program from a fixed list
+(KNOWN_PROGRAMS, else "other") or, for a view (cat, head, tail, nl, less, sed -n), by the
+file it reads - and that only when the word names a file that exists on this machine now,
+the label made from the path the operating system resolved to that file (else "?"), so no
+misread option value, sed script or heredoc can be printed. A file read
+with Read is named by the path the call was given. It never prints what a transcript says -
+no prompt, result, command or answer text - and it opens no network connection (it reads
+the filesystem only: the transcripts, and whether a viewed file exists). Standard library
+only.
+"""
+
+import argparse
+import collections
+import contextlib
+import datetime
+import fcntl
+import glob
+import io
+import json
+import os
+import re
+import shlex
+import statistics
+import subprocess
+import sys
+import tempfile
+
+CHARS_PER_TOKEN = 2.25  # an agent with fewer than five one-item steps (median measured 2026-11-10)
+MIN_CHARS_PER_TOKEN = 1.4  # no item is denser (1 in 100 measured results is below 1.49)
+IMAGE_TOKENS = 1500  # weight of an image when one step's growth is split
+IMAGE_CAP = 2000
+LARGE_READ_TOKENS = 5000
+TOP_RESULTS = 5
+
+CATEGORIES = [
+    ("start", "session start (system prompt, tool schemas)"),
+    ("carryover", "carried over a compaction"),
+    ("instructions", "CLAUDE.md + MEMORY.md"),
+    ("rules", ".claude/rules files"),
+    ("prompts", "prompts and skill text"),
+    ("model", "the model's own messages"),
+    ("read", "file reads"),
+    ("tests", "test and check output"),
+    ("ci", "CI polling results"),
+    ("shell", "other Bash output"),
+    ("notion", "Notion"),
+    ("agents", "sub-agent reports"),
+    ("browser", "browser and screenshots"),
+    ("search", "Grep / Glob"),
+    ("toolsearch", "tool schemas loaded (ToolSearch)"),
+    ("edits", "Edit / Write results"),
+    ("harness", "harness reminders and hooks"),
+    ("other", "other tools"),
+    ("unattributed", "growth with no recorded source"),
+]
+
+def _word(name):
+    """`name` as a whole word of a command (a program or an argument), with any directory in
+    front (.venv/bin/pytest) - never a part of a longer word or path (/tmp/pytest-of-anto/)."""
+    return r"(?:^|(?<=[\s;&|(`]))(?:[^\s;&|(`]*/)?" + name + r"(?=[\s;&|)`]|$)"  # linear: ( and ` end a prefix
+
+
+CI_BASH = re.compile(_word("gh") + r"\s+(pr\s+checks|run\s+(watch|view|list)|api\b[^\n]*(check-runs|check-suites|actions/runs|/status\b))")
+CI_WORDS = re.compile(r"check-runs|check-suites|gh\s+pr\s+checks|gh\s+run\b|\bCI\b")
+TEST_BASH = [("scripts/dev/check", _word("scripts/dev/check")), ("pytest", _word("pytest")),
+             ("vitest", _word("vitest")), ("npm lint/build/test", _word("npm") + r"[^\n;&|]*\b(lint|build|test)\b"),
+             ("mypy", _word("mypy")), ("ruff", _word("ruff")), ("lint-imports", _word("lint-imports")),
+             ("tsc", _word("tsc")), ("alembic", _word("alembic"))]
+VIEW_BASH = re.compile(r"^\s*(cat|head|tail|nl|less|sed\s+-n)\b")
+QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
+HEREDOC = re.compile(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
+# A Bash result is labelled by its program only when the program is one of these: the first
+# word of a command can be text when a command is not what it seems.
+KNOWN_PROGRAMS = frozenset((
+    "alembic", "api-type", "awk", "basename", "bash", "black", "bootstrap", "brew", "cat", "check",
+    "chmod", "cloud-postgres", "code", "cp", "createdb", "curl", "date", "defaults", "df", "diff", "dirname",
+    "docker", "dropdb", "du", "echo", "env", "eslint", "export", "false", "file", "find", "for", "gate", "gh",
+    "git", "grep", "head", "if", "jq", "kill", "launchctl", "less", "ln", "ls", "lsof", "make", "md5", "mkdir",
+    "mv", "mypy", "nl", "node", "npm", "npx", "open", "osascript", "pg_ctl", "pg_isready", "pgrep", "pip",
+    "pip3", "pkill", "playwright", "printf", "ps", "psql", "pytest", "python", "python3", "readlink",
+    "realpath", "rg", "rm", "ruff", "run-api", "sed", "sh", "shasum", "sleep", "sort", "source", "sqlite3",
+    "stat", "tail", "tar", "tee", "test", "time", "touch", "tr", "true", "uniq", "usage-report", "uvicorn",
+    "wc", "which", "while", "xargs", "zsh",
+))
+PROGRAM = re.compile(r"^[A-Za-z0-9_.-]{1,20}$")
+PATHLIKE = re.compile(r"^[A-Za-z0-9_./~@+-]{1,200}$")
+EXTENSION = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,7}$")  # .py, .md, .json - not 1.5k
+ATTACHMENT_KIND = re.compile(r"^[a-z_]{1,40}$")
+NOTION_ID = re.compile(r"([0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
+TICKET_COMMAND = re.compile(r"<command-name>/?ticket</command-name>\s*<command-args>\s*(KAN-\d+(?:\s+close)?)", re.IGNORECASE)
+TICKET_TYPED = re.compile(r"(?m)^\s*/ticket\s+(KAN-\d+(?:\s+close)?)", re.IGNORECASE)
+TICKET_BRANCH = re.compile(r"(?i)(?:^|/)kan-(\d+)(?![0-9])")
+
+
+# ---------------------------------------------------------------- paths and sizes
+
+
+class Paths:
+    """Turns a path seen in a transcript into one fit to print."""
+
+    def __init__(self, repo):
+        self.repo = repo.rstrip("/") if repo else ""
+        self.real_repo = os.path.realpath(self.repo) if self.repo else ""
+
+    def show(self, path):
+        if not isinstance(path, str) or not path:
+            return "?"
+        if path.startswith("/"):
+            path = os.path.normpath(path)
+        roots = sorted({self.repo, self.real_repo} - {""})
+        for repo in roots:  # this repository's worktrees only; another repository's are outside
+            if path.startswith(repo + "/.claude/worktrees/"):
+                inside = path[len(repo + "/.claude/worktrees/"):].split("/", 1)
+                return inside[1] if len(inside) == 2 and inside[1] else "?"
+        for repo in roots:
+            if path == repo or path.startswith(repo + "/"):
+                return os.path.relpath(path, repo)
+        if path.startswith(("/", "~")) or ".." in path.split("/"):
+            return "<outside repo>/" + os.path.basename(path)
+        return path
+
+    def view_label(self, path):
+        """The printable name of the file `path` names on this machine now, else "?".
+
+        `path` is looked up as given when absolute (or under ~), else - and, for a worktree's
+        path, also - relative to the repository's main checkout. The label is then made from
+        the file the operating system found, never from the text: on macOS the kernel's own
+        path of the opened file (F_GETPATH - `.`, `..`, symlinks, firmlinks and letter case as
+        on disk), elsewhere os.path.realpath. Device and volume-id paths (/dev/, /.vol/), whose
+        names are numbers, are refused, as is a `~user` that names no user."""
+        if not isinstance(path, str) or not path or "\0" in path:
+            return "?"
+        candidates = []
+        if path.startswith(("/", "~")):
+            candidates.append(os.path.expanduser(path))
+            m = re.search(r"/\.claude/worktrees/[^/]+/(.*)$", path)
+            if m and self.repo:
+                candidates.append(os.path.join(self.repo, m.group(1)))
+        elif self.repo:
+            candidates.append(os.path.join(self.repo, path))
+        for candidate in candidates:
+            if candidate.startswith(("~", "/dev/", "/.vol/")) or not os.path.isfile(candidate):
+                continue
+            resolved = canonical_path(candidate)
+            if resolved and not resolved.startswith(("/dev/", "/.vol/")):
+                return self.show(resolved)
+        return "?"
+
+
+def canonical_path(path):
+    """The operating system's own path of the file at `path`, or None if it cannot say."""
+    if sys.platform == "darwin" and hasattr(fcntl, "F_GETPATH"):
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError:
+            return None
+        try:
+            raw = fcntl.fcntl(fd, fcntl.F_GETPATH, b"\0" * 1024)
+        except OSError:
+            return None
+        finally:
+            os.close(fd)
+        return raw.split(b"\0", 1)[0].decode("utf-8", "replace") or None
+    resolved = os.path.realpath(path)
+    return resolved if os.path.isfile(resolved) else None
+
+
+def size_of(content):
+    """(characters, images) of a message's content, thinking left out."""
+    if content is None:
+        return 0, 0
+    if isinstance(content, str):
+        return len(content), 0
+    if isinstance(content, dict):
+        content = [content]
+    chars = images = 0
+    for block in content:
+        if not isinstance(block, dict):
+            chars += len(str(block))
+            continue
+        kind = block.get("type")
+        if kind == "text":
+            chars += len(block.get("text") or "")
+        elif kind == "image":
+            images += 1
+        elif kind == "tool_result":
+            c, i = size_of(block.get("content"))
+            chars, images = chars + c, images + i
+        elif kind in ("thinking", "redacted_thinking"):
+            pass
+        else:
+            chars += len(json.dumps(block))
+    return chars, images
+
+
+# ---------------------------------------------------------------- classification
+
+
+def classify_tool(name, data, paths):
+    """(category, printable label) of a tool's result - never its content."""
+    data = data if isinstance(data, dict) else {}
+    short = name.split("__")[-1] if name.startswith("mcp__") else name
+    if name == "Read":
+        return "read", "Read " + paths.show(data.get("file_path"))
+    if name in ("Grep", "Glob"):
+        return "search", name
+    if name in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+        return "edits", name
+    if name in ("Agent", "Task"):
+        kind = data.get("subagent_type") or "general-purpose"
+        return "agents", "Agent " + (kind if isinstance(kind, str) and PROGRAM.match(kind) else "sub-agent")
+    if name == "ToolSearch":
+        return "toolsearch", "ToolSearch"
+    if "notion" in name.lower():
+        label = short
+        for key in ("id", "page_id", "url"):
+            value = data.get(key)
+            if isinstance(value, str):
+                m = NOTION_ID.search(value.lower())
+                if m:
+                    label += " " + m.group(1).replace("-", "")
+                    break
+        return "notion", label
+    if name.startswith(("mcp__Claude_Browser__", "mcp__claude-in-chrome__", "mcp__computer-use__",
+                        "mcp__Claude_Code_iOS_Simulator__")):
+        return "browser", short
+    if name == "mcp__ccd_pr__get_status":
+        return "ci", "PR status"
+    if name == "Bash":
+        # The first 50,000 characters classify a command (the longest real one measured 46,696 on
+        # 2026-11-11); reading a longer one whole only costs time - some patterns scan to the end
+        # of the text once per possible start.
+        command = (data.get("command") if isinstance(data.get("command"), str) else "")[:50000]
+        skeleton = bash_skeleton(command)
+        if CI_BASH.search(skeleton):
+            return "ci", "Bash (CI poll)"
+        for label, pattern in TEST_BASH:
+            if re.search(pattern, skeleton):
+                return "tests", "Bash (" + label + ")"
+        body = first_command(skeleton)
+        if VIEW_BASH.match(body):
+            return "read", "Bash view " + ("?" if "<<" in command else view_target(body, paths))
+        words = [w for w in body.split() if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", w)]
+        program = os.path.basename(words[0]) if words else ""
+        return "shell", "Bash (" + (program if program in KNOWN_PROGRAMS else "other") + ")"
+    if name in ("Monitor", "ScheduleWakeup"):
+        if CI_WORDS.search(json.dumps(data)):
+            return "ci", name + " (CI)"
+        return "other", name
+    return "other", short if PROGRAM.match(short) else "mcp tool"
+
+
+def bash_skeleton(command):
+    """A command without what it carries: heredoc bodies, comments, and every quoted string
+    with a space in it (a commit message, an inline script) become ` _ `; a one-word quoted
+    string (a path, a sed range) keeps its word. What follows an unbalanced quote is dropped."""
+    kept, until = [], None
+    for line in command.split("\n"):
+        if until is not None:
+            if line.strip() == until:
+                until = None
+            continue
+        m = HEREDOC.search(line)
+        if m:
+            until = m.group(1)
+            line = line[: m.start()]
+        kept.append(line)
+    text = QUOTED.sub(lambda m: " _ " if re.search(r"\s", m.group(0)) else m.group(0)[1:-1], "\n".join(kept))
+    text = re.split(r"['\"]", text)[0]
+    return re.sub(r"(^|\s)#[^\n]*", r"\1", text)
+
+
+ASSIGNMENTS = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*=\S*(?:\s+|$))+$")  # linear: one per space-separated word
+SEPARATORS = re.compile(r"\n|&&|\|\||;|\||(?<![<>&])&(?![>&])")  # `&` but not in 2>&1 or &>file
+# The options of the view programs that take the next word as their value (so the word is
+# never taken for the file): GNU and BSD spellings both.
+VIEW_VALUE_OPTIONS = {
+    "cat": set(),
+    "head": {"-n", "-c", "--lines", "--bytes"},
+    "tail": {"-n", "-c", "-b", "--lines", "--bytes", "--pid", "--sleep-interval", "-s"},
+    "nl": {"-b", "-d", "-f", "-h", "-i", "-l", "-n", "-s", "-v", "-w", "--body-numbering", "--section-delimiter",
+           "--footer-numbering", "--header-numbering", "--line-increment", "--join-blank-lines",
+           "--number-format", "--number-separator", "--starting-line-number", "--number-width"},
+    "less": {"-p", "-P", "-o", "-O", "-t", "-T", "-x", "-y", "-z", "-j", "-b", "-h", "-k", "--pattern",
+             "--prompt", "--log-file", "--LOG-FILE", "--tag", "--tag-file", "--tabs", "--max-forw-scroll",
+             "--window", "--jump-target", "--buffers", "--max-back-scroll", "--lesskey-file"},
+    "sed": {"-e", "-f", "-l", "--expression", "--file", "--line-length"},
+}
+
+
+def first_command(skeleton):
+    """The first simple command of a skeleton that is neither a bare `cd` nor only variable
+    assignments. `&` (background) separates commands like `;`."""
+    for part in SEPARATORS.split(skeleton):
+        part = part.strip()
+        if part and not re.match(r"^cd(\s|$)", part) and not ASSIGNMENTS.match(part):
+            return part
+    return ""
+
+
+def view_target(command, paths):
+    """The first file a cat/head/tail/nl/less/sed command names - a word shaped like a path,
+    nothing else.
+
+    Called with one command of a skeleton (no heredoc, no quoted text with spaces). Options
+    are read much as getopt reads them, to find the right word: in a group of short options
+    (`-Ip`) the first letter that takes a value (VIEW_VALUE_OPTIONS) ends the group, and its
+    value is the rest of the word or, when the letter is last, the next word; a long option
+    takes `=value` or, when its full name is in the table, the next word; `--` ends the
+    options; sed's script - its first argument unless -e/-f gave one - and +commands (less
+    +/pattern, tail +5) are skipped. Abbreviated long options, process substitution and sed's
+    -i are not parsed. What makes the label safe is not the parsing but the last step: the
+    word becomes a label only when it names an existing file, and the label is made from the
+    path the operating system resolved to it (Paths.view_label), else "?"."""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return "?"
+    if not words or words[0] not in VIEW_VALUE_OPTIONS:
+        return "?"
+    takes_value = VIEW_VALUE_OPTIONS[words[0]]
+    short = {option[1] for option in takes_value if re.match(r"^-[A-Za-z]$", option)}
+    args, skip, scripted, options_done = [], False, False, False
+    for word in words[1:]:
+        if skip:
+            skip = False
+        elif options_done or word == "-" or not word.startswith(("-", "+")):
+            args.append(word)
+        elif word == "--":
+            options_done = True
+        elif word.startswith("--"):
+            name = word.split("=", 1)[0]
+            scripted = scripted or (words[0] == "sed" and name in ("--expression", "--file"))
+            skip = "=" not in word and name in takes_value
+        elif word.startswith("-"):
+            for i, letter in enumerate(word[1:], 1):
+                if letter in short:
+                    scripted = scripted or (words[0] == "sed" and letter in "ef")
+                    skip = i == len(word) - 1  # the value is the next word; else the rest of this one
+                    break
+        # a +command (less +/pattern, tail +5) is skipped
+    if words[0] == "sed" and not scripted:
+        args = args[1:]
+    for word in args:
+        if PATHLIKE.match(word) and ("/" in word or EXTENSION.search(word)) and not word.startswith("s/"):
+            # The guarantee: a word is printed only when it names a file that exists on this
+            # machine. Whatever the parsing above misreads - an abbreviated long option, a
+            # process substitution, an option it does not know - costs at most a "?".
+            return paths.view_label(word)
+    return "?"
+
+
+def classify_attachment(attachment, paths):
+    kind = attachment.get("type") or ""
+    if kind == "nested_memory":
+        path = attachment.get("path") or ""
+        if "/.claude/rules/" in path:
+            return "rules", ".claude/rules/" + os.path.basename(path)
+        return "instructions", paths.show(path)
+    if kind == "instructions":
+        return "instructions", "CLAUDE.md + memory"
+    if kind in ("file", "compact_file_reference"):
+        return "read", "attached " + paths.show(attachment.get("filename") or attachment.get("path"))
+    if kind == "edited_text_file":
+        return "edits", "edited file"
+    return "harness", "attachment " + (kind if ATTACHMENT_KIND.match(kind) else "other")
+
+
+# ---------------------------------------------------------------- one step's growth
+
+
+def split_growth(rest, items, chars_per_token=CHARS_PER_TOKEN):
+    """Split a step's growth (tokens, the model's output already taken off) among its items.
+
+    In proportion to size, none above its cap: one token per MIN_CHARS_PER_TOKEN characters
+    (an image IMAGE_CAP), or - when a ToolSearch ran in the step - one per `chars_per_token`
+    (the agent's measured rate), since the schemas a ToolSearch loads are not in the
+    transcript and are the likelier source. What the capped items cannot hold goes to the
+    step's ToolSearch results, else back as the second value: growth with no recorded source.
+    Returns (one share per item, unattributed) - integers that add up to `rest`."""
+    shares = [0] * len(items)
+    if rest <= 0 or not items:
+        return shares, max(rest, 0)
+    loaders = [i for i, it in enumerate(items) if it["cat"] == "toolsearch"]
+    open_ = [i for i in range(len(items)) if i not in loaders]
+    density = chars_per_token if loaders else MIN_CHARS_PER_TOKEN
+    caps = {i: int(items[i]["chars"] / density) + items[i]["images"] * IMAGE_CAP for i in open_}
+    weight = {i: items[i]["chars"] + items[i]["images"] * IMAGE_TOKENS * 4 for i in range(len(items))}
+    left = rest
+    while open_ and left > 0:
+        total = sum(weight[i] for i in open_)
+        if total == 0:
+            break
+        full = [i for i in open_ if left * weight[i] / total >= caps[i]]
+        if not full:
+            given = 0
+            for i in open_:
+                shares[i] = left * weight[i] // total
+                given += shares[i]
+            # the rounding, at most len(open_) - 1 tokens, to the item furthest below its cap
+            roomiest = max(open_, key=lambda i: caps[i] - shares[i])
+            shares[roomiest] += left - given
+            left = 0
+            break
+        for i in full:
+            shares[i] = caps[i]
+            left -= caps[i]
+            open_.remove(i)
+    if left > 0 and loaders:
+        loader_weight = {i: weight[i] or 1 for i in loaders}
+        total = sum(loader_weight.values())
+        given = 0
+        for i in loaders:
+            shares[i] = left * loader_weight[i] // total
+            given += shares[i]
+        shares[loaders[0]] += left - given
+        left = 0
+    return shares, left
+
+
+# ---------------------------------------------------------------- one agent's stream
+
+
+class Stream:
+    """One agent's API calls and what entered its context between them."""
+
+    def __init__(self, agent, paths):
+        self.agent = agent
+        self.paths = paths
+        self.calls = []  # dicts: input, read, write, output, pre (items), brk
+        self.by_id = {}
+        self.pending = []
+        self.tool_uses = {}
+        self.brk = False
+        self.compactions = 0
+        self.items = []  # finished items: cat, label, tokens, carry, tool, agent
+        self.carried = collections.Counter()
+        self.ci_steps = 0
+        self.ci_step_tokens = 0
+        self.timestamps = []
+        self.branches = collections.Counter()
+        self.tickets = []
+        self.agent_ids = {}  # sub-agent id -> its type, from the Agent calls that started it
+        self.chars_per_token = CHARS_PER_TOKEN
+
+    # -- reading
+    def add(self, record):
+        kind = record.get("type")
+        stamp = record.get("timestamp")
+        if isinstance(stamp, str):
+            self.timestamps.append(stamp)
+        branch = record.get("gitBranch")
+        if isinstance(branch, str) and branch and branch != "HEAD":
+            self.branches[branch] += 1
+        if kind == "assistant":
+            self._assistant(record)
+        elif kind == "user":
+            self._user(record)
+        elif kind == "attachment":
+            self._attachment(record)
+        elif kind == "system" and record.get("subtype") == "compact_boundary":
+            self.brk = True
+            self.compactions += 1
+
+    def _item(self, cat, label, chars, images=0, tool=False):
+        self.pending.append({"cat": cat, "label": label, "chars": chars, "images": images, "tool": tool})
+
+    def _assistant(self, record):
+        message = record.get("message") or {}
+        for block in message.get("content") or []:
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                self.tool_uses[block.get("id")] = (block.get("name") or "?", block.get("input"))
+        usage = message.get("usage")
+        if not isinstance(usage, dict) or message.get("model") == "<synthetic>":
+            return
+        key = message.get("id") or record.get("requestId") or record.get("uuid")
+        numbers = {
+            "input": int(usage.get("input_tokens") or 0),
+            "read": int(usage.get("cache_read_input_tokens") or 0),
+            "write": int(usage.get("cache_creation_input_tokens") or 0),
+            "output": int(usage.get("output_tokens") or 0),
+        }
+        if not any(numbers.values()):
+            return
+        final = message.get("stop_reason") is not None  # else the usage is a streaming snapshot
+        if key in self.by_id:
+            call = self.calls[self.by_id[key]]
+            for k in ("input", "read", "write"):
+                call[k] = numbers[k]
+            call["output"] = max(call["output"], numbers["output"])
+            call["final"] = call["final"] or final
+            return
+        numbers.update({"pre": self.pending, "brk": self.brk, "final": final})
+        self.pending, self.brk = [], False
+        self.by_id[key] = len(self.calls)
+        self.calls.append(numbers)
+
+    def _user(self, record):
+        content = (record.get("message") or {}).get("content")
+        if isinstance(content, str):
+            self._ticket(content)
+            self._item("prompts", "prompt", len(content))
+            return
+        for block in content if isinstance(content, list) else []:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_result":
+                name, data = self.tool_uses.get(block.get("tool_use_id"), ("?", None))
+                self._agent_id(name, data, record.get("toolUseResult"))
+                cat, label = classify_tool(name, data, self.paths) if name != "?" else ("other", "unknown tool")
+                chars, images = size_of(block.get("content"))
+                self._item(cat, label, chars, images, tool=True)
+            else:
+                if block.get("type") == "text":
+                    self._ticket(block.get("text") or "")
+                chars, images = size_of([block])
+                self._item("prompts", "prompt", chars, images)
+
+    def _agent_id(self, name, data, result):
+        if name not in ("Agent", "Task") or not isinstance(result, dict):
+            return
+        agent_id = result.get("agentId")
+        kind = (data or {}).get("subagent_type") if isinstance(data, dict) else None
+        if isinstance(agent_id, str) and re.match(r"^[A-Za-z0-9_-]{1,64}$", agent_id):
+            self.agent_ids[agent_id] = kind if isinstance(kind, str) and PROGRAM.match(kind) else "general-purpose"
+
+    def _ticket(self, text):
+        for pattern in (TICKET_COMMAND, TICKET_TYPED):
+            for m in pattern.finditer(text):
+                ticket = re.sub(r"\s+", " ", m.group(1)).upper().replace(" CLOSE", " close")
+                if ticket not in self.tickets:
+                    self.tickets.append(ticket)
+
+    def _attachment(self, record):
+        attachment = record.get("attachment") or {}
+        rendered = record.get("rendered")
+        if rendered:
+            chars, images = size_of(rendered)
+        elif attachment.get("type") in ("nested_memory", "instructions", "file", "edited_text_file"):
+            chars, images = len(json.dumps(attachment.get("content") or attachment.get("files") or "")), 0
+        else:
+            return
+        cat, label = classify_attachment(attachment, self.paths)
+        self._item(cat, label, chars, images)
+
+    # -- attribution
+    def finish(self):
+        """Split every call's input over what it carries (the module docstring says how)."""
+        n = len(self.calls)
+        starts = []
+        previous = None
+        for k, call in enumerate(self.calls):
+            call["ctx"] = call["input"] + call["read"] + call["write"]
+            if previous is None or call["brk"] or call["ctx"] < previous:
+                starts.append(k)
+            previous = call["ctx"]
+        ends = {start: (starts[i + 1] if i + 1 < len(starts) else n) for i, start in enumerate(starts)}
+        self.chars_per_token = self._measured_chars_per_token(ends)
+        end = n
+        for k, call in enumerate(self.calls):
+            if k in ends:
+                end = ends[k]
+                base = call["ctx"]
+                estimates = [int(it["chars"] / self.chars_per_token) + it["images"] * IMAGE_TOKENS
+                             for it in call["pre"]]
+                if sum(estimates) > base:
+                    estimates = [e * base // sum(estimates) for e in estimates]
+                for it, tokens in zip(call["pre"], estimates):
+                    self._finish_item(it, tokens, end - k)
+                self.carried["start" if k == 0 else "carryover"] += (base - sum(estimates)) * (end - k)
+                continue
+            carry = end - k
+            delta = call["ctx"] - self.calls[k - 1]["ctx"]
+            model = min(self.calls[k - 1]["output"], delta)
+            self.carried["model"] += model * carry
+            shares, sink = split_growth(delta - model, call["pre"], self.chars_per_token)
+            for it, tokens in zip(call["pre"], shares):
+                self._finish_item(it, tokens, carry)
+            self.carried["unattributed"] += sink * carry
+            tools = [it for it in call["pre"] if it["tool"]]
+            if tools and all(it["cat"] == "ci" for it in tools):
+                self.ci_steps += 1
+                self.ci_step_tokens += call["ctx"] + call["output"]
+        self.carried = collections.Counter({k: v for k, v in self.carried.items() if v})
+
+    def _measured_chars_per_token(self, starts):
+        """Median characters per token over the steps that added one text item of 500+
+        characters - beside it at most 2% as much (a token-count reminder), no image, no
+        ToolSearch. Fewer than five such steps: CHARS_PER_TOKEN."""
+        ratios = []
+        for k in range(1, len(self.calls)):
+            call = self.calls[k]
+            if k in starts or not call["pre"]:
+                continue
+            it = max(call["pre"], key=lambda item: item["chars"])
+            others = sum(item["chars"] for item in call["pre"]) - it["chars"]
+            delta = call["ctx"] - self.calls[k - 1]["ctx"]
+            rest = delta - min(self.calls[k - 1]["output"], delta)
+            if (it["chars"] >= 500 and others <= it["chars"] * 0.02 and rest > 0
+                    and not any(item["images"] or item["cat"] == "toolsearch" for item in call["pre"])):
+                ratios.append(it["chars"] / rest)
+        if len(ratios) < 5:
+            return CHARS_PER_TOKEN
+        return min(6.0, max(MIN_CHARS_PER_TOKEN, statistics.median(ratios)))
+
+    def _finish_item(self, it, tokens, carry):
+        self.carried[it["cat"]] += tokens * carry
+        self.items.append({"cat": it["cat"], "label": it["label"], "tokens": tokens, "carry": carry,
+                           "tool": it["tool"], "agent": self.agent})
+
+    # -- totals
+    def totals(self):
+        t = {k: sum(c[k] for c in self.calls) for k in ("input", "read", "write", "output")}
+        t["calls"] = len(self.calls)
+        t["partial"] = sum(1 for c in self.calls if not c["final"])
+        t["input_side"] = t["input"] + t["read"] + t["write"]
+        t["total"] = t["input_side"] + t["output"]
+        return t
+
+
+# ---------------------------------------------------------------- sessions
+
+
+def records(path):
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict):
+                yield record
+
+
+def first_stamp(path):
+    for record in records(path):
+        if isinstance(record.get("timestamp"), str):
+            return record["timestamp"]
+    return ""
+
+
+def agent_type(transcript, started):
+    """The sub-agent's type: its .meta.json, else the Agent call that started it."""
+    meta = transcript[: -len(".jsonl")] + ".meta.json"
+    try:
+        with open(meta, encoding="utf-8") as handle:
+            kind = json.load(handle).get("agentType")
+    except (OSError, ValueError, AttributeError):
+        kind = None
+    if isinstance(kind, str) and PROGRAM.match(kind):
+        return kind
+    name = os.path.basename(transcript)[: -len(".jsonl")]
+    return started.get(name.removeprefix("agent-"), "sub-agent")
+
+
+class Session:
+    def __init__(self, sid, mains, subs, paths):
+        self.sid = sid
+        self.main = Stream("main", paths)
+        self.skipped_sidechain = 0
+        for part in sorted(mains, key=first_stamp):
+            for record in records(part):
+                if record.get("isSidechain"):
+                    self.skipped_sidechain += 1  # older Claude Code kept sub-agents inline
+                    continue
+                self.main.add(record)
+        self.main.finish()
+        self.subs = []
+        for path in sorted(subs):
+            stream = Stream(agent_type(path, self.main.agent_ids), paths)
+            for record in records(path):
+                stream.add(record)
+            stream.finish()
+            if stream.calls:
+                self.subs.append(stream)
+        stamps = sorted(self.main.timestamps)
+        self.start = stamps[0] if stamps else ""
+        self.branch = self.main.branches.most_common(1)[0][0] if self.main.branches else ""
+        self.tickets = list(self.main.tickets)
+        if not self.tickets and self.branch:
+            m = TICKET_BRANCH.search(self.branch)
+            if m:
+                self.tickets = [f"KAN-{m.group(1)} (branch)"]
+
+    def streams(self):
+        return [self.main] + self.subs
+
+    def total(self):
+        return sum(s.totals()["total"] for s in self.streams())
+
+
+def project_folders(projects, repo):
+    encoded = re.sub(r"[^A-Za-z0-9]", "-", repo)
+    folders = []
+    for path in sorted(glob.glob(os.path.join(glob.escape(projects), "*"))):
+        name = os.path.basename(path)
+        if os.path.isdir(path) and (name == encoded or name.startswith(encoded + "--claude-worktrees-")):
+            folders.append(path)
+    return folders
+
+
+def discover(folders):
+    mains = collections.defaultdict(list)
+    subs = collections.defaultdict(list)
+    for folder in folders:
+        for path in glob.glob(os.path.join(glob.escape(folder), "*.jsonl")):
+            mains[os.path.basename(path)[: -len(".jsonl")]].append(path)
+        for path in glob.glob(os.path.join(glob.escape(folder), "*", "subagents", "**", "*.jsonl"), recursive=True):
+            subs[os.path.relpath(path, folder).split(os.sep)[0]].append(path)
+    return {sid: (files, subs.get(sid, [])) for sid, files in mains.items()}
+
+
+def repo_root():
+    try:
+        common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return os.getcwd()
+    return os.path.dirname(common) if os.path.basename(common) == ".git" else common
+
+
+# ---------------------------------------------------------------- printing
+
+
+def num(n):
+    return f"{int(n):,}"
+
+
+def mega(n):
+    return f"{n / 1e6:.2f}M" if n >= 1e5 else num(n)
+
+
+def pct(part, whole):
+    return f"{100.0 * part / whole:.1f}%" if whole else "-"
+
+
+def headline(session, large):
+    streams = session.streams()
+    return {
+        "total": session.total(),
+        "main": session.main.totals()["total"],
+        "subs": sum(s.totals()["total"] for s in session.subs),
+        "reviewer": sum(s.totals()["total"] for s in session.subs if s.agent == "reviewer"),
+        "rules": sum(s.carried["rules"] + s.carried["instructions"] for s in streams),
+        "reads": sum(it["tokens"] * it["carry"] for s in streams for it in s.items
+                     if it["cat"] == "read" and it["tokens"] >= large),
+        "notion": sum(s.carried["notion"] for s in streams),
+        "ci": sum(s.ci_step_tokens for s in streams),
+    }
+
+
+ROW = "  {:<26}{:>6}{:>14}{:>15}{:>14}{:>11}{:>15}"
+
+
+def print_session(session, out):
+    print("\n## {} - {} - session {} - branch {}".format(
+        ", ".join(session.tickets) or "no ticket", session.start[:10], session.sid[:8], session.branch or "-"),
+        file=out)
+    grouped = collections.OrderedDict()
+    for s in session.subs:
+        grouped.setdefault(s.agent, []).append(s)
+    rows = [("main", [session.main])]
+    rows += [(f"{agent} ({len(streams)})", streams) for agent, streams in grouped.items()]
+    rows.append(("all agents", session.streams()))
+    print(ROW.format("agent", "calls", "input", "cache-read", "cache-write", "output", "total"), file=out)
+    for name, streams in rows:
+        t = collections.Counter()
+        for s in streams:
+            t.update(s.totals())
+        print(ROW.format(name, num(t["calls"]), num(t["input"]), num(t["read"]), num(t["write"]),
+                         num(t["output"]), num(t["total"])), file=out)
+    notes = []
+    if session.main.compactions:
+        notes.append(f"{session.main.compactions} compaction(s)")
+    if session.skipped_sidechain:
+        notes.append(f"{session.skipped_sidechain} inline sub-agent record(s) of an older format not counted")
+    for name, streams in rows[:-1]:
+        partial = sum(s.totals()["partial"] for s in streams)
+        if partial:
+            calls = sum(s.totals()["calls"] for s in streams)
+            notes.append(f"{name}: {partial} of {calls} call(s) recorded only a streaming snapshot of their usage,"
+                         " so their output is a lower bound")
+    if notes:
+        print("  note: " + "; ".join(notes), file=out)
+
+    main_input = session.main.totals()["input_side"]
+    print(f"  where the main session's input went ({num(main_input)} input-side tokens):", file=out)
+    for key, text in CATEGORIES:
+        value = session.main.carried.get(key, 0)
+        if value:
+            print(f"    {text:<46}{num(value):>16}{pct(value, main_input):>9}", file=out)
+    if session.main.ci_steps:
+        print(f"    ({session.main.ci_steps} call(s) spent reacting to a CI poll: {num(session.main.ci_step_tokens)} tokens)", file=out)
+
+    results = sorted((it for s in session.streams() for it in s.items if it["tool"]),
+                     key=lambda it: it["tokens"], reverse=True)[:TOP_RESULTS]
+    if results:
+        print("  largest single tool results (tokens added, x calls that carried them):", file=out)
+        for i, it in enumerate(results, 1):
+            print("    {}. {:>9} x{:<4} {:<18} {}".format(i, num(it["tokens"]), it["carry"], it["agent"],
+                                                       it["label"]), file=out)
+
+
+def print_summary(sessions, large, out):
+    print("\n## Summary - shares of each session's total tokens (every agent, input and output)", file=out)
+    print(f"Rules = .claude/rules + CLAUDE.md/MEMORY.md, carried; Large reads = single reads adding >= {num(large)} tokens,"
+          " carried; Reviewer = the reviewer sub-agents' own tokens; Notion = Notion results, carried;"
+          " CI polling = calls reacting to a CI poll. Columns overlap.\n", file=out)
+    print("| Session | Date | Ticket | Total | Main | Sub-agents | Reviewer | Rules | Large reads | Notion | CI polling |",
+          file=out)
+    print("|" + "---|" * 11, file=out)
+    numbers = [headline(s, large) for s in sessions]
+    partial = [any(st.totals()["partial"] for st in s.streams()) for s in sessions]
+    for s, h, lower in zip(sessions, numbers, partial):
+        t = h["total"]
+        print("| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            s.sid[:8], s.start[:10], ", ".join(s.tickets) or "-", mega(t) + (" *" if lower else ""),
+            pct(h["main"], t), pct(h["subs"], t),
+            pct(h["reviewer"], t), pct(h["rules"], t), pct(h["reads"], t), pct(h["notion"], t), pct(h["ci"], t)),
+            file=out)
+    if not numbers:
+        return
+    keys = ["main", "subs", "reviewer", "rules", "reads", "notion", "ci"]
+    shares = {k: [h[k] / h["total"] if h["total"] else 0.0 for h in numbers] for k in keys}
+    totals = [h["total"] for h in numbers]
+    print("| **Median** | | | {} | {} |".format(
+        mega(statistics.median(totals)), " | ".join(f"{100 * statistics.median(shares[k]):.1f}%" for k in keys)),
+        file=out)
+    print("| **Worst** (max per column) | | | {} | {} |".format(
+        mega(max(totals)), " | ".join(f"{100 * max(shares[k]):.1f}%" for k in keys)), file=out)
+    builds = [i for i, s in enumerate(sessions) if not any(t.endswith("close") for t in s.tickets)]
+    if 0 < len(builds) < len(sessions):
+        print("| **Median, without close runs** ({}) | | | {} | {} |".format(
+            len(builds), mega(statistics.median(totals[i] for i in builds)),
+            " | ".join(f"{100 * statistics.median(shares[k][i] for i in builds):.1f}%" for k in keys)),
+            file=out)
+    worst = sessions[totals.index(max(totals))]
+    print("\nLargest session: {} ({}, {} tokens). {} session(s).".format(
+        worst.sid[:8], ", ".join(worst.tickets) or "no ticket", num(max(totals)), len(sessions)), file=out)
+    if any(partial):
+        print("* Some calls recorded only a streaming snapshot of their usage: the session's output tokens, and"
+              " so its total, are a lower bound (the input side is complete).", file=out)
+
+
+# ---------------------------------------------------------------- main
+
+
+def run(argv, out):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--last", type=int, default=10, help="the N most recent sessions (default 10; 0 = all)")
+    parser.add_argument("--all", action="store_true", help="every session, not only ticket sessions")
+    parser.add_argument("--session", action="append", default=[], help="a session id (prefix); repeatable")
+    parser.add_argument("--exclude", action="append", default=[], help="leave out a session id (prefix)")
+    parser.add_argument("--since", help="sessions started on or after YYYY-MM-DD")
+    parser.add_argument("--until", help="sessions started on or before YYYY-MM-DD")
+    parser.add_argument("--project-dir", action="append", default=[],
+                        help="a transcript folder to read instead of this repository's; repeatable")
+    parser.add_argument("--repo", help="the repository's main checkout (default: from git)")
+    parser.add_argument("--large-read-tokens", type=int, default=LARGE_READ_TOKENS)
+    parser.add_argument("--summary-only", action="store_true")
+    parser.add_argument("--selftest", action="store_true", help="check this script against a built transcript")
+    args = parser.parse_args(argv)
+    if args.selftest:
+        return selftest(out)
+
+    repo = os.path.abspath(args.repo) if args.repo else repo_root()
+    paths = Paths(repo)
+    if args.project_dir:
+        folders = [os.path.abspath(p) for p in args.project_dir]
+    else:
+        base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+        folders = project_folders(os.path.join(base, "projects"), repo)
+    sessions = []
+    for sid, (mains, subs) in discover(folders).items():
+        if args.session and not any(sid.startswith(p) for p in args.session):
+            continue
+        if any(sid.startswith(p) for p in args.exclude):
+            continue
+        session = Session(sid, mains, subs, paths)
+        day = session.start[:10]
+        if not session.main.calls or (args.since and day < args.since) or (args.until and day > args.until):
+            continue
+        if args.all or args.session or session.tickets:
+            sessions.append(session)
+    sessions.sort(key=lambda s: s.start)
+    if not args.session and args.last > 0:
+        sessions = sessions[-args.last:]
+
+    print(f"# Claude usage per session - {len(sessions)} session(s) from {len(folders)} transcript folder(s), read {datetime.datetime.now().astimezone().date().isoformat()}", file=out)
+    print("Tokens as the transcripts recorded the API's usage (* in the summary: a lower bound). Desktop and terminal"
+          " sessions only: cloud sessions keep their transcripts on Anthropic's machines.", file=out)
+    if not sessions:
+        print("No matching session.", file=out)
+        return 1
+    if not args.summary_only:
+        for session in sessions:
+            print_session(session, out)
+    print_summary(sessions, args.large_read_tokens, out)
+    return 0
+
+
+# ---------------------------------------------------------------- selftest
+
+MARKER = "SECRET-TRANSCRIPT-TEXT"
+
+
+def write_fixture(folder):
+    """One session with known numbers; every content field carries MARKER. Returns its id."""
+    sid = "11111111-2222-3333-4444-555555555555"
+    filler = (MARKER + " ") * 200
+
+    def asst(mid, usage, blocks):
+        return {"type": "assistant", "timestamp": "2026-11-01T10:00:00Z", "gitBranch": "kan-1-x",
+                "message": {"id": mid, "model": "m", "usage": usage, "content": blocks}}
+
+    def use(i, r, w, o):
+        return {"input_tokens": i, "cache_read_input_tokens": r, "cache_creation_input_tokens": w,
+                "output_tokens": o}
+
+    def result(tid, chars):
+        return {"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": tid, "content": filler[:chars]}]}}
+
+    lines = [
+        {"type": "attachment", "timestamp": "2026-11-01T10:00:00Z", "attachment": {"type": "instructions"},
+         "rendered": [{"type": "text", "text": filler[:400]}]},
+        {"type": "user", "timestamp": "2026-11-01T10:00:00Z", "message": {"content":
+            "<command-name>/ticket</command-name>\n<command-args>KAN-1</command-args>" + filler[:9]}},
+        # one call written as two records (thinking, then the tool call): counted once
+        asst("m1", use(10, 0, 990, 50), [{"type": "thinking", "thinking": MARKER}]),
+        asst("m1", use(10, 0, 990, 50), [{"type": "tool_use", "id": "t1", "name": "Read",
+                                          "input": {"file_path": "/x/.claude/worktrees/wt/app/x.py"}}]),
+        result("t1", 2000),
+        {"type": "attachment", "attachment": {"type": "nested_memory", "path": "/x/.claude/rules/tests.md"},
+         "rendered": [{"type": "text", "text": filler[:1000]}]},
+        asst("m2", use(5, 1000, 645, 30), [{"type": "tool_use", "id": "t2", "name": "Bash",
+                                            "input": {"command": "gh pr checks 5 # " + MARKER}}]),
+        result("t2", 100),
+        asst("m3", use(5, 1645, 50, 10), [{"type": "tool_use", "id": "t3", "name": "mcp__abc__notion-fetch",
+                                           "input": {"id": "https://app.notion.com/p/" + "a" * 32}}]),
+        result("t3", 400),
+        asst("m4", use(5, 1695, 100, 5), [{"type": "text", "text": MARKER}]),
+        {"type": "system", "subtype": "compact_boundary"},
+        {"type": "user", "message": {"content": filler[:200]}},
+        asst("m5", use(500, 0, 0, 5), [{"type": "text", "text": MARKER}]),
+    ]
+    os.makedirs(os.path.join(folder, sid, "subagents"))
+    with open(os.path.join(folder, sid + ".jsonl"), "w") as handle:
+        handle.write("\n".join(json.dumps(x) for x in lines) + "\n")
+    sub = os.path.join(folder, sid, "subagents", "agent-a1.jsonl")
+    with open(sub, "w") as handle:
+        handle.write(json.dumps({"type": "user", "isSidechain": True, "message": {"content": filler[:40]}}) + "\n")
+        handle.write(json.dumps(asst("r1", use(5, 0, 295, 20), [{"type": "text", "text": MARKER}])) + "\n")
+    with open(sub[: -len(".jsonl")] + ".meta.json", "w") as handle:
+        json.dump({"agentType": "reviewer", "description": MARKER}, handle)
+    return sid
+
+
+def selftest(out):
+    import socket
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("usage-report opened a network connection")
+
+    failures = []
+    with tempfile.TemporaryDirectory() as folder:
+        sid = write_fixture(folder)
+        session = Session(sid, [os.path.join(folder, sid + ".jsonl")],
+                          glob.glob(os.path.join(folder, sid, "subagents", "*.jsonl")), Paths("/x"))
+        main = session.main
+        got = {k: main.totals()[k] for k in ("calls", "input_side", "output")}
+        if got != {"calls": 5, "input_side": 6650, "output": 100}:
+            failures.append(f"main totals {got}")
+        if sum(main.carried.values()) != main.totals()["input_side"]:
+            failures.append(f"shares do not add up to the input side: {dict(main.carried)}")
+        # nothing to calibrate on (no one-item step of 500+ characters): 2.25 characters per token
+        expected = {"start": 3152, "instructions": 708, "prompts": 228, "model": 220, "read": 1200,
+                    "rules": 600, "ci": 40, "notion": 90, "carryover": 412}
+        if dict(main.carried) != expected:
+            failures.append(f"carried {dict(main.carried)} != {expected}")
+        if (main.ci_steps, main.ci_step_tokens) != (1, 1710):
+            failures.append(f"CI steps {(main.ci_steps, main.ci_step_tokens)}")
+        if [(s.agent, s.totals()["total"]) for s in session.subs] != [("reviewer", 320)]:
+            failures.append(f"sub-agents {[(s.agent, s.totals()) for s in session.subs]}")
+        if session.tickets != ["KAN-1"]:
+            failures.append(f"tickets {session.tickets}")
+        h = headline(session, 300)
+        if (h["total"], h["reviewer"], h["rules"], h["reads"], h["notion"], h["ci"]) != (7070, 320, 1308, 1200, 90, 1710):
+            failures.append(f"headline {h}")
+        # a step's growth beyond what its items can hold goes to ToolSearch, else to no recorded source
+        read = {"cat": "read", "chars": 1400, "images": 0}
+        loader = {"cat": "toolsearch", "chars": 100, "images": 0}
+        # (beside a ToolSearch an item holds 1,400 / 2.25 = 622 tokens; alone, 1,400 / 1.4 = 1,000)
+        if split_growth(5000, [read, loader]) != ([622, 4378], 0) or split_growth(5000, [read]) != ([1000], 4000):
+            failures.append(f"split_growth {split_growth(5000, [read, loader])} {split_growth(5000, [read])}")
+        if split_growth(700, [read, dict(read)]) != ([350, 350], 0):
+            failures.append(f"split_growth proportional {split_growth(700, [read, dict(read)])}")
+        empty = {"cat": "toolsearch", "chars": 0, "images": 0}
+        if split_growth(900, [empty, empty, dict(loader, chars=1)]) != ([300, 300, 300], 0):
+            failures.append(f"split_growth empty loaders {split_growth(900, [empty, empty, dict(loader, chars=1)])}")
+        # no word of a command's text ever becomes a label
+        for command in ("sed -n 's/" + MARKER + "=x/y/p' app/x.py", "cat <<EOF\n" + MARKER + ".AG\nEOF",
+                        "cd /x\ngit commit -m \"Fix it; " + MARKER + " asked\"",
+                        "cd /x\npython3 - <<'EOF'\nx = 1; " + MARKER + " = 2\nEOF",
+                        "cd /x\ncat <<'EOF' > notes.txt\nhello; cat " + MARKER + ".AG\nEOF",
+                        "less +/" + MARKER + " app/x.py", "sed -n -e 'y/" + MARKER + "/b/' app/x.py",
+                        MARKER + " --flag", "cd /x\n" + MARKER + ".sh"):
+            _cat, label = classify_tool("Bash", {"command": command}, Paths("/x"))
+            if MARKER in label:
+                failures.append("a Bash label printed command text: " + repr(command[:30]))
+        buffer = io.StringIO()
+        saved = socket.socket.connect, socket.create_connection
+        socket.socket.connect, socket.create_connection = refuse, refuse
+        try:
+            code = run(["--project-dir", folder, "--repo", "/x", "--large-read-tokens", "300"], buffer)
+        finally:
+            socket.socket.connect, socket.create_connection = saved
+        text = buffer.getvalue()
+        if code != 0:
+            failures.append(f"exit code {code}")
+        if MARKER in text:
+            failures.append("transcript content printed")
+        for needle in ("Read app/x.py", "notion-fetch " + "a" * 32, "Bash (CI poll)", "reviewer (1)",
+                       "| 7,070 * | 95.5% | 4.5% | 4.5% | 18.5% | 17.0% | 1.3% | 24.2% |",
+                       "* Some calls recorded only a streaming snapshot"):
+            if needle not in text:
+                failures.append("missing from the report: " + needle)
+    for failure in failures:
+        print("FAIL " + failure, file=out)
+    print("selftest: " + ("ok" if not failures else f"{len(failures)} failure(s)"), file=out)
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    with contextlib.suppress(BrokenPipeError):
+        sys.exit(run(sys.argv[1:], sys.stdout))

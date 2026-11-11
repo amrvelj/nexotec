@@ -43,6 +43,7 @@ tickets load, before and after a change.
 | `scripts/dev/check` | before every push | CI-equivalent lanes; records a pass for the exact tree |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 | `scripts/dev/api-type` | any time | One schema or API path from the generated `schema.d.ts`, which is never read whole (KAN-618) |
+| `scripts/dev/usage-report` | on a Mac with the sessions' transcripts (not in a cloud session) | Claude usage per session from the local transcripts: tokens per agent, where the input went, the largest tool results; counts and file names only, no network (KAN-613) |
 
 There is no `AGENTS.md` (only Claude Code works in this repository) and no `.mcp.json` (Notion
 comes from the claude.ai connector, GitHub goes through `gh api` (REST only — KAN-155), screenshots through the desktop
