@@ -31,11 +31,17 @@ in the same PR as any change to what it states. -->
   descends from its own context's branch — `alembic revision -m "…" --head customer@head` (with
   `--autogenerate` when models changed) — which places the file in that context's folder. It
   never touches another context's tables.
-- **One upgrade is one transaction.** Concurrent `alembic upgrade heads` runs (web, worker,
-  replicas) are serialised by a transaction-scoped advisory lock in `alembic/env.py` (KAN-92).
-  A migration that commits mid-run — `op.get_context().autocommit_block()`, e.g. `CREATE INDEX
-  CONCURRENTLY` — or turning on `transaction_per_migration` releases that lock early: part of
-  the plan, with the lock reworked in the same PR.
+- **Concurrent upgrades are serialised for the whole run.** `alembic upgrade heads` runs (web,
+  worker, replicas) take a session-level advisory lock in `alembic/env.py`, polled
+  (`pg_try_advisory_lock`) before the first migration transaction and held by the connection
+  until the run ends (KAN-92, KAN-179, ADR-134); never wait for it in SQL — a waiting statement's
+  snapshot deadlocks a `CREATE INDEX CONCURRENTLY`. An index on a large or hot table is built
+  or dropped `CONCURRENTLY` inside `op.get_context().autocommit_block()`, in a migration of its
+  own: what precedes the block has committed when it runs, so a failure leaves the schema
+  part-way and an `INVALID` index behind — begin with `DROP INDEX CONCURRENTLY IF EXISTS` so a
+  rerun repairs it, and declare the index on the model as usual. Everything else stays one
+  transaction per upgrade (no `transaction_per_migration`).
+  `tests/test_migration_lock_spans_autocommit_blocks.py` pins the lock across such a block.
 - A stub context has no chain yet: its first migration needs a new labelled branch root and its
   folder added to `version_locations` in `alembic.ini` — part of the plan.
 - **A migration is part of the plan** you show Anto before building (CLAUDE.md, "Plan before

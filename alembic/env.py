@@ -1,8 +1,10 @@
+import time
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from alembic import context
 
@@ -27,6 +29,8 @@ target_metadata = Base.metadata
 # one is the first 8 bytes of sha256(b"nexotec:alembic-upgrade"), big-endian,
 # signed. Advisory locks are per database; nothing else may take this key.
 MIGRATION_ADVISORY_LOCK_KEY = -7906448801533702249
+# How often a waiting upgrader asks for the lock again (KAN-179).
+MIGRATION_LOCK_POLL_INTERVAL_S = 0.25
 
 # Real connection string comes from app settings (DMS_DATABASE_URL env var),
 # not the placeholder in alembic.ini — keeps one source of truth. Normalized
@@ -72,6 +76,20 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _take_migration_lock(connection: Connection) -> None:
+    """Polls for the migration lock with no transaction open between tries
+    (see run_migrations_online for why it is never waited for in SQL)."""
+
+    while True:
+        acquired = connection.execute(
+            text("SELECT pg_try_advisory_lock(:key)"), {"key": MIGRATION_ADVISORY_LOCK_KEY}
+        ).scalar_one()
+        connection.commit()
+        if acquired:
+            return
+        time.sleep(MIGRATION_LOCK_POLL_INTERVAL_S)
+
+
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
@@ -86,37 +104,49 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Every service that starts from this codebase runs `alembic upgrade
+        # heads` first: the web service in render.yaml, both `app` and
+        # `worker` in docker-compose.yml, the Dockerfile's default CMD and
+        # every web replica (the worker is declared in render.yaml too, but
+        # commented out: not provisioned on staging, KAN-234). Without this
+        # lock two overlapping runs both start the same migration and the
+        # second exits 1 (KAN-92).
+        #
+        # The lock is the connection's (session-level `pg_advisory_lock`),
+        # held from before the first migration transaction until the run
+        # ends (KAN-179, ADR-134). A transaction-scoped lock was released by
+        # the first commit, so a migration that commits mid-run - an
+        # `op.get_context().autocommit_block()`, which `CREATE INDEX
+        # CONCURRENTLY` needs - let a second run into the same migration;
+        # held by the connection it spans every commit. The waiting run takes
+        # it before its migration transaction begins, so it reads
+        # alembic_version after the winner committed, whatever the isolation
+        # level. It is polled (`pg_try_advisory_lock`), never waited for in
+        # a statement: a waiting statement holds a snapshot, and `CREATE
+        # INDEX CONCURRENTLY` in the winner waits for every older snapshot to
+        # end - a deadlock Postgres resolves by failing the waiter (measured).
+        # Between tries no transaction is open. Each try opens SQLAlchemy's
+        # autobegin transaction, which is committed at once: left open,
+        # Alembic would treat it as external and never commit the migrations
+        # (measured under KAN-92: exit 0, nothing migrated). The connection
+        # is closed at the end (NullPool), which releases the lock even when
+        # a migration fails; the unlock says so explicitly on success.
+        # tests/test_migration_lock_spans_autocommit_blocks.py and
+        # scripts/check_concurrent_alembic_upgrade.py are the proof.
+        locked = connection.dialect.name == "postgresql"
+        if locked:
+            _take_migration_lock(connection)
+
         context.configure(
             connection=connection, target_metadata=target_metadata, render_item=render_item
         )
 
         with context.begin_transaction():
-            # Every service that starts from this codebase runs `alembic upgrade
-            # heads` first: the web service in render.yaml, both `app` and
-            # `worker` in docker-compose.yml, the Dockerfile's default CMD and
-            # every web replica (the worker is declared in render.yaml too, but
-            # commented out: not provisioned on staging, KAN-234). Without
-            # this lock two overlapping runs both start
-            # the same migration and the second exits 1 (KAN-92). It is taken
-            # here, as the first statement inside Alembic's own transaction, and
-            # released when that transaction commits: the second run waits, then
-            # finds the schema current. Keep it here. Executed on the connection
-            # before context.configure(), SQLAlchemy's autobegin opens a
-            # transaction Alembic treats as external and never commits (measured:
-            # exit 0, nothing migrated); a session-level pg_advisory_lock would
-            # outlive the transaction it protects.
-            # Two assumptions hold the guarantee: the whole upgrade is ONE
-            # transaction (no transaction_per_migration, no autocommit_block()
-            # such as CREATE INDEX CONCURRENTLY - either commits mid-run and
-            # releases the lock), and READ COMMITTED isolation (under REPEATABLE
-            # READ the waiting run's snapshot predates the winner's commit, so it
-            # would read a stale alembic_version).
-            if connection.dialect.name == "postgresql":
-                connection.execute(
-                    text("SELECT pg_advisory_xact_lock(:key)"),
-                    {"key": MIGRATION_ADVISORY_LOCK_KEY},
-                )
             context.run_migrations()
+
+        if locked:
+            connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": MIGRATION_ADVISORY_LOCK_KEY})
+            connection.commit()
 
 
 if context.is_offline_mode():
