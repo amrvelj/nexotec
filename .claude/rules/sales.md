@@ -84,7 +84,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   consumer locks it), so every contract
   on the car derives «nicht fakturierbar» until the next purchase — unless Stock holds the car as
   bought again by then, which the consumer re-reads through `inventory.public.is_stock_item_purchased`
-  (delivery is unordered: a storno may arrive after the next purchase). That consumer's read is
+  (delivery is unordered). That consumer's read is
   asynchronous; `request_invoice` still reads only the local replica (ADR-052 addendum, Anto
   2026-11-06, KAN-146 option A: "never a synchronous query" governs the invoicing path). Unhandled: a purchase whose
   first delivery failed arriving after its storno recreates the row — the KAN-145 check below
@@ -100,9 +100,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
   a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
-  the stock item. `created_by`/`updated_by` name a `user.id` or are null in every reconciled
-  context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
-  `tests/architecture/test_actor_columns_reconciled.py`).
+  the stock item. A transaction, offer, contract or deal naming a customer merged over an hour
+  ago is a `customer.merged` that `sales.customer_merged` never applied (KAN-581).
+  `created_by`/`updated_by` name a `user.id` or are null (KAN-243, `actor_reference_checks`).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
@@ -175,12 +175,6 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   items: `update_offer`/`update_contract` write the offer or contract before re-freezing its
   factory-option lines, and `replace_line_items` locks it (`priced_deal.lock_editable`) before
   touching a line (KAN-287).
-- **A customer merge reaches Sales only through `customer.merged`** (KAN-185): the consumer
-  `sales.customer_merged` (`services/customer_merge.py`) moves the duplicate's legacy
-  transactions, offers, contracts and deals to the survivor in its own transaction. Nightly
-  reconciliation reports each such row still naming a customer merged more than an hour ago
-  (four StateChecks, `customer.public.customer_is_merged`; KAN-581) — a dead-lettered or never
-  run delivery (staging has no worker) is found, not only alerted.
 
 ## The responsible seller (KAN-200, Anto 2026-10-19)
 
