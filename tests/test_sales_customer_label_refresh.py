@@ -245,6 +245,37 @@ def test_the_job_walks_more_than_one_batch(client, db_session, monkeypatch):
     assert {db_session.get(SalesOffer, uuid.UUID(o["id"])).customer_label for o in offers} == {"Ben Rothen"}
 
 
+def test_a_contract_held_when_the_job_passes_keeps_its_offer_in_step_even_when_signed_next(engine, client, db_session):
+    """Review finding (round 4): the offer mirrors its contract's committed
+    label, never the customer's directly — so a pending contract a writer
+    held while the job passed, then signed before the next night, never
+    leaves the offer on another name for good."""
+
+    _postgres_only(engine)
+    seller, customer = _setup(client, firstName="Paul", lastName="Frey")
+    offer = _offer_with(client, seller, customer)
+    contract = _contract_from_offer(client, seller, offer)
+    _rename(db_session, customer["id"], last_name="Frei")
+
+    writer = sessionmaker(bind=engine)()
+    try:
+        writer.execute(
+            text("SELECT 1 FROM sales_contract WHERE id = :id FOR UPDATE"), {"id": uuid.UUID(contract["id"])}
+        )
+        refresh_customer_labels(db_session)
+    finally:
+        writer.rollback()
+        writer.close()
+
+    db_session.expire_all()
+    assert db_session.get(SalesContract, uuid.UUID(contract["id"])).customer_label == "Paul Frey"
+    assert db_session.get(SalesOffer, uuid.UUID(offer["id"])).customer_label == "Paul Frey"  # in step with it
+
+    _sign(db_session, contract["id"], ContractStatus.CONFIRMED)
+    refresh_customer_labels(db_session)
+    assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Paul Frey"}
+
+
 # --- the sync-age alarm (rule 10) --------------------------------------------------------
 
 
@@ -262,8 +293,9 @@ def test_label_age_is_the_stalest_stamp_and_signed_work_is_restamped_not_relabel
     _rename(db_session, customer["id"], last_name="Meier")
     refresh_customer_labels(db_session)
 
-    # Signed work keeps its name but is restamped, so the alarm is quiet — and
-    # the offer a cancelled contract frees comes back with a fresh stamp.
+    # Signed work keeps its name but is restamped, so the alarm is quiet; a row
+    # that comes back into open work later (the offer a cancelled contract
+    # frees, a copied offer) carries this fresh stamp.
     assert oldest_customer_label_age_seconds(db_session) < 60
     assert {r.customer_label for r in _rows(db_session, customer["id"])} == {"Ida Moser"}
 

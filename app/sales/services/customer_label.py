@@ -11,11 +11,22 @@ generated document's addressee. This job re-reads the label through
 context's tables) and commits per batch in this context alone (ADR-047) —
 the rules of `sales.owner_labels` (KAN-404, `owner_label.py`).
 
-**Which rows follow** (Anto, 2026-11-10, ruling 1A): open work only — an
-offer still being worked on (draft or open, no live contract made from it),
-a pending contract, and the deal rows showing one of them. A confirmed, invoiced or cancelled contract keeps the name the buyer
-signed under, and so does its deal row; a cancelled offer keeps its name
-too. Documents already generated are frozen and never touched.
+**Which rows follow** (Anto, 2026-11-10, ruling 1A): open work only — a
+draft or open offer no live contract was made from, a pending contract, and
+the deal rows showing one of them. A confirmed, invoiced or cancelled
+contract keeps the name the buyer signed under, and so does its deal row; a
+cancelled offer keeps its name too. Rows that do not follow are only
+restamped («checked, kept on purpose»), as `sales.owner_labels` restamps
+every row it can resolve, so a row that comes back into open work (the offer
+a cancelled contract frees, a copied offer) never brings a stale stamp.
+
+**An offer with a live contract mirrors that contract** (KAN-408: the two
+never disagree): after the contract pass, such an offer takes its contract's
+committed label and language — the new name while the contract is pending,
+the signed name once it is signed. Never the customer's directly: a contract
+a writer held when the job passed, or one signed between two passes, would
+otherwise leave the two apart for good. Deal rows follow their live entity
+the same way. Documents already generated are frozen and never touched.
 `customer_locality` is left as it is (ruling 2, revised): no path fills it.
 
 The correspondence language follows with the label (the plan Anto approved
@@ -38,36 +49,27 @@ from app.customer.public import get_customer_sales_labels
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
+from app.sales.services.ownership import offer_is_open
 
 _BATCH = 500
 _Labelled = TypeVar("_Labelled", SalesOffer, SalesContract, SalesDeal)
 
 _OPEN_OFFER = (OfferStatus.DRAFT, OfferStatus.OPEN)
 _OPEN_CONTRACT = (ContractStatus.PENDING,)
-_SIGNED_CONTRACT = (ContractStatus.CONFIRMED, ContractStatus.INVOICED)
 
 
 def _follows(model: type[_Labelled]) -> Any:
-    """The rows whose customer label follows the customer: open work only.
+    """The rows whose customer label follows the customer directly: open work
+    without a live contract above it.
 
-    An offer follows while it is draft or open and no contract made from it
-    is signed (confirmed or invoiced). An offer keeps its status when a
-    contract is made from it, so the status alone would relabel the read-only
-    offer behind a signed contract while the contract keeps the signed name;
-    excluding every offer with a live contract would leave the offer behind
-    a pending one on the old name for good once it is signed. This way the
-    offer and its contract carry the same name in both phases (KAN-408: the
-    two never disagree). A cancelled contract frees its offer, which follows
-    again."""
+    An offer follows while it is draft or open and no live (not cancelled)
+    contract was made from it (`ownership.offer_is_open`, Sales' one
+    definition). An offer keeps its status when a contract is made from it;
+    such an offer mirrors its contract instead (`_mirror_offers_to_contracts`).
+    A cancelled contract frees its offer, which follows again."""
 
     if model is SalesOffer:
-        signed_contract = (
-            select(SalesContract.id)
-            .where(SalesContract.offer_id == SalesOffer.id, SalesContract.status.in_(_SIGNED_CONTRACT))
-            .correlate(SalesOffer)
-            .exists()
-        )
-        return SalesOffer.status.in_(_OPEN_OFFER) & ~signed_contract
+        return offer_is_open()
     if model is SalesContract:
         return SalesContract.status.in_(_OPEN_CONTRACT)
     # A deal row shows its contract once one exists (`entity_type` flips),
@@ -104,8 +106,74 @@ def refresh_customer_labels(db: Session) -> int:
     # before the next, so the job never holds rows of two tables at once.
     offers = _refresh_table(db, SalesOffer)
     contracts = _refresh_table(db, SalesContract)
+    # Offers again, after the contracts committed: an offer with a live
+    # contract takes that contract's label. It locks offer rows only and reads
+    # the contracts unlocked, so the lock order holds.
+    mirrored = _mirror_offers_to_contracts(db)
     deals = _refresh_table(db, SalesDeal)
-    return offers + contracts + deals
+    return offers + contracts + mirrored + deals
+
+
+def _mirror_offers_to_contracts(db: Session) -> int:
+    """Give each draft or open offer with a live contract that contract's
+    committed `customer_label` and `customer_language`; returns how many
+    offers changed. Same batch, lock and stamp rules as `_refresh_table`."""
+
+    live_contract = (
+        select(SalesContract.id)
+        .where(SalesContract.offer_id == SalesOffer.id, SalesContract.status != ContractStatus.CANCELLED)
+        .correlate(SalesOffer)
+        .exists()
+    )
+    changed = 0
+    last_id: uuid.UUID | None = None
+    while True:
+        stmt = (
+            select(SalesOffer)
+            .where(SalesOffer.status.in_(_OPEN_OFFER), live_contract)
+            .order_by(SalesOffer.id)
+            .limit(_BATCH)
+            .with_for_update(key_share=True, skip_locked=True)
+        )
+        if last_id is not None:
+            stmt = stmt.where(SalesOffer.id > last_id)
+        batch = list(db.scalars(stmt).all())
+        if not batch:
+            return changed
+        last_id = batch[-1].id
+
+        contracts = {
+            offer_id: (label, language)
+            for offer_id, label, language in db.execute(
+                select(SalesContract.offer_id, SalesContract.customer_label, SalesContract.customer_language).where(
+                    SalesContract.offer_id.in_([offer.id for offer in batch]),
+                    SalesContract.status != ContractStatus.CANCELLED,
+                )
+            ).tuples()
+        }
+        now = utcnow()
+        stamp_only: list[uuid.UUID] = []
+        for offer in batch:
+            mirrored = contracts.get(offer.id)
+            if mirrored is None:
+                continue
+            label, language = mirrored
+            if offer.customer_label == label and offer.customer_language == language:
+                stamp_only.append(offer.id)
+                continue
+            offer.customer_label = label
+            offer.customer_language = language
+            offer.customer_denorm_refreshed_at = now
+            changed += 1
+        db.flush()
+        if stamp_only:
+            db.execute(
+                update(SalesOffer)
+                .where(SalesOffer.id.in_(stamp_only))
+                .values(customer_denorm_refreshed_at=now, updated_at=SalesOffer.updated_at)
+                .execution_options(synchronize_session=False)
+            )
+        db.commit()
 
 
 def _refresh_table(db: Session, model: type[_Labelled]) -> int:

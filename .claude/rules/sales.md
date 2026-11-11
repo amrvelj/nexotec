@@ -208,8 +208,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   (KAN-590; Anto, 2026-11-10, 1A): `sales.customer_labels` (`services/customer_label.py`, after
   `sales.owner_labels`) re-reads `customer_label` and `customer_language` through
   `customer.public.get_customer_sales_labels` on open work only — a draft or open offer no signed
-  (confirmed or invoiced) contract was made from, a pending contract, and their deal rows, a deal row
-  only once its live entity carries the new label; a confirmed, invoiced or cancelled contract, the
+  (confirmed or invoiced) contract was made from, a pending contract, and their deal rows — an offer
+  with a live contract takes that contract's committed label, a deal row its live entity's, so a row
+  a writer held never leaves them apart; a confirmed, invoiced or cancelled contract, the
   offer behind a signed one and their rows keep their name (only restamped; the offer a cancelled
   contract frees follows again), a merged customer's rows are the merge consumer's — and then take
   the survivor's language the next night; gauge `sales.customer` over every row, as `sales.owner`. `customer_locality` is written by no path (ruled: left as it is).
