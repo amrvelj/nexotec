@@ -68,14 +68,18 @@ def fail(message: str) -> NoReturn:
     sys.exit(1)
 
 
-def _load_code_map_seed_migration():
+def _load_vehicle_migration(pattern: str, name: str):
     versions = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "vehicle"
-    (path,) = sorted(versions.glob("7c4e9a2b6d13_*.py"))
-    spec = importlib.util.spec_from_file_location("kan38_pr2c_code_map_seed", path)
+    (path,) = sorted(versions.glob(pattern))
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_code_map_seed_migration():
+    return _load_vehicle_migration("7c4e9a2b6d13_*.py", "kan38_pr2c_code_map_seed")
 
 
 def _verify_auto_i_dat_code_map(db) -> None:
@@ -97,6 +101,17 @@ def _verify_auto_i_dat_code_map(db) -> None:
     ]
     if missing:
         fail(f"auto_i_dat code map: {len(missing)} seeded mapping(s) missing or re-pointed after the upgrade, e.g. {missing[:3]}")
+
+    # KAN-587 — the identAPI's six size classes (`category` 1-6, passenger cars), seeded by `8e2b6c4f1a97`.
+    size_classes = _load_vehicle_migration("8e2b6c4f1a97_*.py", "kan587_size_class_code_map")
+    missing_size_classes = [
+        category
+        for category, size_class in size_classes.SIZE_CLASS_BY_CATEGORY.items()
+        if by_key.get((size_classes.PASSENGER_CAR_KIND, size_classes.CODE_GROUP, category))
+        != (size_classes.CODE_GROUP, size_class)
+    ]
+    if missing_size_classes:
+        fail(f"auto_i_dat code map: size class(es) not seeded for category {missing_size_classes} (KAN-587)")
 
 
 def _load_smoke_seed_script():

@@ -11787,6 +11787,8 @@ export interface components {
             engineCycle?: string | null;
             /** Gears */
             gears?: number | null;
+            /** Homologationclass */
+            homologationClass?: string | null;
             /** Importcode */
             importcode?: string | null;
             /** Kw */
@@ -11866,6 +11868,8 @@ export interface components {
             engineCycle?: string | null;
             /** Gears */
             gears?: number | null;
+            /** Homologationclass */
+            homologationClass?: string | null;
             /** Importcode */
             importcode?: string | null;
             /** Kw */

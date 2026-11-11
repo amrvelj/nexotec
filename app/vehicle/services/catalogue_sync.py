@@ -113,9 +113,13 @@ COLOUR_AND_TYRE_CODE_GROUPS: Final = (_COLOUR_AREA, _AXLE_POSITION, _TYRE_TYPE)
 # before it, three fields), plus the production range's end. The coded
 # reference fields are resolved separately (`_CODED_FIELDS`); `name` and
 # `model_year_from` are NOT NULL, so there is never a gap to fill.
+# `homologation_class` is the one spec field no provider sends (KAN-587): it
+# is entered by hand, so the adapter carries nothing for it and a sync visit
+# neither fills nor resolves it.
+_HAND_ENTERED_FIELDS: Final = ("homologation_class",)
 _FILLABLE_MASTER_FIELDS: Final = (
     "model_year_to",
-    *(field for field in SPEC_BLOCK_FIELDS if field not in _CODED_FIELDS),
+    *(field for field in SPEC_BLOCK_FIELDS if field not in _CODED_FIELDS and field not in _HAND_ENTERED_FIELDS),
 )
 
 

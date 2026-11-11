@@ -82,6 +82,7 @@ SPEC_BLOCK_FIELDS: tuple[str, ...] = (
     "system_kw",
     # classification
     "vehicle_class",
+    "homologation_class",
     "valuation_classification",
     "emission_standard",
     # dimensions / weights
@@ -158,7 +159,15 @@ class VehicleSpecBlock:
 
     # -- classification --------------------------------------------------
     vehicle_class: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    """Ref `vehicle_class` (`FzKlasse`). Passenger cars only."""
+    """Ref `vehicle_class` — the **size class** (`FzKlasse`, the identAPI's
+    `category`: micro … luxury; KAN-587, Anto 2026-11-10). Passenger cars
+    only. Until KAN-587 this list held the type-approval classes, which now
+    have their own field below."""
+    homologation_class: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    """Ref `homologation_class` — the type-approval class on the
+    Fahrzeugausweis (M1, N1, L3e, L1e; KAN-587). No provider sends it: it is
+    entered by hand, and a catalogue variant holds one only where a value
+    stored before KAN-587 was moved here."""
     valuation_classification: Mapped[str | None] = mapped_column(String(64), nullable=True)
     """Ref `valuation_classification` (`Einstufung`). Drives whether FR-V-09
     can value the car at all."""
