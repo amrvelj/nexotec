@@ -47,7 +47,8 @@
     "pending": "Stato: in integrazione – l'azienda diventa attiva non appena la configurazione è conclusa.",
     "invited": "L'invito a {{email}} è stato inviato; il responsabile è invitato.",
     "nextSteps": "Il responsabile configura IVA, banca, testi e intervalli di numeri nell'amministrazione.",
-    "another": "Integrare un'altra azienda"
+    "another": "Integrare un'altra azienda",
+    "invitationFailed": "L'invito a {{email}} non ha potuto essere recapitato. Il responsabile è creato; inviate di nuovo l'invito dal ripristino dell'account."
   },
   "errors": {
     "generic": "Non è stato possibile integrare l'azienda.",

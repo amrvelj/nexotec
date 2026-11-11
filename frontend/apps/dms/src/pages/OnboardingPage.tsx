@@ -5,7 +5,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Wizard, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
-import type { AccessRole, DealerGroupList, OnboardingRequest, OnboardingResult, UserRole } from '../api/types'
+import type { AccessRole, DealerGroupOptionList, OnboardingRequest, OnboardingResult, UserRole } from '../api/types'
 import { useListOptions } from '../components/business/useListOptions'
 import { CANTON_OPTIONS } from '../customerOptions'
 import { FRANCHISE_TYPES } from '../businessOptions'
@@ -85,7 +85,7 @@ export function OnboardingPage() {
 
   const groups = useQuery({
     queryKey: ['platform-dealer-groups'],
-    queryFn: () => api.get<DealerGroupList>('/platform/dealer-groups'),
+    queryFn: () => api.get<DealerGroupOptionList>('/platform/dealer-groups'),
   })
   const legalForms = useListOptions('legal_form')
 
@@ -153,7 +153,11 @@ export function OnboardingPage() {
         <Alert color="green" icon={<CheckCircle2 size={20} />} title={t('onboarding.success.title', { name: form.legalName })}>
           <Stack gap={4}>
             <Text size="sm">{t('onboarding.success.pending')}</Text>
-            <Text size="sm">{t('onboarding.success.invited', { email: result.managerEmail })}</Text>
+            <Text size="sm">
+              {result.invitationDelivered
+                ? t('onboarding.success.invited', { email: result.managerEmail })
+                : t('onboarding.success.invitationFailed', { email: result.managerEmail })}
+            </Text>
             <Text size="sm">{t('onboarding.success.nextSteps')}</Text>
           </Stack>
         </Alert>

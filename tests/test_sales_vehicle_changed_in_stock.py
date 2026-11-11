@@ -423,3 +423,98 @@ def test_a_contract_from_a_flagged_offer_carries_the_flag(db_session):
 
     assert contract.vehicle_changed_fields == ["listPrice"]
     assert contract.vehicle_changed_at == offer.vehicle_changed_at
+
+
+# --- review follow-ups ------------------------------------------------------------------
+
+
+def test_a_sent_offer_is_flagged_too(db_session):
+    from app.sales.services.offer import finalize_offer
+
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    offer = finalize_offer(db_session, offer=_offer_with_vehicle(db_session, dealership.id, item), actor_id=uuid.uuid4())
+    assert offer.status == OfferStatus.OPEN
+
+    _reprice(db_session, item, "36000.00")
+    _deliver_last(db_session, item.id)
+
+    db_session.expire_all()
+    assert db_session.get(SalesOffer, offer.id).vehicle_changed_fields == ["listPrice"]
+
+
+def test_a_dismissed_change_is_no_reconciliation_finding(db_session):
+    _dealership, item, offer = _flagged_offer(db_session)
+    dismiss_vehicle_change(db_session, deal=offer, version_seen=offer.version, actor_id=uuid.uuid4())
+    # Stock's change and the seller's «Ignorieren» both lie over an hour back.
+    two_hours_ago = dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)
+    db_session.execute(update(StockItem).where(StockItem.id == item.id).values(updated_at=two_hours_ago))
+    db_session.execute(
+        update(SalesOffer)
+        .where(SalesOffer.id == offer.id)
+        .values(
+            vehicle_snapshot_frozen_at=two_hours_ago - dt.timedelta(hours=1),
+            vehicle_change_dismissed_at=two_hours_ago + dt.timedelta(minutes=5),
+        )
+    )
+    db_session.commit()
+
+    assert find_rows_in_state(db_session, _check(SalesOffer)) == []
+
+    # A later change than the dismissal is reported again (if its event is lost).
+    db_session.execute(
+        update(StockItem)
+        .where(StockItem.id == item.id)
+        .values(list_price=Decimal("30000.00"), updated_at=two_hours_ago + dt.timedelta(minutes=30))
+    )
+    db_session.commit()
+    assert [row for row, _ in find_rows_in_state(db_session, _check(SalesOffer))] == [offer.id]
+
+
+def test_another_car_on_the_deal_drops_the_flag(db_session):
+    from app.sales.schemas.offer import OfferUpdate
+    from app.sales.services.offer import update_offer
+
+    dealership, _item, offer = _flagged_offer(db_session)
+    other = _stock_item(db_session, dealership.id)
+
+    offer = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=other.id, vehicle_label=other.vehicle_label),
+        actor_id=uuid.uuid4(),
+    )
+
+    assert offer.vehicle_changed_at is None and offer.vehicle_changed_fields is None
+    assert db_session.get(SalesDeal, offer.id).vehicle_changed_at is None
+
+
+def test_the_backfill_flags_deals_priced_before_kan553_and_only_them(db_session):
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "backfill_vehicle_changed_flags", Path(__file__).resolve().parents[1] / "scripts" / "backfill_vehicle_changed_flags.py"
+    )
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    stale = _offer_with_vehicle(db_session, dealership.id, item)
+    current_item = _stock_item(db_session, dealership.id)
+    current = _offer_with_vehicle(db_session, dealership.id, current_item)
+    # Before KAN-553: the price moved and nothing was published.
+    db_session.execute(update(StockItem).where(StockItem.id == item.id).values(list_price=Decimal("35000.00")))
+    db_session.commit()
+
+    dry = script.backfill(db_session, commit=False)
+    assert [(kind, row) for kind, row, _ in dry.flagged] == [("offer", stale.id)]
+    db_session.expire_all()
+    assert db_session.get(SalesOffer, stale.id).vehicle_changed_at is None
+
+    done = script.backfill(db_session, commit=True)
+    assert [fields for _, _, fields in done.flagged] == [["listPrice"]]
+    db_session.expire_all()
+    assert db_session.get(SalesOffer, stale.id).vehicle_changed_fields == ["listPrice"]
+    assert db_session.get(SalesOffer, current.id).vehicle_changed_at is None
+    assert script.backfill(db_session, commit=True).flagged == []

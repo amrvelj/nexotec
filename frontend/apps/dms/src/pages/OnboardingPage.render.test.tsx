@@ -71,6 +71,7 @@ describe('OnboardingPage (KAN-210)', () => {
             managerUserId: 'u-1',
             managerEmail: 'martina@example.ch',
             managerStatus: 'invited',
+            invitationDelivered: true,
             locationId: 'l-1',
           }),
       },
@@ -123,5 +124,27 @@ describe('OnboardingPage (KAN-210)', () => {
     expect(await screen.findByText('Ein Betrieb mit dieser UID ist bereits aufgenommen.')).toBeInTheDocument()
     expect(screen.queryByTestId('onboarding-success')).toBeNull()
     expect(screen.getByText('Garage Muster AG')).toBeInTheDocument()
+  })
+
+  it('says when the invitation could not be delivered', async () => {
+    installFakeBackend([
+      LEGAL_FORMS,
+      GROUPS,
+      {
+        method: 'POST',
+        match: /\/platform\/onboarding$/,
+        handler: () =>
+          status(201, {
+            dealershipId: 'd-1', dealerGroupId: 'g-2', status: 'pending_onboarding', entitlements: ['sales'],
+            managerUserId: 'u-1', managerEmail: 'martina@example.ch', managerStatus: 'invited', invitationDelivered: false, locationId: 'l-1',
+          }),
+      },
+    ])
+    const user = userEvent.setup()
+    renderWithProviders(<OnboardingPage />, { route: '/platform/onboarding' })
+    await fillAll(user)
+    await user.click(screen.getByRole('button', { name: 'Betrieb aufnehmen' }))
+    expect(await screen.findByText(/Die Einladung an martina@example.ch konnte nicht zugestellt werden/)).toBeInTheDocument()
+    expect(screen.queryByText(/ist verschickt/)).toBeNull()
   })
 })

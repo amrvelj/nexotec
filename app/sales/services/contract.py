@@ -183,6 +183,7 @@ def create_contract(
         # KAN-553: the offer's frozen car comes with what Stock changed since.
         vehicle_changed_at=offer.vehicle_changed_at if offer is not None else None,
         vehicle_changed_fields=list(offer.vehicle_changed_fields or []) or None if offer is not None else None,
+        vehicle_change_dismissed_at=offer.vehicle_change_dismissed_at if offer is not None else None,
         discount_type=offer.discount_type if offer is not None else None,
         discount_value=offer.discount_value if offer is not None else None,
         total_before_discount=offer.total_before_discount if offer is not None else None,

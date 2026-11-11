@@ -54,6 +54,7 @@ class Onboarded:
     manager: User
     location: Location
     entitlements: frozenset[str]
+    invitation_delivered: bool
 
 
 def _already_onboarded() -> ConflictError:
@@ -145,8 +146,14 @@ def onboard(
     )
     # Last before the commit: the invitation mail names a token this
     # transaction writes (the create-user route's order, FR-A-09).
-    identity.issue_invitation(db, mailer, user=manager, actor_id=actor_id, ip_address=ip_address)
+    delivered = identity.issue_invitation(db, mailer, user=manager, actor_id=actor_id, ip_address=ip_address)
     db.commit()
     db.refresh(dealership)
     db.refresh(manager)
-    return Onboarded(dealership=dealership, manager=manager, location=location, entitlements=entitlements)
+    return Onboarded(
+        dealership=dealership,
+        manager=manager,
+        location=location,
+        entitlements=entitlements,
+        invitation_delivered=delivered,
+    )

@@ -47,7 +47,8 @@
     "pending": "Status: in Aufnahme – der Betrieb wird aktiv, sobald die Einrichtung abgeschlossen ist.",
     "invited": "Die Einladung an {{email}} ist verschickt; der Manager ist eingeladen.",
     "nextSteps": "Mehrwertsteuer, Bank, Texte und Nummernkreise richtet der Manager in der Verwaltung ein.",
-    "another": "Weiteren Betrieb aufnehmen"
+    "another": "Weiteren Betrieb aufnehmen",
+    "invitationFailed": "Die Einladung an {{email}} konnte nicht zugestellt werden. Der Manager ist angelegt; senden Sie die Einladung in der Kontowiederherstellung erneut."
   },
   "errors": {
     "generic": "Der Betrieb konnte nicht aufgenommen werden.",

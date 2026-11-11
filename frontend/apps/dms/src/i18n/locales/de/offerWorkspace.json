@@ -118,7 +118,7 @@
     "noFields": "Das Lagerfahrzeug wurde seit dieser Preisberechnung geändert.",
     "refresh": "Aktualisieren",
     "dismiss": "Ignorieren",
-    "readOnly": "Die Offerte ist versendet und bleibt, wie sie ist. Eine Kopie übernimmt die aktuellen Fahrzeugdaten.",
+    "readOnly": "Diese Offerte kann nicht mehr geändert werden und behält die Fahrzeugdaten ihrer Preisberechnung.",
     "refused": "Die Fahrzeugdaten konnten nicht übernommen werden.",
     "fields": {
       "listPrice": "Listenpreis",

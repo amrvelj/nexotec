@@ -64,6 +64,6 @@ describe('VehicleChangedBanner (KAN-553)', () => {
     renderWithProviders(<VehicleChangedBanner vehicleChangedAt="2026-11-11T10:00:00Z" vehicleChangedFields={['odometerKm']} />)
     expect(screen.getByText('Seit dieser Preisberechnung geändert: Kilometerstand.')).toBeInTheDocument()
     expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.getByText(/Die Offerte ist versendet/)).toBeInTheDocument()
+    expect(screen.getByText(/kann nicht mehr geändert werden/)).toBeInTheDocument()
   })
 })

@@ -118,7 +118,7 @@
     "noFields": "Il veicolo in stock è stato modificato da questo calcolo del prezzo.",
     "refresh": "Aggiorna",
     "dismiss": "Ignora",
-    "readOnly": "L'offerta è inviata e resta com'è. Una copia riprende i dati attuali del veicolo.",
+    "readOnly": "Questa offerta non può più essere modificata e mantiene i dati del veicolo del suo calcolo del prezzo.",
     "refused": "Non è stato possibile riprendere i dati del veicolo.",
     "fields": {
       "listPrice": "Prezzo di listino",

@@ -47,7 +47,8 @@
     "pending": "Status: being onboarded – the business becomes active once its setup is complete.",
     "invited": "The invitation to {{email}} has been sent; the manager is invited.",
     "nextSteps": "The manager sets up VAT, bank, texts and number ranges in Administration.",
-    "another": "Onboard another business"
+    "another": "Onboard another business",
+    "invitationFailed": "The invitation to {{email}} could not be delivered. The manager exists; send the invitation again from Account recovery."
   },
   "errors": {
     "generic": "The business could not be onboarded.",

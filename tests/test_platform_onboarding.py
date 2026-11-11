@@ -98,6 +98,7 @@ def test_onboarding_writes_the_betrieb_its_manager_and_seeds_in_one_go(client, m
     assert manager.status == UserStatus.INVITED
     assert manager.tenant_id == dealership_id
     assert result["managerStatus"] == "invited"
+    assert result["invitationDelivered"] is True
     assert db_session.scalar(select(func.count()).select_from(AuthToken).where(AuthToken.user_id == manager.id)) == 1
     assert [mail.to for mail in mailbox] == [body["manager"]["email"].lower()]
     # One outbox fact.
@@ -244,3 +245,22 @@ def test_an_unknown_legal_form_is_422_and_writes_nothing(client, mailbox, db_ses
 def test_the_old_create_route_is_deprecated_in_openapi(client):
     spec = client.get("/openapi.json").json()
     assert spec["paths"]["/v1/dealerships"]["post"]["deprecated"] is True
+
+
+def test_the_result_says_whether_the_invitation_went_out(client, db_session):
+    from app.main import app as fastapi_app
+    from app.platform.services.mailer import MailDeliveryError, get_mailer
+
+    class RefusingMailer:
+        def send(self, mail) -> None:
+            raise MailDeliveryError("relay refused")
+
+    fastapi_app.dependency_overrides[get_mailer] = lambda: RefusingMailer()
+    try:
+        response = client.post("/v1/platform/onboarding", json=_request(), headers=platform_admin_headers())
+    finally:
+        fastapi_app.dependency_overrides.pop(get_mailer, None)
+    assert response.status_code == 201, response.text
+    assert response.json()["invitationDelivered"] is False
+    # The Betrieb and the manager stand; staff re-issue the invitation.
+    assert response.json()["managerStatus"] == "invited"

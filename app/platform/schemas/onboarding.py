@@ -62,13 +62,16 @@ class OnboardingResult(CamelModel):
     manager_user_id: uuid.UUID
     manager_email: str
     manager_status: str
+    # Whether the platform sender took the invitation mail; when not, the
+    # failure is a `mail_delivery_failed` auth event and staff re-issue it.
+    invitation_delivered: bool
     location_id: uuid.UUID
 
 
-class DealerGroupRead(CamelModel):
+class DealerGroupOption(CamelModel):
     id: uuid.UUID
     name: str
 
 
-class DealerGroupList(CamelModel):
-    items: list[DealerGroupRead]
+class DealerGroupOptionList(CamelModel):
+    items: list[DealerGroupOption]

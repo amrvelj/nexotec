@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Alert, Badge, Button, Group, Stack, Title } from '@mantine/core'
+import { Alert, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Copy, ExternalLink, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
+  Badge as KitBadge,
   ColumnConfigPanel,
   defaultColumnLayout,
   DataGrid,
@@ -211,9 +212,7 @@ export function SalesListPage() {
         header: t('salesList.columns.vehicleChanged'),
         cell: ({ row }) =>
           row.original.vehicleChangedAt ? (
-            <Badge color="yellow" variant="light" size="sm">
-              {t('salesList.vehicleChangedMarker')}
-            </Badge>
+            <KitBadge tone="warning">{t('salesList.vehicleChangedMarker')}</KitBadge>
           ) : null,
       },
       {

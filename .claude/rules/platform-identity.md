@@ -59,7 +59,7 @@ paths:
   token carries an explicit entitlement set (`test_token_minting_passes_entitlements.py`).
 - The workshop terminal (ADR-110, not built — KAN-230, `WORKSHOP_TERMINAL_AUTH_DESIGN.md`) mints
   through it with realm `terminal`: the same checks, a 15-minute idle window, `roles={TECHNICIAN}`,
-  no manager flag, the device's Betrieb as the only membership.
+  no manager flag, the device's Betrieb as the only membership — never the person's office roles.
 - `get_current_principal` does not check `status`: a deactivated user's session ends because the
   status change revokes its `session` row. A token without `sid` (tests, bootstrap) is not covered.
 
@@ -92,14 +92,13 @@ paths:
   `scripts/benchmark_argon2.py`); a hash below them is rehashed on the next login.
 
 ## Sessions
-- One `session` row per login. `enforce_live_session` 401s a revoked, idle or expired row (the
-  absolute end: **the next midnight Europe/Zurich**) and touches the row at most once a minute, never for `X-DMS-Background`
+- One `session` row per login. `enforce_live_session` (app-level in `app/main.py`) 401s a revoked,
+  idle or expired row — the absolute end is **the next midnight Europe/Zurich** — and touches the row at most once a minute, never for `X-DMS-Background`
   requests (an unattended tab still idles out). Logout is the one route a dead session reaches.
 - Every session of the user is revoked by: suspension or deactivation, a change of roles, manager
   flag or membership (the claims live for the day), a password reset, an accepted invitation,
   staff `revoke-sessions` — each a `session_revoked` event.
-- **Per-Betrieb policy (KAN-229):** `dealership_auth_config.session_*` (15–120 min, 1–12 h; NULL =
-  platform) end it sooner; staff exempt; a switch only shortens.
+- KAN-229: `dealership_auth_config.session_*` (15–120 min, 1–12 h) shorten it; not staff.
 - The reset request is 202 whether or not the address exists, its mail sent after the response.
 
 ## MFA (D-A-36)

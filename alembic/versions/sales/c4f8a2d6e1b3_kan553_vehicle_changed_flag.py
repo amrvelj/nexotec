@@ -4,7 +4,9 @@ Stock publishes `inventory.stock_item.commercial_changed` when a car's price,
 options, colour, odometer or configuration label changes; Sales' consumer
 flags every draft or open offer and every pending contract on that car:
 `vehicle_changed_at` (when Stock last changed it) and `vehicle_changed_fields`
-(the changed field names, merged). Refresh or dismiss clears both. The deal
+(the changed field names, merged). Refresh or dismiss clears both;
+dismiss stamps `vehicle_change_dismissed_at`, so the nightly check does not
+report the price the seller chose to keep. The deal
 grid carries `vehicle_changed_at` for its filter and marker. Nullable, no
 backfill: nothing was flagged before.
 
@@ -31,11 +33,13 @@ def upgrade() -> None:
     for table in ("sales_offer", "sales_contract"):
         op.add_column(table, sa.Column("vehicle_changed_at", sa.DateTime(timezone=True), nullable=True))
         op.add_column(table, sa.Column("vehicle_changed_fields", sa.JSON(), nullable=True))
+        op.add_column(table, sa.Column("vehicle_change_dismissed_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("sales_deal", sa.Column("vehicle_changed_at", sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
     op.drop_column("sales_deal", "vehicle_changed_at")
     for table in ("sales_contract", "sales_offer"):
+        op.drop_column(table, "vehicle_change_dismissed_at")
         op.drop_column(table, "vehicle_changed_fields")
         op.drop_column(table, "vehicle_changed_at")

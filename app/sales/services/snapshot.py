@@ -220,5 +220,10 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal, force: bool = Fals
 
     deal.vehicle_snapshot = snapshot
     deal.vehicle_snapshot_frozen_at = utcnow()
+    # KAN-553: whatever Stock changed concerned the car frozen before; a
+    # fresh freeze (another car, or «Aktualisieren») starts clean.
+    deal.vehicle_changed_at = None
+    deal.vehicle_changed_fields = None
+    deal.vehicle_change_dismissed_at = None
     db.flush()
     return True

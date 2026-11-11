@@ -7069,10 +7069,50 @@ export interface components {
             /** Vehiclelabel */
             vehicleLabel: string | null;
         };
-        /** DealerGroupList */
-        DealerGroupList: {
+        /** DealerGroupOption */
+        DealerGroupOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** DealerGroupOptionList */
+        DealerGroupOptionList: {
             /** Items */
-            items: components["schemas"]["app__platform__schemas__onboarding__DealerGroupRead"][];
+            items: components["schemas"]["DealerGroupOption"][];
+        };
+        /** DealerGroupRead */
+        DealerGroupRead: {
+            /** Contactemail */
+            contactEmail: string | null;
+            /** Contactname */
+            contactName: string | null;
+            /** Contactphone */
+            contactPhone: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Groupreadenabled */
+            groupReadEnabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
         };
         /**
          * DealershipAddress
@@ -8985,6 +9025,8 @@ export interface components {
             dealershipId: string;
             /** Entitlements */
             entitlements: string[];
+            /** Invitationdelivered */
+            invitationDelivered: boolean;
             /**
              * Locationid
              * Format: uuid
@@ -12206,46 +12248,6 @@ export interface components {
             /** Vehicletype */
             vehicleType?: string | null;
         };
-        /** DealerGroupRead */
-        app__platform__schemas__dealership__DealerGroupRead: {
-            /** Contactemail */
-            contactEmail: string | null;
-            /** Contactname */
-            contactName: string | null;
-            /** Contactphone */
-            contactPhone: string | null;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /** Groupreadenabled */
-            groupReadEnabled: boolean;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /** Version */
-            version: number;
-        };
-        /** DealerGroupRead */
-        app__platform__schemas__onboarding__DealerGroupRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-        };
         /**
          * VehicleStatus
          * @enum {string}
@@ -14657,7 +14659,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__platform__schemas__dealership__DealerGroupRead"];
+                    "application/json": components["schemas"]["DealerGroupRead"];
                 };
             };
             /** @description Validation Error */
@@ -20013,7 +20015,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DealerGroupList"];
+                    "application/json": components["schemas"]["DealerGroupOptionList"];
                 };
             };
             /** @description Validation Error */

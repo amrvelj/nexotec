@@ -69,7 +69,7 @@ export type AuthConfigUpdate = Schemas['AuthConfigUpdate']
 // KAN-210 — Platform Administration › Onboarding.
 export type OnboardingRequest = Schemas['OnboardingRequest']
 export type OnboardingResult = Schemas['OnboardingResult']
-export type DealerGroupList = Schemas['DealerGroupList']
+export type DealerGroupOptionList = Schemas['DealerGroupOptionList']
 export type AuthEventRead = Schemas['AuthEventRead']
 export type LoginStatusRead = Schemas['LoginStatusRead']
 // KAN-200 — the Users screen: fields, locations, the deactivation step

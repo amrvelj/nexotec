@@ -30,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
+from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer
@@ -78,6 +79,7 @@ def record_stock_commercial_change(
             SalesOffer.stock_item_id == stock_item_id,
             SalesOffer.status.in_(_OPEN_OFFER_STATUSES),
         )
+        .order_by(SalesOffer.id)
         .with_for_update()
     ).all()
     contracts = db.scalars(
@@ -87,6 +89,7 @@ def record_stock_commercial_change(
             SalesContract.stock_item_id == stock_item_id,
             SalesContract.status == ContractStatus.PENDING,
         )
+        .order_by(SalesContract.id)
         .with_for_update()
     ).all()
     flagged = 0
@@ -96,30 +99,44 @@ def record_stock_commercial_change(
             continue
         if changed_at <= deal.vehicle_snapshot_frozen_at:
             continue
-        changed_before, fields_before = deal.vehicle_changed_at, deal.vehicle_changed_fields
-        fields = _merge(deal.vehicle_changed_fields, changed_fields)
-        if not fields:
-            continue
-        deal.vehicle_changed_fields = fields
-        deal.vehicle_changed_at = max(changed_at, deal.vehicle_changed_at or changed_at)
-        record_audit_event(
-            db,
-            entity_type=_entity_type(deal),
-            entity_id=deal.id,
-            tenant_id=deal.tenant_id,
-            action="vehicle_changed_in_stock",
-            actor_id=None,
-            before={
-                "vehicleChangedAt": changed_before.isoformat() if changed_before else None,
-                "vehicleChangedFields": fields_before,
-            },
-            after={"vehicleChangedAt": deal.vehicle_changed_at.isoformat(), "vehicleChangedFields": fields},
-            reason="inventory.stock_item.commercial_changed",
-        )
-        _project(db, deal)
-        flagged += 1
+        if flag_deal(db, deal=deal, changed_fields=changed_fields, changed_at=changed_at, reason=EVENT_REASON):
+            flagged += 1
     db.flush()
     return flagged
+
+
+EVENT_REASON = "inventory.stock_item.commercial_changed"
+
+
+def flag_deal(
+    db: Session, *, deal: PricedDeal, changed_fields: Sequence[str], changed_at: dt.datetime, reason: str
+) -> bool:
+    """Flags one deal (merged fields, audit row, deal row). The consumer's
+    write and `scripts/backfill_vehicle_changed_flags.py`'s; the caller has
+    the deal locked. False when none of the fields is one the banner names."""
+
+    changed_before, fields_before = deal.vehicle_changed_at, deal.vehicle_changed_fields
+    fields = _merge(deal.vehicle_changed_fields, changed_fields)
+    if not fields:
+        return False
+    deal.vehicle_changed_fields = fields
+    deal.vehicle_changed_at = max(changed_at, deal.vehicle_changed_at or changed_at)
+    record_audit_event(
+        db,
+        entity_type=_entity_type(deal),
+        entity_id=deal.id,
+        tenant_id=deal.tenant_id,
+        action="vehicle_changed_in_stock",
+        actor_id=None,
+        before={
+            "vehicleChangedAt": changed_before.isoformat() if changed_before else None,
+            "vehicleChangedFields": fields_before,
+        },
+        after={"vehicleChangedAt": deal.vehicle_changed_at.isoformat(), "vehicleChangedFields": fields},
+        reason=reason,
+    )
+    _project(db, deal)
+    return True
 
 
 def _require_flag(deal: PricedDeal) -> None:
@@ -171,6 +188,7 @@ def dismiss_vehicle_change(db: Session, *, deal: DealT, version_seen: int, actor
     before = {"vehicleChangedFields": deal.vehicle_changed_fields}
     deal.vehicle_changed_at = None
     deal.vehicle_changed_fields = None
+    deal.vehicle_change_dismissed_at = utcnow()
     deal.updated_by = actor_id
     deal.version += 1
     db.flush()

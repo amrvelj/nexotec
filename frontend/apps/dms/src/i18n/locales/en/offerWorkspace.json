@@ -118,7 +118,7 @@
     "noFields": "The stock vehicle has changed since this price was built.",
     "refresh": "Refresh",
     "dismiss": "Ignore",
-    "readOnly": "The offer has been sent and stays as it is. A copy takes the vehicle's current data.",
+    "readOnly": "This offer can no longer be changed and keeps the vehicle data it was priced with.",
     "refused": "The vehicle's data could not be taken over.",
     "fields": {
       "listPrice": "List price",

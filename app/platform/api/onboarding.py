@@ -15,7 +15,12 @@ from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.dealership import DealerGroup
-from app.platform.schemas.onboarding import DealerGroupList, DealerGroupRead, OnboardingRequest, OnboardingResult
+from app.platform.schemas.onboarding import (
+    DealerGroupOption,
+    DealerGroupOptionList,
+    OnboardingRequest,
+    OnboardingResult,
+)
 from app.platform.services import onboarding as onboarding_service
 from app.platform.services.mailer import PlatformMailer, get_mailer
 
@@ -49,14 +54,15 @@ def onboard_dealership(
         manager_user_id=done.manager.id,
         manager_email=done.manager.email,
         manager_status=done.manager.status.value,
+        invitation_delivered=done.invitation_delivered,
         location_id=done.location.id,
     )
 
 
-@router.get("/platform/dealer-groups", response_model=DealerGroupList)
+@router.get("/platform/dealer-groups", response_model=DealerGroupOptionList)
 def list_dealer_groups(
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
     rows = db.scalars(select(DealerGroup).order_by(DealerGroup.name)).all()
-    return DealerGroupList(items=[DealerGroupRead(id=row.id, name=row.name) for row in rows])
+    return DealerGroupOptionList(items=[DealerGroupOption(id=row.id, name=row.name) for row in rows])

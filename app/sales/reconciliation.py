@@ -306,7 +306,8 @@ def _stock_price_moved_unflagged(deal: _Deal, is_open: Callable[[], ColumnElemen
             .where(
                 StockItem.id == deal.stock_item_id,
                 StockItem.tenant_id == deal.tenant_id,
-                StockItem.updated_at > deal.vehicle_snapshot_frozen_at,
+                # Changes after the freeze — or after the seller's «Ignorieren».
+                StockItem.updated_at > func.coalesce(deal.vehicle_change_dismissed_at, deal.vehicle_snapshot_frozen_at),
                 StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
                 or_(
                     cast(snapshot["effectivePrice"].as_string(), Numeric(12, 2)).is_distinct_from(

@@ -47,7 +47,8 @@
     "pending": "Statut : en intégration – l'entreprise devient active dès que la configuration est terminée.",
     "invited": "L'invitation à {{email}} est envoyée ; le responsable est invité.",
     "nextSteps": "Le responsable configure la TVA, la banque, les textes et les plages de numéros dans l'administration.",
-    "another": "Intégrer une autre entreprise"
+    "another": "Intégrer une autre entreprise",
+    "invitationFailed": "L'invitation à {{email}} n'a pas pu être distribuée. Le responsable est créé ; renvoyez l'invitation depuis la récupération de compte."
   },
   "errors": {
     "generic": "L'entreprise n'a pas pu être intégrée.",
