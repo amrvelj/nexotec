@@ -49,6 +49,7 @@
       "totalPs": "ch total",
       "totalKw": "kW total",
       "systemKw": "kW système",
+      "homologationClass": "Classe de réception par type",
       "valuationClassification": "Classement d'évaluation",
       "weightEmptyKg": "Poids à vide (kg)",
       "weightTotalKg": "Poids total (kg)",

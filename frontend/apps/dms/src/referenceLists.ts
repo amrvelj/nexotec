@@ -13,6 +13,8 @@
  *   - configurator C-A       (alembic platform/a3d9c1e58f27) — 3 lists (KAN-39)
  *   - country list           (alembic platform/d7b1f4e02a96) — 1 list (KAN-32)
  *   - business master data   (alembic platform/e1f7a3c9b2d4) — 2 lists (KAN-203)
+ *   - type-approval class    (alembic platform/5d1f8a3c7e42) — 1 list (KAN-587;
+ *     `vehicle_class` became the size class there)
  * PRD-Vehicles §"Canonical lists to administer (v1)" and
  * PRD-Configurator §"The canonical code map" name them too; PRD-Customers
  * §"Reference lists" now names `country` (nationality + address country).
@@ -33,7 +35,10 @@ export const REFERENCE_LIST_CODES = [
   'oem_affiliations',
   // vehicle catalogue seed (platform/6ba0a99ed5c4)
   'vehicle_kind',
+  // KAN-587 (platform 5d1f8a3c7e42): the size class (Kleinwagen … Luxusklasse) …
   'vehicle_class',
+  // … and the type-approval class (M1, N1, L3e, L1e) it held until then
+  'homologation_class',
   'colour',
   'colour_type',
   // KAN-211 (platform 4c8e1f2a9d57): the upholstery type the advisor names by hand
