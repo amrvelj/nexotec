@@ -61,7 +61,7 @@ from app.platform.schemas.auth import (
     TotpEnrolmentRead,
 )
 from app.platform.schemas.user import UserRead
-from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa
+from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa, session_policy
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
@@ -123,6 +123,7 @@ def _mint_session(
     request: Request | None = None,
     amr: tuple[str, ...] = (),
     mfa_used: bool = False,
+    switching: bool = False,
 ) -> _MintedSession:
     """The one path every session token is minted through — login, the MFA
     step, invitation acceptance and switch-dealership alike (KAN-141).
@@ -135,6 +136,10 @@ def _mint_session(
     `session` is the row of the session being (re)issued: None creates one
     (a login; `request` supplies the device and IP) — a switch passes the
     caller's row and the token keeps its `sid`.
+
+    KAN-229 (D-A-37): a new session runs under the Betrieb's session policy;
+    a switch (`switching`) re-bounds the row to the target's policy, never
+    making it last longer than it already would.
     """
 
     if user.status in identity._INACTIVE or not identity.access_window_open(user):
@@ -144,6 +149,14 @@ def _mint_session(
         raise ForbiddenError("This dealership is not one of your memberships.")
     dealership = dealership_service.get_dealership_or_404(db, dealership_id)
     entitlements = entitlement_service.list_active_modules(db, dealership.id)
+    policy = session_policy.effective_policy(
+        db, dealership_id=dealership.id, is_platform_staff=AccessRole.PLATFORM_ADMIN.value in user.access_roles
+    )
+    if session is not None and switching:
+        now = auth_sessions.utcnow()
+        session_policy.rebound_for_switch(
+            session, policy=policy, now=now, next_midnight=auth_sessions.absolute_expiry(session.created_at)
+        )
     if session is None and request is not None:
         session = auth_sessions.create(
             db,
@@ -152,6 +165,7 @@ def _mint_session(
             device_summary=_device_summary(request),
             ip_address=client_ip(request),
             amr=amr,
+            policy=policy,
         )
     token = create_access_token(
         user_id=user.id,
@@ -538,8 +552,16 @@ def switch_dealership(
     # session joined it) — the token's claim is what it was minted with.
     proved = ("mfa" in (row.amr or [])) if row is not None else principal.mfa
     minted = _mint_session(
-        db, user=user, dealership_id=body.dealership_id, session=row, amr=tuple(principal.amr), mfa_used=proved
+        db,
+        user=user,
+        dealership_id=body.dealership_id,
+        session=row,
+        amr=tuple(principal.amr),
+        mfa_used=proved,
+        switching=True,
     )
+    # KAN-229: the re-bounded session row (the target Betrieb's policy).
+    db.commit()
     _set_session_cookie(response, minted.token, max_age=minted.max_age)
     return _login_response(
         db,

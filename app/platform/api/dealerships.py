@@ -40,6 +40,7 @@ from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
 from app.platform.models.dealership import DealershipStatus
+from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import User, UserStatus
 from app.platform.schemas.auth import (
     AuthConfigRead,
@@ -47,6 +48,7 @@ from app.platform.schemas.auth import (
     AuthEventList,
     AuthEventRead,
     LoginStatusRead,
+    SessionPolicyBounds,
 )
 from app.platform.schemas.bank_account import BankAccountCreate, BankAccountList, BankAccountRead, BankAccountUpdate
 from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
@@ -82,6 +84,7 @@ from app.platform.services import (
     connected_account,
     identity,
     photo,
+    session_policy,
     signature,
 )
 from app.platform.services import bank_account as bank_account_service
@@ -990,8 +993,7 @@ def get_auth_config(
 ):
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
-    config = identity.read_auth_config(db, dealership_id)
-    return AuthConfigRead(auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version)
+    return _auth_config_read(identity.read_auth_config(db, dealership_id))
 
 
 @router.put(
@@ -1008,13 +1010,30 @@ def set_auth_config(
 ):
     """D-A-09 / FR-AU-11: the manager decides whether his Betrieb enforces a
     second factor. Platform staff are always enforced (D-A-36), whatever
-    this says."""
+    this says.
+
+    KAN-229 (D-A-37, FR-AU-28): the manager also sets the Betrieb's session
+    policy, stricter than the platform's, never looser (422 with a stable
+    `details.reason` outside the bounds). A field left out of the body is
+    unchanged; null sets it back to the platform value. It applies to
+    sessions minted from now on — a live session keeps the bounds it was
+    minted with until its next switch or sign-in."""
 
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
+    sent = body.model_fields_set
+    session_policy.validate(
+        idle_minutes=body.session_idle_minutes if "session_idle_minutes" in sent else None,
+        absolute_hours=body.session_absolute_hours if "session_absolute_hours" in sent else None,
+    )
     config = identity.auth_config_for(db, dealership_id)
     check_version(config.version, if_match, entity_name="DealershipAuthConfig")
-    if config.mfa_enforced != body.mfa_enforced:
+    wanted = {"mfa_enforced": body.mfa_enforced}
+    for field in ("session_idle_minutes", "session_absolute_hours"):
+        if field in sent:
+            wanted[field] = getattr(body, field)
+    before = {field: getattr(config, field) for field in wanted if getattr(config, field) != wanted[field]}
+    if before:
         record_audit_event(
             db,
             entity_type="dealership",
@@ -1022,13 +1041,29 @@ def set_auth_config(
             tenant_id=dealership_id,
             action="auth_config_set",
             actor_id=principal.user_id,
-            before={"mfa_enforced": config.mfa_enforced},
-            after={"mfa_enforced": body.mfa_enforced},
+            before=before,
+            after={field: wanted[field] for field in before},
         )
-        config.mfa_enforced = body.mfa_enforced
+        for field in before:
+            setattr(config, field, wanted[field])
         config.updated_by = principal.user_id
         config.version += 1
     db.commit()
+    return _auth_config_read(config)
+
+
+def _auth_config_read(config: DealershipAuthConfig) -> AuthConfigRead:
     return AuthConfigRead(
-        auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version
+        auth_method=config.auth_method.value,
+        mfa_enforced=config.mfa_enforced,
+        session_idle_minutes=config.session_idle_minutes,
+        session_absolute_hours=config.session_absolute_hours,
+        session_bounds=SessionPolicyBounds(
+            idle_minutes_min=session_policy.IDLE_MINUTES_MIN,
+            idle_minutes_max=session_policy.IDLE_MINUTES_MAX,
+            absolute_hours_min=session_policy.ABSOLUTE_HOURS_MIN,
+            absolute_hours_max=session_policy.ABSOLUTE_HOURS_MAX,
+            platform_idle_minutes=session_policy.platform_policy().idle_minutes,
+        ),
+        version=config.version,
     )

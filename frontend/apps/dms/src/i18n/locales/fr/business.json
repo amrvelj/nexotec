@@ -161,5 +161,23 @@
     "astraHint": "Condition pour le raccordement au registre des véhicules.",
     "associations": "Affiliations",
     "associationsHint": "Figurent dans le pied de page des documents."
+  },
+  "security": {
+    "title": "Sécurité",
+    "mfaEnforced": "Exiger un second facteur pour tous les utilisateurs",
+    "mfaEnforcedHint": "Chaque utilisateur de cette entreprise doit se connecter, en plus du mot de passe, avec une application d'authentification ou une clé d'accès. C'est toujours le cas pour le personnel de Nexotec.",
+    "idleMinutes": "Déconnexion après une inactivité de",
+    "idleMinutesHint": "Entre {{min}} et {{max}} minutes. Laisser vide pour la valeur de Nexotec.",
+    "idlePlaceholder": "{{minutes}} minutes (Nexotec)",
+    "absoluteHours": "Durée maximale de session",
+    "absoluteHoursHint": "Entre {{min}} et {{max}} heures après la connexion. Toute session se termine au plus tard à minuit.",
+    "absolutePlaceholder": "Jusqu'à minuit (Nexotec)",
+    "minutes": "minutes",
+    "hours": "heures",
+    "appliesFromNextSignIn": "Les règles s'appliquent à chaque connexion à partir de maintenant ; les sessions en cours gardent leurs limites jusqu'à la prochaine connexion ou au prochain changement d'entreprise.",
+    "errors": {
+      "idleOutOfBounds": "La déconnexion après inactivité doit être comprise entre 15 et 120 minutes.",
+      "absoluteOutOfBounds": "La durée maximale de session doit être comprise entre 1 et 12 heures."
+    }
   }
 }

@@ -2,7 +2,9 @@
 revocation check (no live call to an identity provider). Idle timeout and
 absolute end from settings (Anto, 2026-10-17: two hours idle; absolute at the
 next midnight Europe/Zurich, so nobody is cut off mid-configuration by a
-fixed 24 h). `touch` extends the idle end on activity, at most once a minute
+fixed 24 h). A Betrieb may set a stricter policy (KAN-229, D-A-37):
+`session_policy` resolves it at login, and the row keeps its idle window
+(`idle_minutes`) and absolute end. `touch` extends the idle end on activity, at most once a minute
 so a busy screen does not write a row per request."""
 
 import datetime as dt
@@ -16,13 +18,18 @@ from app.core.base import utcnow  # re-exported for the API's cookie max-age
 from app.core.config import get_settings
 from app.platform.models.auth_session import AuthSession
 from app.platform.services import push_subscriptions
+from app.platform.services.session_policy import SessionPolicy, absolute_end, platform_policy
 
 _settings = get_settings()
 _TOUCH_GRANULARITY = dt.timedelta(minutes=1)
 
 
-def idle_timeout() -> dt.timedelta:
-    return dt.timedelta(minutes=_settings.session_idle_minutes)
+def idle_timeout(row: AuthSession | None = None) -> dt.timedelta:
+    """The row's own idle window (fixed from its Betrieb's policy), else the
+    platform's."""
+
+    minutes = row.idle_minutes if row is not None and row.idle_minutes is not None else None
+    return dt.timedelta(minutes=minutes if minutes is not None else _settings.session_idle_minutes)
 
 
 def absolute_expiry(now: dt.datetime | None = None) -> dt.datetime:
@@ -42,8 +49,13 @@ def create(
     device_summary: str,
     ip_address: str,
     amr: tuple[str, ...] | list[str],
+    policy: SessionPolicy | None = None,
 ) -> AuthSession:
+    """`policy` is the Betrieb's effective session policy
+    (`session_policy.effective_policy`); None = the platform's."""
+
     now = utcnow()
+    policy = policy or platform_policy()
     row = AuthSession(
         user_id=user_id,
         dealership_id=dealership_id,
@@ -52,9 +64,11 @@ def create(
         amr=list(amr),
         created_at=now,
         last_seen_at=now,
-        idle_expires_at=now + idle_timeout(),
-        absolute_expires_at=absolute_expiry(now),
+        idle_minutes=policy.idle_minutes,
+        idle_expires_at=now + dt.timedelta(minutes=policy.idle_minutes),
+        absolute_expires_at=absolute_end(started_at=now, policy=policy, next_midnight=absolute_expiry(now)),
     )
+    row.idle_expires_at = min(row.idle_expires_at, row.absolute_expires_at)
     db.add(row)
     db.flush()
     return row
@@ -71,7 +85,7 @@ def touch(db: Session, row: AuthSession) -> bool:
     if now - row.last_seen_at < _TOUCH_GRANULARITY:
         return False
     row.last_seen_at = now
-    row.idle_expires_at = min(now + idle_timeout(), row.absolute_expires_at)
+    row.idle_expires_at = min(now + idle_timeout(row), row.absolute_expires_at)
     return True
 
 

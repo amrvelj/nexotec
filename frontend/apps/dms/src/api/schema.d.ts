@@ -1093,6 +1093,13 @@ export interface paths {
          * @description D-A-09 / FR-AU-11: the manager decides whether his Betrieb enforces a
          *     second factor. Platform staff are always enforced (D-A-36), whatever
          *     this says.
+         *
+         *     KAN-229 (D-A-37, FR-AU-28): the manager also sets the Betrieb's session
+         *     policy, stricter than the platform's, never looser (422 with a stable
+         *     `details.reason` outside the bounds). A field left out of the body is
+         *     unchanged; null sets it back to the platform value. It applies to
+         *     sessions minted from now on — a live session keeps the bounds it was
+         *     minted with until its next switch or sign-in.
          */
         put: operations["set_auth_config_v1_dealerships__dealership_id__auth_config_put"];
         post?: never;
@@ -4420,6 +4427,11 @@ export interface components {
             authMethod: string;
             /** Mfaenforced */
             mfaEnforced: boolean;
+            /** Sessionabsolutehours */
+            sessionAbsoluteHours: number | null;
+            sessionBounds: components["schemas"]["SessionPolicyBounds"];
+            /** Sessionidleminutes */
+            sessionIdleMinutes: number | null;
             /** Version */
             version: number;
         };
@@ -4427,6 +4439,10 @@ export interface components {
         AuthConfigUpdate: {
             /** Mfaenforced */
             mfaEnforced: boolean;
+            /** Sessionabsolutehours */
+            sessionAbsoluteHours?: number | null;
+            /** Sessionidleminutes */
+            sessionIdleMinutes?: number | null;
         };
         /** AuthEventList */
         AuthEventList: {
@@ -9772,6 +9788,23 @@ export interface components {
         SessionList: {
             /** Items */
             items: components["schemas"]["SessionRead"][];
+        };
+        /**
+         * SessionPolicyBounds
+         * @description What a Betrieb may set (KAN-229, D-A-37; Anto 2026-11-11), and the
+         *     platform's own idle window — the value an unset field means.
+         */
+        SessionPolicyBounds: {
+            /** Absolutehoursmax */
+            absoluteHoursMax: number;
+            /** Absolutehoursmin */
+            absoluteHoursMin: number;
+            /** Idleminutesmax */
+            idleMinutesMax: number;
+            /** Idleminutesmin */
+            idleMinutesMin: number;
+            /** Platformidleminutes */
+            platformIdleMinutes: number;
         };
         /** SessionRead */
         SessionRead: {

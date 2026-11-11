@@ -175,14 +175,36 @@ class PasskeyRegisterRequest(CamelModel):
     label: str = Field(default="", max_length=100)
 
 
+class SessionPolicyBounds(CamelModel):
+    """What a Betrieb may set (KAN-229, D-A-37; Anto 2026-11-11), and the
+    platform's own idle window — the value an unset field means."""
+
+    idle_minutes_min: int
+    idle_minutes_max: int
+    absolute_hours_min: int
+    absolute_hours_max: int
+    platform_idle_minutes: int
+
+
 class AuthConfigRead(CamelModel):
     auth_method: str
     mfa_enforced: bool
+    # KAN-229: the Betrieb's stricter session policy; null = the platform's
+    # (idle `sessionBounds.platformIdleMinutes`, absolute end at the next
+    # midnight Europe/Zurich).
+    session_idle_minutes: int | None
+    session_absolute_hours: int | None
+    session_bounds: SessionPolicyBounds
     version: int
 
 
 class AuthConfigUpdate(CamelModel):
     mfa_enforced: bool
+    # KAN-229: optional, so a client that sends only `mfaEnforced` changes
+    # nothing else (no breaking contract change). Sent as null = back to
+    # the platform value.
+    session_idle_minutes: int | None = None
+    session_absolute_hours: int | None = None
 
 
 class AuthEventRead(CamelModel):
