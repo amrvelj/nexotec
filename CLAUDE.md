@@ -98,8 +98,8 @@ second database, service template, broker or top-level `services/` directory. A 
 
 ## The twelve bounded contexts
 
-Listed in layer order, lowest first (ADR-131): a context calls only the `public` of a context above
-it in this table. `parts` sits beside `inventory`, `aftersales` beside `sales`, `reporting` beside
+Listed in layer order, lowest first (ADR-131): a context calls only the `public` of a context listed
+before it. `parts` sits beside `inventory`, `aftersales` beside `sales`, `reporting` beside
 `compliance` — peers, which call each other in neither direction.
 
 | Context | Owns |
