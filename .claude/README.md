@@ -40,7 +40,7 @@ tickets load, before and after a change.
 | `scripts/dev/bootstrap` | once per checkout, and in every cloud session | Own `.venv`, `npm ci`, own test and dev databases, `.env` |
 | `scripts/dev/cloud-postgres` | cloud sessions, from bootstrap and check | Starts the cloud machine's own Postgres 16 with the `dms` user |
 | `scripts/dev/run-api` | desktop preview (`nexotec-api`) | Starts this checkout's uvicorn with the macOS library path set |
-| `scripts/dev/check` | before every push | CI-equivalent lanes; records a pass for the exact tree |
+| `scripts/dev/check` | before every push | CI-equivalent lanes (pytest on one Postgres database per worker, KAN-627); records a pass for the exact tree, with the lanes left out and the test counts |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 | `scripts/dev/api-type` | any time | One schema or API path from the generated `schema.d.ts`, which is never read whole (KAN-618) |
 | `scripts/dev/usage-report` | on a Mac with the sessions' transcripts (not in a cloud session) | Claude usage per session from the local transcripts: tokens per agent, where the input went, the largest tool results; counts and file names only, no network (KAN-613) |
@@ -58,6 +58,9 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 |---|---|---|
 | Push | PreToolUse `Bash` | the working copy differs from HEAD, `scripts/dev/check` has not passed for HEAD's tree, the target is `main` (also `HEAD` while on `main`, `--all`, `--mirror`), or the push is forced |
 | Hand-over | Stop | after a push in this session: no open PR for HEAD, a CI check that has already **failed** (a pending one does not hold it — KAN-619), no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push. `gate close` then refuses while the merged PR's checks or the latest nightly run on `main` are red |
+| Check status on the PR (KAN-625) | PostToolUse `Bash` (the push), Stop (one retry) | never blocks. After a push lands, the hook posts the commit status `nexotec/check` = `success` on each pushed commit whose tree equals the recorded pass, saying which lanes ran («frontend only» / «all lanes»), the tree and the test counts; no pass for that tree, no status. |
+| | | Only the hook writes it: a typed `gh`/`curl` write naming `nexotec/check` is refused. A refusal by GitHub is recorded (`gate status`: `PR status`) and reported, never worked around. |
+| | | A cloud session's GitHub access refuses the write (HTTP 403 from the proxy, statuses and check-runs alike), so there the status is missing until KAN-647 builds what ADR-129 rules: a hook-made evidence commit that a workflow turns into the status. |
 | Generated files | PreToolUse `Edit|Write`, `Read`, `Bash` | editing `schema.d.ts` or the built prototype HTML; reading `schema.d.ts`, `openapi.json` or `frontend/package-lock.json` whole (KAN-618) — a `Read` without a `limit` of at most 200 lines, and `cat`, `less`, `sed` without a bounded range or `head`/`tail` over 200 lines, are refused with a pointer to `scripts/dev/api-type` and `grep -n`. Not a `Read(...)` deny rule: Claude Code applies one to `grep` on the same path too |
 | Applied migrations | PreToolUse `Edit|Write` | editing a migration file that exists on `origin/main` |
 | Preserved files and the setup | PreToolUse `Edit|Write`, `Bash` | a write to a CLAUDE.md preserve-verbatim file, `.claude/hooks/`, `.claude/agents/`, `.claude/settings.json` or `scripts/dev/`: asks Anto in an attended permission mode (`default`, `acceptEdits`, `plan`); **denied** in every other mode (`auto`, `bypassPermissions`, `dontAsk`, an unknown or missing mode), with a message to ask Anto in chat and stop — an unattended session never changes these files (KAN-255) |
@@ -71,7 +74,11 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 Commands are parsed, not pattern-matched: quotes, here-documents (commit messages), `$(…)`,
 subshells, pipes, `timeout`/`nohup`/`env` wrappers and `sh -c` are seen through, and a push in
 the same command line as a commit, merge or switch is refused. Evidence only counts for the tree
-it was recorded on: a reviewer verdict for the commit named on its `REVIEWED:` line,
+it was recorded on: a reviewer verdict for the commit named on its `REVIEWED:` line (a
+re-review's, which also names `RE-REVIEW OF: <previous sha>`, only when that commit is an ancestor
+with a recorded review and the range between them changes at most 150 lines and no preserved file,
+migration or `public.py` — otherwise the verdict is recorded as refused; `scripts/dev/gate
+review-scope <sha>` answers beforehand, KAN-620),
 screenshots from the desktop preview / built-in browser (or a file under `.claude/evidence/`
 registered with `scripts/dev/gate evidence screenshot`). Writers hold a lock, so hooks firing
 at once never lose each other's events.
@@ -166,8 +173,11 @@ session. Several can run at once, each on its own machine, with the Mac closed.
 - Rule files carry a maintainer note (an HTML comment, stripped before Claude sees it) naming
   their Notion sources and the commit they were verified against. `/drift-audit` compares them
   weekly with Notion and the code and files tickets for what drifted.
-- Model: `claude-opus-5-5` at `effortLevel: high` (Opus 5.5 defaults to `medium`); the reviewer
-  runs at `xhigh`. Upgrading is a deliberate one-line change.
+- Model: `claude-opus-5-5` at `effortLevel: medium` (KAN-621). `/architect` and `/spec-review`
+  run at `high` (`effort:` in their frontmatter, for the turn that invokes them), and `/ticket`
+  plans at `high` through the `Plan` agent for the cases it lists; the reviewer runs at `high`
+  (KAN-620). `CLAUDE_CODE_EFFORT_LEVEL`, when set, overrides all of these. Upgrading is a
+  deliberate one-line change.
 
 ## Weekly routine
 
