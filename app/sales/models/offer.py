@@ -104,7 +104,10 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     # vehicle_source == "manual". vehicle_label above is its display label
     # at attach time; the frozen vehicle_snapshot carries its spec block.
     configuration_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK."
+        GUID(),
+        nullable=True,
+        index=True,  # KAN-563: vehicle's purge asks `referenced_configuration_ids` by this column
+        comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK.",
     )
     configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
@@ -189,7 +192,10 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     # record exists for such a trade-in (ADR-070), so trade_in_vehicle_id
     # stays null.
     trade_in_configuration_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK."
+        GUID(),
+        nullable=True,
+        index=True,  # KAN-563: vehicle's purge asks `referenced_configuration_ids` by this column
+        comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK.",
     )
     trade_in_configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # S-D04: the valuation is a read-only REFERENCE — Sales never copies
