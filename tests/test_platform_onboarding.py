@@ -170,7 +170,7 @@ def test_a_uid_already_onboarded_is_409_and_writes_nothing(client, mailbox, db_s
 
 
 def test_a_failing_seed_leaves_nothing_behind(client, mailbox, db_session, monkeypatch):
-    import app.platform.services.number_range as number_range
+    from app.platform.services import number_range
 
     def broken(*args, **kwargs):
         raise RuntimeError("seed failed")

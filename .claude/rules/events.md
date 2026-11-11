@@ -89,5 +89,15 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
   (registered last; retention, not a repair) asks the hosts' read-only
   `referenced_configuration_ids` as a safety net before it deletes a configuration no host ever
   took, 30 days after it was created (`vehicle-configurator.md`).
+- **«Fahrzeug im Lager geändert»** (KAN-553, ADR-115): Stock publishes
+  `inventory.stock_item.commercial_changed` (`inventory/services/commercial_change.py`: state before,
+  `publish_if_changed` after, in the write's transaction) when list/effective price, the option set,
+  colour, odometer or configuration label change — PATCH, pricing dialog, «Konfiguration zuordnen»,
+  the nightly label refresh; never purchase or storno. `sales.stock_item_commercial_changed`
+  (`sales/services/vehicle_change.py`) flags draft/open offers and pending contracts frozen before the
+  change (`vehicle_changed_at`/`_fields`, audit row, deal row; no version bump; a contract from a
+  flagged offer takes it). `POST …/{offers|contracts}/{id}/vehicle-refresh[/dismiss]` need an editable
+  deal and a flag (409 `vehicle_not_changed`); refresh re-freezes with `force=True`, keeping the
+  seller's line edits. Sales' reconciliation reports an open deal whose frozen price differs, unflagged.
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

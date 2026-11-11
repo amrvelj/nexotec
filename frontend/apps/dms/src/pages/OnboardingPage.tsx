@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Alert, Checkbox, Group, MultiSelect, Paper, Radio, Select, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core'
+import { Alert, Button, Checkbox, Group, MultiSelect, Paper, Radio, Select, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { Wizard, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import type { AccessRole, DealerGroupList, OnboardingRequest, OnboardingResult, UserRole } from '../api/types'
@@ -159,8 +158,8 @@ export function OnboardingPage() {
           </Stack>
         </Alert>
         <Group>
-          <Link
-            to="/platform/onboarding"
+          <Button
+            variant="light"
             onClick={() => {
               setResult(null)
               setForm(EMPTY)
@@ -168,7 +167,7 @@ export function OnboardingPage() {
             }}
           >
             {t('onboarding.success.another')}
-          </Link>
+          </Button>
         </Group>
       </Stack>
     )
