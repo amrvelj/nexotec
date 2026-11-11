@@ -10,9 +10,12 @@ per-event by app.inventory.services.invoicing_gate.
 apply_finance_invoice_issued instead.
 """
 
+import datetime as dt
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import StockItem
@@ -30,26 +33,29 @@ CONTEXT = "inventory"
 # app.platform.public.actor_reference_checks). The ledger has created_by only.
 ACTOR_TABLES = (StockItem, StockItemLedger, StockItemPublishing)
 
+# KAN-633: how long a host's `configuration_attached` fact may be in flight.
+_OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
+
 
 def _names_an_untaken_configuration() -> StateCheck:
     """KAN-633 (ADR-131, rule 10): the row names a configuration vehicle
-    still counts as never taken (`first_taken_at` null) — the host's
-    `configuration_attached` fact was not consumed (dead-lettered, or the
-    consumer is behind), so vehicle's purge could delete it the day the
-    safety net misses it. Vehicle names no host; each host reports its own
-    rows. A configuration that no longer exists is the reference check's
-    finding, not this one's."""
+    still counts as never taken (`first_taken_at` null) an hour after the
+    row last changed — the host's `configuration_attached` fact was not
+    consumed (dead-lettered, or the consumer is stuck), so vehicle's purge
+    could delete it the day its safety net misses it. The hour is the
+    outbox-lag grace: a fact in flight is not a finding. Vehicle names no
+    host; each host reports its own rows. A configuration that no longer
+    exists is the reference check's finding, not this one's."""
 
     return StateCheck(
         label="stock_item.configuration_id names a configuration vehicle has not stamped as taken",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: (
-            select(VehicleConfiguration.id)
-            .where(VehicleConfiguration.id == StockItem.configuration_id, VehicleConfiguration.first_taken_at.is_(None))
-            .correlate(StockItem)
-            .exists()
-        ),
+        where=lambda: select(VehicleConfiguration.id)
+        .where(VehicleConfiguration.id == StockItem.configuration_id, VehicleConfiguration.first_taken_at.is_(None))
+        .correlate(StockItem)
+        .exists()
+        & (StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE),
     )
 
 
@@ -133,14 +139,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         label="stock_item.valuation_ref_amount differs from valuation.final_offer",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: (
-            select(Valuation.id)
-            .where(
-                Valuation.id == StockItem.valuation_ref_id,
-                Valuation.final_offer.is_distinct_from(StockItem.valuation_ref_amount),
-            )
-            .exists()
-        ),
+        where=lambda: select(Valuation.id)
+        .where(
+            Valuation.id == StockItem.valuation_ref_id,
+            Valuation.final_offer.is_distinct_from(StockItem.valuation_ref_amount),
+        )
+        .exists(),
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

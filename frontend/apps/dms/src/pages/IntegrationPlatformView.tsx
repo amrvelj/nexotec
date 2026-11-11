@@ -67,13 +67,14 @@ export function IntegrationPlatformView() {
     return map
   }, [dealershipsQuery.data])
 
-  // KAN-603 — the provider's name for the delete confirmation.
   const providersQuery = useQuery({
     queryKey: ['integrations', 'providers'],
     queryFn: () => api.get<IntegrationProviderPage>('/integrations/providers'),
   })
-  const providerNameById = useMemo(
-    () => new Map((providersQuery.data?.items ?? []).map((p) => [p.id, p.displayName] as const)),
+  // KAN-603 — the provider's name for the delete confirmation and its secret
+  // slots for the row menu, so «Secret setzen» reads the same as on the card.
+  const providersById = useMemo(
+    () => new Map((providersQuery.data?.items ?? []).map((p) => [p.id, p] as const)),
     [providersQuery.data]
   )
   const [deletingFor, setDeletingFor] = useState<IntegrationConnectionRead | null>(null)
@@ -226,14 +227,14 @@ export function IntegrationPlatformView() {
                 onRotateSecret: () => {},
                 onToggleEnabled: () => void toggleEnabled(row),
                 onDelete: () => setDeletingFor(row),
-              })
+              }, providersById.get(row.providerId)?.requiredSecretSlots)
             }
           />
         </OverviewShellRegion>
       </Stack>
       <DeleteConnectionModal
         connection={deletingFor}
-        providerName={deletingFor ? providerNameById.get(deletingFor.providerId) ?? deletingFor.providerCode : ''}
+        providerName={deletingFor ? providersById.get(deletingFor.providerId)?.displayName ?? deletingFor.providerCode : ''}
         onClose={() => setDeletingFor(null)}
         onDeleted={() => void invalidate()}
       />

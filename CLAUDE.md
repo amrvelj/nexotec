@@ -1,7 +1,7 @@
 # Nexotec — working rules
 
 Swiss automotive Dealer Management System. FastAPI + Postgres + React SPA (Mantine,
-TanStack Query/Table/Virtual, Lucide). One deployable today.
+TanStack Query/Table/Virtual, Lucide).
 
 **Quality before speed.** This product is meant to last. Where a shortcut and a correct
 implementation disagree, take the correct one and say what it costs. Do not cut scope, skip
@@ -98,7 +98,7 @@ second database, service template, broker or top-level `services/` directory. A 
 
 ## The twelve bounded contexts
 
-Lowest layer first (ADR-131).
+Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales.
 
 | Context | Owns |
 |---|---|
@@ -115,8 +115,7 @@ Lowest layer first (ADR-131).
 | `reporting` | *(stub)* projections from events |
 | `compliance` | *(stub)* audit, revDSG, retention |
 
-The stubs let the import-linter contract name every context from day one: never delete one, nor
-move its concerns elsewhere.
+Stubs keep every context in the contract: never delete one or put its concerns elsewhere.
 
 ## Non-negotiable rules
 
@@ -125,9 +124,10 @@ move its concerns elsewhere.
    plain `GUID` with an owner comment, a denormalised label and `labelRefreshedAt` (the three-column
    pattern); its data comes from a `public` function — in `app/` only `reconciliation.py` reads across (ADR-107).
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
-   import-linter gates CI with **no suppression mechanism**; `test_import_contracts_cover_every_module.py`
-   fails when a new module is not listed. Moving a boundary is an ADR, not an ignore entry. Calls go only **down**
-   the layers (`test_context_dependency_direction.py`).
+   import-linter enforces it in CI with **no suppression mechanism**;
+   `test_import_contracts_cover_every_module.py` fails on a module its contract omits. Moving a
+   boundary is an ADR, not an ignore entry. Calls go only **down** the layers
+   (`test_context_dependency_direction.py`).
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not

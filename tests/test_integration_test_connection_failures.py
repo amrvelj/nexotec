@@ -216,7 +216,6 @@ def test_a_programmer_error_is_not_dressed_up_as_a_connection_failure(db_session
     assert connection.status == ConnectionStatus.NOT_CONFIGURED  # untouched
 
 
-
 def test_an_access_check_that_metered_no_request_is_logged_as_access_check(db_session, monkeypatch):
     """KAN-600: the block's own row — written only when the access check
     failed before metering a request — is labelled `access_check`, not the

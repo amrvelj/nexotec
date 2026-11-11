@@ -1,21 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Button, Group, Modal, Stack, Text } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
+import { FormDialog } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
 import type { IntegrationConnectionRead } from '../api/types'
+import { connectionAccountIdentifier } from './connectionRowMenu'
 import { apiRefusalText } from '../utils/apiRefusal'
-
-/**
- * The account-identifier of a connection, as its card and the delete
- * confirmation name it. auto-i-dat (KAN-488, ADR-111) is an OAuth 2.0 client:
- * its `clientId` is the identifier (never the secret, which `config` never
- * carries). Every other provider falls back to its plain `username`.
- */
-export function connectionAccountIdentifier(connection: IntegrationConnectionRead): string {
-  const { clientId, username } = connection.config
-  if (typeof clientId === 'string' && clientId !== '') return clientId
-  return typeof username === 'string' && username !== '' ? username : '—'
-}
 
 /**
  * KAN-603 — «Verbindung löschen» from the card (dealer) or the grid row
@@ -61,7 +51,16 @@ export function DeleteConnectionModal({
   }
 
   return (
-    <Modal opened onClose={onClose} title={t('integrationsList.deleteModal.title', { name: connection.displayName })}>
+    <FormDialog
+      opened
+      onClose={onClose}
+      title={t('integrationsList.deleteModal.title', { name: connection.displayName })}
+      onSubmit={remove}
+      submitLabel={t('integrationsList.deleteModal.confirm')}
+      cancelLabel={t('common.cancel')}
+      submitting={submitting}
+      destructive
+    >
       <Stack gap="sm">
         {error && <Text size="sm" c="red" role="alert">{error}</Text>}
         <Text size="sm">
@@ -72,13 +71,7 @@ export function DeleteConnectionModal({
           })}
         </Text>
         <Text size="sm" fw={600}>{t('integrationsList.deleteModal.warning')}</Text>
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button color="red" onClick={() => void remove()} loading={submitting}>
-            {t('integrationsList.deleteModal.confirm')}
-          </Button>
-        </Group>
       </Stack>
-    </Modal>
+    </FormDialog>
   )
 }

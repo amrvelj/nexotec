@@ -11,6 +11,18 @@ export interface ConnectionRowMenuActions {
 }
 
 /**
+ * The account-identifier of a connection, as its card and the delete
+ * confirmation name it. auto-i-dat (KAN-488, ADR-111) is an OAuth 2.0 client:
+ * its `clientId` is the identifier (never the secret, which `config` never
+ * carries). Every other provider falls back to its plain `username`.
+ */
+export function connectionAccountIdentifier(connection: IntegrationConnectionRead): string {
+  const { clientId, username } = connection.config
+  if (typeof clientId === 'string' && clientId !== '') return clientId
+  return typeof username === 'string' && username !== '' ? username : '—'
+}
+
+/**
  * The secret slots a connection's secret dialog offers (KAN-603): every slot
  * its provider requires, set or not, plus any slot already stored. A
  * connection whose first secret write failed has no stored slot and must
@@ -20,7 +32,7 @@ export function settableSecretSlots(
   connection: Pick<IntegrationConnectionRead, 'secretSlots'>,
   requiredSecretSlots: readonly string[] = []
 ): string[] {
-  const stored = (connection.secretSlots ?? []).map((s) => s.slot)
+  const stored: string[] = (connection.secretSlots ?? []).map((s) => s.slot)
   return [...new Set([...requiredSecretSlots, ...stored])]
 }
 

@@ -5,8 +5,8 @@ import { Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
 import { api } from '../api/client'
-import { buildConnectionRowMenu, settableSecretSlots } from '../components/connectionRowMenu'
-import { connectionAccountIdentifier, DeleteConnectionModal } from '../components/DeleteConnectionModal'
+import { buildConnectionRowMenu, connectionAccountIdentifier, settableSecretSlots } from '../components/connectionRowMenu'
+import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useFieldHint } from '../hooks/useFieldHint'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -405,7 +405,7 @@ function RotateSecretModal({
   // KAN-603 — every slot the provider requires, set or not, so a connection
   // whose first secret write failed can be given it here.
   const slots = settableSecretSlots(connection, requiredSecretSlots)
-  const stored = new Set((connection.secretSlots ?? []).map((s) => s.slot))
+  const stored = new Set<string>((connection.secretSlots ?? []).map((s) => s.slot))
   const nothingStored = stored.size === 0
 
   const submit = async () => {

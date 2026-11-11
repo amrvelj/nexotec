@@ -68,7 +68,7 @@
   },
   "deleteModal": {
     "title": "Delete connection — {{name}}",
-    "body": "The connection to {{provider}} ({{environment}}, account {{account}}) will be deleted.",
+    "body": "The connection to {{provider}} will be deleted — environment {{environment}}, account {{account}}.",
     "warning": "The stored secrets are deleted too. This cannot be undone.",
     "confirm": "Delete permanently",
     "error": "The connection could not be deleted."

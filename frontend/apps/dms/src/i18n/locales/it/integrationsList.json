@@ -68,7 +68,7 @@
   },
   "deleteModal": {
     "title": "Elimina connessione — {{name}}",
-    "body": "La connessione a {{provider}} ({{environment}}, account {{account}}) verrà eliminata.",
+    "body": "La connessione a {{provider}} verrà eliminata — ambiente {{environment}}, account {{account}}.",
     "warning": "Anche i secret salvati verranno eliminati. L'azione non può essere annullata.",
     "confirm": "Elimina definitivamente",
     "error": "Non è stato possibile eliminare la connessione."

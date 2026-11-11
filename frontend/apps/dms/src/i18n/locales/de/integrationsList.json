@@ -68,7 +68,7 @@
   },
   "deleteModal": {
     "title": "Verbindung löschen — {{name}}",
-    "body": "Die Verbindung zu {{provider}} ({{environment}}, Konto {{account}}) wird gelöscht.",
+    "body": "Die Verbindung zu {{provider}} wird gelöscht — Umgebung {{environment}}, Konto {{account}}.",
     "warning": "Die gespeicherten Secrets werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "confirm": "Endgültig löschen",
     "error": "Die Verbindung konnte nicht gelöscht werden."

@@ -562,17 +562,34 @@ def test_the_purge_refuses_to_run_without_a_host(db_session):
 
 
 # KAN-633 criterion 4 (rule 10): each host's own reconciliation reports a row
-# naming a configuration vehicle still counts as never taken — the host's fact
-# was lost — and is silent once vehicle has stamped it.
+# naming a configuration vehicle still counts as never taken an hour after the
+# row last changed — the host's fact was lost or is stuck — and is silent once
+# vehicle has stamped it, or while the fact may still be in flight.
+_UNTAKEN = "names a configuration vehicle has not stamped as taken"
 UNTAKEN = {
-    "offer": ("sales", "sales_offer.configuration_id names a configuration vehicle has not stamped as taken"),
-    "contract_trade_in": (
-        "sales",
-        "sales_contract.trade_in_configuration_id names a configuration vehicle has not stamped as taken",
-    ),
-    "stock_item": ("inventory", "stock_item.configuration_id names a configuration vehicle has not stamped as taken"),
-    "valuation": ("valuation", "valuation.configuration_id names a configuration vehicle has not stamped as taken"),
+    "offer": ("sales", f"sales_offer.configuration_id {_UNTAKEN}"),
+    "contract_trade_in": ("sales", f"sales_contract.trade_in_configuration_id {_UNTAKEN}"),
+    "stock_item": ("inventory", f"stock_item.configuration_id {_UNTAKEN}"),
+    "valuation": ("valuation", f"valuation.configuration_id {_UNTAKEN}"),
 }
+# Every column a host keeps a configuration id in.
+_HOST_COLUMNS = (
+    SalesOffer.configuration_id,
+    SalesOffer.trade_in_configuration_id,
+    SalesContract.configuration_id,
+    SalesContract.trade_in_configuration_id,
+    StockItem.configuration_id,
+    Valuation.configuration_id,
+)
+
+
+def _age_hosts(db: Session, configuration_id: uuid.UUID, *, hours: float) -> None:
+    """Past the outbox-lag grace: the host rows naming it last changed `hours` ago."""
+
+    then = utcnow() - dt.timedelta(hours=hours)
+    for column in _HOST_COLUMNS:
+        db.execute(update(column.class_).where(column == configuration_id).values(updated_at=then))
+    db.commit()
 
 
 def _reconciliation_findings(db: Session, context: str, label: str) -> list:
@@ -596,8 +613,36 @@ def test_a_host_reports_a_configuration_vehicle_believes_free(db_session, host):
     assert _config(db_session, configuration_id).first_taken_at is None  # its fact is not consumed
     context, label = UNTAKEN[host]
 
+    # Within the hour the fact may still be in flight: not a finding.
+    assert _reconciliation_findings(db_session, context, label) == []
+
+    _age_hosts(db_session, configuration_id, hours=2)
     assert len(_reconciliation_findings(db_session, context, label)) == 1
 
     _run_job(db_session)  # the safety net stamps it
     assert _config(db_session, configuration_id).first_taken_at is not None
     assert _reconciliation_findings(db_session, context, label) == []
+
+
+@pytest.mark.parametrize(
+    ("model", "column"),
+    [
+        (SalesOffer, "configuration_id"),
+        (SalesOffer, "trade_in_configuration_id"),
+        (SalesContract, "configuration_id"),
+        (SalesContract, "trade_in_configuration_id"),
+    ],
+)
+def test_sales_reports_each_of_its_four_configuration_columns(db_session, model, column):
+    dealership = _dealership(db_session)
+    config = _record_configuration(db_session, dealership.id)
+    number = {"offer_number": "O-K633"} if model is SalesOffer else {"contract_number": "C-K633"}
+    row = model(tenant_id=dealership.id, **number)
+    setattr(row, column, config.id)
+    db_session.add(row)
+    db_session.commit()
+    _age_hosts(db_session, config.id, hours=2)
+
+    findings = _reconciliation_findings(db_session, "sales", f"{model.__tablename__}.{column} {_UNTAKEN}")
+
+    assert [finding.source_row_id for finding in findings] == [row.id]

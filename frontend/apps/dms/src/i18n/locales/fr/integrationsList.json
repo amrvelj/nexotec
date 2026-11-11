@@ -68,7 +68,7 @@
   },
   "deleteModal": {
     "title": "Supprimer la connexion — {{name}}",
-    "body": "La connexion à {{provider}} ({{environment}}, compte {{account}}) sera supprimée.",
+    "body": "La connexion à {{provider}} sera supprimée — environnement {{environment}}, compte {{account}}.",
     "warning": "Les secrets enregistrés seront également supprimés. Cette action est irréversible.",
     "confirm": "Supprimer définitivement",
     "error": "La connexion n'a pas pu être supprimée."
