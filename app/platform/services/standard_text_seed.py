@@ -20,6 +20,13 @@ the database rows are the seed library — `platform_admin` edits them per code
 and language (FR-A-29, versioned); changing this module later does not touch
 an installed seed.
 
+**Frozen (KAN-517, ADR-133).** The KAN-208 migration `ec4559d84ad3` imports
+`SEED_TEXTS`, and it is immutable, so an edit here would give a fresh database
+other seed rows than a deployed one (and another «shipped wording» to revert
+to). `tests/architecture/test_migration_seed_sources_are_frozen.py` pins it by
+digest. A new edition of the library is a new data migration with literal
+rows and a name of its own for the declaration the application reads.
+
 The code's shape is `<applies_to>.<slot>.<name>` for a document text and
 `<category>.<type>` for a message body.
 """

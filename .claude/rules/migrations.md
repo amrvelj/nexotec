@@ -60,6 +60,15 @@ in the same PR as any change to what it states. -->
   database")`); DDL renders as usual. The trunk's `b7c1e4a92f10` and the data migrations after it
   (every chain has at least one) predate this and are immutable, so an offline render crossing them
   fails — README's "Database migrations" names what still renders.
+- **A migration's seed rows are literals in the migration** (KAN-517, ADR-133), never read from
+  an application module that keeps moving: an edit there would give a fresh database other rows
+  than a deployed one. Keep an equality test between the literal rows and the application's
+  declaration (KAN-216's `994244560c8a` and `tests/test_migrated_notification_catalogue.py`).
+  Four shipped platform migrations predate this and import their rows (holidays, standard texts,
+  business lists, countries); being immutable, their sources are frozen by digest instead —
+  `tests/architecture/test_migration_seed_sources_are_frozen.py`, which also fails on any other
+  migration importing a bounded context. A change to a frozen source is a new data migration, and
+  the new edition gets its own name; never update a digest.
 - **Backfills run for real, on Postgres, and are verified by query**: count rows, count nulls,
   count values identical to the column they were derived from. An offline `--sql` render is not
   a run. A downgrade that is deliberately a no-op says so in a comment.
