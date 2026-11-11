@@ -55,7 +55,8 @@ A configuration no host ever took is deleted 30 days after creation; one a host 
 good. `first_taken_at` is stamped (never moved or cleared) by vehicle's consumers of the hosts' own
 facts (`sales.offer|contract.configuration_attached`, `inventory.stock_item.added` /
 `.configuration_attached`, `valuation.created`). The daily `vehicle.configurations.purge_unattached`
-also asks Sales, Stock and Valuation through their read-only `referenced_configuration_ids`, counts
+also asks Sales, Stock and Valuation through their read-only `referenced_configuration_ids` — handed in
+by `app.worker.CONFIGURATION_HOSTS`, never imported by vehicle (ADR-131, KAN-633) — counts
 one linked to a registered car as held, stamps every held one, and deletes the rest past 30 days —
 each in its own transaction, with an audit row and `vehicle.configuration.discarded` — then blanks
 the personal values earlier audit rows copied through `app.core.audit.redact_audit_values`, the

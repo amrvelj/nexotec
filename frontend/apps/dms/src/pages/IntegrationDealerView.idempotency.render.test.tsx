@@ -10,8 +10,9 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 
 // KAN-266 — the dealer's integration screen sends one Idempotency-Key per
 // submission: "Verbindung testen" (a logged, possibly billed provider call)
-// and the connect dialog's create, which keeps its key until the secrets are
-// written too.
+// and the connect dialog's create, whose key a retry of a failed create keeps
+// and a successful create renews (KAN-603: a refused secret write after it is
+// repaired on the card, never by a second create).
 
 const PROVIDER = {
   id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'oauth2_user_enrollment',
@@ -89,20 +90,21 @@ describe('IntegrationDealerView — one Idempotency-Key per submission (KAN-266)
     expect(second).not.toBe(first)
   })
 
-  it('after a failed secret write, connecting again replays the created connection under the same key', async () => {
+  it('a failed secret write after the create is said as such and never creates a second time (KAN-603)', async () => {
     const user = userEvent.setup()
     const backend = install({ connected: false, failFirstSecret: true })
     renderWithProviders(<IntegrationDealerView />)
 
     await user.click(await screen.findByRole('button', { name: i18n.t('integrationsList.actions.connect') }))
     await connect(user)
-    expect(await screen.findByText(i18n.t('integrationsList.connectError'))).toBeInTheDocument()
-    await connect(user)
-    await waitFor(() => expect(backend.callsTo(/\/secrets\/client_secret$/, 'PUT')).toHaveLength(2))
-
-    const [first, retry] = keysTo(backend, /^\/integrations\/connections$/)
-    expect(first).toBeTruthy()
-    expect(retry).toBe(first)
+    const alert = await within(screen.getByRole('dialog')).findByRole('alert')
+    expect(alert).toHaveTextContent(
+      i18n.t('integrationsList.connectModal.secretFailed', {
+        reason: i18n.t('integrationsList.connectModal.secretFailedFallback'),
+      })
+    )
+    expect(screen.queryByText(i18n.t('integrationsList.connectError'))).not.toBeInTheDocument()
+    expect(keysTo(backend, /^\/integrations\/connections$/)).toHaveLength(1)
   })
 
   it('reopening the connect dialog after a failure gets a new key', async () => {

@@ -24,6 +24,7 @@ from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
 from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.schemas.configuration import ConfigurationUpdate
 from app.vehicle.services import configuration as configuration_service
+from app.worker import CONFIGURATION_HOSTS
 from tests.test_configurator_hosts import _dealership, _record_configuration
 from tests.test_vehicle_configuration_retention import _age, _held_by_stock_item
 
@@ -77,7 +78,7 @@ def test_the_purge_blanks_the_personal_values_in_the_configurations_own_rows(db_
     before = {row.id: (row.action, row.actor_id, row.reason, row.created_at) for row in _rows(db_session, configuration_id)}
     _age(db_session, configuration_id, days=31)
 
-    run_daily_unattached_configuration_purge(db_session)
+    run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
     assert db_session.get(VehicleConfiguration, configuration_id) is None
     rows = _rows(db_session, configuration_id)
@@ -103,7 +104,7 @@ def test_the_purge_records_one_redact_row_naming_rows_and_keys_never_values(db_s
     update_id = _update_row(_rows(db_session, configuration_id)).id
     _age(db_session, configuration_id, days=31)
 
-    run_daily_unattached_configuration_purge(db_session)
+    run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
     redacts = [row for row in _rows(db_session, configuration_id) if row.action == "redact"]
     assert len(redacts) == 1
@@ -123,7 +124,7 @@ def test_a_configuration_a_host_took_keeps_its_full_history(db_session):
     db_session.commit()
     _age(db_session, configuration_id, days=31)
 
-    run_daily_unattached_configuration_purge(db_session)
+    run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
     assert db_session.get(VehicleConfiguration, configuration_id) is not None
     rows = _rows(db_session, configuration_id)
@@ -160,7 +161,7 @@ def test_a_redaction_never_touches_another_entitys_rows(db_session):
     configuration_id = _edited(db_session, dealership.id)
     _age(db_session, configuration_id, days=31)
 
-    run_daily_unattached_configuration_purge(db_session)
+    run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
     untouched = db_session.scalars(select(AuditEvent).where(AuditEvent.entity_id != configuration_id)).all()
     assert all(row.after.get("vin") == NEW_VIN for row in untouched if row.after and "vin" in row.after)
@@ -191,7 +192,7 @@ def test_a_young_configuration_is_not_purged_and_keeps_its_values(db_session):
     configuration_id = _edited(db_session, dealership.id)
     _age(db_session, configuration_id, days=3)
 
-    run_daily_unattached_configuration_purge(db_session)
+    run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
     rows = _rows(db_session, configuration_id)
     assert _update_row(rows).after["vin"] == NEW_VIN
@@ -214,7 +215,7 @@ def test_rows_written_before_kan_346_with_snake_case_keys_are_redacted_too(db_se
     db_session.commit()
     _age(db_session, configuration_id, days=31)
 
-    run_daily_unattached_configuration_purge(db_session)
+    run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
     text = repr([(row.before, row.after) for row in _rows(db_session, configuration_id)])
     for value in ("ZH 111111", "ZH 222222", "1000", "2000"):

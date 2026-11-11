@@ -22,14 +22,20 @@
     "test": "Verifica connessione",
     "viewUsage": "Visualizza utilizzo",
     "rotateSecret": "Rinnova secret",
-    "rotateSecretDisabledReason": "Questa connessione non ha secret da rinnovare.",
+    "rotateSecretDisabledReason": "Questo fornitore non utilizza secret.",
     "enable": "Attiva",
     "disable": "Disattiva",
-    "connect": "Connetti"
+    "connect": "Connetti",
+    "setSecret": "Imposta secret",
+    "delete": "Elimina connessione"
   },
   "connectModal": {
     "title": "Connetti {{provider}}",
-    "testAccessHint": "Sandbox è il vostro accesso di prova: solo con l'account di servizio di auto-i-dat (Client-ID e Client-Secret), mai con il token personale, e solo in ambienti di test. Sul server di produzione Nexotec lo rifiuta."
+    "testAccessHint": "Sandbox è il vostro accesso di prova: solo con l'account di servizio di auto-i-dat (Client-ID e Client-Secret), mai con il token personale, e solo in ambienti di test. Sul server di produzione Nexotec lo rifiuta.",
+    "secretFailed": "Connessione creata, non è stato possibile salvare il secret: {{reason}}",
+    "secretFailedRepair": "Impostare il secret sulla scheda della connessione con «Imposta secret».",
+    "secretFailedFallback": "La richiesta non è stata eseguita.",
+    "toConnection": "Alla connessione"
   },
   "usageModal": {
     "title": "Utilizzo — {{name}}",
@@ -40,7 +46,9 @@
   "rotateModal": {
     "title": "Rinnova secret — {{name}}",
     "hint": "Inserire un nuovo valore solo per i campi da sostituire — il rinnovo sostituisce, non legge mai il valore attuale.",
-    "savedBeforeRefusal": "Già rinnovati: {{slots}}. Rifiutato per «{{refused}}»:"
+    "savedBeforeRefusal": "Già rinnovati: {{slots}}. Rifiutato per «{{refused}}»:",
+    "titleSet": "Imposta secret — {{name}}",
+    "notSet": "non impostato"
   },
   "columns": {
     "dealership": "Azienda",
@@ -57,5 +65,12 @@
   "emptyFilteredState": {
     "title": "Nessuna connessione corrispondente",
     "description": "Prova una ricerca diversa."
+  },
+  "deleteModal": {
+    "title": "Elimina connessione — {{name}}",
+    "body": "La connessione a {{provider}} verrà eliminata — ambiente {{environment}}, account {{account}}.",
+    "warning": "Anche i secret salvati verranno eliminati. L'azione non può essere annullata.",
+    "confirm": "Elimina definitivamente",
+    "error": "Non è stato possibile eliminare la connessione."
   }
 }

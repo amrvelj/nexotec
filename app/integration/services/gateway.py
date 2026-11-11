@@ -1,5 +1,5 @@
 """The provider-gateway itself (WP-6 PR-2/3) — resolves which adapter a
-connection speaks through, times and logs every call, and (PR-3) wraps
+connection speaks through, times and logs every call, and wraps
 credential resolution and resilience around it. Callers (app/vehicle/
 services/catalogue_sync.py, PR-4) never touch an adapter class directly;
 they go through `call_capability`, so mock and real providers are
@@ -96,10 +96,10 @@ class UnknownProviderError(ProviderGatewayError):
 
 
 # provider_code -> factory(db, connection, actor_id, purpose) -> adapter
-# instance. The db/actor_id/purpose triple exists purely so a real adapter
-# (PR-3's AutoIDatSoapAdapter) can audit-log each credential resolution
-# with "actor, tenant, connection, purpose" (rule 4) — the mock factory
-# below ignores all three. Mock and real are separate provider_codes /
+# instance. The db/actor_id/purpose triple is what a real adapter needs to
+# know who it calls for: the identAPI's (`adapters/auto_i_dat_ident.py`)
+# enrols the acting user (User Enrollment Grant) and names the purpose on
+# its call-log rows — the mock factory below ignores all three. Mock and real are separate provider_codes /
 # separate connections, never a runtime flag on one (rule 7's own
 # reasoning, applied to more than just sandbox/prod).
 _AdapterFactory = Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
@@ -110,9 +110,11 @@ _ADAPTER_FACTORIES: dict[str, _AdapterFactory] = {
 
 
 def register_adapter_factory(provider_code: str, factory: _AdapterFactory) -> None:
-    """PR-3 registers the real SOAP adapter here rather than editing this
-    module's own dict in place — keeps the two adapters' modules
-    independent of each other (neither imports the other).
+    """A real adapter registers its factory here rather than editing this
+    module's own dict in place — the identAPI adapter (`auto_i_dat`,
+    `adapters/auto_i_dat_ident.py`) and AutoScout24 (`autoscout24`) do — which
+    keeps the adapters' modules independent of this one (neither imports the
+    other at module scope).
     """
 
     _ADAPTER_FACTORIES[provider_code] = factory
@@ -121,8 +123,9 @@ def register_adapter_factory(provider_code: str, factory: _AdapterFactory) -> No
 def _adapter_factory(db: Session, connection: IntegrationConnection) -> _AdapterFactory:
     """Every refusal that comes before the provider is reached — a disabled
     connection, an open circuit, a provider with no adapter. Reads only; no
-    provider I/O. Calling the factory it returns is where a real adapter
-    may make its first network call (the auto-i-dat WSDL fetch)."""
+    provider I/O. Calling the factory it returns builds the adapter; the
+    identAPI's builds no network connection and resolves no secret (its
+    first token request, inside the caller's block, does both)."""
 
     if not connection.enabled:
         raise ConnectionDisabledError(connection.id)
@@ -232,12 +235,12 @@ def call_capability(
     on a production deployment (KAN-489; that one writes an audit row)
     refuses BEFORE resolving an adapter or writing a log row at all — "no business data"
     extends to not logging a call that never reached the provider.
-    Building the adapter is part of the call, not of the refusal: a provider
-    I/O failure while building it (the auto-i-dat WSDL fetch) is logged and
-    charged to the breaker like a failure in the caller's block (KAN-108),
-    and the logged duration includes it. `actor_id`/`purpose` are threaded through to the adapter factory
-    purely so a real adapter (PR-3) can audit-log its own credential
-    resolutions; the mock adapter ignores both.
+    Building the adapter is part of the call, not of the refusal: a
+    provider transport failure while building it is logged and charged to
+    the breaker like a failure in the caller's block (KAN-108), and the
+    logged duration includes it. `actor_id`/`purpose` are threaded through
+    to the adapter factory so a real adapter knows who it calls for (the
+    identAPI enrols the acting user); the mock adapter ignores both.
 
     `capture_raw_payload` (PR-6) is called once, after the caller's own
     block finishes (success or error), and — if it returns a non-None
@@ -289,15 +292,14 @@ def call_capability(
         started_at = time.monotonic()
         with metering.metering(record_request) as meter:
             try:
-                # KAN-108: built INSIDE the accounted part of the call. For
-                # `auto_i_dat` this fetches the WSDL when the connection has no
-                # cached copy (KAN-213) — the first thing to hang when
-                # the provider's host does — and before KAN-108 a failure here
-                # escaped both the breaker and the call log. Only a transport
-                # failure is accounted: a `ProviderConfigurationError` (no
-                # `wsdlUrl`) is the dealer's to fix, never reached the provider,
-                # and passes through uncounted and unlogged, like the refusals in
-                # `_adapter_factory`.
+                # KAN-108: built INSIDE the accounted part of the call, so an
+                # adapter whose construction reaches the provider has that
+                # failure charged and logged like any other (the identAPI's
+                # builds no connection today; its first request is the token).
+                # Only a transport failure is accounted: a
+                # `ProviderConfigurationError` is the dealer's to fix, never
+                # reached the provider, and passes through uncounted and
+                # unlogged, like the refusals in `_adapter_factory`.
                 adapter = factory(gateway_db, connection, actor_id, purpose or capability)
             except ProviderTransportError as exc:
                 _record_failed_call(
@@ -362,8 +364,8 @@ def _record_failed_call(
 
     A block that did meter requests already has a row for each. When the
     newest of them still reads `SUCCESS`, the failure came after its answer
-    arrived — an answer the caller refused (`System` with no row, a
-    `Fahrzeuge` miss read through `.first`) or the caller's own error — and
+    arrived — an answer the caller refused (an empty list where one row
+    was needed, read through `.first`) or the caller's own error — and
     that row is marked as the failure, so the log never shows a failed,
     breaker-charged call as a success. No extra row: nothing more was sent."""
 
@@ -431,8 +433,8 @@ def test_connection(
     """The dealer-facing "Test connection" action (PR-7's own UI) — an
     access check every account of the provider can pass whatever its other
     entitlements (`entitlement_probes.access_check`: for the identAPI the
-    login plus `GET /caption/code`, for the SOAP-shaped mock the `System`
-    watermark), then the entitlement probes. Updates
+    login plus `GET /caption/code`, for the demo provider its German
+    captions, `fetch_captions("de")`), then the entitlement probes. Updates
     status/last_verified_at/last_error directly.
 
     Any `ProviderGatewayError` — a refusal, a rejected login, a maintenance
@@ -444,7 +446,7 @@ def test_connection(
     connection failed".
 
     A marketplace connection has no such probe (`MarketplaceAdapter` has no
-    `System` equivalent), so it is refused with a 409 before anything is
+    access check), so it is refused with a 409 before anything is
     resolved: nothing is logged, the breaker is not charged, and a healthy
     connection is not marked `ERROR` for a call that never happened.
 
@@ -465,7 +467,8 @@ def test_connection(
     # KAN-488: the identAPI's access check is the login plus
     # `GET /caption/code` (metered rows `oauth_discovery` on a cold cache,
     # `oauth_token`, `caption_code`);
-    # every other vehicle-data adapter keeps the `System` watermark. The
+    # every other vehicle-data adapter (the demo provider) answers its German
+    # captions (`entitlement_probes.access_check`). The
     # actor is the user the token is requested for (auto-i's User Enrollment
     # Grant) — a test with no actor fails as a configuration error.
     check = entitlement_probes.access_check(provider.provider_code)
@@ -473,7 +476,7 @@ def test_connection(
     access_answer: object = None
     try:
         with call_capability(
-            db, connection=connection, capability="system_watermark", actor_id=actor_id, purpose="test_connection"
+            db, connection=connection, capability="access_check", actor_id=actor_id, purpose="test_connection"
         ) as adapter:
             access_answer = check(adapter)
     except ProviderGatewayError as exc:
@@ -518,7 +521,7 @@ def _store_captions(
     (2026-11-07). A failure here is logged and leaves the stored vocabulary
     as it was; the test itself has passed and stays `connected`, and the
     entitlement probes still run. An adapter without captions (the mock
-    speaks them; the SOAP shim does not) stores nothing."""
+    speaks them; AutoScout24 does not) stores nothing."""
 
     # Imported here: the parser is the identAPI adapter's, and the gateway
     # names adapters only through their factories.
@@ -555,8 +558,8 @@ def _probe_entitlements(
 ) -> None:
     """A refusal is caught *inside* the `call_capability` block, so the
     block succeeds and the connection's circuit breaker is not charged; the
-    refused request itself is logged as `ERROR` under its Datenname
-    (KAN-486) — the provider did refuse it: the provider answered coherently, and what it
+    refused request itself is logged as `ERROR` under its operation's own
+    name (KAN-486) — the provider did refuse it: the provider answered coherently, and what it
     said was "not this capability". That is the per-capability degradation
     the per-connection breaker would otherwise defeat — one un-entitled
     capability must not take the connection's other capabilities offline.

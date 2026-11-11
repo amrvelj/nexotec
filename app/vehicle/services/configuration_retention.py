@@ -37,7 +37,9 @@ and `valuation.created`, each carrying `configurationId` — and vehicle's
 consumers (`app/vehicle/consumers.py`) stamp it (`mark_configuration_taken`).
 
 **The safety net:** every run asks each host context, through its read-only
-`referenced_configuration_ids` on its `public` module, which of the unstamped
+`referenced_configuration_ids` on its `public` module — handed in by the
+composition root (`app.worker.CONFIGURATION_HOSTS`; vehicle sits below its
+hosts and names none, KAN-633, ADR-131) — which of the unstamped
 configurations it references now, and stamps those, as it does the ones a
 vehicle record links. That covers a fact not consumed yet (the worker is
 behind or the consumer is retrying) and every configuration a host held
