@@ -130,6 +130,73 @@ def test_the_enrollment_grant_names_the_acting_user_and_the_scope(db_session, mo
         assert request.headers["authorization"] == f"Bearer {s.fake.tokens_issued[0]}"
 
 
+def _ui_language(db_session, user, language: str) -> None:
+    from app.platform.models.user_preference import UserPreference
+
+    db_session.add(UserPreference(user_id=user.id, scope="ui", payload={"uiLanguage": language}))
+    db_session.commit()
+
+
+def test_the_enrollment_sends_the_users_own_ui_language(db_session, monkeypatch):
+    """KAN-585: a user who chose French is enrolled as `fr-CH`, not as the
+    `de-CH` every user was sent as before."""
+
+    s = fx.connected(db_session, monkeypatch)
+    _ui_language(db_session, s.user, "fr")
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    (token_request,) = s.fake.token_requests()
+    assert token_request.headers["accept-language"] == "fr-CH"
+
+
+def test_without_a_preference_the_enrollment_sends_the_home_betriebs_language(db_session, monkeypatch):
+    """KAN-585 with the KAN-104 rule: no `uiLanguage` of their own, so the
+    user starts in their home Betrieb's default correspondence language."""
+
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+    from tests.dealership_support import valid_uid
+
+    group = DealerGroup(name="Gruppo Ticino")
+    db_session.add(group)
+    db_session.flush()
+    dealership = Dealership(
+        dealer_group_id=group.id, legal_name="Garage Lugano SA", franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Via Nassa", address_house_number="1", address_postal_code="6900",
+        address_locality="Lugano", address_canton="TI", phone="+41911234567", uid=valid_uid(),
+        default_correspondence_language=SwissLanguage.IT,
+    )
+    db_session.add(dealership)
+    db_session.commit()
+    s = fx.connected(db_session, monkeypatch, tenant_id=dealership.id)
+
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    (token_request,) = s.fake.token_requests()
+    assert token_request.headers["accept-language"] == "it-CH"
+
+
+def test_a_language_change_does_not_enrol_the_user_a_second_time(db_session, monkeypatch):
+    """KAN-585, do not touch: the token cache key stays (connection,
+    version/rotated_at, user) — a changed language reuses the token."""
+
+    s = fx.connected(db_session, monkeypatch)
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+    _ui_language(db_session, s.user, "en")
+    gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
+
+    assert len(s.fake.token_requests()) == 1
+
+
+@pytest.mark.parametrize(
+    ("ui_language", "tag"),
+    [("de", "de-CH"), ("fr", "fr-CH"), ("it", "it-CH"), ("en", "en-CH"), ("FR", "fr-CH"), (None, "de-CH"), ("rm", "de-CH")],
+)
+def test_the_enrolment_language_tag(ui_language, tag):
+    assert auto_i_dat_ident.enrolment_language_tag(ui_language) == tag
+
+
 def test_the_client_secret_is_resolved_once_per_token_request_and_audited(db_session, monkeypatch):
     s = fx.connected(db_session, monkeypatch)
 

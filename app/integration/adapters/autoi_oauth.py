@@ -11,8 +11,9 @@ instruction for Nexotec (mail of 2026-11-07) names two things to implement:
   ``scope=ident``. The client authenticates with HTTP Basic
   (``client_secret_basic``: the client id and the client secret) and names the
   Nexotec user on whose behalf it calls: ``user_id``, ``email``, ``first_name``,
-  ``last_name`` and a UI language in ``Accept-Language`` (``de-CH`` for every
-  user until KAN-585 reads the user's own through ``platform.public``). auto-i
+  ``last_name`` and the user's UI language in ``Accept-Language`` (KAN-585:
+  ``de-CH``, ``fr-CH``, ``it-CH`` or ``en-CH``, read through
+  ``platform.public.ui_language_of``). auto-i
   registers that person on first access. The token is therefore **per
   connection and per user**, valid ``expires_in`` seconds (1200 today), with no
   refresh token.
@@ -73,10 +74,13 @@ class EnrolledUser:
     """The Nexotec user a token is requested for. `user_id` is the user's
     immutable id in Nexotec (`user.id`), which auto-i keys its registration
     by (max. 50 characters; a UUID is 36). `language` is a BCP 47 tag for
-    `Accept-Language`, the UI language auto-i registers the user with. It is
-    `de-CH` for every user today: the user's UI preference is not readable
-    through `platform.public` (`user_preference.ui_language_of` is internal to
-    the platform context); reading it is KAN-585, not a side effect here."""
+    `Accept-Language`, the UI language auto-i registers the user with:
+    the user's own UI language (KAN-585: their `uiLanguage` preference, else
+    their home Betrieb's default correspondence language — the KAN-104 rule,
+    `platform.public.ui_language_of`) as `de-CH`, `fr-CH`, `it-CH` or
+    `en-CH`. The default `de-CH` stands only where no language is known. Not
+    part of the token cache key: a language change never asks for a second
+    enrolment (auto-i keys it by `user_id`)."""
 
     user_id: str
     email: str
