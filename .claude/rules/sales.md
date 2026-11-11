@@ -52,14 +52,14 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   Inventory in one transaction, imports Inventory's `models`/`services` directly, reads the frozen
   legacy `vehicle` row directly and reads the customer, dealership and `vehicle_mdm` rows it resolves
   against through their models, all four named in its docstring and pinned by
-  `tests/architecture/test_adr_047_no_shared_transaction.py`; it expires when the script is deleted
+  `test_adr_047_no_shared_transaction.py`; it expires when the script is deleted
   after its production run, and nothing else may cite it. Number allocation is the second ruled
   exception, permanent and Platform's (ADR-109, KAN-207): the offer's number is handed out inside the
   offer's own transaction (below, "Visibility and numbers").
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
   Stock synchronously. Stock publishes `inventory.stock_item.purchased` once per booking, so the replica is
   kept **per stock item** (`sales_stock_item_purchase`, written by
-  `app/sales/services/stock_item_purchase.py`) whether or not a contract exists yet, with
+  `services/stock_item_purchase.py`) whether or not a contract exists yet, with
   rule 2's label (`stock_item_label`, the stock number from the event, and
   `stock_item_denorm_refreshed_at`; KAN-150).
   `SalesContract.is_invoiceable` is **derived on read** from it — there is no stored column, so a
@@ -67,15 +67,14 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   Anto 2026-11-03, option A): copied once, when the car is put on the deal, from the `stockNumber`
   in `inventory.public.get_stock_item_pricing` that the snapshot freeze reads anyway; cleared
   with `stock_item_id` (`deal_editing`); a contract from an offer and a copied offer take the
-  offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py`
-  (dry run unless `--commit`) fills the rows written before. **It is on screen** (KAN-570; Anto,
+  offer's; never refreshed (a stock number never changes). `scripts/backfill_sales_stock_item_labels.py` fills the rows written before. **It is on screen** (KAN-570; Anto,
   2026-11-05, option A): `OfferRead`/`ContractRead.stockItemLabel` (additive); «Lagernummer S-…»
   beside the car (`StockNumberLink`) in the vehicle container of the offer workspace and the pending
   contract, and in the header of the sent offer and of a contract past editing, opening the stock
   detail as an overlay (ADR-059); and on the deal row, `sales_deal.stock_item_label` (Sales-chain
   migration `e7a3c5d1b9f4`, indexed), written by `upsert_deal_projection` from the live entity,
   compared by the deal-row StateChecks, filled for older rows by
-  `scripts/backfill_sales_deal_projection.py` (dry run unless `--commit`; **run once per
+  `scripts/backfill_sales_deal_projection.py` (**run once per
   environment after the deploy**) — the Sales grid's optional «Lagernummer» column, hidden by
   default, sortable (`sort=stockItemLabel`).
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
@@ -84,7 +83,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   consumer locks it), so every contract
   on the car derives «nicht fakturierbar» until the next purchase — unless Stock holds the car as
   bought again by then, which the consumer re-reads through `inventory.public.is_stock_item_purchased`
-  (delivery is unordered). That consumer's read is
+  (delivery is unordered: a storno may arrive after the next purchase). That consumer's read is
   asynchronous; `request_invoice` still reads only the local replica (ADR-052 addendum, Anto
   2026-11-06, KAN-146 option A: "never a synchronous query" governs the invoicing path). Unhandled: a purchase whose
   first delivery failed arriving after its storno recreates the row — the KAN-145 check below
@@ -100,9 +99,11 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
   a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
-  the stock item. A transaction, offer, contract or deal naming a customer merged over an hour
-  ago is a `customer.merged` that `sales.customer_merged` never applied (KAN-581).
-  `created_by`/`updated_by` name a `user.id` or are null (KAN-243, `actor_reference_checks`).
+  the stock item. A Sales row naming a merged customer last written over an hour
+  ago is a `customer.merged` `sales.customer_merged` missed (KAN-581,
+  `customer_is_merged`). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
+  context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
+  `test_actor_columns_reconciled.py`).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
@@ -194,7 +195,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   "Verantwortlich" column). The deal row's seller is its live entity's: the live contract's
   while there is one, the offer's before and again after that contract is cancelled (KAN-409).
   A contract made from an offer takes the offer's seller only while that seller
-  is active or invited (`inherited_owner`), else its creator's. `app/sales/services/ownership.py`
+  is active or invited (`inherited_owner`), else its creator's. `services/ownership.py`
   is Sales' ownership provider for the deactivation step (`platform-users.md`, D-A-35):
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a
@@ -213,7 +214,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   no `vatTreatment`** anywhere — do not reintroduce one.
 - VAT is **one line on the printed document only**, computed at the dealership's
   `Dealership.vat_rate` (Notion calls it `dealer_settings.vat_rate` — no such table exists) in
-  `app/sales/services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`),
+  `services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`),
   directly under «Verkaufspreis», before the trade-in and «Zu bezahlen» (Anto, 2026-10-28,
   KAN-434 option A — printed last it read as the VAT inside the payable);
   a dealership with no `vat_rate` gets no VAT line, never a guessed rate.
@@ -360,7 +361,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - Offer and contract numbers are **working business keys, not legal document numbers** — the
   gapless legal number is the invoice's (ADR-032, see `.claude/rules/finance.md`).
-  `app/sales/services/numbering.py` allocates the contract's number from Sales' own counter per
+  `services/numbering.py` allocates the contract's number from Sales' own counter per
   dealership inside the caller's transaction, so a rollback re-issues the same number. **The offer's
   number comes from the Betrieb's `offer` number range in Platform** (KAN-207, ADR-109:
   `platform.public.allocate_number`, inside the offer's transaction): it continues the sequence Sales'
@@ -369,6 +370,6 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   instance still on the old code during a rolling deploy never repeats a number; lock order Sales'
   counter → Platform's range; retired by KAN-540. The legacy transaction import keeps Sales' counter
   (`allocate_legacy_offer_number`) and never consumes or freezes the range.
-  `scripts/continue_offer_number_ranges.py` (dry run unless `--commit`; **run once per environment
+  `scripts/continue_offer_number_ranges.py` (**run once per environment
   after the deploy**) shows each Betrieb's current value on the Number ranges screen before its next
   offer.

@@ -31,6 +31,9 @@ import pytest
 
 from scripts.check_concurrent_alembic_upgrade import UPGRADE_TIMEOUT_S, libpq_url, sqlalchemy_url_for
 
+# The key alembic/env.py locks on (KAN-92); env.py is a script, not a module, so it is repeated here.
+MIGRATION_ADVISORY_LOCK_KEY = -7906448801533702249
+
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
@@ -121,15 +124,38 @@ def test_a_second_upgrader_waits_for_the_whole_run_across_an_autocommit_block(pr
     command = [sys.executable, "-m", "alembic", "-c", str(probe_script_directory), "upgrade", "heads"]
 
     first = subprocess.Popen(command, cwd=_REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    time.sleep(0.8)  # inside the first run's pg_sleep: its opening transaction has committed
-    assert first.poll() is None, "the first run finished before the second started: the trial proves nothing"
-    second = subprocess.Popen(command, cwd=_REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    with psycopg.connect(libpq, autocommit=True) as watcher:
+        # Wait until the first run is inside its autocommit block (its opening
+        # transaction, with the table, has committed) — not a fixed delay.
+        deadline = time.monotonic() + 60
+        while not watcher.execute(
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND query LIKE 'SELECT pg_sleep%%'"
+        ).fetchone()[0]:
+            assert first.poll() is None, first.communicate()[1][-3000:]
+            assert time.monotonic() < deadline, "the first run never reached its autocommit block"
+            time.sleep(0.05)
+
+        second = subprocess.Popen(
+            command, cwd=_REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        # A write goes through while the migration's block runs: no lock of
+        # the upgrade is held on the table across it (the point of CONCURRENTLY).
+        watcher.execute("SET statement_timeout = '500ms'")
+        watcher.execute("INSERT INTO kan179_probe (id) VALUES (2)")
+        # The second run is waiting for the migration lock, not migrating: the
+        # first run still holds the key, and the second has not finished.
+        held = watcher.execute(
+            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted AND objid = %s",
+            (MIGRATION_ADVISORY_LOCK_KEY & 0xFFFFFFFF,),
+        ).fetchone()
+        assert held == (1,), "the first run holds the migration lock during its autocommit block"
+        assert first.poll() is None, "the first run finished during the check: the trial proves nothing"
     outcomes = [process.communicate(timeout=UPGRADE_TIMEOUT_S) for process in (first, second)]
 
     assert [first.returncode, second.returncode] == [0, 0], [stderr[-6000:] for _, stderr in outcomes]
     with psycopg.connect(libpq) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchall() == [("kan179000001",)]
-        assert connection.execute("SELECT count(*) FROM kan179_probe").fetchone() == (1,)
+        assert connection.execute("SELECT id FROM kan179_probe ORDER BY id").fetchall() == [(1,), (2,)]
         index = connection.execute(
             "SELECT i.indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = 'ix_kan179_probe_id'"
         ).fetchall()
@@ -140,3 +166,7 @@ def test_a_second_upgrader_waits_for_the_whole_run_across_an_autocommit_block(pr
             "(SELECT oid FROM pg_database WHERE datname = current_database())"
         ).fetchone()
         assert held == (0,)
+
+
+def test_the_key_here_is_env_pys():
+    assert f"MIGRATION_ADVISORY_LOCK_KEY = {MIGRATION_ADVISORY_LOCK_KEY}" in (_REPO_ROOT / "alembic" / "env.py").read_text()

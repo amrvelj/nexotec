@@ -115,18 +115,35 @@ def test_the_rows_the_shipped_seed_migrations_read_are_frozen():
     )
 
 
-def _context_imports(path: Path) -> set[str]:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+def _context_imports_in(source: str) -> set[str]:
+    """Every `app.<x>` module but `app.core` the source imports: `import`,
+    `from … import`, `from app import <x>` and `importlib.import_module("app.<x>")`."""
+
     found: set[str] = set()
-    for node in ast.walk(tree):
+    for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             names = [node.module]
+            if node.module == "app":
+                names = [f"app.{alias.name}" for alias in node.names]
         elif isinstance(node, ast.Import):
             names = [alias.name for alias in node.names]
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, (ast.Attribute, ast.Name))
+            and (node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id) == "import_module"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            names = [node.args[0].value]
         else:
             continue
-        found.update(n for n in names if n.startswith("app.") and not n.startswith("app.core"))
+        found.update(n for n in names if n.startswith("app.") and n != "app.core" and not n.startswith("app.core."))
     return found
+
+
+def _context_imports(path: Path) -> set[str]:
+    return _context_imports_in(path.read_text(encoding="utf-8"))
 
 
 def test_no_other_migration_reads_its_rows_from_a_bounded_context():
@@ -147,3 +164,14 @@ def test_the_frozen_list_names_only_migrations_that_exist_and_still_import():
         path = _VERSIONS / relative
         assert path.is_file(), relative
         assert _context_imports(path) == modules, relative
+
+
+def test_the_guard_sees_every_import_form():
+    # Red before green on synthetic sources: each form names a context; app.core passes.
+    assert _context_imports_in("import app.vehicle.public\n") == {"app.vehicle.public"}
+    assert _context_imports_in("from app.sales.models import offer\n") == {"app.sales.models"}
+    assert _context_imports_in("from app import vehicle, core\n") == {"app.vehicle"}
+    assert _context_imports_in("import importlib\nm = importlib.import_module('app.customer.public')\n") == {
+        "app.customer.public"
+    }
+    assert _context_imports_in("from app.core.uuid7 import uuid7\nimport app.core.types\n") == set()

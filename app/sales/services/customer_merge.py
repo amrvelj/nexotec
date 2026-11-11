@@ -11,7 +11,7 @@ processed-event row. A failure is redelivered on the outbox's backoff and,
 after its last attempt, dead-lettered with an alert (`app/core/outbox_worker.py`);
 a replay re-runs it. No shared cross-context transaction remains (CLAUDE.md
 rule 12). The nightly Sales reconciliation reports a row still naming a
-customer merged longer ago than outbox lag (KAN-581: `customer.public.customer_is_merged`).
+customer merged longer ago than outbox lag (KAN-581, `app/sales/reconciliation.py`).
 
 The moved offers, contracts and deal rows take the survivor's label (rule
 2's denormalised `customer_label`) in the same flush (KAN-580): before, they kept the

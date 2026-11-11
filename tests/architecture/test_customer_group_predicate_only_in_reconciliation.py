@@ -8,6 +8,10 @@ cannot see such a call (the `group_id ==` it looks for lives inside the
 customer context, which is allow-listed). So this test confines its callers:
 the customer context itself and the `reconciliation.py` modules, which only
 report. A new caller is a new group read — an ADR plus an entry here.
+
+`customer.public.customer_is_merged` (KAN-581) is the same kind of builder —
+an EXISTS over `customer` another context could embed in a live query, out of
+`test_no_cross_context_orm_query.py`'s sight — and is confined the same way.
 """
 
 from __future__ import annotations
@@ -22,10 +26,17 @@ def _may_use_it(relative: str) -> bool:
     return relative.startswith("app/customer/") or relative.endswith("/reconciliation.py")
 
 
-def _callers_outside_reconciliation(sources: dict[str, str]) -> list[str]:
-    """The `app/…` paths, of `sources` (path -> text), that name the predicate but may not."""
+_PREDICATES = ("customer_in_group", "customer_is_merged")
 
-    return [path for path, text in sorted(sources.items()) if "customer_in_group" in text and not _may_use_it(path)]
+
+def _callers_outside_reconciliation(sources: dict[str, str]) -> list[str]:
+    """The `app/…` paths, of `sources` (path -> text), that name a predicate but may not."""
+
+    return [
+        path
+        for path, text in sorted(sources.items())
+        if any(name in text for name in _PREDICATES) and not _may_use_it(path)
+    ]
 
 
 def test_customer_in_group_is_used_only_by_reconciliation():
@@ -34,14 +45,16 @@ def test_customer_in_group_is_used_only_by_reconciliation():
     )
 
     assert offenders == [], (
-        "customer.public.customer_in_group is a group read for reconciliation only (KAN-259); "
+        "customer.public.customer_in_group / customer_is_merged are reads for reconciliation only "
+        "(KAN-259, KAN-581); "
         f"a new caller needs an ADR and an entry in this test: {offenders}"
     )
 
 
 def test_the_predicate_is_still_used_by_sales_reconciliation():
     # Not vacuous: the one caller this test exists for is still there.
-    assert "customer_in_group" in (_APP / "sales" / "reconciliation.py").read_text()
+    text = (_APP / "sales" / "reconciliation.py").read_text()
+    assert all(name in text for name in _PREDICATES)
 
 
 def test_the_guard_reports_a_caller_outside_reconciliation():
@@ -54,4 +67,5 @@ def test_the_guard_reports_a_caller_outside_reconciliation():
         "app/customer/services/customer.py": "def customer_in_group(): ...\n",
         "app/valuation/reconciliation.py": uses,
         "app/sales/services/untouched.py": "x = 1\n",
-    }) == ["app/inventory/api/stock.py", "app/sales/services/offer.py"]
+        "app/valuation/services/valuation.py": "from app.customer.public import customer_is_merged\n",
+    }) == ["app/inventory/api/stock.py", "app/sales/services/offer.py", "app/valuation/services/valuation.py"]
