@@ -1,3 +1,4 @@
+import logging
 import time
 from logging.config import fileConfig
 
@@ -80,6 +81,7 @@ def _take_migration_lock(connection: Connection) -> None:
     """Polls for the migration lock with no transaction open between tries
     (see run_migrations_online for why it is never waited for in SQL)."""
 
+    said_so = False
     while True:
         acquired = connection.execute(
             text("SELECT pg_try_advisory_lock(:key)"), {"key": MIGRATION_ADVISORY_LOCK_KEY}
@@ -87,6 +89,11 @@ def _take_migration_lock(connection: Connection) -> None:
         connection.commit()
         if acquired:
             return
+        if not said_so:
+            logging.getLogger("alembic.env").warning(
+                "another alembic upgrade holds the migration lock; waiting for it to finish"
+            )
+            said_so = True
         time.sleep(MIGRATION_LOCK_POLL_INTERVAL_S)
 
 

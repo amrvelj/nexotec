@@ -138,8 +138,9 @@ def test_a_second_upgrader_waits_for_the_whole_run_across_an_autocommit_block(pr
         second = subprocess.Popen(
             command, cwd=_REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
-        # A write goes through while the migration's block runs: no lock of
-        # the upgrade is held on the table across it (the point of CONCURRENTLY).
+        # A write goes through while the migration's block runs: the upgrade
+        # holds no lock on the table across the block. (That CREATE INDEX
+        # CONCURRENTLY itself lets writes through is Postgres's guarantee.)
         watcher.execute("SET statement_timeout = '500ms'")
         watcher.execute("INSERT INTO kan179_probe (id) VALUES (2)")
         # The first run still holds the migration key in this database after

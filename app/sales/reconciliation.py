@@ -133,9 +133,11 @@ def _names_a_merged_customer(model: _Deal | type[SalesDeal] | type[Transaction])
     """KAN-581 — a customer merge reaches Sales only through `customer.merged`
     (KAN-185): the consumer `sales.customer_merged` moves every legacy
     transaction, offer, contract and deal row of the duplicate to the
-    survivor. A row still naming a merged customer after outbox lag means
-    that delivery failed — dead-lettered after its last attempt, or never
-    run (staging has no worker, ADR-081) — and the row is invisible from the
+    survivor. A row still naming a merged customer after outbox lag has one
+    of two causes: that delivery failed — dead-lettered after its last
+    attempt, or never run (staging has no worker, ADR-081) — or the merged
+    customer was attached afterwards (an offer or contract PATCH does not
+    refuse one yet, KAN-656). Either way the row is invisible from the
     survivor's Offers & Contracts tab. Read through `customer.public`; the
     hour runs from the merged customer's last write (see `customer_is_merged`)."""
 

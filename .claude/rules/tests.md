@@ -61,7 +61,9 @@ as any change to what it states. -->
   every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
   refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
   (KAN-243), the create services' system path (`actor_id=None` + `system_reason`) taken from
-  `scripts/` only, never from `app/` (KAN-345), the customer-group and merged-customer predicates used only by reconciliation (KAN-259, KAN-581), and a
+  `scripts/` only, never from `app/` (KAN-345), the customer-group and merged-customer predicates used only by reconciliation (KAN-259, KAN-581),
+  the seed sources shipped migrations read frozen by digest and no migration importing a bounded
+  context (KAN-517), and a
   connected account never read by the identity and session layer, its model named only by its
   service (KAN-201, FR-AU-23), and platform staff's recovery never naming a password write or
   read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10), and every PATCH/PUT/DELETE and every POST on an existing entity taking If-Match unless listed
