@@ -40,7 +40,7 @@
   "rotateModal": {
     "title": "Secrets erneuern — {{name}}",
     "hint": "Geben Sie nur für die zu ersetzenden Felder einen neuen Wert ein — eine Erneuerung ersetzt, sie liest den aktuellen Wert nie.",
-    "savedBeforeRefusal": "Vor der Ablehnung bereits erneuert: {{slots}}. Die übrigen Felder wurden nicht gespeichert."
+    "savedBeforeRefusal": "Bereits erneuert: {{slots}}. Abgelehnt bei «{{refused}}»:"
   },
   "columns": {
     "dealership": "Betrieb",

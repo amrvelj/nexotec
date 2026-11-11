@@ -40,7 +40,7 @@
   "rotateModal": {
     "title": "Renouveler les secrets — {{name}}",
     "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle.",
-    "savedBeforeRefusal": "Déjà renouvelés avant le refus : {{slots}}. Les autres champs n'ont pas été enregistrés."
+    "savedBeforeRefusal": "Déjà renouvelés : {{slots}}. Refusé pour « {{refused}} » :"
   },
   "columns": {
     "dealership": "Entreprise",

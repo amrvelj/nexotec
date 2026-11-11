@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -93,9 +93,31 @@ describe('IntegrationDealerView — a refused rotation is said, not swallowed (K
 
     const alert = await within(dialog).findByRole('alert')
     expect(alert).toHaveTextContent(i18n.t('apiRefusal.reasons.secrets_backend_failed'))
+    // The refusal is said as the refused slot's, so «nothing was saved» never
+    // reads as a contradiction of the slot already rotated.
     expect(alert).toHaveTextContent(
-      i18n.t('integrationsList.rotateModal.savedBeforeRefusal', { slots: i18n.t('integrationEnums.secretSlot.password') }),
+      i18n.t('integrationsList.rotateModal.savedBeforeRefusal', {
+        slots: i18n.t('integrationEnums.secretSlot.password'),
+        refused: i18n.t('integrationEnums.secretSlot.client_secret'),
+      }),
     )
     expect(within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.client_secret'))).toHaveValue('cs-1')
+  })
+
+  it('starts clean when the dialog is closed and opened again', async () => {
+    install(['password'], 'password')
+    const { user, dialog } = await openRotateDialog()
+    await user.type(within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.password')), 'pw-1')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('integrationsList.actions.rotateSecret') }))
+    await within(dialog).findByRole('alert')
+
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('common.cancel') }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await user.click(screen.getByRole('button', { name: i18n.t('common.rowActionsLabel') }))
+    await user.click(await screen.findByRole('menuitem', { name: i18n.t('integrationsList.actions.rotateSecret') }))
+    const reopened = await screen.findByRole('dialog')
+
+    expect(within(reopened).queryByRole('alert')).toBeNull()
+    expect(within(reopened).getByLabelText(i18n.t('integrationEnums.secretSlot.password'))).toHaveValue('')
   })
 })

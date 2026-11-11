@@ -40,7 +40,7 @@
   "rotateModal": {
     "title": "Rotate secrets — {{name}}",
     "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value.",
-    "savedBeforeRefusal": "Already rotated before the refusal: {{slots}}. The other fields were not saved."
+    "savedBeforeRefusal": "Already rotated: {{slots}}. Refused for “{{refused}}”:"
   },
   "columns": {
     "dealership": "Business",

@@ -584,7 +584,8 @@ def _probe_entitlements(
         except ProviderRejectedError:
             # KAN-488: the login was refused under the probes (the access check
             # had passed). The block charged the breaker once, as a refused
-            # login does anywhere; nothing is known about the remaining
+            # login does anywhere (an over-quota user's, KAN-586, does not);
+            # nothing is known about the remaining
             # options, and retrying the login once per option would open the
             # breaker for a connection whose card reads connected — so probing
             # stops here and the remaining rows stay as they were.

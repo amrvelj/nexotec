@@ -342,8 +342,19 @@ function RotateSecretModal({
   const [values, setValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // KAN-607 — the slots this attempt replaced before a later one was refused.
+  // KAN-607 — the slots this attempt replaced before a later one was refused,
+  // and the slot that was refused.
   const [savedBeforeRefusal, setSavedBeforeRefusal] = useState<string[]>([])
+  const [refusedSlot, setRefusedSlot] = useState<string | null>(null)
+  // The modal stays mounted for every connection: closing it, or opening it
+  // for another connection, starts clean — no refusal, no typed value from
+  // an earlier attempt.
+  useEffect(() => {
+    setValues({})
+    setError(null)
+    setSavedBeforeRefusal([])
+    setRefusedSlot(null)
+  }, [connection?.id])
 
   if (!connection) return null
 
@@ -353,11 +364,14 @@ function RotateSecretModal({
     setSubmitting(true)
     setError(null)
     setSavedBeforeRefusal([])
+    setRefusedSlot(null)
     const saved: string[] = []
+    let current: string | null = null
     try {
       for (const slot of connection.secretSlots ?? []) {
         const value = values[slot.slot]
         if (!value) continue
+        current = slot.slot
         await api.put(`/integrations/connections/${connection.id}/secrets/${slot.slot}`, { secretValue: value })
         saved.push(slot.slot)
       }
@@ -369,6 +383,7 @@ function RotateSecretModal({
       // their rotation happened even though a later one was refused.
       setError(apiRefusalText(t, err, 'integrationsList.rotateError'))
       setSavedBeforeRefusal(saved)
+      setRefusedSlot(current)
       if (saved.length > 0) onRotated()
     } finally {
       setSubmitting(false)
@@ -380,14 +395,17 @@ function RotateSecretModal({
       <Stack gap="sm">
         {error && (
           <Stack gap={4} role="alert">
-            <Text size="sm" c="red">{error}</Text>
+            {/* With slots already saved, the refusal is said as the refused
+                slot's: its sentence («nothing was saved») is about that slot. */}
             {savedBeforeRefusal.length > 0 && (
               <Text size="sm">
                 {t('integrationsList.rotateModal.savedBeforeRefusal', {
                   slots: savedBeforeRefusal.map(slotLabel).join(', '),
+                  refused: refusedSlot ? slotLabel(refusedSlot) : '—',
                 })}
               </Text>
             )}
+            <Text size="sm" c="red">{error}</Text>
           </Stack>
         )}
         <Text size="xs" c="dimmed">{t('integrationsList.rotateModal.hint')}</Text>
