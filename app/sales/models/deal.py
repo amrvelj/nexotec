@@ -102,3 +102,6 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     documents_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # KAN-553 (ADR-115): the live entity's «Fahrzeug im Lager geändert» flag,
+    # for the grid's filter and marker.
+    vehicle_changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

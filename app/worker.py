@@ -71,6 +71,7 @@ from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import (
     handle_customer_merged_message,
     handle_stock_item_added_message,
+    handle_stock_item_commercial_changed_message,
     handle_stock_item_purchased_message,
     handle_stock_item_storno_message,
 )
@@ -140,6 +141,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.storno",
         consumer_name="sales.stock_item_storno",
         handler=handle_stock_item_storno_message,
+    )
+    # KAN-553 (ADR-115) — Stock changed a car's commercial data: Sales
+    # flags the open offers and pending contracts on it.
+    transport.register(
+        "inventory.stock_item.commercial_changed",
+        consumer_name="sales.stock_item_commercial_changed",
+        handler=handle_stock_item_commercial_changed_message,
     )
     # KAN-185 (ADR-047; Anto, 2026-10-31, option A) — a customer merge moves
     # Sales' records of the duplicate (legacy transactions, offers,

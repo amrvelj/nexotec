@@ -26,6 +26,8 @@ class DealRead(CamelModel):
     vehicle_label: str | None
     # KAN-570: the stock car's number (null for a manual car or none yet).
     stock_item_label: str | None = None
+    # KAN-553: the live entity's «Fahrzeug im Lager geändert» flag.
+    vehicle_changed_at: dt.datetime | None = None
     # KAN-200: the responsible seller of the live entity; null = unassigned.
     owner_user_id: uuid.UUID | None = None
     owner_label: str | None = None

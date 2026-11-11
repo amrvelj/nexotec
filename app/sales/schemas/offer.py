@@ -122,6 +122,11 @@ class OfferRead(CamelModel):
     cost_basis: Decimal | None
     margin: Decimal | None
     vehicle_snapshot_frozen_at: dt.datetime | None
+    # KAN-553 (ADR-115): «Fahrzeug im Lager geändert» — when Stock last
+    # changed the car after the freeze, and which fields (listPrice,
+    # effectivePrice, options, exteriorColour, odometerKm, configurationLabel).
+    vehicle_changed_at: dt.datetime | None = None
+    vehicle_changed_fields: list[str] | None = None
     trade_in_vehicle_id: uuid.UUID | None
     trade_in_label: str | None
     trade_in_vin: str | None

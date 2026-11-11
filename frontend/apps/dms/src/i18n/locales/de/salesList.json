@@ -14,13 +14,15 @@
     "margin": "Marge",
     "changed": "Geändert",
     "owner": "Verantwortlich",
-    "stockNumber": "Lagernummer"
+    "stockNumber": "Lagernummer",
+    "vehicleChanged": "Fahrzeug geändert"
   },
   "chips": {
     "all": "Alle",
     "offers": "Offerten",
     "contracts": "Verträge",
-    "unassigned": "Nicht zugewiesen"
+    "unassigned": "Nicht zugewiesen",
+    "vehicleChanged": "Fahrzeug geändert"
   },
   "emptyState": {
     "title": "Keine Offerten oder Verträge",
@@ -38,5 +40,6 @@
     "count": "{{count, number}} ausgewählt",
     "clear": "Auswahl aufheben",
     "copyIds": "IDs kopieren"
-  }
+  },
+  "vehicleChangedMarker": "Fahrzeug geändert"
 }

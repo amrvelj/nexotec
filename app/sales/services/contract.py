@@ -180,6 +180,9 @@ def create_contract(
         manual_base_price=offer.manual_base_price if offer is not None else None,
         vehicle_snapshot=copy.deepcopy(offer.vehicle_snapshot) if offer is not None else None,
         vehicle_snapshot_frozen_at=offer.vehicle_snapshot_frozen_at if offer is not None else None,
+        # KAN-553: the offer's frozen car comes with what Stock changed since.
+        vehicle_changed_at=offer.vehicle_changed_at if offer is not None else None,
+        vehicle_changed_fields=list(offer.vehicle_changed_fields or []) or None if offer is not None else None,
         discount_type=offer.discount_type if offer is not None else None,
         discount_value=offer.discount_value if offer is not None else None,
         total_before_discount=offer.total_before_discount if offer is not None else None,

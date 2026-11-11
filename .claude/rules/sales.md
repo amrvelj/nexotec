@@ -158,6 +158,18 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   (KAN-501): the customer, vehicle and pricing containers take `readOnly` themselves
   (`components/deal-workspace/LockedWhile.tsx` around their writes), so the selected customer's
   overlay, the stock number (KAN-570) and «zum Lagerfahrzeug» still open.
+- **«Fahrzeug im Lager geändert»** (KAN-553, ADR-115; Anto's ruling on KAN-33): the snapshot stays
+  frozen (ADR-041). Consumer `sales.stock_item_commercial_changed` (`services/vehicle_change.py`)
+  flags every draft or open offer and every pending contract on the car — `vehicle_changed_at`,
+  `vehicle_changed_fields` (merged), one `vehicle_changed_in_stock` audit row, the deal row
+  re-projected — but no version bump (a flag is not an edit) and never a deal frozen after the change.
+  A contract from a flagged offer takes the flag. `POST …/{offers|contracts}/{id}/vehicle-refresh`
+  (re-freeze with `force=True`, which keeps the seller's line edits; re-price; new version) and
+  `…/vehicle-refresh/dismiss` (flag only) need an editable deal and a flag (409
+  `vehicle_not_changed`). The banner (`VehicleChangedBanner`) shows on the workspace, the pending
+  contract and, without actions, the sent offer; the Sales grid has the «Fahrzeug geändert» chip
+  (`vehicleChanged=true`) and column. Reconciliation reports an open deal whose frozen price
+  differs from the car's, unflagged, an hour after the car changed.
 - **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
   the offer's live contract while it has one, else the offer — whichever side the caller wrote.
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;

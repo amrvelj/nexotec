@@ -6,9 +6,11 @@ Registered in app.worker.register_handlers: `inventory.stock_item.purchased`
 as "sales.stock_item_purchased", since KAN-144 `inventory.stock_item.added`
 as "sales.stock_item_added", since KAN-146 `inventory.stock_item.storno`
 as "sales.stock_item_storno", and since KAN-185 `customer.merged` as
-"sales.customer_merged".
+"sales.customer_merged", and since KAN-553 `inventory.stock_item.commercial_changed`
+as "sales.stock_item_commercial_changed".
 """
 
+import datetime as dt
 import logging
 import uuid
 
@@ -22,6 +24,7 @@ from app.sales.services.customer_merge import SurvivorLabel, repoint_merged_cust
 from app.sales.services.offer import resolve_customer_label
 from app.sales.services.pipeline_link import link_manual_configuration_to_pipeline_item
 from app.sales.services.stock_item_purchase import record_stock_item_purchased, record_stock_item_storno
+from app.sales.services.vehicle_change import record_stock_commercial_change
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +84,27 @@ def handle_stock_item_added_message(db: Session, message: OutboxMessage) -> None
         stock_item_id=message.aggregate_id,
         stock_item_label=payload.get("stockNumber"),
         refreshed_at=message.occurred_at,
+    )
+
+
+def handle_stock_item_commercial_changed_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-553 (ADR-115) — Stock changed a car's price, options, colour,
+    odometer or label: every open offer and pending contract on it is
+    flagged «Fahrzeug im Lager geändert», in Sales' own transaction
+    (ADR-047). The payload's `changedAt` (else the message's `occurred_at`)
+    is when; a deal frozen after it is not flagged. Flushes only;
+    consume_once commits it together with the processed_event row."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"inventory.stock_item.commercial_changed message {message.id} has no tenant_id.")
+    payload = message.payload or {}
+    changed_at = dt.datetime.fromisoformat(payload["changedAt"]) if payload.get("changedAt") else message.occurred_at
+    record_stock_commercial_change(
+        db,
+        tenant_id=message.tenant_id,
+        stock_item_id=message.aggregate_id,
+        changed_fields=list(payload.get("changedFields") or []),
+        changed_at=changed_at,
     )
 
 

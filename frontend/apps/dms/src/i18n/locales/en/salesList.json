@@ -14,13 +14,15 @@
     "margin": "Margin",
     "changed": "Changed",
     "owner": "Responsible",
-    "stockNumber": "Stock number"
+    "stockNumber": "Stock number",
+    "vehicleChanged": "Vehicle changed"
   },
   "chips": {
     "all": "All",
     "offers": "Offers",
     "contracts": "Contracts",
-    "unassigned": "Unassigned"
+    "unassigned": "Unassigned",
+    "vehicleChanged": "Vehicle changed"
   },
   "emptyState": {
     "title": "No offers or contracts",
@@ -38,5 +40,6 @@
     "count": "{{count, number}} selected",
     "clear": "Clear selection",
     "copyIds": "Copy IDs"
-  }
+  },
+  "vehicleChangedMarker": "Vehicle changed"
 }

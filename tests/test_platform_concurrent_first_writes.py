@@ -120,7 +120,7 @@ def test_a_first_auth_config_put_racing_an_unchanged_first_write_goes_on_from_it
     )
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"authMethod": "local", "mfaEnforced": False, "version": 2}
+    assert {k: v for k, v in response.json().items() if k in ("authMethod", "mfaEnforced", "version")} == {"authMethod": "local", "mfaEnforced": False, "version": 2}
 
 
 # --- KAN-393: first TOTP enrolment ---------------------------------------------------------

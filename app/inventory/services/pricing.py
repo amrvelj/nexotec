@@ -10,6 +10,7 @@ from app.core.errors import ConflictError
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.schemas.pricing import OptionInput
+from app.inventory.services import commercial_change
 from app.inventory.services.stock_item import get_stock_item_or_404
 
 # Itemised only where condition is new/tagesz/demo — never a used car
@@ -38,6 +39,8 @@ def set_options(
             details={"stockItemId": str(item.id), "condition": item.condition.value},
         )
 
+    # KAN-553 (ADR-115): the pricing dialog's change reaches open offers.
+    commercial_before = commercial_change.commercial_state(db, item)
     existing = list_options(db, tenant_id=item.tenant_id, stock_item_id=item.id)
     for row in existing:
         db.delete(row)
@@ -62,6 +65,7 @@ def set_options(
     item.list_price = base_price + sum((o.price for o in options), Decimal(0))
     item.updated_by = actor_id
     item.version += 1
+    commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=actor_id)
     db.commit()
     db.refresh(item)
     return item

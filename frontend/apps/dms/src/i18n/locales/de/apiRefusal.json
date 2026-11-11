@@ -153,7 +153,8 @@
     "provider_not_configured": "Die Verbindung zu auto-i-dat ist nicht vollständig eingerichtet — in der Betriebsverwaltung unter Integrationen prüfen.",
     "secrets_backend_failed": "Der sichere Speicher für Zugangsdaten hat die Anfrage nicht ausgeführt — nichts wurde gespeichert. Bitte später erneut versuchen; bleibt der Fehler, den Nexotec-Support informieren.",
     "secret_slot_not_used_by_provider": "Dieser Anbieter verwendet diese Zugangsdaten nicht — sie wurden nicht gespeichert.",
-    "secret_store_not_configured": "Für diese Installation ist kein sicherer Speicher für Zugangsdaten eingerichtet — nichts wurde gespeichert. Das liegt nicht an Ihrer Eingabe: Bitte den Nexotec-Support informieren."
+    "secret_store_not_configured": "Für diese Installation ist kein sicherer Speicher für Zugangsdaten eingerichtet — nichts wurde gespeichert. Das liegt nicht an Ihrer Eingabe: Bitte den Nexotec-Support informieren.",
+    "vehicle_not_changed": "Das Lagerfahrzeug wurde seit der Preisberechnung nicht geändert."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",

@@ -37,6 +37,7 @@ import { formatCurrencyChf, formatDate } from '../utils/format'
 import type { SalesContractRead, ValuationRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
 
 export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -471,6 +472,21 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           {ownerSelect}
           <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
         </Stack>
+      )}
+
+      {/* KAN-553 (ADR-115): the stock car changed after this contract was priced. */}
+      {isPending && (
+        <VehicleChangedBanner
+          vehicleChangedAt={contract.vehicleChangedAt}
+          vehicleChangedFields={contract.vehicleChangedFields}
+          busy={isSaving}
+          {...(pricedWithoutInputs
+            ? {}
+            : {
+                onRefresh: () => saves.save((current) => api.post<SalesContractRead>(`/sales/contracts/${id}/vehicle-refresh`, undefined, { 'If-Match': String(current.version) })),
+                onDismiss: () => saves.save((current) => api.post<SalesContractRead>(`/sales/contracts/${id}/vehicle-refresh/dismiss`, undefined, { 'If-Match': String(current.version) })),
+              })}
+        />
       )}
 
       {isPending && !pricedWithoutInputs && (

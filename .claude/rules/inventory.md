@@ -122,8 +122,15 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   with a hint. An item without a configuration keeps its own, editable text. Inventory-chain
   migration `80667c6fddf8` named every configured item by Stock's own `configuration_label` copy
   (never reading the vehicle context's table); on staging, which runs no worker (ADR-081), a copy
-  that was stale then stays stale, as `configuration_label` itself does there. The ADR-115 offer
-  banner listing «Bezeichnung» waits for that banner (KAN-553).
+  that was stale then stays stale, as `configuration_label` itself does there. A changed label reaches
+  the open offers on the car as `inventory.stock_item.commercial_changed` (next bullet).
+- **`inventory.stock_item.commercial_changed`** (KAN-553, ADR-115): published in the write's own
+  transaction when `listPrice`, `effectivePrice`, the factory-option set, `exteriorColour`,
+  `odometerKm` or `configurationLabel` changes — the PATCH, the pricing dialog (`set_options`),
+  «Konfiguration zuordnen» and the nightly label refresh, each through
+  `services/commercial_change.py` (state before, `publish_if_changed` after); payload `stockNumber`,
+  `vehicleLabel`, `changedFields`, `prices` (old/new of the two prices), `changedAt`, `changedBy`.
+  Never by a purchase booking or a storno. Sales flags the open deals on the car (`sales.md`).
 - **A purchase is booked once and reversed by «Einkauf stornieren»** (KAN-146, FR-I-05; Anto,
   2026-11-05). Booking posts the purchase price to the Wagenbuch as an automatic `einstandspreis`
   (`services/ledger.py::post_purchase_entries`, key `purchase:<uuid7>`, dated the purchase date's

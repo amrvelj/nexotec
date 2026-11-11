@@ -44,6 +44,11 @@ def list_deals(
     entity_type: str | None = Query(default=None, alias="entityType"),
     owner_user_id: uuid.UUID | None = Query(default=None, alias="ownerUserId"),
     unassigned: bool = Query(default=False, description="KAN-200: deals handed to nobody when their seller left."),
+    vehicle_changed: bool | None = Query(
+        default=None,
+        alias="vehicleChanged",
+        description="KAN-553: true = deals whose stock car changed after they were priced; false = the others.",
+    ),
     sort: str | None = Query(default=None, description="e.g. 'updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -62,6 +67,7 @@ def list_deals(
         params=params,
         owner_user_id=owner_user_id,
         unassigned=unassigned,
+        vehicle_changed=vehicle_changed,
     )
     return DealPage(
         items=[DealRead.model_validate(r, from_attributes=True) for r in rows],

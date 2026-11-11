@@ -245,7 +245,7 @@ def _member_of_two(client, db_session, login):
 
 
 def test_switching_to_a_stricter_betrieb_shortens_the_session(client, login, db_session):
-    home, sister, anna = _member_of_two(client, db_session, login)
+    _home, sister, anna = _member_of_two(client, db_session, login)
     _set_policy(client, sister, idle=15, hours=1)
     token = login.session_cookie(anna)
     before = _row(db_session, token)

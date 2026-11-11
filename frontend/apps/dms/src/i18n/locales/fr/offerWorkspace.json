@@ -111,5 +111,22 @@
       "generic": "La modification n'a pas pu être enregistrée.",
       "dismiss": "Fermer le message"
     }
+  },
+  "vehicleChanged": {
+    "title": "Véhicule modifié en stock",
+    "fieldsLine": "Modifié depuis ce calcul de prix : {{fields}}.",
+    "noFields": "Le véhicule en stock a été modifié depuis ce calcul de prix.",
+    "refresh": "Actualiser",
+    "dismiss": "Ignorer",
+    "readOnly": "L'offre est envoyée et reste telle quelle. Une copie reprend les données actuelles du véhicule.",
+    "refused": "Les données du véhicule n'ont pas pu être reprises.",
+    "fields": {
+      "listPrice": "Prix catalogue",
+      "effectivePrice": "Prix de vente",
+      "options": "Équipement",
+      "exteriorColour": "Couleur extérieure",
+      "odometerKm": "Kilométrage",
+      "configurationLabel": "Désignation"
+    }
   }
 }

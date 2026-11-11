@@ -59,13 +59,20 @@ def _vehicle_identity(deal: PricedDeal, configuration: HostConfiguration | None)
     return None
 
 
-def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal) -> bool:
+def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal, force: bool = False) -> bool:
     """Idempotent per vehicle identity: freezing twice for the SAME
     vehicle is a no-op (the confirmed reference prototype's own footer,
     verbatim: "a later catalogue correction never changes an existing
     offer"). Re-freezes — dropping and rebuilding the frozen factory-option
     line items — only when the vehicle identity itself changed since the
     last freeze. Returns True iff it froze/re-froze.
+
+    `force` (KAN-553, ADR-115): the seller's «Aktualisieren» after Stock
+    changed the same car — re-freeze although the identity is unchanged.
+    The seller's edits to the factory-option lines (a deselection, a
+    per-line discount) are kept, matched by code and label, as for a new
+    version of the same configuration. Only that explicit action passes it;
+    ADR-041's freeze at generation stands for every other caller.
     """
 
     configuration = None
@@ -78,7 +85,8 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal) -> bool:
         return False
 
     existing = deal.vehicle_snapshot or {}
-    if deal.vehicle_snapshot_frozen_at is not None and existing.get("_identity") == identity:
+    same_vehicle = deal.vehicle_snapshot_frozen_at is not None and existing.get("_identity") == identity
+    if same_vehicle and not force:
         return False
 
     # C-F (KAN-10): a new version of the SAME configuration (the advisor
@@ -86,7 +94,9 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal) -> bool:
     # deselection or a per-line discount — matched by code. A different
     # configuration or vehicle starts clean.
     kept: dict[tuple[str, str], _SellerEdit] = {}
-    if configuration is not None and existing.get("configurationId") == str(configuration.id):
+    if (configuration is not None and existing.get("configurationId") == str(configuration.id)) or (
+        force and same_vehicle
+    ):
         kept = {
             (row.code, row.label): _SellerEdit.of(row)
             for row in db.scalars(
@@ -136,19 +146,23 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal) -> bool:
             ),
         }
         for position, option in enumerate(pricing["options"]):
-            db.add(
-                SalesLineItem(
-                    tenant_id=deal.tenant_id,
-                    **line_item_owner(deal),
-                    kind=LineItemKind.FACTORY_OPTION,
-                    code=option["code"],
-                    label=option["label"],
-                    unit_price=Decimal(option["price"]),
-                    quantity=1,
-                    included=True,
-                    position=position,
-                )
+            row = SalesLineItem(
+                tenant_id=deal.tenant_id,
+                **line_item_owner(deal),
+                kind=LineItemKind.FACTORY_OPTION,
+                code=option["code"],
+                label=option["label"],
+                unit_price=Decimal(option["price"]),
+                quantity=1,
+                included=True,
+                position=position,
             )
+            # KAN-553: a forced re-freeze of the same car keeps the seller's
+            # edits to its lines (empty otherwise).
+            kept_edit = kept.get((row.code, row.label))
+            if kept_edit is not None:
+                kept_edit.apply(row)
+            db.add(row)
     elif configuration is not None:
         # C-F (KAN-10, FR-C-12) — Path B through the configurator. The
         # configuration's price lines (selected options, colour and wheels

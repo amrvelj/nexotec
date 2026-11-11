@@ -3356,6 +3356,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sales/contracts/{contract_id}/vehicle-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Contract Vehicle
+         * @description KAN-553 (ADR-115) — «Aktualisieren» on a pending contract, under its
+         *     editability rules (`priced_deal.lock_editable`).
+         */
+        post: operations["refresh_contract_vehicle_v1_sales_contracts__contract_id__vehicle_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/contracts/{contract_id}/vehicle-refresh/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Contract Vehicle Change
+         * @description KAN-553 (ADR-115) — «Ignorieren» on a pending contract.
+         */
+        post: operations["dismiss_contract_vehicle_change_v1_sales_contracts__contract_id__vehicle_refresh_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sales/deals": {
         parameters: {
             query?: never;
@@ -3558,6 +3599,49 @@ export interface paths {
         put?: never;
         /** Attach Trade In Valuation */
         post: operations["attach_trade_in_valuation_v1_sales_offers__offer_id__trade_in_valuation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/offers/{offer_id}/vehicle-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Offer Vehicle
+         * @description KAN-553 (ADR-115) — «Aktualisieren»: the stock car changed since the
+         *     offer was priced; re-freeze it and re-price, a new version. A draft
+         *     only (409 otherwise, `require_editable`); 409 `vehicle_not_changed`
+         *     when nothing is flagged.
+         */
+        post: operations["refresh_offer_vehicle_v1_sales_offers__offer_id__vehicle_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/offers/{offer_id}/vehicle-refresh/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Offer Vehicle Change
+         * @description KAN-553 (ADR-115) — «Ignorieren»: the offer keeps its frozen car.
+         */
+        post: operations["dismiss_offer_vehicle_change_v1_sales_offers__offer_id__vehicle_refresh_dismiss_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5918,6 +6002,10 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclechangedat */
+            vehicleChangedAt?: string | null;
+            /** Vehiclechangedfields */
+            vehicleChangedFields?: string[] | null;
             /** Vehiclecondition */
             vehicleCondition?: string | null;
             /** Vehiclelabel */
@@ -6934,6 +7022,8 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclechangedat */
+            vehicleChangedAt?: string | null;
             /** Vehiclelabel */
             vehicleLabel: string | null;
         };
@@ -8752,6 +8842,10 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclechangedat */
+            vehicleChangedAt?: string | null;
+            /** Vehiclechangedfields */
+            vehicleChangedFields?: string[] | null;
             /** Vehiclecondition */
             vehicleCondition?: string | null;
             /** Vehiclelabel */
@@ -20872,6 +20966,82 @@ export interface operations {
             };
         };
     };
+    refresh_contract_vehicle_v1_sales_contracts__contract_id__vehicle_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_contract_vehicle_change_v1_sales_contracts__contract_id__vehicle_refresh_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deals_v1_sales_deals_get: {
         parameters: {
             query?: {
@@ -20880,6 +21050,8 @@ export interface operations {
                 ownerUserId?: string | null;
                 /** @description KAN-200: deals handed to nobody when their seller left. */
                 unassigned?: boolean;
+                /** @description KAN-553: true = deals whose stock car changed after they were priced; false = the others. */
+                vehicleChanged?: boolean | null;
                 /** @description e.g. 'updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -21425,6 +21597,82 @@ export interface operations {
                 "application/json": components["schemas"]["AttachValuationRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_offer_vehicle_v1_sales_offers__offer_id__vehicle_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_offer_vehicle_change_v1_sales_offers__offer_id__vehicle_refresh_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

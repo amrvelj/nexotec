@@ -111,5 +111,22 @@
       "generic": "Die Änderung konnte nicht gespeichert werden.",
       "dismiss": "Meldung schliessen"
     }
+  },
+  "vehicleChanged": {
+    "title": "Fahrzeug im Lager geändert",
+    "fieldsLine": "Seit dieser Preisberechnung geändert: {{fields}}.",
+    "noFields": "Das Lagerfahrzeug wurde seit dieser Preisberechnung geändert.",
+    "refresh": "Aktualisieren",
+    "dismiss": "Ignorieren",
+    "readOnly": "Die Offerte ist versendet und bleibt, wie sie ist. Eine Kopie übernimmt die aktuellen Fahrzeugdaten.",
+    "refused": "Die Fahrzeugdaten konnten nicht übernommen werden.",
+    "fields": {
+      "listPrice": "Listenpreis",
+      "effectivePrice": "Verkaufspreis",
+      "options": "Ausstattung",
+      "exteriorColour": "Aussenfarbe",
+      "odometerKm": "Kilometerstand",
+      "configurationLabel": "Bezeichnung"
+    }
   }
 }
