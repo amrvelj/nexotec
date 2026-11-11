@@ -54,6 +54,7 @@ from app.platform.services.user import (
     list_user_dealer_group_ids,
     list_user_dealership_ids,
 )
+from app.platform.services.user_preference import ui_language_of
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that
@@ -147,5 +148,6 @@ __all__ = [
     "register_grant_revoker",
     "render_document",
     "render_standard_text",
+    "ui_language_of",
     "unregister_grant_revoker",
 ]

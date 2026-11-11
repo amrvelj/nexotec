@@ -46,7 +46,9 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   Nexotec user** (`platform.public.get_active_user_acting_in`) with the service account's client id
   (config `clientId`) and secret (slot `client_secret`). The Bearer token is cached in process **per
   connection and per user**, keyed by the connection's `version` and `rotated_at`, never persisted,
-  never logged (`access_token` / `Authorization` are redacted names).
+  never logged (`access_token` / `Authorization` are redacted names). The enrolment's
+  `Accept-Language` is the user's UI language as `de-CH`/`fr-CH`/`it-CH`/`en-CH`
+  (`platform.public.ui_language_of`, KAN-585); not part of the cache key.
 - A call with no signed-in user, no `clientId` or no secret is a `ProviderConfigurationError` — the
   dealer's to fix: no breaker charge, no invented row. A 400/422 or 403 is the provider's coherent
   answer, logged `ERROR` and **never charged to the breaker** (one un-entitled option must not

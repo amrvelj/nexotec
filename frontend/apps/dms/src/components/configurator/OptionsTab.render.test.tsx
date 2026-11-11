@@ -637,3 +637,15 @@ describe('OptionsTab — search by text and code (KAN-211)', () => {
     expect(optionMatchesSearch({ ...CODED, manufacturerCode: null }, 'pxa')).toBe(false)
   })
 })
+
+// KAN-598 (Anto, 2026-11-11, option A): a detail the provider refused (400/422)
+// is said, never shown as a clean empty load — and the class name stays out.
+describe('OptionsTab — a refused request (KAN-598)', () => {
+  it('says auto-i-dat refused the request instead of «no options»', () => {
+    renderTab({ spec: buildSpec({ options: [], details: { ...detailsPresent, options: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderRequestError' } } }) })
+    const notice = screen.getByTestId('detail-state-options')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.providerRequestRefused'))
+    expect(notice).not.toHaveTextContent('ProviderRequestError')
+    expect(screen.queryByText(i18n.t('configurator.options.empty'))).not.toBeInTheDocument()
+  })
+})

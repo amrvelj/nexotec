@@ -1,11 +1,21 @@
 """What a host reads from a configuration (C-F / KAN-10, FR-C-12 … FR-C-16).
 
-Four hosts store a `configurationId` — an offer, a stock item, a valuation,
-and (by the configuration's own `vehicle_id`) a vehicle. They never import
-this context's models: they read `HostConfiguration` through
-`app.vehicle.public`, a plain value with the identity, the price lines and
-the ADR-071 specification block, which is what the offer freezes into its
-`vehicleSnapshot` (the block's third carrier).
+Hosts store a `configurationId` — an offer and a pending contract (its car
+and its trade-in), a stock item, a valuation, and (by the configuration's own
+`vehicle_id`) a vehicle. They never import this context's models: they read
+`HostConfiguration` through `app.vehicle.public`, a plain value with the
+identity, the price lines and the ADR-071 specification block, which is what
+the offer freezes into its `vehicleSnapshot` (the block's third carrier).
+
+**Lifecycle** (KAN-270, ADR-120; `configuration_retention.py`): a host that
+takes a configuration publishes its own fact (`…configuration_attached`,
+`inventory.stock_item.added`, `valuation.created`), and vehicle's consumers
+stamp `first_taken_at`; one no host ever took is deleted 30 days after it was
+created by the daily purge, which first asks each host's read-only
+`referenced_configuration_ids` (indexed on Sales' four columns, KAN-563).
+Accepted residual race (ADR-120): a host attaching a 30-day-old untaken
+configuration in the moment the purge deletes it keeps a dangling reference,
+which that host's nightly reconciliation reports.
 
 **Which modes a host may use is decided by the host** (PRD v1.4 mode
 matrix), so each host checks `HostConfiguration.mode` itself:

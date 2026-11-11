@@ -46,7 +46,9 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   30-day TTL. What is never done is retrieving or storing the whole catalogue.
 
 ## Single lookups only, for every provider (identAPI test agreement; KAN-485)
-- No full seed, no daily delta, no `FzKeyChanged`, **no daily job reaching a provider** — the demo
+- No full seed, no daily delta, no `FzKeyChanged` nor the identAPI's own changed-keys list
+  `GET /vehiclecatalog/mutations/{sinceDate}` (refused by path and by method name, KAN-589),
+  **no daily job reaching a provider** — the demo
   provider (`auto_i_dat_mock`) too. A variant enters only through identification or a browsed page;
   every variant either returns is stored through `upsert_model_variant` / `store_seen_variants`.
   `test_no_bulk_catalogue_retrieval.py` refuses `page[number]` outside the adapter and any
@@ -93,7 +95,10 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   `price_in_combination_with`) are stored and shown, **never enforced** (ADR-072). The colour's
   name is shown as delivered; its type is the advisor's pick from the `colour_type` /
   `interior_colour_type` lists. A failure's class name never reaches the screen
-  (`DetailStateNotice`).
+  (`DetailStateNotice`); a detail the provider refused (400/422 — `present`, note
+  `ProviderRequestError`) reads as one translated line, «auto-i-dat hat die Anfrage abgelehnt;
+  «Neu laden» fragt erneut», on the options, colours, tyre, images and summary notices, never as a
+  clean empty load (Anto, 2026-11-11, KAN-598 option A).
 
 ## Codes (ADR-044)
 - Provider codes never appear in application code: canonical taxonomy + `ProviderCodeMap`, keyed

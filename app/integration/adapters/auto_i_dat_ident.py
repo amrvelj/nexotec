@@ -733,7 +733,7 @@ def enrolled_user_for(
     # integration package load `app.platform.public` too (the architecture
     # test that proves the submodule fallback in a fresh interpreter
     # noticed). The door stays the same: `platform.public`, nothing else.
-    from app.platform.public import get_active_user_acting_in
+    from app.platform.public import get_active_user_acting_in, ui_language_of
 
     if actor_id is None:
         return None, NO_ACTOR_REASON
@@ -743,9 +743,27 @@ def enrolled_user_for(
     if user is None:
         return None, NOT_ACTING_IN_BETRIEB_REASON
     return (
-        EnrolledUser(user_id=str(user.id), email=user.email, first_name=user.first_name, last_name=user.last_name),
+        EnrolledUser(
+            user_id=str(user.id),
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            language=enrolment_language_tag(ui_language_of(db, user_id=user.id)),
+        ),
         None,
     )
+
+
+# KAN-585: the four UI languages as the BCP 47 tags auto-i's enrolment reads
+# from `Accept-Language` — Swiss regional variants, as the de-CH default was.
+_ENROLMENT_LANGUAGE_TAGS = {"de": "de-CH", "fr": "fr-CH", "it": "it-CH", "en": "en-CH"}
+
+
+def enrolment_language_tag(ui_language: str | None) -> str:
+    """The `Accept-Language` tag for a user's UI language (`de`/`fr`/`it`/`en`);
+    `de-CH` when none is known or the stored value is not one of the four."""
+
+    return _ENROLMENT_LANGUAGE_TAGS.get((ui_language or "").lower(), "de-CH")
 
 
 def _build_ident_adapter(

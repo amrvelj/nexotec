@@ -1,9 +1,12 @@
 """The plate-lookup cache (FR-C-02, C-D / KAN-42).
 
-`KontrollschildInfo` is billed per call and advisors retype the same plate
-while they talk to a customer, so every answer is kept for
-`PLATE_LOOKUP_CACHE_TTL` (`app.vehicle.services.plate_lookup_cache`) and a
-repeat lookup inside that window costs nothing.
+The identAPI's Vehicle Build answer to a plate lookup, reduced to plate →
+Typenschein + Stammnummer + first registration (plus the make, model and
+kind the picker shows). Every provider request is counted (licence §6) and
+advisors retype the same plate while they talk to a customer, so an answer
+is kept for `PLATE_LOOKUP_CACHE_TTL` (`app.vehicle.services.plate_lookup_cache`)
+and a repeat lookup inside that window makes no request. Filled by a plate
+lookup only, whole or not at all.
 
 **Tenant-partitioned** (ADR-013): the rows are licensed provider data,
 fetched with this dealer's own credentials, so a sister tenant never reads
@@ -16,8 +19,8 @@ keeper). Rows are read by an exact plate or an exact Stammnummer only —
 `tests/architecture/test_plate_lookup_is_not_enumerable.py` covers the
 service functions that read this table, and no route lists it.
 
-One row per record `KontrollschildInfo` returned: a Wechselschild is two
-rows under one plate. A refetch replaces every row for the plate.
+One row per registered car the answer named: a Wechselschild is two rows
+under one plate. A refetch replaces every row for the plate.
 """
 
 import datetime as dt

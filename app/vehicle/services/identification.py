@@ -559,6 +559,22 @@ def _is_conflict(records: list[PlateRecord]) -> bool:
 
 
 def _publish_plate_conflict(db: Session, *, tenant_id: uuid.UUID, plate: str, records: list[PlateRecord]) -> None:
+    """`vehicle.plate_lookup.conflicted` — one Stammnummer reported under two
+    Typenscheine (ADR-039, a data-quality fact). Payload: `plate` (normalised)
+    and `records[]`, each `{stammnummer, typeApprovalNumber}`, **both always
+    set** (KAN-593): a record the account may not see the Stammnummer of can
+    contradict nothing (`_is_conflict`), so it is left out rather than sent as
+    a null. The aggregate id is derived from (tenant, plate), so a consumer
+    groups repeats of one plate by it.
+
+    Published once per provider answer, never from the cache. An answer the
+    cache cannot hold (a record without its Stammnummer or Typenschein, whole
+    or not at all) is asked again on the next lookup and publishes again: each
+    is a fact of its own — the provider said it at that moment — and a
+    consumer is idempotent by `eventId` and groups by plate; no per-day
+    dedupe is kept here (KAN-593, decided: it would need a read of the outbox
+    or state of its own for a rare, consumer-less signal)."""
+
     publish(
         db,
         OutboxEvent(
@@ -570,7 +586,9 @@ def _publish_plate_conflict(db: Session, *, tenant_id: uuid.UUID, plate: str, re
             payload={
                 "plate": plate,
                 "records": [
-                    {"stammnummer": r.stammnummer, "typeApprovalNumber": r.type_approval_number} for r in records
+                    {"stammnummer": r.stammnummer, "typeApprovalNumber": r.type_approval_number}
+                    for r in records
+                    if r.stammnummer is not None
                 ],
             },
         ),

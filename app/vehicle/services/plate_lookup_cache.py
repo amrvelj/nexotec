@@ -1,11 +1,20 @@
 """Reads and writes of the plate-lookup cache (FR-C-02, C-D / KAN-42).
 
-**TTL: 30 days** (`PLATE_LOOKUP_CACHE_TTL`). A `KontrollschildInfo` answer
-changes only when a plate is reassigned or a car is re-registered, both
-rare against a 30-day window, while advisors retype the same plate many
-times in one negotiation and every call is billed. A stale row costs one
-wrong-looking picker the advisor can step past by typing the Typenschein;
-a short TTL costs money on every retype. Rows past the TTL are never read
+What a row is: one registered car of the identAPI's Vehicle Build answer
+to a plate lookup (`GET /vehiclebuild/licenseplate/…`), reduced to plate →
+Typenschein + Stammnummer + first registration (and the make, model and
+kind the picker shows). Filled by a plate lookup only, and **whole or not
+at all**: an answer with a record the account may not see whole is not
+stored, since a part would later read as the whole truth about the plate
+(`identification._cache_plate_answer`). A Stammnummer (`vrn`) answer never
+fills it.
+
+**TTL: 30 days** (`PLATE_LOOKUP_CACHE_TTL`). A plate's answer changes only
+when a plate is reassigned or a car is re-registered, both rare against a
+30-day window, while advisors retype the same plate many times in one
+negotiation and every provider request is counted (licence §6). A stale row
+costs one wrong-looking picker the advisor can step past by typing the
+Typenschein; a short TTL costs a request on every retype. Rows past the TTL are never read
 and are deleted by the daily `vehicle.plate_lookup_cache.purge` job, so the
 table never holds plate → Stammnummer pairs longer than it needs to
 (revDSG data minimisation, PRD-Configurator §Data protection).
