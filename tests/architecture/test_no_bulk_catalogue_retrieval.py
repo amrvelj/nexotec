@@ -12,7 +12,12 @@ removed; this guard keeps them out:
      the guard stays whole).
   2. Nothing under `app/` or `scripts/` calls or names it, and the old bulk
      entry points (`seed_tenant_catalogue`, `run_daily_delta_for_tenant`) do
-     not come back under those names.
+     not come back under those names. **The identAPI's own changed-keys list
+     is refused the same way** (KAN-589): its path `/vehiclecatalog/mutations`
+     (`GET /vehiclecatalog/mutations/{sinceDate}`, «Get catalog mutations») in
+     any string under `app/` or `scripts/`, and an adapter method named for it
+     (`fetch_catalog_mutations`, `list_catalogue_mutations`, … — any name
+     holding `catalog_mutations`, `catalogue_mutations` or `mutations_since`).
   3. No daily job reaches a provider at all.
   4. **The identAPI's pages are never walked** (ADR-112 (4), KAN-548): the
      provider page parameter (`page[number]`) is written in the identAPI
@@ -51,20 +56,34 @@ _SCANNED_ROOTS = (_REPO / "app", _REPO / "scripts")
 
 _FORBIDDEN_DATENNAMEN = {"FzKeyChanged"}
 _FORBIDDEN_NAMES = {"list_changed_keys", "seed_tenant_catalogue", "run_daily_delta_for_tenant"}
+# KAN-589: the identAPI's changed-keys list. Its path is refused as a substring
+# (an f-string's literal parts are string constants too), so a full URL, a
+# relative path or `"/vehiclecatalog/mutations/" + since` are all caught.
+_FORBIDDEN_PATHS = ("/vehiclecatalog/mutations",)
+# …and an adapter method named for it, whatever the verb or the spelling.
+_FORBIDDEN_NAME_FRAGMENTS = ("catalog_mutations", "catalogue_mutations", "mutations_since")
+
+
+def _forbidden_name(name: str) -> bool:
+    lowered = name.lower()
+    return name in _FORBIDDEN_NAMES or any(fragment in lowered for fragment in _FORBIDDEN_NAME_FRAGMENTS)
 
 
 def _violations(source: str) -> list[str]:
     found: list[str] = []
     for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in _FORBIDDEN_DATENNAMEN:
-            found.append(f"string {node.value!r} (line {node.lineno})")
-        elif isinstance(node, ast.Attribute) and node.attr in _FORBIDDEN_NAMES:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if node.value in _FORBIDDEN_DATENNAMEN:
+                found.append(f"string {node.value!r} (line {node.lineno})")
+            elif any(path in node.value.lower() for path in _FORBIDDEN_PATHS):
+                found.append(f"path in string {node.value!r} (line {node.lineno})")
+        elif isinstance(node, ast.Attribute) and _forbidden_name(node.attr):
             found.append(f"attribute .{node.attr} (line {node.lineno})")
-        elif isinstance(node, ast.Name) and node.id in _FORBIDDEN_NAMES:
+        elif isinstance(node, ast.Name) and _forbidden_name(node.id):
             found.append(f"name {node.id} (line {node.lineno})")
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name in _FORBIDDEN_NAMES:
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _forbidden_name(node.name):
             found.append(f"def {node.name} (line {node.lineno})")
-        elif isinstance(node, ast.alias) and node.name.split(".")[-1] in _FORBIDDEN_NAMES:
+        elif isinstance(node, ast.alias) and _forbidden_name(node.name.split(".")[-1]):
             found.append(f"import {node.name} (line {getattr(node, 'lineno', '?')})")
     return found
 
@@ -163,6 +182,11 @@ def test_no_adapter_offers_the_changed_keys_list(adapter):
     assert not hasattr(adapter, "list_changed_keys"), (
         f"{adapter.__name__} offers list_changed_keys again — FzKeyChanged is what a full catalogue mirror is "
         "built on, which the provider contract forbids (KAN-485, ADR-023 as amended 2026-10-29)."
+    )
+    mutations = [name for name in dir(adapter) if _forbidden_name(name)]
+    assert not mutations, (
+        f"{adapter.__name__} offers {mutations} — the identAPI's /vehiclecatalog/mutations is its FzKeyChanged, "
+        "the list a catalogue mirror is built on (KAN-589, KAN-485)."
     )
 
 
@@ -364,6 +388,16 @@ def test_the_loop_scanner_leaves_one_page_alone():
         "def seed_tenant_catalogue(db, *, tenant_id): ...",
         "from app.vehicle.public import run_daily_delta_for_tenant",
         "run_daily_delta_for_tenant(db, tenant_id=tenant_id)",
+        # KAN-589: the identAPI's mutations endpoint, as a path and as a method
+        'self._request("GET", "/vehiclecatalog/mutations/2026-11-01")',
+        'self._request("GET", f"/vehiclecatalog/mutations/{since.isoformat()}")',
+        'url = BASE_URL + "/vehiclecatalog/mutations/" + since',
+        'url = "https://api.auto-i.ch/v1/VehicleCatalog/Mutations/2026-11-01"',
+        "def fetch_catalog_mutations(self, *, since): ...",
+        "def list_catalogue_mutations(self, *, since): ...",
+        "changes = adapter.fetch_catalog_mutations(since=yesterday)",
+        "def fetch_mutations_since(self, since): ...",
+        "from app.integration.adapters.auto_i_dat_ident import fetch_catalog_mutations",
     ],
 )
 def test_the_scanner_catches(source):
@@ -375,4 +409,6 @@ def test_the_scanner_leaves_single_lookups_alone():
         "adapter.fetch_variant(fz_key)\n"
         "sync_catalogue_variant(db, tenant_id=tenant_id, fz_key=fz_key)\n"
         '"""A docstring may mention FzKeyChanged in prose."""\n'
+        'adapter._request("GET", f"/vehiclecatalog/variants/{fz_key}")\n'
+        "mutation = apply_option_mutation(row)\n"
     )
