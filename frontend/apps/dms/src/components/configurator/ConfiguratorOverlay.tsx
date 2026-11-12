@@ -254,6 +254,30 @@ function withObserved(draft: Draft, start: IdentifiedStart): Draft {
 
 const ALL_MODES: ConfiguratorMode[] = ['build', 'record']
 
+/**
+ * KAN-557 — a host that corrects the car's VIN through its own action owns
+ * the configuration's VIN: the overlay never sends `vin` in its PATCH. A VIN
+ * the user changed is handed to the host after the configuration's own saves
+ * (fields, then options); the overlay closes only once the host resolves.
+ * Applies to a saved configuration (`existing`) only. What the host says
+ * comes from the host — the overlay names no host.
+ */
+export interface HostOwnedVin {
+  /** Called with the changed VIN, normalised. Resolves once the host has
+   * corrected it — the overlay then re-reads the configuration (its new
+   * version and VIN) and commits; rejects with a `HostCommitError` when it
+   * did not (cancelled, refused): the overlay stays open, the other fields
+   * saved, and shows that message. */
+  correctVin: (vin: string) => Promise<void>
+  /** The VIN field's hint: how a changed VIN is applied. */
+  hint: string
+  /** Said in place when the VIN is emptied: the host cannot clear it. */
+  clearRefused: string
+  /** Set when this user may not correct the VIN: the field is read-only and
+   * its hint is this reason. */
+  readOnlyReason?: string
+}
+
 
 export interface ConfiguratorOverlayProps {
   /** The modes this host allows (PRD v1.4 mode matrix): offer Path B
@@ -271,6 +295,9 @@ export interface ConfiguratorOverlayProps {
   /** Called with the saved configuration when the advisor commits. May be
    * async; a rejected `HostCommitError` is shown in the overlay. */
   onCommitted: (configuration: ConfigurationRead) => void | Promise<void>
+  /** KAN-557 — the host corrects the VIN through its own action
+   * (`HostOwnedVin`). Absent: the VIN is the configuration's, in its PATCH. */
+  hostOwnsVin?: HostOwnedVin
   /** Close without committing (the overlay's close button / Escape also
    * calls this via the host's `useOverlay().pop`). */
   onClose: () => void
@@ -289,6 +316,7 @@ export function ConfiguratorOverlay({
   existing = null,
   initialVin = '',
   onCommitted,
+  hostOwnsVin,
   onClose,
 }: ConfiguratorOverlayProps) {
   const { t, i18n } = useTranslation()
@@ -306,6 +334,8 @@ export function ConfiguratorOverlay({
   const [resyncOpen, setResyncOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // KAN-557: the VIN field's own refusal when the host owns the VIN.
+  const [vinError, setVinError] = useState<string | null>(null)
   // KAN-266: the first save's POST carries one key per submission, so a
   // retry after a failure (a response lost on the way back) gets the
   // configuration it created instead of a second one. A draft changed after
@@ -494,6 +524,28 @@ export function ConfiguratorOverlay({
       setError(t('configurator.spec.retiredSaveError', { fields: retired.join(', ') }))
       return
     }
+    // KAN-557: on a saved configuration whose host owns the VIN, the VIN
+    // never rides in the PATCH. A changed one goes to the host after the
+    // saves below; an emptied or invalid one is refused here, nothing sent.
+    const vinOwner = hostOwnsVin && configurationId !== null ? hostOwnsVin : null
+    let vinForHost: string | null = null
+    if (vinOwner && !vinOwner.readOnlyReason) {
+      const unchanged = draft.vin === (savedVin ?? '') || normalisedVin(draft.vin) === (savedVin ?? null)
+      if (draft.vin.trim() === '' && savedVin) {
+        setVinError(vinOwner.clearRefused)
+        setSection('specification') // where the field is
+        return
+      }
+      if (!unchanged && draft.vin.trim() !== '') {
+        vinForHost = normalisedVin(draft.vin)
+        if (vinForHost === null) {
+          setVinError(t('common.invalidVin'))
+          setSection('specification')
+          return
+        }
+      }
+    }
+    setVinError(null)
     setSaving(true)
     setError(null)
     try {
@@ -513,7 +565,7 @@ export function ConfiguratorOverlay({
         configurationId !== null && draft.vin !== '' && draft.vin === savedVin && normalisedVin(draft.vin) === null
       const body: Record<string, unknown> = {
         mode,
-        ...(keepStoredVin ? {} : { vin: draft.vin || null }),
+        ...(keepStoredVin || vinOwner ? {} : { vin: draft.vin || null }),
         firstRegistrationDate: draft.firstRegistrationDate || null,
         mileageKm: draft.mileageKm ? Number(draft.mileageKm) : null,
         exteriorColour: draft.exteriorColour || null,
@@ -611,6 +663,18 @@ export function ConfiguratorOverlay({
         }
       }
 
+      if (vinForHost !== null && vinOwner) {
+        // The host's correction rewrites the configuration too (its VIN and
+        // version): read it back before committing, so a later save sends
+        // the version the server holds.
+        await vinOwner.correctVin(vinForHost)
+        config = await api.get<ConfigurationRead>(`/configurations/${config.id}`)
+        setCurrentVersion(config.version)
+        setSavedVin(config.vin)
+        setLinkedVehicle(config.vehicleId ? { id: config.vehicleId, label: config.vehicleLabel } : null)
+        setDraft((current) => (current ? { ...current, vin: config.vin ?? '' } : current))
+      }
+
       await onCommitted(config)
     } catch (err) {
       // KAN-351 — a VIN the API refuses is said in the overlay's error, in
@@ -706,6 +770,7 @@ export function ConfiguratorOverlay({
   }
 
   // -- Phase 2 -----------------------------------------------------------
+  const hostVin = hostOwnsVin && configurationId !== null ? hostOwnsVin : null
   return (
     <Stack gap="md" p="xl" maw={900} mx="auto" pb={96}>
       <Group justify="space-between">
@@ -761,11 +826,20 @@ export function ConfiguratorOverlay({
               configuration, drops the vehicle link with it (KAN-326). */}
           <Group grow align="flex-start">
             <TextInput
-              {...hint(t('configurator.vehicleLink.vin'), t('configurator.vehicleLink.vinHint'))}
+              {...hint(
+                t('configurator.vehicleLink.vin'),
+                hostVin ? (hostVin.readOnlyReason ?? hostVin.hint) : t('configurator.vehicleLink.vinHint'),
+              )}
               value={draft.vin}
-              onChange={(e) => setDraft({ ...draft, vin: e.currentTarget.value })}
+              readOnly={Boolean(hostVin?.readOnlyReason)}
+              error={vinError}
+              onChange={(e) => {
+                setDraft({ ...draft, vin: e.currentTarget.value })
+                if (vinError) setVinError(null)
+              }}
               rightSection={
-                draft.vin !== '' ? (
+                // A VIN the host owns is never cleared here (KAN-557).
+                draft.vin !== '' && !hostVin ? (
                   <CloseButton
                     size="sm"
                     aria-label={t('configurator.vehicleLink.clearVin')}

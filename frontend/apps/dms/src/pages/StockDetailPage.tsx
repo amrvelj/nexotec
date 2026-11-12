@@ -10,6 +10,7 @@ import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
 import { DetailsTab, type DetailsTabAction } from '../components/stock-detail/DetailsTab'
 import { ChangeConditionDialog } from '../components/stock-detail/ChangeConditionDialog'
+import { VinCorrectionDialog } from '../components/stock-detail/VinCorrectionDialog'
 import { buildStockRowMenu, readStockOpenAction, type StockRowMenuItem } from '../components/stockRowMenu'
 import { EvaluationTab } from '../components/stock-detail/EvaluationTab'
 import { PublishingTab } from '../components/stock-detail/PublishingTab'
@@ -26,7 +27,7 @@ const DEFAULT_TAB = 'details'
 /** The menu is built on every render, before the car has loaded too (hooks
  * run before the loading state returns); until then it is built on this and
  * never shown or run. */
-const NOT_LOADED: StockRowMenuItem = { purchasePrice: null, leftStockAt: null, reservationState: 'none', configurationId: null }
+const NOT_LOADED: StockRowMenuItem = { purchasePrice: null, leftStockAt: null, reservationState: 'none', configurationId: null, vehicleId: null }
 
 
 /** The real route — reads `id` from the URL and renders as the full page. */
@@ -78,6 +79,8 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const canChangeCondition = useCanWrite('stock_condition')
   const canCreateContract = useCanWrite('sales_contracts')
   const canCreateOffer = useCanWrite('sales_offers')
+  // KAN-557: «VIN korrigieren» is the dealer manager's.
+  const canCorrectVin = useCanWrite('stock_vin_correction')
   // KAN-211 (ADR-123): «Neu laden» of the car's catalogue details is the
   // dealer manager's (or platform staff's) — the ACTIVE Betrieb's flag as the
   // session carries it, never `user.isDealerManager` (the home Betrieb's).
@@ -146,6 +149,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   // Details tab go there; «Zustand ändern» has its own dialog here.
   const [detailsAction, setDetailsAction] = useState<DetailsTabAction | null>(null)
   const [conditionOpen, setConditionOpen] = useState(false)
+  const [vinCorrectionOpen, setVinCorrectionOpen] = useState(false)
 
   // KAN-307 — "Offerte erstellen": a bare offer, then the same PATCH the
   // workspace's stock picker sends. A retry after a failed POST replays the
@@ -244,6 +248,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       changeCondition: () => setConditionOpen(true),
       attachConfiguration: onDetails('attachConfiguration'),
       editConfiguration: onDetails('editConfiguration'),
+      correctVin: () => setVinCorrectionOpen(true),
     },
     {
       canCreateContract,
@@ -252,6 +257,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       canChangeCondition,
       canAttachConfiguration: canWriteStockItems && canWriteConfigurations,
       canEditConfiguration: canWriteConfigurations,
+      canCorrectVin,
     },
     itemQuery.data?.leftStockAt ? formatDate(itemQuery.data.leftStockAt, locale) : null,
     creating !== null,
@@ -349,6 +355,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
           canRecordPurchase={canBookPurchase}
           canAttachConfiguration={canWriteStockItems && canWriteConfigurations}
           canEditConfiguration={canWriteConfigurations}
+          canCorrectVin={canCorrectVin}
           canReloadCatalogueDetails={canReloadCatalogueDetails}
           onRecordPurchase={recordPurchase}
           onPurchaseStornoed={purchaseStornoed}
@@ -362,6 +369,9 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
         item={item}
         onChanged={(updated) => queryClient.setQueryData(['stock-item', id], updated)}
       />
+      {/* KAN-557 — the dialog updates the stock item's cache and re-reads the
+          configuration and the vehicle-mdm record the correction rewrote. */}
+      <VinCorrectionDialog opened={vinCorrectionOpen} onClose={() => setVinCorrectionOpen(false)} item={item} />
       {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} canPublish={canPublish} />}
       {activeTab === 'wagenbuch' && (
         <WagenbuchTab

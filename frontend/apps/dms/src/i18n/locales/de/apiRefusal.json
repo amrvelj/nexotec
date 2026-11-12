@@ -154,7 +154,13 @@
     "secrets_backend_failed": "Der sichere Speicher für Zugangsdaten hat die Anfrage nicht ausgeführt — nichts wurde gespeichert. Bitte später erneut versuchen; bleibt der Fehler, den Nexotec-Support informieren.",
     "secret_slot_not_used_by_provider": "Dieser Anbieter verwendet diese Zugangsdaten nicht — sie wurden nicht gespeichert.",
     "secret_store_not_configured": "Für diese Installation ist kein sicherer Speicher für Zugangsdaten eingerichtet — nichts wurde gespeichert. Das liegt nicht an Ihrer Eingabe: Bitte den Nexotec-Support informieren.",
-    "vehicle_not_changed": "Das Lagerfahrzeug wurde seit der Preisberechnung nicht geändert."
+    "vehicle_not_changed": "Das Lagerfahrzeug wurde seit der Preisberechnung nicht geändert.",
+    "vin_belongs_to_other_vehicle": "Diese VIN trägt bereits das Fahrzeug {{vehicleNumber}} im Fahrzeugstamm. Ist es dasselbe Fahrzeug, führt der Nexotec-Support die beiden zusammen.",
+    "vin_correction_left_stock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
+    "vin_correction_needs_vehicle": "Dieses Fahrzeug ist noch nicht eingekauft — die VIN wird in der Konfiguration korrigiert.",
+    "vin_unchanged": "Das ist bereits die VIN dieses Fahrzeugs.",
+    "vehicle_vin_changed": "Die VIN im Fahrzeugstamm wurde inzwischen geändert. Bitte neu laden und erneut versuchen.",
+    "vehicle_merged": "Das Fahrzeug wurde im Fahrzeugstamm mit einem anderen zusammengeführt. Bitte neu laden."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",

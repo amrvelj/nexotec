@@ -194,5 +194,23 @@
     "submit": "Speichern",
     "cancel": "Abbrechen",
     "failed": "Der Zustand konnte nicht geändert werden."
+  },
+  "vinCorrection": {
+    "action": "VIN korrigieren",
+    "title": "VIN korrigieren",
+    "body": "Die VIN wird auf dem Lagerfahrzeug {{stockNumber}}, im Fahrzeugstamm und in der Konfiguration geändert.",
+    "currentVin": "Bisherige VIN:",
+    "newVinLabel": "Neue VIN",
+    "newVinRequired": "Bitte geben Sie die neue VIN an.",
+    "reasonLabel": "Grund",
+    "reasonRequired": "Bitte geben Sie einen Grund an.",
+    "submit": "VIN korrigieren",
+    "cancel": "Abbrechen",
+    "failed": "Die VIN konnte nicht korrigiert werden.",
+    "needsPurchase": "Erst nach dem Einkauf — vorher wird die VIN in der Konfiguration korrigiert.",
+    "configuratorHint": "Eine geänderte VIN wird nach dem Speichern mit «VIN korrigieren» auf Lagerfahrzeug, Fahrzeugstamm und Konfiguration übernommen.",
+    "configuratorClearRefused": "Bei einem gekauften Fahrzeug wird die VIN mit «VIN korrigieren» geändert und kann nicht geleert werden.",
+    "configuratorReadOnly": "Die VIN eines gekauften Fahrzeugs korrigiert nur der Manager des Betriebs, mit «VIN korrigieren».",
+    "notCorrected": "Die VIN wurde nicht korrigiert. Die übrigen Änderungen sind gespeichert."
   }
 }

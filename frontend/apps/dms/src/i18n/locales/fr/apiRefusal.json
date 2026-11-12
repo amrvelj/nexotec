@@ -154,7 +154,13 @@
     "secrets_backend_failed": "Le coffre-fort des identifiants n’a pas exécuté la demande — rien n’a été enregistré. Réessayez plus tard ; si l’erreur persiste, informez le support Nexotec.",
     "secret_slot_not_used_by_provider": "Ce fournisseur n’utilise pas cet identifiant — il n’a pas été enregistré.",
     "secret_store_not_configured": "Aucun stockage sécurisé des identifiants n'est configuré pour cette installation — rien n'a été enregistré. Votre saisie n'est pas en cause : veuillez informer le support Nexotec.",
-    "vehicle_not_changed": "Le véhicule en stock n'a pas été modifié depuis le calcul du prix."
+    "vehicle_not_changed": "Le véhicule en stock n'a pas été modifié depuis le calcul du prix.",
+    "vin_belongs_to_other_vehicle": "Ce VIN est déjà celui du véhicule {{vehicleNumber}} dans la fiche véhicule. S'il s'agit du même véhicule, le support Nexotec fusionne les deux.",
+    "vin_correction_left_stock": "Impossible : le véhicule a quitté le stock.",
+    "vin_correction_needs_vehicle": "Ce véhicule n'est pas encore acheté — le VIN se corrige dans la configuration.",
+    "vin_unchanged": "C'est déjà le VIN de ce véhicule.",
+    "vehicle_vin_changed": "Le VIN de la fiche véhicule a changé entre-temps. Veuillez recharger et réessayer.",
+    "vehicle_merged": "Le véhicule a été fusionné avec un autre dans la fiche véhicule. Veuillez recharger."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

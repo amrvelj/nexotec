@@ -194,5 +194,23 @@
     "submit": "Salva",
     "cancel": "Annulla",
     "failed": "Non è stato possibile modificare lo stato."
+  },
+  "vinCorrection": {
+    "action": "Correggere il VIN",
+    "title": "Correggere il VIN",
+    "body": "Il VIN viene modificato sul veicolo in stock {{stockNumber}}, nell'anagrafica veicolo e nella configurazione.",
+    "currentVin": "VIN attuale:",
+    "newVinLabel": "Nuovo VIN",
+    "newVinRequired": "Indicate il nuovo VIN.",
+    "reasonLabel": "Motivo",
+    "reasonRequired": "Indicate un motivo.",
+    "submit": "Correggere il VIN",
+    "cancel": "Annulla",
+    "failed": "Non è stato possibile correggere il VIN.",
+    "needsPurchase": "Solo dopo l'acquisto — prima il VIN si corregge nella configurazione.",
+    "configuratorHint": "Un VIN modificato viene ripreso dopo il salvataggio con «Correggere il VIN» sul veicolo in stock, nell'anagrafica veicolo e nella configurazione.",
+    "configuratorClearRefused": "Su un veicolo acquistato il VIN si modifica con «Correggere il VIN» e non può essere svuotato.",
+    "configuratorReadOnly": "Solo il manager dell'azienda corregge il VIN di un veicolo acquistato, con «Correggere il VIN».",
+    "notCorrected": "Il VIN non è stato corretto. Le altre modifiche sono salvate."
   }
 }

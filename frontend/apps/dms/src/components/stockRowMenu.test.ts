@@ -20,6 +20,7 @@ function handlers(): StockRowMenuHandlers {
     changeCondition: vi.fn(),
     attachConfiguration: vi.fn(),
     editConfiguration: vi.fn(),
+    correctVin: vi.fn(),
   }
 }
 
@@ -30,9 +31,10 @@ const ALL: StockRowMenuPermissions = {
   canChangeCondition: true,
   canAttachConfiguration: true,
   canEditConfiguration: true,
+  canCorrectVin: true,
 }
-const PIPELINE: StockRowMenuItem = { purchasePrice: null, leftStockAt: null, reservationState: 'none', configurationId: 'cfg-1' }
-const BOUGHT: StockRowMenuItem = { ...PIPELINE, purchasePrice: '20000.00' }
+const PIPELINE: StockRowMenuItem = { purchasePrice: null, leftStockAt: null, reservationState: 'none', configurationId: 'cfg-1', vehicleId: null }
+const BOUGHT: StockRowMenuItem = { ...PIPELINE, purchasePrice: '20000.00', vehicleId: 'v-1' }
 
 const all = (menu: ReturnType<typeof buildStockRowMenu>) =>
   Object.values(menu.overflow).flatMap((group: RowMenuAction[] | undefined) => group ?? [])
@@ -48,6 +50,7 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
       'stockDetail.purchase.recordButton',
       'stockDetail.rowMenu.changeCondition',
       'stockDetail.configuration.edit',
+      'stockDetail.vinCorrection.action',
     ])
     expect((menu.overflow.createFrom ?? []).map((a) => a.label)).toEqual([
       'stockDetail.actions.createContract',
@@ -110,6 +113,7 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
       canChangeCondition: false,
       canAttachConfiguration: false,
       canEditConfiguration: false,
+      canCorrectVin: false,
     }, null)
     expect(all(menu).map((a) => a.label)).toEqual(['stockDetail.actions.createContract', 'stockDetail.actions.createOffer'])
     expect(Object.keys(menu.offered).sort()).toEqual(['createContract', 'createOffer'])
@@ -142,8 +146,33 @@ describe('buildStockRowMenu (KAN-571; ADR-061, PRD-Stock FR-I-07)', () => {
     expect(h.createContract).toHaveBeenCalledOnce()
   })
 
+  it('«VIN korrigieren» (KAN-557): offered on a bought car, disabled on one that left stock or has no vehicle-mdm record', () => {
+    const h = handlers()
+    const bought = buildStockRowMenu(t, BOUGHT, h, ALL, null)
+    const entry = find(bought, 'stockDetail.vinCorrection.action')
+    expect(entry.disabled).toBe(false)
+    entry.onClick()
+    expect(h.correctVin).toHaveBeenCalledOnce()
+    expect(bought.offered.correctVin).toBe(entry)
+
+    const left = buildStockRowMenu(t, { ...BOUGHT, leftStockAt: '2026-10-01T00:00:00Z' }, handlers(), ALL, '01.10.2026')
+    expect(find(left, 'stockDetail.vinCorrection.action')).toMatchObject({
+      disabled: true,
+      disabledReason: 'stockDetail.actions.leftStock:01.10.2026',
+    })
+    const pipeline = buildStockRowMenu(t, PIPELINE, handlers(), ALL, null)
+    expect(find(pipeline, 'stockDetail.vinCorrection.action')).toMatchObject({
+      disabled: true,
+      disabledReason: 'stockDetail.vinCorrection.needsPurchase',
+    })
+    const hidden = buildStockRowMenu(t, BOUGHT, handlers(), { ...ALL, canCorrectVin: false }, null)
+    expect(all(hidden).some((a) => a.label === 'stockDetail.vinCorrection.action')).toBe(false)
+    expect(hidden.offered.correctVin).toBeUndefined()
+  })
+
   it('the router state round-trips, and anything else reads as no action', () => {
     expect(readStockOpenAction(stockOpenState('changeCondition'))).toBe('changeCondition')
+    expect(readStockOpenAction(stockOpenState('correctVin'))).toBe('correctVin')
     expect(readStockOpenAction({ stockOpenAction: 'deleteEverything' })).toBeNull()
     expect(readStockOpenAction(null)).toBeNull()
   })

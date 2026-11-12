@@ -198,6 +198,13 @@ const REASON_KEYS: Record<string, string> = {
       'source_ref_reserved',
       // KAN-572 — only a trade-in's car can go back to its customer.
       'storno_return_not_trade_in',
+      // KAN-557 — «VIN korrigieren».
+      'vehicle_merged',
+      'vehicle_vin_changed',
+      'vin_belongs_to_other_vehicle',
+      'vin_correction_left_stock',
+      'vin_correction_needs_vehicle',
+      'vin_unchanged',
       // KAN-552 — the valuation's provider quote, and a valuation built on one.
       'not_entitled',
       'provider_unavailable',
@@ -268,6 +275,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   standard_text_placeholder_unresolved: (d) => ({ placeholders: placeholderTokens(d.placeholders) }),
   too_many_images: (d) => ({ max: typeof d.maxImages === 'number' ? d.maxImages : 16 }),
   vin_already_in_stock: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
+  // KAN-557: the vehicle-mdm record that already carries the VIN.
+  vin_belongs_to_other_vehicle: (d) => ({ vehicleNumber: String(d.vehicleNumber ?? '—') }),
   // KAN-583: the future holder in the way — who, in which role, from when
   // (a timestamp, as a day in the user's locale).
   vehicle_party_future_holder: (d, t) => ({
