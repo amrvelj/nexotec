@@ -252,9 +252,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   KAN-244) — the item's `vehicle_id` is resolved from the VIN at purchase booking since KAN-554 —
   and without a VIN it is refused, 422 `vehicle_id_requires_vin` (Anto, 2026-10-12, KAN-324);
   promotion normalises its VIN the same way before anything else. Promotion resolves the
-  VIN through `services/vehicle_resolution.py` on a session of its own, so vehicle-mdm's commit
-  or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
-  has never seen takes the winner's record and carries on — then is stocked or refused
+  VIN through `vehicle.public.resolve_vehicle_mdm_by_vin` (Vehicle's own session, KAN-337), so its
+  commit or rollback never touches the caller's work; the loser of an insert race on a new VIN
+  takes the winner's record and carries on — then is stocked or refused
   `vin_already_in_stock` (KAN-257; promotion runs at purchase booking, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
   history; a stornoed car (KAN-146, below) is back in pipeline with its VIN and still blocks it
   (`storno_pending` is still set by nothing). The same car may be in pipeline twice (a pipeline

@@ -32,6 +32,8 @@ from app.vehicle.services.host_configuration import (
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
+from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
+from app.vehicle.services.vin_resolution import resolve_vehicle_mdm_by_vin as _resolve_vehicle_mdm_by_vin
 
 logger = logging.getLogger(__name__)
 
@@ -115,17 +117,35 @@ def get_vehicle_summaries(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict
 def create_or_get_vehicle_mdm(
     db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None, actor_id: uuid.UUID | None = None
 ) -> tuple[VehicleMdm, bool]:
-    """WP-7 PR-2: inventory's promotion (ADR-045, FR-V-04; at purchase
-    booking since KAN-446, ADR-103) calls this the moment a pipeline item's
-    VIN arrives, and a direct stock
-    create with a VIN (KAN-244) — same deferred-import reasoning as
-    get_vehicle_mdm_or_404 above. `actor_id` is the user whose request
-    created the record (null only for a system write, KAN-243).
+    """Found or created on the session it is handed, committing it — for
+    Vehicle's own callers and test set-up only. Another context resolves a
+    VIN through `resolve_vehicle_mdm_by_vin` below, which runs this on a
+    session of its own (KAN-337; `test_vin_resolution_is_vehicles.py`
+    refuses a call from any other context). Same deferred-import reasoning
+    as get_vehicle_mdm_or_404 above.
     """
 
     from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm as _create_or_get_vehicle_mdm
 
     return _create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
+
+
+def resolve_vehicle_mdm_by_vin(
+    db: Session, *, vin: str, actor_id: uuid.UUID | None, catalogue_variant_id: uuid.UUID | None = None
+) -> ResolvedVehicleMdm:
+    """FR-V-04/FR-V-15: the vehicle-mdm record for `vin`, created if
+    vehicle-mdm has never seen it — committed before this returns, on a
+    session of Vehicle's own bound to `db`'s database, so the caller's
+    pending work is neither committed nor rolled back, and a lost insert
+    race resolves to the winner's record (KAN-257). Stock's promotion at
+    purchase booking (ADR-045, ADR-103) is the caller today; KAN-337 moved
+    the resolution here from `inventory/services/vehicle_resolution.py` so
+    no context keeps a copy. Returns plain data. `actor_id` is the user
+    whose request created the record — required, so no caller leaves out who
+    acted; `None` only for a system write (KAN-243).
+    """
+
+    return _resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
 
 
 def get_vehicle_equipment(db: Session, vehicle_id: uuid.UUID) -> dict:
@@ -306,6 +326,7 @@ __all__ = [
     "PlateRecordingCheck",
     "PlateVersionRef",
     "ProviderValuationInput",
+    "ResolvedVehicleMdm",
     "Vehicle",
     "VehicleConfiguration",
     "VehicleMdm",
@@ -325,6 +346,7 @@ __all__ = [
     "get_vehicle_summaries",
     "has_current_energy_rating",
     "match_vehicle",
+    "resolve_vehicle_mdm_by_vin",
     "run_daily_plate_lookup_purge",
     "spec_block_as_dict",
     "spec_block_field_names",

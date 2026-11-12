@@ -25,7 +25,7 @@ What it proves:
    holds its commit, and that function still calls `.commit()`; the public
    entry point reaches it through functions of its OWN context, followed
    transitively (`consume_valuation_for_contract` commits in `mark_used`,
-   `call_capability` in `record_call`, `create_or_get_vehicle_mdm` in
+   `call_capability` in `record_call`, `resolve_vehicle_mdm_by_vin` in
    `create_vehicle_mdm`). Delete the commit, or the call that leads to it,
    and this fails naming the function. A commit reached only through a
    third context's public function does not count.
@@ -195,11 +195,12 @@ _OWN_COMMIT_WRITES = {
     # whose pending work its commit would land and its race guard's
     # rollback discard — and resolves a lost insert race to the winner's
     # record (FR-V-15).
-    "app.vehicle.public.create_or_get_vehicle_mdm": (
+    # Since KAN-337 the own session is Vehicle's: the public function opens it.
+    "app.vehicle.public.resolve_vehicle_mdm_by_vin": (
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
         (
-            "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session "
-            "(KAN-257); since KAN-189 neither the trade-in nor a valuation creates a record"
+            "inventory: promotion at purchase booking (ADR-103), on Vehicle's own session (KAN-257, KAN-337); "
+            "since KAN-189 neither the trade-in nor a valuation creates a record"
         ),
     ),
     # Sales' Save-and-copy gives a copied offer a configuration of its own

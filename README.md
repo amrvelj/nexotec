@@ -139,6 +139,27 @@ local path.
   `DMS_SEED_DEMO_PASSWORD` from the Render service afterwards; it is not
   read any more.
 
+## The demo provider's code map (KAN-649)
+
+The demo catalogue provider (`auto_i_dat_mock`) answers with auto-i's own
+codes, but the seeded code map names the real provider (`auto_i_dat`) only,
+so without a copy every coded field the demo returns is a mapping gap and
+the demo screens show «—». `scripts/seed_demo_provider_code_map.py` copies
+the real provider's mappings to the demo provider (idempotent) and then
+resolves every open demo gap it has just mapped through the production
+resolve path (`catalogue_admin.resolve_gap`, a system resolve with its
+reason audited), filling the fields the gap left empty; a gap whose code
+is still unmapped stays open.
+
+```bash
+python scripts/seed_demo_provider_code_map.py
+```
+
+Run it once per local or staging database, and **again after every deploy
+whose migration seeds new `auto_i_dat` mappings** — nothing runs it for you.
+Not a migration on purpose: the mock is demo data, and production never
+carries a mock connection (KAN-489).
+
 ## Observability (WP-2 PR-3, closes G-16)
 
 Structured JSON logs with `correlationId`/`tenantId` on every line always
