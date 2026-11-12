@@ -4,6 +4,7 @@ paths:
   - "app/vehicle/api/vehicles.py"
   - "app/vehicle/api/lookup.py"
   - "app/vehicle/services/vehicle*.py"
+  - "app/vehicle/services/vin_correction.py"
   - "app/vehicle/services/plate.py"
   - "app/vehicle/services/plate_handover.py"
   - "app/vehicle/services/plate_read_guard.py"
@@ -122,6 +123,14 @@ re-verified against the code. -->
   summary read before its write. **Ruled exception:** a brand rename publishes nothing; customers'
   Vehicles tabs catch up by the nightly label refresh (Anto;
   `test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning`).
+- **A bought car's VIN is corrected from Stock** (KAN-557, ADR-116): `vehicle.public.correct_vehicle_vin`
+  (`services/vin_correction.py`, its own session, compare-and-set on the old VIN) rewrites the record's
+  VIN and, when Stock names it, the car's configuration (`configuration.follow_vehicle_vin_correction`:
+  a configuration without a VIN is left alone, one already carrying the new VIN only re-linked, a third
+  VIN 422) — audited `vin_corrected` (`tenant_id` null, the reason in the row's `reason`), published as
+  `vehicle.vehicle_mdm.vin_corrected` plus `summary_changed`; customer's party labels follow by vehicle
+  id. A VIN another record carries is 409 `vin_belongs_to_other_vehicle`. A valuation keeps the VIN the
+  car carried before (ADR-066); its reconciliation does not report that one.
 - Every identity PATCH writes an `update` audit row (changed fields before/after, camelCase; none
   for a no-op). `"vin": null` or `"vehicleStatus": null` is 422; a duplicate VIN or Stammnummer is a
   409 naming the field — any other integrity error is not reported as a duplicate.

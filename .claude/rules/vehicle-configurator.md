@@ -78,8 +78,12 @@ reconciliation reports the dangling reference.
 - Hosts read only through `vehicle.public.get_configuration_for_host` (Stock's label refresh through
   `get_configuration_labels`, labels only, in the stock item's Betrieb); a host copying itself gets
   `copy_configuration_for_host`, undone by `discard_configuration_copy`.
-- The configuration PATCH does not check its host on the server; a stock car whose configuration's
-  VIN is edited then differs from the stock item's (KAN-544).
+- The configuration PATCH does not check its host on the server. On a bought stock car (it has a
+  vehicle-mdm record) the overlay leaves `vin` out of its PATCH and hands a changed VIN to the host,
+  which corrects it through Stock's «VIN korrigieren» (KAN-557; the stock item, the record and the
+  configuration together, `inventory.md`); a pipeline car's VIN is still written by the PATCH (it wins at
+  booking, KAN-575). A VIN edited away from the car by any other path is reported by Stock's nightly
+  reconciliation.
 
 ## Identification (FR-C-02; `services/identification.py`, `GET /v1/vehicle-identification`)
 - One input, rungs by kind: **VIN** → vehicle-mdm, then `identify_by_vin` only where the

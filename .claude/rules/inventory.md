@@ -57,6 +57,28 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   another item holds is 409 `vin_already_in_stock`) and audits `vin_corrected_at_purchase` (before
   and after `vin`, reason `configuration_vin_wins`); any third VIN is 422
   `configuration_vin_differs`. A stornoed car (it kept its record) is not corrected this way.
+- **«VIN korrigieren» on a bought car** (KAN-557, ADR-116 (2)-(3); Anto, 2026-11-03, on KAN-544):
+  `POST …/stock-items/{id}/vin-correction` (`{newVin, reason}`; If-Match, Idempotency-Key; matrix row
+  `stock_vin_correction`, the dealer manager only) corrects the VIN on the stock item, its vehicle-mdm
+  record and its configuration together (`services/stock_item.py::correct_vin`). Vehicle owns the VIN,
+  so Stock first calls `vehicle.public.correct_vehicle_vin` (Vehicle's own session, ADR-047): it rewrites
+  the record and the configuration, audited `vin_corrected` with the reason, publishes
+  `vehicle.vehicle_mdm.vin_corrected` and ADR-119's `summary_changed`, and commits; then Stock writes its
+  item, audit row and `inventory.stock_item.vin_corrected` (`stockNumber`, `vehicleId`, `previousVin`,
+  `vin`, `correctedBy`, `configurationId`; never the reason). A failed stock write is compensated by the
+  same call with the VINs swapped (`vin_correction_reverted`); Vehicle's step is compare-and-set, so a
+  retry with the same key completes it. Refused with nothing written: left stock (409
+  `vin_correction_left_stock`), no vehicle-mdm record — a pipeline car corrects its configuration, which
+  wins at booking (KAN-575) — (409 `vin_correction_needs_vehicle`), the same VIN (422 `vin_unchanged`),
+  another item in stock holds it (409 `vin_already_in_stock`), the configuration names a third VIN (422
+  `configuration_vin_differs`), another record carries it (409 `vin_belongs_to_other_vehicle` with its
+  `vehicleNumber`: one car, merged by platform staff, FR-V-12), the record changed meanwhile (409
+  `vehicle_vin_changed`) or was merged (409 `vehicle_merged`). Nightly reconciliation reports a car in
+  stock whose VIN its record or (bought car) its configuration does not carry. Only the dealer
+  manager corrects (the ticket's «dealer manager, sales manager»: there is no sales-manager role, the
+  manager flag is the one). A sold row keeps the VIN it was sold under; another Betrieb's live item on
+  the same record is not refused (naming it would confirm it exists) — its stock VIN then differs from
+  the record and is reported.
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
