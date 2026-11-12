@@ -20,6 +20,7 @@ from app.platform.models.number_range import NumberRange
 from app.platform.models.user import User, UserStatus
 from tests.dealership_support import seed_business_reference_lists, valid_uid
 from tests.identity_support import PasswordLogin, cookie_headers, create_dealership, create_user, platform_admin_headers
+from tests.postgres_only import NON_ASCII_CASE_FOLDING
 
 
 @pytest.fixture(autouse=True)
@@ -305,11 +306,19 @@ def test_the_group_list_searches_the_name(client, db_session):
     _groups(db_session, "Garage Emil Frey", "Auto Emilio", "Bären Garage", "100% Auto", "Auto_Gruppe")
 
     assert [item["name"] for item in _page(client, q="emil")["items"]] == ["Auto Emilio", "Garage Emil Frey"]
-    assert [item["name"] for item in _page(client, q="  BÄREN ")["items"]] == ["Bären Garage"]
     # `%` and `_` are letters, not wildcards
     assert [item["name"] for item in _page(client, q="100%")["items"]] == ["100% Auto"]
     assert [item["name"] for item in _page(client, q="o_g")["items"]] == ["Auto_Gruppe"]
     assert _page(client, q="nothing like this")["items"] == []
+
+
+@NON_ASCII_CASE_FOLDING
+def test_the_group_search_folds_case_beyond_ascii(client, db_session):
+    """«BÄREN» finds «Bären Garage», the search term trimmed (KAN-652)."""
+
+    _groups(db_session, "Bären Garage", "Barenboim AG")
+
+    assert [item["name"] for item in _page(client, q="  BÄREN ")["items"]] == ["Bären Garage"]
 
 
 def test_the_group_list_is_bounded_and_refuses_a_bad_cursor(client, db_session):
