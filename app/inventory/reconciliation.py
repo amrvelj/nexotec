@@ -59,8 +59,55 @@ def _names_an_untaken_configuration() -> StateCheck:
     )
 
 
+def _vin_differs_from_its_vehicle() -> StateCheck:
+    """KAN-557 (ADR-116 (3), rule 10): a car still in stock whose VIN is not
+    its vehicle-mdm record's — three records describing two cars. «VIN
+    korrigieren» rewrites both in two transactions; a failed compensation,
+    an identity PATCH on the Vehicle 360, or a correction from before the
+    action leaves this behind. A car that left stock keeps the VIN it was
+    sold under (dated evidence) and is not reported."""
+
+    return StateCheck(
+        label="stock_item.vin differs from its vehicle_mdm.vin",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        where=lambda: select(VehicleMdm.id)
+        .where(VehicleMdm.id == StockItem.vehicle_id, VehicleMdm.vin.is_distinct_from(StockItem.vin))
+        .correlate(StockItem)
+        .exists()
+        & StockItem.left_stock_at.is_(None),
+    )
+
+
+def _vin_differs_from_its_configuration() -> StateCheck:
+    """KAN-557 (KAN-544): a bought car still in stock whose configuration
+    names another VIN — the configurator edited it away from the car's
+    (before KAN-557 nothing refused that) or a correction's configuration leg
+    failed. A configuration without a VIN (a factory order) names no car;
+    a pipeline car never bought has no record yet and its configuration's VIN
+    wins at booking (KAN-575), so neither is reported."""
+
+    return StateCheck(
+        label="stock_item.vin differs from its configuration's vin",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        where=lambda: select(VehicleConfiguration.id)
+        .where(
+            VehicleConfiguration.id == StockItem.configuration_id,
+            VehicleConfiguration.vin.is_not(None),
+            VehicleConfiguration.vin.is_distinct_from(StockItem.vin),
+        )
+        .correlate(StockItem)
+        .exists()
+        & StockItem.vehicle_id.is_not(None)
+        & StockItem.left_stock_at.is_(None),
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     _names_an_untaken_configuration(),
+    _vin_differs_from_its_vehicle(),
+    _vin_differs_from_its_configuration(),
     ReferenceCheck(
         label="stock_item.tenant_id -> dealership.id",
         source_model=StockItem,

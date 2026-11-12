@@ -2585,6 +2585,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inventory/stock-items/{stock_item_id}/vin-correction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct Vin
+         * @description KAN-557 «VIN korrigieren» (ADR-116): corrects the VIN of a car this Betrieb bought — on the stock item, its vehicle-mdm record and its configuration together, each audited with the reason. Vehicle is asked first (its own transaction); a refusal there writes nothing here. 409 `vin_already_in_stock`, `vin_belongs_to_other_vehicle` (another record carries the VIN: merged by platform staff), `vin_correction_left_stock`, `vin_correction_needs_vehicle` (a car never bought: correct its configuration), `vehicle_vin_changed`, `vehicle_merged`; 422 `vin_unchanged`, `configuration_vin_differs`.
+         */
+        post: operations["correct_vin_v1_inventory_stock_items__stock_item_id__vin_correction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -10614,6 +10634,22 @@ export interface components {
             odometerKm?: number | null;
             /** Vehiclelabel */
             vehicleLabel?: string | null;
+        };
+        /**
+         * StockItemVinCorrectionRequest
+         * @description KAN-557 «VIN korrigieren» (ADR-116 (2)-(3)): the corrected VIN —
+         *     normalised and validated as vehicle-mdm does (KAN-244, 422 otherwise) —
+         *     and the reason, required, audited on every record the correction
+         *     rewrites.
+         */
+        StockItemVinCorrectionRequest: {
+            /**
+             * Newvin
+             * @description The car's corrected VIN. It replaces the VIN on the stock item, on its vehicle-mdm record and on its configuration together (KAN-557).
+             */
+            newVin: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * SwissLanguage
@@ -19186,6 +19222,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ValuationRefRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    correct_vin_v1_inventory_stock_items__stock_item_id__vin_correction_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockItemVinCorrectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemRead"];
                 };
             };
             /** @description Validation Error */

@@ -47,6 +47,12 @@
       ]
     },
     {
+      "label": "Stock VIN correction («VIN korrigieren», KAN-557; row added 2026-11-12)",
+      "key": "stock_vin_correction",
+      "read": null,
+      "write": []
+    },
+    {
       "label": "Stock condition change",
       "key": "stock_condition",
       "read": null,

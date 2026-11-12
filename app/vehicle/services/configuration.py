@@ -308,6 +308,66 @@ def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> 
     config.vehicle_label_refreshed_at = utcnow()
 
 
+def follow_vehicle_vin_correction(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    configuration_id: uuid.UUID,
+    old_vin: str,
+    new_vin: str,
+    reason: str,
+    actor_id: uuid.UUID | None,
+) -> None:
+    """KAN-557: a stock car's configuration follows its vehicle-mdm
+    record's corrected VIN, inside that correction's transaction
+    (`services/vin_correction.py`). Never commits, never writes vehicle-mdm
+    (ADR-070 holds: here the record's own correction carries the
+    configuration, not the other way round).
+
+    A configuration without a VIN (a factory order) is left alone. One still
+    carrying `old_vin` takes `new_vin`; one already carrying `new_vin` (the
+    configurator corrected it first, the KAN-510 path) is only re-linked.
+    Any third VIN is 422 `configuration_vin_differs` — the configuration
+    describes yet another car, and nothing is written. Another tenant's
+    configuration is 404 (rule 7)."""
+
+    config = db.scalar(
+        select(VehicleConfiguration)
+        .where(VehicleConfiguration.id == configuration_id, VehicleConfiguration.tenant_id == tenant_id)
+        .with_for_update(key_share=True)
+    )
+    if config is None:
+        raise NotFoundError(f"Configuration {configuration_id} was not found.")
+    if config.vin is None:
+        return
+    if config.vin not in (old_vin, new_vin):
+        raise UnprocessableEntityError(
+            "The configuration's VIN is neither the car's old nor its new VIN.",
+            details={"field": "newVin", "reason": "configuration_vin_differs"},
+        )
+    before = {"vin": config.vin, "vehicleId": str(config.vehicle_id) if config.vehicle_id else None}
+    config.vin = new_vin
+    _link_vehicle_if_vin_resolves(db, config)
+    after = {"vin": config.vin, "vehicleId": str(config.vehicle_id) if config.vehicle_id else None}
+    if before == after:
+        return
+    config.updated_by = actor_id
+    config.version += 1
+    db.flush()
+    record_audit_event(
+        db,
+        entity_type=_ENTITY_TYPE,
+        entity_id=config.id,
+        tenant_id=config.tenant_id,
+        action="vin_corrected",
+        actor_id=actor_id,
+        before=before,
+        after=after,
+        reason=reason,
+    )
+    _publish(db, config, "configuration.updated")
+
+
 def create_configuration(
     db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID, data: ConfigurationCreate
 ) -> VehicleConfiguration:

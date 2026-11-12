@@ -19,6 +19,7 @@ export const GATED_CAPABILITIES = [
   'stock_acquisition',
   'stock_condition',
   'stock_items',
+  'stock_vin_correction',
   'ui_translations',
   'valuation_use_reversal',
 ] as const

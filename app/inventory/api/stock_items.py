@@ -22,6 +22,7 @@ from app.inventory.schemas.stock_item import (
     StockItemPage,
     StockItemRead,
     StockItemUpdate,
+    StockItemVinCorrectionRequest,
 )
 from app.inventory.services import purchase as purchase_service
 from app.inventory.services import stock_item as stock_item_service
@@ -167,6 +168,35 @@ def change_condition(
     item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.change_condition(db, item=item, condition=body.condition, actor_id=principal.user_id)
+    return _stock_item_read(item)
+
+
+@router.post(
+    "/inventory/stock-items/{stock_item_id}/vin-correction",
+    response_model=StockItemRead,
+    description=(
+        "KAN-557 «VIN korrigieren» (ADR-116): corrects the VIN of a car this Betrieb bought — on the stock item, "
+        "its vehicle-mdm record and its configuration together, each audited with the reason. Vehicle is asked "
+        "first (its own transaction); a refusal there writes nothing here. 409 `vin_already_in_stock`, "
+        "`vin_belongs_to_other_vehicle` (another record carries the VIN: merged by platform staff), "
+        "`vin_correction_left_stock`, `vin_correction_needs_vehicle` (a car never bought: correct its "
+        "configuration), `vehicle_vin_changed`, `vehicle_merged`; 422 `vin_unchanged`, `configuration_vin_differs`."
+    ),
+)
+def correct_vin(
+    stock_item_id: uuid.UUID,
+    body: StockItemVinCorrectionRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("stock_vin_correction")),
+    db: Session = Depends(get_db),
+):
+    """On the matrix's own "Stock VIN correction" row: the dealer manager
+    (the ticket's «dealer manager, sales manager» — a manager is the Betrieb's
+    manager flag, whatever their functional role)."""
+
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(item.version, if_match, entity_name="StockItem")
+    item = stock_item_service.correct_vin(db, item=item, data=body, actor_id=principal.user_id)
     return _stock_item_read(item)
 
 

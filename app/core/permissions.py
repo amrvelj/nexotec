@@ -110,6 +110,9 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     "stock_items": Capability(read_roles=_ANY, write_roles=frozenset({_I, _S})),
     "stock_acquisition": Capability(read_roles=_ANY, write_roles=frozenset({_I})),
     "stock_condition": Capability(read_roles=_ANY, write_roles=frozenset({_I, _S})),
+    # KAN-557 «VIN korrigieren» (ADR-116): rewrites the VIN on the stock item,
+    # its vehicle-mdm record and its configuration — the dealer manager only.
+    "stock_vin_correction": Capability(read_roles=_ANY, write_roles=_MANAGER_ONLY),
     # Wagenbuch: append-only via recordCost, never a user write (ADR-029 read scope).
     "wagenbuch": Capability(read_roles=_ANY, write_roles=_MANAGER_ONLY, manager_can_write=False),
     "marketplace_publishing": Capability(read_roles=_ANY, write_roles=frozenset({_I})),
