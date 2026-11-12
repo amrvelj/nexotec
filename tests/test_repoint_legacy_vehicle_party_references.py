@@ -124,3 +124,23 @@ def test_a_row_already_pointing_at_vehicle_mdm_is_left_alone(db_session):
     db_session.expire_all()
     refreshed = db_session.get(VehicleParty, party.id)
     assert refreshed.vehicle_id == mdm.id
+
+
+def test_vehicle_public_resolves_each_id_to_the_vehicle_mdm_it_stands_for(db_session):
+    """KAN-342: the script reads Vehicle through vehicle.public, not its
+    model. One call answers all three cases the script reports: a
+    vehicle_mdm id maps to itself, a migrated legacy id to its replacement,
+    an id that is neither is absent."""
+
+    from app.vehicle.public import resolve_vehicle_mdm_ids
+
+    legacy = _legacy_vehicle(db_session)
+    migrated, _ = create_or_get_vehicle_mdm(db_session, vin=legacy.vin, catalogue_variant_id=None)
+    migrated.migrated_from_legacy_vehicle_id = legacy.id
+    plain, _ = create_or_get_vehicle_mdm(db_session, vin="ZAR94000007123458", catalogue_variant_id=None)
+    db_session.flush()
+    unknown = uuid.uuid4()
+
+    resolved = resolve_vehicle_mdm_ids(db_session, [legacy.id, plain.id, unknown, plain.id, migrated.id])
+
+    assert resolved == {legacy.id: migrated.id, plain.id: plain.id, migrated.id: migrated.id}

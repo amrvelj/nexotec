@@ -845,7 +845,9 @@ def test_opening_a_demo_variant_loads_its_details_once_with_one_row_per_request(
     where = {"tenant_id": tenant_id, "model_variant_id": variant.id}
     assert db_session.query(VariantOption).filter_by(**where).count() == 4
     assert db_session.query(ColourCache).filter_by(**where).count() == 3
-    assert db_session.query(TyreSpecCache).filter_by(**where).count() == 3
+    # Four approved wheels since KAN-596: the mock's summer axle 1 carries the
+    # factory 16" fitment beside the 18" option, which the wider key keeps.
+    assert db_session.query(TyreSpecCache).filter_by(**where).count() == 4
     assert db_session.query(ImageRef).filter_by(**where).count() == 2
 
     catalogue_details.load_on_open(db_session, tenant_id=tenant_id, variant=variant, actor_id=None)

@@ -116,6 +116,35 @@ def get_vehicle_summaries(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict
     return summaries
 
 
+def resolve_vehicle_mdm_ids(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID]:
+    """KAN-342 — the vehicle_mdm id each of `vehicle_ids` stands for, for a
+    caller holding vehicle ids of its own (customer's KAN-31 repoint pass,
+    `scripts/repoint_legacy_vehicle_party_references.py`): a vehicle_mdm id
+    maps to itself, a legacy `vehicle` id that was migrated maps to its
+    replacement (`migrated_from_legacy_vehicle_id`, ADR-021). An id that is
+    neither is absent from the result: reported by the caller, never guessed.
+    Read-only, one query pair per 500 ids."""
+
+    from sqlalchemy import or_, select
+
+    ids = list(dict.fromkeys(vehicle_ids))
+    resolved: dict[uuid.UUID, uuid.UUID] = {}
+    for start in range(0, len(ids), _SUMMARY_BATCH):
+        batch = ids[start : start + _SUMMARY_BATCH]
+        rows = db.execute(
+            select(VehicleMdm.id, VehicleMdm.migrated_from_legacy_vehicle_id).where(
+                or_(VehicleMdm.id.in_(batch), VehicleMdm.migrated_from_legacy_vehicle_id.in_(batch))
+            )
+        ).all()
+        for mdm_id, legacy_id in rows:
+            if legacy_id is not None and legacy_id in batch:
+                resolved.setdefault(legacy_id, mdm_id)
+        for mdm_id, _legacy_id in rows:
+            if mdm_id in batch:
+                resolved[mdm_id] = mdm_id
+    return resolved
+
+
 def create_or_get_vehicle_mdm(
     db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None, actor_id: uuid.UUID | None = None
 ) -> tuple[VehicleMdm, bool]:
@@ -397,6 +426,7 @@ __all__ = [
     "has_current_energy_rating",
     "match_vehicle",
     "resolve_vehicle_mdm_by_vin",
+    "resolve_vehicle_mdm_ids",
     "run_daily_plate_lookup_purge",
     "spec_block_as_dict",
     "spec_block_field_names",

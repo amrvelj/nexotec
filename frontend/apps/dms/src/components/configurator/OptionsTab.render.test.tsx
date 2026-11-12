@@ -648,4 +648,28 @@ describe('OptionsTab — a refused request (KAN-598)', () => {
     expect(notice).not.toHaveTextContent('ProviderRequestError')
     expect(screen.queryByText(i18n.t('configurator.options.empty'))).not.toBeInTheDocument()
   })
+
+  it('names an option in the UI language as delivered and finds it by any of its names (KAN-595)', async () => {
+    const user = userEvent.setup()
+    const PUMP: CatalogueOptionRead = {
+      ...SPORT,
+      id: 'opt-pump',
+      optionCode: 'HP1',
+      description: 'Wärmepumpe',
+      descriptions: { de: 'Wärmepumpe', fr: 'Pompe à chaleur', it: 'Pompa di calore', en: null },
+    }
+    await i18n.changeLanguage('fr')
+    try {
+      renderTab({ spec: buildSpec({ options: [PUMP, FOG] }) })
+      expect(screen.getByText('Pompe à chaleur')).toBeInTheDocument()
+      expect(screen.queryByText('Wärmepumpe')).not.toBeInTheDocument()
+      expect(screen.getByText('Fog lights')).toBeInTheDocument() // no texts sent: the delivered one
+      await user.type(screen.getByTestId('options-search'), 'wärme')
+      expect(screen.getByText('Pompe à chaleur')).toBeInTheDocument()
+      expect(screen.queryByText('Fog lights')).not.toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+    expect(optionMatchesSearch(PUMP, 'calore')).toBe(true)
+  })
 })

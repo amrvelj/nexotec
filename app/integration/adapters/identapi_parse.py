@@ -459,7 +459,8 @@ def parse_option(item: Mapping[str, Any]) -> VariantOptionData | None:
     """One `VehicleOptionData`. `optionKey` is auto-i's identifier and the
     natural key (`option_code`); `optionCode` is the manufacturer's code the
     advisor searches by (`manufacturer_code`). `description` is the text in
-    the language asked for, `descriptionDe` the fallback. `pack` says the
+    the language asked for, `descriptionDe` the fallback; the four language
+    texts are kept beside it (KAN-595). `pack` says the
     option is *inside* a pack; an option *is* a pack when it lists
     `packOptions`."""
 
@@ -492,6 +493,10 @@ def parse_option(item: Mapping[str, Any]) -> VariantOptionData | None:
         pack_option_codes=_option_keys(pack_options),
         excluded_option_codes=_option_keys(item.get("exclusions")),
         priced_with=priced_with,
+        description_de=_text(item.get("descriptionDe")),
+        description_fr=_text(item.get("descriptionFr")),
+        description_it=_text(item.get("descriptionIt")),
+        description_en=_text(item.get("descriptionEn")),
     )
 
 
@@ -504,6 +509,17 @@ def has_next_page(body: Mapping[str, Any]) -> bool:
 
     links = body.get("links")
     return isinstance(links, Mapping) and bool(_text(links.get("next")))
+
+
+def _flag(value: Any) -> bool | None:
+    """A provider yes/no sent as a boolean or as 1/0; anything else is
+    unknown (None), never a guessed no."""
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return value == 1
+    return None
 
 
 def parse_tyre_specs(body: Mapping[str, Any]) -> list[VariantTyreSpecData]:
@@ -532,6 +548,11 @@ def parse_tyre_specs(body: Mapping[str, Any]) -> list[VariantTyreSpecData]:
                 speed_rating=_text(raw.get("speedIndex")),
                 remark=_text(raw.get("remark")) or _text(raw.get("rimRemark")),
                 season_code=_code(raw.get("tyreType")),
+                rims=_text(raw.get("rims")),
+                rim_width=_decimal(raw.get("rimWidth")),
+                rim_size=_int(raw.get("rimSize")),
+                rim_offset=_int(raw.get("rimOffset")),
+                is_standard=_flag(raw.get("standardTyres")),
             )
         )
     return tyres

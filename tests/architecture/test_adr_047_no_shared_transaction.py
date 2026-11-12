@@ -80,9 +80,9 @@ territory), and it scans the twelve contexts only: the composition roots
 directly under app/ (main, worker, reconciliation_runner) wire contexts
 together. scripts/ is scanned separately, at the end of this file:
 `scripts/migrate_transaction_rows.py`'s shared Sales+Inventory
-transaction is the one bounded exception (ADR-091, KAN-106). Three other
-scripts reach two contexts' internals and are known and named, each with
-its reason, in `_SCRIPTS_REACHING_SEVERAL_CONTEXTS` (no ruling yet); any
+transaction is the one bounded exception (ADR-091, KAN-106). The migration
+smoke test's two CI fixtures reach several contexts' internals too, excepted
+by name in `_SCRIPTS_REACHING_SEVERAL_CONTEXTS` (ADR-140, KAN-342); any
 script beyond those fails by name.
 
 Same discipline as test_no_ambient_group_read.py: explicit names with a
@@ -1078,25 +1078,17 @@ _ADR_091_IMPORTS = frozenset(
 
 # Every script that imports the internals of two or more contexts, with
 # exactly what it imports and what it does with it. Only the first is under
-# ADR-091. The other three were found by KAN-106's scan and are named here
-# as they are, not excepted: none has a ruling yet, and the report asks for
-# one. A new script that reaches two contexts fails by name, and so does a
-# recorded one whose imports change.
+# ADR-091. The other two are the migration smoke test's CI fixtures, which
+# never run against a real database: excepted by ADR-140 (KAN-342), named
+# and bounded like ADR-091. KAN-106's scan found a third, the KAN-31 repoint
+# pass; KAN-342 moved its vehicle read onto vehicle.public, so it reaches one
+# context's internals and is not listed. A new script that reaches two
+# contexts fails by name, and so does a recorded one whose imports change.
 _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
     _ADR_091_SCRIPT: _ScriptReach(
         _ADR_091_IMPORTS,
         commits=True,
         reason="ADR-091 (KAN-106): the one bounded exception — see the section comment and the script's docstring",
-    ),
-    "repoint_legacy_vehicle_party_references.py": _ScriptReach(
-        frozenset({"app.customer.models.vehicle_party", "app.vehicle.models.vehicle_mdm"}),
-        commits=True,
-        reason=(
-            "writes one context (customer: VehicleParty.vehicle_id, in place, its own commit) and reads one "
-            "(vehicle: vehicle_mdm, to resolve the replacement id) — one writer, so not ADR-047's two-context "
-            "write; the read goes through the model rather than vehicle.public. KAN-31 safety net, expected to "
-            "report nothing. Not under ADR-091; found by KAN-106, no ruling yet"
-        ),
     ),
     "seed_migration_smoke_test.py": _ScriptReach(
         frozenset(
@@ -1113,8 +1105,8 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
         reason=(
             "CI only: inserts one consistent row per table into customer, platform, sales and vehicle in one "
             "commit, through the ORM and not the services on purpose (its docstring), so the migration round "
-            "trip runs over data. A test fixture, never run against a real database. Not under ADR-091; found "
-            "by KAN-106, no ruling yet"
+            "trip runs over data. A test fixture, never run against a real database. Excepted by ADR-140 "
+            "(KAN-342): named and bounded, a CI fixture only; not under ADR-091"
         ),
     ),
     "verify_migration_smoke_test_seed.py": _ScriptReach(
@@ -1133,7 +1125,8 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
         commits=False,
         reason=(
             "CI only, reads only (no commit): checks the rows seed_migration_smoke_test.py wrote survived the "
-            "upgrade, by their fixed values. Not under ADR-091; found by KAN-106, no ruling yet"
+            "upgrade, by their fixed values. Excepted by ADR-140 (KAN-342): named and bounded, a CI fixture only; "
+            "not under ADR-091"
         ),
     ),
 }

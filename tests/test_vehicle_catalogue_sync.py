@@ -359,13 +359,33 @@ def test_tyre_spec_cache_allows_the_same_axle_with_two_different_seasons(db_sess
 
 
 def test_tyre_spec_cache_still_rejects_a_true_duplicate(db_session):
+    """KAN-596 (ADR-141): the key is one approved wheel — axle, season,
+    dimension and rim. The same wheel twice is refused; a second dimension
+    for the same axle and season is another wheel (test below)."""
+
     tenant_id = uuid.uuid4()
     variant = _bare_variant(db_session)
-    db_session.add(_tyre(tenant_id, variant, "2", "121", "X"))
+    first = _tyre(tenant_id, variant, "2", "121", "225/45 R18")
+    first.rims = "8Jx18"
+    db_session.add(first)
     db_session.flush()
-    db_session.add(_tyre(tenant_id, variant, "2", "121", "Z"))
+    again = _tyre(tenant_id, variant, "2", "121", "225/45 R18")
+    again.rims = "8Jx18"
+    db_session.add(again)
     with pytest.raises(IntegrityError):
         db_session.flush()
+
+
+def test_tyre_spec_cache_keeps_a_second_dimension_of_the_same_axle_and_season(db_session):
+    """KAN-596: a Typenschein approves several dimensions per axle and season;
+    before, the key kept the first only."""
+
+    tenant_id = uuid.uuid4()
+    variant = _bare_variant(db_session)
+    db_session.add(_tyre(tenant_id, variant, "2", "121", "205/60 R16"))
+    db_session.add(_tyre(tenant_id, variant, "2", "121", "225/45 R18"))
+    db_session.flush()
+    assert db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id, model_variant_id=variant.id).count() == 2
 
 
 @NEEDS_ITS_OWN_CONNECTION

@@ -47,7 +47,7 @@ from sqlalchemy.orm import Session
 
 from app.customer.models.vehicle_party import VehicleParty
 from app.db import SessionLocal
-from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.public import resolve_vehicle_mdm_ids
 
 
 @dataclasses.dataclass
@@ -86,28 +86,22 @@ class RepointReport:
 
 def run_repoint(db: Session, *, commit: bool) -> RepointReport:
     parties = list(db.scalars(select(VehicleParty)).all())
-    mdm_ids = set(db.scalars(select(VehicleMdm.id)).all())
-    legacy_to_mdm = {
-        legacy_id: mdm_id
-        for mdm_id, legacy_id in db.execute(
-            select(VehicleMdm.id, VehicleMdm.migrated_from_legacy_vehicle_id).where(
-                VehicleMdm.migrated_from_legacy_vehicle_id.is_not(None)
-            )
-        ).all()
-    }
+    # Vehicle's own answer (KAN-342): the vehicle_mdm id each reference
+    # stands for, read through vehicle.public rather than its model.
+    resolved = resolve_vehicle_mdm_ids(db, (party.vehicle_id for party in parties))
 
     outcomes: list[RowOutcome] = []
     for party in parties:
-        if party.vehicle_id in mdm_ids:
+        target = resolved.get(party.vehicle_id)
+        if target == party.vehicle_id:
             outcomes.append(RowOutcome(party.id, party.vehicle_id, "already_mdm"))
             continue
-        replacement = legacy_to_mdm.get(party.vehicle_id)
-        if replacement is None:
+        if target is None:
             outcomes.append(RowOutcome(party.id, party.vehicle_id, "unresolved"))
             continue
-        outcomes.append(RowOutcome(party.id, party.vehicle_id, "repointed", new_vehicle_id=replacement))
+        outcomes.append(RowOutcome(party.id, party.vehicle_id, "repointed", new_vehicle_id=target))
         if commit:
-            party.vehicle_id = replacement
+            party.vehicle_id = target
 
     if commit:
         db.commit()

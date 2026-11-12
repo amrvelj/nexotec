@@ -38,7 +38,7 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
 ## What is shared and what is not (ADR-013, ADR-075)
 - **Variant master data is global** (auto-i-dat's written permission): `Brand`, `ModelGroup`,
   `ModelVariant` (spec block and list price), `VariantPrice`, `TypeApproval`, the raw codes a
-  variant was read from and the energy rating a lookup stored — no `tenant_id`, readable by every
+  variant was read from and the energy rating and per-gearbox labels a lookup stored (ADR-142) — no `tenant_id`, readable by every
   Betrieb with or without a contract. **Licensed details are tenant-partitioned**: options, option
   features and relations, colours, tyres, images (`TenantScopedMixin`). Widening the share, or
   adding another provider's master data, is a new decision — never a side effect.
@@ -92,7 +92,15 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
 - The energy label is stored once for every Betrieb as that year's `ModelVariantEnergyRating`
   (`source = auto_i_dat`), filling an absence only, never over a held row (a BFE row included), and
   only when every gearbox row agrees on the class (ADR-042 as ruled). A later BFE import rewrites
-  value and source.
+  value and source. **Each gearbox's own label is stored beside it** (KAN-597; Anto, option A;
+  ADR-142): `vehicle_model_variant_energy_label`, one global row per (variant, year, gearbox) with
+  its class and the provider's https PDF link (`label_url`), fill-if-absent, stored even for a year
+  whose gearboxes disagree; `ConfigurationRead.energyLabels` carries the car's year to the seller
+  (the configuration summary, wherever a host shows it), printed on no customer document.
+- **Tyre rows are one per approved wheel** (KAN-596, ADR-141): key (Betrieb, variant, axle code,
+  season code, size, rims), with the rim as delivered (`rims`, `rim_width`, `rim_size`,
+  `rim_offset`) and `is_standard`; rows differing by gearbox alone are one row.
+  `ConfigurationRead.catalogueTyreSpecs` reads the configuration's own Betrieb's rows.
 - Options carry the manufacturer code beside auto-i's key; relations (`contains` / `excludes` /
   `price_in_combination_with`) are stored and shown, **never enforced** (ADR-072). The colour's
   name is shown as delivered; its type is the advisor's pick from the `colour_type` /
@@ -120,7 +128,11 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   type-approval class (M1, N1 …) is `homologation_class`, its own list and spec field, which no
   provider sends — entered by hand.
 - Provider text (option and colour names) is stored and rendered **as delivered**, never translated;
-  only our canonical reference data is translated.
+  only our canonical reference data is translated. An option keeps the identAPI's four texts
+  beside `description` (KAN-595, ADR-143: `description_de/fr/it/en`), copied by the server from the
+  Betrieb's own catalogue row into a configuration option and frozen on Sales' factory-option
+  lines (`label_de/fr/it/en`); screens read the UI language, the offer document its own language,
+  each falling back to the delivered text — never a loud marker.
 - Typenschein ↔ variant is many-to-many (`type_approval_number` indexed, not unique; use
   `find_model_variants_by_type_approval`). Keep the provider's full image URL — no proxy.
 

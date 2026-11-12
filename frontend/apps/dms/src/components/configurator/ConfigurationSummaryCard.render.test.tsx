@@ -316,3 +316,73 @@ describe('ConfigurationSummaryCard — colour type (KAN-211)', () => {
     }
   })
 })
+
+// KAN-595 / KAN-596 / KAN-597 — the stock car's technical data (this card,
+// through HostConfigurationCard): option names in the UI language as the
+// provider delivered them, the approved wheels with their rims, and each
+// gearbox's Energieetikette as a PDF link beside the class.
+describe('ConfigurationSummaryCard — provider texts, wheels, label links', () => {
+  it('names an option in the UI language, the delivered text where none was sent (KAN-595)', async () => {
+    installFakeBackend(listRoutes())
+    const options = [
+      { ...config().options[0], id: 'o1', description: 'Wärmepumpe', descriptions: { de: 'Wärmepumpe', fr: 'Pompe à chaleur', it: null, en: null } },
+      { ...config().options[0], id: 'o2', description: 'Anhängerkupplung', descriptions: { de: null, fr: null, it: null, en: null } },
+    ]
+    await i18n.changeLanguage('fr')
+    try {
+      renderIn('h', config({ options }))
+      expect(screen.getByText('Pompe à chaleur')).toBeInTheDocument()
+      expect(screen.getByText('Anhängerkupplung')).toBeInTheDocument()
+      expect(screen.queryByText('Wärmepumpe')).not.toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+  })
+
+  it('lists the approved wheels with their rims in the colours group (KAN-596)', async () => {
+    installFakeBackend(listRoutes())
+    renderCard(
+      <ConfigurationSummaryCard
+        configuration={config({
+          ...coded,
+          catalogueTyreSpecs: [
+            {
+              axle: 'both', size: '205/60 R16', loadIndex: '92', speedRating: 'V', remark: null, season: 'summer',
+              rims: '6.5Jx16', rimWidth: '6.5', rimSize: 16, rimOffset: 46, isStandard: true,
+            },
+          ],
+        })}
+        technicalDataColumns={2}
+      />,
+    )
+    const block = screen.getByTestId('configuration-technical-data')
+    await waitFor(() => expect(block).toHaveTextContent(i18n.t('configurator.wheels.catalogue')))
+    expect(block).toHaveTextContent(
+      `205/60 R16 · 6.5Jx16 ET46 · ${i18n.t('configurator.wheels.standard')} · ${i18n.t('configurator.wheels.axlePosition.both')} · ${i18n.t('configurator.wheels.seasonLabel.summer')}`,
+    )
+  })
+
+  it('links each gearbox label as PDF beside the class, and nothing without a link (KAN-597)', async () => {
+    installFakeBackend(listRoutes())
+    renderCard(
+      <ConfigurationSummaryCard
+        configuration={config({
+          ...coded,
+          energyRating: null,
+          energyLabels: [
+            { year: 2025, gearbox: 'Automat', category: 'c', labelUrl: 'https://energielabel.example.test/a.pdf' },
+            { year: 2025, gearbox: 'Manuell', category: 'b', labelUrl: null },
+          ],
+        })}
+        technicalDataColumns={2}
+      />,
+    )
+    const block = screen.getByTestId('configuration-technical-data')
+    const link = await within(block).findByRole('link', {
+      name: i18n.t('configurator.spec.energyLabelPdfGearbox', { gearbox: 'Automat', category: 'C' }),
+    })
+    expect(link).toHaveAttribute('href', 'https://energielabel.example.test/a.pdf')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(within(block).getAllByRole('link')).toHaveLength(1)
+  })
+})

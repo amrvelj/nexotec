@@ -33,7 +33,7 @@ from app.vehicle.models.configuration import (
     VehicleConfigurationOption,
     VehicleConfigurationOptionFeature,
 )
-from app.vehicle.models.energy_rating import ModelVariantEnergyRating
+from app.vehicle.models.energy_rating import ModelVariantEnergyLabel, ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
 from app.vehicle.models.provider import (
     MappingGap,
@@ -74,6 +74,7 @@ ACTOR_TABLES = (
     VariantOptionRelation,
     VariantPrice,
     ModelVariantEnergyRating,
+    ModelVariantEnergyLabel,
     ColourCache,
     TyreSpecCache,
     ImageRef,

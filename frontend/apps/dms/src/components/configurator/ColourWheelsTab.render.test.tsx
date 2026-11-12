@@ -142,6 +142,44 @@ describe('ColourWheelsTab', () => {
     expect(within(table).getAllByText(i18n.t('configurator.wheels.seasonLabel.summer'))).toHaveLength(2)
   })
 
+  it('shows each wheel with its rim and offset, the factory fitment marked (KAN-596)', () => {
+    renderTab({
+      spec: buildSpec({
+        tyreSpecs: [
+          {
+            axle: 'both', size: '205/60 R16', loadIndex: '92', speedRating: 'V', remark: null, season: 'summer',
+            rims: '6.5Jx16', rimWidth: '6.5', rimSize: 16, rimOffset: 46, isStandard: true,
+          },
+          {
+            axle: 'both', size: '225/45 R18', loadIndex: '95', speedRating: 'Y', remark: null, season: 'summer',
+            rims: '8Jx18', rimWidth: '8.0', rimSize: 18, rimOffset: null, isStandard: false,
+          },
+        ],
+      }),
+    })
+    const table = screen.getByTestId('tyre-spec-table')
+    expect(within(table).getByRole('columnheader', { name: i18n.t('configurator.wheels.rim') })).toBeInTheDocument()
+    const [standard, option] = within(table).getAllByRole('row').slice(1)
+    expect(within(standard).getByText('6.5Jx16 ET46')).toBeInTheDocument()
+    expect(within(standard).getByText(i18n.t('configurator.wheels.standard'))).toBeInTheDocument()
+    expect(within(option).getByText('8Jx18')).toBeInTheDocument() // no offset sent: the rim alone
+    expect(within(option).queryByText(i18n.t('configurator.wheels.standard'))).not.toBeInTheDocument()
+  })
+
+  it('writes the rim from width and diameter when no designation is sent (KAN-596)', () => {
+    renderTab({
+      spec: buildSpec({
+        tyreSpecs: [
+          {
+            axle: 'both', size: '225/45 R18', loadIndex: '95', speedRating: 'Y', remark: null, season: 'summer',
+            rims: null, rimWidth: '7.5', rimSize: 18, rimOffset: 39, isStandard: null,
+          },
+        ],
+      }),
+    })
+    expect(within(screen.getByTestId('tyre-spec-table')).getByText('7.5Jx18 ET39')).toBeInTheDocument()
+  })
+
   it('does not render the tyre-spec table when the catalogue has no tyre data', () => {
     renderTab({ spec: buildSpec({ tyreSpecs: [] }) })
     expect(screen.queryByTestId('tyre-spec-table')).not.toBeInTheDocument()

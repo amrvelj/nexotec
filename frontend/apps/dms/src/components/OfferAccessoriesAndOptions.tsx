@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react'
 import { ChfInput } from '@nexotec/ui-kit'
 import { useFieldHint } from '../hooks/useFieldHint'
 import { useTranslation } from 'react-i18next'
+import { providerText } from '../utils/providerText'
 import { api, ApiError } from '../api/client'
 import { formatCurrencyChf } from '../utils/format'
 import type { DealSaveQueue } from '../hooks/useDealSaveQueue'
@@ -47,7 +48,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   deal,
   save,
 }: OfferAccessoriesAndOptionsProps<D>) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const hint = useFieldHint()
   const queryClient = useQueryClient()
   const [newCode, setNewCode] = useState('')
@@ -193,7 +194,13 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
           {factoryOptions.map((option) => (
             <Group key={option.id} justify="space-between">
               <Checkbox
-                label={option.label}
+                // KAN-595: a configured car's option in the UI language as the
+                // provider delivered it; the printed offer uses the customer's.
+                label={providerText(
+                  { de: option.labelDe, fr: option.labelFr, it: option.labelIt, en: option.labelEn },
+                  i18n.language,
+                  option.label,
+                )}
                 checked={option.included}
                 onChange={(e) => toggleOption(option, e.currentTarget.checked)}
               />

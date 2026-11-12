@@ -43,6 +43,13 @@ class _SellerEdit:
             row.discount_resolved_amount = resolve_discount(self.discount_type, self.discount_value, row.unit_price)
 
 
+def _frozen_labels(labels: dict[str, str]) -> dict[str, str | None]:
+    """KAN-595 — a price line's provider texts as the line's four label
+    columns, cut to the column like `label`."""
+
+    return {f"label_{language}": (labels.get(language) or None) and labels[language][:200] for language in ("de", "fr", "it", "en")}
+
+
 def _vehicle_identity(deal: PricedDeal, configuration: HostConfiguration | None) -> str | None:
     """What "the same vehicle" means for re-freeze purposes — a different
     stock item, edited manual details, or (C-F) a different configuration
@@ -198,6 +205,7 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal, force: bool = Fals
                 quantity=1,
                 included=True,
                 position=position,
+                **_frozen_labels(line.labels),
             )
             edit = kept.get((code, label))
             if edit is not None:

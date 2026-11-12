@@ -278,7 +278,7 @@ def _next_version(db: Session, *, tenant_id: uuid.UUID, owner_type: DocumentOwne
     return (current_max or 0) + 1
 
 
-def _included_option_lines(db: Session, *, offer: SalesOffer) -> list[tuple[str, Decimal]]:
+def _included_option_lines(db: Session, *, offer: SalesOffer, language: SwissLanguage) -> list[tuple[str, Decimal]]:
     """C-F (KAN-10, FR-C-12): a configured car's price lines are itemised on
     its document. Only for an offer built in the configurator — a stock
     offer's document (Path A, out of this change's scope) is unchanged."""
@@ -295,8 +295,17 @@ def _included_option_lines(db: Session, *, offer: SalesOffer) -> list[tuple[str,
         .order_by(SalesLineItem.position, SalesLineItem.id)
     ).all()
     return [
-        (row.label, (row.unit_price * row.quantity) - (row.discount_resolved_amount or Decimal(0))) for row in rows
+        (_line_label(row, language), (row.unit_price * row.quantity) - (row.discount_resolved_amount or Decimal(0)))
+        for row in rows
     ]
+
+
+def _line_label(row: SalesLineItem, language: SwissLanguage) -> str:
+    """KAN-595 — the option's text in the document's language as the provider
+    delivered it, else the delivered default (`label`). Provider text, not a
+    locale key: never a loud marker."""
+
+    return getattr(row, f"label_{language.value}", None) or row.label
 
 
 def offer_placeholder_values(offer: SalesOffer) -> dict[str, str | None]:
@@ -368,7 +377,7 @@ def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UU
         offer,
         language=language,
         vat_rate=dealership.vat_rate,
-        option_lines=_included_option_lines(db, offer=offer),
+        option_lines=_included_option_lines(db, offer=offer, language=language),
         intro=intro,
         footer=footer,
     )

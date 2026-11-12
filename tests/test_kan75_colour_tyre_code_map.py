@@ -167,6 +167,7 @@ def test_with_the_seed_the_sync_resolves_colours_and_tyres_and_keeps_the_raw_cod
     assert {key: (t.axle, t.season) for key, t in tyres.items()} == {
         ("2", "121"): ("front", "summer"),
         ("3", "121"): ("rear", "summer"),
+        ("1", "121"): ("both", "summer"),  # the mock's factory fitment since KAN-596
         ("1", "122"): ("both", "winter"),
     }
     assert _gaps(db_session) == set()
@@ -288,6 +289,7 @@ def test_resolving_a_gap_fills_the_cached_colours_and_tyres_of_every_tenant_at_o
         assert {key: (t.axle, t.season) for key, t in _tyres(db_session, tenant_id).items()} == {
             ("2", "121"): ("front", "summer"),
             ("3", "121"): (None, "summer"),
+            ("1", "121"): (None, "summer"),  # the mock's factory fitment since KAN-596
             ("1", "122"): (None, None),
         }
     events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=exterior.id, tenant_id=None)

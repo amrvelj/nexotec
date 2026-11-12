@@ -1,4 +1,4 @@
-import { Badge, Card, Group, Stack, Text } from '@mantine/core'
+import { Anchor, Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { AlertTriangle, PencilRuler } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
@@ -14,6 +14,8 @@ import {
   type SpecFieldDef,
 } from '../../configurationOptions'
 import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
+import { providerText } from '../../utils/providerText'
+import { axleLabel, rimLabel } from './wheelLabels'
 
 /** KAN-211 — the lists behind `exteriorColourType` / `interiorColourType`. */
 const COLOUR_TYPE_LIST_CODES = ['colour_type', 'interior_colour_type']
@@ -108,6 +110,18 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
     ...(showTechnical ? [] : [{ label: t('configurator.summary.colour'), value: exteriorLine ?? '—' }]),
   ]
 
+  const energyLabelLinks = (c.energyLabels ?? []).filter((label) => label.labelUrl)
+  const catalogueWheels = (c.catalogueTyreSpecs ?? []).map((tyre) =>
+    [
+      tyre.size,
+      rimLabel(t, tyre),
+      tyre.isStandard ? t('configurator.wheels.standard') : '',
+      axleLabel(t, tyre.axle),
+      tyre.season ? t(`configurator.wheels.seasonLabel.${tyre.season}`) : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  )
   const technicalGroups = showTechnical
     ? [
         ...TECHNICAL_SPEC_GROUPS.map((group) => ({
@@ -135,6 +149,22 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
                         })
                       : notSet,
                   },
+                  // KAN-597 (Anto, 2026-11-11, option A): each gearbox's label
+                  // as the provider's PDF, beside the class — for the seller;
+                  // no customer document prints it.
+                  ...energyLabelLinks.map((label) => ({
+                    label: t('configurator.spec.energyLabelPdf'),
+                    value: (
+                      <Anchor href={label.labelUrl!} target="_blank" rel="noopener noreferrer" size="sm">
+                        {label.gearbox
+                          ? t('configurator.spec.energyLabelPdfGearbox', {
+                              gearbox: label.gearbox,
+                              category: label.category.toUpperCase(),
+                            })
+                          : t('configurator.spec.energyLabelPdf')}
+                      </Anchor>
+                    ),
+                  })),
                 ]
               : []),
           ],
@@ -144,6 +174,24 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
           items: [
             { label: t('configurator.colour.exterior'), value: exteriorLine ?? notSet },
             { label: t('configurator.colour.interior'), value: interiorLine ?? notSet },
+            // KAN-596 (FR-C-08): the wheels the type approval allows, each
+            // dimension beside its rim — what the workshop orders.
+            ...(catalogueWheels.length > 0
+              ? [
+                  {
+                    label: t('configurator.wheels.catalogue'),
+                    value: (
+                      <Stack gap={2}>
+                        {catalogueWheels.map((line, i) => (
+                          <Text key={i} size="sm">
+                            {line}
+                          </Text>
+                        ))}
+                      </Stack>
+                    ),
+                  },
+                ]
+              : []),
           ],
         },
       ]
@@ -216,7 +264,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
             </Text>
             {c.options.map((o) => (
               <Group key={o.id} justify="space-between">
-                <Text size="sm">{o.description}</Text>
+                <Text size="sm">{providerText(o.descriptions, i18n.language, o.description)}</Text>
                 {c.mode === 'build' && o.price != null && !o.isIncluded && (
                   <Text size="sm" c="dimmed">
                     {formatCurrencyChf(Number(o.price))}

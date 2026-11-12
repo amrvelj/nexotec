@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 from app.integration.public import get_entitlement
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
 from app.vehicle.models.catalogue_mirror import CatalogueDetail, ColourCache, ImageRef, TyreSpecCache
+from app.vehicle.schemas.localised import ProviderTextsRead, provider_texts
 from app.vehicle.services import catalogue_details
 from app.vehicle.services.catalogue_sync import find_enabled_vehicle_data_connection
 
@@ -68,6 +69,8 @@ class OptionSpec:
     equipment_features: list[str]
     # KAN-211 — the manufacturer's own code, what the advisor searches by.
     manufacturer_code: str | None = None
+    # KAN-595 — the provider's four language texts (`descriptions.de` …).
+    descriptions: ProviderTextsRead | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +116,12 @@ class TyreSpec:
     # KAN-43 (C-E) / FR-C-08 — PneuTyp / BemDe, shown with the dimension.
     season: str | None
     remark: str | None
+    # KAN-596 / FR-C-08 — the rim the dimension is approved with.
+    rims: str | None = None
+    rim_width: Decimal | None = None
+    rim_size: int | None = None
+    rim_offset: int | None = None
+    is_standard: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -263,6 +272,7 @@ def get_catalogue_specification(
             is_package=row.is_package,
             equipment_features=[link.feature_value_code for link in row.equipment_feature_links],
             manufacturer_code=row.manufacturer_code,
+            descriptions=provider_texts(row),
         )
         for row in option_rows
     ]
@@ -278,22 +288,7 @@ def get_catalogue_specification(
         for row in colour_rows
     ]
 
-    tyre_rows = db.scalars(
-        select(TyreSpecCache).where(
-            TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == model_variant_id
-        )
-    ).all()
-    tyre_specs = [
-        TyreSpec(
-            axle=row.axle,
-            size=row.size,
-            load_index=row.load_index,
-            speed_rating=row.speed_rating,
-            season=row.season,
-            remark=row.remark,
-        )
-        for row in tyre_rows
-    ]
+    tyre_specs = stored_tyre_specs(db, tenant_id=tenant_id, model_variant_id=model_variant_id)
 
     images: list[ImageSpec] = []
     if entitlements.images:
@@ -351,3 +346,36 @@ def get_catalogue_specification(
         option_relations=option_relations,
         details=_detail_states(db, tenant_id=tenant_id, model_variant_id=model_variant_id),
     )
+
+
+def stored_tyre_specs(db: Session, *, tenant_id: uuid.UUID, model_variant_id: uuid.UUID) -> list[TyreSpec]:
+    """The Betrieb's stored tyre and rim rows for a variant (licensed, tenant-
+    partitioned, ADR-013), factory fitment first, then by dimension — what the
+    configurator's «Farbe & Räder» and the stock car's technical data show
+    (KAN-596). Reads only; never asks the provider."""
+
+    rows = db.scalars(
+        select(TyreSpecCache).where(
+            TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == model_variant_id
+        )
+    ).all()
+    ordered = sorted(
+        rows,
+        key=lambda row: (row.is_standard is not True, row.axle_code or "", row.season_code or "", row.rim_size or 0, row.size),
+    )
+    return [
+        TyreSpec(
+            axle=row.axle,
+            size=row.size,
+            load_index=row.load_index,
+            speed_rating=row.speed_rating,
+            season=row.season,
+            remark=row.remark,
+            rims=row.rims,
+            rim_width=row.rim_width,
+            rim_size=row.rim_size,
+            rim_offset=row.rim_offset,
+            is_standard=row.is_standard,
+        )
+        for row in ordered
+    ]

@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Checkbox, CloseButton, Group, Select, Stack, Text
 import { AlertTriangle, Info, Plug, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyChf } from '../../utils/format'
+import { providerText } from '../../utils/providerText'
 import type {
   CatalogueOptionRead,
   CatalogueOptionRelationRead,
@@ -79,7 +80,10 @@ export function OptionsTab({
   equipmentFeatureLabel,
   equipmentFeatureOptions,
 }: OptionsTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  // KAN-595: the option's name in the UI language as the provider delivered
+  // it, else the delivered default. Display only: what is saved stays `description`.
+  const nameOf = (option: CatalogueOptionRead) => providerText(option.descriptions, i18n.language, option.description)
   // Hooks are declared unconditionally, above every early return below
   // (rules of hooks) — the derived values they depend on tolerate a
   // `spec` that is still `undefined`.
@@ -263,7 +267,7 @@ export function OptionsTab({
       if (!key) continue
       lines.push(
         t(`configurator.options.relations.${key}`, {
-          option: other.description,
+          option: nameOf(other),
           price: r.priceInCombination != null ? formatCurrencyChf(Number(r.priceInCombination)) : '',
         }),
       )
@@ -312,7 +316,7 @@ export function OptionsTab({
             <Text size="sm">{t('configurator.options.conflict.body')}</Text>
             {visibleConflicts.map((c) => (
               <Text size="sm" key={c.key}>
-                {c.a.description} · {c.b.description}
+                {nameOf(c.a)} · {nameOf(c.b)}
               </Text>
             ))}
             <Group justify="flex-end">
@@ -343,7 +347,7 @@ export function OptionsTab({
                 <Group justify="space-between" wrap="nowrap">
                   {option.isIncluded ? (
                     <Group gap="xs">
-                      <Text size="sm">{option.description}</Text>
+                      <Text size="sm">{nameOf(option)}</Text>
                       {option.manufacturerCode && (
                         <Text size="xs" c="dimmed" ff="monospace">
                           {option.manufacturerCode}
@@ -358,13 +362,13 @@ export function OptionsTab({
                       label={
                         option.manufacturerCode ? (
                           <>
-                            {option.description}{' '}
+                            {nameOf(option)}{' '}
                             <Text component="span" size="xs" c="dimmed" ff="monospace">
                               {option.manufacturerCode}
                             </Text>
                           </>
                         ) : (
-                          option.description
+                          nameOf(option)
                         )
                       }
                       checked={isChecked(option)}
@@ -389,8 +393,8 @@ export function OptionsTab({
                     <Stack gap="xs">
                       <Text size="sm">
                         {t('configurator.options.packageOffer.body', {
-                          package: option.description,
-                          contents: missing.map((o) => o.description).join(', '),
+                          package: nameOf(option),
+                          contents: missing.map((o) => nameOf(o)).join(', '),
                         })}
                       </Text>
                       <Group gap="xs">

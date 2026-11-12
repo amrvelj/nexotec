@@ -217,6 +217,14 @@ class VehicleConfigurationOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMi
     variant_option_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     option_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # KAN-595 — the catalogue option's four language texts, copied by the
+    # server from the Betrieb's own `vehicle_variant_option` row the option
+    # names (never taken from the client); NULL on a hand-typed option, which
+    # keeps its one `description`.
+    description_de: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_fr: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_it: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     option_group: Mapped[str | None] = mapped_column(String(64), nullable=True)
     price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     is_included: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

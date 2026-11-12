@@ -22,18 +22,22 @@ from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.vehicle.schemas.configuration import (
     ConfigurationCreate,
+    ConfigurationEnergyLabelRead,
     ConfigurationEnergyRatingRead,
     ConfigurationOptionRead,
     ConfigurationOptionsReplace,
     ConfigurationRead,
+    ConfigurationTyreSpecRead,
     ConfigurationUpdate,
     ResyncFieldRead,
     ResyncRequest,
 )
+from app.vehicle.schemas.localised import provider_texts
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
-from app.vehicle.services.energy_rating import energy_rating_for_configuration
+from app.vehicle.services.catalogue_entitlements import stored_tyre_specs
+from app.vehicle.services.energy_rating import energy_labels_for_configuration, energy_rating_for_configuration
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
@@ -54,6 +58,34 @@ def _energy_rating(db: Session, config) -> ConfigurationEnergyRatingRead | None:
     )
 
 
+def _energy_labels(db: Session, config) -> list[ConfigurationEnergyLabelRead]:
+    return [
+        ConfigurationEnergyLabelRead(
+            year=label.label_year, gearbox=label.gearbox or None, category=label.energy_efficiency_category,
+            label_url=label.label_url,
+        )
+        for label in energy_labels_for_configuration(
+            db,
+            model_variant_id=config.catalogue_variant_id,
+            first_registration_year=config.first_registration_date.year if config.first_registration_date else None,
+            model_year=config.model_year,
+        )
+    ]
+
+
+def _catalogue_tyre_specs(db: Session, config) -> list[ConfigurationTyreSpecRead]:
+    """The configuration's own Betrieb's tyre rows for its catalogue variant —
+    every route reaching `_read` scopes the configuration to the caller's
+    tenant, so these are never another Betrieb's licensed rows (ADR-013)."""
+
+    if config.catalogue_variant_id is None:
+        return []
+    return [
+        ConfigurationTyreSpecRead.model_validate(tyre, from_attributes=True)
+        for tyre in stored_tyre_specs(db, tenant_id=config.tenant_id, model_variant_id=config.catalogue_variant_id)
+    ]
+
+
 def _read(config, db: Session | None = None) -> ConfigurationRead:
     row = {c.name: getattr(config, c.name) for c in config.__table__.columns}
     return ConfigurationRead.model_validate(
@@ -61,6 +93,8 @@ def _read(config, db: Session | None = None) -> ConfigurationRead:
             **row,
             "spec": VehicleSpecBlockRead.model_validate(config, from_attributes=True),
             "energy_rating": _energy_rating(db, config) if db is not None else None,
+            "energy_labels": _energy_labels(db, config) if db is not None else [],
+            "catalogue_tyre_specs": _catalogue_tyre_specs(db, config) if db is not None else [],
             "options": [
                 ConfigurationOptionRead(
                     id=o.id,
@@ -74,6 +108,7 @@ def _read(config, db: Session | None = None) -> ConfigurationRead:
                     is_package=o.is_package,
                     selected=o.selected,
                     equipment_features=[link.feature_value_code for link in o.equipment_feature_links],
+                    descriptions=provider_texts(o),
                 )
                 for o in config.options
             ],

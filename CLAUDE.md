@@ -149,8 +149,8 @@ Stubs keep every context in the contract: never delete one or put its concerns e
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it; `test_adr_047_no_shared_transaction.py`
-    does. Two exceptions are ruled by ADR: ADR-091 (the legacy transaction backfill, expiring
-    after its production run) and ADR-109 (number allocation alone: `platform.public.allocate_number`). A customer merge
+    does. Ruled exceptions: ADR-091 (the legacy transaction backfill, until its production run),
+    ADR-109 (number allocation: `platform.public.allocate_number`), ADR-140 (two CI fixtures). A customer merge
     reaches Sales only through `customer.merged`.
 
 ## Preserve verbatim — already correct, do not "improve"

@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.vehicle.models.energy_rating import ModelVariantEnergyRating
+from app.vehicle.models.energy_rating import ModelVariantEnergyLabel, ModelVariantEnergyRating
 
 
 def get_energy_rating_for_year(
@@ -81,4 +81,35 @@ def energy_rating_for_configuration(
         .where(ModelVariantEnergyRating.model_variant_id == model_variant_id)
         .order_by(ModelVariantEnergyRating.rating_year.desc())
         .limit(1)
+    )
+
+
+def energy_labels_for_configuration(
+    db: Session, *, model_variant_id: uuid.UUID | None, first_registration_year: int | None, model_year: int | None
+) -> list[ModelVariantEnergyLabel]:
+    """KAN-597 (ADR-142): the variant's per-gearbox Energieetiketten for the
+    year `energy_rating_for_configuration` reads — the first registration's
+    year, else the model year, else the newest year held — ordered by
+    gearbox. Read on its own year rule, not through the rating: a year whose
+    gearboxes disagree has labels but no rating, and that is when the seller
+    needs to see both."""
+
+    if model_variant_id is None:
+        return []
+    year = first_registration_year or model_year
+    if year is None:
+        year = db.scalar(
+            select(ModelVariantEnergyLabel.label_year)
+            .where(ModelVariantEnergyLabel.model_variant_id == model_variant_id)
+            .order_by(ModelVariantEnergyLabel.label_year.desc())
+            .limit(1)
+        )
+        if year is None:
+            return []
+    return list(
+        db.scalars(
+            select(ModelVariantEnergyLabel)
+            .where(ModelVariantEnergyLabel.model_variant_id == model_variant_id, ModelVariantEnergyLabel.label_year == year)
+            .order_by(ModelVariantEnergyLabel.gearbox)
+        )
     )

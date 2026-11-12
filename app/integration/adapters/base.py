@@ -205,6 +205,12 @@ class VariantOptionData:
     pack_option_codes: list[str] = field(default_factory=list)
     excluded_option_codes: list[str] = field(default_factory=list)
     priced_with: list["OptionPriceWithData"] = field(default_factory=list)
+    # KAN-595 — the option's name in each language as the identAPI delivers
+    # it (`descriptionDe/Fr/It/En`); `description` stays the one asked for.
+    description_de: str | None = None
+    description_fr: str | None = None
+    description_it: str | None = None
+    description_en: str | None = None
 
 
 @dataclass(frozen=True)
@@ -272,6 +278,16 @@ class VariantTyreSpecData:
     # KAN-75: the raw `PneuTyp` (auto-i-dat: 121 Sommer, 122 Winter),
     # resolved through the code map (`tyre_type`).
     season_code: str | None = None
+    # KAN-596 (FR-C-08) — the rim the dimension is approved with, as the
+    # identAPI's `TyresAndRimsItem` delivers it: the designation (`rims`,
+    # e.g. «7.5Jx18»), its width in inches (`rimWidth`), its diameter in
+    # inches (`rimSize`), its offset in mm (`rimOffset`, the ET), and whether
+    # the row is the factory fitment (`standardTyres`). None where not sent.
+    rims: str | None = None
+    rim_width: Decimal | None = None
+    rim_size: int | None = None
+    rim_offset: int | None = None
+    is_standard: bool | None = None
 
 
 @dataclass(frozen=True)

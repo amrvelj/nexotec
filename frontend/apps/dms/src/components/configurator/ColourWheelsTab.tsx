@@ -4,17 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
 import type { ConfiguratorMode } from '../../configurationOptions'
 import { DetailStateNotice } from './DetailStateNotice'
-
-// KAN-75: the axle is the `axle_position` value the provider's AchsenCode
-// resolves to through the code map, or null while that code is an unresolved
-// mapping gap (or the provider sent none) — then it reads «not classified»,
-// never a guessed axle and never the raw code.
-const AXLE_I18N_KEY: Record<string, string> = { front: 'front', rear: 'rear', both: 'both' }
-
-function axleLabel(t: (key: string) => string, axle: string | null): string {
-  const key = axle == null ? undefined : AXLE_I18N_KEY[axle]
-  return t(`configurator.wheels.axlePosition.${key ?? 'unclassified'}`)
-}
+import { axleLabel, rimLabel } from './wheelLabels'
 
 export interface ColourWheelsFields {
   exteriorColour: string
@@ -214,6 +204,7 @@ export function ColourWheelsTab({
               <Table.Tr>
                 <Table.Th>{t('configurator.wheels.axle')}</Table.Th>
                 <Table.Th>{t('configurator.wheels.dimension')}</Table.Th>
+                <Table.Th>{t('configurator.wheels.rim')}</Table.Th>
                 <Table.Th>{t('configurator.wheels.season')}</Table.Th>
                 <Table.Th>{t('configurator.wheels.remark')}</Table.Th>
               </Table.Tr>
@@ -223,6 +214,18 @@ export function ColourWheelsTab({
                 <Table.Tr key={i}>
                   <Table.Td>{axleLabel(t, tyreSpec.axle)}</Table.Td>
                   <Table.Td>{tyreSpec.size}</Table.Td>
+                  {/* KAN-596 (FR-C-08): the rim the dimension is approved with,
+                      and the factory fitment marked. */}
+                  <Table.Td>
+                    <Group gap={4} wrap="nowrap">
+                      <Text size="sm">{rimLabel(t, tyreSpec)}</Text>
+                      {tyreSpec.isStandard && (
+                        <Badge size="xs" color="gray" variant="light">
+                          {t('configurator.wheels.standard')}
+                        </Badge>
+                      )}
+                    </Group>
+                  </Table.Td>
                   <Table.Td>
                     {tyreSpec.season && (
                       <Badge size="sm" variant="light">

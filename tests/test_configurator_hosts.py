@@ -744,7 +744,7 @@ def test_the_offer_document_itemises_the_configuration_with_one_vat_line(db_sess
     )
 
     content = build_offer_content(
-        offer, language=language, vat_rate=dealership.vat_rate, option_lines=_included_option_lines(db_session, offer=offer)
+        offer, language=language, vat_rate=dealership.vat_rate, option_lines=_included_option_lines(db_session, offer=offer, language=language)
     )
     (block,) = [b for b in content.blocks if isinstance(b, LineItemsBlock)]
     labels = [line.label for line in block.lines]
@@ -876,7 +876,7 @@ def test_a_stock_offer_document_is_not_itemised(db_session):
         select(SalesLineItem).where(SalesLineItem.offer_id == offer.id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION)
     ) is not None
     # … and its document still shows only the options total, as before
-    assert _included_option_lines(db_session, offer=offer) == []
+    assert _included_option_lines(db_session, offer=offer, language=SwissLanguage.DE) == []
 
 
 def test_a_saved_configurations_mode_cannot_change_under_its_host(db_session):

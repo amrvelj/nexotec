@@ -42,6 +42,11 @@ class ConfigurationPriceLine:
     code: str | None
     label: str
     price: Decimal
+    # KAN-595 — an option line's text in each language as the provider
+    # delivered it ({"de": …, "fr": …, "it": …, "en": …}; a language it left
+    # empty is absent). Empty for a hand-typed option and for the colour and
+    # wheels lines, whose text the advisor typed: `label` serves every language.
+    labels: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass(frozen=True)

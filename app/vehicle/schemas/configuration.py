@@ -12,6 +12,7 @@ from app.vehicle.models.configuration import (
     ConfigurationMode,
     ConfigurationSource,
 )
+from app.vehicle.schemas.localised import ProviderTextsRead
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput, VehicleSpecBlockRead
 
 
@@ -39,6 +40,9 @@ class ConfigurationOptionRead(CamelModel):
     is_package: bool
     selected: bool
     equipment_features: list[str]
+    # KAN-595 — additive: the catalogue option's own four language texts
+    # (null each on a hand-typed option); `description` is the fallback.
+    descriptions: ProviderTextsRead = Field(default_factory=ProviderTextsRead)
 
 
 _CODED_FIELD_RULE = (
@@ -128,6 +132,38 @@ class ConfigurationEnergyRatingRead(CamelModel):
     source: str
 
 
+class ConfigurationEnergyLabelRead(CamelModel):
+    """KAN-597 (ADR-142) — one gearbox's Energieetikette as the identAPI
+    delivers it: the class, the gearbox as delivered (null when the provider
+    named none) and the link to the label as PDF. Shown to the seller beside
+    the class; printed on no customer document."""
+
+    year: int
+    gearbox: str | None
+    category: str
+    label_url: str | None
+
+
+class ConfigurationTyreSpecRead(CamelModel):
+    """KAN-596 (FR-C-08) — one approved wheel of the catalogue variant as the
+    Betrieb stored it: dimension, axle and season (canonical codes, null
+    while a mapping gap), the provider's remark, and the rim it is approved
+    with. Read from the Betrieb's own tyre rows; null fields where the
+    provider sends none. Shown on the stock car's technical data."""
+
+    axle: str | None
+    size: str
+    load_index: str | None
+    speed_rating: str | None
+    season: str | None
+    remark: str | None
+    rims: str | None
+    rim_width: Decimal | None
+    rim_size: int | None
+    rim_offset: int | None
+    is_standard: bool | None
+
+
 class ConfigurationRead(CamelModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
@@ -166,6 +202,10 @@ class ConfigurationRead(CamelModel):
     spec: VehicleSpecBlockRead
     # KAN-547 / KAN-479: read from the variant's per-year ratings, never a block field.
     energy_rating: ConfigurationEnergyRatingRead | None = None
+    # KAN-597 — additive: the variant's per-gearbox labels for the same year.
+    energy_labels: list[ConfigurationEnergyLabelRead] = Field(default_factory=list)
+    # KAN-596 — additive: the catalogue variant's approved wheels, this Betrieb's rows.
+    catalogue_tyre_specs: list[ConfigurationTyreSpecRead] = Field(default_factory=list)
     overridden_fields: list[str]
     options: list[ConfigurationOptionRead]
     notes: str | None
