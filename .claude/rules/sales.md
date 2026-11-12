@@ -27,9 +27,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
 ## Events and boundaries
 
 - **ADR-046 — two contract events:** `sales.contract.confirmed` at signature (it carries the
-  pricing snapshot and, since KAN-632, additively the buyer `customerId` — as `sales.contract.created`
-  names it — and `signedAt`, which Stock keeps on a trade-in's pipeline item for the customer
-  context) and `sales.contract.invoice_requested` at hand-off. Never one name for both
+  pricing snapshot) and `sales.contract.invoice_requested` at hand-off. Never one name for both
   moments. **The hand-off carries the plate the car leaves with** (KAN-523; Anto, 2026-11-01: entered in
   «Rechnung anfordern», which later becomes «Rechnung generieren»): the request's optional body
   (`ContractInvoiceRequest`: `plate` + `canton`, or neither for «ohne Kontrollschild»; `moveFrom`)
