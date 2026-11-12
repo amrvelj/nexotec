@@ -343,9 +343,8 @@ def test_a_failed_stock_write_puts_the_vehicle_and_configuration_back(client, db
 
 
 def test_a_failed_outbox_write_leaves_no_stock_audit_row_and_is_compensated(client, db_session, monkeypatch):
-    """The audit row and the event are flushed in the stock write's
-    savepoint: a failure at the event rolls back only that savepoint — no
-    stock audit row survives — and the compensation puts Vehicle back."""
+    """A failure at the event is compensated: Vehicle is put back and no
+    stock audit row or event survives."""
 
     item, tenant_id = _bought(client, db_session)
 
@@ -357,6 +356,53 @@ def test_a_failed_outbox_write_leaves_no_stock_audit_row_and_is_compensated(clie
     with pytest.raises(RuntimeError):
         _correct(client, _manager(tenant_id), item)
 
+    assert _state(db_session, item) == (VIN, VIN, VIN)
+    assert [row.entity_type for row in _audit(db_session, "vin_corrected")].count("stock_item") == 0
+    assert _events(db_session, "inventory.stock_item.vin_corrected") == []
+
+
+def test_a_stock_write_refused_at_its_flush_is_compensated_under_the_items_lock(client, db_session, monkeypatch, engine):
+    """The stock row, its audit row and its event flush inside one savepoint:
+    a write the database refuses there (here a value too long for its
+    column) rolls back only the savepoint, so the compensation runs while
+    the request still holds the item's row lock and no second correction of
+    the item can slip in between. Before, the audit and outbox rows flushed
+    at the commit, whose failure ended the transaction — and its lock —
+    before the compensation ran."""
+
+    from sqlalchemy import text
+
+    item, tenant_id = _bought(client, db_session)
+    real_audit = stock_item_service.record_audit_event
+
+    def _overlong_then_audit(db, **kwargs):
+        for obj in list(db.identity_map.values()):
+            if isinstance(obj, StockItem):
+                obj.purchase_invoice_ref = "X" * 5000
+        return real_audit(db, **kwargs)
+
+    seen: dict[str, bool] = {}
+    real_compensate = stock_item_service._compensate_vin_correction
+
+    def _compensate_and_probe_the_lock(db, **kwargs):
+        with engine.connect() as other:
+            try:
+                other.execute(
+                    text("SELECT id FROM stock_item WHERE id = :id FOR UPDATE NOWAIT"), {"id": uuid.UUID(item["id"])}
+                )
+                seen["held"] = False
+            except Exception:
+                seen["held"] = True
+            other.rollback()
+        return real_compensate(db, **kwargs)
+
+    monkeypatch.setattr(stock_item_service, "record_audit_event", _overlong_then_audit)
+    monkeypatch.setattr(stock_item_service, "_compensate_vin_correction", _compensate_and_probe_the_lock)
+
+    with pytest.raises(Exception):
+        _correct(client, _manager(tenant_id), item)
+
+    assert seen == {"held": True}
     assert _state(db_session, item) == (VIN, VIN, VIN)
     assert [row.entity_type for row in _audit(db_session, "vin_corrected")].count("stock_item") == 0
     assert _events(db_session, "inventory.stock_item.vin_corrected") == []

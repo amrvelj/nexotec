@@ -33,7 +33,7 @@ ruling on KAN-544, 2026-11-03). Its own file because inventory.md is over the KA
   reason). A failed stock write is compensated by the same call with the VINs swapped, for
   only what Vehicle reported changed (`record_changed`, `configuration_vin_changed`,
   `configuration_relinked`; audited `vin_correction_reverted`) while the item's lock is held (the stock
-  writes flush inside a savepoint) — a
+  writes flush inside a savepoint; only a failing COMMIT itself is left to reconciliation) — a
   record already carrying the new VIN is never put back, a configuration only re-linked is re-linked; a retry with
   the same key completes it.
 - Refused, nothing written: left stock (409 `vin_correction_left_stock`) · no vehicle-mdm record (409
