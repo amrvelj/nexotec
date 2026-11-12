@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
 from app.core.config import get_settings
+from app.core.deployment_environment import require_valid_deployment_environment
 from app.core.errors import NotFoundError, register_error_handlers
 from app.core.nul_guard import NulCharacterGuard
 from app.core.object_store import get_object_store
@@ -36,6 +37,9 @@ app = FastAPI(title="DMS Platform", version="0.1.0", dependencies=[Depends(enfor
 
 configure_tracing(app)
 register_error_handlers(app)
+# KAN-499: an unknown DMS_ENVIRONMENT, or an unset one outside pytest and local
+# development, fails the start — before the mailer and the object store read it.
+require_valid_deployment_environment()
 # KAN-196: resolved here, not on the first invitation — a deployed service
 # (anything but `development`, KAN-397) with the `logging` mail sender must
 # fail its start, not its first reset.

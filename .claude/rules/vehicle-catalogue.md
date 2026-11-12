@@ -73,7 +73,9 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
 - **States, never errors** (Anto): no connection → `notConfigured`, a 403 or `ident_basis` not
   granted → `notInContract`, failure or timeout → `unavailable` — each a 200 with `state`.
 - The demo provider needs the real code map copied (`scripts/seed_demo_provider_code_map.py`) or
-  every code is a gap.
+  every code is a gap. The script then resolves each open demo gap it has just mapped through
+  `catalogue_admin.resolve_gap` (no actor, its reason audited; KAN-649), filling what the gap left
+  NULL; re-run it after a deploy that seeds new `auto_i_dat` mappings.
 
 ## Details load once per Betrieb when the car is opened (ADR-123)
 - `services/catalogue_details.py`: the specification read asks the Betrieb's provider for every

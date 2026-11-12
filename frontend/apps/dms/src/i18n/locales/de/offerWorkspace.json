@@ -19,7 +19,12 @@
     "creditBlockTitle": "Kreditsperre",
     "creditBlockBody": "Dieser Kunde ist kreditgesperrt ({{reason}}) — eine Offerte ist möglich, ein Vertrag kann nicht bestätigt werden.",
     "doNotContactTitle": "Nicht kontaktieren",
-    "doNotContactBody": "Dieser Kunde ist als \"nicht kontaktieren\" markiert — weder Offerte noch Vertrag können fortgeführt werden."
+    "doNotContactBody": "Dieser Kunde ist als \"nicht kontaktieren\" markiert — weder Offerte noch Vertrag können fortgeführt werden.",
+    "mergedRefused": "Dieser Kunde wurde mit einem anderen zusammengeführt und kann nicht mehr als Käufer gewählt werden.",
+    "mergedTitle": "Kunde zusammengeführt",
+    "mergedInto": "Der gewählte Kunde wurde mit {{name}} ({{customerNumber}}) zusammengeführt.",
+    "mergedIntoUnknown": "Der gewählte Kunde wurde mit einem anderen zusammengeführt. Suchen Sie den Kunden, in den er zusammengeführt wurde.",
+    "useSurvivor": "{{name}} wählen"
   },
   "vehicle": {
     "emptyHint": "Aus dem eigenen Lagerbestand — Lagernummer, VIN oder Kontrollschild.",

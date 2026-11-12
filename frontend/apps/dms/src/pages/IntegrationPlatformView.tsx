@@ -15,7 +15,9 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { ConnectionUsageModal } from '../components/ConnectionUsageModal'
 import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
+import { RotateSecretModal } from '../components/RotateSecretModal'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
@@ -78,6 +80,8 @@ export function IntegrationPlatformView() {
     [providersQuery.data]
   )
   const [deletingFor, setDeletingFor] = useState<IntegrationConnectionRead | null>(null)
+  const [usageFor, setUsageFor] = useState<IntegrationConnectionRead | null>(null)
+  const [rotatingFor, setRotatingFor] = useState<IntegrationConnectionRead | null>(null)
 
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, 250)
@@ -223,8 +227,8 @@ export function IntegrationPlatformView() {
             rowActions={(row) =>
               buildConnectionRowMenu(t, row, {
                 onTest: () => void test(row),
-                onViewUsage: () => {},
-                onRotateSecret: () => {},
+                onViewUsage: () => setUsageFor(row),
+                onRotateSecret: () => setRotatingFor(row),
                 onToggleEnabled: () => void toggleEnabled(row),
                 onDelete: () => setDeletingFor(row),
               }, providersById.get(row.providerId)?.requiredSecretSlots)
@@ -232,6 +236,13 @@ export function IntegrationPlatformView() {
           />
         </OverviewShellRegion>
       </Stack>
+      <ConnectionUsageModal connection={usageFor} onClose={() => setUsageFor(null)} />
+      <RotateSecretModal
+        connection={rotatingFor}
+        requiredSecretSlots={rotatingFor ? providersById.get(rotatingFor.providerId)?.requiredSecretSlots ?? [] : []}
+        onClose={() => setRotatingFor(null)}
+        onRotated={() => void invalidate()}
+      />
       <DeleteConnectionModal
         connection={deletingFor}
         providerName={deletingFor ? providersById.get(deletingFor.providerId)?.displayName ?? deletingFor.providerCode : ''}

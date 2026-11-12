@@ -105,6 +105,11 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'offer_has_contract') {
       return t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: err.details.contractNumber })
     }
+    // KAN-656: the buyer chosen was merged into another; the customer
+    // container offers the survivor.
+    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'customer_merged') {
+      return t('offerWorkspace.customer.mergedRefused')
+    }
     return t('offerWorkspace.errors.saveRefused.generic')
   }
 

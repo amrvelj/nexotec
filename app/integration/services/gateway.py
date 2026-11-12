@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
-from app.core.config import get_settings
+from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 from app.core.errors import ConflictError
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
@@ -62,7 +62,9 @@ logger = logging.getLogger("app.integration.gateway")
 
 _AUDIT_ENTITY_TYPE = "integration_connection"
 # KAN-489: the deployments on which a sandbox (test access) connection may run.
-_NON_PRODUCTION_DEPLOYMENTS = frozenset({"development", "local", "test", "staging"})
+_NON_PRODUCTION_DEPLOYMENTS = frozenset(
+    {DeploymentEnvironment.DEVELOPMENT, DeploymentEnvironment.TEST, DeploymentEnvironment.STAGING}
+)
 
 
 # `ProviderGatewayError` itself lives in `app.integration.errors` (a leaf, so
@@ -147,11 +149,10 @@ def _refuse_sandbox_on_production(
 
     if connection.environment != ConnectionEnvironment.SANDBOX:
         return
-    # Fails closed: any name but a known non-production one ("prod",
-    # "Production", a typo) counts as production. An UNSET DMS_ENVIRONMENT
-    # reads as "development" (app/core/config.py) and is not caught here —
-    # the production deployment must set it (render.yaml).
-    if get_settings().environment.strip().lower() in _NON_PRODUCTION_DEPLOYMENTS:
+    # KAN-499: one vocabulary, validated at startup (an unknown name, or an
+    # unset one outside pytest and local development, never starts). Still
+    # fails closed: a value that does not parse counts as production.
+    if current_deployment_environment() in _NON_PRODUCTION_DEPLOYMENTS:
         return
     record_audit_event(
         gateway_db, entity_type=_AUDIT_ENTITY_TYPE, entity_id=connection.id, tenant_id=connection.tenant_id,

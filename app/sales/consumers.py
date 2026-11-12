@@ -20,6 +20,7 @@ from app.core.errors import NotFoundError
 from app.core.outbox_model import OutboxMessage
 from app.customer.public import get_customer_or_404, resolve_live_customer_id
 from app.inventory.public import is_stock_item_purchased
+from app.sales.services.customer_attach_lock import lock_customer_for_attach
 from app.sales.services.customer_merge import SurvivorLabel, repoint_merged_customer_records
 from app.sales.services.offer import resolve_customer_label
 from app.sales.services.pipeline_link import link_manual_configuration_to_pipeline_item
@@ -127,6 +128,10 @@ def handle_customer_merged_message(db: Session, message: OutboxMessage) -> None:
     payload = message.payload or {}
     duplicate_id = uuid.UUID(payload["customerId"])
     survivor_id = uuid.UUID(payload["duplicateOfCustomerId"])
+    # KAN-657: before any Sales row is read — an attach of the duplicate in
+    # flight commits first (and its deal is moved below) or waits and reads it
+    # merged (customer_attach_lock).
+    lock_customer_for_attach(db, duplicate_id)
     target_id = (
         resolve_live_customer_id(db, group_id=message.tenant_id, customer_id=survivor_id) or survivor_id
     )

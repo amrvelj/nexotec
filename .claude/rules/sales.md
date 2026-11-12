@@ -100,7 +100,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
   a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
   the stock item. A Sales row naming a merged customer last written over an
-  hour ago is a `customer.merged` `sales.customer_merged` missed, or one attached since (KAN-581, KAN-656). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
+  hour ago is a `customer.merged` `sales.customer_merged` missed (KAN-581; an attach waits on it, KAN-657). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
   context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
   `test_actor_columns_reconciled.py`).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via

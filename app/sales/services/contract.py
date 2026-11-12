@@ -29,11 +29,12 @@ from app.sales.schemas.contract import ContractUpdate
 from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
+from app.sales.services.customer_attach_lock import lock_customer_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
 from app.sales.services.numbering import allocate_contract_number
-from app.sales.services.offer import apply_customer_change, resolve_customer_label
+from app.sales.services.offer import apply_customer_change, refuse_unattachable_customer, resolve_customer_label
 from app.sales.services.priced_deal import has_trade_in, require_editable, require_pending
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
@@ -89,9 +90,10 @@ def create_contract(
     contracts tab: a direct contract with no offer and no vehicle, just a
     known customer. Mutually exclusive with `offer` (`ContractCreate`'s own
     validator enforces this; not re-checked here) and requires `group_id`
-    to resolve the customer. Only `do_not_contact` refuses at this point
-    (ADR-065/FR-21 — the same attach-time guard `update_offer` uses for
-    offers); a credit block and D-20's missing-address gate stay
+    to resolve the customer. Only a `do_not_contact` or a merged customer
+    refuses at this point (`refuse_unattachable_customer`: ADR-065/FR-21 and
+    KAN-656 — the same attach-time guard `update_offer` uses for offers); a
+    credit block and D-20's missing-address gate stay
     confirm-time-only refusals (KAN-55), because creating, like quoting,
     commits nobody.
 
@@ -109,12 +111,9 @@ def create_contract(
     if customer_id is not None:
         if group_id is None:
             raise ValueError("create_contract(customer_id=...) requires group_id.")
+        lock_customer_for_attach(db, customer_id)  # KAN-657, before any row lock of this transaction
         customer = get_customer_or_404(db, group_id, customer_id)
-        if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
-            raise ConflictError(
-                f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract.",
-                details={"reason": "customer_do_not_contact", "customerNumber": customer.customer_number},
-            )
+        refuse_unattachable_customer(db, customer=customer, group_id=group_id, host="a contract")
 
     if offer is not None:
         # KAN-147 — one live contract per offer: a second one would sell the

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
@@ -124,9 +124,48 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
     queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
     enabled: pickerOpen && debouncedQuery.length > 0,
   })
+  // KAN-656 — a customer merged into another is refused as the buyer (409
+  // `customer_merged`, from a stale search result or a list opened before the
+  // merge). The host's banner says why; here the survivor the API names is
+  // offered in its place. `undefined` = no refusal; `null` = refused, the
+  // survivor unknown or unreadable.
+  const [mergedSurvivor, setMergedSurvivor] = useState<CustomerRead | null | undefined>(undefined)
+  useEffect(() => setMergedSurvivor(undefined), [deal.customerId])
   const choose = (customerId: string) => {
-    patch({ customerId }).catch(reportedByHost)
+    setMergedSurvivor(undefined)
+    patch({ customerId }).catch(async (err: unknown) => {
+      if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') return reportedByHost()
+      const survivorId = err.details.mergedIntoCustomerId
+      let survivor: CustomerRead | null = null
+      if (typeof survivorId === 'string') {
+        try {
+          survivor = await api.get<CustomerRead>(`/customers/${survivorId}`)
+        } catch {
+          // Unreadable survivor: the notice below still says what to do.
+        }
+      }
+      setMergedSurvivor(survivor)
+    })
   }
+  const survivorName = mergedSurvivor ? customerName(mergedSurvivor) || mergedSurvivor.customerNumber : ''
+  const mergedNotice = mergedSurvivor !== undefined && (
+    <Alert color="orange" title={t('offerWorkspace.customer.mergedTitle')} py="xs">
+      <Stack gap="xs">
+        <Text size="sm">
+          {mergedSurvivor
+            ? t('offerWorkspace.customer.mergedInto', { name: survivorName, customerNumber: mergedSurvivor.customerNumber })
+            : t('offerWorkspace.customer.mergedIntoUnknown')}
+        </Text>
+        {mergedSurvivor && (
+          <Group>
+            <Button size="xs" variant="light" disabled={readOnly} onClick={() => choose(mergedSurvivor.id)}>
+              {t('offerWorkspace.customer.useSurvivor', { name: survivorName })}
+            </Button>
+          </Group>
+        )}
+      </Stack>
+    </Alert>
+  )
 
   return (
     <OverviewCard title={t('offerWorkspace.containers.customer')} badge={<RequirementBadge requirement={requirementOf(deal, 'customer', 'required')} />}>
@@ -145,6 +184,7 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
               {t('offerWorkspace.customer.doNotContactBody')}
             </Alert>
           )}
+          {mergedNotice}
         </Stack>
       ) : (
         <Stack gap="xs">
@@ -159,6 +199,7 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
               {t('offerWorkspace.customer.createNew')}
             </Button>
           </Group>
+          {mergedNotice}
         </Stack>
       )}
 

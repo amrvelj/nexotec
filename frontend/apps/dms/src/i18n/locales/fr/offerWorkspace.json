@@ -19,7 +19,12 @@
     "creditBlockTitle": "Blocage de crédit",
     "creditBlockBody": "Ce client a un blocage de crédit ({{reason}}) — une offre est possible, un contrat ne peut pas être confirmé.",
     "doNotContactTitle": "Ne pas contacter",
-    "doNotContactBody": "Ce client est marqué \"ne pas contacter\" — ni l’offre ni un contrat ne peuvent avancer."
+    "doNotContactBody": "Ce client est marqué \"ne pas contacter\" — ni l’offre ni un contrat ne peuvent avancer.",
+    "mergedRefused": "Ce client a été fusionné avec un autre et ne peut plus être choisi comme acheteur.",
+    "mergedTitle": "Client fusionné",
+    "mergedInto": "Le client choisi a été fusionné avec {{name}} ({{customerNumber}}).",
+    "mergedIntoUnknown": "Le client choisi a été fusionné avec un autre. Recherchez le client dans lequel il a été fusionné.",
+    "useSurvivor": "Choisir {{name}}"
   },
   "vehicle": {
     "emptyHint": "Depuis votre propre stock — numéro de stock, VIN ou plaque.",
