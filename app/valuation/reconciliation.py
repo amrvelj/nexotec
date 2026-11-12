@@ -201,7 +201,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     _carry_disagrees_with_its_contract(),
     _carried_by_a_contract_valuation_does_not_know(),
     # KAN-631 (rule 2's plain GUIDs, as KAN-630 checks Stock's projection):
-    # a carry row names a contract and a Betrieb that exist.
+    # a carry row names a contract and a Betrieb that exist. A RELEASED row is
+    # left out of the contract check: the compensation of a contract whose own
+    # commit failed releases the pending row it made for a contract that never
+    # existed (`sales/services/valuation_carry.py::commit_carrying`), and that
+    # row is meant to stay — reporting it would be a finding nothing can clear.
     ReferenceCheck(
         label="valuation_contract_carry.contract_id -> sales_contract.id",
         source_model=ValuationContractCarry,
@@ -209,6 +213,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=ValuationContractCarry.contract_id,
         target_model=SalesContract,
         target_id_column=SalesContract.id,
+        source_where=lambda: ValuationContractCarry.state != ContractCarryState.RELEASED,
     ),
     ReferenceCheck(
         label="valuation_contract_carry.tenant_id -> dealership.id",

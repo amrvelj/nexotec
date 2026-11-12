@@ -268,6 +268,9 @@ def test_a_contract_whose_own_commit_fails_releases_the_pending_carry_it_made(db
     carries = _carries(db_session, valuation.id)
     assert set(carries.values()) == {ContractCarryState.RELEASED}, carries
     assert len(carries) == 2  # the cancelled contract's, and the never-committed one's
+    # The released row names a contract that never existed; that is what the
+    # compensation leaves on purpose, so the reference check must not report it.
+    assert _findings(valuation_reconciliation, db_session, CARRY_CONTRACT_REF) == []
 
 
 def test_a_refused_pending_call_refuses_the_sales_write(db_session):

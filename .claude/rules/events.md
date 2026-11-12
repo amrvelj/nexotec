@@ -102,7 +102,7 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
   seller's line edits; dismiss keeps the accepted prices. Reconciliation reports an open deal whose
   frozen (or accepted) price differs, unflagged. After the deploy, run
   `scripts/backfill_vehicle_changed_flags.py` (dry run, then `--commit`) once per environment.
-- **Stock's projection of Sales' contracts** (KAN-630, ADR-131: Stock imports nothing from Sales):
+- **Stock's projection of Sales' contracts** (KAN-630, ADR-145; ADR-131: Stock imports nothing from Sales):
   `inventory_sales_contract` (inventory migration `c3b63d706c11`), fed by `sales.contract.created` /
   `.confirmed` / `.invoice_requested` / `.cancelled` (consumers `inventory.sales_contract_projection_on_*`,
   `inventory/services/sales_contract.py`); an order-free merge (status only rises, cancelled final).
