@@ -27,6 +27,9 @@ from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantOpti
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
 from tests.catalogue_lookup_support import look_up_demo_variants
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 
 def _bare_variant(db_session, name: str = "Bare Variant") -> ModelVariant:

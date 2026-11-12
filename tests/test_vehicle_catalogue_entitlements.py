@@ -17,7 +17,10 @@ from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOpt
 from app.vehicle.services import catalogue_entitlements, catalogue_sync
 from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.token_support import dealer_group_of
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 VALID_VIN = "1HGCM82633A004352"
 

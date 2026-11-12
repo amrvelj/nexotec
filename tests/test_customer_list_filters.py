@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.postgres_only import TIMESTAMPTZ
 from tests.token_support import dealer_group_of
 
 ZH_ADDRESS = {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"}
@@ -255,6 +256,7 @@ def _period_start(period: str) -> dt.datetime:
 
 
 
+@TIMESTAMPTZ
 @pytest.mark.parametrize("period", ["day", "week", "month", "year"])
 def test_filter_by_updated_since_start_of(client, db_session, period):
     """A customer changed at the period's Zurich midnight is in; one changed
@@ -271,6 +273,7 @@ def test_filter_by_updated_since_start_of(client, db_session, period):
     assert [c["id"] for c in body["items"]] == [inside["id"]]
 
 
+@TIMESTAMPTZ
 def test_in_the_last_and_more_than_n_days_ago_partition_the_list(client, db_session):
     """«in den letzten 30 Tagen» and «vor mehr als 30 Tagen» leave no gap and
     never overlap, also for a change in the hour after Zurich midnight."""

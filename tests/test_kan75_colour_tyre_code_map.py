@@ -22,8 +22,11 @@ from tests.colour_tyre_code_map_support import (
     reference_values_migration,
     seed_colour_tyre_code_map,
 )
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.test_provider_code_map_seed import _canonical_values
 from tests.test_vehicle_catalogue_sync import _make_connection, _make_mock_provider, _seed_reference_list
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 MOCK = "auto_i_dat_mock"
 GROUPS = ("colour_area", "axle_position", "tyre_type")

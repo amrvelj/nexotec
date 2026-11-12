@@ -22,6 +22,7 @@ from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services import catalogue_admin
 from app.vehicle.services import configuration as configuration_service
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.test_vehicle_catalogue_sync import (
     _fuel_gap,
     _looked_up_tenant,
@@ -29,6 +30,8 @@ from tests.test_vehicle_catalogue_sync import (
     _seed_reference_list,
     _variant,
 )
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 
 def _configuration(db_session, *, tenant_id: uuid.UUID, fz_key: str) -> VehicleConfiguration:

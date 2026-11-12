@@ -24,6 +24,7 @@ from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
 from tests.catalogue_lookup_support import look_up_demo_variants
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.test_vehicle_catalogue_sync import _make_connection, _make_mock_provider
 
 _VERSIONS = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions" / "vehicle"
@@ -213,6 +214,7 @@ def test_recording_a_gap_under_a_numeric_code_group_is_refused(db_session):
     assert db_session.scalar(select(MappingGap)) is None
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_every_gap_the_catalogue_sync_records_carries_a_semantic_code_group(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()

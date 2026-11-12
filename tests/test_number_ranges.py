@@ -26,6 +26,7 @@ from app.sales.models.deal import SalesNumberSequence
 from app.sales.services.offer import create_offer
 from scripts import continue_offer_number_ranges
 from tests.dealership_support import valid_uid
+from tests.postgres_only import ROW_LOCKS, SAVEPOINT_ROLLBACK
 
 OFFER = NumberRangeDocumentType.OFFER
 INVOICE = NumberRangeDocumentType.INVOICE
@@ -176,6 +177,7 @@ def test_a_rolled_back_document_gives_its_number_back(db_session):
     assert service.allocate_number(db_session, dealership_id=dealership.id, document_type=OFFER).number == "O-000001"
 
 
+@ROW_LOCKS
 @pytest.mark.parametrize("seeded", [True, False], ids=["seeded", "first-use"])
 def test_concurrent_allocations_are_gapless_and_never_duplicate(db_session, engine, seeded):
     """N writers on N connections, each allocating and committing at once:
@@ -323,6 +325,7 @@ def test_a_betrieb_without_offers_starts_its_offer_range_at_one(db_session):
     assert create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number == "O-000001"
 
 
+@SAVEPOINT_ROLLBACK
 def test_the_script_shows_the_continued_value_before_the_next_offer(db_session):
     dealership = _dealership(db_session)
     db_session.add(SalesNumberSequence(tenant_id=dealership.id, series="offer", next_value=124))
@@ -431,6 +434,7 @@ def test_api_only_the_manager_or_staff_edit(client, db_session):
     assert response.status_code == 403
 
 
+@SAVEPOINT_ROLLBACK
 def test_api_preview_is_the_next_number_or_the_saves_refusal(client, db_session):
     dealership = _dealership(db_session)
     path = f"/v1/dealerships/{dealership.id}/number-range-previews"

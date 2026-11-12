@@ -17,6 +17,7 @@ from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import create_contract
 from app.sales.services.offer import copy_offer, update_offer
 from scripts import backfill_sales_stock_item_labels as backfill_script
+from tests.postgres_only import ROW_LOCKS
 from tests.test_sales_offer_refinements import _make_dealership, _offer_with_vehicle, _stock_item
 
 
@@ -84,6 +85,7 @@ def test_a_contract_from_the_offer_from_the_car_and_a_copied_offer_all_carry_it(
     assert (copied.stock_item_id, copied.stock_item_label) == (item.id, item.stock_number)
 
 
+@ROW_LOCKS
 def test_the_backfill_fills_rows_written_before_dry_run_first_and_reports_what_it_cannot(engine, db_session):
     dealership = _make_dealership(db_session)
     item = _stock_item(db_session, dealership.id, with_option=False)

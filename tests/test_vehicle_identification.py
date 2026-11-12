@@ -46,6 +46,9 @@ from app.vehicle.services.identification import (
 )
 from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 # --- fixtures -----------------------------------------------------------
 

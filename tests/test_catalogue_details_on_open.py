@@ -37,9 +37,12 @@ from tests import identapi_support as fx
 from tests.catalogue_lookup_support import DEMO_FZ_KEYS, assert_all_present, open_demo_variant, see_demo_variant
 from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
 from tests.identapi_support import FakeAutoi
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.test_provider_code_map_seed import _seed_migration
 from tests.test_vehicle_catalogue_entitlements import _make_connection, _make_mock_provider
 from tests.token_support import dealer_group_of
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 OPERATIONS = (
     "vehiclecatalog",

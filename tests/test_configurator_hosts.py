@@ -53,9 +53,12 @@ from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.dealership_support import valid_uid
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.route_walk import api_routes
 from tests.test_sales_lifecycle_reservation import _with_buyer
 from tests.vin_support import unique_vin
+
+pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 # --- fixtures -----------------------------------------------------------
 
