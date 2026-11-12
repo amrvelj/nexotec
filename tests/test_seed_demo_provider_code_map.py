@@ -4,6 +4,8 @@ a vehicle kind for it on a local or staging database; and (KAN-649) the
 demo provider's open gaps it has just mapped are resolved through
 `catalogue_admin.resolve_gap`, filling what they left NULL."""
 
+import uuid
+
 import pytest
 from sqlalchemy import func, select
 
@@ -145,7 +147,12 @@ def test_a_resolve_without_an_actor_must_name_its_reason(db_session):
     see_demo_variant(db_session, DEMO_FZ_KEYS[0])
     gap = _open_demo_gaps(db_session)[0]
 
-    with pytest.raises(ValueError, match="reason"):
+    with pytest.raises(ValueError, match="system_reason"):
         catalogue_admin.resolve_gap(
             db_session, gap=gap, canonical_list_code=gap.code_group, canonical_value_code="x", actor_id=None
+        )
+    with pytest.raises(ValueError, match="names actor_id"):
+        catalogue_admin.resolve_gap(
+            db_session, gap=gap, canonical_list_code=gap.code_group, canonical_value_code="x",
+            actor_id=uuid.uuid4(), system_reason="a script",
         )

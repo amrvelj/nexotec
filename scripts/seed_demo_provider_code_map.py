@@ -17,8 +17,9 @@ resolved to that mapping (KAN-649) through the production path,
 `catalogue_admin.resolve_gap`: the gap is closed against the existing row and
 the variants, provider configurations, options, colours and tyres it left
 NULL are filled, with the resolve's audit row (no actor: a system resolve,
-its reason `REASON`). A gap whose code is still unmapped, or whose mapping
-the resolve refuses (a value deactivated since), stays open and is counted.
+its reason `REASON`). A gap whose code is still unmapped stays open; one
+whose mapping the resolve refuses (a value deactivated since) stays open and
+is counted as refused.
 
 Vehicle context only; idempotent. Run it once per local or staging database,
 and again after every deploy whose migration seeds new `auto_i_dat`
@@ -135,7 +136,7 @@ def resolve_mapped_demo_gaps(db: Session) -> tuple[int, int]:
         try:
             catalogue_admin.resolve_gap(
                 db, gap=gap, canonical_list_code=mapping.canonical_list_code,
-                canonical_value_code=mapping.canonical_value_code, actor_id=None, reason=REASON,
+                canonical_value_code=mapping.canonical_value_code, actor_id=None, system_reason=REASON,
             )
         except (ConflictError, UnprocessableEntityError) as exc:
             db.rollback()

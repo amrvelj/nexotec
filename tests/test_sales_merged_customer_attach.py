@@ -10,7 +10,6 @@ working record. The refusal is the allocation's (KAN-365): 409
 
 from app.core.auth import AccessRole
 from tests.test_customer_merge_repoint import _merge
-from tests.test_sales_contract_edit import app_sessions_on_the_test_engine  # noqa: F401 - used by name
 from tests.test_sales_lifecycle_reservation import _dealership
 from tests.test_sales_offer_contract_api import _bearer, _buyer, _token
 from tests.test_sales_offer_refinements import _stock_item

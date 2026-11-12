@@ -116,19 +116,22 @@ def resolve_gap(
     canonical_list_code: str,
     canonical_value_code: str,
     actor_id: uuid.UUID | None,
-    reason: str | None = None,
+    system_reason: str | None = None,
 ) -> MappingGap:
     """Resolves a mapping gap and fills everything it left NULL, audited.
 
     The route passes the platform admin's id. A script with nobody behind it
-    (the demo provider's seed, KAN-649) passes `actor_id=None` and a
-    `reason`, which the audit row carries (KAN-243: a system write has a null
-    actor, never an invented one); one without the other is a programming
-    error.
+    (the demo provider's seed, KAN-649) takes the system path of KAN-345:
+    `actor_id=None` and a `system_reason`, which the audit row carries
+    (KAN-243: a system write has a null actor, never an invented one). A
+    caller passes exactly one of the two; `system_reason=` never appears in
+    `app/` (tests/architecture/test_system_actor_only_from_scripts.py).
     """
 
-    if actor_id is None and not (reason and reason.strip()):
-        raise ValueError("A gap resolved without an actor is a system resolve and must name its reason (KAN-649).")
+    if actor_id is None and not (system_reason and system_reason.strip()):
+        raise ValueError("A gap resolved without an actor is a system resolve and must name its system_reason (KAN-649).")
+    if actor_id is not None and system_reason is not None:
+        raise ValueError("A system_reason is for a resolve without an actor; this one names actor_id (KAN-649).")
     changed = resolve_mapping_gap(
         db, gap=gap, canonical_list_code=canonical_list_code, canonical_value_code=canonical_value_code,
         actor_id=actor_id,
@@ -175,7 +178,7 @@ def resolve_gap(
             "coloursAndTyresFilled": colours_and_tyres_filled, "optionGroupsFilled": option_groups_filled,
             "configurationsFilled": configurations_filled,
         },
-        reason=reason,
+        reason=system_reason,
     )
     db.commit()
     db.refresh(gap)
