@@ -16,6 +16,7 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.vehicle_party_labels import _write_vehicle_labels
+from app.vehicle.public import resolve_merged_vehicle_id
 
 
 def _lock_role_rows(db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID) -> None:
@@ -95,6 +96,32 @@ def _lock_vehicle_role_in_group(
     if db.get_bind().dialect.name != "postgresql":
         return
     db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _vehicle_role_lock_key(vehicle_id, role, group_id)})
+
+
+def _lock_live_vehicle_role_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID
+) -> uuid.UUID:
+    """KAN-673: the (vehicle, role, group) lock of the record `vehicle_id`
+    lives on, and that record's id. A write that names a merged vehicle-mdm
+    record is carried out on the one it was merged into
+    (`vehicle.public.resolve_merged_vehicle_id`, to the end of a chain): one
+    physical car, so the lock taken, the holders closed and the row written
+    are the survivor's — never the duplicate's, whose rows the merge's
+    consumer has already moved away and would not move again.
+
+    The record is resolved before the lock, so the ordinary request takes the
+    survivor's lock only, and once more under it: a merge that committed while
+    this waited is followed too, and the lock of the record it now names is
+    taken as well. An id naming no record comes back unchanged — the caller
+    has answered its 404 before."""
+
+    live = resolve_merged_vehicle_id(db, vehicle_id)
+    while True:
+        _lock_vehicle_role_in_group(db, vehicle_id=live, role=role, group_id=group_id)
+        now_live = resolve_merged_vehicle_id(db, live)
+        if now_live == live:
+            return live
+        live = now_live
 
 
 def _try_lock_vehicle_role_in_group(

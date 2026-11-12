@@ -30,6 +30,7 @@ from app.customer.schemas.customer import (
 from app.customer.services.customer_common import _EVENT_PRODUCER, customer_display_name, get_customer_or_404
 from app.customer.services.vehicle_party_labels import _write_vehicle_labels
 from app.customer.services.vehicle_party_locks import (
+    _lock_live_vehicle_role_in_group,
     _lock_party,
     _lock_role_rows,
     _lock_vehicle_role_in_group,
@@ -87,10 +88,13 @@ def create_customer_vehicle(
     # on a merged record, and one written while a merge of this customer runs
     # either commits before the merge locks the customer (and is re-pointed
     # with the rest) or waits for it and is refused.
-    _lock_vehicle_role_in_group(db, vehicle_id=vehicle.id, role=data.role, group_id=customer.group_id)
+    # KAN-673: a merged vehicle is followed to its survivor, under its lock.
+    vehicle_id = _lock_live_vehicle_role_in_group(
+        db, vehicle_id=vehicle.id, role=data.role, group_id=customer.group_id
+    )
     _refuse_merged_customer(db, customer.id)
     party = VehicleParty(
-        vehicle_id=vehicle.id,
+        vehicle_id=vehicle_id,
         customer_id=customer.id,
         role=data.role,
         effective_from=effective_from,
@@ -106,7 +110,7 @@ def create_customer_vehicle(
             "This customer already has this role on this vehicle as of this date.",
             details={
                 "reason": "vehicle_party_exists",
-                "vehicleId": str(vehicle.id),
+                "vehicleId": str(vehicle_id),
                 "role": data.role.value,
                 "effectiveFrom": effective_from.isoformat(),
             },
@@ -120,7 +124,7 @@ def create_customer_vehicle(
         action="vehicle_party_add",
         actor_id=actor_id,
         after={
-            "vehicleId": str(vehicle.id),
+            "vehicleId": str(vehicle_id),
             "role": party.role.value,
             "effectiveFrom": party.effective_from.isoformat(),
             "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
@@ -581,10 +585,15 @@ def allocate_vehicle_party(
     incumbents are closed exactly as for an open-ended holder. The
     same-customer no-op applies only to an open-ended request: an end date
     the incumbent lacks is a new statement, so it is a new row.
+
+    KAN-673: `vehicle_id` may name a vehicle-mdm record merged since the
+    caller's screen loaded it. The allocation is then carried out on the
+    record it was merged into — lock, close rule and row (`party.vehicle_id`
+    names the survivor); see `_lock_live_vehicle_role_in_group`.
     """
 
     get_customer_or_404(db, group_id, customer_id)
-    _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    vehicle_id = _lock_live_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
     _lock_role_rows(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     effective_from = effective_from or utcnow()

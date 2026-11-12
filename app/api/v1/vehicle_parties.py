@@ -82,6 +82,11 @@ def allocate_to_customer(
     of its own to catch this at the write; a customer from another group
     is a 404, per rule #7, never a 403 and never a silent cross-group
     write.
+
+    KAN-673: a `vehicle_id` that names a merged record is not refused. The
+    allocation is carried out on the record it was merged into
+    (`allocate_vehicle_party` resolves it under its lock), and the response's
+    `vehicleId` names that survivor. An unknown id is the 404 below, as before.
     """
 
     vehicle.get_vehicle_mdm_or_404(db, vehicle_id)  # 404s before touching customer at all
