@@ -7,6 +7,7 @@ import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
+import { pickOptionWithoutOpening } from '../test/pickOption'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 import { nameValuationCar } from '../test/nameValuationCar'
@@ -148,7 +149,6 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
   })
 
   it('a discount is saved on the contract with its If-Match, and the confirm action turns on with a price', async () => {
-    const user = userEvent.setup()
     let current = PRICED
     const backend = installFakeBackend([
       {
@@ -164,8 +164,8 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     renderPage()
 
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
-    await user.click(await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountType') }))
-    await user.click(await screen.findByRole('option', { name: i18n.t('offerWorkspace.pricing.discountAmount') }))
+    await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountType') })
+    await pickOptionWithoutOpening(i18n.t('offerWorkspace.pricing.discountAmount'))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1))
     const [call] = backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')
@@ -175,7 +175,6 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
   })
 
   it('an edit refused because the contract was confirmed elsewhere says so, localised', async () => {
-    const user = userEvent.setup()
     installFakeBackend([
       {
         method: 'PATCH',
@@ -193,8 +192,8 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     ])
     renderPage()
 
-    await user.click(await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountType') }))
-    await user.click(await screen.findByRole('option', { name: i18n.t('offerWorkspace.pricing.discountAmount') }))
+    await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountType') })
+    await pickOptionWithoutOpening(i18n.t('offerWorkspace.pricing.discountAmount'))
 
     expect(await screen.findByText(i18n.t('contractDetail.errors.editRefused.notPending'))).toBeInTheDocument()
     expect(screen.queryByText(/can no longer be edited/)).not.toBeInTheDocument()

@@ -1,8 +1,9 @@
 import { expect } from 'vitest'
-import { fireEvent, waitFor } from '@testing-library/react'
+import { waitFor } from '@testing-library/react'
 import i18n from '../i18n'
 import { CODED_FIELDS } from '../configurationOptions'
 import type { FakeRoute } from './fakeBackend'
+import { pickOptionWithoutOpening } from './pickOption'
 import type { CatalogueVariantRead, ConfigurationRead, IdentificationRead } from '../api/types'
 
 /** C-D / C-F render tests — one configuration as the backend returns it. */
@@ -148,17 +149,17 @@ export const CODED_REFERENCE_ROUTES: FakeRoute[] = Object.entries(CODED_REFERENC
 )
 
 /** Picks the one value `CODED_REFERENCE_ROUTES` offers in each of a manual
- * configuration's five coded selects (German UI labels). Plain DOM events,
- * not `userEvent`: ten pointer sequences per call would eat the test's time
- * budget, and the tests that call this are about what happens after. */
+ * configuration's five coded selects (German UI labels), without opening any
+ * dropdown (KAN-579, option b: `pickOptionWithoutOpening`) — the option's own
+ * click runs the Select's production submit, the opening is what costs the
+ * time. Each coded list offers one label no other field offers, so the option
+ * is unambiguous. The tests that call this are about what happens after. */
 export async function pickCodedFields(scope: HTMLElement = document.body): Promise<void> {
-  // A direct walk of the `<label>`s and the field's own listbox, not the
-  // Testing Library queries: on the configurator's large form each of those
-  // scans the whole document (~1 s per field here), and five of them eat the
-  // test's time budget.
+  // A direct walk of the `<label>`s, not the Testing Library queries: on the
+  // configurator's large form each of those scans the whole document (~1 s
+  // per field here), and five of them eat the test's time budget.
   for (const f of CODED_FIELDS) {
     const text = i18n.t(f.labelKey)
-    const valueLabel = CODED_REFERENCE_VALUES[f.listCode][1]
     const field = await waitFor(() => {
       // the label carries the required marker (` *`)
       const label = Array.from(scope.querySelectorAll('label')).find(
@@ -168,16 +169,8 @@ export async function pickCodedFields(scope: HTMLElement = document.body): Promi
       if (!input) throw new Error(`no coded field labelled ${text}`)
       return input
     })
-    fireEvent.click(field)
-    const option = await waitFor(() => {
-      const listbox = document.getElementById(field.getAttribute('aria-controls') ?? '')
-      const match = Array.from(listbox?.querySelectorAll('[role="option"]') ?? []).find(
-        (o) => o.textContent?.trim() === valueLabel,
-      )
-      if (!match) throw new Error(`no option ${valueLabel} for ${text}`)
-      return match
-    })
-    fireEvent.click(option)
+    const valueLabel = CODED_REFERENCE_VALUES[f.listCode][1]
+    await pickOptionWithoutOpening(valueLabel)
     await waitFor(() => expect(field).toHaveValue(valueLabel))
   }
 }
