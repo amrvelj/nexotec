@@ -22,7 +22,8 @@ from app.customer.consumers import handle_stock_item_purchased_message as handle
 from app.customer.consumers import purchase_moment
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.services.customer import allocate_vehicle_party, list_customer_vehicles
+from app.customer.services.vehicle_party import allocate_vehicle_party
+from app.customer.services.vehicle_party_reads import list_customer_vehicles
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate

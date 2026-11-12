@@ -18,13 +18,9 @@ from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.schemas.customer import VehiclePartySummary
-from app.customer.services import customer as customer_service
-from app.customer.services.customer import (
-    allocate_vehicle_party,
-    delete_customer_vehicle,
-    list_customer_vehicles,
-    list_vehicle_parties,
-)
+from app.customer.services import vehicle_party as vehicle_party_service
+from app.customer.services.vehicle_party import allocate_vehicle_party, delete_customer_vehicle
+from app.customer.services.vehicle_party_reads import list_customer_vehicles, list_vehicle_parties
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
@@ -284,14 +280,14 @@ def test_failure_after_the_close_leaves_the_previous_holder_open(db_session, mon
         group_id=GROUP_ID, actor_id=uuid.uuid4(),
     )
 
-    real_record = customer_service.record_audit_event
+    real_record = vehicle_party_service.record_audit_event
 
     def _fail_on_add(db, **kwargs):
         if kwargs["action"] == "vehicle_party_add":
             raise RuntimeError("forced failure after the close")
         return real_record(db, **kwargs)
 
-    monkeypatch.setattr(customer_service, "record_audit_event", _fail_on_add)
+    monkeypatch.setattr(vehicle_party_service, "record_audit_event", _fail_on_add)
     with pytest.raises(RuntimeError):
         allocate_vehicle_party(
             db_session, vehicle_id=vehicle.id, customer_id=bob.id, role=VehiclePartyRole.KEEPER,
@@ -392,7 +388,7 @@ def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session
         )
 
     first_inserted, release = threading.Event(), threading.Event()
-    real_record = customer_service.record_audit_event
+    real_record = vehicle_party_service.record_audit_event
 
     def _pause_first(db, **kwargs):
         if kwargs["action"] == "vehicle_party_add" and threading.current_thread().name == "first":
@@ -400,7 +396,7 @@ def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session
             release.wait(timeout=10)
         return real_record(db, **kwargs)
 
-    monkeypatch.setattr(customer_service, "record_audit_event", _pause_first)
+    monkeypatch.setattr(vehicle_party_service, "record_audit_event", _pause_first)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
 

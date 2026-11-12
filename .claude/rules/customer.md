@@ -39,9 +39,9 @@ weekly. -->
 - `customer_phone`, `customer_email`, `customer_address`: one row per value, each with a type,
   an optional free-text label, `isPrimary` with **exactly one primary per type-group**
   (enforced transactionally, on create and on every update/delete — re-elect when a primary
-  goes), `validFrom`/`validTo`, a `doNotUse` flag with a reason, and **consent per channel**
-  with its source and timestamp. All three update paths go through one helper,
-  `_prepare_primary_change` in `services/customer.py`.
+  goes), `validFrom`/`validTo`, a `doNotUse` flag with a reason and **consent per channel**
+  with source and timestamp. All three update paths share one helper,
+  `_prepare_primary_change` (`services/contact_channels.py`).
 - **Changing a row's type settles both type-groups** (KAN-102, Anto's ruling). The group it
   leaves re-elects. In the group it joins, `isPrimary: true` in the same PATCH makes the moved
   row primary; otherwise that group's existing primary stays and the moved row is demoted — a

@@ -30,13 +30,16 @@ from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.schemas.customer import CustomerVehicleCreate, CustomerVehicleUpdate
 from app.customer.services import customer as customer_service
-from app.customer.services.customer import (
+from app.customer.services import customer_common as customer_common_service
+from app.customer.services import customer_merge as customer_merge_service
+from app.customer.services import vehicle_party as vehicle_party_service
+from app.customer.services.vehicle_party import (
     allocate_vehicle_party,
     create_customer_vehicle,
     delete_customer_vehicle,
-    get_customer_vehicle_or_404,
     update_customer_vehicle,
 )
+from app.customer.services.vehicle_party_reads import get_customer_vehicle_or_404
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
 OWNER = VehiclePartyRole.OWNER
@@ -435,7 +438,7 @@ def _pause_thread_after_closing(monkeypatch, thread_name: str):
     closed (and locked) the incumbents, before it commits."""
 
     reached, release = threading.Event(), threading.Event()
-    real_record = customer_service.record_audit_event
+    real_record = vehicle_party_service.record_audit_event
 
     def _pause(db, **kwargs):
         if kwargs["action"] == "vehicle_party_add" and threading.current_thread().name == thread_name:
@@ -443,7 +446,7 @@ def _pause_thread_after_closing(monkeypatch, thread_name: str):
             release.wait(timeout=10)
         return real_record(db, **kwargs)
 
-    monkeypatch.setattr(customer_service, "record_audit_event", _pause)
+    monkeypatch.setattr(vehicle_party_service, "record_audit_event", _pause)
     return reached, release
 
 
@@ -604,8 +607,8 @@ def test_a_merge_racing_an_allocation_waits_for_it_and_closes_nothing_twice(engi
 
     def _merge():
         with factory() as session:
-            loaded = customer_service.get_customer_or_404(session, group_id, duplicate_id)
-            customer_service.merge_customer(
+            loaded = customer_common_service.get_customer_or_404(session, group_id, duplicate_id)
+            customer_merge_service.merge_customer(
                 session, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4()
             )
 
@@ -642,12 +645,11 @@ def test_a_merge_locks_every_vehicle_role_it_touches_in_sorted_order(db_session,
             db_session.add(VehicleParty(vehicle_id=vehicle.id, customer_id=duplicate.id, role=role, effective_from=utcnow()))
     db_session.commit()
     taken: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        customer_service, "_lock_vehicle_role_in_group",
+    monkeypatch.setattr(customer_merge_service, "_lock_vehicle_role_in_group",
         lambda db, *, vehicle_id, role, group_id: taken.append((str(vehicle_id), role.value)),
     )
 
-    customer_service.merge_customer(
+    customer_merge_service.merge_customer(
         db_session, customer=duplicate, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4()
     )
 
@@ -670,7 +672,7 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
     db_session.commit()
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     holder = factory()
-    real_lock = customer_service._lock_vehicle_role_in_group
+    real_lock = customer_merge_service._lock_vehicle_role_in_group
 
     def _lock_then_a_row_arrives(db, *, vehicle_id, role, group_id):
         real_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
@@ -679,15 +681,15 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
             other.commit()
         real_lock(holder, vehicle_id=late.id, role=OWNER, group_id=group_id)  # another writer holds the late pair
 
-    monkeypatch.setattr(customer_service, "_lock_vehicle_role_in_group", _lock_then_a_row_arrives)
+    monkeypatch.setattr(customer_merge_service, "_lock_vehicle_role_in_group", _lock_then_a_row_arrives)
     try:
         with factory() as session:
             # A regression that waited for the late pair would block on `holder`;
             # fail within seconds instead of hanging the run.
             session.execute(text("SET LOCAL lock_timeout = '5s'"))
-            loaded = customer_service.get_customer_or_404(session, group_id, duplicate.id)
+            loaded = customer_common_service.get_customer_or_404(session, group_id, duplicate.id)
             with pytest.raises(ConflictError) as refused:
-                customer_service.merge_customer(
+                customer_merge_service.merge_customer(
                     session, customer=loaded, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4()
                 )
             session.rollback()
@@ -706,8 +708,8 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
 
 def _merge(db, duplicate: Customer | uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> None:
     duplicate_id = duplicate if isinstance(duplicate, uuid.UUID) else duplicate.id
-    loaded = customer_service.get_customer_or_404(db, group_id, duplicate_id)
-    customer_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+    loaded = customer_common_service.get_customer_or_404(db, group_id, duplicate_id)
+    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
 
 
 def test_an_allocation_to_a_merged_customer_is_refused(db_session):
@@ -810,7 +812,7 @@ def test_an_allocation_to_the_duplicate_after_its_merge_locked_it_is_refused(eng
     reached, release = threading.Event(), threading.Event()
     # The merge's first step after the parties (since KAN-185 the contacts;
     # the legacy-transaction re-point it used to pause on became an event).
-    real_repoint = customer_service._repoint_contacts
+    real_repoint = customer_merge_service._repoint_contacts
 
     def _pause_after_the_parties(db, *args, **kwargs):
         if threading.current_thread().name == "merge" and not reached.is_set():
@@ -818,7 +820,7 @@ def test_an_allocation_to_the_duplicate_after_its_merge_locked_it_is_refused(eng
             release.wait(timeout=10)
         return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
+    monkeypatch.setattr(customer_merge_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -895,7 +897,7 @@ def test_a_history_create_on_a_merged_customer_is_refused(db_session):
     duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
     db_session.commit()
     _merge(db_session, duplicate, survivor.id, group_id)
-    merged = customer_service.get_customer_or_404(db_session, group_id, duplicate.id)
+    merged = customer_common_service.get_customer_or_404(db_session, group_id, duplicate.id)
 
     with pytest.raises(ConflictError) as refused:
         _create_history(db_session, merged, vehicle.id)
@@ -957,7 +959,7 @@ def test_a_history_create_racing_its_customers_merge_is_refused(engine, db_sessi
     reached, release = threading.Event(), threading.Event()
     # The merge's first step after the parties (since KAN-185 the contacts;
     # the legacy-transaction re-point it used to pause on became an event).
-    real_repoint = customer_service._repoint_contacts
+    real_repoint = customer_merge_service._repoint_contacts
 
     def _pause_after_the_parties(db, *args, **kwargs):
         if threading.current_thread().name == "merge" and not reached.is_set():
@@ -965,7 +967,7 @@ def test_a_history_create_racing_its_customers_merge_is_refused(engine, db_sessi
             release.wait(timeout=10)
         return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
+    monkeypatch.setattr(customer_merge_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -973,7 +975,7 @@ def test_a_history_create_racing_its_customers_merge_is_refused(engine, db_sessi
     def _history():
         with factory() as session:
             try:
-                _create_history(session, customer_service.get_customer_or_404(session, group_id, duplicate_id), vehicle_id)
+                _create_history(session, customer_common_service.get_customer_or_404(session, group_id, duplicate_id), vehicle_id)
             except ConflictError as exc:
                 refusals.append(exc)
 
@@ -1020,7 +1022,7 @@ def test_a_merge_into_a_customer_whose_own_merge_is_in_flight_is_refused(engine,
     reached, release = threading.Event(), threading.Event()
     # The merge's first step after the parties (since KAN-185 the contacts;
     # the legacy-transaction re-point it used to pause on became an event).
-    real_repoint = customer_service._repoint_contacts
+    real_repoint = customer_merge_service._repoint_contacts
 
     def _pause_after_the_parties(db, *args, **kwargs):
         if threading.current_thread().name == "merge-d-into-t" and not reached.is_set():
@@ -1028,7 +1030,7 @@ def test_a_merge_into_a_customer_whose_own_merge_is_in_flight_is_refused(engine,
             release.wait(timeout=10)
         return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
+    monkeypatch.setattr(customer_merge_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -1086,7 +1088,7 @@ def test_two_merges_in_opposite_directions_never_both_commit(engine, db_session,
     reached, release = threading.Event(), threading.Event()
     # The merge's first step after the parties (since KAN-185 the contacts;
     # the legacy-transaction re-point it used to pause on became an event).
-    real_repoint = customer_service._repoint_contacts
+    real_repoint = customer_merge_service._repoint_contacts
 
     def _pause_after_the_parties(db, *args, **kwargs):
         if threading.current_thread().name == "merge-a-into-b" and not reached.is_set():
@@ -1094,7 +1096,7 @@ def test_two_merges_in_opposite_directions_never_both_commit(engine, db_session,
             release.wait(timeout=10)
         return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
+    monkeypatch.setattr(customer_merge_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
     refusals: list[ConflictError] = []
@@ -1183,7 +1185,7 @@ def test_a_merge_x_into_d_holding_d_first_ends_with_x_naming_t(engine, db_sessio
     reached, release = threading.Event(), threading.Event()
     # The merge's first step after the parties (since KAN-185 the contacts;
     # the legacy-transaction re-point it used to pause on became an event).
-    real_repoint = customer_service._repoint_contacts
+    real_repoint = customer_merge_service._repoint_contacts
 
     def _pause_after_the_parties(db, *args, **kwargs):
         if threading.current_thread().name == "merge-x-into-d" and not reached.is_set():
@@ -1191,7 +1193,7 @@ def test_a_merge_x_into_d_holding_d_first_ends_with_x_naming_t(engine, db_sessio
             release.wait(timeout=10)
         return real_repoint(db, *args, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_contacts", _pause_after_the_parties)
+    monkeypatch.setattr(customer_merge_service, "_repoint_contacts", _pause_after_the_parties)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
 
@@ -1280,9 +1282,9 @@ def test_a_merge_never_waits_for_a_kept_copy_another_writer_holds(engine, db_ses
             # A regression that waited for the copy would block on `holder`;
             # fail within seconds instead of hanging the run.
             session.execute(text("SET LOCAL lock_timeout = '5s'"))
-            loaded = customer_service.get_customer_or_404(session, group_id, d_id)
+            loaded = customer_common_service.get_customer_or_404(session, group_id, d_id)
             with pytest.raises(ConflictError) as refused:
-                customer_service.merge_customer(
+                customer_merge_service.merge_customer(
                     session, customer=loaded, duplicate_of_customer_id=t_id, actor_id=uuid.uuid4()
                 )
             session.rollback()

@@ -359,7 +359,7 @@ def _vehicle_summary_changed(db_session, engine, monkeypatch):
     customer's party row naming the car takes the corrected VIN, once."""
 
     from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-    from app.customer.services.customer import allocate_vehicle_party
+    from app.customer.services.vehicle_party import allocate_vehicle_party
     from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
     from app.vehicle.services.vehicle_mdm import SUMMARY_CHANGED_EVENT, create_vehicle_mdm, update_vehicle_mdm
     from tests.test_sales_lifecycle_reservation import _customer
@@ -389,7 +389,7 @@ def _vehicle_merged(db_session, engine, monkeypatch):
     duplicate's party row moves onto the survivor, once."""
 
     from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-    from app.customer.services.customer import allocate_vehicle_party
+    from app.customer.services.vehicle_party import allocate_vehicle_party
     from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles
     from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
     from tests.test_sales_lifecycle_reservation import _customer

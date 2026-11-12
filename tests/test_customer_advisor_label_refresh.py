@@ -27,7 +27,7 @@ from sqlalchemy.orm import sessionmaker
 from app import worker
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.customer.models.customer import Customer
-from app.customer.services import customer as customer_service
+from app.customer.services import customer_merge as customer_merge_service
 from app.customer.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
 from app.platform.models.user import User, UserStatus
 from tests.membership_support import platform_admin
@@ -275,14 +275,14 @@ def test_the_job_racing_a_merge_that_repoints_earlier_merges_is_no_deadlock(engi
     db_session.close()
 
     reached, release = threading.Event(), threading.Event()
-    real_repoint = customer_service._repoint_earlier_merges
+    real_repoint = customer_merge_service._repoint_earlier_merges
 
     def _paused(db, **kwargs):
         reached.set()
         release.wait(timeout=20)
         return real_repoint(db, **kwargs)
 
-    monkeypatch.setattr(customer_service, "_repoint_earlier_merges", _paused)
+    monkeypatch.setattr(customer_merge_service, "_repoint_earlier_merges", _paused)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     merge_db, job_db = factory(), factory()
     errors: list[Exception] = []

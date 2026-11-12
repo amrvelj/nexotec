@@ -23,12 +23,8 @@ from app.core.outbox_model import OutboxMessage
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.customer.models.vehicle_party import VehiclePartyRole
 from app.customer.schemas.customer import CustomerVehicleCreate
-from app.customer.services.customer import (
-    allocate_vehicle_party,
-    create_customer_vehicle,
-    delete_customer_vehicle,
-    list_customer_vehicles,
-)
+from app.customer.services.vehicle_party import allocate_vehicle_party, create_customer_vehicle, delete_customer_vehicle
+from app.customer.services.vehicle_party_reads import list_customer_vehicles
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate

@@ -20,6 +20,8 @@ from app.core.errors import ConflictError
 from app.customer.models.customer import Customer, CustomerTag, CustomerType, Language
 from app.customer.schemas.customer import CustomerUpdate
 from app.customer.services import customer as customer_service
+from app.customer.services import customer_common as customer_common_service
+from app.customer.services import customer_merge as customer_merge_service
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 
 
@@ -37,12 +39,12 @@ def _customer(db_session, group_id: uuid.UUID, first_name: str, tags: tuple[str,
 
 
 def _merge(db, duplicate_id: uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> None:
-    loaded = customer_service.get_customer_or_404(db, group_id, duplicate_id)
-    customer_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+    loaded = customer_common_service.get_customer_or_404(db, group_id, duplicate_id)
+    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
 
 
 def _set_tags(db, customer_id: uuid.UUID, group_id: uuid.UUID, tags: list[str]) -> None:
-    loaded = customer_service.get_customer_or_404(db, group_id, customer_id)
+    loaded = customer_common_service.get_customer_or_404(db, group_id, customer_id)
     customer_service.update_customer(
         db, customer=loaded, data=CustomerUpdate(tags=tags), actor_id=uuid.uuid4(), dealership_id=uuid.uuid4(),
     )
@@ -66,7 +68,7 @@ def _pause_merge(monkeypatch, *, after_the_tags: bool):
             release.wait(timeout=10)
 
     if after_the_tags:
-        real_record = customer_service.record_audit_event
+        real_record = customer_merge_service.record_audit_event
 
         def _record_then_pause(db, **kwargs):
             result = real_record(db, **kwargs)
@@ -74,15 +76,15 @@ def _pause_merge(monkeypatch, *, after_the_tags: bool):
                 _pause()
             return result
 
-        monkeypatch.setattr(customer_service, "record_audit_event", _record_then_pause)
+        monkeypatch.setattr(customer_merge_service, "record_audit_event", _record_then_pause)
     else:
-        real_repoint = customer_service._repoint_customer_tags
+        real_repoint = customer_merge_service._repoint_customer_tags
 
         def _pause_then_repoint(db, **kwargs):
             _pause()
             return real_repoint(db, **kwargs)
 
-        monkeypatch.setattr(customer_service, "_repoint_customer_tags", _pause_then_repoint)
+        monkeypatch.setattr(customer_merge_service, "_repoint_customer_tags", _pause_then_repoint)
     return reached, release
 
 
@@ -159,7 +161,7 @@ def test_an_integrity_failure_that_is_not_the_tag_constraint_is_not_called_a_tag
     db_session.commit()
 
     with pytest.raises(ConflictError) as refused:
-        loaded = customer_service.get_customer_or_404(db_session, group_id, t.id)
+        loaded = customer_common_service.get_customer_or_404(db_session, group_id, t.id)
         customer_service.update_customer(
             db_session, customer=loaded, data=CustomerUpdate.model_construct(newsletter=None), actor_id=uuid.uuid4(),
             dealership_id=uuid.uuid4(),

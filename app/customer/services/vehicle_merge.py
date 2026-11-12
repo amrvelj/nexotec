@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.vehicle_party import VehicleParty
-from app.customer.services.customer import relabel_vehicle_parties_for_vehicle
+from app.customer.services.vehicle_party_labels import relabel_vehicle_parties_for_vehicle
 from app.vehicle.public import resolve_merged_vehicle_id
 
 logger = logging.getLogger(__name__)

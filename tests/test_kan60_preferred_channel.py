@@ -27,7 +27,7 @@ from sqlalchemy import text
 from app.core.pagination import SortPageParams
 from app.core.sorting import SortField
 from app.customer.models.customer import Customer, CustomerType, Language
-from app.customer.services import customer as customer_service
+from app.customer.services import customer_search as customer_search_service
 from tests.enum_test_support import drop_enum_checks
 from tests.postgres_only import POSTGRES_SQL
 
@@ -182,7 +182,7 @@ def test_list_customers_omits_the_bad_row_but_returns_everyone_else_in_the_same_
         limit=50, cursor=None,
         sort_fields=[SortField(api_name="customerNumber", column=Customer.customer_number, direction="asc", nullable=False)],
     )
-    items, _next_cursor, _total, _total_is_estimate = customer_service.list_customers(
+    items, _next_cursor, _total, _total_is_estimate = customer_search_service.list_customers(
         db_session, group_id=group_id, q=None, lifecycle_status=None, customer_type=None, language=None,
         canton=None, updated_since=None, params=params,
     )

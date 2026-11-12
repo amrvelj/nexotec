@@ -23,12 +23,8 @@ from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
 from app.customer.models.vehicle_party import VehicleParty
 from app.customer.schemas.customer import CustomerVehicleUpdate
-from app.customer.services.customer import (
-    delete_customer_vehicle,
-    get_customer_vehicle_or_404,
-    list_vehicle_parties,
-    update_customer_vehicle,
-)
+from app.customer.services.vehicle_party import delete_customer_vehicle, update_customer_vehicle
+from app.customer.services.vehicle_party_reads import get_customer_vehicle_or_404, list_vehicle_parties
 from tests.test_customer_vehicle_party_future_holder import (  # noqa: F401 — _never_inverted is an autouse fixture
     _allocate,
     _customer,
@@ -532,7 +528,7 @@ def test_the_nightly_label_refresh_takes_a_batchs_rows_in_id_order_before_it_wri
     from sqlalchemy import text
     from sqlalchemy.orm import sessionmaker
 
-    from app.customer.services.customer import refresh_vehicle_party_labels
+    from app.customer.services.vehicle_party_labels import refresh_vehicle_party_labels
     from tests.test_customer_vehicle_party_close_rule import _wait_until_a_backend_waits_on_a_lock
 
     if engine.dialect.name != "postgresql":

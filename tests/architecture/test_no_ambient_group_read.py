@@ -43,6 +43,16 @@ _ALLOWED_FILES = {
     # by the CALLER's own group_id is not a boundary crossing, it's the
     # data's rightful scope.
     _APP_ROOT / "customer" / "services" / "customer.py",
+    # KAN-617 split customer.py along its seams; the same reads, moved —
+    # not new ones (the KAN-121 precedent below). Each file is listed by
+    # name, so a new customer module with a group predicate still fails.
+    _APP_ROOT / "customer" / "services" / "customer_common.py",
+    _APP_ROOT / "customer" / "services" / "customer_merge.py",
+    _APP_ROOT / "customer" / "services" / "customer_search.py",
+    _APP_ROOT / "customer" / "services" / "trade_in_holders.py",
+    _APP_ROOT / "customer" / "services" / "vehicle_party.py",
+    _APP_ROOT / "customer" / "services" / "vehicle_party_locks.py",
+    _APP_ROOT / "customer" / "services" / "vehicle_party_reads.py",
     # The ADR-030 compliance layer built on top of tenancy.py's helper.
     _APP_ROOT / "customer" / "services" / "legal_basis.py",
     # KAN-28 — ADR-055's group-readable stock roster. Since KAN-121 (rule

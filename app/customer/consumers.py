@@ -39,18 +39,15 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.stock_item_booking import StockItemBookingKind
-from app.customer.services.customer import (
-    record_former_holder_on_purchase,
-    relabel_vehicle_parties_for_vehicle,
-    reopen_former_holder_after_storno,
-    resolve_live_customer_id,
-)
 from app.customer.services.stock_item_booking import (
     lock_stock_item,
     purchase_overtaken,
     record_booking,
     storno_overtaken,
 )
+from app.customer.services.trade_in_holders import record_former_holder_on_purchase, reopen_former_holder_after_storno
+from app.customer.services.vehicle_party import resolve_live_customer_id
+from app.customer.services.vehicle_party_labels import relabel_vehicle_parties_for_vehicle
 from app.platform.public import get_dealership_or_404
 
 logger = logging.getLogger(__name__)

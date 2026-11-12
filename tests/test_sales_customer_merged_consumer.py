@@ -19,6 +19,8 @@ from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
 from app.customer.services import customer as customer_service
+from app.customer.services import customer_common as customer_common_service
+from app.customer.services import customer_merge as customer_merge_service
 from app.sales.consumers import handle_customer_merged_message
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
@@ -68,8 +70,8 @@ def _legacy_transaction(db: Session, tenant_id: uuid.UUID, customer_id: uuid.UUI
 
 
 def _merge(db: Session, *, duplicate_id: uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> OutboxMessage:
-    loaded = customer_service.get_customer_or_404(db, group_id, duplicate_id)
-    customer_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+    loaded = customer_common_service.get_customer_or_404(db, group_id, duplicate_id)
+    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
     return db.scalars(
         select(OutboxMessage).where(
             OutboxMessage.event_type == "customer.merged", OutboxMessage.aggregate_id == duplicate_id
@@ -191,7 +193,7 @@ def test_a_survivor_renamed_after_the_merge_event_is_read_as_it_stands_now(db_se
     duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
     offer = _offer(db_session, tenant_id, group_id, duplicate.id)
     message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
-    survivor = customer_service.get_customer_or_404(db_session, group_id, survivor.id)
+    survivor = customer_common_service.get_customer_or_404(db_session, group_id, survivor.id)
     survivor.first_name = "Renamed"
     db_session.commit()
 

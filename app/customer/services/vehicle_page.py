@@ -15,11 +15,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.customer.schemas.customer import CustomerVehiclePage, CustomerVehicleRead, VehicleStockLinkSummary
-from app.customer.services.customer import (
-    get_customer_or_404,
-    list_customer_vehicles,
-    list_other_vehicle_parties_batch,
-)
+from app.customer.services.customer_common import get_customer_or_404
+from app.customer.services.vehicle_party_reads import list_customer_vehicles, list_other_vehicle_parties_batch
 
 StockItemsFor = Callable[[list[uuid.UUID]], Mapping[uuid.UUID, Mapping[str, Any]]]
 """Given the page's vehicle ids, the stock item (`id`, `stockNumber`) each one

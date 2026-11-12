@@ -15,8 +15,8 @@ from app.core.outbox_transport import InProcessTransport
 from app.core.reconciliation import find_rows_in_state
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.reconciliation import CHECKS as CUSTOMER_CHECKS
-from app.customer.services.customer import allocate_vehicle_party
 from app.customer.services.vehicle_merge import handle_vehicle_merged_message
+from app.customer.services.vehicle_party import allocate_vehicle_party
 from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles, resolve_merged_id
 from app.vehicle.services.vehicle_history import add_accessory, record_odometer_reading
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm

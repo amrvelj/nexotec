@@ -38,7 +38,7 @@ from app.core.errors import UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
-from app.customer.services.customer import _customer_label_payload
+from app.customer.services.customer_common import _customer_label_payload
 from app.platform.public import list_user_dealer_group_ids
 
 logger = logging.getLogger(__name__)

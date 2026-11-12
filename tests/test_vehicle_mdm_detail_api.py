@@ -89,7 +89,7 @@ def test_party_roles_default_current_only(client, db_session):
 
     from app.customer.models.customer import Customer, CustomerType, Language
     from app.customer.models.vehicle_party import VehiclePartyRole
-    from app.customer.services.customer import allocate_vehicle_party
+    from app.customer.services.vehicle_party import allocate_vehicle_party
 
     alice = Customer(
         group_id=group_id, customer_number="K-100001", customer_type=CustomerType.INDIVIDUAL,
@@ -132,7 +132,7 @@ def test_party_roles_never_leaks_another_groups_customer(client, db_session):
 
     from app.customer.models.customer import Customer, CustomerType, Language
     from app.customer.models.vehicle_party import VehiclePartyRole
-    from app.customer.services.customer import allocate_vehicle_party
+    from app.customer.services.vehicle_party import allocate_vehicle_party
 
     group_a = uuid.uuid4()
     group_b = uuid.uuid4()
@@ -183,7 +183,7 @@ def test_party_roles_carry_the_holders_display_name_current_and_closed(client, d
 
     from app.customer.models.customer import Customer, CustomerType, Language
     from app.customer.models.vehicle_party import VehiclePartyRole
-    from app.customer.services.customer import allocate_vehicle_party
+    from app.customer.services.vehicle_party import allocate_vehicle_party
 
     former = Customer(
         group_id=group_id, customer_number="K-300001", customer_type=CustomerType.INDIVIDUAL,
@@ -221,7 +221,7 @@ def test_party_roles_never_resolve_another_groups_customer_name(client, db_sessi
 
     from app.customer.models.customer import Customer, CustomerType, Language
     from app.customer.models.vehicle_party import VehiclePartyRole
-    from app.customer.services.customer import allocate_vehicle_party
+    from app.customer.services.vehicle_party import allocate_vehicle_party
 
     group_a = uuid.uuid4()
     group_b = uuid.uuid4()

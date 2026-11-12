@@ -20,13 +20,8 @@ from app.customer.schemas.customer import (
     CustomerEmailCreate,
     CustomerUpdate,
 )
-from app.customer.services.customer import (
-    create_customer,
-    create_customer_address,
-    list_customer_addresses,
-    set_credit_block,
-    update_customer,
-)
+from app.customer.services.addresses import create_customer_address, list_customer_addresses
+from app.customer.services.customer import create_customer, set_credit_block, update_customer
 from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404

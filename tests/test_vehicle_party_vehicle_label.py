@@ -27,8 +27,8 @@ from app.core.auth import AccessRole
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.services.customer import refresh_vehicle_party_labels
 from app.customer.services.vehicle_merge import repoint_vehicle_parties_on_vehicle_merge
+from app.customer.services.vehicle_party_labels import refresh_vehicle_party_labels
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.catalogue import BrandUpdate
@@ -231,9 +231,9 @@ def test_refresh_backfills_unlabelled_rows_and_skips_a_dangling_vehicle(client, 
 
 
 def test_refresh_pages_past_one_batch(client, db_session, monkeypatch):
-    from app.customer.services import customer as customer_service
+    from app.customer.services import vehicle_party_labels as vehicle_party_labels_service
 
-    monkeypatch.setattr(customer_service, "_LABEL_REFRESH_BATCH", 2)
+    monkeypatch.setattr(vehicle_party_labels_service, "_LABEL_REFRESH_BATCH", 2)
     _dealer_id, customer, vehicle = _setup(client)
     for role in VehiclePartyRole:
         db_session.add(VehicleParty(vehicle_id=uuid.UUID(vehicle["id"]), customer_id=uuid.UUID(customer["id"]), role=role))
@@ -315,14 +315,14 @@ def test_a_read_fill_never_hides_the_empty_columns_from_a_later_write(client, db
     The read's fill must not make the write think the label is already
     stored (it used to: NULL labels stamped as fresh)."""
 
-    from app.customer.services import customer as customer_service
+    from app.customer.services import vehicle_party_reads as vehicle_party_reads_service
 
     _dealer_id, customer, vehicle = _setup(client)
     party_id = _unlabelled_party(db_session, vehicle["id"], customer["id"])
 
-    listed = customer_service.list_customer_vehicles(db_session, customer_id=uuid.UUID(customer["id"]))
+    listed = vehicle_party_reads_service.list_customer_vehicles(db_session, customer_id=uuid.UUID(customer["id"]))
     assert listed[0].vehicle.vin == vehicle["vin"]
-    customer_service.get_customer_vehicle_or_404(
+    vehicle_party_reads_service.get_customer_vehicle_or_404(
         db_session, customer_id=uuid.UUID(customer["id"]), party_id=party_id
     )
     db_session.commit()
@@ -336,7 +336,7 @@ def test_a_read_fill_never_hides_the_empty_columns_from_a_later_write(client, db
 
 
 def test_label_age_is_none_until_a_row_is_labelled_then_the_stalest_age(client, db_session):
-    from app.customer.services.customer import oldest_vehicle_party_label_age_seconds
+    from app.customer.services.vehicle_party_labels import oldest_vehicle_party_label_age_seconds
 
     dealer_id, customer, vehicle = _setup(client)
     _unlabelled_party(db_session, vehicle["id"], customer["id"])
