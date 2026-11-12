@@ -30,7 +30,7 @@ from app.sales import reconciliation as sales_reconciliation
 from app.sales.consumers import handle_stock_item_purchased_message, handle_stock_item_storno_message
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.services.contract import cancel_contract, confirm_contract, request_invoice
-from tests.sales_contract_projection_support import feed_projection
+from tests.sales_contract_projection_support import feed_projection, worker_applies_after_the_first_read
 from tests.test_inventory_purchase_promotes import VIN, _auth, _create, _events, _purchase, _token
 from tests.test_sales_invoiceable_replica import (
     _contract_on,
@@ -430,6 +430,22 @@ def test_storno_while_the_invoice_request_is_still_in_the_outbox_is_refused(db_s
     request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
     _refused_as_invoiced(db_session, item, contract)
+
+
+def test_storno_while_the_invoice_request_is_applied_between_the_two_reads_is_refused(db_session, engine):
+    """KAN-630 review: the worker applies the request (projection row and
+    processed-event row in one commit) after the storno's first read of the
+    projection or the outbox. Projection first, outbox second hides the
+    committed request from both reads; outbox first cannot."""
+
+    item, contract = _signed_contract_on_bought_car(db_session, engine)
+    feed_projection(db_session)
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
+
+    with worker_applies_after_the_first_read(engine) as applied:
+        _refused_as_invoiced(db_session, item, contract)
+
+    assert applied == [1], "the worker applied the invoice request while the storno read"
 
 
 def test_storno_after_the_contract_with_the_request_was_cancelled_goes_through(db_session, engine):

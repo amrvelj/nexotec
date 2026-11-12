@@ -116,7 +116,14 @@ def _projection_differs_from_its_contract() -> StateCheck:
     over an hour ago: a contract fact was missed (dead-lettered, or the
     consumer is stuck). The sweep and «Einkauf stornieren» would read the
     stale answer. A contract changed within the hour may still have its fact
-    in flight, so it is not a finding yet."""
+    in flight, so it is not a finding yet.
+
+    Latent, follow-up open (KAN-630 review): no contract fact carries
+    INVOICED — «Rechnung anfordern» leaves the contract confirmed and Finance
+    (WP-9) sets INVOICED, which nothing does today. Once it does, every
+    invoiced contract whose row the consumers wrote (CONFIRMED) is reported
+    here. Deliberately not masked: whether Stock learns INVOICED from a new
+    fact or treats it as CONFIRMED is decided with Finance's invoice fact."""
 
     return StateCheck(
         label="inventory_sales_contract differs from its sales_contract",

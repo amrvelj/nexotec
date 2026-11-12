@@ -36,7 +36,11 @@ from app.inventory.services.stock_item import create_stock_item, get_stock_item_
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import confirm_contract, create_contract
 from app.sales.services.offer import create_offer, update_offer
-from tests.sales_contract_projection_support import feed_projection, record_backfill_run
+from tests.sales_contract_projection_support import (
+    feed_projection,
+    record_backfill_run,
+    worker_applies_after_the_first_read,
+)
 from tests.test_sales_lifecycle_reservation import _customer
 
 _JOB_NAME = "inventory.orphaned_reservations.release"
@@ -250,6 +254,33 @@ def test_a_confirmation_still_in_the_outbox_keeps_the_car_past_the_margin(db_ses
     result = release_orphaned_reservations(db_session, now=_later())
 
     assert result.released == [] and result.kept_unsynced == 1
+    assert _state(db_session, tenant_id, item.id) == ReservationState.RESERVED
+
+
+@pytest.mark.parametrize("backfill", [False, True], ids=["before_backfill", "after_backfill"])
+def test_a_confirmation_applied_between_the_sweeps_reads_still_keeps_the_car(db_session, engine, backfill):
+    """KAN-630 review: «projection plus unapplied facts» is two statements.
+    Read projection first, a worker committing the confirmation (projection
+    row and processed-event row together) before the outbox read hides the
+    fact from both: pending past the margin, the signed contract's car freed.
+    Read the outbox first, the fact is either still unapplied there or its
+    projection row is visible to the later read."""
+
+    if backfill:
+        record_backfill_run(db_session)
+    tenant_id = uuid.uuid4()
+    item = _item(db_session, tenant_id)
+    group_id = uuid.uuid4()
+    contract = _contract_for(db_session, tenant_id, item, group_id)
+    feed_projection(db_session)  # sales.contract.created: the projection says pending
+    _confirm(db_session, engine, contract, group_id)
+    db_session.close()
+
+    with worker_applies_after_the_first_read(engine) as applied:
+        result = release_orphaned_reservations(db_session, now=_later())
+
+    assert applied == [1], "the worker applied the confirmation while the sweep read"
+    assert result.released == [] and result.kept_unsynced + result.kept_signed == 1
     assert _state(db_session, tenant_id, item.id) == ReservationState.RESERVED
 
 

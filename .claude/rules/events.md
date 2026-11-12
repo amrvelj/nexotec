@@ -109,7 +109,8 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
   The orphan sweep and «Einkauf stornieren» read it **plus the facts the consumer has not applied**
   (no processed-event row and not published, or published before the consumers existed until a
   backfill run is recorded in `inventory_sales_contract_backfill`) — fail safe against the outbox's
-  delay: an unapplied fact keeps the car reserved and refuses the storno. Nightly reconciliation
+  delay: an unapplied fact keeps the car reserved and refuses the storno. The outbox is read
+  first, then the projection: the reverse order lets a fact applied between the two escape both. Nightly reconciliation
   reports a row differing from its contract (contract unchanged for an hour), a contract over an hour
   old with no row, and a row naming no contract or Betrieb. After the deploy, once the old worker has
   stopped, run `scripts/backfill_inventory_sales_contract_projection.py` (dry run, then `--commit`)

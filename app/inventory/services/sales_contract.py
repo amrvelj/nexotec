@@ -14,13 +14,26 @@ signed contract's car, «Einkauf stornieren» reversing the purchase of a car
 whose invoice was requested — so both read the projection *and the facts
 Sales committed that Stock's consumer has not applied yet*
 (`_unapplied_messages`): the outbox row is written in Sales' business
-transaction (rule 4), so projection plus unapplied facts is what Sales has
-committed, as the synchronous read before was. A fact is unapplied while
+transaction (rule 4), so projection plus unapplied facts covers what Sales
+has committed — read in the order below, never the other way round. A fact is unapplied while
 its consumer has no processed-event row for it and the message is not yet
 published (pending, or dead-lettered: then it stays unapplied until it is
 replayed, and the rule waits — fail safe). A published message Stock's
 consumer never processed predates the consumers; it counts as unapplied
 until a backfill run is recorded, after which the backfill covers it.
+
+Read order (KAN-630 review). «Projection plus unapplied facts» is more
+than one statement, and under READ COMMITTED each statement sees what was
+committed when it began. A consumer commits the projection row and its
+processed-event row together. So every reader reads the outbox's unapplied
+facts first and the projection after: a fact the first read sees as
+applied had its row committed before, so the second read holds it; a fact
+applied in between is still unapplied for the first. The reverse order lets
+a fact applied between the reads escape both. The backfill record is read
+before both (a run commits its rows with its record). With that order the
+pair holds every fact Sales had committed when the outbox read began — not a
+snapshot of one instant: a fact committed later may or may not be seen, as
+with any read that does not lock Sales out.
 """
 
 import datetime as dt
@@ -234,20 +247,9 @@ def contract_with_invoice_requested(db: Session, *, tenant_id: uuid.UUID, stock_
     held by the projection, or committed by Sales and not applied yet — else
     None. A contract the projection knows as cancelled never counts."""
 
-    held = db.scalar(
-        select(InventorySalesContract.contract_label)
-        .where(
-            InventorySalesContract.tenant_id == tenant_id,
-            InventorySalesContract.stock_item_id == stock_item_id,
-            InventorySalesContract.invoice_requested_at.is_not(None),
-            InventorySalesContract.status != ProjectedContractStatus.CANCELLED,
-        )
-        .order_by(InventorySalesContract.invoice_requested_at)
-        .limit(1)
-    )
-    if held is not None:
-        return held
-
+    # Outbox first, projection second — the order is the safety (module
+    # docstring, «Read order»): a request applied between the two reads is
+    # either still unapplied for the first or visible to the second.
     cancelled = select(InventorySalesContract.contract_id).where(
         InventorySalesContract.tenant_id == tenant_id,
         InventorySalesContract.contract_id == OutboxMessage.aggregate_id,
@@ -265,6 +267,20 @@ def contract_with_invoice_requested(db: Session, *, tenant_id: uuid.UUID, stock_
         .order_by(OutboxMessage.occurred_at)
         .limit(1)
     ).first()
+
+    held = db.scalar(
+        select(InventorySalesContract.contract_label)
+        .where(
+            InventorySalesContract.tenant_id == tenant_id,
+            InventorySalesContract.stock_item_id == stock_item_id,
+            InventorySalesContract.invoice_requested_at.is_not(None),
+            InventorySalesContract.status != ProjectedContractStatus.CANCELLED,
+        )
+        .order_by(InventorySalesContract.invoice_requested_at)
+        .limit(1)
+    )
+    if held is not None:
+        return held
     if in_flight is None:
         return None
     return str((in_flight.payload or {}).get("contractNumber") or in_flight.aggregate_id)

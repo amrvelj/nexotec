@@ -16,8 +16,10 @@ the statuses come from its own projection of Sales' contract facts
 committed that the projection has not applied yet. Three steps:
 
 1. Stock lists its own reserved items, and ends that read.
-2. Per tenant, the projection answers the owning contracts' statuses, and
-   which of them have a fact still in flight (outbox lag, a dead letter).
+2. Per tenant, the outbox answers which owning contracts have a fact still
+   in flight (outbox lag, a dead letter), then the projection their
+   statuses — in that order, so a fact applied between the two reads is
+   seen by one of them (comment in the code).
 3. Each orphan is released by `release()` on a session of its own: it
    locks the item, finds it by the reservation id read in step 1, and
    commits — so one failing release never rolls back another. A
@@ -128,9 +130,18 @@ def release_orphaned_reservations(db: Session, *, now: dt.datetime | None = None
     for tenant_id, tenant_reservations in by_tenant.items():
         contract_ids = [r.contract_id for r in tenant_reservations if r.contract_id is not None]
         with Session(bind=bind, autoflush=False, expire_on_commit=False) as projection_db:
-            statuses = contract_statuses(projection_db, tenant_id=tenant_id, contract_ids=contract_ids)
-            in_flight = contracts_with_unapplied_facts(projection_db, tenant_id=tenant_id, contract_ids=contract_ids)
+            # The order is the safety (KAN-630). Each statement sees what was
+            # committed when it began (READ COMMITTED), and a consumer commits
+            # its projection row with its processed-event row. Outbox first:
+            # a fact it sees as applied had its projection row committed
+            # before, so the projection read after it holds that row; a fact
+            # applied in between is still counted in flight. Projection first
+            # would let a fact applied in between escape both reads. The
+            # backfill record is read before both for the same reason: once it
+            # is seen, the rows its run wrote are visible to the projection read.
             backfilled = backfill_recorded(projection_db)
+            in_flight = contracts_with_unapplied_facts(projection_db, tenant_id=tenant_id, contract_ids=contract_ids)
+            statuses = contract_statuses(projection_db, tenant_id=tenant_id, contract_ids=contract_ids)
 
         for reservation in tenant_reservations:
             status = statuses.get(reservation.contract_id) if reservation.contract_id is not None else None
