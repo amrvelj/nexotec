@@ -1,6 +1,7 @@
 """Inventory's outbound cross-context references (WP-7 PR-5; the
 reserved_by_contract_id check added WP-8 PR-6; the cancelled-contract
-record's two checks added KAN-158; the valuation pointer's two KAN-115).
+record's two checks added KAN-158; the valuation pointer's two KAN-115; the
+contract projection's four KAN-630).
 Everything here is read-only — see app.core.reconciliation for the mechanism.
 
 The invoicing-gate invariant (is_invoiceable vs. a real
@@ -12,12 +13,13 @@ apply_finance_invoice_issued instead.
 
 import datetime as dt
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
+from app.inventory.models.sales_contract import InventorySalesContract
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemPublishing
@@ -32,6 +34,8 @@ CONTEXT = "inventory"
 # platform user, or be null (KAN-243; see
 # app.platform.public.actor_reference_checks). The ledger has created_by only.
 ACTOR_TABLES = (StockItem, StockItemLedger, StockItemPublishing)
+# InventorySalesContract (KAN-630) carries no actor column: a consumer and a
+# backfill write it, never a user.
 
 # KAN-633: how long a host's `configuration_attached` fact may be in flight.
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
@@ -104,10 +108,78 @@ def _vin_differs_from_its_configuration() -> StateCheck:
     )
 
 
+def _projection_differs_from_its_contract() -> StateCheck:
+    """KAN-630 (rule 10): Stock's projection row says something else than the
+    contract it mirrors — status, Betrieb, whether the invoice was requested,
+    or the car it was requested for — although the contract last changed
+    over an hour ago: a contract fact was missed (dead-lettered, or the
+    consumer is stuck). The sweep and «Einkauf stornieren» would read the
+    stale answer. A contract changed within the hour may still have its fact
+    in flight, so it is not a finding yet."""
+
+    return StateCheck(
+        label="inventory_sales_contract differs from its sales_contract",
+        source_model=InventorySalesContract,
+        source_row_id_column=InventorySalesContract.id,
+        where=lambda: select(SalesContract.id)
+        .where(
+            SalesContract.id == InventorySalesContract.contract_id,
+            SalesContract.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
+            (SalesContract.tenant_id != InventorySalesContract.tenant_id)
+            | (cast(SalesContract.status, String) != cast(InventorySalesContract.status, String))
+            | (SalesContract.invoice_requested_at.is_(None) != InventorySalesContract.invoice_requested_at.is_(None))
+            | (
+                SalesContract.invoice_requested_at.is_not(None)
+                & SalesContract.stock_item_id.is_distinct_from(InventorySalesContract.stock_item_id)
+            ),
+        )
+        .correlate(InventorySalesContract)
+        .exists(),
+    )
+
+
+def _contract_missing_from_the_projection() -> StateCheck:
+    """KAN-630 (rule 10): a contract created over an hour ago that Stock's
+    projection does not hold — its facts were all missed, or the projection
+    backfill has not run since the deploy. The finding names the contract."""
+
+    return StateCheck(
+        label="sales_contract missing from inventory_sales_contract",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        where=lambda: (SalesContract.created_at < utcnow() - _OUTBOX_LAG_GRACE)
+        & ~select(InventorySalesContract.id)
+        .where(
+            InventorySalesContract.contract_id == SalesContract.id,
+            InventorySalesContract.tenant_id == SalesContract.tenant_id,
+        )
+        .correlate(SalesContract)
+        .exists(),
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     _names_an_untaken_configuration(),
     _vin_differs_from_its_vehicle(),
     _vin_differs_from_its_configuration(),
+    _projection_differs_from_its_contract(),
+    _contract_missing_from_the_projection(),
+    ReferenceCheck(
+        label="inventory_sales_contract.contract_id -> sales_contract.id",
+        source_model=InventorySalesContract,
+        source_row_id_column=InventorySalesContract.id,
+        source_fk_column=InventorySalesContract.contract_id,
+        target_model=SalesContract,
+        target_id_column=SalesContract.id,
+    ),
+    ReferenceCheck(
+        label="inventory_sales_contract.tenant_id -> dealership.id",
+        source_model=InventorySalesContract,
+        source_row_id_column=InventorySalesContract.id,
+        source_fk_column=InventorySalesContract.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
     ReferenceCheck(
         label="stock_item.tenant_id -> dealership.id",
         source_model=StockItem,

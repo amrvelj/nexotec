@@ -72,8 +72,8 @@ write sharing the caller's session commits whatever the caller has
 pending. The behavioural tests cover those per call
 (`test_inventory_reservation`, `test_sales_lifecycle_reservation`,
 `test_sales_trade_in_valuation_use`, `test_inventory_reservation_sweep`
-(KAN-122: Stock's sweep reads Sales' statuses outside its write
-transactions, by recording each transaction's statements), and in `test_integration_gateway`
+(KAN-122: Stock's sweep commits each release on its own; since KAN-630 it
+reads no Sales row at all, by recording each transaction's statements), and in `test_integration_gateway`
 the two KAN-90 tests on the caller's own rows). It does not follow a
 write made by assigning to another context's ORM object (rule 1's
 territory), and it scans the twelve contexts only: the composition roots
@@ -313,9 +313,6 @@ _READS = {
     "app.platform.public.render_document",
     "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
     "app.platform.public.ui_language_of",  # KAN-585: the enrolment's Accept-Language; a SELECT, no commit
-    # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
-    # session of its own (tests/test_inventory_reservation_sweep.py).
-    "app.sales.public.get_contract_statuses",
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
@@ -325,9 +322,6 @@ _READS = {
     # KAN-572: the customer context's trade-in storno consumer asks whether a
     # later purchase overtook the storno (delivery is unordered); a SELECT only.
     "app.inventory.public.purchase_booked_after",
-    # KAN-146: «Einkauf stornieren» asks whether a contract on the car requested
-    # its invoice, on a session of its own (tests/test_inventory_purchase_storno.py).
-    "app.sales.public.contract_with_invoice_requested_for_stock_item",
     # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
     "app.sales.public.get_trade_in_seller",
     # KAN-115: valuation asks which valuations a signed contract carries.

@@ -144,8 +144,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   that customer as owner and keeper (`customer.md`). The dialog asks only on a trade-in's car.
   A reserved car may be stornoed; the reservation stays. Refused: no booked purchase (409
   `purchase_not_booked`), left stock (409 `purchase_storno_left_stock`), or a contract on the car
-  that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, read
-  through `sales.public.contract_with_invoice_requested_for_stock_item` on a session of its own).
+  that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, from Stock's
+  contract projection, KAN-630, `events.md`).
   The storno reverses every `einstandspreis` entry not yet reversed — a hand-booked one from before
   KAN-146 included — keyed `storno:<the entry's id>`. The stock detail's purchase card carries the
   action (`PurchaseStornoDialog`), and so does the one stock row menu (KAN-571, below). **Built as the
@@ -223,10 +223,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   whose contract is cancelled, missing, or pending is released; confirmed and invoiced keep the
   car (Anto, 2026-10-07). A pending contract's reservation made in the last hour waits for the
   next run, because a confirmation commits the reservation before the contract (Anto,
-  2026-10-08). Stock reads the statuses through
-  `app.sales.public.get_contract_statuses` on a session of its own, and releases each orphan
-  in its own commit (ADR-047). Each run logs one line with its counts in the message text; a
-  failed release is logged at ERROR and retried the next night.
+  2026-10-08). The statuses are Stock's contract projection (KAN-630, `events.md`); a contract with
+  a fact not yet applied keeps its car (`kept_unsynced`). Each orphan is released in its own commit;
+  one log line with the counts per run; a failed release logs ERROR and is retried the next night.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`; it can be overridden afterwards

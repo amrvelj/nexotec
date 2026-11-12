@@ -28,12 +28,13 @@ def run_daily_reservation_sweep(db: Session) -> None:
         "released": len(result.released),
         "keptSigned": result.kept_signed,
         "keptRecent": result.kept_recent,
+        "keptUnsynced": result.kept_unsynced,
         "changed": result.changed,
         "failed": len(result.failed),
     }
     summary = (
         f"released={counts['released']} kept_signed={counts['keptSigned']} kept_recent={counts['keptRecent']} "
-        f"changed={counts['changed']} failed={counts['failed']}"
+        f"kept_unsynced={counts['keptUnsynced']} changed={counts['changed']} failed={counts['failed']}"
     )
     if result.failed:
         failed_ids = [str(item_id) for item_id in result.failed]

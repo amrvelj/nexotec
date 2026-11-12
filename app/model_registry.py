@@ -22,6 +22,7 @@ from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
+from app.inventory.models.sales_contract import InventorySalesContract, InventorySalesContractBackfill
 from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
@@ -135,6 +136,8 @@ __all__ = [
     "IntegrationProviderCaption",
     "IntegrationSecretRef",
     "InventoryCancelledContract",
+    "InventorySalesContract",
+    "InventorySalesContractBackfill",
     "LegalBasis",
     "Location",
     "LocationClosure",
