@@ -81,7 +81,7 @@ reconciliation reports the dangling reference.
 - The configuration PATCH does not check its host on the server. On a bought stock car (it has a
   vehicle-mdm record) the overlay leaves `vin` out of its PATCH and hands a changed VIN to the host,
   which corrects it through Stock's «VIN korrigieren» (KAN-557; the stock item, the record and the
-  configuration together, `inventory.md`); a pipeline car's VIN is still written by the PATCH (it wins at
+  configuration together, `inventory-vin-correction.md`); a pipeline car's VIN is still written by the PATCH (it wins at
   booking, KAN-575). A VIN edited away from the car by any other path is reported by Stock's nightly
   reconciliation.
 

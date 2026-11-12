@@ -31,8 +31,9 @@ ruling on KAN-544, 2026-11-03). Its own file because inventory.md is over the KA
   commits. Then Stock writes its item, audit row and `inventory.stock_item.vin_corrected`
   (`stockNumber`, `vehicleId`, `previousVin`, `vin`, `correctedBy`, `configurationId`; never the
   reason). A failed stock write is compensated by the same call with the VINs swapped, for
-  only what Vehicle reported changed (`record_changed`, `configuration_changed`; audited
-  `vin_correction_reverted`) — a record already carrying the new VIN is never put back; a retry with
+  only what Vehicle reported changed (`record_changed`, `configuration_vin_changed`,
+  `configuration_relinked`; audited `vin_correction_reverted`), before the item's lock is released — a
+  record already carrying the new VIN is never put back, a configuration only re-linked is re-linked; a retry with
   the same key completes it.
 - Refused, nothing written: left stock (409 `vin_correction_left_stock`) · no vehicle-mdm record (409
   `vin_correction_needs_vehicle` — a pipeline car corrects its configuration, which wins at booking,

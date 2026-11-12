@@ -52,17 +52,22 @@ VIN_CORRECTED_EVENT = "vehicle.vehicle_mdm.vin_corrected"
 class CorrectedVehicleVin:
     """What the correction changed — plain data, never the row.
     `record_changed` is False when the record already carried `new_vin`;
-    `configuration_changed` is False when no configuration was named, it
-    carried no VIN, or it already carried `new_vin` and its link held. The
-    compensation reverts exactly what these two say changed — never a write
-    this call did not make."""
+    `configuration_vin_changed` says this call wrote the configuration's
+    VIN, `configuration_relinked` that it only re-derived its link (it
+    already carried `new_vin`). The compensation reverts what these say —
+    a re-linked configuration is re-linked, never given the old VIN back."""
 
     vehicle_id: uuid.UUID
     vehicle_number: str
     vin: str
     previous_vin: str
     record_changed: bool
-    configuration_changed: bool
+    configuration_vin_changed: bool
+    configuration_relinked: bool
+
+    @property
+    def configuration_changed(self) -> bool:
+        return self.configuration_vin_changed or self.configuration_relinked
 
 
 def correct_vehicle_vin(
@@ -77,6 +82,7 @@ def correct_vehicle_vin(
     configuration_id: uuid.UUID | None = None,
     compensation: bool = False,
     include_record: bool = True,
+    relink_configuration_only: bool = False,
 ) -> CorrectedVehicleVin:
     """Rewrites the vehicle-mdm record's VIN from `old_vin` to `new_vin`
     (both valid and normalised) and, when `configuration_id` is given, has
@@ -86,7 +92,10 @@ def correct_vehicle_vin(
     `compensation=True` marks the call as the undo of an earlier one (the
     VINs swapped): its audit rows read `vin_correction_reverted`. With
     `include_record=False` (the compensation of a call that changed only the
-    configuration) the record is left exactly as it is.
+    configuration) the record is left exactly as it is; with
+    `relink_configuration_only=True` (the compensation of a configuration
+    that was only re-linked) the configuration keeps its VIN and only its link
+    is derived again.
 
     Refused, with nothing written: the record is unknown (404) or merged
     into another (409 `vehicle_merged`); it no longer carries `old_vin`
@@ -116,14 +125,14 @@ def correct_vehicle_vin(
                 action=action,
                 compensation=compensation,
             )
-        configuration_changed = False
+        configuration_vin_changed = configuration_relinked = False
         if configuration_id is not None:
-            configuration_changed = follow_vehicle_vin_correction(
+            configuration_vin_changed, configuration_relinked = follow_vehicle_vin_correction(
                 own,
                 tenant_id=tenant_id,
                 configuration_id=configuration_id,
                 old_vin=old_vin,
-                new_vin=new_vin,
+                new_vin=old_vin if relink_configuration_only else new_vin,
                 reason=reason,
                 actor_id=actor_id,
                 action=action,
@@ -135,7 +144,8 @@ def correct_vehicle_vin(
             vin=vehicle.vin,
             previous_vin=old_vin,
             record_changed=record_changed,
-            configuration_changed=configuration_changed,
+            configuration_vin_changed=configuration_vin_changed,
+            configuration_relinked=configuration_relinked,
         )
 
 

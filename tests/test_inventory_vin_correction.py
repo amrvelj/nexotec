@@ -367,6 +367,36 @@ def test_the_compensation_never_puts_back_a_record_this_correction_did_not_chang
     assert [row.entity_type for row in _audit(db_session, "vin_corrected")] == ["vehicle_configuration"]
 
 
+def test_the_compensation_of_a_configuration_only_relinked_keeps_its_vin(client, db_session, monkeypatch):
+    """The reviewer's KAN-510 case: the configurator had already corrected
+    the configuration's VIN (it named no car), so Vehicle wrote the record and
+    only re-linked the configuration. A failed stock write puts the record
+    back and unlinks the configuration again — it never gives the
+    configuration the old, wrong VIN."""
+
+    item, tenant_id = _bought(client, db_session)
+    configuration = db_session.get(VehicleConfiguration, uuid.UUID(item["configurationId"]))
+    configuration.vin = NEW_VIN
+    configuration.vehicle_id = None
+    db_session.commit()
+
+    def _fail(*_args, **_kwargs):
+        raise RuntimeError("stock write failed")
+
+    monkeypatch.setattr(stock_item_service, "_write_corrected_vin", _fail)
+
+    with pytest.raises(RuntimeError):
+        _correct(client, _manager(tenant_id), item)
+
+    assert _state(db_session, item) == (VIN, VIN, NEW_VIN)
+    db_session.expire_all()
+    assert db_session.get(VehicleConfiguration, configuration.id).vehicle_id is None
+    reverted = {row.entity_type: row for row in _audit(db_session, "vin_correction_reverted")}
+    assert (reverted["vehicle_mdm"].before["vin"], reverted["vehicle_mdm"].after["vin"]) == (NEW_VIN, VIN)
+    assert reverted["vehicle_configuration"].before["vin"] == reverted["vehicle_configuration"].after["vin"] == NEW_VIN
+    assert reverted["vehicle_configuration"].after["vehicleId"] is None
+
+
 def test_the_compensation_of_an_unchanged_record_and_configuration_writes_nothing(client, db_session, monkeypatch):
     item, tenant_id = _bought(client, db_session, configuration_vin=None)
     vehicle = db_session.get(VehicleMdm, uuid.UUID(item["vehicleId"]))

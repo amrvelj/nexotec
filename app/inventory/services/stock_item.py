@@ -703,21 +703,26 @@ def correct_vin(
         _write_corrected_vin(db, item=item, old_vin=old_vin, new_vin=new_vin, reason=data.reason, actor_id=actor_id)
         db.commit()
     except Exception:
-        db.rollback()
+        # Compensate while this transaction still holds the item's row lock
+        # (it is aborted, not ended), so no second correction of the item can
+        # slip in between; Vehicle's own session needs nothing from this one.
         if vehicle.record_changed or vehicle.configuration_changed:
-            # Only what this call changed is put back: a record or
-            # configuration already carrying the new VIN stays as it was.
+            # Only what this call changed is put back: a record already
+            # carrying the new VIN stays; a configuration it only re-linked
+            # is re-linked, never given the old VIN.
             _compensate_vin_correction(
                 db,
                 vehicle_id=vehicle.vehicle_id,
                 tenant_id=tenant_id,
                 configuration_id=configuration_id if vehicle.configuration_changed else None,
                 include_record=vehicle.record_changed,
+                relink_configuration_only=not vehicle.configuration_vin_changed,
                 old_vin=old_vin,
                 new_vin=new_vin,
                 reason=data.reason,
                 actor_id=actor_id,
             )
+        db.rollback()
         raise
     db.refresh(item)
     return item
@@ -781,6 +786,7 @@ def _compensate_vin_correction(
     tenant_id: uuid.UUID,
     configuration_id: uuid.UUID | None,
     include_record: bool,
+    relink_configuration_only: bool,
     old_vin: str,
     new_vin: str,
     reason: str,
@@ -788,7 +794,11 @@ def _compensate_vin_correction(
 ) -> None:
     """ADR-047's compensating action: Vehicle puts the old VIN back on what
     this correction changed — the record when `include_record`, the
-    configuration when `configuration_id` is given — and nothing else. A failure here is logged at
+    configuration when `configuration_id` is given (only its link, when
+    `relink_configuration_only`) — and nothing else. The two legs share
+    Vehicle's one transaction: should the configuration leg be refused (it
+    names a third VIN by now), the record's revert is rolled back with it,
+    logged at ERROR and reported by reconciliation. A failure here is logged at
     ERROR and left to the nightly reconciliation, which reports a stock item
     whose VIN differs from its record's or its configuration's."""
 
@@ -804,6 +814,7 @@ def _compensate_vin_correction(
             configuration_id=configuration_id,
             compensation=True,
             include_record=include_record,
+            relink_configuration_only=relink_configuration_only,
         )
     except Exception:
         logger.exception(

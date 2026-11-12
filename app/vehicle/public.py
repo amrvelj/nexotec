@@ -317,6 +317,7 @@ def correct_vehicle_vin(
     configuration_id: uuid.UUID | None = None,
     compensation: bool = False,
     include_record: bool = True,
+    relink_configuration_only: bool = False,
 ) -> CorrectedVehicleVin:
     """KAN-557 (ADR-116 (2)-(3)): Stock's «VIN korrigieren» asks Vehicle,
     which owns the VIN, to rewrite the record's VIN from `old_vin` to
@@ -325,7 +326,9 @@ def correct_vehicle_vin(
     session of Vehicle's own, committed before this returns, so the caller's
     pending work is neither committed nor rolled back (ADR-047). Compare and
     set: a record already carrying `new_vin` writes nothing again (a retry).
-    The answer says what changed (`record_changed`, `configuration_changed`);
+    The answer says what changed (`record_changed`, `configuration_vin_changed`,
+    `configuration_relinked`); a re-linked configuration is compensated with
+    `relink_configuration_only=True`;
     the compensation is the same call with the VINs swapped,
     `compensation=True`, and only what changed — `include_record=False` and
     no `configuration_id` leave either alone. Refusals: 404, 409 `vehicle_merged`,
@@ -343,6 +346,7 @@ def correct_vehicle_vin(
         configuration_id=configuration_id,
         compensation=compensation,
         include_record=include_record,
+        relink_configuration_only=relink_configuration_only,
     )
 
 
