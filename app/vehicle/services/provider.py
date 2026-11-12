@@ -114,7 +114,7 @@ def _record_mapping_gap(
 
 
 def resolve_mapping_gap(
-    db: Session, *, gap: MappingGap, canonical_list_code: str, canonical_value_code: str, actor_id: uuid.UUID
+    db: Session, *, gap: MappingGap, canonical_list_code: str, canonical_value_code: str, actor_id: uuid.UUID | None
 ) -> bool:
     """Admin action (PR-8): resolving a gap both marks it resolved AND
     writes the ProviderCodeMap row it was missing, so the same provider
@@ -132,6 +132,9 @@ def resolve_mapping_gap(
     mapping already exists but the gap is still open (a seed migration such
     as `7c4e9a2b6d13` mapped the key later): the gap is closed against the
     existing row, never a second insert. Returns True when anything changed.
+
+    `actor_id` is None only for a system resolve from a script
+    (`catalogue_admin.resolve_gap`, which then requires its reason; KAN-649).
 
     The gap row is locked and re-read first, so two admins resolving the same
     gap at once are serialised: the second sees the first one's commit and is

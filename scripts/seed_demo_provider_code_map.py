@@ -12,7 +12,18 @@ none (idempotent; a row the mock already has is left alone), which is what the
 browse's vehicle-kind translation needs. The mock's fixtures carry auto-i's
 own codes as the identAPI sends them (KAN-550: vehicle kind `01`, gearbox
 `1`/`5`), so the demo variants' coded fields resolve once this ran.
-Vehicle context only; run once per local or staging database:
+Then every open mapping gap of the demo provider whose key is now mapped is
+resolved to that mapping (KAN-649) through the production path,
+`catalogue_admin.resolve_gap`: the gap is closed against the existing row and
+the variants, provider configurations, options, colours and tyres it left
+NULL are filled, with the resolve's audit row (no actor: a system resolve,
+its reason `REASON`). A gap whose code is still unmapped stays open; one
+whose mapping the resolve refuses (a value deactivated since) stays open and
+is counted as refused.
+
+Vehicle context only; idempotent. Run it once per local or staging database,
+and again after every deploy whose migration seeds new `auto_i_dat`
+mappings (KAN-587's size classes, say):
 
     python scripts/seed_demo_provider_code_map.py
 
@@ -25,11 +36,14 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.errors import ConflictError, UnprocessableEntityError
 from app.db import SessionLocal
-from app.vehicle.models.provider import ProviderCodeMap
+from app.vehicle.models.provider import MappingGap, ProviderCodeMap
+from app.vehicle.services import catalogue_admin
 
 REAL_PROVIDER = "auto_i_dat"
 DEMO_PROVIDER = "auto_i_dat_mock"
+REASON = "kan649_demo_provider_code_map_seeded"
 
 
 def copy_code_map(db: Session) -> int:
@@ -94,13 +108,54 @@ def seed_demo_option_groups(db: Session) -> int:
     return added
 
 
+def resolve_mapped_demo_gaps(db: Session) -> tuple[int, int]:
+    """Resolves every open gap of the demo provider whose key the code map
+    now holds, to that mapping (KAN-649). Returns (resolved, refused): a gap
+    `resolve_gap` refuses is rolled back alone and stays open. Each resolve
+    commits on its own, as an admin's does."""
+
+    open_gaps = db.scalars(
+        select(MappingGap)
+        .where(MappingGap.provider == DEMO_PROVIDER, MappingGap.resolved.is_(False))
+        .order_by(MappingGap.code_group, MappingGap.provider_code)
+    ).all()
+    mapped = {
+        (row.vehicle_kind, row.code_group, row.provider_code): row
+        for row in db.scalars(select(ProviderCodeMap).where(ProviderCodeMap.provider == DEMO_PROVIDER))
+    }
+    targets = [
+        (gap.id, mapped[(gap.vehicle_kind, gap.code_group, gap.provider_code)])
+        for gap in open_gaps
+        if (gap.vehicle_kind, gap.code_group, gap.provider_code) in mapped
+    ]
+    resolved = refused = 0
+    for gap_id, mapping in targets:
+        gap = db.get(MappingGap, gap_id)
+        if gap is None:
+            continue
+        try:
+            catalogue_admin.resolve_gap(
+                db, gap=gap, canonical_list_code=mapping.canonical_list_code,
+                canonical_value_code=mapping.canonical_value_code, actor_id=None, system_reason=REASON,
+            )
+        except (ConflictError, UnprocessableEntityError) as exc:
+            db.rollback()
+            refused += 1
+            print(f"gap {gap_id} ({mapping.code_group} {mapping.provider_code}) left open: {exc}")
+            continue
+        resolved += 1
+    return resolved, refused
+
+
 def main() -> None:
     db = SessionLocal()
     try:
         added = copy_code_map(db) + seed_demo_option_groups(db)
+        resolved, refused = resolve_mapped_demo_gaps(db)
     finally:
         db.close()
     print(f"demo provider code map: {added} row(s) added for {DEMO_PROVIDER}.")
+    print(f"demo provider gaps: {resolved} resolved to their mapping, {refused} left open (refused).")
 
 
 if __name__ == "__main__":

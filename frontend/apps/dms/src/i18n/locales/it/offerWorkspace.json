@@ -19,7 +19,12 @@
     "creditBlockTitle": "Blocco creditizio",
     "creditBlockBody": "Questo cliente ha un blocco creditizio ({{reason}}) — un’offerta è possibile, un contratto non può essere confermato.",
     "doNotContactTitle": "Non contattare",
-    "doNotContactBody": "Questo cliente è contrassegnato come \"non contattare\" — né l’offerta né un contratto possono proseguire."
+    "doNotContactBody": "Questo cliente è contrassegnato come \"non contattare\" — né l’offerta né un contratto possono proseguire.",
+    "mergedRefused": "Questo cliente è stato unito a un altro e non può più essere scelto come acquirente.",
+    "mergedTitle": "Cliente unito",
+    "mergedInto": "Il cliente scelto è stato unito a {{name}} ({{customerNumber}}).",
+    "mergedIntoUnknown": "Il cliente scelto è stato unito a un altro. Cerchi il cliente in cui è stato unito.",
+    "useSurvivor": "Scegliere {{name}}"
   },
   "vehicle": {
     "emptyHint": "Dal proprio magazzino — numero di magazzino, VIN o targa.",

@@ -133,6 +133,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       if (details.reason === 'contract_not_pending') return t('contractDetail.errors.editRefused.notPending')
       if (details.reason === 'contract_priced_without_inputs') return t('contractDetail.edit.pricedWithoutInputs')
     }
+    // KAN-656: the buyer chosen was merged into another; the customer
+    // container offers the survivor.
+    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'customer_merged') {
+      return t('offerWorkspace.customer.mergedRefused')
+    }
     return t('contractDetail.errors.editRefused.generic')
   }
 

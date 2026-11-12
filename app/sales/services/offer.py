@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_or_404
+from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_or_404, resolve_live_customer_id
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership
@@ -42,24 +42,16 @@ def resolve_customer_label(customer: Customer) -> str:
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
 
 
-def apply_customer_change(
-    db: Session, *, deal: PricedDeal, group_id: uuid.UUID, customer_id: uuid.UUID | None, host: str
-) -> None:
-    """Sets or clears the buyer of an offer draft or a pending contract —
-    one rule for both (the contract's since KAN-307, Anto 2026-10-12:
-    "the same as offer generation"; ADR-083 amended). `customer_id` is
-    resolved server-side into the denormalized label and correspondence
-    language on every change (never trusted from the client). `host` ends
-    the do-not-contact refusal ("an offer", "a contract"). The caller has
-    checked the deal is editable and owns the transaction."""
+def refuse_unattachable_customer(db: Session, *, customer: Customer, group_id: uuid.UUID, host: str) -> None:
+    """The buyer rules an offer and a contract share, on create and on every
+    change of buyer: a do-not-contact customer is refused (ADR-065/S-D19),
+    and so is a merged one (KAN-656) — its record no longer exists as a
+    working record, and an attach after `sales.customer_merged` moved the
+    deals to the survivor would leave this deal behind on the duplicate.
+    The refusal names the live customer the merge chain ends at, as an
+    allocation's does (KAN-365), so the screen can offer it. `host` ends
+    the sentence ("an offer", "a contract")."""
 
-    if customer_id is None:
-        deal.customer_id = None
-        deal.customer_label = None
-        deal.customer_language = None
-        deal.customer_denorm_refreshed_at = None
-        return
-    customer = get_customer_or_404(db, group_id, customer_id)
     # ADR-065/S-D19 — do-not-contact stops BOTH the offer and the
     # contract (it's about contact, not credit); a credit block is
     # the opposite case and deliberately does NOT stop here — it
@@ -70,6 +62,38 @@ def apply_customer_change(
             f"Customer {customer.customer_number} is do-not-contact — cannot be attached to {host}.",
             details={"reason": "customer_do_not_contact", "customerNumber": customer.customer_number},
         )
+    if customer.lifecycle_status == CustomerLifecycleStatus.MERGED:
+        survivor_id = resolve_live_customer_id(db, group_id=group_id, customer_id=customer.id)
+        raise ConflictError(
+            f"Customer {customer.customer_number} has been merged into another — cannot be attached to {host}; "
+            "attach the customer it was merged into.",
+            details={
+                "reason": "customer_merged",
+                "mergedIntoCustomerId": str(survivor_id) if survivor_id else None,
+            },
+        )
+
+
+def apply_customer_change(
+    db: Session, *, deal: PricedDeal, group_id: uuid.UUID, customer_id: uuid.UUID | None, host: str
+) -> None:
+    """Sets or clears the buyer of an offer draft or a pending contract —
+    one rule for both (the contract's since KAN-307, Anto 2026-10-12:
+    "the same as offer generation"; ADR-083 amended). `customer_id` is
+    resolved server-side into the denormalized label and correspondence
+    language on every change (never trusted from the client). A
+    do-not-contact or merged customer is refused
+    (`refuse_unattachable_customer`); `host` ends its sentence. The caller has
+    checked the deal is editable and owns the transaction."""
+
+    if customer_id is None:
+        deal.customer_id = None
+        deal.customer_label = None
+        deal.customer_language = None
+        deal.customer_denorm_refreshed_at = None
+        return
+    customer = get_customer_or_404(db, group_id, customer_id)
+    refuse_unattachable_customer(db, customer=customer, group_id=group_id, host=host)
     deal.customer_id = customer.id
     deal.customer_label = resolve_customer_label(customer)
     # CLAUDE.md's own rule: "the customer's correspondence language
