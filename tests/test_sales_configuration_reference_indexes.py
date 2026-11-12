@@ -50,7 +50,28 @@ def test_the_safety_nets_query_is_answered_by_the_index(db_session):
     db_session.rollback()
 
 
-def test_the_safety_net_still_answers_which_ids_are_held(db_session):
-    assert SalesOffer.__table__.c.configuration_id.index is True
-    assert SalesContract.__table__.c.trade_in_configuration_id.index is True
-    assert referenced_configuration_ids(db_session, [uuid.uuid4()]) == set()
+def test_the_safety_net_answers_which_ids_are_held(db_session):
+    """KAN-655: each of the four slot columns answers the id it holds, and
+    only that id — an unheld id among them is not reported."""
+
+    tenant_id = uuid.uuid4()
+    offer_config, offer_trade_in, contract_config, contract_trade_in = (uuid.uuid4() for _ in range(4))
+    db_session.add_all(
+        [
+            SalesOffer(tenant_id=tenant_id, offer_number="O-655-1", configuration_id=offer_config),
+            SalesOffer(tenant_id=tenant_id, offer_number="O-655-2", trade_in_configuration_id=offer_trade_in),
+            SalesContract(tenant_id=tenant_id, contract_number="C-655-1", configuration_id=contract_config),
+            SalesContract(
+                tenant_id=tenant_id, contract_number="C-655-2", trade_in_configuration_id=contract_trade_in
+            ),
+        ]
+    )
+    db_session.flush()
+    every_held = {offer_config, offer_trade_in, contract_config, contract_trade_in}
+    unheld = uuid.uuid4()
+
+    assert referenced_configuration_ids(db_session, [*every_held, unheld]) == every_held
+    for one in every_held:
+        assert referenced_configuration_ids(db_session, [one, unheld]) == {one}
+    assert referenced_configuration_ids(db_session, [unheld]) == set()
+    assert referenced_configuration_ids(db_session, []) == set()

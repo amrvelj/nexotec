@@ -394,3 +394,120 @@ def test_reconciliation_is_clean_once_the_provider_ended_the_grant(client, db_se
     db_session.expire_all()
 
     assert _findings(db_session) == set()
+
+
+# --- KAN-559: the daily repair ends what the consumer could not ----------------------
+
+
+def _repair_job():
+    from app.platform.daily_jobs import run_daily_revoked_grant_repair
+
+    return run_daily_revoked_grant_repair
+
+
+def test_a_dead_lettered_revocation_is_ended_by_the_next_nights_repair(client, db_session, engine, revoker_calls):
+    """An outage longer than the outbox's ~30 s of retries dead-letters the
+    event; the next night's repair asks the provider again and records the end."""
+
+    calls, state = revoker_calls
+    state["fail_first"] = MAX_ATTEMPTS
+    _, grant = _revoke_through_the_api(client, db_session)
+    [message] = _revoked_events(db_session, grant.id)
+    dead = _poll_until_settled(db_session, engine, _transport(engine), message.id, rounds=MAX_ATTEMPTS + 1)
+    assert dead.status == OutboxStatus.DEAD
+    assert db_session.get(UserConnectedAccount, grant.id).secret_ref == grant.secret_ref
+
+    run = connected_account.repair_revoked_grants(db_session)
+
+    assert run == connected_account.GrantRepairRun(ended=1, no_revoker=0, failed=0)
+    assert len(calls) == MAX_ATTEMPTS + 1 and calls[-1].connected_account_id == grant.id
+    db_session.expire_all()
+    row = db_session.get(UserConnectedAccount, grant.id)
+    assert row.status == ConnectedAccountStatus.REVOKED and row.secret_ref is None
+    assert _ended_audits(db_session, grant.id) == 1
+
+    # Ended once: a second night asks nobody.
+    assert connected_account.repair_revoked_grants(db_session) == connected_account.GrantRepairRun(0, 0, 0)
+    assert len(calls) == MAX_ATTEMPTS + 1
+    assert _ended_audits(db_session, grant.id) == 1
+
+
+def test_a_grant_revoked_before_its_revoker_was_registered_is_ended_once_one_is(client, db_session, engine):
+    """The consumer marks the event processed when no revoker is registered:
+    it is never redelivered. The repair re-runs it once a revoker exists."""
+
+    _, grant = _revoke_through_the_api(client, db_session)
+    secret_ref = grant.secret_ref
+    [message] = _revoked_events(db_session, grant.id)
+    _transport(engine).deliver(message)
+    assert db_session.scalar(select(func.count()).select_from(ProcessedEvent)) >= 1
+
+    assert connected_account.repair_revoked_grants(db_session) == connected_account.GrantRepairRun(0, 1, 0)
+    db_session.expire_all()
+    assert db_session.get(UserConnectedAccount, grant.id).secret_ref == secret_ref, "nothing to end it with yet"
+
+    calls: list[RevokedGrant] = []
+    register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, calls.append)
+    try:
+        assert connected_account.repair_revoked_grants(db_session) == connected_account.GrantRepairRun(1, 0, 0)
+    finally:
+        platform_public.unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
+
+    assert [c.connected_account_id for c in calls] == [grant.id]
+    assert calls[0].secret_ref == secret_ref
+    db_session.expire_all()
+    assert db_session.get(UserConnectedAccount, grant.id).secret_ref is None
+    assert _ended_audits(db_session, grant.id) == 1
+
+
+def test_one_refusing_grant_does_not_hold_back_the_others(client, db_session, caplog):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    refused = _grant(db_session, anna, label="refused@garage.ch")
+    ended = _grant(db_session, anna, label="ended@garage.ch")
+    active = _grant(db_session, anna, label="still-linked@garage.ch")
+    for grant in (refused, ended):
+        response = client.delete(f"/v1/me/connected-accounts/{grant.id}", headers={**_as(anna), "If-Match": "1"})
+        assert response.status_code == 200, response.text
+
+    asked: list[uuid.UUID] = []
+
+    def _revoker(grant: RevokedGrant) -> None:
+        asked.append(grant.connected_account_id)
+        if grant.connected_account_id == refused.id:
+            raise RuntimeError("graph.microsoft.com refused")
+
+    register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _revoker)
+    try:
+        with caplog.at_level("INFO"):
+            _repair_job()(db_session)
+    finally:
+        platform_public.unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
+
+    assert set(asked) == {refused.id, ended.id}, "an active grant is never asked"
+    db_session.expire_all()
+    assert db_session.get(UserConnectedAccount, refused.id).secret_ref == refused.secret_ref
+    assert db_session.get(UserConnectedAccount, ended.id).secret_ref is None
+    assert db_session.get(UserConnectedAccount, active.id).secret_ref == active.secret_ref
+    assert db_session.get(UserConnectedAccount, active.id).status == ConnectedAccountStatus.ACTIVE
+    assert _ended_audits(db_session, ended.id) == 1 and _ended_audits(db_session, refused.id) == 0
+    summary = [r for r in caplog.records if "repair: ended=" in r.getMessage()]
+    assert summary and summary[-1].levelname == "ERROR"
+    assert "ended=1 no_revoker=0 failed=1" in summary[-1].getMessage()
+    assert all(refused.secret_ref not in r.getMessage() for r in caplog.records), "no reference in a log line"
+
+
+def test_the_worker_registers_the_repair_after_reconciliation():
+    from app.core import daily_scheduler
+    from app.worker import register_daily_jobs
+
+    saved = dict(daily_scheduler._REGISTRY)
+    daily_scheduler._REGISTRY.clear()
+    try:
+        register_daily_jobs()
+        names = daily_scheduler.registered_job_names()
+        assert daily_scheduler._REGISTRY["platform.connected_account.repair"] is _repair_job()
+    finally:
+        daily_scheduler._REGISTRY.clear()
+        daily_scheduler._REGISTRY.update(saved)
+    assert names.index("reconciliation.run_all") < names.index("platform.connected_account.repair")

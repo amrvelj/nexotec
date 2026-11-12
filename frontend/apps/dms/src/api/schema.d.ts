@@ -2917,7 +2917,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Dealer Groups */
+        /**
+         * List Dealer Groups
+         * @description The groups whose name contains `q`, by name, one page at a time
+         *     (KAN-652): the wizard's group picker asks as the user types.
+         */
         get: operations["list_dealer_groups_v1_platform_dealer_groups_get"];
         put?: never;
         post?: never;
@@ -7079,10 +7083,15 @@ export interface components {
             /** Name */
             name: string;
         };
-        /** DealerGroupOptionList */
+        /**
+         * DealerGroupOptionList
+         * @description One page of groups, by name (KAN-652): the shared page shape.
+         */
         DealerGroupOptionList: {
             /** Items */
             items: components["schemas"]["DealerGroupOption"][];
+            /** Nextcursor */
+            nextCursor: string | null;
         };
         /** DealerGroupRead */
         DealerGroupRead: {
@@ -9378,6 +9387,7 @@ export interface components {
             stammnummer: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber: string;
+            variant: components["schemas"]["VariantCandidateRead"] | null;
             /** Vehiclekindcode */
             vehicleKindCode: string;
         };
@@ -20002,7 +20012,12 @@ export interface operations {
     };
     list_dealer_groups_v1_platform_dealer_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Name contains (case-insensitive). */
+                q?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };

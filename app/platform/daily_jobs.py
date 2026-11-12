@@ -1,4 +1,4 @@
-"""The daily job `app/worker.py` registers for platform (KAN-200; Dealer
+"""The daily jobs `app/worker.py` registers for platform. The first (KAN-200; Dealer
 Administration FR-A-12): a user whose `valid_to` has passed is deactivated
 automatically — "a leaver whose access depends on someone remembering is
 the most common real-world security failure in a dealership". Nobody is
@@ -19,6 +19,9 @@ list no longer carries them), and the nightly reconciliation of each module
 reports an open record whose owner is deactivated for as long as it lasts
 (rule 10: monitored, never assumed).
 
+The second (KAN-559, `run_daily_revoked_grant_repair`) ends at the provider
+every revoked connected-account grant still holding a reference.
+
 Runs where `python -m app.worker` runs; staging runs no worker (ADR-081).
 """
 
@@ -36,7 +39,7 @@ from app.core.permissions import AccessRole
 from app.db import SessionLocal
 from app.platform.models.user import User, UserStatus
 from app.platform.schemas.user import UserUpdate
-from app.platform.services import notifications, ownership, push_subscriptions
+from app.platform.services import connected_account, notifications, ownership, push_subscriptions
 from app.platform.services import user as user_service
 
 logger = logging.getLogger(__name__)
@@ -195,4 +198,25 @@ def run_daily_notification_purge(db: Session) -> None:
         purged,
         orphaned,
         extra={"purged": purged, "orphanedSubscriptions": orphaned},
+    )
+
+
+def run_daily_revoked_grant_repair(db: Session) -> None:
+    """KAN-559 (FR-AU-24; ADR-118): a leaver's mailbox grant must end at the
+    provider. A revoked grant still holding a reference — its event
+    dead-lettered during an outage longer than the outbox's retries, or
+    consumed before its provider's revoker was registered — is ended now,
+    by `connected_account.repair_revoked_grants`. Registered after
+    `reconciliation.run_all` (ADR-047's addendum: finding and fixing stay
+    apart), so the night's report names the grant before it is repaired."""
+
+    run = connected_account.repair_revoked_grants(db)
+    level = logging.ERROR if run.failed else logging.INFO
+    logger.log(
+        level,
+        "platform.connected_account.repair: ended=%d no_revoker=%d failed=%d",
+        run.ended,
+        run.no_revoker,
+        run.failed,
+        extra={"ended": run.ended, "noRevoker": run.no_revoker, "failed": run.failed},
     )

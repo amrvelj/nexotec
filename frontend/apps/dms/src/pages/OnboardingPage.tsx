@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Alert, Button, Checkbox, Group, MultiSelect, Paper, Radio, Select, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
+import { useDebouncedValue } from '@mantine/hooks'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Wizard, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { Picker, Wizard, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import type { AccessRole, DealerGroupOptionList, FranchiseType, OnboardingRequest, OnboardingResult, UserRole } from '../api/types'
 import { useListOptions } from '../components/business/useListOptions'
@@ -16,10 +17,17 @@ import { apiRefusalText } from '../utils/apiRefusal'
 export const ONBOARDING_MODULES = ['sales', 'aftersales', 'parts', 'finance', 'reporting'] as const
 type ModuleCode = (typeof ONBOARDING_MODULES)[number]
 
+/** KAN-652: the group step asks the server for one page of groups whose
+ * name holds what the user typed — never the whole table. */
+export const GROUP_PAGE_SIZE = 20
+
 interface Form {
   groupMode: 'new' | 'existing'
   newGroupName: string
   dealerGroupId: string | null
+  /** The picked group's name, kept for the review step: the search list
+   * changes as the user types, so the name is not looked up there again. */
+  dealerGroupName: string
   legalName: string
   tradeName: string
   franchiseType: string | null
@@ -43,6 +51,7 @@ const EMPTY: Form = {
   groupMode: 'new',
   newGroupName: '',
   dealerGroupId: null,
+  dealerGroupName: '',
   legalName: '',
   tradeName: '',
   franchiseType: null,
@@ -83,10 +92,18 @@ export function OnboardingPage() {
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((current) => ({ ...current, [key]: value }))
 
+  const [groupSearch, setGroupSearch] = useState('')
+  const [debouncedGroupSearch] = useDebouncedValue(groupSearch.trim(), 250)
   const groups = useQuery({
-    queryKey: ['platform-dealer-groups'],
-    queryFn: () => api.get<DealerGroupOptionList>('/platform/dealer-groups'),
+    queryKey: ['platform-dealer-groups', debouncedGroupSearch],
+    queryFn: () =>
+      api.get<DealerGroupOptionList>(
+        `/platform/dealer-groups?${new URLSearchParams({ q: debouncedGroupSearch, limit: String(GROUP_PAGE_SIZE) })}`,
+      ),
+    enabled: form.groupMode === 'existing',
+    placeholderData: keepPreviousData,
   })
+  const groupRows = useMemo(() => (groups.data?.items ?? []).map((g) => ({ id: g.id, label: g.name })), [groups.data])
   const legalForms = useListOptions('legal_form')
 
   const steps = useMemo(
@@ -169,6 +186,7 @@ export function OnboardingPage() {
             onClick={() => {
               setResult(null)
               setForm(EMPTY)
+              setGroupSearch('')
               setStep(0)
             }}
           >
@@ -180,7 +198,7 @@ export function OnboardingPage() {
   }
 
   const groupName =
-    form.groupMode === 'new' ? form.newGroupName : (groups.data?.items.find((g) => g.id === form.dealerGroupId)?.name ?? '—')
+    form.groupMode === 'new' ? form.newGroupName : form.dealerGroupName || '—'
   const reviewRows: [string, string][] = [
     [t('onboarding.review.group'), groupName],
     [t('business.legal.legalName'), form.legalName],
@@ -206,6 +224,7 @@ export function OnboardingPage() {
           onNext={() => (step === steps.length - 1 ? void submit() : setStep((s) => s + 1))}
           onCancel={() => {
             setForm(EMPTY)
+            setGroupSearch('')
             setStep(0)
             setError(null)
           }}
@@ -228,15 +247,36 @@ export function OnboardingPage() {
               {form.groupMode === 'new' ? (
                 <TextInput label={t('onboarding.group.newName')} value={form.newGroupName} onChange={(e) => set('newGroupName', e.currentTarget.value)} required />
               ) : (
-                <Select
-                  label={t('onboarding.group.pick')}
-                  data={(groups.data?.items ?? []).map((g) => ({ value: g.id, label: g.name }))}
-                  value={form.dealerGroupId}
-                  onChange={(v) => set('dealerGroupId', v)}
-                  searchable
-                  nothingFoundMessage={t('common.noMatches')}
-                  required
-                />
+                <Stack gap={4}>
+                  <Text size="sm" fw={500} id="onboarding-group-pick">
+                    {t('onboarding.group.pick')}
+                  </Text>
+                  {form.dealerGroupId ? (
+                    <Group gap="sm" data-testid="onboarding-picked-group">
+                      <Text>{form.dealerGroupName}</Text>
+                      <Button
+                        variant="subtle"
+                        size="xs"
+                        onClick={() => setForm((current) => ({ ...current, dealerGroupId: null, dealerGroupName: '' }))}
+                      >
+                        {t('onboarding.group.change')}
+                      </Button>
+                    </Group>
+                  ) : (
+                    // KAN-652: the server searches; the picker shows its page as it came.
+                    <Picker
+                      rows={groupRows}
+                      query={groupSearch}
+                      onQueryChange={setGroupSearch}
+                      onSelect={(row) => setForm((current) => ({ ...current, dealerGroupId: row.id, dealerGroupName: row.label }))}
+                      placeholder={t('onboarding.group.searchPlaceholder')}
+                      inputLabel={t('onboarding.group.pick')}
+                      loading={groups.isPending}
+                      emptyLabel={t('common.noMatches')}
+                      autoFocus={false}
+                    />
+                  )}
+                </Stack>
               )}
             </Stack>
           )}

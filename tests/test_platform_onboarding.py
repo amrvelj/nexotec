@@ -20,6 +20,7 @@ from app.platform.models.number_range import NumberRange
 from app.platform.models.user import User, UserStatus
 from tests.dealership_support import seed_business_reference_lists, valid_uid
 from tests.identity_support import PasswordLogin, cookie_headers, create_dealership, create_user, platform_admin_headers
+from tests.postgres_only import NON_ASCII_CASE_FOLDING
 
 
 @pytest.fixture(autouse=True)
@@ -264,3 +265,77 @@ def test_the_result_says_whether_the_invitation_went_out(client, db_session):
     assert response.json()["invitationDelivered"] is False
     # The Betrieb and the manager stand; staff re-issue the invitation.
     assert response.json()["managerStatus"] == "invited"
+
+
+# --- KAN-652: the group picker searches and pages -----------------------------
+
+
+def _groups(db_session, *names: str) -> None:
+    db_session.add_all([DealerGroup(name=name) for name in names])
+    db_session.commit()
+
+
+def _page(client, **params) -> dict:
+    response = client.get("/v1/platform/dealer-groups", params=params, headers=platform_admin_headers())
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_the_group_list_pages_by_name_with_the_shared_cursor(client, db_session):
+    _groups(db_session, "KAN652 Delta", "KAN652 Alpha", "KAN652 Charlie", "KAN652 Bravo", "KAN652 Echo")
+
+    names: list[str] = []
+    cursor = None
+    pages = 0
+    while True:
+        params = {"q": "KAN652", "limit": 2} | ({"cursor": cursor} if cursor else {})
+        body = _page(client, **params)
+        assert len(body["items"]) <= 2
+        names += [item["name"] for item in body["items"]]
+        pages += 1
+        cursor = body["nextCursor"]
+        if cursor is None:
+            break
+        assert pages < 5, "the cursor never ends"
+
+    assert pages == 3
+    assert names == ["KAN652 Alpha", "KAN652 Bravo", "KAN652 Charlie", "KAN652 Delta", "KAN652 Echo"]
+
+
+def test_the_group_list_searches_the_name(client, db_session):
+    _groups(db_session, "Garage Emil Frey", "Auto Emilio", "Bären Garage", "100% Auto", "Auto_Gruppe")
+
+    assert [item["name"] for item in _page(client, q="emil")["items"]] == ["Auto Emilio", "Garage Emil Frey"]
+    # `%` and `_` are letters, not wildcards
+    assert [item["name"] for item in _page(client, q="100%")["items"]] == ["100% Auto"]
+    assert [item["name"] for item in _page(client, q="o_g")["items"]] == ["Auto_Gruppe"]
+    assert _page(client, q="nothing like this")["items"] == []
+
+
+@NON_ASCII_CASE_FOLDING
+def test_the_group_search_folds_case_beyond_ascii(client, db_session):
+    """«BÄREN» finds «Bären Garage», the search term trimmed (KAN-652)."""
+
+    _groups(db_session, "Bären Garage", "Barenboim AG")
+
+    assert [item["name"] for item in _page(client, q="  BÄREN ")["items"]] == ["Bären Garage"]
+
+
+def test_the_group_list_is_bounded_and_refuses_a_bad_cursor(client, db_session):
+    _groups(db_session, *(f"KAN652 bound {n:02d}" for n in range(3)))
+    headers = platform_admin_headers()
+
+    assert client.get("/v1/platform/dealer-groups", params={"limit": 0}, headers=headers).status_code == 422
+    assert client.get("/v1/platform/dealer-groups", params={"limit": 10_000}, headers=headers).status_code == 422
+    assert client.get("/v1/platform/dealer-groups", params={"cursor": "not-a-cursor"}, headers=headers).status_code == 400
+    body = _page(client, q="KAN652 bound", limit=1)
+    assert len(body["items"]) == 1 and body["nextCursor"]
+
+
+def test_the_group_list_is_platform_staff_only(client, mailbox, db_session):
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    manager_headers = cookie_headers(PasswordLogin(client, mailbox).session_cookie(manager))
+
+    assert client.get("/v1/platform/dealer-groups", params={"q": "a"}, headers=manager_headers).status_code == 403
+    assert client.get("/v1/platform/dealer-groups").status_code == 401

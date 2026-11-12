@@ -52,3 +52,10 @@ ROW_LOCKS = pytest.mark.skipif(
 SAVEPOINT_ROLLBACK = pytest.mark.skipif(
     _ON_SQLITE, reason="rolls back work done under a savepoint: pysqlite commits on its release (KAN-651)"
 )
+
+# Case-insensitive matching beyond ASCII (`ILIKE` on «Bären» for «BÄREN»):
+# Postgres folds case by the database's ctype; SQLite's LIKE folds ASCII
+# letters only (KAN-652).
+NON_ASCII_CASE_FOLDING = pytest.mark.skipif(
+    _ON_SQLITE, reason="folds case beyond ASCII: SQLite's LIKE folds ASCII letters only (KAN-652)"
+)

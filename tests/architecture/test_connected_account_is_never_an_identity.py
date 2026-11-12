@@ -17,7 +17,7 @@ So two checks, by source (grep-based, like test_no_ambient_group_read):
    the model, its table or its service.
 2. The model and its table are named only in an exact allowlist: the model,
    the one service that reads and writes it, the registry, and platform's
-   reconciliation (it checks the actor ids). Everything
+   reconciliation (it checks the actor ids and the revoked grants' states). Everything
    else — the `/v1/me` routes, the manager's routes, the deactivation —
    goes through the service's functions, so a new reader is a deliberate
    entry here, never an accident.
@@ -49,8 +49,9 @@ _ALLOWED_MODEL_READERS = {
     _APP_ROOT / "platform" / "services" / "connected_account.py",
     # Registers every model on Base.metadata; reads nothing.
     _APP_ROOT / "model_registry.py",
-    # Nightly reconciliation checks its actor columns against `user` (KAN-243);
-    # it reads ids, never a grant.
+    # Nightly reconciliation checks its actor columns against `user` (KAN-243)
+    # and reports a revoked grant still holding a reference (KAN-412); it reads
+    # ids and states, never a grant's value.
     _APP_ROOT / "platform" / "reconciliation.py",
 }
 

@@ -75,11 +75,12 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
 - **A repair the nightly run makes (ADR-047: "a failure after commit is repaired by the nightly
   reconciliation job") is a daily job of the owning context with its own record, never part of
   reconciliation** — finding and fixing stay apart (Anto, 2026-10-08, KAN-122; ADR-047
-  addendum). It is registered after `reconciliation.run_all`. Two today: Stock's
+  addendum). It is registered after `reconciliation.run_all`. Three today: Stock's
   orphan-reservation sweep (`inventory.orphaned_reservations.release`; see
-  `.claude/rules/inventory.md`) and the expiry job's retry of a hand-over a module refused
+  `.claude/rules/inventory.md`), the expiry job's retry of a hand-over a module refused
   (`platform.user_expiry`, KAN-200, 30 days; the Sales and Customers StateChecks name the record
-  meanwhile).
+  meanwhile) and the end at the provider of a revoked connected-account grant still holding a
+  reference (`platform.connected_account.repair`, KAN-559; the platform StateCheck names it first).
 - **A context learns that another holds its record from the holder's own fact, never inside the
   holder's transaction** (KAN-270, ADR-047, rule 2): Vehicle stamps `vehicle_configuration.first_taken_at`
   from `sales.offer.configuration_attached`, `sales.contract.configuration_attached`,

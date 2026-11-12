@@ -148,4 +148,48 @@ describe('OnboardingPage (KAN-210)', () => {
     expect(await screen.findByText(/Die Einladung an martina@example.ch konnte nicht zugestellt werden/)).toBeInTheDocument()
     expect(screen.queryByText(/ist verschickt/)).toBeNull()
   })
+
+  it('searches the groups on the server as the user types, one page at a time (KAN-652)', async () => {
+    const ALL = [
+      { id: 'g-1', name: 'Emil Gruppe' },
+      { id: 'g-2', name: 'Garage Emilio' },
+      { id: 'g-3', name: 'Bären Garage' },
+    ]
+    const backend = installFakeBackend([
+      LEGAL_FORMS,
+      {
+        method: 'GET',
+        match: /\/platform\/dealer-groups$/,
+        handler: (req) => {
+          const q = (req.params.get('q') ?? '').toLowerCase()
+          return { items: ALL.filter((g) => g.name.toLowerCase().includes(q)), nextCursor: null }
+        },
+      },
+    ])
+    const user = userEvent.setup()
+    renderWithProviders(<OnboardingPage />, { route: '/platform/onboarding' })
+
+    // The new-group path asks for no list at all.
+    await screen.findByRole('textbox', { name: /Name der Gruppe/ })
+    expect(backend.callsTo(/\/platform\/dealer-groups$/)).toHaveLength(0)
+
+    await user.click(screen.getByRole('radio', { name: 'Bestehende Gruppe' }))
+    expect(await screen.findByText('Bären Garage')).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: 'Gruppe wählen' }), 'emil')
+
+    await waitFor(() =>
+      expect(backend.callsTo(/\/platform\/dealer-groups$/).some((c) => c.params.get('q') === 'emil')).toBe(true),
+    )
+    await waitFor(() => expect(screen.queryByText('Bären Garage')).toBeNull())
+    for (const call of backend.callsTo(/\/platform\/dealer-groups$/)) expect(call.params.get('limit')).toBe('20')
+    expect(screen.getByText('Garage Emilio')).toBeInTheDocument()
+
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+    await user.click(screen.getByText('Garage Emilio'))
+    expect(screen.getByTestId('onboarding-picked-group')).toHaveTextContent('Garage Emilio')
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Andere Gruppe wählen' }))
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+  })
 })
