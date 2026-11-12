@@ -10,18 +10,29 @@ holds, so this catches what that path and Sales' synchronous calls left
 behind: a confirmation whose compensating release failed, an event that
 dead-lettered, a contract Sales no longer has.
 
-ADR-047 (CLAUDE.md rule 12): Sales' read and Stock's write never share a
-transaction. Three steps, each on a session of its own:
+Since KAN-630 (ADR-131: Stock sits below Sales) Stock no longer asks Sales:
+the statuses come from its own projection of Sales' contract facts
+(app.inventory.services.sales_contract), read with the facts Sales has
+committed that the projection has not applied yet. Three steps:
 
 1. Stock lists its own reserved items, and ends that read.
-2. Sales answers the owning contracts' statuses through
-   `app.sales.public.get_contract_statuses` (plain data), per tenant.
+2. Per tenant, the projection answers the owning contracts' statuses, and
+   which of them have a fact still in flight (outbox lag, a dead letter).
 3. Each orphan is released by `release()` on a session of its own: it
    locks the item, finds it by the reservation id read in step 1, and
    commits — so one failing release never rolls back another. A
    reservation that changed since step 1 (released, or made again under a
    new id) is not found and is skipped. The idempotency key is per
    reservation, as every release's is (KAN-114).
+
+Fail safe where the projection may be behind (KAN-630): a cancelled
+contract is released (cancelled is final, however late the other facts
+are); a contract with a fact not applied yet keeps its car this night
+(`kept_unsynced`) — its confirmation may be the fact in flight, and freeing
+a signed contract's car is the one outcome this sweep must never produce;
+and a contract the projection has never heard of counts as missing only
+once its backfill is recorded, because before it a contract older than the
+consumers (a legacy sale among them) is simply not in the projection.
 
 Safety margin: a pending contract's reservation made less than
 `PENDING_MARGIN` ago is left for the next run. `confirm_contract` commits
@@ -56,9 +67,14 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.errors import NotFoundError
+from app.inventory.models.sales_contract import ProjectedContractStatus
 from app.inventory.models.stock_item import ReservationState, StockItem
 from app.inventory.services.reservation import release
-from app.sales.public import ContractStatus, get_contract_statuses
+from app.inventory.services.sales_contract import (
+    backfill_recorded,
+    contract_statuses,
+    contracts_with_unapplied_facts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +82,7 @@ PENDING_MARGIN = dt.timedelta(hours=1)
 
 # A signed contract keeps its car; every other status, and no contract at
 # all, makes the reservation an orphan.
-_SIGNED = frozenset({ContractStatus.CONFIRMED, ContractStatus.INVOICED})
+_SIGNED = frozenset({ProjectedContractStatus.CONFIRMED, ProjectedContractStatus.INVOICED})
 
 
 @dataclasses.dataclass(frozen=True)
@@ -82,11 +98,13 @@ class _Reservation:
 class SweepResult:
     """What one run did. `released` holds stock item ids; the rest count
     reservations: kept for a signed contract, kept inside the pending
-    margin, changed since they were read (skipped), or failed to release."""
+    margin, kept while the projection may be behind (KAN-630), changed
+    since they were read (skipped), or failed to release."""
 
     released: list[uuid.UUID] = dataclasses.field(default_factory=list)
     kept_signed: int = 0
     kept_recent: int = 0
+    kept_unsynced: int = 0
     changed: int = 0
     failed: list[uuid.UUID] = dataclasses.field(default_factory=list)
 
@@ -108,19 +126,24 @@ def release_orphaned_reservations(db: Session, *, now: dt.datetime | None = None
         by_tenant.setdefault(reservation.tenant_id, []).append(reservation)
 
     for tenant_id, tenant_reservations in by_tenant.items():
-        with Session(bind=bind, autoflush=False, expire_on_commit=False) as sales_db:
-            statuses = get_contract_statuses(
-                sales_db,
-                tenant_id=tenant_id,
-                contract_ids=[r.contract_id for r in tenant_reservations if r.contract_id is not None],
-            )
+        contract_ids = [r.contract_id for r in tenant_reservations if r.contract_id is not None]
+        with Session(bind=bind, autoflush=False, expire_on_commit=False) as projection_db:
+            statuses = contract_statuses(projection_db, tenant_id=tenant_id, contract_ids=contract_ids)
+            in_flight = contracts_with_unapplied_facts(projection_db, tenant_id=tenant_id, contract_ids=contract_ids)
+            backfilled = backfill_recorded(projection_db)
 
         for reservation in tenant_reservations:
             status = statuses.get(reservation.contract_id) if reservation.contract_id is not None else None
-            if status in _SIGNED:
+            if status == ProjectedContractStatus.CANCELLED:
+                _release_one(bind, reservation, result)
+            elif reservation.contract_id in in_flight:
+                result.kept_unsynced += 1
+            elif status in _SIGNED:
                 result.kept_signed += 1
-            elif status == ContractStatus.PENDING and now - reservation.reserved_at < PENDING_MARGIN:
+            elif status == ProjectedContractStatus.PENDING and now - reservation.reserved_at < PENDING_MARGIN:
                 result.kept_recent += 1
+            elif status is None and reservation.contract_id is not None and not backfilled:
+                result.kept_unsynced += 1
             else:
                 _release_one(bind, reservation, result)
 

@@ -13,6 +13,11 @@ and `consumer_name` of each:
   transmission consumers `inventory.marketplace_transmission_on_publish` /
   `_on_unpublish` (`handle_stock_item_published_message` /
   `handle_stock_item_unpublished_message`, KAN-27, ADR-062).
+- `sales.contract.created` / `.confirmed` / `.invoice_requested` /
+  `.cancelled` -> `inventory.sales_contract_projection_on_*`
+  (`handle_sales_contract_fact_message`, KAN-630): Stock's projection of the
+  contracts its orphan sweep and «Einkauf stornieren» need
+  (app.inventory.services.sales_contract; the names are its `CONSUMERS`).
 """
 
 from sqlalchemy.orm import Session
@@ -22,6 +27,7 @@ from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.reservation import record_contract_cancelled
+from app.inventory.services.sales_contract import apply_contract_message
 
 
 def handle_sales_contract_confirmed_message(db: Session, message: OutboxMessage) -> None:
@@ -66,3 +72,11 @@ def handle_sales_contract_cancelled_message(db: Session, message: OutboxMessage)
         contract_label=message.payload["contractNumber"],
         cancelled_at=message.occurred_at,
     )
+
+
+def handle_sales_contract_fact_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-630 — one of Sales' four contract facts merged into Stock's
+    projection (order-free, so redelivery and reordering change nothing; the
+    harness makes a redelivery a no-op in the first place)."""
+
+    apply_contract_message(db, message)

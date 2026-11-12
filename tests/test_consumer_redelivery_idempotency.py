@@ -31,6 +31,7 @@ from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.inventory.models.sales_contract import InventorySalesContract, ProjectedContractStatus
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
@@ -131,6 +132,47 @@ def _contract_cancelled(db_session, engine, monkeypatch):
         )
 
     return message, releases
+
+
+def _contract_projection(event_type: str, status: ProjectedContractStatus):
+    """KAN-630 — Stock's projection of Sales' contracts takes each of the
+    four contract facts from the real producer, once: the measure counts the
+    contract's projection row holding what that fact proves (its status; for
+    the invoice request, the request and its car too)."""
+
+    def fixture(db_session, engine, monkeypatch):
+        dealership = _dealership(db_session)
+        contract = _confirmed_manual_contract(db_session, engine, dealership)
+        if event_type == "sales.contract.invoice_requested":
+            item = _stock_creates_the_pipeline_item(db_session, contract)
+            _deliver_added(db_session, item)
+            _stock_buys_it(db_session, item)
+            db_session.refresh(contract)
+            request_invoice(
+                db_session, contract=contract, actor_id=uuid.uuid4(), group_id=dealership.dealer_group_id,
+                session_factory=_session_factory(engine),
+            )
+        elif event_type == "sales.contract.cancelled":
+            cancel_contract(
+                db_session, contract=contract, reason="Kunde tritt zurück", actor_id=uuid.uuid4(),
+                session_factory=_session_factory(engine),
+            )
+        message = _message(db_session, event_type, contract.id)
+
+        def projected(db: Session) -> int:
+            stmt = select(func.count()).select_from(InventorySalesContract).where(
+                InventorySalesContract.contract_id == contract.id, InventorySalesContract.status == status
+            )
+            if event_type == "sales.contract.invoice_requested":
+                stmt = stmt.where(
+                    InventorySalesContract.invoice_requested_at.is_not(None),
+                    InventorySalesContract.stock_item_id.is_not(None),
+                )
+            return db.scalar(stmt)
+
+        return message, projected
+
+    return fixture
 
 
 def _stock_item_added(db_session, engine, monkeypatch):
@@ -593,6 +635,18 @@ _FIXTURES: dict[str, Fixture] = {
     "platform.connected_account_provider_revocation": _connected_account_revoked,
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
+    "inventory.sales_contract_projection_on_created": _contract_projection(
+        "sales.contract.created", ProjectedContractStatus.PENDING
+    ),
+    "inventory.sales_contract_projection_on_confirmed": _contract_projection(
+        "sales.contract.confirmed", ProjectedContractStatus.CONFIRMED
+    ),
+    "inventory.sales_contract_projection_on_invoice_requested": _contract_projection(
+        "sales.contract.invoice_requested", ProjectedContractStatus.CONFIRMED
+    ),
+    "inventory.sales_contract_projection_on_cancelled": _contract_projection(
+        "sales.contract.cancelled", ProjectedContractStatus.CANCELLED
+    ),
     "sales.stock_item_added": _stock_item_added,
     "sales.stock_item_purchased": _stock_item_purchased,
     "sales.stock_item_storno": _stock_item_storno,

@@ -12,13 +12,11 @@ worker's nightly responsible-seller label refresh and its sync-age gauge.
 the same for the customer's label on open offers, pending contracts and their
 deal rows.
 
-`get_contract_statuses` (KAN-122) is Stock's read for its nightly
-reservation sweep: plain statuses, never an ORM row, and the caller runs it
-on a session of its own (ADR-047).
-
-`contract_with_invoice_requested_for_stock_item` (KAN-146) is Stock's read
-before it stornos a purchase: a contract on the car whose invoice was
-requested, by number. A SELECT only, on the caller's own session.
+`list_contract_facts` / `ContractFacts` (KAN-630) are the read of Stock's
+projection backfill (scripts/backfill_inventory_sales_contract_projection.py):
+every contract's status, number, car and invoice request, as plain data, a
+page at a time. A SELECT only. Stock itself never calls Sales (ADR-131): its
+sweep and «Einkauf stornieren» read the projection its consumers keep.
 
 `get_trade_in_seller` (KAN-189) is the customer context's read when a trade-in
 is bought: the contract's customer and since when it is known, plain data.
@@ -36,10 +34,7 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.sales.services.configuration_reference import referenced_configuration_ids
-from app.sales.services.contract_status import (
-    contract_with_invoice_requested_for_stock_item,
-    get_contract_statuses,
-)
+from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.customer_label import oldest_customer_label_age_seconds, refresh_customer_labels
 from app.sales.services.numbering import legacy_offer_counters
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
@@ -48,6 +43,7 @@ from app.sales.services.trade_in_seller import TradeInSeller, get_trade_in_selle
 from app.sales.services.valuation_carry import ContractValuationCarry, trade_in_valuation_carries
 
 __all__ = [
+    "ContractFacts",
     "ContractStatus",
     "ContractValuationCarry",
     "SalesContract",
@@ -55,10 +51,9 @@ __all__ = [
     "SalesOwnershipProvider",
     "TradeInSeller",
     "Transaction",
-    "contract_with_invoice_requested_for_stock_item",
-    "get_contract_statuses",
     "get_trade_in_seller",
     "legacy_offer_counters",
+    "list_contract_facts",
     "oldest_customer_label_age_seconds",
     "oldest_owner_label_age_seconds",
     "referenced_configuration_ids",

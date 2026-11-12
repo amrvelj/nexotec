@@ -102,5 +102,17 @@ for ADR-126 (KAN-638). Fix this file in the same PR as any change to what it sta
   seller's line edits; dismiss keeps the accepted prices. Reconciliation reports an open deal whose
   frozen (or accepted) price differs, unflagged. After the deploy, run
   `scripts/backfill_vehicle_changed_flags.py` (dry run, then `--commit`) once per environment.
+- **Stock's projection of Sales' contracts** (KAN-630, ADR-131: Stock imports nothing from Sales):
+  `inventory_sales_contract` (inventory migration `c3b63d706c11`), fed by `sales.contract.created` /
+  `.confirmed` / `.invoice_requested` / `.cancelled` (consumers `inventory.sales_contract_projection_on_*`,
+  `inventory/services/sales_contract.py`); an order-free merge (status only rises, cancelled final).
+  The orphan sweep and «Einkauf stornieren» read it **plus the facts the consumer has not applied**
+  (no processed-event row and not published, or published before the consumers existed until a
+  backfill run is recorded in `inventory_sales_contract_backfill`) — fail safe against the outbox's
+  delay: an unapplied fact keeps the car reserved and refuses the storno. Nightly reconciliation
+  reports a row differing from its contract (contract unchanged for an hour), a contract over an hour
+  old with no row, and a row naming no contract or Betrieb. After the deploy, once the old worker has
+  stopped, run `scripts/backfill_inventory_sales_contract_projection.py` (dry run, then `--commit`)
+  once per environment.
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

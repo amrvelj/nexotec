@@ -52,11 +52,16 @@ from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
     handle_sales_contract_cancelled_message,
     handle_sales_contract_confirmed_message,
+    handle_sales_contract_fact_message,
     handle_stock_item_published_message,
     handle_stock_item_unpublished_message,
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
-from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
+from app.inventory.public import (
+    SALES_CONTRACT_PROJECTION_CONSUMERS,
+    oldest_configuration_label_age_seconds,
+    refresh_configuration_labels,
+)
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
@@ -130,6 +135,10 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="inventory.sales_contract_cancelled",
         handler=handle_sales_contract_cancelled_message,
     )
+    # KAN-630 — Stock's projection of Sales' contracts, which its orphan sweep
+    # and «Einkauf stornieren» read instead of asking Sales (ADR-131).
+    for event_type, consumer_name in SALES_CONTRACT_PROJECTION_CONSUMERS.items():
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_sales_contract_fact_message)
     # WP-8 PR-6 — the second real consumer: sales.stock_item_purchased
     # maintains its own local is_invoiceable replica (ADR-052).
     transport.register(
