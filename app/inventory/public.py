@@ -28,7 +28,9 @@ purchase fact as it is now (delivery is unordered); a SELECT only, a bool.
 `SALES_CONTRACT_PROJECTION_CONSUMERS` (KAN-630) is the worker's list of
 Stock's consumers of Sales' contract facts; `apply_backfilled_contract` and
 `record_backfill` are the projection backfill's writes
-(scripts/backfill_inventory_sales_contract_projection.py), commit-free.
+(scripts/backfill_inventory_sales_contract_projection.py), commit-free;
+`backfill_recorded` (KAN-678) is whether a run of it has been committed —
+the legacy transaction import re-runs it only then. A SELECT only, a bool.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -42,7 +44,7 @@ from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
-from app.inventory.services.sales_contract import apply_backfilled_contract, record_backfill
+from app.inventory.services.sales_contract import apply_backfilled_contract, backfill_recorded, record_backfill
 from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers, is_stock_item_purchased
 from app.inventory.services.valuation import set_valuation_ref
 from app.inventory.services.vehicle_link import get_stock_item_vehicle
@@ -55,6 +57,7 @@ __all__ = [
     "StockItem",
     "StockItemCondition",
     "apply_backfilled_contract",
+    "backfill_recorded",
     "get_stock_item_or_404",
     "get_stock_item_pricing",
     "get_stock_item_vehicle",

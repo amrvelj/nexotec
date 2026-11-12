@@ -217,9 +217,25 @@ language (`customer_language`), as a live offer does — a migrated document
 is never printed in the German fallback for a French, Italian or English
 customer (KAN-73).
 
+Stock's projection of Sales' contracts (KAN-678). This import writes
+contracts without publishing `sales.contract.*`, so Stock's projection
+(`inventory_sales_contract`, KAN-630) never hears of them, and the nightly
+check «sales_contract missing from inventory_sales_contract» would name each
+one every night. So a --commit run that wrote a contract ends by running the
+projection backfill (scripts/backfill_inventory_sales_contract_projection.py,
+re-runnable, in a transaction of its own after the import's commit) — but
+only on an environment where that backfill has already been recorded. Where
+it has not, the environment's first backfill run is still due and covers
+these contracts too; recording a run from here would tell the orphan sweep
+to trust a projection nobody has checked the old worker against. The report
+says which of the two happened. If the refresh fails, the import stays
+committed, the error is printed and the exit code is 1: run the backfill
+script by hand.
+
 Exit code: 0 when the run completed (dry or committed), 1 when it aborted
 on an unexpected error — everything rolled back, nothing written, whether or
-not --commit was given.
+not --commit was given — or when a committed import could not refresh
+Stock's projection.
 
 Usage:
     DMS_DATABASE_URL=... python scripts/migrate_transaction_rows.py            # dry run (default)
@@ -229,10 +245,13 @@ Usage:
 import argparse
 import contextlib
 import dataclasses
+import importlib.util
 import sys
 import uuid
 from collections.abc import Iterator
 from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
+from types import ModuleType
 
 from sqlalchemy import event, select
 from sqlalchemy.engine import Connection, Engine
@@ -241,6 +260,7 @@ from sqlalchemy.orm import Session
 from app.customer.models.customer import Customer, CustomerType
 from app.db import SessionLocal
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
+from app.inventory.public import backfill_recorded
 from app.inventory.services.stock_item import allocate_stock_number
 from app.platform.models.dealership import Dealership
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
@@ -300,6 +320,11 @@ class MigrationReport:
     # Whether --commit was given, so an aborted commit run is never labelled
     # a dry run (`committed` is False for both).
     commit_requested: bool = False
+
+    def wrote_a_contract(self) -> bool:
+        """A migrated sale: the one row type that creates a sales_contract."""
+
+        return any(row.outcome == "migrated" and row.new_contract_id is not None for row in self.outcomes)
 
     def summary(self) -> str:
         counts: dict[str, int] = {}
@@ -896,6 +921,47 @@ def _run_rows(db: Session, *, commit: bool) -> MigrationReport:
     return MigrationReport(committed=commit, total_rows=len(rows), outcomes=outcomes, commit_requested=commit)
 
 
+def _load_projection_backfill() -> ModuleType:
+    """The sibling script, by path: `scripts/` is no package, so neither
+    `python scripts/migrate_transaction_rows.py` nor an importer from the
+    repository root can name it by one import statement."""
+
+    name = "backfill_inventory_sales_contract_projection"
+    loaded = sys.modules.get(name)
+    if loaded is not None:
+        return loaded
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load scripts/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    # Registered before execution: a dataclass resolves its annotations
+    # through sys.modules.
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _refresh_stock_projection() -> str:
+    """KAN-678 (module docstring): after a committed import that wrote a
+    contract. Its own sessions and its own commit — the import is already
+    committed."""
+
+    db = SessionLocal()
+    try:
+        recorded = backfill_recorded(db)
+    finally:
+        db.close()
+    if not recorded:
+        return (
+            "Stock's projection of Sales' contracts: NOT refreshed — no projection backfill is recorded on this "
+            "environment yet. Its first run (scripts/backfill_inventory_sales_contract_projection.py --commit) "
+            "covers the contracts imported above; until then the nightly check names them (KAN-678)."
+        )
+    projection_backfill = _load_projection_backfill()
+    projection_report = projection_backfill.backfill(commit=True, session_factory=SessionLocal)
+    return str(projection_backfill.render(projection_report, committed=True))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -911,7 +977,20 @@ def main(argv: list[str] | None = None) -> int:
         db.close()
 
     print(report.summary())
-    return 1 if report.aborted else 0
+    if report.aborted:
+        return 1
+    if not report.committed or not report.wrote_a_contract():
+        return 0
+    try:
+        print(_refresh_stock_projection())
+    except Exception as exc:  # noqa: BLE001 — the import is committed; report, never crash
+        print(
+            "Stock's projection of Sales' contracts: REFRESH FAILED — the import above is committed. "
+            f"{type(exc).__name__}: {exc}\n"
+            "Run scripts/backfill_inventory_sales_contract_projection.py --commit by hand (KAN-678)."
+        )
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
