@@ -5,19 +5,20 @@ import { Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
 import { api } from '../api/client'
-import { buildConnectionRowMenu, connectionAccountIdentifier, settableSecretSlots } from '../components/connectionRowMenu'
+import { buildConnectionRowMenu, connectionAccountIdentifier } from '../components/connectionRowMenu'
+import { ConnectionUsageModal } from '../components/ConnectionUsageModal'
 import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
+import { RotateSecretModal } from '../components/RotateSecretModal'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useFieldHint } from '../hooks/useFieldHint'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDate, formatNumber } from '../utils/format'
+import { formatDate } from '../utils/format'
 import type {
   IntegrationConnectionPage,
   IntegrationConnectionRead,
   IntegrationProviderPage,
   IntegrationProviderRead,
-  IntegrationUsageRead,
 } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
 
@@ -176,7 +177,7 @@ export function IntegrationDealerView() {
         }}
         onCreatedWithoutSecret={() => void invalidate()}
       />
-      <UsageModal connection={usageFor} onClose={() => setUsageFor(null)} />
+      <ConnectionUsageModal connection={usageFor} onClose={() => setUsageFor(null)} />
       <RotateSecretModal
         connection={rotatingFor}
         requiredSecretSlots={rotatingFor ? providersById.get(rotatingFor.providerId)?.requiredSecretSlots ?? [] : []}
@@ -323,165 +324,6 @@ function ConnectDialog({
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={() => void submit()} loading={submitting}>{t('integrationsList.actions.connect')}</Button>
-        </Group>
-      </Stack>
-    </Modal>
-  )
-}
-
-// The 30-day sum of cost_units, a DECIMAL(12, 4) column (app/integration/
-// models/call_log.py), arrives as a decimal string; shown at that scale so the
-// fourth decimal is never rounded away (KAN-164). A double holds it exactly up
-// to about 1e11 units, far beyond any indicative usage figure.
-const COST_UNITS_SCALE = 4
-
-function formatCostUnits(value: string | null): string {
-  return value === null ? '—' : formatNumber(Number(value), COST_UNITS_SCALE)
-}
-
-function UsageModal({ connection, onClose }: { connection: IntegrationConnectionRead | null; onClose: () => void }) {
-  const { t } = useTranslation()
-  const usageQuery = useQuery({
-    queryKey: ['integrations', 'usage', connection?.id],
-    queryFn: () => api.get<IntegrationUsageRead>(`/integrations/connections/${connection!.id}/usage`),
-    enabled: connection !== null,
-  })
-
-  if (!connection) return null
-
-  return (
-    <Modal opened onClose={onClose} title={t('integrationsList.usageModal.title', { name: connection.displayName })}>
-      <Stack gap="xs">
-        {usageQuery.isLoading ? (
-          <Text size="sm" c="dimmed">{t('common.loading')}</Text>
-        ) : (
-          <>
-            <KeyValueRow label={t('integrationsList.usageModal.calls')}>
-              {formatNumber(usageQuery.data?.callsThisPeriod ?? 0)}
-            </KeyValueRow>
-            <KeyValueRow label={t('integrationsList.usageModal.cost')}>
-              {formatCostUnits(usageQuery.data?.costUnitsThisPeriod ?? null)}
-            </KeyValueRow>
-            <Text size="xs" c="dimmed">{t('integrationsList.usageModal.indicative')}</Text>
-          </>
-        )}
-      </Stack>
-    </Modal>
-  )
-}
-
-function RotateSecretModal({
-  connection,
-  requiredSecretSlots,
-  onClose,
-  onRotated,
-}: {
-  connection: IntegrationConnectionRead | null
-  requiredSecretSlots: readonly string[]
-  onClose: () => void
-  onRotated: () => void
-}) {
-  const { t } = useTranslation()
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  // KAN-607 — the slots this attempt replaced before a later one was refused,
-  // and the slot that was refused.
-  const [savedBeforeRefusal, setSavedBeforeRefusal] = useState<string[]>([])
-  const [refusedSlot, setRefusedSlot] = useState<string | null>(null)
-  // The modal stays mounted for every connection: closing it, or opening it
-  // for another connection, starts clean — no refusal, no typed value from
-  // an earlier attempt.
-  useEffect(() => {
-    setValues({})
-    setError(null)
-    setSavedBeforeRefusal([])
-    setRefusedSlot(null)
-  }, [connection?.id])
-
-  if (!connection) return null
-
-  const slotLabel = (slot: string) => t(`integrationEnums.secretSlot.${slot}`, slot)
-  // KAN-603 — every slot the provider requires, set or not, so a connection
-  // whose first secret write failed can be given it here.
-  const slots = settableSecretSlots(connection, requiredSecretSlots)
-  const stored = new Set<string>((connection.secretSlots ?? []).map((s) => s.slot))
-  const nothingStored = stored.size === 0
-
-  const submit = async () => {
-    setSubmitting(true)
-    setError(null)
-    setSavedBeforeRefusal([])
-    setRefusedSlot(null)
-    const saved: string[] = []
-    let current: string | null = null
-    try {
-      for (const slot of slots) {
-        const value = values[slot]
-        if (!value) continue
-        current = slot
-        await api.put(`/integrations/connections/${connection.id}/secrets/${slot}`, { secretValue: value })
-        saved.push(slot)
-      }
-      onRotated()
-      onClose()
-    } catch (err) {
-      // KAN-607 — a refused write is said in the UI language, the dialog stays
-      // open with what was typed, and the slots already replaced are named:
-      // their rotation happened even though a later one was refused.
-      setError(apiRefusalText(t, err, 'integrationsList.rotateError'))
-      setSavedBeforeRefusal(saved)
-      setRefusedSlot(current)
-      if (saved.length > 0) onRotated()
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={t(nothingStored ? 'integrationsList.rotateModal.titleSet' : 'integrationsList.rotateModal.title', {
-        name: connection.displayName,
-      })}
-    >
-      <Stack gap="sm">
-        {error && (
-          <Stack gap={4} role="alert">
-            {/* With slots already saved, the refusal is said as the refused
-                slot's: its sentence («nothing was saved») is about that slot. */}
-            {savedBeforeRefusal.length > 0 && (
-              <Text size="sm">
-                {t('integrationsList.rotateModal.savedBeforeRefusal', {
-                  slots: savedBeforeRefusal.map(slotLabel).join(', '),
-                  refused: refusedSlot ? slotLabel(refusedSlot) : '—',
-                })}
-              </Text>
-            )}
-            <Text size="sm" c="red">{error}</Text>
-          </Stack>
-        )}
-        <Text size="xs" c="dimmed">{t('integrationsList.rotateModal.hint')}</Text>
-        {slots.map((slot) => (
-          <TextInput
-            key={slot}
-            label={slotLabel(slot)}
-            type="password"
-            placeholder={stored.has(slot) ? undefined : t('integrationsList.rotateModal.notSet')}
-            value={values[slot] ?? ''}
-            onChange={(e) => {
-              // KAN-249 — read before the updater (see ConnectDialog).
-              const value = e.currentTarget.value
-              setValues((prev) => ({ ...prev, [slot]: value }))
-            }}
-          />
-        ))}
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button onClick={() => void submit()} loading={submitting}>
-            {t(nothingStored ? 'integrationsList.actions.setSecret' : 'integrationsList.actions.rotateSecret')}
-          </Button>
         </Group>
       </Stack>
     </Modal>
