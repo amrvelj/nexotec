@@ -77,7 +77,9 @@
     "codedRequiredSaveError": "Da scegliere prima di salvare: {{fields}}.",
     "codedLocked": "Ripreso dal catalogo — non modificabile.",
     "listUnavailable": "Impossibile caricare l'elenco",
-    "energyLabelValue": "{{category}} ({{year}})"
+    "energyLabelValue": "{{category}} ({{year}})",
+    "energyLabelPdf": "Etichetta energetica (PDF)",
+    "energyLabelPdfGearbox": "Etichetta energetica {{gearbox}}: {{category}} (PDF)"
   },
   "options": {
     "noCatalogueVariant": "Le opzioni di catalogo non sono disponibili per una configurazione manuale.",
@@ -140,7 +142,11 @@
     "seasonLabel": {
       "summer": "Estate",
       "winter": "Inverno"
-    }
+    },
+    "rim": "Cerchio",
+    "rimValue": "{{rims}} ET{{offset}}",
+    "standard": "Di serie",
+    "catalogue": "Ruote secondo l’omologazione"
   },
   "images": {
     "noCatalogueVariant": "Le immagini di catalogo non sono disponibili per una configurazione manuale.",

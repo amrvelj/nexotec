@@ -77,7 +77,9 @@
     "codedRequiredSaveError": "Bitte vor dem Speichern wählen: {{fields}}.",
     "codedLocked": "Aus dem Katalog übernommen — nicht änderbar.",
     "listUnavailable": "Die Liste konnte nicht geladen werden",
-    "energyLabelValue": "{{category}} ({{year}})"
+    "energyLabelValue": "{{category}} ({{year}})",
+    "energyLabelPdf": "Energieetikette (PDF)",
+    "energyLabelPdfGearbox": "Energieetikette {{gearbox}}: {{category}} (PDF)"
   },
   "options": {
     "noCatalogueVariant": "Katalogoptionen sind für eine manuelle Konfiguration nicht verfügbar.",
@@ -140,7 +142,11 @@
     "seasonLabel": {
       "summer": "Sommer",
       "winter": "Winter"
-    }
+    },
+    "rim": "Felge",
+    "rimValue": "{{rims}} ET{{offset}}",
+    "standard": "Serie",
+    "catalogue": "Räder laut Typenschein"
   },
   "images": {
     "noCatalogueVariant": "Katalogbilder sind für eine manuelle Konfiguration nicht verfügbar.",

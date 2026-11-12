@@ -77,7 +77,9 @@
     "codedRequiredSaveError": "À choisir avant d'enregistrer : {{fields}}.",
     "codedLocked": "Repris du catalogue — non modifiable.",
     "listUnavailable": "La liste n'a pas pu être chargée",
-    "energyLabelValue": "{{category}} ({{year}})"
+    "energyLabelValue": "{{category}} ({{year}})",
+    "energyLabelPdf": "Étiquette énergie (PDF)",
+    "energyLabelPdfGearbox": "Étiquette énergie {{gearbox}} : {{category}} (PDF)"
   },
   "options": {
     "noCatalogueVariant": "Les options catalogue ne sont pas disponibles pour une configuration manuelle.",
@@ -140,7 +142,11 @@
     "seasonLabel": {
       "summer": "Été",
       "winter": "Hiver"
-    }
+    },
+    "rim": "Jante",
+    "rimValue": "{{rims}} ET{{offset}}",
+    "standard": "Série",
+    "catalogue": "Roues selon la réception par type"
   },
   "images": {
     "noCatalogueVariant": "Les images du catalogue ne sont pas disponibles pour une configuration manuelle.",

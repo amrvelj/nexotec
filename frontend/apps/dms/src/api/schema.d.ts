@@ -5088,6 +5088,7 @@ export interface components {
         CatalogueOptionRead: {
             /** Description */
             description: string;
+            descriptions?: components["schemas"]["ProviderTextsRead"];
             /** Equipmentfeatures */
             equipmentFeatures: string[];
             /**
@@ -5166,10 +5167,20 @@ export interface components {
         CatalogueTyreSpecRead: {
             /** Axle */
             axle: string | null;
+            /** Isstandard */
+            isStandard?: boolean | null;
             /** Loadindex */
             loadIndex: string | null;
             /** Remark */
             remark: string | null;
+            /** Rimoffset */
+            rimOffset?: number | null;
+            /** Rimsize */
+            rimSize?: number | null;
+            /** Rimwidth */
+            rimWidth?: string | null;
+            /** Rims */
+            rims?: string | null;
             /** Season */
             season: string | null;
             /** Size */
@@ -5420,6 +5431,23 @@ export interface components {
             wheelsSurcharge?: number | string | null;
         };
         /**
+         * ConfigurationEnergyLabelRead
+         * @description KAN-597 (ADR-142) — one gearbox's Energieetikette as the identAPI
+         *     delivers it: the class, the gearbox as delivered (null when the provider
+         *     named none) and the link to the label as PDF. Shown to the seller beside
+         *     the class; printed on no customer document.
+         */
+        ConfigurationEnergyLabelRead: {
+            /** Category */
+            category: string;
+            /** Gearbox */
+            gearbox: string | null;
+            /** Labelurl */
+            labelUrl: string | null;
+            /** Year */
+            year: number;
+        };
+        /**
          * ConfigurationEnergyRatingRead
          * @description The Energieetikette with the year it applied to (ADR-042) — the
          *     catalogue variant's rating for the car's year (KAN-479 option A).
@@ -5498,6 +5526,7 @@ export interface components {
         ConfigurationOptionRead: {
             /** Description */
             description: string;
+            descriptions?: components["schemas"]["ProviderTextsRead"];
             /** Equipmentfeatures */
             equipmentFeatures: string[];
             /**
@@ -5534,6 +5563,8 @@ export interface components {
             /** Branddisplayname */
             brandDisplayName: string | null;
             catalogueMatchStatus: components["schemas"]["ConfigurationMatchStatus"];
+            /** Cataloguetyrespecs */
+            catalogueTyreSpecs?: components["schemas"]["ConfigurationTyreSpecRead"][];
             /** Cataloguevariantid */
             catalogueVariantId: string | null;
             /** Cataloguevariantlabel */
@@ -5545,6 +5576,8 @@ export interface components {
             createdAt: string;
             /** Drivetrain */
             drivetrain: string | null;
+            /** Energylabels */
+            energyLabels?: components["schemas"]["ConfigurationEnergyLabelRead"][];
             energyRating?: components["schemas"]["ConfigurationEnergyRatingRead"] | null;
             /** Exteriorcolour */
             exteriorColour: string | null;
@@ -5623,6 +5656,38 @@ export interface components {
          * @enum {string}
          */
         ConfigurationSource: "provider" | "manual";
+        /**
+         * ConfigurationTyreSpecRead
+         * @description KAN-596 (FR-C-08) — one approved wheel of the catalogue variant as the
+         *     Betrieb stored it: dimension, axle and season (canonical codes, null
+         *     while a mapping gap), the provider's remark, and the rim it is approved
+         *     with. Read from the Betrieb's own tyre rows; null fields where the
+         *     provider sends none. Shown on the stock car's technical data.
+         */
+        ConfigurationTyreSpecRead: {
+            /** Axle */
+            axle: string | null;
+            /** Isstandard */
+            isStandard: boolean | null;
+            /** Loadindex */
+            loadIndex: string | null;
+            /** Remark */
+            remark: string | null;
+            /** Rimoffset */
+            rimOffset: number | null;
+            /** Rimsize */
+            rimSize: number | null;
+            /** Rimwidth */
+            rimWidth: string | null;
+            /** Rims */
+            rims: string | null;
+            /** Season */
+            season: string | null;
+            /** Size */
+            size: string;
+            /** Speedrating */
+            speedRating: string | null;
+        };
         /** ConfigurationUpdate */
         ConfigurationUpdate: {
             /**
@@ -8007,6 +8072,14 @@ export interface components {
             kind: components["schemas"]["LineItemKind"];
             /** Label */
             label: string;
+            /** Labelde */
+            labelDe?: string | null;
+            /** Labelen */
+            labelEn?: string | null;
+            /** Labelfr */
+            labelFr?: string | null;
+            /** Labelit */
+            labelIt?: string | null;
             /** Position */
             position: number;
             /** Quantity */
@@ -9571,6 +9644,17 @@ export interface components {
             supportsSandbox: boolean;
             /** Version */
             version: number;
+        };
+        /** ProviderTextsRead */
+        ProviderTextsRead: {
+            /** De */
+            de?: string | null;
+            /** En */
+            en?: string | null;
+            /** Fr */
+            fr?: string | null;
+            /** It */
+            it?: string | null;
         };
         /** ProviderUpdate */
         ProviderUpdate: {

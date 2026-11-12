@@ -77,7 +77,9 @@
     "codedRequiredSaveError": "Choose before saving: {{fields}}.",
     "codedLocked": "From the catalogue — cannot be changed.",
     "listUnavailable": "The list could not be loaded",
-    "energyLabelValue": "{{category}} ({{year}})"
+    "energyLabelValue": "{{category}} ({{year}})",
+    "energyLabelPdf": "Energy label (PDF)",
+    "energyLabelPdfGearbox": "Energy label {{gearbox}}: {{category}} (PDF)"
   },
   "options": {
     "noCatalogueVariant": "Catalogue options are not available for a manual configuration.",
@@ -140,7 +142,11 @@
     "seasonLabel": {
       "summer": "Summer",
       "winter": "Winter"
-    }
+    },
+    "rim": "Rim",
+    "rimValue": "{{rims}} ET{{offset}}",
+    "standard": "Standard",
+    "catalogue": "Wheels per type approval"
   },
   "images": {
     "noCatalogueVariant": "Catalogue images are not available for a manual configuration.",
