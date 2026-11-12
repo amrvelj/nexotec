@@ -54,7 +54,7 @@ re-verified against the code. -->
   (idempotent per item; its one production caller is purchase booking, ADR-103).
 - **Another context turns a VIN into a record only through `vehicle.public.resolve_vehicle_mdm_by_vin`**
   (KAN-337, `services/vin_resolution.py`): Vehicle's own session, a lost insert race resolved to the
-  winner's record (KAN-257), plain data back. No module outside `app/vehicle` names
+  winner's record (KAN-257), plain data back. No `app/` module outside `app/vehicle` names
   `create_or_get_vehicle_mdm` or copies the race predicate (`test_vin_resolution_is_vehicles.py`).
 - **A typed VIN is one spelling in every write** (FR-V-15): upper-cased, whitespace removed —
   `app.core.validators.NormalisedVin` (stock, trade-in; then ISO 3779) or

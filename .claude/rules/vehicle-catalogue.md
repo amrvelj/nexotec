@@ -49,7 +49,7 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
 - No full seed, no daily delta, no `FzKeyChanged` nor the identAPI's own changed-keys list
   `GET /vehiclecatalog/mutations/{sinceDate}` (refused by path and by method name, KAN-589),
   **no daily job reaching an integration provider through the gateway (KAN-485)** — the demo
-  provider (`auto_i_dat_mock`) too; a connected-account grant revoker (KAN-559) is not a gateway provider. A variant enters only through identification or a browsed page;
+  provider too; a connected-account grant revoker (KAN-559) is not a gateway provider. A variant enters only through identification or a browsed page;
   every variant either returns is stored through `upsert_model_variant` / `store_seen_variants`.
   `test_no_bulk_catalogue_retrieval.py` refuses `page[number]` outside the adapter and any
   catalogue query inside a loop or comprehension (its allow-list is by name, with the bound pinned).

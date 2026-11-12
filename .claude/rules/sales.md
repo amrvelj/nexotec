@@ -318,7 +318,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
   contract created straight from the customer, and every confirmation; a merged one every attach
-  (409 `customer_merged`, naming the survivor; KAN-656).
+  (409 `customer_merged`, `mergedIntoCustomerId`; KAN-656).
 
 ## Documents
 

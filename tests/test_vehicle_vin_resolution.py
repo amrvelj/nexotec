@@ -65,7 +65,7 @@ def test_an_unknown_vin_is_created_and_committed_without_committing_the_callers_
 def test_a_known_vin_returns_its_record_and_creates_nothing(db_session, engine):
     known, _created = create_or_get_vehicle_mdm(db_session, vin=VIN)
 
-    resolved = resolve_vehicle_mdm_by_vin(db_session, vin=VIN)
+    resolved = resolve_vehicle_mdm_by_vin(db_session, vin=VIN, actor_id=None)
 
     assert resolved == ResolvedVehicleMdm(id=known.id, vin=VIN)
     assert _count(engine, VIN) == 1
@@ -96,7 +96,7 @@ def test_a_lost_insert_race_returns_the_winners_record_and_keeps_the_callers_wor
 
     monkeypatch.setattr(vehicle_mdm_service, "get_vehicle_mdm_by_vin", lookup)
 
-    resolved = resolve_vehicle_mdm_by_vin(db_session, vin=VIN)
+    resolved = resolve_vehicle_mdm_by_vin(db_session, vin=VIN, actor_id=None)
 
     assert resolved == ResolvedVehicleMdm(id=winners[0], vin=VIN)
     assert _count(engine, VIN) == 1
@@ -115,6 +115,6 @@ def test_a_conflict_that_is_not_the_insert_race_reaches_the_caller(db_session, m
     monkeypatch.setattr(vehicle_mdm_service, "create_or_get_vehicle_mdm", refuse)
 
     with pytest.raises(ConflictError) as raised:
-        resolve_vehicle_mdm_by_vin(db_session, vin=VIN)
+        resolve_vehicle_mdm_by_vin(db_session, vin=VIN, actor_id=None)
 
     assert raised.value is refusal

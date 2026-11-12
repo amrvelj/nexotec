@@ -40,7 +40,7 @@ def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
 
 
 def resolve_vehicle_mdm_by_vin(
-    db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None, actor_id: uuid.UUID | None = None
+    db: Session, *, vin: str, actor_id: uuid.UUID | None, catalogue_variant_id: uuid.UUID | None = None
 ) -> ResolvedVehicleMdm:
     """Another context's one way from a VIN to its vehicle-mdm record
     (FR-V-04, FR-V-15: a VIN that already exists is the same car) — found,

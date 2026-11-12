@@ -33,6 +33,7 @@ from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
 from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
+from app.vehicle.services.vin_resolution import resolve_vehicle_mdm_by_vin as _resolve_vehicle_mdm_by_vin
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ def create_or_get_vehicle_mdm(
 
 
 def resolve_vehicle_mdm_by_vin(
-    db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None, actor_id: uuid.UUID | None = None
+    db: Session, *, vin: str, actor_id: uuid.UUID | None, catalogue_variant_id: uuid.UUID | None = None
 ) -> ResolvedVehicleMdm:
     """FR-V-04/FR-V-15: the vehicle-mdm record for `vin`, created if
     vehicle-mdm has never seen it — committed before this returns, on a
@@ -140,10 +141,9 @@ def resolve_vehicle_mdm_by_vin(
     purchase booking (ADR-045, ADR-103) is the caller today; KAN-337 moved
     the resolution here from `inventory/services/vehicle_resolution.py` so
     no context keeps a copy. Returns plain data. `actor_id` is the user
-    whose request created the record (null only for a system write, KAN-243).
+    whose request created the record — required, so no caller leaves out who
+    acted; `None` only for a system write (KAN-243).
     """
-
-    from app.vehicle.services.vin_resolution import resolve_vehicle_mdm_by_vin as _resolve_vehicle_mdm_by_vin
 
     return _resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
 
