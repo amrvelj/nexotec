@@ -260,6 +260,7 @@ _READS = {
     "app.customer.public.count_vehicle_parties_for_vehicles",
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
     "app.customer.public.customer_in_group",
+    "app.customer.public.customer_is_merged",  # KAN-581: the same, for a row naming a merged customer
     "app.customer.public.get_customer_or_404",
     "app.customer.public.get_customer_sales_labels",  # KAN-590: label read for sales.customer_labels
     "app.customer.public.has_usable_domicile_address",

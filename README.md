@@ -249,10 +249,14 @@ Every service that starts from this codebase migrates first — the web
 service in `render.yaml`, both `app` and `worker` in `docker-compose.yml`,
 and the Dockerfile's default `CMD` — so several `alembic upgrade heads` can
 run against one database at the same moment. That is safe:
-`alembic/env.py` takes a Postgres advisory lock (`pg_advisory_xact_lock`)
-inside the migration transaction, so a second run waits until the first
-commits and then finds nothing left to apply. CI proves it with
-`scripts/check_concurrent_alembic_upgrade.py` (KAN-92).
+`alembic/env.py` holds a session-level Postgres advisory lock on its
+connection for the whole run (polled with `pg_try_advisory_lock`), so a
+second run waits until the first has finished and then finds nothing left to
+apply — also across a migration that commits mid-run, as `CREATE INDEX
+CONCURRENTLY` does (KAN-179). CI proves it with
+`scripts/check_concurrent_alembic_upgrade.py` (KAN-92);
+`tests/test_migration_lock_spans_autocommit_blocks.py` proves the
+autocommit case.
 
 ```bash
 alembic upgrade heads                                              # apply every context's head

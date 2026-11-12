@@ -31,11 +31,17 @@ in the same PR as any change to what it states. -->
   descends from its own context's branch — `alembic revision -m "…" --head customer@head` (with
   `--autogenerate` when models changed) — which places the file in that context's folder. It
   never touches another context's tables.
-- **One upgrade is one transaction.** Concurrent `alembic upgrade heads` runs (web, worker,
-  replicas) are serialised by a transaction-scoped advisory lock in `alembic/env.py` (KAN-92).
-  A migration that commits mid-run — `op.get_context().autocommit_block()`, e.g. `CREATE INDEX
-  CONCURRENTLY` — or turning on `transaction_per_migration` releases that lock early: part of
-  the plan, with the lock reworked in the same PR.
+- **Concurrent upgrades are serialised for the whole run.** `alembic upgrade heads` runs (web,
+  worker, replicas) take a session-level advisory lock in `alembic/env.py`, polled
+  (`pg_try_advisory_lock`) before the first migration transaction and held by the connection
+  until the run ends (KAN-92, KAN-179, ADR-134); never wait for it in SQL — a waiting statement's
+  snapshot deadlocks a `CREATE INDEX CONCURRENTLY`. An index on a large or hot table is built
+  or dropped `CONCURRENTLY` inside `op.get_context().autocommit_block()`, in a migration of its
+  own: what precedes the block has committed when it runs, so a failure leaves the schema
+  part-way and an `INVALID` index behind — begin with `DROP INDEX CONCURRENTLY IF EXISTS` so a
+  rerun repairs it, and declare the index on the model as usual. Everything else stays one
+  transaction per upgrade (no `transaction_per_migration`).
+  `tests/test_migration_lock_spans_autocommit_blocks.py` pins the lock across such a block.
 - A stub context has no chain yet: its first migration needs a new labelled branch root and its
   folder added to `version_locations` in `alembic.ini` — part of the plan.
 - **A migration is part of the plan** you show Anto before building (CLAUDE.md, "Plan before
@@ -60,6 +66,15 @@ in the same PR as any change to what it states. -->
   database")`); DDL renders as usual. The trunk's `b7c1e4a92f10` and the data migrations after it
   (every chain has at least one) predate this and are immutable, so an offline render crossing them
   fails — README's "Database migrations" names what still renders.
+- **A migration's seed rows are literals in the migration** (KAN-517, ADR-133), never read from
+  an application module that keeps moving: an edit there would give a fresh database other rows
+  than a deployed one. Keep an equality test between the literal rows and the application's
+  declaration (KAN-216's `994244560c8a` and `tests/test_migrated_notification_catalogue.py`).
+  Four shipped platform migrations predate this and import their rows (holidays, standard texts,
+  business lists, countries); being immutable, their sources are frozen by digest instead —
+  `tests/architecture/test_migration_seed_sources_are_frozen.py`, which also fails on any other
+  migration importing a bounded context. A change to a frozen source is a new data migration, and
+  the new edition gets its own name; never update a digest.
 - **Backfills run for real, on Postgres, and are verified by query**: count rows, count nulls,
   count values identical to the column they were derived from. An offline `--sql` render is not
   a run. A downgrade that is deliberately a no-op says so in a comment.

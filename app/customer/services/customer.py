@@ -2029,7 +2029,9 @@ def _prepare_primary_change(
     too (KAN-113), the mirror of the KAN-46 re-election: a group that had
     no usable primary elects the reopened row; one that has a usable
     primary keeps it — a reopened row never takes the flag unless the same
-    PATCH says `isPrimary: true`.
+    PATCH says `isPrimary: true`, which then wins as an explicit request and
+    demotes that primary (Anto, 2026-11-11, KAN-349, option A; pinned for
+    phone, email and address in tests/test_customer_contact_channels.py).
     """
 
     type_column = _CONTACT_TYPE_COLUMN[model]
@@ -2793,6 +2795,32 @@ def customer_in_group(
     caller passes as an expression. Builds an EXISTS; reads nothing itself."""
 
     return select(Customer.id).where(Customer.id == customer_id, Customer.group_id == group_id).exists()
+
+
+def customer_is_merged(
+    customer_id: ColumnElement[Any] | InstrumentedAttribute[Any], *, merged_before: dt.datetime
+) -> Exists:
+    """KAN-581 — a SQL predicate, for another context's nightly
+    reconciliation (Sales'): the customer `customer_id` names is merged, and
+    its row was last written before `merged_before`. The bound lets the
+    caller leave a merge whose `customer.merged` is still within outbox lag
+    alone. It is judged on `updated_at`, not on the merge's own time: a
+    merged row can still be written after its merge (a credit-block change,
+    KAN-383 re-pointing it when its survivor is merged in turn, the nightly
+    advisor-label refresh), and each such write restarts the grace. A
+    finding is then reported a night later, never lost. Builds an EXISTS;
+    reads nothing itself. Confined to reconciliation modules
+    (`test_customer_predicates_only_in_reconciliation.py`)."""
+
+    return (
+        select(Customer.id)
+        .where(
+            Customer.id == customer_id,
+            Customer.lifecycle_status == CustomerLifecycleStatus.MERGED,
+            Customer.updated_at < merged_before,
+        )
+        .exists()
+    )
 
 
 def customer_display_name(customer: Customer) -> str:

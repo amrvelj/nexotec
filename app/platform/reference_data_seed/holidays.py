@@ -26,9 +26,11 @@ The date rules the table names without a date:
   A.Rh. "nicht …, wenn der Weihnachtstag auf einen Montag oder Freitag
   fällt" — the same two days for 26 December.
 
-Changing these rows is a new migration: the seed migration imports them, so
-an edit here changes what a fresh database gets, never what an existing one
-holds.
+**Frozen (KAN-517, ADR-133).** The seed migration `83d8634ff337` imports
+these rows, and it is immutable, so an edit here would give a fresh database
+other rows than a deployed one. `tests/architecture/test_migration_seed_sources_are_frozen.py`
+pins them by digest. A change is a new data migration with literal rows, and
+the new edition gets a name of its own.
 """
 
 from __future__ import annotations

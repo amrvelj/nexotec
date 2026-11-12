@@ -41,7 +41,7 @@ weekly. -->
   (enforced transactionally, on create and on every update/delete — re-elect when a primary
   goes), `validFrom`/`validTo`, a `doNotUse` flag with a reason, and **consent per channel**
   with its source and timestamp. All three update paths go through one helper,
-  `_prepare_primary_change` in `app/customer/services/customer.py`.
+  `_prepare_primary_change` in `services/customer.py`.
 - **Changing a row's type settles both type-groups** (KAN-102, Anto's ruling). The group it
   leaves re-elects. In the group it joins, `isPrimary: true` in the same PATCH makes the moved
   row primary; otherwise that group's existing primary stays and the moved row is demoted — a
@@ -52,8 +52,9 @@ weekly. -->
   usable primary is never demoted by a create that does not ask for it.
 - Reopening a row (`validTo: null`, `doNotUse: false`) settles its type-group too (KAN-113): a
   group with no usable primary elects the reopened row; an existing usable primary keeps the
-  flag. Usability is judged after the PATCH, so `isPrimary: true` on a row that is closed or
-  `doNotUse` — by this PATCH or an earlier one — never unsets the group's usable primary.
+  flag unless the same PATCH says `isPrimary: true` (Anto, 2026-11-11, KAN-349). Usability
+  is judged after the PATCH: `isPrimary: true` on a row closed or `doNotUse` — by this PATCH or
+  an earlier one — never unsets the group's usable primary.
 - **A customer keeps at least one usable phone or email** (FR-03, ADR-067):
   `_assert_not_last_contact_point` refuses closing, flagging `doNotUse` or deleting a usable row
   when no other usable phone or email remains; a row already closed or `doNotUse` changes no
@@ -88,7 +89,7 @@ weekly. -->
   here advises the customers they create here by default, may be picked, and is listed by the
   advisor picker (`list_active_users_acting_in`); their deactivation then decides those customers
   too, and a hand-over refuses a colleague who works in no Betrieb of a customer's dealer group
-  (KAN-423, Sales' `colleague_cannot_act_there`; `app/customer/ownership.py`). The check runs only when the advisor changes, so a customer still advised by a leaver
+  (KAN-423, Sales' `colleague_cannot_act_there`; `customer/ownership.py`). The check runs only when the advisor changes, so a customer still advised by a leaver
   stays editable. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
@@ -143,7 +144,7 @@ weekly. -->
 - **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
   rulings below, 2026-11-03, all A): the
   customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
-  `app/customer/consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
+  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
   the contract's customer and signature through `sales.public.get_trade_in_seller` and, in its own
   consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
   keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
@@ -247,7 +248,7 @@ weekly. -->
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
   `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
   re-read when vehicle-mdm publishes `vehicle.vehicle_mdm.summary_changed` (consumer
-  `customer.vehicle_party_labels_on_summary_changed`, `app/customer/consumers.py`, KAN-186) —
+  `customer.vehicle_party_labels_on_summary_changed`, `consumers.py`, KAN-186) —
   every party row naming the vehicle, in every dealer group, locked in id order and relabelled
   from `get_vehicle_summaries`, never from the payload — and re-read nightly by
   `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`, the same helper), the backstop
@@ -310,7 +311,7 @@ contact card offers `tel:` / `mailto:` links and marks the preferred channel.
   Suggestions are restricted to the form's country and never persisted or logged; only the picked
   address is written, through the same POST/PATCH as a typed one. Off, the forms are exactly what
   they were. The PRD's "external address-lookup APIs" out-of-scope line and D-09 are resolved by
-  this ruling (hand-over of KAN-37).
+  this ruling.
 
 - **Merge and link refusals are said in the user's language** (KAN-366, KAN-369; the rule is
   `.claude/rules/ui.md`'s, KAN-398): every refusal carries `details.reason` — a merge's

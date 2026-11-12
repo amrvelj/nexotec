@@ -7,6 +7,13 @@ same category of work as a hardcoded constant. Both the Alembic seed
 migration and the test fixture that stands the list up call
 ``load_country_seed()`` so there is exactly one source of truth for the
 rows.
+
+**Frozen (KAN-517, ADR-133).** Two immutable migrations read this package —
+`d7b1f4e02a96` the CSV, `e1f7a3c9b2d4` ``BUSINESS_LISTS`` — so an edit to
+either would give a fresh database other rows than a deployed one.
+`tests/architecture/test_migration_seed_sources_are_frozen.py` pins both by
+digest. A change is a new data migration with literal rows (KAN-216's
+`994244560c8a` is the pattern), never an edit here.
 """
 
 from __future__ import annotations
