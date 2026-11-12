@@ -15,10 +15,21 @@ removed; this guard keeps them out:
      not come back under those names. **The identAPI's own changed-keys list
      is refused the same way** (KAN-589): its path `/vehiclecatalog/mutations`
      (`GET /vehiclecatalog/mutations/{sinceDate}`, «Get catalog mutations») in
-     any string under `app/` or `scripts/`, and an adapter method named for it
-     (`fetch_catalog_mutations`, `list_catalogue_mutations`, … — any name
-     holding `catalog_mutations`, `catalogue_mutations` or `mutations_since`).
-  3. No daily job reaches a provider at all.
+     any string under `app/` or `scripts/` — also assembled by `+` or an
+     f-string from literals, names bound once to a literal and such names
+     read as attributes (`self.BASE`; KAN-655). Out of reach, deliberately:
+     an instance attribute set in `__init__`, a constant imported from another
+     module (both need resolution across scopes or modules), and `%`,
+     `.format()`, `"/".join(...)` and `+=` (reading those as paths would
+     need evaluation and invites false positives); the literal path itself
+     is still refused in any of them — and a method
+     named for it (`fetch_catalog_mutations`, `fetchCatalogMutations`, … — any
+     name holding `catalogmutations`, `cataloguemutations` or `mutationssince`
+     once lower-cased with its underscores removed; on an adapter, any name
+     holding `mutations` at all, `fetch_mutations` included).
+  3. No daily job reaches an integration provider through the gateway (the
+     step every catalogue and vehicle-data call takes). A connected-account
+     grant's revoker (KAN-559's daily repair) is not a gateway provider.
   4. **The identAPI's pages are never walked** (ADR-112 (4), KAN-548): the
      provider page parameter (`page[number]`) is written in the identAPI
      adapter alone, and no catalogue query (`search_catalogue_variants`,
@@ -60,18 +71,111 @@ _FORBIDDEN_NAMES = {"list_changed_keys", "seed_tenant_catalogue", "run_daily_del
 # (an f-string's literal parts are string constants too), so a full URL, a
 # relative path or `"/vehiclecatalog/mutations/" + since` are all caught.
 _FORBIDDEN_PATHS = ("/vehiclecatalog/mutations",)
-# …and an adapter method named for it, whatever the verb or the spelling.
-_FORBIDDEN_NAME_FRAGMENTS = ("catalog_mutations", "catalogue_mutations", "mutations_since")
+# …and an adapter method named for it, whatever the verb or the spelling. Names
+# are compared lower-cased with their underscores removed (KAN-655), so
+# `fetchCatalogMutations`, `fetch_catalog_mutations` and `FetchCatalogueMutations`
+# are one name.
+_FORBIDDEN_NAME_FRAGMENTS = ("catalogmutations", "cataloguemutations", "mutationssince")
+# On an adapter — the class that talks to a provider — any name holding
+# «mutations» is the endpoint whatever its verb (`fetch_mutations`,
+# `get_mutations(since)`): an adapter has no other mutations to offer.
+_ADAPTER_ROOT = "app/integration/adapters/"
+_ADAPTER_NAME_FRAGMENT = "mutations"
 
 
-def _forbidden_name(name: str) -> bool:
-    lowered = name.lower()
-    return name in _FORBIDDEN_NAMES or any(fragment in lowered for fragment in _FORBIDDEN_NAME_FRAGMENTS)
+def _normalised(name: str) -> str:
+    return name.lower().replace("_", "")
 
 
-def _violations(source: str) -> list[str]:
+def _forbidden_name(name: str, *, on_adapter: bool = False) -> bool:
+    normalised = _normalised(name)
+    return (
+        name in _FORBIDDEN_NAMES
+        or any(fragment in normalised for fragment in _FORBIDDEN_NAME_FRAGMENTS)
+        or (on_adapter and _ADAPTER_NAME_FRAGMENT in normalised)
+    )
+
+
+def _string_constants(tree: ast.AST) -> dict[str, str]:
+    """Every name bound once to a plain string literal (`BASE = "/vehiclecatalog"`),
+    so a path assembled from named constants reads as the path it builds. A
+    name bound twice is left out rather than guessed."""
+
+    bound: dict[str, list[object]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                literal = value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+                bound.setdefault(target.id, []).append(literal)
+    return {name: values[0] for name, values in bound.items() if len(values) == 1 and isinstance(values[0], str)}
+
+
+def _assembled_strings(tree: ast.AST, constants: dict[str, str]) -> list[tuple[str, int]]:
+    """The literal text of every string assembled from parts — a `+` chain
+    (`"/vehiclecatalog" + "/mutations/" + since`, `BASE + MUTATIONS + d`,
+    `self.BASE + "/mutations/"`) or an f-string interpolating named constants
+    (`f"{CATALOG}/mutations/{since}"`, `f"{CATALOG}{MUTATIONS}"`; KAN-655).
+    A part that is a once-bound string name — bare, or as an attribute such
+    as `self.BASE` / `cls.BASE` — reads as its text; any other part (a
+    variable, a call, a formatted value with a conversion or format spec) is
+    a break, so only adjacent known parts are joined: two unrelated strings
+    around a variable never meet."""
+
+    def _known(node: ast.expr) -> str | None:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.Name):
+            return constants.get(node.id)
+        if isinstance(node, ast.Attribute):
+            return constants.get(node.attr)
+        return None
+
+    def _parts(node: ast.expr) -> list[str | None]:
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return _parts(node.left) + _parts(node.right)
+        if isinstance(node, ast.JoinedStr):
+            parts: list[str | None] = []
+            for value in node.values:
+                if isinstance(value, ast.FormattedValue):
+                    plain = value.conversion == -1 and value.format_spec is None
+                    parts.append(_known(value.value) if plain else None)
+                else:
+                    parts.append(_known(value))
+            return parts
+        return [_known(node)]
+
+    inner: set[int] = set()
+    found: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        assembled = (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)) or isinstance(node, ast.JoinedStr)
+        if not assembled or id(node) in inner:
+            continue
+        inner.update(id(child) for child in ast.walk(node) if child is not node)
+        run: list[str] = []
+        for part in [*_parts(node), None]:
+            if part is None:
+                if len(run) > 1:
+                    found.append(("".join(run), node.lineno))
+                run = []
+            else:
+                run.append(part)
+    return found
+
+
+def _violations(source: str, *, path: str = "") -> list[str]:
     found: list[str] = []
-    for node in ast.walk(ast.parse(source)):
+    tree = ast.parse(source)
+    on_adapter = path.startswith(_ADAPTER_ROOT)
+    for text, lineno in _assembled_strings(tree, _string_constants(tree)):
+        if any(forbidden in text.lower() for forbidden in _FORBIDDEN_PATHS):
+            found.append(f"path assembled as {text!r} (line {lineno})")
+    for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             if node.value in _FORBIDDEN_DATENNAMEN:
                 found.append(f"string {node.value!r} (line {node.lineno})")
@@ -81,7 +185,9 @@ def _violations(source: str) -> list[str]:
             found.append(f"attribute .{node.attr} (line {node.lineno})")
         elif isinstance(node, ast.Name) and _forbidden_name(node.id):
             found.append(f"name {node.id} (line {node.lineno})")
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _forbidden_name(node.name):
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _forbidden_name(
+            node.name, on_adapter=on_adapter
+        ):
             found.append(f"def {node.name} (line {node.lineno})")
         elif isinstance(node, ast.alias) and _forbidden_name(node.name.split(".")[-1]):
             found.append(f"import {node.name} (line {getattr(node, 'lineno', '?')})")
@@ -183,7 +289,7 @@ def test_no_adapter_offers_the_changed_keys_list(adapter):
         f"{adapter.__name__} offers list_changed_keys again — FzKeyChanged is what a full catalogue mirror is "
         "built on, which the provider contract forbids (KAN-485, ADR-023 as amended 2026-10-29)."
     )
-    mutations = [name for name in dir(adapter) if _forbidden_name(name)]
+    mutations = [name for name in dir(adapter) if _forbidden_name(name, on_adapter=True)]
     assert not mutations, (
         f"{adapter.__name__} offers {mutations} — the identAPI's /vehiclecatalog/mutations is its FzKeyChanged, "
         "the list a catalogue mirror is built on (KAN-589, KAN-485)."
@@ -192,7 +298,9 @@ def test_no_adapter_offers_the_changed_keys_list(adapter):
 
 def test_nothing_in_app_or_scripts_retrieves_the_whole_catalogue():
     offending = {
-        path.relative_to(_REPO).as_posix(): hits for path in _python_files() if (hits := _violations(path.read_text()))
+        rel: hits
+        for path in _python_files()
+        if (hits := _violations(path.read_text(), path=(rel := path.relative_to(_REPO).as_posix())))
     }
     assert not offending, (
         f"Bulk catalogue retrieval is back — single lookups only (KAN-485, ADR-023 as amended 2026-10-29): {offending}"
@@ -398,10 +506,59 @@ def test_the_loop_scanner_leaves_one_page_alone():
         "changes = adapter.fetch_catalog_mutations(since=yesterday)",
         "def fetch_mutations_since(self, since): ...",
         "from app.integration.adapters.auto_i_dat_ident import fetch_catalog_mutations",
+        # KAN-655: camelCase and run-together spellings of the same names
+        "def fetchCatalogMutations(self, since): ...",
+        "def FetchCatalogueMutations(self, since): ...",
+        "changes = adapter.listCatalogMutations(since=d)",
+        "def mutationsSince(self, d): ...",
+        "from app.integration.adapters.auto_i_dat_ident import fetchCatalogMutations",
+        # KAN-655: a path assembled from two literals or two named constants
+        'url = "/vehiclecatalog" + "/mutations/" + d',
+        'url = base + "/vehicleCatalog" + "/Mutations/" + d.isoformat()',
+        'CATALOG = "/vehiclecatalog"\nMUTATIONS = "/mutations/"\nurl = CATALOG + MUTATIONS + since',
+        'CATALOG: str = "/vehiclecatalog"\nurl = CATALOG + f"/mutations/{since}"',
+        # KAN-655 review: an f-string interpolating named constants, and a class constant
+        'CATALOG = "/vehiclecatalog"\nurl = f"{CATALOG}/mutations/{since}"',
+        'CATALOG = "/vehiclecatalog"\nMUT = "/mutations"\nurl = f"{CATALOG}{MUT}/{since}"',
+        'class A:\n    BASE = "/vehiclecatalog"\n    def go(self, d):\n        return self.BASE + "/mutations/" + d',
     ],
 )
 def test_the_scanner_catches(source):
     assert _violations(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def fetch_mutations(self, since): ...",
+        "def getMutations(self, *, since): ...",
+        "async def list_mutations(self, since_date): ...",
+    ],
+)
+def test_the_scanner_catches_a_mutations_method_on_an_adapter(source):
+    """On an adapter, «mutations» under any verb is the changed-keys endpoint
+    (KAN-655); elsewhere the word is ordinary (`line_items.py` speaks of a
+    line-item mutation), so only the adapter files are held to it."""
+
+    assert _violations(source, path="app/integration/adapters/auto_i_dat_ident.py")
+    assert not _violations(source, path="app/sales/services/line_items.py")
+
+
+def test_the_scanner_does_not_join_strings_across_a_variable():
+    """Only adjacent literal parts are joined: `"/vehiclecatalog" + x +
+    "/mutations"` is two strings around a value, not the path."""
+
+    assert not _violations('url = "/vehiclecatalog" + variant_key + "/mutations"')
+    assert not _violations('BASE = "/vehiclecatalog"\nBASE = "/other"\nurl = BASE + "/mutations/"'), (
+        "a name bound twice is not resolved"
+    )
+    assert not _violations('url = "/vehiclecatalog" + "/" + fz_key')
+    assert not _violations('CATALOG = "/vehiclecatalog"\nurl = f"{CATALOG}/{fz_key}/mutations"'), (
+        "a formatted variable between the parts breaks the run"
+    )
+    assert not _violations('CATALOG = "/vehiclecatalog"\nurl = f"{CATALOG!r}/mutations/"'), (
+        "a conversion is not the constant's text"
+    )
 
 
 def test_the_scanner_leaves_single_lookups_alone():

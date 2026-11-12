@@ -129,16 +129,31 @@ export function IdentificationPanel({
     }
   }
 
-  const pickPlateRecord = (record: PlateRecordRead) =>
-    void identify(
-      record.typeApprovalNumber,
-      {
-        licencePlate: result?.observed.licencePlate ?? null,
-        stammnummer: record.stammnummer,
-        firstRegistrationDate: record.firstRegistrationDate,
-      },
-      result?.matchMethod ?? null,
-    )
+  const pickPlateRecord = (record: PlateRecordRead) => {
+    const carry = {
+      licencePlate: result?.observed.licencePlate ?? null,
+      stammnummer: record.stammnummer,
+      firstRegistrationDate: record.firstRegistrationDate,
+    }
+    // KAN-592: the provider named this car's variant — offer it as the one
+    // candidate, as a single registered car is offered, without a billed
+    // lookup at its Typenschein.
+    if (record.variant && result) {
+      setError(null)
+      setResult({
+        ...result,
+        outcome: 'variants',
+        observed: { ...result.observed, typeApprovalNumber: record.typeApprovalNumber },
+        variants: [record.variant],
+        bestMatchAvailable: false,
+        plateRecords: [],
+      })
+      setCarried(carry)
+      setCarriedMethod(result.matchMethod)
+      return
+    }
+    void identify(record.typeApprovalNumber, carry, result?.matchMethod ?? null)
+  }
 
   const visibleNotes = result?.notes ?? []
 

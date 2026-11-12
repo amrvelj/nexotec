@@ -43,6 +43,9 @@ services:
       DMS_SEED_DEMO_PASSWORD: ${DMS_SEED_DEMO_PASSWORD:-}
       DMS_APP_BASE_URL: http://localhost:8000
       DMS_WEBAUTHN_ORIGIN: http://localhost:8000
+      # KAN-499: a container has no .env (.dockerignore), so it names its
+      # environment; an unset one refuses to start outside pytest and local dev.
+      DMS_ENVIRONMENT: development
     depends_on:
       db:
         condition: service_healthy
@@ -63,6 +66,7 @@ services:
       DMS_DATABASE_URL: postgresql+psycopg://dms:dms@db:5432/dms_platform
       DMS_TAX_ID_ENCRYPTION_KEY: ${DMS_TAX_ID_ENCRYPTION_KEY}
       DMS_JWT_PRIVATE_KEY: ${DMS_JWT_PRIVATE_KEY}
+      DMS_ENVIRONMENT: development  # KAN-499, as the app service
     depends_on:
       db:
         condition: service_healthy

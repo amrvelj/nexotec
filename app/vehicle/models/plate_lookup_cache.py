@@ -21,15 +21,26 @@ service functions that read this table, and no route lists it.
 
 One row per registered car the answer named: a Wechselschild is two rows
 under one plate. A refetch replaces every row for the plate.
+
+**The variant the provider named** (KAN-592, ADR-126 architect's call,
+option A): the Vehicle Build answer names the registered car's catalogue
+variant (its FzKey); the row keeps the stored `ModelVariant`'s id, so a
+cache hit gives the same single answer the live lookup gave instead of a
+picker over every variant sharing the Typenschein. Nullable: an answer
+without a variant, and every row written before KAN-592, still continue
+at the Typenschein. A plain GUID with no foreign key, like
+`VehicleConfiguration.catalogue_variant_id`: a variant the catalogue no
+longer holds is read as none, never a broken row.
 """
 
 import datetime as dt
+import uuid
 
 from sqlalchemy import Date, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin
-from app.core.types import UTCDateTime
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -50,4 +61,6 @@ class PlateLookupCacheEntry(PrimaryKeyMixin, TenantScopedMixin, Base):
     type_approval_number: Mapped[str] = mapped_column(String(16), nullable=False)
     first_registration_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     stammnummer: Mapped[str] = mapped_column(String(16), nullable=False)
+    # vehicle_model_variant.id (same context) the provider named; see the docstring.
+    model_variant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)

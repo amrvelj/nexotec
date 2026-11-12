@@ -84,29 +84,32 @@ def repoint_merged_customer_records(
         row.customer_label = survivor.label
         row.customer_denorm_refreshed_at = refreshed_at
 
-    transactions = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id)).all())
+    transactions = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id).with_for_update()).all())
     for txn in transactions:
         txn.customer_id = target_id
     db.flush()
 
+    # KAN-657: every row is read FOR UPDATE, so a row an attach holds is read
+    # again once it commits (Postgres re-checks the WHERE): one moved off the
+    # duplicate meanwhile is left alone, never overwritten with the survivor.
     # Row locks in the order every other Sales writer takes them — offer,
     # then contract, then deal (create_contract locks the offer before it
     # writes the deal, KAN-147). One flush would let the unit of work write
     # sales_deal first and deadlock against a contract being created from
     # one of these offers.
-    offers = list(db.scalars(select(SalesOffer).where(SalesOffer.customer_id == duplicate_id)).all())
+    offers = list(db.scalars(select(SalesOffer).where(SalesOffer.customer_id == duplicate_id).with_for_update()).all())
     for offer in offers:
         offer.customer_id = target_id
         relabel(offer)
     db.flush()
 
-    contracts = list(db.scalars(select(SalesContract).where(SalesContract.customer_id == duplicate_id)).all())
+    contracts = list(db.scalars(select(SalesContract).where(SalesContract.customer_id == duplicate_id).with_for_update()).all())
     for contract in contracts:
         contract.customer_id = target_id
         relabel(contract)
     db.flush()
 
-    deals = list(db.scalars(select(SalesDeal).where(SalesDeal.customer_id == duplicate_id)).all())
+    deals = list(db.scalars(select(SalesDeal).where(SalesDeal.customer_id == duplicate_id).with_for_update()).all())
     for deal in deals:
         deal.customer_id = target_id
         relabel(deal)

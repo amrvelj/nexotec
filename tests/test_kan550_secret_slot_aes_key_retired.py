@@ -22,6 +22,7 @@ from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
+from tests.postgres_only import POSTGRES_SQL
 from tests.test_integration_registry import _make_provider
 
 _VERSIONS = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "integration"
@@ -61,6 +62,7 @@ def test_the_model_no_longer_names_the_slot():
     assert "aes_key" not in {slot.value for slot in SecretSlot}
 
 
+@POSTGRES_SQL
 def test_the_upgrade_refuses_while_an_aes_key_reference_is_left_and_names_its_connection(db_session):
     connection = _connection(db_session)
     db_session.execute(text("ALTER TABLE integration_secret_ref DROP CONSTRAINT ck_integration_secret_ref_slot_enum"))
@@ -73,6 +75,7 @@ def test_the_upgrade_refuses_while_an_aes_key_reference_is_left_and_names_its_co
     db_session.rollback()
 
 
+@POSTGRES_SQL
 def test_the_upgrade_passes_when_no_aes_key_reference_is_left(db_session):
     connection = _connection(db_session)
     _insert_ref(db_session, connection.id, "client_secret")

@@ -94,10 +94,10 @@ DEFAULT_FIRST_MANAGER_FIRST_NAME = "Erster"
 DEFAULT_FIRST_MANAGER_LAST_NAME = "Manager"
 
 # The environments that keep the local password account, and the one
-# deployment that gets the invitation path. Any other name is refused — an
-# unset DMS_ENVIRONMENT reads as `development`, so a deployment must set it,
-# as render.yaml does.
-LOCAL_ENVIRONMENTS = frozenset({"development", "local", "test"})
+# deployment that gets the invitation path. Any other name is refused. The
+# names are app/core/deployment_environment.py's (KAN-499): `local` is not one,
+# and a deployment that leaves DMS_ENVIRONMENT unset refuses to start.
+LOCAL_ENVIRONMENTS = frozenset({"development", "test"})
 STAGING_ENVIRONMENT = "staging"
 
 AUDIT_REASON = "seed_staging_demo"

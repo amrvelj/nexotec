@@ -19,7 +19,9 @@
     "new": "Nuovo gruppo (azienda indipendente)",
     "existing": "Gruppo esistente",
     "newName": "Nome del gruppo",
-    "pick": "Scegliere il gruppo"
+    "pick": "Scegliere il gruppo",
+    "searchPlaceholder": "Digitare un nome per cercare",
+    "change": "Scegliere un altro gruppo"
   },
   "legal": {
     "seat": "Sede (diventa la prima ubicazione)"

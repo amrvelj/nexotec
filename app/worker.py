@@ -21,6 +21,7 @@ import time
 from sqlalchemy.orm import Session
 
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
+from app.core.deployment_environment import require_valid_deployment_environment
 from app.core.idempotent_route import run_daily_idempotency_record_purge
 from app.core.observability import (
     configure_logging,
@@ -65,6 +66,7 @@ from app.platform.consumers import (
 from app.platform.daily_jobs import (
     run_daily_notification_digest,
     run_daily_notification_purge,
+    run_daily_revoked_grant_repair,
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
@@ -355,7 +357,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Fourteen daily jobs, run in registration order once per day on this
+    """Fifteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -415,7 +417,12 @@ def register_daily_jobs() -> None:
        held for a family set to ``digest`` reach the inbox; one push each.
     13. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
        inbox keeps 90 days; no push subscription outlives a revoked session.
-    14. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    14. ``platform.connected_account.repair`` — KAN-559 (FR-AU-24, ADR-118):
+       every revoked connected-account grant still holding a secret reference
+       is ended at the provider again (an outage longer than the outbox's
+       retries, a grant revoked before its revoker was registered). A repair,
+       so after reconciliation: the night's report names the grant first.
+    15. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -440,7 +447,9 @@ def register_daily_jobs() -> None:
     #    with one push each; the inbox keeps 90 days.
     register_daily_job("platform.notifications.digest", run_daily_notification_digest)
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
-    # 14. KAN-270: a configuration no host ever took goes after 30 days.
+    # 15. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
+    # 14. KAN-559: a revoked grant still holding a reference is ended at the provider.
+    register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 
@@ -494,6 +503,8 @@ def run(*, max_iterations: int | None = None) -> None:
 
 if __name__ == "__main__":
     configure_observability()
+    # KAN-499, as app/main.py; after observability, so a refused start is reported.
+    require_valid_deployment_environment()
     _max_iterations_env = os.environ.get("DMS_OUTBOX_WORKER_MAX_ITERATIONS")
     _max_iterations = int(_max_iterations_env) if _max_iterations_env else None
     logger.info("outbox worker starting", extra={"maxIterations": _max_iterations})

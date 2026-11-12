@@ -19,7 +19,9 @@
     "new": "Neue Gruppe (eigenständiger Betrieb)",
     "existing": "Bestehende Gruppe",
     "newName": "Name der Gruppe",
-    "pick": "Gruppe wählen"
+    "pick": "Gruppe wählen",
+    "searchPlaceholder": "Namen eingeben, um zu suchen",
+    "change": "Andere Gruppe wählen"
   },
   "legal": {
     "seat": "Sitz (wird zum ersten Standort)"

@@ -20,11 +20,11 @@ const WECHSELSCHILD = identification({
   plateRecords: [
     {
       vehicleKindCode: '01', brandName: 'Alfa Romeo', modelDescription: 'Giulietta 1.4 TB', productionFrom: 2010,
-      productionTo: 2013, typeApprovalNumber: '1AB234', firstRegistrationDate: '2011-05-12', stammnummer: '111222333',
+      productionTo: 2013, typeApprovalNumber: '1AB234', firstRegistrationDate: '2011-05-12', stammnummer: '111222333', variant: null,
     },
     {
       vehicleKindCode: '01', brandName: 'Volkswagen', modelDescription: 'Golf GTI', productionFrom: 2021,
-      productionTo: null, typeApprovalNumber: '2CD456', firstRegistrationDate: '2022-03-01', stammnummer: '444555666',
+      productionTo: null, typeApprovalNumber: '2CD456', firstRegistrationDate: '2022-03-01', stammnummer: '444555666', variant: null,
     },
   ],
   plateRecordsInterchangeable: true,
@@ -108,6 +108,40 @@ describe('IdentificationPanel', () => {
       typeApprovalNumber: '2CD456',
     })
     expect(start.confirmedBestMatchCode).toBeUndefined()
+  })
+
+  it('offers the variant the provider named for a picked record, with no lookup at its Typenschein (KAN-592)', async () => {
+    const user = userEvent.setup()
+    const NAMED = {
+      ...WECHSELSCHILD,
+      plateRecords: [WECHSELSCHILD.plateRecords[0], { ...WECHSELSCHILD.plateRecords[1], variant: GOLF_CANDIDATE }],
+    }
+    const { backend, onStart } = setup([
+      { method: 'GET', match: /^\/vehicle-identification$/, handler: () => NAMED },
+    ])
+
+    await identify(user, 'ZH999999')
+    await screen.findByText(i18n.t('configurator.identify.plateRecords.wechselschild'))
+
+    // Picking the Golf offers its one candidate — the advisor still confirms it.
+    await user.click(screen.getByText('Volkswagen Golf GTI'))
+    await screen.findByText(i18n.t('configurator.identify.variantTitle'))
+    expect(onStart).not.toHaveBeenCalled()
+    const lookups = backend.calls.filter((c) => c.pathname === '/vehicle-identification')
+    expect(lookups.map((c) => c.params.get('q'))).toEqual(['ZH999999'])
+
+    await user.click(screen.getByText('Volkswagen Golf Golf GTI'))
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+    expect(backend.calls.filter((c) => c.pathname === '/vehicle-identification')).toHaveLength(1)
+    const start = onStart.mock.calls[0][0]
+    expect(start.variant.id).toBe(catalogueVariant().id)
+    expect(start.matchMethod).toBe('kontrollschild')
+    expect(start.observed).toMatchObject({
+      licencePlate: 'ZH999999',
+      stammnummer: '444555666',
+      firstRegistrationDate: '2022-03-01',
+      typeApprovalNumber: '2CD456',
+    })
   })
 
   it('titles a genuine plate conflict as a conflict, not as a Wechselschild', async () => {

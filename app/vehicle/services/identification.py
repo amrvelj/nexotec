@@ -87,6 +87,7 @@ from app.vehicle.services.catalogue_sync import (
     upsert_model_variant,
 )
 from app.vehicle.services.matching import match_vehicle
+from app.vehicle.services.plate_lookup_cache import CachedPlateRecord
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +193,12 @@ class PlateRecord:
     # None when the account may not see it (the identAPI's `vrn` "depends on
     # user group definition"): the car is still offered, by its Typenschein.
     stammnummer: str | None
+    # KAN-592: the stored catalogue variant the provider named for this car,
+    # as the one candidate picking the record offers — no second, billed
+    # `vehiclecatalog` call at its Typenschein. None when the provider named
+    # none, or the variant is no longer stored: the pick then continues at the
+    # Typenschein as before.
+    variant: "VariantCandidate | None" = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -310,7 +317,18 @@ def _candidate(db: Session, variant: ModelVariant, *, first_registration_date: d
     )
 
 
-def _plate_record(record: PlateInfoData) -> PlateRecord:
+def _named_candidate(
+    db: Session, model_variant_id: uuid.UUID | None, *, first_registration_date: dt.date | None
+) -> "VariantCandidate | None":
+    """The candidate for the stored variant a record named (KAN-592), or None
+    when it named none or the catalogue no longer holds it."""
+
+    variant = db.get(ModelVariant, model_variant_id) if model_variant_id is not None else None
+    return _candidate(db, variant, first_registration_date=first_registration_date) if variant is not None else None
+
+
+def _plate_record(db: Session, cached: CachedPlateRecord) -> PlateRecord:
+    record = cached.info
     return PlateRecord(
         vehicle_kind_code=record.vehicle_kind_code,
         brand_name=record.brand_name,
@@ -320,6 +338,7 @@ def _plate_record(record: PlateInfoData) -> PlateRecord:
         type_approval_number=record.type_approval_number,
         first_registration_date=record.first_registration_date,
         stammnummer=record.stammnummer,
+        variant=_named_candidate(db, cached.model_variant_id, first_registration_date=record.first_registration_date),
     )
 
 
@@ -526,15 +545,16 @@ def _identify_vin(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | No
 # -- registered vehicles (plate, Stammnummer) ----------------------------------------
 
 
-def _cacheable(vehicle: BuiltVehicleData) -> PlateInfoData | None:
+def _cacheable(vehicle: BuiltVehicleData, *, model_variant_id: uuid.UUID | None) -> CachedPlateRecord | None:
     """What the plate-lookup cache stores of a Vehicle Build record: plate →
-    Typenschein + Stammnummer (+ first registration). A record the account
-    may not see whole (the spec: `vrn` "depends on user group definition")
-    cannot be cached and is left out."""
+    Typenschein + Stammnummer (+ first registration), and the stored variant
+    the record named (KAN-592). A record the account may not see whole (the
+    spec: `vrn` "depends on user group definition") cannot be cached and is
+    left out."""
 
     if vehicle.type_approval_number is None or vehicle.stammnummer is None:
         return None
-    return PlateInfoData(
+    info = PlateInfoData(
         vehicle_kind_code=vehicle.vehicle_kind_code,
         brand_name=vehicle.brand_name,
         model_description=vehicle.model_description,
@@ -544,6 +564,16 @@ def _cacheable(vehicle: BuiltVehicleData) -> PlateInfoData | None:
         first_registration_date=vehicle.first_registration_date,
         stammnummer=vehicle.stammnummer,
     )
+    return CachedPlateRecord(info=info, model_variant_id=model_variant_id)
+
+
+def _named_variant_id(vehicle: BuiltVehicleData, by_fz_key: dict[str, ModelVariant]) -> uuid.UUID | None:
+    """The stored variant a Vehicle Build record named, if it named one."""
+
+    if vehicle.variant is None:
+        return None
+    variant = by_fz_key.get(vehicle.variant.fz_key)
+    return variant.id if variant is not None else None
 
 
 def _is_conflict(records: list[PlateRecord]) -> bool:
@@ -634,22 +664,40 @@ def _records_result(
     kind: IdentifierKind,
     match_method: ConfigurationMatchMethod,
     observed: ObservedIdentity,
-    records: list[PlateInfoData],
+    records: list[CachedPlateRecord],
     notes: list[IdentificationNote],
     conflict_plate: str | None,
 ) -> IdentificationResult:
-    """A cached answer: several records are the picker; one record continues
-    at its Typenschein from the stored variants (no call). The cache keeps the
-    Typenschein, not the FzKey the live answer named — where several stored
-    variants share the Typenschein the advisor chooses (best match offered)
-    rather than the cache guessing which one the provider meant."""
+    """A cached answer: several records are the picker (each carrying the
+    variant it named); one record that named a variant still stored is that
+    one candidate — the same answer the live lookup gave (KAN-592); one record
+    without continues at its Typenschein from the stored variants (no call),
+    where several stored variants sharing the Typenschein are the advisor's
+    choice (best match offered), never the cache's guess."""
 
     if len(records) > 1:
         return _picker_result(
             db, tenant_id=tenant_id, kind=kind, match_method=match_method, observed=observed,
-            rows=[_plate_record(r) for r in records], notes=notes, conflict_plate=conflict_plate,
+            rows=[_plate_record(db, r) for r in records], notes=notes, conflict_plate=conflict_plate,
         )
-    (record,) = records
+    (cached,) = records
+    record = cached.info
+    named = _named_candidate(db, cached.model_variant_id, first_registration_date=record.first_registration_date)
+    if named is not None:
+        return IdentificationResult(
+            kind=kind,
+            match_method=match_method,
+            outcome=IdentificationOutcome.VARIANTS,
+            observed=dataclasses.replace(
+                observed,
+                stammnummer=record.stammnummer,
+                type_approval_number=record.type_approval_number,
+                first_registration_date=record.first_registration_date,
+            ),
+            variants=[named],
+            best_match_available=False,
+            notes=notes,
+        )
     return _typenschein_result(
         db, tenant_id=tenant_id, actor_id=actor_id, kind=kind, match_method=match_method,
         type_approval_number=record.type_approval_number,
@@ -661,9 +709,12 @@ def _records_result(
     )
 
 
-def _picker_row(vehicle: BuiltVehicleData) -> PlateRecord | None:
+def _picker_row(
+    db: Session, vehicle: BuiltVehicleData, *, model_variant_id: uuid.UUID | None = None
+) -> PlateRecord | None:
     """A registered car the picker can offer: it needs a Typenschein to
-    continue at; the Stammnummer may be withheld from this account."""
+    continue at; the Stammnummer may be withheld from this account. It
+    carries the stored variant the record named (KAN-592)."""
 
     if vehicle.type_approval_number is None:
         return None
@@ -676,11 +727,17 @@ def _picker_row(vehicle: BuiltVehicleData) -> PlateRecord | None:
         type_approval_number=vehicle.type_approval_number,
         first_registration_date=vehicle.first_registration_date,
         stammnummer=vehicle.stammnummer,
+        variant=_named_candidate(db, model_variant_id, first_registration_date=vehicle.first_registration_date),
     )
 
 
 def _cache_plate_answer(
-    db: Session, *, tenant_id: uuid.UUID, plate: str | None, vehicles: list[BuiltVehicleData]
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    plate: str | None,
+    vehicles: list[BuiltVehicleData],
+    by_fz_key: dict[str, ModelVariant],
 ) -> None:
     """A plate answer fills the 30-day cache — whole or not at all: a record
     the account may not see whole cannot be stored (`_cacheable`), and an
@@ -691,7 +748,7 @@ def _cache_plate_answer(
 
     if plate is None:
         return
-    records = [_cacheable(v) for v in vehicles]
+    records = [_cacheable(v, model_variant_id=_named_variant_id(v, by_fz_key)) for v in vehicles]
     if not records or any(r is None for r in records):
         logger.info("plate %s: answer not cached — %d of %d records incomplete", plate, sum(r is None for r in records), len(records))
         return
@@ -721,7 +778,7 @@ def _built_vehicles_result(
     masters = [v.variant for v in vehicles if v.variant is not None]
     variants = _store_variants(db, provider_code=provider_code, masters=masters)  # in `masters` order
     by_fz_key = {master.fz_key: variant for master, variant in zip(masters, variants, strict=True)}
-    _cache_plate_answer(db, tenant_id=tenant_id, plate=plate, vehicles=vehicles)
+    _cache_plate_answer(db, tenant_id=tenant_id, plate=plate, vehicles=vehicles, by_fz_key=by_fz_key)
 
     if len(vehicles) == 1:
         (vehicle,) = vehicles
@@ -753,7 +810,9 @@ def _built_vehicles_result(
             )
         return IdentificationResult(kind=kind, match_method=match_method, outcome=IdentificationOutcome.NONE, observed=observed)
 
-    rows = [r for r in (_picker_row(v) for v in vehicles) if r is not None]
+    rows = [
+        r for r in (_picker_row(db, v, model_variant_id=_named_variant_id(v, by_fz_key)) for v in vehicles) if r is not None
+    ]
     if len(rows) < len(vehicles):
         logger.info("%d of %d registered cars carry no Typenschein and cannot be offered", len(vehicles) - len(rows), len(vehicles))
     if not rows:

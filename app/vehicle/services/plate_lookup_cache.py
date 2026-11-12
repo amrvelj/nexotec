@@ -3,7 +3,8 @@
 What a row is: one registered car of the identAPI's Vehicle Build answer
 to a plate lookup (`GET /vehiclebuild/licenseplate/…`), reduced to plate →
 Typenschein + Stammnummer + first registration (and the make, model and
-kind the picker shows). Filled by a plate lookup only, and **whole or not
+kind the picker shows), plus the catalogue variant the answer named when it
+named one (KAN-592). Filled by a plate lookup only, and **whole or not
 at all**: an answer with a record the account may not see whole is not
 stored, since a part would later read as the whole truth about the plate
 (`identification._cache_plate_answer`). A Stammnummer (`vrn`) answer never
@@ -25,6 +26,7 @@ function that lists, pages or exports rows.
 `tests/architecture/test_plate_lookup_is_not_enumerable.py` asserts it.
 """
 
+import dataclasses
 import datetime as dt
 import uuid
 
@@ -38,19 +40,29 @@ from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
 PLATE_LOOKUP_CACHE_TTL = dt.timedelta(days=30)
 
 
+@dataclasses.dataclass(frozen=True)
+class CachedPlateRecord:
+    """One cached registered car: the provider's plate record and the id of
+    the stored catalogue variant its Vehicle Build answer named, if any
+    (KAN-592)."""
+
+    info: PlateInfoData
+    model_variant_id: uuid.UUID | None = None
+
+
 def _fresh_after(now: dt.datetime) -> dt.datetime:
     return now - PLATE_LOOKUP_CACHE_TTL
 
 
-def _distinct(rows) -> list[PlateInfoData]:
+def _distinct(rows) -> list[CachedPlateRecord]:
     """Two concurrent first lookups of one plate can both store the answer;
     the same record twice must never read as a Wechselschild."""
 
     return list(dict.fromkeys(_to_record(row) for row in rows))
 
 
-def _to_record(row: PlateLookupCacheEntry) -> PlateInfoData:
-    return PlateInfoData(
+def _to_record(row: PlateLookupCacheEntry) -> CachedPlateRecord:
+    info = PlateInfoData(
         vehicle_kind_code=row.vehicle_kind_code,
         brand_name=row.brand_name,
         model_description=row.model_description,
@@ -60,11 +72,12 @@ def _to_record(row: PlateLookupCacheEntry) -> PlateInfoData:
         first_registration_date=row.first_registration_date,
         stammnummer=row.stammnummer,
     )
+    return CachedPlateRecord(info=info, model_variant_id=row.model_variant_id)
 
 
 def cached_records_for_plate(
     db: Session, *, tenant_id: uuid.UUID, plate: str, now: dt.datetime | None = None
-) -> list[PlateInfoData] | None:
+) -> list[CachedPlateRecord] | None:
     """The fresh cached answer for exactly this plate, or `None` when there
     is none. An empty list is never returned: a provider miss is not cached,
     because the next lookup may well be the one that finds a newly
@@ -87,7 +100,7 @@ def cached_records_for_plate(
 
 def cached_records_for_stammnummer(
     db: Session, *, tenant_id: uuid.UUID, stammnummer: str, now: dt.datetime | None = None
-) -> list[PlateInfoData]:
+) -> list[CachedPlateRecord]:
     """FR-C-02 step 3's fallback (KAN-547): the live `vrn` lookup is asked
     first; a Stammnummer the provider does not answer for still resolves
     through an earlier plate lookup's cached answer."""
@@ -105,7 +118,7 @@ def cached_records_for_stammnummer(
 
 
 def store_records_for_plate(
-    db: Session, *, tenant_id: uuid.UUID, plate: str, records: list[PlateInfoData], now: dt.datetime | None = None
+    db: Session, *, tenant_id: uuid.UUID, plate: str, records: list[CachedPlateRecord], now: dt.datetime | None = None
 ) -> None:
     """Replaces every row held for this plate with the provider's latest
     answer. Flushes; the caller owns the transaction."""
@@ -116,7 +129,8 @@ def store_records_for_plate(
             PlateLookupCacheEntry.tenant_id == tenant_id, PlateLookupCacheEntry.plate == plate
         )
     )
-    for record in records:
+    for cached in records:
+        record = cached.info
         db.add(
             PlateLookupCacheEntry(
                 tenant_id=tenant_id,
@@ -129,6 +143,7 @@ def store_records_for_plate(
                 type_approval_number=record.type_approval_number,
                 first_registration_date=record.first_registration_date,
                 stammnummer=record.stammnummer,
+                model_variant_id=cached.model_variant_id,
                 fetched_at=fetched_at,
             )
         )

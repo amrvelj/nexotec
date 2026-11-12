@@ -76,9 +76,12 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   each in `services/metering.py::provider_request`; the breaker stays per `call_capability` block.
   **Nexotec enforces no quota and sends no usage warning** (Anto: auto-i-dat limits its own access).
 - **The test access never runs in production** (§1): it is a `sandbox` connection, and on any
-  `DMS_ENVIRONMENT` but `development`, `local`, `test` or `staging` the gateway refuses every sandbox
-  call before the provider (`SandboxConnectionOnProductionError`, audited). **An unset variable reads
-  as `development`** — so production must set it, or the refusal never fires. The Connect dialog
+  `DMS_ENVIRONMENT` but `development`, `test` or `staging` the gateway refuses every sandbox
+  call before the provider (`SandboxConnectionOnProductionError`, audited). The value is one of
+  `development` / `test` / `staging` / `production` (`app/core/deployment_environment.py`, KAN-499):
+  an unknown name refuses to start, and so does an **unset** one outside pytest and local development
+  (a `.env` in the working directory), where it reads as `development`; a name that does not parse
+  reads as production in every reader (gateway, object store, mailer). The Connect dialog
   says: a service account only, never the personal token, test environments only. There are no
   licence types or end dates: a switched-off connection shows as failing.
 - **VIN queries are not in the licence** (§8): the `vin` option is probed and its `granted = False`

@@ -19,7 +19,9 @@
     "new": "New group (standalone business)",
     "existing": "Existing group",
     "newName": "Group name",
-    "pick": "Choose the group"
+    "pick": "Choose the group",
+    "searchPlaceholder": "Type a name to search",
+    "change": "Choose another group"
   },
   "legal": {
     "seat": "Registered seat (becomes the first location)"

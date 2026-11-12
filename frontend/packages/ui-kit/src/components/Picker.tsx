@@ -29,6 +29,9 @@ interface PickerBaseProps {
   onQueryChange: (query: string) => void;
   onSelect: (row: PickerRow) => void;
   placeholder?: string;
+  /** The search input's accessible name, when no visible label is tied to
+   * it (KAN-652) — translated by the caller like every kit string. */
+  inputLabel?: string;
   loading?: boolean;
   /** Shown when the query matches nothing — translated by the caller, the
    * kit ships no string of its own (KAN-422). */
@@ -54,6 +57,7 @@ export function Picker({
   onQueryChange,
   onSelect,
   placeholder,
+  inputLabel,
   loading,
   onCreateNew,
   createLabel,
@@ -99,6 +103,7 @@ export function Picker({
           type="text"
           value={query}
           placeholder={placeholder}
+          aria-label={inputLabel}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={onKeyDown}
           style={{

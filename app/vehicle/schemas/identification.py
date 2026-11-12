@@ -40,6 +40,10 @@ class PlateRecordRead(CamelModel):
     # None when the provider withholds it from this account (KAN-547); the
     # record is picked by its Typenschein either way.
     stammnummer: str | None
+    # KAN-592: the catalogue variant the provider named for this car, as the
+    # one candidate picking the record offers (no lookup at its Typenschein);
+    # None means the pick continues at the Typenschein.
+    variant: VariantCandidateRead | None
 
 
 class ExistingVehicleRead(CamelModel):
