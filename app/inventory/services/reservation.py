@@ -3,8 +3,8 @@
 "A write spanning two contexts is a call with a compensating action,
 never a shared transaction. It would work today because everything
 shares one database. That is exactly why it is forbidden." reserve()/
-release() each own their own commit — Pattern B (app.customer.services.
-customer.repoint_vehicle_party), never Pattern A ("join the caller's
+release() each own their own commit — Pattern B (as the vehicle merge's
+party re-point did before it became an event in KAN-634), never Pattern A ("join the caller's
 transaction" — the last such call, the customer merge's legacy-transaction
 re-point, became an event in KAN-185). A future Sales caller (WP-8) calls this from OUTSIDE its
 own contract-write transaction, with its own Idempotency-Key, a timeout

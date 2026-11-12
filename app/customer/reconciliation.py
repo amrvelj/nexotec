@@ -98,6 +98,23 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
+        # KAN-634 (rule 10, ADR-131): a vehicle merge moves the duplicate's
+        # party rows when customer consumes `vehicle.vehicle_mdm.merged`, in
+        # a commit of its own after the merge's. A row still naming a merged
+        # record is a delivery that has not happened (worker down, a dead
+        # letter) — the fact arrived nowhere. A read of vehicle's table,
+        # which only reconciliation may make (ADR-107).
+        label="vehicle_party.vehicle_id names a merged vehicle",
+        source_model=VehicleParty,
+        source_row_id_column=VehicleParty.id,
+        where=lambda: (
+            select(VehicleMdm.id)
+            .where(VehicleMdm.id == VehicleParty.vehicle_id, VehicleMdm.merged_into_vehicle_id.is_not(None))
+            .correlate(VehicleParty)
+            .exists()
+        ),
+    ),
+    StateCheck(
         # KAN-200 (FR-A-37, rule 10): a customer whose advisor is deactivated —
         # the deactivation step hands every advised customer over; this says
         # when it did not (a hand-over that failed after the status change).

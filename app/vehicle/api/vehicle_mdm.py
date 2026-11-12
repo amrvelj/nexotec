@@ -1,5 +1,6 @@
-"""VehicleMdm endpoints (WP-5 PR-9): identity editing, the one search box,
-and allocating a vehicle to a customer. No tenant scoping on reads —
+"""VehicleMdm endpoints (WP-5 PR-9): identity editing and the one search box.
+«Allocate to customer» is customer's write and lives at the composition
+root (`app/api/v1/vehicle_parties.py`, KAN-634). No tenant scoping on reads —
 VehicleMdm is a global fact, same as the shipped table it replaces
 (app.vehicle.api.vehicles's own docstring); writes require the
 "vehicle_mdm" capability, same gate the old endpoints already used.
@@ -17,17 +18,14 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
-from app.customer.public import allocate_vehicle_party, customer_display_name, get_customer_or_404
 from app.db import get_db
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import (
-    VehicleAllocatePartyRequest,
     VehicleMdmCreate,
     VehicleMdmCreateResult,
     VehicleMdmPage,
     VehicleMdmRead,
     VehicleMdmUpdate,
-    VehiclePartyAllocationRead,
     VehicleSearchHit,
     VehicleSearchResult,
 )
@@ -177,40 +175,3 @@ def update_vehicle(
     check_version(vehicle.version, if_match, entity_name="VehicleMdm")
     vehicle = vehicle_mdm_service.update_vehicle_mdm(db, vehicle=vehicle, data=body, actor_id=principal.user_id)
     return VehicleMdmRead.model_validate(vehicle, from_attributes=True)
-
-
-@router.post("/vehicle-mdm/{vehicle_id}/allocate", response_model=VehiclePartyAllocationRead, status_code=201)
-def allocate_to_customer(
-    vehicle_id: uuid.UUID,
-    body: VehicleAllocatePartyRequest,
-    principal: Principal = Depends(require_write("vehicle_mdm")),
-    db: Session = Depends(get_db),
-):
-    """FR-V-05's vehicle-side entry point — "Allocate to customer", the
-    Vehicle 360 detail screen's alternative action (ADR-061). Calls
-    exactly the same app.customer.public.allocate_vehicle_party the
-    customer-side dialog uses, so the close-then-open semantics (ADR-064)
-    are identical regardless of which record the user started from.
-
-    Unlike the customer-side dialog, `body.customer_id` here names a
-    customer the caller has not already reached through a group-scoped
-    path — the customer-side route resolves `customer` via
-    `get_customer_or_404(principal.group_id, ...)` before it ever calls
-    `allocate_vehicle_party`, so it can never name another group's
-    customer. This route must do the same lookup itself, or a caller
-    could allocate a party against any customer_id it can guess,
-    regardless of which group owns it. VehicleParty carries no group_id
-    of its own to catch this at the write; a customer from another group
-    is a 404, per rule #7, never a 403 and never a silent cross-group
-    write.
-    """
-
-    vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)  # 404s before touching customer at all
-    customer = get_customer_or_404(db, principal.group_id, body.customer_id)
-    party = allocate_vehicle_party(
-        db, vehicle_id=vehicle_id, customer_id=body.customer_id, role=body.role,
-        group_id=principal.group_id, actor_id=principal.user_id,
-    )
-    return VehiclePartyAllocationRead.model_validate(party, from_attributes=True).model_copy(
-        update={"display_name": customer_display_name(customer)}
-    )
