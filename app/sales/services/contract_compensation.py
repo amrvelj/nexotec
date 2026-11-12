@@ -22,14 +22,14 @@ logger = logging.getLogger("app.sales.services.contract")
 
 
 @dataclass(frozen=True)
-class _ConfirmationIds:
+class ConfirmationIds:
     tenant_id: uuid.UUID
     contract_id: uuid.UUID
     valuation_id: uuid.UUID | None
 
 
-def _compensate_confirmation(
-    ids: _ConfirmationIds,
+def compensate_confirmation(
+    ids: ConfirmationIds,
     *,
     reservation_id: uuid.UUID | None,
     valuation_newly_used: bool,
@@ -102,7 +102,7 @@ def _compensate_confirmation(
 
 
 def _run_compensating_actions(
-    ids: _ConfirmationIds,
+    ids: ConfirmationIds,
     *,
     reservation_id: uuid.UUID | None,
     valuation_newly_used: bool,

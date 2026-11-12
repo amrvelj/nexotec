@@ -27,7 +27,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.schemas.contract import ContractUpdate
 from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
-from app.sales.services.contract_compensation import _compensate_confirmation, _ConfirmationIds
+from app.sales.services.contract_compensation import ConfirmationIds, compensate_confirmation
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
 from app.sales.services.customer_attach_lock import lock_customer_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
@@ -566,7 +566,7 @@ def confirm_contract(
     # Plain values for the compensating actions: after db.rollback() the
     # contract's attributes are expired, and reloading them could itself fail
     # and hide why the confirmation failed.
-    ids = _ConfirmationIds(
+    ids = ConfirmationIds(
         tenant_id=contract.tenant_id, contract_id=contract.id, valuation_id=contract.trade_in_valuation_id
     )
 
@@ -620,7 +620,7 @@ def confirm_contract(
             # item — and Postgres cannot see that wait to break it.
             short_lived.close()
             db.rollback()
-            _compensate_confirmation(
+            compensate_confirmation(
                 ids, reservation_id=None, valuation_newly_used=valuation_newly_used,
                 actor_id=actor_id, session_factory=session_factory,
             )
@@ -652,7 +652,7 @@ def confirm_contract(
         db.commit()
     except Exception:
         db.rollback()
-        _compensate_confirmation(
+        compensate_confirmation(
             ids, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
             actor_id=actor_id, session_factory=session_factory,
         )
