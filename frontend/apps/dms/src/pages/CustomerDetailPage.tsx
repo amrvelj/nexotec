@@ -16,6 +16,7 @@ import {
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useCanWrite } from '../auth/useCanWrite'
+import { holdsNowOrLater } from '../utils/vehicleParty'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
@@ -453,7 +454,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       {
         id: 'vehicles',
         label: t('customerDetail.tabs.vehicles'),
-        count: vehiclesQuery.data?.items.filter((v) => v.effectiveTo == null).length,
+        // KAN-644: a role ending later (until a planned handover) still counts.
+        count: vehiclesQuery.data?.items.filter((v) => holdsNowOrLater(v)).length,
       },
       ...(salesEntitled
         ? [

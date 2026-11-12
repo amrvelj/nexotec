@@ -185,6 +185,8 @@ export function VehiclesTab({
             </span>
           )
         },
+        // KAN-644: wide enough for a name with its «ab <date>».
+        meta: { width: 420 },
       },
     ],
     [t, locale]
