@@ -28,8 +28,10 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.validators import is_valid_vin, normalise_vin
 from app.customer.public import get_customer_or_404
+from app.sales.models.contract import SalesContract
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
+from app.sales.services.valuation_carry import SessionFactory, commit_carrying
 from app.valuation.public import Valuation, list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
 from app.vehicle.public import match_vehicle
 
@@ -76,9 +78,11 @@ def set_trade_in(
     vehicle_label: str,
     customer_id: uuid.UUID | None,
     actor_id: uuid.UUID,
+    session_factory: SessionFactory | None = None,
 ) -> DealT:
     require_editable(db, deal)
     version_seen = deal.version
+    previous_valuation_id = deal.trade_in_valuation_id
 
     # KAN-99: the body's customer, if any, is resolved in the caller's group
     # (a customerId from another group is a 404). Since KAN-189 no party is
@@ -126,13 +130,18 @@ def set_trade_in(
     _recompute_payable(deal)
     db.flush()
     project(db, deal)
-    db.commit()
+    _commit(db, deal, previous_valuation_id=previous_valuation_id, actor_id=actor_id, session_factory=session_factory)
     db.refresh(deal)
     return deal
 
 
 def attach_trade_in_valuation(
-    db: Session, *, deal: DealT, valuation_id: uuid.UUID, actor_id: uuid.UUID | None
+    db: Session,
+    *,
+    deal: DealT,
+    valuation_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    session_factory: SessionFactory | None = None,
 ) -> DealT:
     """Explicit attach — used when the seller picks a specific valuation
     from the list FR-S-08 shows (rather than set_trade_in's own single-
@@ -149,6 +158,7 @@ def attach_trade_in_valuation(
     from app.valuation.public import get_valuation_or_404
 
     require_editable(db, deal)
+    previous_valuation_id = deal.trade_in_valuation_id
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
     # KAN-574 (Anto, 2026-11-07, option A): a trade-in is a car, and older
@@ -168,9 +178,30 @@ def attach_trade_in_valuation(
     _recompute_payable(deal)
     db.flush()
     project(db, deal)
-    db.commit()
+    _commit(db, deal, previous_valuation_id=previous_valuation_id, actor_id=actor_id, session_factory=session_factory)
     db.refresh(deal)
     return deal
+
+
+def _commit(
+    db: Session,
+    deal: PricedDeal,
+    *,
+    previous_valuation_id: uuid.UUID | None,
+    actor_id: uuid.UUID | None,
+    session_factory: SessionFactory | None,
+) -> None:
+    """KAN-631: a pending contract that starts carrying a valuation tells
+    valuation before it commits, and frees the one it replaced after
+    (`valuation_carry.commit_carrying`). An offer just commits."""
+
+    if isinstance(deal, SalesContract):
+        commit_carrying(
+            db, contract=deal, previous_valuation_id=previous_valuation_id, actor_id=actor_id,
+            session_factory=session_factory,
+        )
+    else:
+        db.commit()
 
 
 def _attach(db: Session, deal: PricedDeal, valuation) -> None:

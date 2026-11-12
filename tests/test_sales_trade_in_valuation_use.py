@@ -333,7 +333,7 @@ def test_a_failing_release_does_not_stop_the_valuation_revert_or_mask_the_error(
 
     with (
         patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
-        patch("app.sales.services.contract.release", side_effect=OSError("inventory unreachable")),
+        patch("app.sales.services.contract_compensation.release", side_effect=OSError("inventory unreachable")),
         pytest.raises(RuntimeError, match="boom"),
     ):
         _confirm(db_session, engine, contract, group_id)
@@ -450,7 +450,8 @@ def test_two_simultaneous_consumptions_serialise_on_the_row_lock(db_session, eng
         session = factory()
         try:
             result["newly_used"] = consume_valuation_for_contract(
-                session, tenant_id=dealership.id, valuation_id=valuation.id, actor_id=None
+                session, tenant_id=dealership.id, valuation_id=valuation.id,
+                contract_id=uuid.uuid4(), contract_label="C-000002", actor_id=None,
             )
         finally:
             session.close()

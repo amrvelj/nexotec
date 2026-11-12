@@ -3,10 +3,12 @@
 When Stock books the purchase of a trade-in's pipeline item
 (`inventory.stock_item.purchased` with `originRole: trade_in`), the customer
 context records the contract's customer as the car's former owner and
-keeper. The contract and its customer are Sales' facts, so the customer
-context asks for them here, through `app.sales.public` — a read, nothing
-else (CLAUDE.md rule 2; classified in
-tests/architecture/test_adr_047_no_shared_transaction.py).
+keeper. The contract and its customer are Sales' facts. Since KAN-632 they
+travel in the events (`sales.contract.confirmed`'s `customerId`/`signedAt`,
+which Stock carries on as `tradeInCustomerId`/`tradeInSignedAt`); this read,
+through `app.sales.public`, answers only an event published without them, and
+only from the composition root (`app/worker.py`) — customer sits below sales
+and never imports it (ADR-131). A read, nothing else (CLAUDE.md rule 2).
 """
 
 import dataclasses

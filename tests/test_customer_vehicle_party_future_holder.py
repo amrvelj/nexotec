@@ -26,13 +26,13 @@ from app.core.errors import ConflictError
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.schemas.customer import CustomerVehicleCreate, CustomerVehicleUpdate
-from app.customer.services.customer import (
+from app.customer.services.vehicle_party import (
     allocate_vehicle_party,
     create_customer_vehicle,
     delete_customer_vehicle,
-    get_customer_vehicle_or_404,
     update_customer_vehicle,
 )
+from app.customer.services.vehicle_party_reads import get_customer_vehicle_or_404
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
 OWNER = VehiclePartyRole.OWNER

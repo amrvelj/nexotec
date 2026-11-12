@@ -26,6 +26,7 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.services.contract import confirm_contract
 from app.valuation import reconciliation as valuation_reconciliation
 from app.valuation.models.valuation import Valuation
+from app.valuation.public import record_contract_carry_signed
 from app.valuation.services import valuation as valuation_module
 from app.valuation.services.valuation import derive_status, revert_use_by_hand
 from tests.test_sales_lifecycle_reservation import _dealership, _session_factory
@@ -134,25 +135,20 @@ def test_another_dealerships_pending_contract_does_not_refuse_the_clear(db_sessi
 
 
 @pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="interleaves two real transactions: Postgres only")
-@pytest.mark.parametrize(
-    "read_name", ["valuations_carried_by_pending_contracts", "valuations_carried_by_signed_contracts"]
-)
-def test_a_signing_committed_between_the_clears_two_reads_never_lets_it_through(db_session, engine, read_name):
-    """KAN-520, the narrower race (found by the review): the clear asks Sales
-    twice, once for pending and once for signed contracts, in two statements
-    under READ COMMITTED. A signing that commits right after either read
-    must still be seen. A pending contract only ever moves to signed (with
-    `signed_at`, which never clears) or to an unsigned cancel, so reading
-    pending first and signed second sees it in one of the two; the other
-    order lets it fall between them."""
+def test_a_signing_committed_right_after_the_clears_read_never_lets_it_through(db_session, engine):
+    """KAN-520's narrower race, against valuation's own rows (KAN-631): the
+    clear reads pending and signed carries in ONE statement. A signing that
+    commits — Sales' contract, then valuation told — right after that read
+    must still be refused: the read saw the carry pending, and a pending
+    carry only ever turns signed or released, never absent."""
 
     dealership = _dealership(db_session)
     valuation = _stamped(db_session, _valuation(db_session, dealership.id, uuid.uuid4()), hours_ago=3)
     contract = _contract(db_session, dealership.id, valuation.id, signed=False, status=ContractStatus.PENDING)
-    contract_id = contract.id
+    contract_id, contract_number = contract.id, contract.contract_number
     open_session = _session_factory(engine)
 
-    real_read = getattr(valuation_module, read_name)
+    real_read = valuation_module.carry_states
 
     def read_then_sign(*args, **kwargs):
         answer = real_read(*args, **kwargs)
@@ -162,6 +158,10 @@ def test_a_signing_committed_between_the_clears_two_reads_never_lets_it_through(
             signed.status = ContractStatus.CONFIRMED
             signed.signed_at = utcnow()
             signer.commit()
+            record_contract_carry_signed(
+                signer, tenant_id=dealership.id, valuation_id=valuation.id, contract_id=contract_id,
+                signed_at=signed.signed_at, contract_label=contract_number, actor_id=None,
+            )
         finally:
             signer.close()
         return answer
@@ -169,14 +169,20 @@ def test_a_signing_committed_between_the_clears_two_reads_never_lets_it_through(
     manager_session = open_session()
     try:
         held = manager_session.get(Valuation, valuation.id)
-        with patch.object(valuation_module, read_name, read_then_sign), pytest.raises(ConflictError) as exc:
+        with patch.object(valuation_module, "carry_states", read_then_sign), pytest.raises(ConflictError) as exc:
             revert_use_by_hand(manager_session, valuation=held, actor_id=uuid.uuid4(), reason="Zwischendurch")
     finally:
         manager_session.close()
 
-    assert exc.value.details["reason"] in {"pending_contract_carries_it", "signed_contract_carries_it"}
+    assert exc.value.details["reason"] == "pending_contract_carries_it"
     db_session.expire_all()
     assert db_session.get(Valuation, valuation.id).used_at is not None
+    # And once told, the next clear is refused as signed.
+    with pytest.raises(ConflictError) as again:
+        revert_use_by_hand(
+            db_session, valuation=db_session.get(Valuation, valuation.id), actor_id=None, reason="Nochmals"
+        )
+    assert again.value.details["reason"] == "signed_contract_carries_it"
 
 
 @pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="interleaves two real transactions: Postgres only")
@@ -202,7 +208,8 @@ def test_a_clear_interleaved_with_a_re_confirmation_never_leaves_a_signed_contra
 
     def interleaving_factory():
         # confirm_contract's first short-lived session consumes the valuation,
-        # its second reserves the car: the clear runs between the two.
+        # its second reserves the car: the clear runs between the two. The
+        # third tells valuation the contract was signed (KAN-631).
         nonlocal calls
         calls += 1
         if calls == 2:
@@ -221,7 +228,7 @@ def test_a_clear_interleaved_with_a_re_confirmation_never_leaves_a_signed_contra
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=interleaving_factory
     )
 
-    assert calls == 2, "the clear must run between the consume and the reservation"
+    assert calls == 3, "consume, reserve, then valuation told of the signing; the clear ran before the second"
     assert clear_outcome == ["pending_contract_carries_it"]
     assert signed.status == ContractStatus.CONFIRMED and signed.signed_at is not None
     db_session.expire_all()

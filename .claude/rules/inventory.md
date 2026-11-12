@@ -98,10 +98,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   per stock item and never queries Stock synchronously for it on the invoicing path (ADR-052
   addendum 2026-11-06, KAN-146: Sales' storno consumer re-reads it asynchronously, `sales.md`). Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
-  The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
-  `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
-  `originRole` (read back from `pipeline_ref`, `stock_item.pipeline_origin`), which the customer
-  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
+  The event carries `stockNumber`, `vehicleId`, `purchaseDate`, `purchasedBy` (KAN-189) and, for an
+  item a contract's confirmation created, `originContractId`/`originRole` (`pipeline_origin`) and
+  (KAN-632; on the storno too) `tradeInCustomerId`/`tradeInSignedAt`, which
+  `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
 - **A stock item's configuration label follows the configuration within a day** (KAN-534, rule 2):
   `configuration_label` and `configuration_label_refreshed_at` are written when a configuration is
   attached or a pipeline item created, and re-read nightly by `inventory.configuration_labels`
@@ -136,16 +136,16 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `pipeline` (`in_stock_at` cleared) **keeping its VIN and `vehicle_id`** — so it still blocks the
   VIN and is booked again without a new one (`record_purchase` restocks it without promoting; another
   VIN is 422 `purchase_vin_mismatch`) — audits `purchase_storno` with the reason and publishes
-  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`; since KAN-572 additively
-  `returnedToCustomer`, the cancelled `purchaseDate` and a trade-in's `originContractId`/`originRole`),
+  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`; KAN-572 adds
+  `returnedToCustomer`, the cancelled `purchaseDate`, `originContractId`/`originRole`),
   all in one transaction. **A trade-in may go back to its customer** (KAN-572; Anto, 2026-11-07,
   option C): `returnedToCustomer: true` on the storno (optional, default false; 422
   `storno_return_not_trade_in` on any other car), audited with it; the customer context then reopens
   that customer as owner and keeper (`customer.md`). The dialog asks only on a trade-in's car.
   A reserved car may be stornoed; the reservation stays. Refused: no booked purchase (409
   `purchase_not_booked`), left stock (409 `purchase_storno_left_stock`), or a contract on the car
-  that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, read
-  through `sales.public.contract_with_invoice_requested_for_stock_item` on a session of its own).
+  that requested its invoice (409 `purchase_storno_invoice_requested` with `contractNumber`, from Stock's
+  contract projection, KAN-630, `events.md`).
   The storno reverses every `einstandspreis` entry not yet reversed — a hand-booked one from before
   KAN-146 included — keyed `storno:<the entry's id>`. The stock detail's purchase card carries the
   action (`PurchaseStornoDialog`), and so does the one stock row menu (KAN-571, below). **Built as the
@@ -223,10 +223,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   whose contract is cancelled, missing, or pending is released; confirmed and invoiced keep the
   car (Anto, 2026-10-07). A pending contract's reservation made in the last hour waits for the
   next run, because a confirmation commits the reservation before the contract (Anto,
-  2026-10-08). Stock reads the statuses through
-  `app.sales.public.get_contract_statuses` on a session of its own, and releases each orphan
-  in its own commit (ADR-047). Each run logs one line with its counts in the message text; a
-  failed release is logged at ERROR and retried the next night.
+  2026-10-08). The statuses are Stock's contract projection (KAN-630, `events.md`); a contract with
+  a fact not yet applied keeps its car (`kept_unsynced`). Each orphan is released in its own commit;
+  one log line with the counts per run; a failed release logs ERROR and is retried the next night.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`; it can be overridden afterwards

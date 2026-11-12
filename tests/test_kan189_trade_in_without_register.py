@@ -18,11 +18,12 @@ from sqlalchemy import func, select
 
 from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage
+from app.customer.consumers import handle_stock_item_booking_purchased_message, purchase_moment
 from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
-from app.customer.consumers import purchase_moment
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.services.customer import allocate_vehicle_party, list_customer_vehicles
+from app.customer.services.vehicle_party import allocate_vehicle_party
+from app.customer.services.vehicle_party_reads import list_customer_vehicles
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -212,8 +213,12 @@ def _bought_trade_in(db_session, engine, *, purchase_date=dt.date(2026, 10, 20))
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
         session_factory=_session_factory(engine),
     )
-    # Signed weeks before the car comes in, as in a dealer's week.
+    # Signed weeks before the car comes in, as in a dealer's week — on the
+    # contract and in its confirmation event, which Stock keeps the
+    # signature from for the purchase event (KAN-632).
     contract.signed_at = _SIGNED_AT
+    confirmed = _message(db_session, "sales.contract.confirmed", contract.id)
+    confirmed.payload = {**confirmed.payload, "signedAt": _SIGNED_AT.isoformat()}
     db_session.commit()
     _stock_consumes_the_confirmation(db_session, contract)
     item = db_session.scalars(
@@ -240,6 +245,14 @@ def _parties(db_session) -> list[VehicleParty]:
 
 
 def _customer_consumes(db_session, message) -> bool:
+    """As the worker delivers the event to the customer context: its booking
+    record first (KAN-632), then the trade-in step; returns whether the
+    trade-in step ran."""
+
+    consume_once(
+        db_session, message=message, consumer_name="customer.stock_item_bookings_on_purchased",
+        handler=handle_stock_item_booking_purchased_message,
+    )
     return consume_once(
         db_session, message=message, consumer_name="customer.trade_in_purchased",
         handler=handle_trade_in_purchased_message,
@@ -256,6 +269,9 @@ def test_the_purchased_event_names_the_vehicle_the_contract_and_the_date(db_sess
         "purchasedBy": str(_BUYER_ACTOR),
         "originContractId": str(contract.id),
         "originRole": "trade_in",
+        # KAN-632: who traded the car in and when, as the confirmation named them.
+        "tradeInCustomerId": str(contract.customer_id),
+        "tradeInSignedAt": _SIGNED_AT.isoformat(),
     }
 
 

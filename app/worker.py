@@ -17,6 +17,7 @@ deliberate, not an oversight.
 import logging
 import os
 import time
+import uuid
 
 from sqlalchemy.orm import Session
 
@@ -34,28 +35,40 @@ from app.core.observability import (
     record_reconciliation_age_seconds,
 )
 from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pending_age_seconds
+from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.consumers import (
+    TradeInSeller,
+    handle_stock_item_booking_purchased_message,
+    handle_stock_item_booking_storno_message,
+    handle_vehicle_summary_changed_message,
+)
 from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
-from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
     refresh_advisor_labels,
     refresh_vehicle_party_labels,
 )
+from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
     handle_sales_contract_cancelled_message,
     handle_sales_contract_confirmed_message,
+    handle_sales_contract_fact_message,
     handle_stock_item_published_message,
     handle_stock_item_unpublished_message,
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
-from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
+from app.inventory.public import (
+    SALES_CONTRACT_PROJECTION_CONSUMERS,
+    oldest_configuration_label_age_seconds,
+    refresh_configuration_labels,
+)
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
@@ -78,6 +91,7 @@ from app.sales.consumers import (
     handle_stock_item_storno_message,
 )
 from app.sales.public import (
+    get_trade_in_seller,
     oldest_customer_label_age_seconds,
     oldest_owner_label_age_seconds,
     refresh_customer_labels,
@@ -93,6 +107,29 @@ logger = logging.getLogger("app.worker")
 
 _POLL_INTERVAL_SECONDS = 1.0
 _HEARTBEAT_INTERVAL_SECONDS = 30.0
+
+
+def _trade_in_seller_from_sales(db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> TradeInSeller | None:
+    """KAN-632 (ADR-131): the seller of a trade-in whose purchase or storno
+    event does not carry it — published before KAN-632, or of a pipeline item
+    created before it, when Sales' confirmation named nobody to keep. Asked
+    here, at the composition root, because customer sits below sales and
+    never imports it; the answer is the one the customer consumers read
+    before (`sales.public.get_trade_in_seller`, a SELECT only, in the
+    consumer's transaction — nothing of Sales' is written). Once no trade-in
+    item without a kept seller remains unbought and no such event is
+    undelivered, this fallback can go (KAN-674)."""
+
+    seller = get_trade_in_seller(db, tenant_id=tenant_id, contract_id=contract_id)
+    return None if seller is None else TradeInSeller(customer_id=seller.customer_id, known_since=seller.known_since)
+
+
+def _customer_trade_in_purchased(db: Session, message: OutboxMessage) -> None:
+    handle_trade_in_purchased_message(db, message, seller_of_old_event=_trade_in_seller_from_sales)
+
+
+def _customer_trade_in_storno(db: Session, message: OutboxMessage) -> None:
+    handle_trade_in_storno_message(db, message, seller_of_old_event=_trade_in_seller_from_sales)
 
 
 def configure_observability() -> None:
@@ -129,6 +166,10 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="inventory.sales_contract_cancelled",
         handler=handle_sales_contract_cancelled_message,
     )
+    # KAN-630 — Stock's projection of Sales' contracts, which its orphan sweep
+    # and «Einkauf stornieren» read instead of asking Sales (ADR-131).
+    for event_type, consumer_name in SALES_CONTRACT_PROJECTION_CONSUMERS.items():
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_sales_contract_fact_message)
     # WP-8 PR-6 — the second real consumer: sales.stock_item_purchased
     # maintains its own local is_invoiceable replica (ADR-052).
     transport.register(
@@ -161,13 +202,29 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="sales.customer_merged",
         handler=handle_customer_merged_message,
     )
+    # KAN-632 (ADR-147) — the customer context's record of Stock's bookings,
+    # which the two trade-in consumers below judge an event's order by. Its
+    # own consumers, so a failing trade-in step never loses the row; and
+    # registered first: the transport runs one event type's consumers in
+    # registration order, each in its own committed transaction, so an
+    # event's booking row is there before its own trade-in step runs.
+    transport.register(
+        "inventory.stock_item.purchased",
+        consumer_name="customer.stock_item_bookings_on_purchased",
+        handler=handle_stock_item_booking_purchased_message,
+    )
+    transport.register(
+        "inventory.stock_item.storno",
+        consumer_name="customer.stock_item_bookings_on_storno",
+        handler=handle_stock_item_booking_storno_message,
+    )
     # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
     # recorded as the car's former owner and keeper, in the customer
     # context's own transaction.
     transport.register(
         "inventory.stock_item.purchased",
         consumer_name="customer.trade_in_purchased",
-        handler=handle_trade_in_purchased_message,
+        handler=_customer_trade_in_purchased,
     )
     # KAN-572 (Anto, 2026-11-07, option C) — a trade-in whose purchase was
     # stornoed and which went back to its customer reopens that customer as
@@ -175,7 +232,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     transport.register(
         "inventory.stock_item.storno",
         consumer_name="customer.trade_in_storno",
-        handler=handle_trade_in_storno_message,
+        handler=_customer_trade_in_storno,
     )
     # KAN-144 — a manual configuration's contract learns the pipeline stock
     # item its confirmation created, so the purchase gate can apply to it.
@@ -213,6 +270,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "vehicle.vehicle_mdm.summary_changed",
         consumer_name="customer.vehicle_party_labels_on_summary_changed",
         handler=handle_vehicle_summary_changed_message,
+    )
+    # KAN-634 (ADR-131) — a vehicle merge (FR-V-12) moves customer's party
+    # rows from the duplicate onto the survivor when the fact is delivered;
+    # vehicle publishes it and never calls customer.
+    transport.register(
+        "vehicle.vehicle_mdm.merged",
+        consumer_name="customer.vehicle_parties_on_vehicle_merged",
+        handler=handle_vehicle_merged_message,
     )
     # KAN-270 — a host took a configuration: vehicle stamps it taken, so the
     # daily purge of configurations no host ever took keeps it for good.

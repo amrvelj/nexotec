@@ -39,9 +39,9 @@ weekly. -->
 - `customer_phone`, `customer_email`, `customer_address`: one row per value, each with a type,
   an optional free-text label, `isPrimary` with **exactly one primary per type-group**
   (enforced transactionally, on create and on every update/delete — re-elect when a primary
-  goes), `validFrom`/`validTo`, a `doNotUse` flag with a reason, and **consent per channel**
-  with its source and timestamp. All three update paths go through one helper,
-  `_prepare_primary_change` in `services/customer.py`.
+  goes), `validFrom`/`validTo`, a `doNotUse` flag with a reason and **consent per channel**
+  with source and timestamp. All three update paths share one helper,
+  `_prepare_primary_change` (`services/contact_channels.py`).
 - **Changing a row's type settles both type-groups** (KAN-102, Anto's ruling). The group it
   leaves re-elects. In the group it joins, `isPrimary: true` in the same PATCH makes the moved
   row primary; otherwise that group's existing primary stays and the moved row is demoted — a
@@ -140,8 +140,9 @@ weekly. -->
 - **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
   rulings below, 2026-11-03, all A): the
   customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
-  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
-  the contract's customer and signature through `sales.public.get_trade_in_seller` and, in its own
+  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it takes
+  the contract's customer and signature from the event (`tradeInCustomerId`/`tradeInSignedAt`, KAN-632;
+  an older event's from the worker's `seller_of_old_event`, which asks Sales; none given raises) and, in its own
   consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
   keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
   when that date is not after the signature or is still to come (never later than the booking: an
@@ -159,33 +160,23 @@ weekly. -->
   `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
   open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
   the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
-  failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
-  records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
-  purchase, or of one booked again under another date, writes nothing; booked again under the same
-  date, the late event is taken for the standing one, and the history may then end at the late event's
-  booking instead — whenever `purchase_moment` falls back to the booking for it: a date not after the
-  signature, or still to come when it was booked; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
-  purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
-  `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
-  stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
+  failed delivery, `customer.stock_item_bookings_on_{purchased,storno}` (registered first, nothing else to fail)
+  record every purchase/storno event in `customer_stock_item_booking` (KAN-632; seeded from the outbox, re-seeded
+  by `scripts/backfill_customer_stock_item_booking.py`; nightly check; per-item lock); the trade-in consumers judge by `occurredAt`: a purchase is recorded only
+  while no later booking of the item is known, and a returned storno a later purchase overtook (standing
+  or stornoed in turn) reopens nobody. The reopen also leaves a role alone when a row of it was
   recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
-  recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
-  promptly and in order, the returned customer does not get that role back and the role has no current
+  recorded later does not count), or a holder of it starts after the storno — then, even in order, the returned customer does not get that role back and the role has no current
   holder until the future holder starts (never ended before it began; KAN-583).
   **Accepted residual**
-  (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
-  whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
-  backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
-  *unflagged* storno records no handover unless the car is bought again — after a *returned* storno
-  the customer who got the car back is then recorded nowhere (in order, they would be its current
-  owner and keeper) —, a returned storno consumed
-  after a later booking reopens nobody (so the period the customer held the car again is not
-  recorded), with a re-booking the history may end at either purchase, depending on which event is
-  consumed when, and
+  (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632 to out-of-order delivery and to a purchase and
+  storno both still pending at the deploy, which the seed takes as out of order): a purchase event consumed after its storno's records no
+  handover — after a *returned* storno the customer who got the car back is recorded nowhere —, a
+  returned storno consumed after a later booking's event reopens nobody, and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
-  before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
-  after first ruling A on a narrower «failed delivery only» description.*
+  before its own recording reads as history, so a late returned storno reopens over it. *Anto ruled A on 2026-11-07 on the pre-KAN-632 (wider)
+  text; the narrowing is disclosed in PR #316.*
 - **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
   `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
   refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock and
@@ -242,6 +233,7 @@ weekly. -->
   LOCKED) and waits for a held one, so it could hold one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
   `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
+- **A vehicle merge moves party rows in a consumer** (KAN-634): `vehicle-mdm.md`.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
@@ -255,11 +247,10 @@ weekly. -->
   without a label yet is filled for a read in memory only, and labelled by its next PATCH,
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).
-  `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
   A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
-  `GET /v1/customers/{id}/vehicles` fills `stockItem` from
+  `GET /v1/customers/{id}/vehicles` (composed in `app/api/v1/customer_vehicles.py`, KAN-632) fills `stockItem` from
   `app.inventory.public.get_stock_items_for_vehicles` (which takes the caller's `Principal` and reads
   only its token's group, KAN-538) only when
   `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a

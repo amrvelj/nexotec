@@ -477,7 +477,7 @@ def test_merge_conflict_on_the_survivor_names_a_reason(client, db_session, monke
 
     from app.core.errors import ConflictError
     from app.customer.models.customer import Customer
-    from app.customer.services import customer as customer_service
+    from app.customer.services import customer_merge as customer_merge_service
 
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id, email="survivor366b@example.ch")
@@ -489,7 +489,7 @@ def test_merge_conflict_on_the_survivor_names_a_reason(client, db_session, monke
 
     monkeypatch.setattr(db_session, "commit", conflicting_commit)
     with pytest.raises(ConflictError) as refused:
-        customer_service.merge_customer(
+        customer_merge_service.merge_customer(
             db_session, customer=row, duplicate_of_customer_id=uuid.UUID(survivor["id"]), actor_id=uuid.uuid4()
         )
     assert refused.value.details["reason"] == "merge_conflict_on_survivor"
@@ -1442,7 +1442,7 @@ def test_external_id_update_answers_external_id_taken_only_for_its_unique_constr
 
     from app.customer.models.customer import CustomerExternalId
     from app.customer.schemas.customer import CustomerExternalIdUpdate
-    from app.customer.services.customer import update_customer_external_id
+    from app.customer.services.external_ids import update_customer_external_id
 
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="ext-null-svc@example.ch")

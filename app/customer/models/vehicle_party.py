@@ -7,7 +7,7 @@ DB-level ForeignKey any more. vehicle_id was a genuine cross-context FK
 (customer -> vehicle); customer_id is intra-context after the PR-1 move but
 was named explicitly in the PR-2 scope, so it's dropped too rather than
 re-litigated. Existence is checked at the application layer (see
-app.customer.services.customer, app.vehicle.public.get_vehicle_mdm_or_404);
+app.customer.services.vehicle_party, app.vehicle.public.get_vehicle_mdm_or_404);
 drift is caught by the nightly reconciliation job (app.customer.reconciliation),
 not by Postgres.
 
@@ -32,7 +32,7 @@ join through. Written whenever a party row is opened or repointed (through
 app.vehicle.public.get_vehicle_summaries), re-read when vehicle-mdm
 publishes `vehicle.vehicle_mdm.summary_changed` (KAN-186,
 app.customer.consumers) and re-read nightly by
-app.customer.services.customer.refresh_vehicle_party_labels, the backstop
+app.customer.services.vehicle_party_labels.refresh_vehicle_party_labels, the backstop
 for a change that publishes nothing (a brand rename).
 tests/architecture/test_no_cross_context_mapping.py keeps it that way.
 """
@@ -152,7 +152,7 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
         """The label columns in the shape VehiclePartySummary reads
         (`CustomerVehicleRead.vehicle`) — no join, no other context's row.
         A row with no stored label yet may carry a read-only fill (see
-        app.customer.services.customer._fill_unlabelled_vehicle_parties_for_read),
+        app.customer.services.vehicle_party_labels._fill_unlabelled_vehicle_parties_for_read),
         held in a plain instance attribute, never in ORM state."""
 
         read_fill = self.__dict__.get("_vehicle_label_read_fill")

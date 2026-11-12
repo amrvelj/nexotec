@@ -25,6 +25,10 @@ configurations no host ever took. A SELECT only. `get_stock_numbers`
 (KAN-157) is Sales' label backfill: stock numbers by id, plain data.
 `is_stock_item_purchased` (KAN-146) is Sales' storno consumer's re-read of the
 purchase fact as it is now (delivery is unordered); a SELECT only, a bool.
+`SALES_CONTRACT_PROJECTION_CONSUMERS` (KAN-630) is the worker's list of
+Stock's consumers of Sales' contract facts; `apply_backfilled_contract` and
+`record_backfill` are the projection backfill's writes
+(scripts/backfill_inventory_sales_contract_projection.py), commit-free.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -35,20 +39,22 @@ from app.inventory.services.configuration_label import (
 )
 from app.inventory.services.configuration_reference import referenced_configuration_ids
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
-from app.inventory.services.ledger import purchase_booked_after
 from app.inventory.services.pricing import get_stock_item_pricing
-from app.inventory.services.purchase import standing_purchase_date
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
+from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
+from app.inventory.services.sales_contract import apply_backfilled_contract, record_backfill
 from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers, is_stock_item_purchased
 from app.inventory.services.valuation import set_valuation_ref
 from app.inventory.services.vehicle_link import get_stock_item_vehicle
 
 __all__ = [
+    "SALES_CONTRACT_PROJECTION_CONSUMERS",
     "InventoryOwnershipProvider",
     "LifecycleStatus",
     "ReservationState",
     "StockItem",
     "StockItemCondition",
+    "apply_backfilled_contract",
     "get_stock_item_or_404",
     "get_stock_item_pricing",
     "get_stock_item_vehicle",
@@ -56,12 +62,11 @@ __all__ = [
     "get_stock_numbers",
     "is_stock_item_purchased",
     "oldest_configuration_label_age_seconds",
-    "purchase_booked_after",
+    "record_backfill",
     "referenced_configuration_ids",
     "refresh_configuration_labels",
     "release",
     "reserve",
     "reserve_for_contract",
     "set_valuation_ref",
-    "standing_purchase_date",
 ]

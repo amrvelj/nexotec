@@ -131,5 +131,17 @@ re-verified against the code. -->
 - **Any Betrieb may end a recorded accessory** (the car is shared; Anto): `validTo` = today in
   Switzerland, audited under the ending Betrieb and, when another recorded it, under that one too;
   the row is never deleted (FR-V-13).
-- The FR-V-12 merge changes no summary field; its party re-point relabels through
-  `customer.public.repoint_vehicle_party`.
+- The FR-V-12 merge (`services/merge.py`, no caller yet — KAN-524) changes no summary field and
+  never calls customer (ADR-131): in its own transaction it re-points plates, accessories, odometer
+  readings and custody events, audits `merge` and publishes `vehicle.vehicle_mdm.merged` (aggregate
+  the duplicate, `tenant_id` null, payload `vehicleId` + `mergedIntoVehicleId`). Customer's
+  `customer.vehicle_parties_on_vehicle_merged` (`app/customer/services/vehicle_merge.py`, KAN-634)
+  then moves every party row naming the duplicate (every group's, open or closed) onto the survivor,
+  followed to the live record via `vehicle.public.resolve_merged_vehicle_id` (delivery is unordered),
+  locks both cars' rows in one id-ordered `FOR NO KEY UPDATE` and relabels them; nothing is closed,
+  audited or published. Customer's reconciliation reports a party row naming a merged vehicle.
+- **Vehicle never reads or writes `VehicleParty`** (KAN-634, ADR-131 (5)): the Vehicle 360's
+  «Allocate to customer» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders
+  (`GET /v1/vehicle-mdm/{id}/party-roles`) are served from the composition root
+  `app/api/v1/vehicle_parties.py`, same paths and shapes; no `app/vehicle` module outside
+  `reconciliation.py` (ADR-107) imports `app.customer`.

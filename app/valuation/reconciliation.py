@@ -1,12 +1,14 @@
 """Valuation's outbound cross-context references (WP-8 PR-5), (KAN-115)
-the «Verwendet» stamp against the signed contracts behind it, and (KAN-449)
-the VIN a valuation prints against the vehicle its vehicleId names.
+the «Verwendet» stamp against the signed contracts behind it, (KAN-449)
+the VIN a valuation prints against the vehicle its vehicleId names, and
+(KAN-631) valuation's own «carried by a pending / signed contract» rows
+against the contracts in Sales.
 Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
 import datetime as dt
 
-from sqlalchemy import Exists, func, select
+from sqlalchemy import ColumnElement, Exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
@@ -14,7 +16,8 @@ from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import Customer
 from app.platform.public import Dealership, actor_reference_checks
-from app.sales.public import SalesContract
+from app.sales.public import ContractStatus, SalesContract
+from app.valuation.models.contract_carry import ContractCarryState, ValuationContractCarry
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationProviderQuote
 from app.valuation.services.valuation import CONFIRMATION_GRACE
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
@@ -24,7 +27,7 @@ CONTEXT = "valuation"
 # Every Valuation table with created_by / updated_by: each must name a
 # platform user, or be null (KAN-243; see
 # app.platform.public.actor_reference_checks).
-ACTOR_TABLES = (Valuation, ValuationDeduction, ValuationProviderQuote)
+ACTOR_TABLES = (Valuation, ValuationDeduction, ValuationProviderQuote, ValuationContractCarry)
 
 # A confirmation stamps its trade-in valuation on its own commit, before the
 # contract is signed in the next (KAN-101, ADR-047); a stamp still without a
@@ -33,6 +36,10 @@ ACTOR_TABLES = (Valuation, ValuationDeduction, ValuationProviderQuote)
 _CONFIRMATION_GRACE = CONFIRMATION_GRACE
 # KAN-633: how long the `valuation.created` fact may be in flight.
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
+# KAN-631: Sales tells valuation after its own commit that a contract was
+# signed or cancelled; a carry and a contract both untouched this long are
+# not a call in progress.
+_CARRY_GRACE = dt.timedelta(hours=1)
 
 
 def _carried_by_a_signed_contract() -> Exists:
@@ -49,6 +56,99 @@ def _carried_by_a_signed_contract() -> Exists:
         .exists()
     )
 
+
+
+def _carry_contract(*conditions: ColumnElement[bool]) -> Exists:
+    """The carry row's own contract — same id, same dealership, still
+    carrying the row's valuation — in the state `conditions` name."""
+
+    return (
+        select(SalesContract.id)
+        .where(
+            SalesContract.id == ValuationContractCarry.contract_id,
+            SalesContract.tenant_id == ValuationContractCarry.tenant_id,
+            SalesContract.trade_in_valuation_id == ValuationContractCarry.valuation_id,
+            *conditions,
+        )
+        .correlate(ValuationContractCarry)
+        .exists()
+    )
+
+
+def _carry_disagrees_with_its_contract() -> StateCheck:
+    """KAN-631 (ADR-131, rule 10): valuation answers «carried by a pending /
+    signed contract» from its own rows, written by Sales' calls. A row that
+    says pending while its contract is not pending with this valuation
+    (cancelled, signed, another valuation, never committed), signed while no
+    signed contract carries it, or released while its contract still carries
+    it pending or signed, is a call that failed — reported, never repaired.
+    Past the grace on both sides: a call made after Sales' commit may be on
+    its way."""
+
+    def where() -> ColumnElement[bool]:
+        cutoff = utcnow() - _CARRY_GRACE
+        pending = _carry_contract(SalesContract.status == ContractStatus.PENDING, SalesContract.signed_at.is_(None))
+        signed = _carry_contract(SalesContract.signed_at.is_not(None))
+        carrying = _carry_contract(
+            or_(SalesContract.status == ContractStatus.PENDING, SalesContract.signed_at.is_not(None))
+        )
+        recently_written = (
+            select(SalesContract.id)
+            .where(SalesContract.id == ValuationContractCarry.contract_id, SalesContract.updated_at >= cutoff)
+            .correlate(ValuationContractCarry)
+            .exists()
+        )
+        return (
+            (ValuationContractCarry.updated_at < cutoff)
+            & ~recently_written
+            & or_(
+                (ValuationContractCarry.state == ContractCarryState.PENDING) & ~pending,
+                (ValuationContractCarry.state == ContractCarryState.SIGNED) & ~signed,
+                (ValuationContractCarry.state == ContractCarryState.RELEASED) & carrying,
+            )
+        )
+
+    return StateCheck(
+        label="valuation_contract_carry state differs from its contract",
+        source_model=ValuationContractCarry,
+        source_row_id_column=ValuationContractCarry.id,
+        where=where,
+    )
+
+
+def _carried_by_a_contract_valuation_does_not_know() -> StateCheck:
+    """KAN-631: a pending or signed contract of the valuation's own
+    dealership carries it, and valuation holds no carry row for that
+    contract at all — the pending call never reached it (a contract written
+    before the backfill, or by code that bypassed the call). A row in the
+    wrong state is the check above's finding."""
+
+    def where() -> ColumnElement[bool]:
+        cutoff = utcnow() - _CARRY_GRACE
+        return (
+            select(SalesContract.id)
+            .where(
+                SalesContract.tenant_id == Valuation.tenant_id,
+                SalesContract.trade_in_valuation_id == Valuation.id,
+                or_(SalesContract.status == ContractStatus.PENDING, SalesContract.signed_at.is_not(None)),
+                SalesContract.updated_at < cutoff,
+                ~select(ValuationContractCarry.id)
+                .where(
+                    ValuationContractCarry.valuation_id == Valuation.id,
+                    ValuationContractCarry.contract_id == SalesContract.id,
+                )
+                .exists(),
+            )
+            .correlate(Valuation)
+            .exists()
+        )
+
+    return StateCheck(
+        label="valuation carried by a contract it holds no carry row for",
+        source_model=Valuation,
+        source_row_id_column=Valuation.id,
+        where=where,
+    )
 
 
 def _names_an_untaken_configuration() -> StateCheck:
@@ -98,6 +198,31 @@ def _vin_the_car_carried_before_a_correction() -> Exists:
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
     _names_an_untaken_configuration(),
+    _carry_disagrees_with_its_contract(),
+    _carried_by_a_contract_valuation_does_not_know(),
+    # KAN-631 (rule 2's plain GUIDs, as KAN-630 checks Stock's projection):
+    # a carry row names a contract and a Betrieb that exist. A RELEASED row is
+    # left out of the contract check: the compensation of a contract whose own
+    # commit failed releases the pending row it made for a contract that never
+    # existed (`sales/services/valuation_carry.py::commit_carrying`), and that
+    # row is meant to stay — reporting it would be a finding nothing can clear.
+    ReferenceCheck(
+        label="valuation_contract_carry.contract_id -> sales_contract.id",
+        source_model=ValuationContractCarry,
+        source_row_id_column=ValuationContractCarry.id,
+        source_fk_column=ValuationContractCarry.contract_id,
+        target_model=SalesContract,
+        target_id_column=SalesContract.id,
+        source_where=lambda: ValuationContractCarry.state != ContractCarryState.RELEASED,
+    ),
+    ReferenceCheck(
+        label="valuation_contract_carry.tenant_id -> dealership.id",
+        source_model=ValuationContractCarry,
+        source_row_id_column=ValuationContractCarry.id,
+        source_fk_column=ValuationContractCarry.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
     ReferenceCheck(
         label="valuation.tenant_id -> dealership.id",
         source_model=Valuation,

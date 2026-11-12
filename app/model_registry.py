@@ -12,6 +12,7 @@ from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
 from app.customer.models.customer import Customer, CustomerAddress, CustomerTag
 from app.customer.models.legal_basis import LegalBasis
+from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
@@ -22,6 +23,7 @@ from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
+from app.inventory.models.sales_contract import InventorySalesContract, InventorySalesContractBackfill
 from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
@@ -63,6 +65,7 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
+from app.valuation.models.contract_carry import ValuationContractCarry
 from app.valuation.models.valuation import (
     Valuation,
     ValuationDeduction,
@@ -135,6 +138,8 @@ __all__ = [
     "IntegrationProviderCaption",
     "IntegrationSecretRef",
     "InventoryCancelledContract",
+    "InventorySalesContract",
+    "InventorySalesContractBackfill",
     "LegalBasis",
     "Location",
     "LocationClosure",
@@ -172,6 +177,7 @@ __all__ = [
     "StandardText",
     "StandardTextDelegation",
     "StockItem",
+    "StockItemBooking",
     "StockItemLedger",
     "StockItemMedia",
     "StockItemOption",
@@ -188,6 +194,7 @@ __all__ = [
     "UserNotificationPreference",
     "UserPreference",
     "Valuation",
+    "ValuationContractCarry",
     "ValuationDeduction",
     "ValuationNumberSequence",
     "ValuationProviderQuote",

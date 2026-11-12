@@ -20,13 +20,8 @@ from app.customer.schemas.customer import (
     CustomerEmailCreate,
     CustomerUpdate,
 )
-from app.customer.services.customer import (
-    create_customer,
-    create_customer_address,
-    list_customer_addresses,
-    set_credit_block,
-    update_customer,
-)
+from app.customer.services.addresses import create_customer_address, list_customer_addresses
+from app.customer.services.customer import create_customer, set_credit_block, update_customer
 from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
@@ -142,7 +137,8 @@ def test_confirm_contract_reserves_the_stock_item(db_session, engine):
 
 def test_confirm_contract_emits_the_exact_expected_payload(db_session, engine):
     """The four keys inventory's handle_sales_contract_confirmed reads
-    (WP-7, frozen), plus the additive pricingSnapshot (WP-8, ADR-046)."""
+    (WP-7, frozen), plus the additive pricingSnapshot (WP-8, ADR-046) and the
+    additive buyer and signature (KAN-632)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
@@ -155,8 +151,11 @@ def test_confirm_contract_emits_the_exact_expected_payload(db_session, engine):
         aggregate_id=contract.id, event_type="sales.contract.confirmed"
     ).one()
     assert set(message.payload.keys()) == {
-        "contractId", "vehicleSource", "manualConfiguration", "tradeIn", "pricingSnapshot"
+        "contractId", "customerId", "signedAt", "vehicleSource", "manualConfiguration", "tradeIn", "pricingSnapshot"
     }
+    db_session.refresh(contract)
+    assert message.payload["customerId"] == str(contract.customer_id)
+    assert message.payload["signedAt"] == contract.signed_at.isoformat()
     assert message.payload["vehicleSource"] == "existing"
     assert message.payload["manualConfiguration"] is None
     assert message.payload["tradeIn"] is None

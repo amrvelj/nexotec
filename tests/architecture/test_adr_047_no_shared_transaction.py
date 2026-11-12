@@ -72,8 +72,8 @@ write sharing the caller's session commits whatever the caller has
 pending. The behavioural tests cover those per call
 (`test_inventory_reservation`, `test_sales_lifecycle_reservation`,
 `test_sales_trade_in_valuation_use`, `test_inventory_reservation_sweep`
-(KAN-122: Stock's sweep reads Sales' statuses outside its write
-transactions, by recording each transaction's statements), and in `test_integration_gateway`
+(KAN-122: Stock's sweep commits each release on its own; since KAN-630 it
+reads no Sales row at all, by recording each transaction's statements), and in `test_integration_gateway`
 the two KAN-90 tests on the caller's own rows). It does not follow a
 write made by assigning to another context's ORM object (rule 1's
 territory), and it scans the twelve contexts only: the composition roots
@@ -168,18 +168,10 @@ _OWN_COMMIT_WRITES = {
         "app.inventory.services.reservation._release",
         "sales: cancel_contract, confirm_contract's compensation",
     ),
-    # A vehicle merge re-points VehicleParty rows; customer stays their
-    # writer (FR-V-12). Called after vehicle's own commit.
-    "app.customer.public.repoint_vehicle_party": (
-        "app.customer.services.customer.repoint_vehicle_party",
-        "vehicle: merge flow",
-    ),
-    # The vehicle 360 allocates a customer to a vehicle (FR-V-05, ADR-064);
-    # since KAN-189 the trade-in allocates no party.
-    "app.customer.public.allocate_vehicle_party": (
-        "app.customer.services.customer.allocate_vehicle_party",
-        "vehicle: allocate endpoint",
-    ),
+    # KAN-634: a vehicle merge re-points VehicleParty rows through
+    # customer's consumer of `vehicle.vehicle_mdm.merged`, and the vehicle
+    # 360's «Allocate to customer» (FR-V-05) is served from the composition
+    # root (app/api/v1/vehicle_parties.py) — no context calls either write.
     # A confirmation consumes its trade-in valuation, and reverts it as
     # the compensating action (KAN-101, ADR-074).
     "app.valuation.public.consume_valuation_for_contract": (
@@ -189,6 +181,21 @@ _OWN_COMMIT_WRITES = {
     "app.valuation.public.revert_valuation_use": (
         "app.valuation.services.valuation.revert_use",
         "sales: confirm_contract's compensation",
+    ),
+    # KAN-631 (ADR-131): Sales tells valuation which contracts carry a
+    # valuation — pending before the Sales write commits (released again if
+    # it fails), signed and released after — each on a session of its own.
+    "app.valuation.public.record_contract_carry_pending": (
+        "app.valuation.services.contract_carry.record_pending",
+        "sales: a contract starting to carry a valuation (valuation_carry.commit_carrying)",
+    ),
+    "app.valuation.public.record_contract_carry_signed": (
+        "app.valuation.services.contract_carry.record_signed",
+        "sales: confirm_contract, after the signing commits",
+    ),
+    "app.valuation.public.release_contract_carry": (
+        "app.valuation.services.contract_carry.record_released",
+        "sales: a pending contract's cancel, a replaced valuation, a failed write's compensation",
     ),
     # A VIN resolves to (or creates) the vehicle master record (FR-V-04).
     # Every caller hands it a session of its own — never the request's,
@@ -264,7 +271,6 @@ _RULED_SHARED_TRANSACTIONS = {
 
 # Reviewed: read only, no commit reachable.
 _READS = {
-    "app.customer.public.customer_display_name",
     # KAN-121: vehicle's legacy-reference check counts party rows through customer; a SELECT only.
     "app.customer.public.count_vehicle_parties_for_vehicles",
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
@@ -275,7 +281,6 @@ _READS = {
     "app.customer.public.has_usable_domicile_address",
     # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.
     "app.customer.public.resolve_live_customer_id",
-    "app.customer.public.list_vehicle_party_holders",
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
     "app.integration.public.resolve_adapter",
@@ -285,7 +290,6 @@ _READS = {
     "app.integration.public.valuation_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_item_vehicle",
-    "app.inventory.public.get_stock_items_for_vehicles",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
@@ -313,27 +317,9 @@ _READS = {
     "app.platform.public.render_document",
     "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
     "app.platform.public.ui_language_of",  # KAN-585: the enrolment's Accept-Language; a SELECT, no commit
-    # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
-    # session of its own (tests/test_inventory_reservation_sweep.py).
-    "app.sales.public.get_contract_statuses",
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
-    # KAN-572: the customer context's trade-in purchase consumer re-reads the
-    # purchase Stock holds now (delivery is unordered); a SELECT only.
-    "app.inventory.public.standing_purchase_date",
-    # KAN-572: the customer context's trade-in storno consumer asks whether a
-    # later purchase overtook the storno (delivery is unordered); a SELECT only.
-    "app.inventory.public.purchase_booked_after",
-    # KAN-146: «Einkauf stornieren» asks whether a contract on the car requested
-    # its invoice, on a session of its own (tests/test_inventory_purchase_storno.py).
-    "app.sales.public.contract_with_invoice_requested_for_stock_item",
-    # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
-    "app.sales.public.get_trade_in_seller",
-    # KAN-115: valuation asks which valuations a signed contract carries.
-    "app.sales.public.valuations_carried_by_signed_contracts",
-    # KAN-520: «Verwendung aufheben» asks which valuations a pending contract carries.
-    "app.sales.public.valuations_carried_by_pending_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
@@ -349,6 +335,8 @@ _READS = {
     "app.vehicle.public.get_vehicle_or_404",
     # KAN-84: vehicle labels for customer's VehicleParty, batched.
     "app.vehicle.public.get_vehicle_summaries",
+    # KAN-634: customer's vehicle-merged consumer follows the merge chain; a SELECT only.
+    "app.vehicle.public.resolve_merged_vehicle_id",
     "app.vehicle.public.has_current_energy_rating",
     "app.vehicle.public.match_vehicle",
 }

@@ -20,6 +20,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 import app.sales.services.contract as contract_module
+import app.sales.services.contract_compensation as compensation_module
 from app.core.errors import ConflictError
 from app.inventory.models.stock_item import ReservationState, StockItem
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -90,7 +91,7 @@ def test_a_failed_confirmations_compensation_never_releases_what_a_concurrent_on
     seen: list[str] = []
 
     real_upsert = contract_module.upsert_deal_projection
-    real_release = contract_module.release
+    real_release = compensation_module.release
 
     def upsert_failing_the_first_commit(*args, **kwargs):
         if other.ident is None:  # only the first confirmation, before the second exists
@@ -107,7 +108,7 @@ def test_a_failed_confirmations_compensation_never_releases_what_a_concurrent_on
     try:
         with (
             patch.object(contract_module, "upsert_deal_projection", side_effect=upsert_failing_the_first_commit),
-            patch.object(contract_module, "release", side_effect=release_after_letting_the_second_run),
+            patch.object(compensation_module, "release", side_effect=release_after_letting_the_second_run),
         ):
             held = get_contract_or_404(first, dealership.id, contract_id, for_update=True)
             with pytest.raises(RuntimeError):
@@ -191,7 +192,7 @@ def test_a_confirmation_queued_behind_a_failing_one_commits_and_the_compensation
     seen: list[str] = []
     released: list[object] = []
     real_upsert = contract_module.upsert_deal_projection
-    real_release = contract_module.release
+    real_release = compensation_module.release
 
     def upsert_failing_once_the_second_waits(*args, **kwargs):
         if other.ident is None:
@@ -208,7 +209,7 @@ def test_a_confirmation_queued_behind_a_failing_one_commits_and_the_compensation
     try:
         with (
             patch.object(contract_module, "upsert_deal_projection", side_effect=upsert_failing_once_the_second_waits),
-            patch.object(contract_module, "release", side_effect=recording_release),
+            patch.object(compensation_module, "release", side_effect=recording_release),
         ):
             held = get_contract_or_404(first, dealership_id, contract_id, for_update=True)
             with pytest.raises(RuntimeError):

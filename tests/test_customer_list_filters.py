@@ -199,7 +199,7 @@ def test_updated_more_than_days_ago_counts_whole_swiss_calendar_days():
     """N days ago means before the start of that calendar day in Zürich — at
     00:30 Swiss time (still the previous day in UTC) the cut-off is Swiss
     midnight N days back, not UTC midnight."""
-    from app.customer.services.customer import _start_of_day_days_ago
+    from app.customer.services.customer_search import _start_of_day_days_ago
 
     zurich = ZoneInfo("Europe/Zurich")
     now = dt.datetime(2026, 10, 26, 0, 30, tzinfo=zurich)
@@ -229,7 +229,7 @@ BOUNDARY_NOW = dt.datetime(2026, 10, 28, 0, 30, tzinfo=ZURICH)
 
 def test_relative_periods_start_at_swiss_midnight_at_00_30_zurich():
     from app.customer.schemas.customer import CalendarPeriod
-    from app.customer.services.customer import _start_of_current_period
+    from app.customer.services.customer_search import _start_of_current_period
 
     assert BOUNDARY_NOW.astimezone(dt.UTC).date() == dt.date(2026, 10, 27)  # the UTC day is still yesterday
     assert _start_of_current_period(CalendarPeriod.DAY, BOUNDARY_NOW) == dt.datetime(2026, 10, 28, tzinfo=ZURICH)
@@ -243,14 +243,14 @@ def test_relative_periods_start_at_swiss_midnight_at_00_30_zurich():
 
 
 def test_in_the_last_n_days_starts_at_swiss_midnight_at_00_30_zurich():
-    from app.customer.services.customer import _start_of_day_days_ago
+    from app.customer.services.customer_search import _start_of_day_days_ago
 
     assert _start_of_day_days_ago(30, BOUNDARY_NOW) == dt.datetime(2026, 9, 28, tzinfo=ZURICH)
 
 
 def _period_start(period: str) -> dt.datetime:
     from app.customer.schemas.customer import CalendarPeriod
-    from app.customer.services.customer import _start_of_current_period
+    from app.customer.services.customer_search import _start_of_current_period
 
     return _start_of_current_period(CalendarPeriod(period))
 
@@ -277,7 +277,7 @@ def test_filter_by_updated_since_start_of(client, db_session, period):
 def test_in_the_last_and_more_than_n_days_ago_partition_the_list(client, db_session):
     """«in den letzten 30 Tagen» and «vor mehr als 30 Tagen» leave no gap and
     never overlap, also for a change in the hour after Zurich midnight."""
-    from app.customer.services.customer import _start_of_day_days_ago
+    from app.customer.services.customer_search import _start_of_day_days_ago
 
     dealer_id = _create_dealer(client)
     boundary = _start_of_day_days_ago(30)

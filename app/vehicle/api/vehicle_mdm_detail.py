@@ -1,6 +1,7 @@
 """Vehicle 360 detail-screen endpoints (WP-5 PR-9, FR-V-16): plates,
-odometer, accessories and party roles, each scoped by a known vehicle id
-— never a bare browse. Same "vehicle_mdm" write capability as the rest of
+odometer and accessories, each scoped by a known vehicle id — never a bare
+browse. The party roles (customer's holders) are served from the composition
+root, `app/api/v1/vehicle_parties.py` (KAN-634). Same "vehicle_mdm" write capability as the rest of
 this context's endpoints.
 """
 
@@ -15,7 +16,6 @@ from app.core.concurrency import require_if_match
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
-from app.customer.public import list_vehicle_party_holders
 from app.db import get_db
 from app.vehicle.api.catalogue import specification_read
 from app.vehicle.models.vehicle_history import VehicleAccessory
@@ -25,7 +25,6 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleAccessoryRead,
     VehicleOdometerReadingCreate,
     VehicleOdometerReadingRead,
-    VehiclePartyAllocationRead,
     VehiclePlateCreate,
     VehiclePlateEnd,
     VehiclePlateRead,
@@ -274,32 +273,3 @@ def remove_accessory(
         actor_id=principal.user_id,
         tenant_id=principal.tenant_id,
     )
-
-
-@router.get("/vehicle-mdm/{vehicle_id}/party-roles", response_model=list[VehiclePartyAllocationRead])
-def list_party_roles(
-    vehicle_id: uuid.UUID,
-    include_closed: bool = False,
-    principal: Principal = Depends(get_current_principal),
-    db: Session = Depends(get_db),
-):
-    """FR-V-16: current owner/keeper/driver, plus former allocations on
-    request (include_closed=True) — never mixed into the default view.
-
-    Scoped by the caller's own group_id (ADR-014/ADR-049): vehicle_mdm is
-    a deliberately global fact, so a party row here may belong to a
-    customer in a different dealer group entirely — see
-    list_vehicle_parties' own docstring. The holder's name (KAN-140)
-    comes from the same group-scoped read, never from a wider lookup.
-    """
-
-    vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
-    holders = list_vehicle_party_holders(
-        db, vehicle_id=vehicle_id, group_id=principal.group_id, include_closed=include_closed
-    )
-    return [
-        VehiclePartyAllocationRead.model_validate(party, from_attributes=True).model_copy(
-            update={"display_name": display_name}
-        )
-        for party, display_name in holders
-    ]

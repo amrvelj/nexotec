@@ -27,7 +27,7 @@ from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
 from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.models.vehicle_party import VehicleParty
-from app.customer.services.customer import oldest_vehicle_party_label_age_seconds
+from app.customer.services.vehicle_party_labels import oldest_vehicle_party_label_age_seconds
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service

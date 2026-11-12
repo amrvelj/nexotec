@@ -32,6 +32,7 @@ from app.valuation import reconciliation as valuation_reconciliation
 from app.valuation.models.valuation import Valuation
 from tests.test_sales_lifecycle_reservation import _dealership
 from tests.test_sales_trade_in_valuation_use import _confirm, _trade_in_contract, _valuation
+from tests.valuation_carry_support import tell_valuation
 
 USED_WITHOUT_SIGNED_CONTRACT = "used valuation with no signed contract carrying it"
 SIGNED_WITHOUT_USED_VALUATION = "signed contract whose trade-in valuation is not used"
@@ -56,13 +57,21 @@ def _stamped(db_session, valuation: Valuation, *, hours_ago: float) -> Valuation
     return valuation
 
 
-def _contract(db_session, tenant_id, valuation_id, *, signed: bool, status=ContractStatus.CONFIRMED) -> SalesContract:
+def _contract(
+    db_session, tenant_id, valuation_id, *, signed: bool, status=ContractStatus.CONFIRMED, tell: bool = True
+) -> SalesContract:
+    """A contract as Sales' services leave it; `tell` (KAN-631) has
+    valuation told what Sales' own carry calls would tell it — off for a
+    contract written behind valuation's back."""
+
     contract = SalesContract(
         tenant_id=tenant_id, contract_number=f"C-{uuid.uuid4().hex[:6]}", status=status,
         trade_in_valuation_id=valuation_id, signed_at=utcnow() - dt.timedelta(days=30) if signed else None,
     )
     db_session.add(contract)
     db_session.commit()
+    if tell:
+        tell_valuation(db_session, contract)
     return contract
 
 
@@ -134,7 +143,7 @@ def test_a_confirmation_whose_commit_and_compensation_both_failed_is_reported(db
 
     with (
         patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
-        patch("app.sales.services.contract.revert_valuation_use", side_effect=OSError("valuation unreachable")),
+        patch("app.sales.services.contract_compensation.revert_valuation_use", side_effect=OSError("valuation unreachable")),
         pytest.raises(RuntimeError, match="boom"),
     ):
         _confirm(db_session, engine, contract, group_id)

@@ -1,5 +1,6 @@
 """StockItem service layer (WP-7 PR-1)."""
 
+import datetime as dt
 import hashlib
 import logging
 import uuid
@@ -370,13 +371,15 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
             # booked it and, for an item a contract's confirmation created,
             # that contract and its role. The customer context records a bought
             # trade-in's customer as its former owner from these; a consumer that
-            # ignores unknown keys is unaffected.
+            # ignores unknown keys is unaffected. KAN-632 (additive): a
+            # trade-in's seller and signature (`trade_in_seller_fields`).
             payload={
                 "stockNumber": item.stock_number,
                 "vehicleId": str(item.vehicle_id) if item.vehicle_id else None,
                 "purchaseDate": item.purchase_date.isoformat() if item.purchase_date else None,
                 "purchasedBy": str(item.updated_by) if item.updated_by else None,
                 **pipeline_origin(item.pipeline_ref),
+                **trade_in_seller_fields(item),
             },
         ),
     )
@@ -402,6 +405,32 @@ def pipeline_origin(pipeline_ref: str | None) -> dict[str, str]:
 
 
 _PIPELINE_ORIGIN_ROLES = {"manual": "manual_configuration", "trade_in": "trade_in"}
+
+
+def apply_trade_in_seller(item: StockItem, *, customer_id: str | None, signed_at: str | None) -> None:
+    """KAN-632: a trade-in's pipeline item keeps who traded the car in and
+    when the contract was signed, as `sales.contract.confirmed` named them —
+    both or neither (a confirmation published before KAN-632 names neither)."""
+
+    if not customer_id or not signed_at:
+        return
+    item.trade_in_customer_id = uuid.UUID(customer_id)
+    item.trade_in_signed_at = dt.datetime.fromisoformat(signed_at)
+
+
+def trade_in_seller_fields(item: StockItem) -> dict[str, str]:
+    """KAN-632: the trade-in's seller as the item's purchase and storno events
+    carry it (`tradeInCustomerId`, `tradeInSignedAt`, the same keys on both)
+    — what the customer context records the former owner from. Empty for an
+    item that keeps none: anything but a trade-in, or one created before
+    KAN-632 (the customer context then asks through the composition root)."""
+
+    if item.trade_in_customer_id is None or item.trade_in_signed_at is None:
+        return {}
+    return {
+        "tradeInCustomerId": str(item.trade_in_customer_id),
+        "tradeInSignedAt": item.trade_in_signed_at.isoformat(),
+    }
 
 
 def create_stock_item(

@@ -24,7 +24,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.permissions import ModuleCode, holds_entitlement, require_read, require_write
+from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, parse_sort
 from app.core.validators import CantonCode
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
@@ -58,16 +58,22 @@ from app.customer.schemas.customer import (
     CustomerRead,
     CustomerUpdate,
     CustomerVehicleCreate,
-    CustomerVehiclePage,
     CustomerVehicleRead,
     CustomerVehicleUpdate,
-    VehicleStockLinkSummary,
 )
 from app.customer.schemas.legal_basis import LegalBasisCreate, LegalBasisRead
+from app.customer.services import addresses as addresses_service
+from app.customer.services import contact_channels as contact_channels_service
 from app.customer.services import customer as customer_service
+from app.customer.services import customer_common as customer_common_service
+from app.customer.services import customer_merge as customer_merge_service
+from app.customer.services import customer_search as customer_search_service
+from app.customer.services import external_ids as external_ids_service
 from app.customer.services import legal_basis as legal_basis_service
+from app.customer.services import projections as projections_service
+from app.customer.services import vehicle_party as vehicle_party_service
+from app.customer.services import vehicle_party_reads as vehicle_party_reads_service
 from app.db import get_db
-from app.inventory.public import get_stock_items_for_vehicles
 from app.platform.public import get_dealership_or_404
 
 router = APIRouter(tags=["customers"], route_class=IdempotentRoute)
@@ -101,7 +107,7 @@ def _customer_read(db: Session, customer: Customer) -> CustomerRead:
     """
 
     base = CustomerRead.model_validate(customer, from_attributes=True)
-    return base.model_copy(update=customer_service.compute_customer_projections(db, customer.id))
+    return base.model_copy(update=projections_service.compute_customer_projections(db, customer.id))
 
 
 @router.post("/customers", response_model=CustomerRead, status_code=201)
@@ -134,7 +140,7 @@ def duplicate_check(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    rows = customer_service.duplicate_check(db, group_id=principal.group_id, q=q)
+    rows = customer_search_service.duplicate_check(db, group_id=principal.group_id, q=q)
     # Plain dicts, not ORM rows — see services.customer.duplicate_check for
     # why a candidate is not simply a Customer.
     return CustomerDuplicateCandidateList(
@@ -165,7 +171,7 @@ def get_customer(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     return _customer_read(db, customer)
 
 
@@ -177,7 +183,7 @@ def update_customer(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
     customer = customer_service.update_customer(
         db, customer=customer, data=body, actor_id=principal.user_id, dealership_id=principal.tenant_id
@@ -195,7 +201,7 @@ def set_credit_block(
 ):
     """WP-8 PR-6 (ADR-065/S-D19) — stops a contract, never an offer."""
 
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
     customer = customer_service.set_credit_block(
         db, customer=customer, blocked=body.blocked, reason=body.reason, actor_id=principal.user_id
@@ -211,9 +217,9 @@ def merge_customer(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
-    customer = customer_service.merge_customer(
+    customer = customer_merge_service.merge_customer(
         db,
         customer=customer,
         duplicate_of_customer_id=body.duplicate_of_customer_id,
@@ -289,7 +295,7 @@ def list_customers(
     params = SortPageParams(
         limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
     )
-    rows, next_cursor, total, total_is_estimate = customer_service.list_customers(
+    rows, next_cursor, total, total_is_estimate = customer_search_service.list_customers(
         db,
         group_id=principal.group_id,
         q=q,
@@ -312,7 +318,7 @@ def list_customers(
         advisor_user_id_not=advisor_user_id_not,
         assigned=assigned,
     )
-    projections_by_id = customer_service.compute_customer_projections_batch(db, [c.id for c in rows])
+    projections_by_id = projections_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [
         CustomerRead.model_validate(c, from_attributes=True).model_copy(update=projections_by_id.get(c.id, {}))
         for c in rows
@@ -331,7 +337,7 @@ def get_customer_audit_log(
     principal: Principal = Depends(require_read("audit_logs")),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     events = list_audit_events(
         db, entity_type="customer", entity_id=customer_id, tenant_id=principal.group_id
     )
@@ -359,8 +365,8 @@ def list_customer_phones(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_phones(db, customer_id=customer_id)
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    rows = contact_channels_service.list_customer_phones(db, customer_id=customer_id)
     return CustomerPhonePage(items=[CustomerPhoneRead.model_validate(r, from_attributes=True) for r in rows])
 
 
@@ -371,8 +377,8 @@ def create_customer_phone(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    phone = customer_service.create_customer_phone(db, customer=customer, data=body, actor_id=principal.user_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    phone = contact_channels_service.create_customer_phone(db, customer=customer, data=body, actor_id=principal.user_id)
     return CustomerPhoneRead.model_validate(phone, from_attributes=True)
 
 
@@ -384,10 +390,10 @@ def update_customer_phone(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    phone = customer_service.get_customer_phone_or_404(
+    phone = contact_channels_service.get_customer_phone_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, phone_id=phone_id
     )
-    phone = customer_service.update_customer_phone(db, phone=phone, data=body, actor_id=principal.user_id)
+    phone = contact_channels_service.update_customer_phone(db, phone=phone, data=body, actor_id=principal.user_id)
     return CustomerPhoneRead.model_validate(phone, from_attributes=True)
 
 
@@ -398,10 +404,10 @@ def delete_customer_phone(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    phone = customer_service.get_customer_phone_or_404(
+    phone = contact_channels_service.get_customer_phone_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, phone_id=phone_id
     )
-    customer_service.delete_customer_phone(db, phone=phone, actor_id=principal.user_id)
+    contact_channels_service.delete_customer_phone(db, phone=phone, actor_id=principal.user_id)
 
 
 @router.get("/customers/{customer_id}/emails", response_model=CustomerEmailPage)
@@ -410,8 +416,8 @@ def list_customer_emails(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_emails(db, customer_id=customer_id)
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    rows = contact_channels_service.list_customer_emails(db, customer_id=customer_id)
     return CustomerEmailPage(items=[CustomerEmailRead.model_validate(r, from_attributes=True) for r in rows])
 
 
@@ -422,8 +428,8 @@ def create_customer_email(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    email = customer_service.create_customer_email(db, customer=customer, data=body, actor_id=principal.user_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    email = contact_channels_service.create_customer_email(db, customer=customer, data=body, actor_id=principal.user_id)
     return CustomerEmailRead.model_validate(email, from_attributes=True)
 
 
@@ -435,10 +441,10 @@ def update_customer_email(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    email = customer_service.get_customer_email_or_404(
+    email = contact_channels_service.get_customer_email_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, email_id=email_id
     )
-    email = customer_service.update_customer_email(db, email=email, data=body, actor_id=principal.user_id)
+    email = contact_channels_service.update_customer_email(db, email=email, data=body, actor_id=principal.user_id)
     return CustomerEmailRead.model_validate(email, from_attributes=True)
 
 
@@ -449,10 +455,10 @@ def delete_customer_email(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    email = customer_service.get_customer_email_or_404(
+    email = contact_channels_service.get_customer_email_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, email_id=email_id
     )
-    customer_service.delete_customer_email(db, email=email, actor_id=principal.user_id)
+    contact_channels_service.delete_customer_email(db, email=email, actor_id=principal.user_id)
 
 
 # --- CustomerAddress: multi-valued postal addresses (WP-3 PR-5, ADR-067).
@@ -466,8 +472,8 @@ def list_customer_addresses(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_addresses(db, customer_id=customer_id)
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    rows = addresses_service.list_customer_addresses(db, customer_id=customer_id)
     return CustomerAddressPage(items=[CustomerAddressRead.model_validate(r, from_attributes=True) for r in rows])
 
 
@@ -478,8 +484,8 @@ def create_customer_address(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    address = customer_service.create_customer_address(db, customer=customer, data=body, actor_id=principal.user_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    address = addresses_service.create_customer_address(db, customer=customer, data=body, actor_id=principal.user_id)
     return CustomerAddressRead.model_validate(address, from_attributes=True)
 
 
@@ -491,10 +497,10 @@ def update_customer_address(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    address = customer_service.get_customer_address_or_404(
+    address = addresses_service.get_customer_address_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, address_id=address_id
     )
-    address = customer_service.update_customer_address(db, address=address, data=body, actor_id=principal.user_id)
+    address = addresses_service.update_customer_address(db, address=address, data=body, actor_id=principal.user_id)
     return CustomerAddressRead.model_validate(address, from_attributes=True)
 
 
@@ -505,10 +511,10 @@ def delete_customer_address(
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
-    address = customer_service.get_customer_address_or_404(
+    address = addresses_service.get_customer_address_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, address_id=address_id
     )
-    customer_service.delete_customer_address(db, address=address, actor_id=principal.user_id)
+    addresses_service.delete_customer_address(db, address=address, actor_id=principal.user_id)
 
 
 # --- CustomerExternalId: per-dealer CRM/OEM linkage. Write is
@@ -524,8 +530,8 @@ def list_customer_external_ids(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_external_ids(db, customer_id=customer_id)
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    rows = external_ids_service.list_customer_external_ids(db, customer_id=customer_id)
     return CustomerExternalIdPage(
         items=[CustomerExternalIdRead.model_validate(r, from_attributes=True) for r in rows]
     )
@@ -547,8 +553,8 @@ def create_customer_external_id(
     # to that (Anto's ruling, 2026-08-07: this is a platform-managed CRM/OEM
     # linkage, by design reachable across every dealer) — resolve the
     # customer's real group_id from the row itself instead.
-    customer = customer_service.get_customer_by_id_or_404(db, customer_id)
-    row = customer_service.create_customer_external_id(db, customer=customer, data=body, actor_id=principal.user_id)
+    customer = customer_common_service.get_customer_by_id_or_404(db, customer_id)
+    row = external_ids_service.create_customer_external_id(db, customer=customer, data=body, actor_id=principal.user_id)
     return CustomerExternalIdRead.model_validate(row, from_attributes=True)
 
 
@@ -560,11 +566,11 @@ def update_customer_external_id(
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_by_id_or_404(db, customer_id)
-    row = customer_service.get_customer_external_id_or_404(
+    customer = customer_common_service.get_customer_by_id_or_404(db, customer_id)
+    row = external_ids_service.get_customer_external_id_or_404(
         db, group_id=customer.group_id, customer_id=customer_id, external_id_row_id=external_id_row_id
     )
-    row = customer_service.update_customer_external_id(db, row=row, data=body, actor_id=principal.user_id)
+    row = external_ids_service.update_customer_external_id(db, row=row, data=body, actor_id=principal.user_id)
     return CustomerExternalIdRead.model_validate(row, from_attributes=True)
 
 
@@ -575,11 +581,11 @@ def delete_customer_external_id(
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_by_id_or_404(db, customer_id)
-    row = customer_service.get_customer_external_id_or_404(
+    customer = customer_common_service.get_customer_by_id_or_404(db, customer_id)
+    row = external_ids_service.get_customer_external_id_or_404(
         db, group_id=customer.group_id, customer_id=customer_id, external_id_row_id=external_id_row_id
     )
-    customer_service.delete_customer_external_id(db, row=row, actor_id=principal.user_id)
+    external_ids_service.delete_customer_external_id(db, row=row, actor_id=principal.user_id)
 
 
 # --- Customer<->Vehicle relationships (D-12, FR-10): owner/keeper/driver,
@@ -587,49 +593,8 @@ def delete_customer_external_id(
 # (see app/models/vehicle.py), so the tenant boundary is enforced entirely
 # by resolving `customer` through get_customer_or_404 — the vehicle_id a
 # caller supplies is looked up with no tenant filter, same as GET
-# /v1/vehicles/{id}.
-
-
-@router.get("/customers/{customer_id}/vehicles", response_model=CustomerVehiclePage)
-def list_customer_vehicles(
-    customer_id: uuid.UUID,
-    # KAN-49 / FR-19 — the Vehicles tab needs this customer's own historical
-    # (ended) roles to remain readable, marked as ended (it already renders
-    # `effectiveTo` for exactly this). Defaults to False, matching the
-    # service's own default and every other caller of this route — only the
-    # tab opts in, rather than the endpoint's default silently changing for
-    # whoever else reads it.
-    include_closed: bool = Query(default=False),
-    principal: Principal = Depends(get_current_principal),
-    db: Session = Depends(get_db),
-):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_vehicles(db, customer_id=customer_id, include_closed=include_closed)
-    vehicle_ids = [r.vehicle_id for r in rows]
-    other_parties_by_vehicle = customer_service.list_other_vehicle_parties_batch(
-        db, vehicle_ids=vehicle_ids, exclude_customer_id=customer_id, group_id=principal.group_id
-    )
-    # KAN-378 (Anto, option A): the stock summary is inventory data, licensed
-    # with the sales module (D-A-04) — a Betrieb without it gets no stock
-    # fields here, as it gets no /v1/stock-items — nor does a token minted
-    # before the module was taken away.
-    stock_by_vehicle = (
-        get_stock_items_for_vehicles(db, principal=principal, vehicle_ids=vehicle_ids)
-        if holds_entitlement(db, principal, ModuleCode.SALES)
-        else {}
-    )
-    items = [
-        CustomerVehicleRead.model_validate(r, from_attributes=True).model_copy(
-            update={
-                "other_parties": other_parties_by_vehicle.get(r.vehicle_id, []),
-                "stock_item": (
-                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id]) if r.vehicle_id in stock_by_vehicle else None
-                ),
-            }
-        )
-        for r in rows
-    ]
-    return CustomerVehiclePage(items=items)
+# /v1/vehicles/{id}. The list read (GET) is composed at the root,
+# app/api/v1/customer_vehicles.py (KAN-632): it embeds Stock's answer.
 
 
 @router.post("/customers/{customer_id}/vehicles", response_model=CustomerVehicleRead, status_code=201)
@@ -639,8 +604,8 @@ def create_customer_vehicle(
     principal: Principal = Depends(require_write("customer_vehicle_links")),
     db: Session = Depends(get_db),
 ):
-    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    party = customer_service.create_customer_vehicle(db, customer=customer, data=body, actor_id=principal.user_id)
+    customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    party = vehicle_party_service.create_customer_vehicle(db, customer=customer, data=body, actor_id=principal.user_id)
     return CustomerVehicleRead.model_validate(party, from_attributes=True)
 
 
@@ -652,9 +617,9 @@ def update_customer_vehicle(
     principal: Principal = Depends(require_write("customer_vehicle_links")),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    party = customer_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
-    party = customer_service.update_customer_vehicle(
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    party = vehicle_party_reads_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
+    party = vehicle_party_service.update_customer_vehicle(
         db, party=party, data=body, actor_id=principal.user_id, group_id=principal.group_id
     )
     return CustomerVehicleRead.model_validate(party, from_attributes=True)
@@ -667,9 +632,9 @@ def delete_customer_vehicle(
     principal: Principal = Depends(require_write("customer_vehicle_links")),
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    party = customer_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
-    customer_service.delete_customer_vehicle(
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
+    party = vehicle_party_reads_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
+    vehicle_party_service.delete_customer_vehicle(
         db, party=party, actor_id=principal.user_id, group_id=principal.group_id
     )
 
@@ -690,7 +655,7 @@ def create_legal_basis(
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     row = legal_basis_service.record_legal_basis(
         db,
         customer_id=customer_id,

@@ -29,7 +29,8 @@ from app.inventory.services.purchase import storno_purchase
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.consumers import handle_stock_item_purchased_message, handle_stock_item_storno_message
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
-from app.sales.services.contract import confirm_contract, request_invoice
+from app.sales.services.contract import cancel_contract, confirm_contract, request_invoice
+from tests.sales_contract_projection_support import feed_projection, worker_applies_after_the_first_read
 from tests.test_inventory_purchase_promotes import VIN, _auth, _create, _events, _purchase, _token
 from tests.test_sales_invoiceable_replica import (
     _contract_on,
@@ -392,13 +393,7 @@ def test_a_storno_delivered_after_the_next_purchase_leaves_the_car_invoiceable(d
     assert contract.is_invoiceable is True
 
 
-def test_storno_after_the_invoice_was_requested_is_refused(db_session, engine):
-    """«Rechnung anfordern» handed the sale to Finance: for the business the
-    car is invoiced, so its purchase is no longer stornoed."""
-
-    item, contract = _signed_contract_on_bought_car(db_session, engine)
-    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
-
+def _refused_as_invoiced(db_session, item, contract) -> None:
     db_session.refresh(item)
     with pytest.raises(ConflictError) as excinfo:
         storno_purchase(db_session, item=item, data=PurchaseStornoRequest(reason="Zu spät."), actor_id=uuid.uuid4())
@@ -410,6 +405,67 @@ def test_storno_after_the_invoice_was_requested_is_refused(db_session, engine):
     db_session.refresh(item)
     assert item.purchase_price is not None
     assert item.is_invoiceable is True
+
+
+def test_storno_after_the_invoice_was_requested_is_refused(db_session, engine):
+    """«Rechnung anfordern» handed the sale to Finance: for the business the
+    car is invoiced, so its purchase is no longer stornoed. KAN-630: Stock
+    answers from its projection, fed here as the worker feeds it — the fact
+    is published and applied, so only the projection can refuse."""
+
+    item, contract = _signed_contract_on_bought_car(db_session, engine)
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
+    assert feed_projection(db_session) > 0
+
+    _refused_as_invoiced(db_session, item, contract)
+
+
+def test_storno_while_the_invoice_request_is_still_in_the_outbox_is_refused(db_session, engine):
+    """KAN-630's timing window: Sales committed the request (and its fact)
+    but Stock's consumer has not applied it yet. The projection alone would
+    let the storno through; the fact in flight refuses it, as the direct
+    read of Sales did."""
+
+    item, contract = _signed_contract_on_bought_car(db_session, engine)
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
+
+    _refused_as_invoiced(db_session, item, contract)
+
+
+def test_storno_while_the_invoice_request_is_applied_between_the_two_reads_is_refused(db_session, engine):
+    """KAN-630 review: the worker applies the request (projection row and
+    processed-event row in one commit) after the storno's first read of the
+    projection or the outbox. Projection first, outbox second hides the
+    committed request from both reads; outbox first cannot."""
+
+    item, contract = _signed_contract_on_bought_car(db_session, engine)
+    feed_projection(db_session)
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
+
+    with worker_applies_after_the_first_read(engine) as applied:
+        _refused_as_invoiced(db_session, item, contract)
+
+    assert applied == [1], "the worker applied the invoice request while the storno read"
+
+
+def test_storno_after_the_contract_with_the_request_was_cancelled_goes_through(db_session, engine):
+    """A cancelled contract does not hold the car as invoiced (the gate's
+    rule, KAN-146): once the projection knows it is cancelled, the storno is
+    allowed again."""
+
+    item, contract = _signed_contract_on_bought_car(db_session, engine)
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
+    db_session.refresh(contract)
+    cancel_contract(
+        db_session, contract=contract, reason="Kunde tritt zurück.", actor_id=uuid.uuid4(),
+        session_factory=_session_factory(engine),
+    )
+    feed_projection(db_session)
+
+    _storno_item(db_session, item)
+
+    db_session.refresh(item)
+    assert item.purchase_price is None
 
 
 # --- reconciliation: the storno's outbox lag is not a finding (KAN-145 comment) -

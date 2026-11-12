@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.models.customer import (
@@ -27,11 +28,18 @@ from app.customer.models.customer import (
     CustomerTag,
 )
 from app.customer.models.legal_basis import LegalBasis
+from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
+from app.inventory.public import StockItem
 from app.platform.public import DealerGroup, Dealership, User, actor_reference_checks
 from app.vehicle.public import VehicleMdm
 
 CONTEXT = "customer"
+
+# How long a published event may wait for its consumer before a missing row
+# is a finding: the outbox's normal delay, as Stock's and Sales' checks allow.
+_OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
+_BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.storno")
 
 # Every Customer table with created_by / updated_by: each must name a platform
 # user, or be null (KAN-243; see app.platform.public.actor_reference_checks).
@@ -40,6 +48,47 @@ ACTOR_TABLES = (
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
+    # KAN-632 — the bookings this context learnt from Stock's purchase and
+    # storno events (the trade-in consumers' record): each names a stock
+    # item of a Betrieb that exists. Read across by design (ADR-107).
+    ReferenceCheck(
+        label="customer_stock_item_booking.stock_item_id -> stock_item.id",
+        source_model=StockItemBooking,
+        source_row_id_column=StockItemBooking.event_id,
+        source_fk_column=StockItemBooking.stock_item_id,
+        target_model=StockItem,
+        target_id_column=StockItem.id,
+    ),
+    ReferenceCheck(
+        label="customer_stock_item_booking.tenant_id -> dealership.id",
+        source_model=StockItemBooking,
+        source_row_id_column=StockItemBooking.event_id,
+        source_fk_column=StockItemBooking.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    StateCheck(
+        # KAN-632 (rule 10): every purchase or storno event of a Betrieb has
+        # its booking row — written by `customer.stock_item_bookings_on_*`,
+        # seeded by the migration, re-seeded by
+        # scripts/backfill_customer_stock_item_booking.py. One missing an
+        # hour after it was published is an event the ordering guard of the
+        # trade-in consumers cannot see (a worker without the booking
+        # consumers during the deploy, a dead letter). Reads the core
+        # outbox table, as reconciliation may.
+        label="stock item booking event with no customer_stock_item_booking row",
+        source_model=OutboxMessage,
+        source_row_id_column=OutboxMessage.id,
+        where=lambda: (
+            OutboxMessage.event_type.in_(_BOOKING_EVENT_TYPES)
+            & OutboxMessage.tenant_id.is_not(None)
+            & (OutboxMessage.created_at < utcnow() - _OUTBOX_LAG_GRACE)
+            & ~select(StockItemBooking.event_id)
+            .where(StockItemBooking.event_id == OutboxMessage.id)
+            .correlate(OutboxMessage)
+            .exists()
+        ),
+    ),
     ReferenceCheck(
         # WP-5 PR-2 (ADR-021): a VehicleParty links a customer to the
         # physical vehicle, which in the three-layer model is VehicleMdm,
@@ -97,6 +146,23 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=DealerGroup.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
+    StateCheck(
+        # KAN-634 (rule 10, ADR-131): a vehicle merge moves the duplicate's
+        # party rows when customer consumes `vehicle.vehicle_mdm.merged`, in
+        # a commit of its own after the merge's. A row still naming a merged
+        # record is a delivery that has not happened (worker down, a dead
+        # letter) — the fact arrived nowhere. A read of vehicle's table,
+        # which only reconciliation may make (ADR-107).
+        label="vehicle_party.vehicle_id names a merged vehicle",
+        source_model=VehicleParty,
+        source_row_id_column=VehicleParty.id,
+        where=lambda: (
+            select(VehicleMdm.id)
+            .where(VehicleMdm.id == VehicleParty.vehicle_id, VehicleMdm.merged_into_vehicle_id.is_not(None))
+            .correlate(VehicleParty)
+            .exists()
+        ),
+    ),
     StateCheck(
         # KAN-200 (FR-A-37, rule 10): a customer whose advisor is deactivated —
         # the deactivation step hands every advised customer over; this says

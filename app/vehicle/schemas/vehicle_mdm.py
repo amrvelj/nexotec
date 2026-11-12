@@ -13,7 +13,6 @@ from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import Vin
-from app.customer.public import VehiclePartyRole
 from app.vehicle.models.vehicle_history import OdometerSource
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleStatus
 from app.vehicle.schemas.localised import ProviderTextsRead
@@ -103,29 +102,6 @@ class VehiclePickerCandidate(CamelModel):
     plate: str | None
     plate_group_id: uuid.UUID | None
     is_conflict: bool
-
-
-class VehicleAllocatePartyRequest(CamelModel):
-    """FR-V-05: "Allocate to customer" — the vehicle-side entry point.
-    Same allocate_vehicle_party call the customer-side dialog uses
-    (Customers FR-19) — one dialog, not two that drift.
-    """
-
-    customer_id: uuid.UUID
-    role: VehiclePartyRole
-
-
-class VehiclePartyAllocationRead(CamelModel):
-    id: uuid.UUID
-    vehicle_id: uuid.UUID
-    customer_id: uuid.UUID
-    role: VehiclePartyRole
-    effective_from: dt.datetime
-    effective_to: dt.datetime | None
-    # KAN-140: the holder's name, resolved live inside the customer context
-    # (customer.public) within the caller's group — never stored here, so
-    # no three-column label. Optional: an additive contract change.
-    display_name: str | None = None
 
 
 class VehiclePlateRead(CamelModel):

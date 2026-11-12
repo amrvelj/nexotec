@@ -11,7 +11,6 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -27,14 +26,15 @@ from app.inventory.schemas.purchase import (
 )
 from app.inventory.services.ledger import post_purchase_entries, reverse_purchase_entries
 from app.inventory.services.pipeline import promote_and_flush
+from app.inventory.services.sales_contract import contract_with_invoice_requested
 from app.inventory.services.stock_item import (
     configuration_vin_differs,
     configuration_vin_differs_error,
     mark_purchased_if_ready,
     pipeline_origin,
+    trade_in_seller_fields,
 )
 from app.platform.public import get_dealership_or_404
-from app.sales.public import contract_with_invoice_requested_for_stock_item
 from app.vehicle.public import get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
@@ -226,25 +226,6 @@ def _purchase_facts(item: StockItem) -> dict[str, Any]:
     }
 
 
-def standing_purchase_date(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> dt.date | None:
-    """KAN-572: the purchase date of the purchase this Betrieb holds the item
-    as bought by now (`is_invoiceable`), or None when it holds no purchase —
-    never booked, or stornoed and not booked again. The customer context's
-    `customer.trade_in_purchased` re-reads it, because delivery is unordered
-    after a failed delivery: a purchase event that arrives after its storno
-    reports a purchase that no longer stands. A SELECT only; an item of
-    another dealership, or none, is None."""
-
-    row = db.execute(
-        select(StockItem.is_invoiceable, StockItem.purchase_date).where(
-            StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id
-        )
-    ).one_or_none()
-    if row is None or not row.is_invoiceable:
-        return None
-    return row.purchase_date
-
-
 def storno_purchase(
     db: Session, *, item: StockItem, data: PurchaseStornoRequest, actor_id: uuid.UUID | None
 ) -> StockItem:
@@ -263,8 +244,11 @@ def storno_purchase(
     requested its invoice (409 `purchase_storno_invoice_requested`, with
     `contractNumber`):
     the hand-off to Finance happened, so for the business the car is
-    invoiced. That last answer is Sales', read on a session of its own
-    (ADR-047) while this one holds the item's row lock.
+    invoiced. Since KAN-630 (ADR-131) Stock answers that from its own
+    projection of Sales' contract facts, counting a request Sales has
+    committed that the projection has not applied yet — so the outbox's
+    delay never lets a storno through that the direct read would have
+    refused (app.inventory.services.sales_contract).
 
     KAN-572 (Anto, 2026-11-07, option C): `returnedToCustomer` says a
     trade-in went back to the customer who traded it in. The audit row and
@@ -294,10 +278,7 @@ def storno_purchase(
             f"Stock item {item.stock_number} is not a trade-in — it cannot go back to a customer.",
             details={"reason": "storno_return_not_trade_in", "field": "returnedToCustomer", "stockItemId": str(item.id)},
         )
-    with Session(bind=db.get_bind(), autoflush=False) as sales_db:
-        invoiced_by = contract_with_invoice_requested_for_stock_item(
-            sales_db, tenant_id=item.tenant_id, stock_item_id=item.id
-        )
+    invoiced_by = contract_with_invoice_requested(db, tenant_id=item.tenant_id, stock_item_id=item.id)
     if invoiced_by is not None:
         raise ConflictError(
             f"Contract {invoiced_by} has requested the invoice for stock item {item.stock_number} — "
@@ -356,9 +337,12 @@ def storno_purchase(
                 # the trade-in's contract (`originContractId`/`originRole`, as
                 # `inventory.stock_item.purchased` carries them) — what the
                 # customer context needs to reopen that customer as holder.
+                # KAN-632 (additive): the trade-in's seller and signature, as
+                # the purchase event carries them (`trade_in_seller_fields`).
                 "returnedToCustomer": data.returned_to_customer,
                 "purchaseDate": stornoed_purchase_date.isoformat() if stornoed_purchase_date else None,
                 **origin,
+                **trade_in_seller_fields(item),
             },
         ),
     )
