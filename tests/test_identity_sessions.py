@@ -52,7 +52,9 @@ def test_a_login_creates_the_session_row_the_token_names(client, login, db_sessi
     assert claims["amr"] == ["pwd"] == row.amr
     assert claims["mfa"] is False
     assert claims["exp"] == int(row.absolute_expires_at.timestamp())
-    assert row.idle_expires_at - row.created_at == auth_sessions.idle_timeout()
+    # Capped at the absolute end (the next Zurich midnight): after 22:00 there the
+    # session is shorter than the idle timeout, and the bare difference was wrong.
+    assert row.idle_expires_at == min(row.created_at + auth_sessions.idle_timeout(), row.absolute_expires_at)
     assert row.device_summary.startswith("testclient")
     assert row.revoked_at is None
 
