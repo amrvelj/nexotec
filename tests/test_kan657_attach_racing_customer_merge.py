@@ -215,3 +215,52 @@ def test_the_consumer_never_overwrites_a_buyer_changed_while_it_waited(_postgres
 
 def factory_session(engine):
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
+
+
+def test_an_offer_copy_in_flight_during_the_merge_is_moved_to_the_survivor(_postgres, engine, db_session, monkeypatch):
+    """«Offerte kopieren» names the source's customer. A copy that read the
+    duplicate and is paused before its commit makes the consumer wait, and
+    the consumer then moves the copy as well as the source."""
+
+    tenant_id, group_id, duplicate_id, survivor_id, _other, source_id = _setup(db_session, offer_on_duplicate=True)
+    reached, release = threading.Event(), threading.Event()
+    real_copy_configuration = offer_service._copy_configuration
+
+    def _pause_after_the_source_read(db, **kwargs):
+        if threading.current_thread().name == "copy" and not reached.is_set():
+            reached.set()
+            release.wait(timeout=10)
+        return real_copy_configuration(db, **kwargs)
+
+    monkeypatch.setattr(offer_service, "_copy_configuration", _pause_after_the_source_read)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+    copies: list = []
+
+    def _copying():
+        with factory() as session:
+            source = get_offer_or_404(session, tenant_id, source_id)
+            copies.append(offer_service.copy_offer(session, source=source, actor_id=None).id)
+
+    def _consuming():
+        with factory() as session:
+            _consume_merge(session, duplicate_id)
+
+    copy = _run("copy", errors, _copying)
+    try:
+        assert reached.wait(timeout=10), "the copy never read its source"
+        with factory() as merging:
+            _merge(merging, duplicate_id, survivor_id, group_id)
+        consumer = _run("consumer", errors, _consuming)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the consumer waits on the copy's lock
+        release.set()
+        copy.join(timeout=10)
+        consumer.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not copy.is_alive() and not consumer.is_alive()
+    assert errors == []
+    db_session.expire_all()
+    assert db_session.get(SalesOffer, source_id).customer_id == survivor_id
+    assert db_session.get(SalesOffer, copies[0]).customer_id == survivor_id

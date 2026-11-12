@@ -253,6 +253,22 @@ def _discard_configuration(
         )
 
 
+def _hold_source_customer(db: Session, source: SalesOffer) -> None:
+    """KAN-657: a copy names its source's customer, so it takes that
+    customer's attach lock before it reads it, then re-reads the source:
+    a `sales.customer_merged` that moved the source meanwhile has committed,
+    and the copy names the survivor; one that runs later waits for the copy
+    and moves it too. Repeated until the source's customer is the one held
+    (a chain of merges moves it more than once)."""
+
+    while True:
+        held = source.customer_id
+        lock_customer_for_attach(db, held)
+        db.refresh(source)
+        if source.customer_id == held:
+            return
+
+
 def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:
     """KAN-12 / PRD-Sales v2: "Copy Offer (new offerId, prefilled)" — the
     action available on a `pending`/`open` offer, so the seller can start
@@ -279,6 +295,7 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
     again (the compensating action).
     """
 
+    _hold_source_customer(db, source)
     tenant_id, source_offer_id = source.tenant_id, source.id
     configuration = _copy_configuration(db, source=source, actor_id=actor_id)
     try:
