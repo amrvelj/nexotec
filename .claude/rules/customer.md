@@ -191,7 +191,7 @@ weekly. -->
   refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock and
   closes the others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
   `unlinked` (KAN-352).
-  Disconnect locks and re-reads its row (one `unlinked` per race). Lock order: advisory, then row.
+  Disconnect re-reads its locked row (one `unlinked` per race). Lock order: advisory, then rows by id.
   A merge's kept copy (KAN-177) is never reopened (409 `merged_party_row`).
 - **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
   overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes

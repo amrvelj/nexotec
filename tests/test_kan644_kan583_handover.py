@@ -15,6 +15,7 @@
 import datetime as dt
 import uuid
 
+import pytest
 from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
@@ -362,3 +363,104 @@ def test_a_patch_moving_the_planned_start_later_with_an_end_moves_the_current_ow
         _patch(db_session, meier_party, group_id, effective_from=later, effective_to=effective_to)
         assert _row(db_session, clara_party.id).effective_to == later
         assert _row(db_session, clara_party.id).closed_for_party_id == meier_party.id
+
+
+# --- the third review's findings (2026-11-12) ----------------------------------------------
+
+
+def test_a_start_only_patch_on_a_cancelled_entry_is_refused_and_changes_nothing(db_session):
+    from app.core.errors import BadRequestError
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583301")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    handover = _handover()
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=handover)
+    _end(db_session, meier_party, group_id)
+
+    try:
+        _patch(db_session, meier_party, group_id, effective_from=utcnow() - dt.timedelta(hours=1))
+    except BadRequestError:
+        db_session.rollback()
+    else:
+        raise AssertionError("a start-only PATCH revived a cancelled entry")
+
+    assert _row(db_session, meier_party.id).effective_to == _row(db_session, meier_party.id).effective_from == handover
+    assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({clara.id}, set())
+    assert _row(db_session, clara_party.id).effective_to is None
+
+
+def test_moving_the_start_of_a_holder_that_already_began_leaves_the_former_holder_alone(db_session):
+    """Its handover happened: the holder it replaced is history, never given
+    its role back by a later change of the new holder's start."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583302")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id, effective_from=utcnow() - dt.timedelta(days=30))
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    started = (utcnow() - dt.timedelta(days=1)).replace(microsecond=0)
+    _patch(db_session, meier_party, group_id, effective_from=started)  # the handover happened yesterday
+    clara_end = _row(db_session, clara_party.id).effective_to
+
+    _patch(db_session, meier_party, group_id, effective_from=_handover(10))
+
+    assert _row(db_session, clara_party.id).effective_to == clara_end == started
+
+
+@pytest.mark.parametrize("action", ["cancel", "move_start"])
+def test_a_cancel_or_a_moved_start_never_deadlocks_against_the_label_refresh(engine, db_session, action):
+    """The review's reproduction, made deterministic: the label refresh
+    (KAN-186) locks a vehicle's party rows in id order — here it holds the
+    older row (Clara's) and then reaches for the newer one (Meier's). A cancel
+    or a moved planned start used to lock Meier's row first and then wait for
+    Clara's: a deadlock. It now locks the role's rows in id order, so it waits
+    for Clara's row and the refresh goes through."""
+
+    import threading
+
+    from sqlalchemy import text
+    from sqlalchemy.orm import sessionmaker
+
+    from tests.test_customer_vehicle_party_close_rule import _wait_until_a_backend_waits_on_a_lock
+
+    if engine.dialect.name != "postgresql":
+        pytest.skip("row locks are Postgres-only; the SQLite lane serialises writers itself")
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, f"WVWZZZ1KZAW58330{3 if action == 'cancel' else 4}")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    db_session.commit()
+    assert clara_party.id < meier_party.id
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _write():
+        with factory() as s:
+            try:
+                if action == "cancel":
+                    _end(s, meier_party, group_id)
+                else:
+                    _patch(s, meier_party, group_id, effective_from=_handover(40))
+            except Exception as exc:  # noqa: BLE001 — collected and asserted empty
+                errors.append(exc)
+
+    lock_row = "SELECT 1 FROM vehicle_party WHERE id = :id FOR NO KEY UPDATE"
+    with factory() as refresh:
+        refresh.execute(text("SET LOCAL lock_timeout = '10s'"))
+        refresh.execute(text(lock_row), {"id": clara_party.id})  # the refresh holds the older row
+        writer = threading.Thread(target=_write)
+        writer.start()
+        try:
+            _wait_until_a_backend_waits_on_a_lock(engine)  # the writer waits on Clara's row
+            refresh.execute(text(lock_row), {"id": meier_party.id})  # …and the refresh reaches for Meier's
+            refresh.commit()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+            refresh.rollback()
+        writer.join(timeout=30)
+
+    assert not writer.is_alive()
+    assert errors == []

@@ -2506,8 +2506,8 @@ def _validate_effective_range(effective_from, effective_to) -> None:
     # is refused here like any other empty period.
     if effective_to is not None and effective_to <= effective_from:
         raise BadRequestError(
-            "effective_to must be after effective_from (a zero-length period is only ever the copy a "
-            "customer merge keeps, written by the merge itself)."
+            "effective_to must be after effective_from (a zero-length period is written only by the "
+            "server: the copy a customer merge keeps, or an entry cancelled before it began)."
         )
 
 
@@ -2968,6 +2968,25 @@ def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id
     return party
 
 
+def _lock_role_rows(db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID) -> None:
+    """KAN-583/KAN-644: every party row of (vehicle, role) in the group,
+    locked FOR UPDATE in **id order**, in one statement — taken right after
+    the (vehicle, role, group) advisory lock by a Disconnect, a PATCH and an
+    allocation. A cancel or a moved planned start writes the planned row and
+    the older row it links; locking them one by one (the newer first) would
+    deadlock against the vehicle-party label refresh (KAN-186), which locks a
+    vehicle's rows in id order. Later per-row locks in the same transaction
+    then find their rows already held."""
+
+    db.execute(
+        select(VehicleParty.id)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(VehicleParty.vehicle_id == vehicle_id, VehicleParty.role == role, Customer.group_id == group_id)
+        .order_by(VehicleParty.id)
+        .with_for_update(of=VehicleParty)
+    ).all()
+
+
 def _lock_party(db: Session, party: VehicleParty) -> VehicleParty:
     """KAN-148: the party row, locked FOR UPDATE and re-read, so a write
     decides on the committed row and not on what this session read before a
@@ -3132,9 +3151,26 @@ def update_customer_vehicle(
     holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
     if holds_after or "effective_from" in changes:
         # A moved start moves the end of the holder it was planned to replace
-        # (KAN-644, `_follow_planned_start`): the role's lock first.
+        # (KAN-644, `_follow_planned_start`): the role's lock first, then its
+        # rows in id order.
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+        _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
+    was_planned = party.effective_from > utcnow()
+    if (
+        "effective_from" in changes
+        and not holds_after
+        and party.effective_to is not None
+        and party.effective_to == party.effective_from
+    ):
+        # KAN-583: an entry cancelled before it began (an empty period) moves
+        # only by being reopened (`effectiveTo`), which runs the overlap check
+        # and the close rule; a start-only change would make it a second
+        # current holder behind the close rule's back.
+        raise BadRequestError(
+            "This entry was cancelled before it began; reopen it with effectiveTo to change its start.",
+            details={"field": "effectiveFrom"},
+        )
     # An empty period (a cancelled planned row, KAN-583) never held the role,
     # so reopening it publishes `linked`.
     held_before = _is_open(party.effective_to) and party.effective_to != party.effective_from
@@ -3179,7 +3215,7 @@ def update_customer_vehicle(
     for field, value in changes.items():
         setattr(party, field, value)
 
-    if "effective_from" in changes:
+    if "effective_from" in changes and was_planned:
         # KAN-644: the holders this row was planned to replace end at its new
         # start first — with or without an `effectiveTo` in the same PATCH —
         # so the close below neither spares them at their old end (a gap) nor
@@ -3260,6 +3296,7 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     # takes it, then the row; planned or not is decided on the locked row, so
     # a start moved meanwhile is seen (never an end before the start).
     _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+    _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
     if not _is_open(party.effective_to) or party.effective_to == party.effective_from:
         return
@@ -3464,6 +3501,7 @@ def allocate_vehicle_party(
     get_customer_or_404(db, group_id, customer_id)
     _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
+    _lock_role_rows(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     effective_from = effective_from or utcnow()
     incumbents = _current_holders_refusing_future_overlap(
         db, _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id),
