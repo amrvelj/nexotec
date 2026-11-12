@@ -543,6 +543,14 @@ def test_the_nightly_label_refresh_takes_a_batchs_rows_in_id_order_before_it_wri
     newer = _allocate(db_session, vehicle.id, _customer(db_session, group_id, "Anna", "Meier"), group_id)
     db_session.commit()
     assert older.id < newer.id
+    # KAN-664: the newer row's label is stale, so the refresh writes it through
+    # the ORM before it stamps the current older one — the order in which the
+    # scan-order refresh used to hold the newer row while it waited for the
+    # older. Without a stale row the old refresh also happened to pass.
+    db_session.execute(
+        VehicleParty.__table__.update().where(VehicleParty.id == newer.id).values(vehicle_vin="STALE000000000000")
+    )
+    db_session.commit()
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
 
@@ -566,3 +574,59 @@ def test_the_nightly_label_refresh_takes_a_batchs_rows_in_id_order_before_it_wri
         nightly.join(timeout=30)
     assert not nightly.is_alive()
     assert errors == []
+
+
+
+# --- KAN-664: a restored owner holds only until the next holder to come ----------------------
+
+
+def test_cancelling_a_planned_entry_restores_the_owner_only_until_a_later_planned_holder(db_session):
+    """Route 1: A owns; P is planned for [T+10, T+15) and closes A at T+10;
+    Q is planned from T+20 (A is spared: it already ends first). Cancelling
+    P gives A the role back until T+20, linked to Q — never open beside Q."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW664001")
+    a, p, q = (
+        _customer(db_session, group_id, "Anna"),
+        _customer(db_session, group_id, "Paul"),
+        _customer(db_session, group_id, "Quirin"),
+    )
+    a_party = _allocate(db_session, vehicle.id, a, group_id)
+    p_party = _allocate(db_session, vehicle.id, p, group_id, effective_from=_handover(10), effective_to=_handover(15))
+    q_party = _allocate(db_session, vehicle.id, q, group_id, effective_from=_handover(20))
+
+    _end(db_session, p_party, group_id)
+
+    restored = _row(db_session, a_party.id)
+    assert restored.effective_to == _row(db_session, q_party.id).effective_from
+    assert restored.closed_for_party_id == q_party.id
+    assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({a.id}, {q.id})
+
+
+def test_cancelling_an_interim_entry_restores_the_owner_until_the_planned_holder_after_it(db_session):
+    """Route 2: P is planned from T+10 and closes A there; B is recorded for
+    [T+3, T+5) and moves A's end (and link) to T+3. Cancelling B gives A the
+    role back until P's start, linked to P again."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW664002")
+    a, p, b = (
+        _customer(db_session, group_id, "Anna"),
+        _customer(db_session, group_id, "Paul"),
+        _customer(db_session, group_id, "Berta"),
+    )
+    a_party = _allocate(db_session, vehicle.id, a, group_id)
+    p_party = _allocate(db_session, vehicle.id, p, group_id, effective_from=_handover(10))
+    b_party = _allocate(db_session, vehicle.id, b, group_id, effective_from=_handover(3), effective_to=_handover(5))
+
+    _end(db_session, b_party, group_id)
+
+    restored = _row(db_session, a_party.id)
+    assert restored.effective_to == _row(db_session, p_party.id).effective_from
+    assert restored.closed_for_party_id == p_party.id
+    assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({a.id}, {p.id})
+
+    _end(db_session, p_party, group_id)  # and cancelling P too leaves A the owner, open-ended
+
+    assert _row(db_session, a_party.id).effective_to is None
