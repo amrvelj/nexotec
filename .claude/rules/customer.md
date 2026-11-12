@@ -259,9 +259,11 @@ weekly. -->
   A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
-  `GET /v1/customers/{id}/vehicles` fills `stockItem` from
+  `GET /v1/customers/{id}/vehicles` is composed at the root (`app/api/v1/customer_vehicles.py`,
+  KAN-632, ADR-131: customer never imports inventory): customer's `customer_vehicle_page` builds the
+  rows and is handed Stock's `stockItem` from
   `app.inventory.public.get_stock_items_for_vehicles` (which takes the caller's `Principal` and reads
-  only its token's group, KAN-538) only when
+  only its token's group, KAN-538; one batched read per page, rule 11) only when
   `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a
   token minted before it was taken away, gets `stockItem: null`. The customer router carries no
   entitlement gate, so any other inventory or sales data a customer route embeds needs the same check.

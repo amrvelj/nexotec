@@ -285,7 +285,6 @@ _READS = {
     "app.integration.public.valuation_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_item_vehicle",
-    "app.inventory.public.get_stock_items_for_vehicles",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
