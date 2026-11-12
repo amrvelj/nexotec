@@ -132,8 +132,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   contract with that car through the contract's own Path A edit, in the creating transaction.
   The buyer is then picked inside the pending contract, as on the offer: `ContractUpdate` has
   `customerId` (ADR-083 amended — before, a contract kept the customer it was created for),
-  applied by the one `offer.apply_customer_change` both hosts use (do-not-contact refused at
-  attach). The screens share `DealCustomerContainer`. The stock detail's "Vertrag erstellen"
+  applied by the one `offer.apply_customer_change` both hosts use (do-not-contact and a merged
+  customer refused at attach, `offer.refuse_unattachable_customer`; a merged one as 409
+  `customer_merged` with `mergedIntoCustomerId`, the live customer its merge chain ends at — KAN-656). The screens share `DealCustomerContainer`. The stock detail's "Vertrag erstellen"
   uses it, and "Offerte erstellen" creates an offer and sets the same car (POST, then PATCH).
 - **One live contract per offer** (KAN-147): `create_contract` refuses an offer that already
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
@@ -318,7 +319,10 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   saves sent with the same version (KAN-311).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
-  contract created straight from the customer, and every confirmation.
+  contract created straight from the customer, and every confirmation. A merged customer is
+  refused wherever a buyer is attached — the offer's and the pending contract's buyer change, a
+  contract created straight from the customer — as 409 `customer_merged` naming
+  `mergedIntoCustomerId` (KAN-656).
 
 ## Documents
 
