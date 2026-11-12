@@ -196,7 +196,7 @@ weekly. -->
 - **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
   overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes
   nothing. One from a later date closes the current holders at its start (sparing one ending
-  first; no `unlinked`: held) and links them (`closed_for_party_id`): one current holder, the new one
+  first; no `unlinked`) and links them (`closed_for_party_id`): one current holder, the new one
   upcoming («ab …» on both tabs); moving its start moves their end. «Eintrag beenden» (Disconnect)
   on a planned row closes it at its own start («planned, never started») and reopens the rows it
   links. An empty period never holds the role (`_holds_now_or_later`; KAN-572 too).
