@@ -9,6 +9,7 @@ records disagree (rule 10). On Postgres, over HTTP where the route is under
 test.
 """
 
+import os
 import uuid
 
 import pytest
@@ -361,6 +362,9 @@ def test_a_failed_outbox_write_leaves_no_stock_audit_row_and_is_compensated(clie
     assert _events(db_session, "inventory.stock_item.vin_corrected") == []
 
 
+@pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row locks and column lengths are Postgres's (ADR-011)"
+)
 def test_a_stock_write_refused_at_its_flush_is_compensated_under_the_items_lock(client, db_session, monkeypatch, engine):
     """The stock row, its audit row and its event flush inside one savepoint:
     a write the database refuses there (here a value too long for its
@@ -371,6 +375,7 @@ def test_a_stock_write_refused_at_its_flush_is_compensated_under_the_items_lock(
     before the compensation ran."""
 
     from sqlalchemy import text
+    from sqlalchemy.exc import DataError, OperationalError
 
     item, tenant_id = _bought(client, db_session)
     real_audit = stock_item_service.record_audit_event
@@ -391,15 +396,16 @@ def test_a_stock_write_refused_at_its_flush_is_compensated_under_the_items_lock(
                     text("SELECT id FROM stock_item WHERE id = :id FOR UPDATE NOWAIT"), {"id": uuid.UUID(item["id"])}
                 )
                 seen["held"] = False
-            except Exception:
-                seen["held"] = True
+            except OperationalError as exc:
+                # 55P03 lock_not_available — the item's row lock, nothing else.
+                seen["held"] = getattr(exc.orig, "sqlstate", None) == "55P03"
             other.rollback()
         return real_compensate(db, **kwargs)
 
     monkeypatch.setattr(stock_item_service, "record_audit_event", _overlong_then_audit)
     monkeypatch.setattr(stock_item_service, "_compensate_vin_correction", _compensate_and_probe_the_lock)
 
-    with pytest.raises(Exception):
+    with pytest.raises(DataError):
         _correct(client, _manager(tenant_id), item)
 
     assert seen == {"held": True}
