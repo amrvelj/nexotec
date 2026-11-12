@@ -89,9 +89,10 @@ def create_contract(
     contracts tab: a direct contract with no offer and no vehicle, just a
     known customer. Mutually exclusive with `offer` (`ContractCreate`'s own
     validator enforces this; not re-checked here) and requires `group_id`
-    to resolve the customer. Only `do_not_contact` refuses at this point
-    (ADR-065/FR-21 — the same attach-time guard `update_offer` uses for
-    offers); a credit block and D-20's missing-address gate stay
+    to resolve the customer. Only a `do_not_contact` or a merged customer
+    refuses at this point (`refuse_unattachable_customer`: ADR-065/FR-21 and
+    KAN-656 — the same attach-time guard `update_offer` uses for offers); a
+    credit block and D-20's missing-address gate stay
     confirm-time-only refusals (KAN-55), because creating, like quoting,
     commits nobody.
 

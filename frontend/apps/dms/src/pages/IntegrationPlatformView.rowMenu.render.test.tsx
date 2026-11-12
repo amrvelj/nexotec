@@ -11,7 +11,8 @@ import { IntegrationPlatformView } from './IntegrationPlatformView'
 // KAN-650 — on the platform grid «Nutzung anzeigen» and «Secret erneuern»
 // were wired to no-op handlers: enabled, and clicking them did nothing. They
 // now open the same dialogs as the dealer card (ADR-061: the row menu is the
-// one definition of what can be done to a connection).
+// one definition of what can be done to a connection). Every item of the
+// grid's row menu is clicked here, so the next no-op handler fails a test.
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
@@ -38,7 +39,10 @@ const CONNECTION = {
 
 function install() {
   const puts: string[] = []
-  installFakeBackend([
+  const backend = installFakeBackend([
+    { method: 'POST', match: /^\/integrations\/connections\/conn-1\/test$/, handler: () => CONNECTION },
+    { method: 'POST', match: /^\/integrations\/connections\/conn-1\/disable$/, handler: () => ({ ...CONNECTION, enabled: false }) },
+    { method: 'DELETE', match: /^\/integrations\/connections\/conn-1$/, handler: () => null },
     { match: /^\/dealerships/, handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }) },
     { match: /^\/integrations\/providers$/, handler: () => ({ items: [PROVIDER] }) },
     {
@@ -55,15 +59,20 @@ function install() {
     },
     { match: /^\/integrations\/connections/, handler: () => ({ items: [CONNECTION], nextCursor: null, total: 1, totalIsEstimate: false }) },
   ])
-  return puts
+  return { puts, backend }
 }
 
-async function openRowMenuItem(name: string) {
+async function clickRowMenuItem(name: string) {
   const user = userEvent.setup()
   renderWithProviders(<IntegrationPlatformView />)
   await screen.findByText('auto-i-dat Garage Nord')
   await user.click(await screen.findByRole('button', { name: i18n.t('common.rowActionsLabel') }))
   await user.click(await screen.findByRole('menuitem', { name }))
+  return user
+}
+
+async function openRowMenuItem(name: string) {
+  const user = await clickRowMenuItem(name)
   return { user, dialog: await screen.findByRole('dialog') }
 }
 
@@ -78,7 +87,7 @@ describe('IntegrationPlatformView row menu (KAN-650)', () => {
   })
 
   it('«Secret erneuern» opens the secret dialog and writes the slot', async () => {
-    const puts = install()
+    const { puts } = install()
     const { user, dialog } = await openRowMenuItem(i18n.t('integrationsList.actions.rotateSecret'))
 
     await user.type(within(dialog).getByLabelText(i18n.t('integrationEnums.secretSlot.client_secret')), 'n3w-s3cret')
@@ -86,5 +95,29 @@ describe('IntegrationPlatformView row menu (KAN-650)', () => {
 
     await vi.waitFor(() => expect(puts).toEqual(['PUT']))
     await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('«Verbindung testen» sends the test request', async () => {
+    const { backend } = install()
+    await clickRowMenuItem(i18n.t('integrationsList.actions.test'))
+
+    await vi.waitFor(() => expect(backend.callsTo(/^\/integrations\/connections\/conn-1\/test$/, 'POST')).toHaveLength(1))
+  })
+
+  it('«Deaktivieren» disables the connection with its version', async () => {
+    const { backend } = install()
+    await clickRowMenuItem(i18n.t('integrationsList.actions.disable'))
+
+    await vi.waitFor(() => expect(backend.callsTo(/^\/integrations\/connections\/conn-1\/disable$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/disable$/, 'POST')[0].headers.get('If-Match')).toBe('1')
+  })
+
+  it('«Verbindung löschen» opens the confirmation and deletes on confirm', async () => {
+    const { backend } = install()
+    const { user, dialog } = await openRowMenuItem(i18n.t('integrationsList.actions.delete'))
+
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('integrationsList.deleteModal.confirm') }))
+
+    await vi.waitFor(() => expect(backend.callsTo(/^\/integrations\/connections\/conn-1$/, 'DELETE')).toHaveLength(1))
   })
 })

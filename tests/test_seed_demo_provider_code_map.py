@@ -116,6 +116,31 @@ def test_a_gap_whose_code_is_still_unmapped_stays_open(db_session):
     assert {g.id for g in _open_demo_gaps(db_session)} == before
 
 
+def test_a_gap_whose_mapping_the_resolve_refuses_stays_open_and_the_others_resolve(db_session):
+    _seed_catalogue(db_session)
+    see_demo_variant(db_session, DEMO_FZ_KEYS[0])
+    copy_code_map(db_session)
+    fuel_gap = next(g for g in _open_demo_gaps(db_session) if g.code_group == "fuel_type")
+    # The mapping now names a value its list does not hold (one deactivated since, say).
+    mapping = db_session.scalar(
+        select(ProviderCodeMap).where(
+            ProviderCodeMap.provider == DEMO_PROVIDER, ProviderCodeMap.vehicle_kind == fuel_gap.vehicle_kind,
+            ProviderCodeMap.code_group == "fuel_type", ProviderCodeMap.provider_code == fuel_gap.provider_code,
+        )
+    )
+    mapping.canonical_value_code = "no_such_fuel"
+    db_session.commit()
+
+    resolved, refused = resolve_mapped_demo_gaps(db_session)
+
+    assert refused == 1
+    assert resolved > 0
+    assert [g.id for g in _open_demo_gaps(db_session)] == [fuel_gap.id]
+    assert db_session.scalar(
+        select(func.count()).select_from(AuditEvent).where(AuditEvent.entity_id == fuel_gap.id)
+    ) == 0
+
+
 def test_a_resolve_without_an_actor_must_name_its_reason(db_session):
     see_demo_variant(db_session, DEMO_FZ_KEYS[0])
     gap = _open_demo_gaps(db_session)[0]
