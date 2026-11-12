@@ -15,13 +15,16 @@ removed; this guard keeps them out:
      not come back under those names. **The identAPI's own changed-keys list
      is refused the same way** (KAN-589): its path `/vehiclecatalog/mutations`
      (`GET /vehiclecatalog/mutations/{sinceDate}`, «Get catalog mutations») in
-     any string under `app/` or `scripts/` — also assembled by `+` from
-     literals or from names bound once to a literal (KAN-655) — and a method
+     any string under `app/` or `scripts/` — also assembled by `+` or an
+     f-string from literals, names bound once to a literal and such names
+     read as attributes (`self.BASE`; KAN-655) — and a method
      named for it (`fetch_catalog_mutations`, `fetchCatalogMutations`, … — any
      name holding `catalogmutations`, `cataloguemutations` or `mutationssince`
      once lower-cased with its underscores removed; on an adapter, any name
      holding `mutations` at all, `fetch_mutations` included).
-  3. No daily job reaches a provider at all.
+  3. No daily job reaches an integration provider through the gateway (the
+     step every catalogue and vehicle-data call takes). A connected-account
+     grant's revoker (KAN-559's daily repair) is not a gateway provider.
   4. **The identAPI's pages are never walked** (ADR-112 (4), KAN-548): the
      provider page parameter (`page[number]`) is written in the identAPI
      adapter alone, and no catalogue query (`search_catalogue_variants`,
@@ -109,30 +112,44 @@ def _string_constants(tree: ast.AST) -> dict[str, str]:
 
 
 def _assembled_strings(tree: ast.AST, constants: dict[str, str]) -> list[tuple[str, int]]:
-    """The literal text of every `+` chain of strings — `"/vehiclecatalog" +
-    "/mutations/" + since`, `BASE + MUTATIONS + d` — with each operand that is
-    not a known string (a variable, a call) read as a break, so only adjacent
-    literal parts are joined: two unrelated strings around a variable never
-    meet."""
+    """The literal text of every string assembled from parts — a `+` chain
+    (`"/vehiclecatalog" + "/mutations/" + since`, `BASE + MUTATIONS + d`,
+    `self.BASE + "/mutations/"`) or an f-string interpolating named constants
+    (`f"{CATALOG}/mutations/{since}"`, `f"{CATALOG}{MUTATIONS}"`; KAN-655).
+    A part that is a once-bound string name — bare, or as an attribute such
+    as `self.BASE` / `cls.BASE` — reads as its text; any other part (a
+    variable, a call, a formatted value with a conversion or format spec) is
+    a break, so only adjacent known parts are joined: two unrelated strings
+    around a variable never meet."""
+
+    def _known(node: ast.expr) -> str | None:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.Name):
+            return constants.get(node.id)
+        if isinstance(node, ast.Attribute):
+            return constants.get(node.attr)
+        return None
 
     def _parts(node: ast.expr) -> list[str | None]:
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
             return _parts(node.left) + _parts(node.right)
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            return [node.value]
-        if isinstance(node, ast.Name) and node.id in constants:
-            return [constants[node.id]]
         if isinstance(node, ast.JoinedStr):
-            return [
-                value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
-                for value in node.values
-            ]
-        return [None]
+            parts: list[str | None] = []
+            for value in node.values:
+                if isinstance(value, ast.FormattedValue):
+                    plain = value.conversion == -1 and value.format_spec is None
+                    parts.append(_known(value.value) if plain else None)
+                else:
+                    parts.append(_known(value))
+            return parts
+        return [_known(node)]
 
     inner: set[int] = set()
     found: list[tuple[str, int]] = []
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)) or id(node) in inner:
+        assembled = (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)) or isinstance(node, ast.JoinedStr)
+        if not assembled or id(node) in inner:
             continue
         inner.update(id(child) for child in ast.walk(node) if child is not node)
         run: list[str] = []
@@ -495,6 +512,10 @@ def test_the_loop_scanner_leaves_one_page_alone():
         'url = base + "/vehicleCatalog" + "/Mutations/" + d.isoformat()',
         'CATALOG = "/vehiclecatalog"\nMUTATIONS = "/mutations/"\nurl = CATALOG + MUTATIONS + since',
         'CATALOG: str = "/vehiclecatalog"\nurl = CATALOG + f"/mutations/{since}"',
+        # KAN-655 review: an f-string interpolating named constants, and a class constant
+        'CATALOG = "/vehiclecatalog"\nurl = f"{CATALOG}/mutations/{since}"',
+        'CATALOG = "/vehiclecatalog"\nMUT = "/mutations"\nurl = f"{CATALOG}{MUT}/{since}"',
+        'class A:\n    BASE = "/vehiclecatalog"\n    def go(self, d):\n        return self.BASE + "/mutations/" + d',
     ],
 )
 def test_the_scanner_catches(source):
@@ -527,6 +548,12 @@ def test_the_scanner_does_not_join_strings_across_a_variable():
         "a name bound twice is not resolved"
     )
     assert not _violations('url = "/vehiclecatalog" + "/" + fz_key')
+    assert not _violations('CATALOG = "/vehiclecatalog"\nurl = f"{CATALOG}/{fz_key}/mutations"'), (
+        "a formatted variable between the parts breaks the run"
+    )
+    assert not _violations('CATALOG = "/vehiclecatalog"\nurl = f"{CATALOG!r}/mutations/"'), (
+        "a conversion is not the constant's text"
+    )
 
 
 def test_the_scanner_leaves_single_lookups_alone():

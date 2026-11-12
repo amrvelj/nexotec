@@ -77,4 +77,4 @@ class DealerGroupOptionList(CamelModel):
     """One page of groups, by name (KAN-652): the shared page shape."""
 
     items: list[DealerGroupOption]
-    next_cursor: str | None = None
+    next_cursor: str | None

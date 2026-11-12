@@ -281,7 +281,7 @@ def _page(client, **params) -> dict:
 
 
 def test_the_group_list_pages_by_name_with_the_shared_cursor(client, db_session):
-    _groups(db_session, "KAN652 Delta", "KAN652 alpha", "KAN652 Charlie", "KAN652 Bravo", "KAN652 Echo")
+    _groups(db_session, "KAN652 Delta", "KAN652 Alpha", "KAN652 Charlie", "KAN652 Bravo", "KAN652 Echo")
 
     names: list[str] = []
     cursor = None
@@ -298,7 +298,7 @@ def test_the_group_list_pages_by_name_with_the_shared_cursor(client, db_session)
         assert pages < 5, "the cursor never ends"
 
     assert pages == 3
-    assert names == sorted(names) and len(names) == 5 and len(set(names)) == 5
+    assert names == ["KAN652 Alpha", "KAN652 Bravo", "KAN652 Charlie", "KAN652 Delta", "KAN652 Echo"]
 
 
 def test_the_group_list_searches_the_name(client, db_session):

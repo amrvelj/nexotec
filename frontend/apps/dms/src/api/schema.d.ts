@@ -9379,8 +9379,6 @@ export interface components {
             firstRegistrationDate: string | null;
             /** Modeldescription */
             modelDescription: string;
-            /** Modelvariantid */
-            modelVariantId?: string | null;
             /** Productionfrom */
             productionFrom: number | null;
             /** Productionto */
@@ -9389,6 +9387,7 @@ export interface components {
             stammnummer: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber: string;
+            variant?: components["schemas"]["VariantCandidateRead"] | null;
             /** Vehiclekindcode */
             vehicleKindCode: string;
         };

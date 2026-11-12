@@ -92,8 +92,8 @@ reconciliation reports the dangling reference.
 - The cache is filled by a plate lookup only, **whole or not at all** — a part would later read as
   the whole truth about the plate; a `vrn` answer never fills it. Each row keeps the stored variant
   the answer named (`model_variant_id`, KAN-592): a hit on one such record is that one candidate, as
-  live, and the picker's records carry it, so picking one starts from that variant without a
-  `vehiclecatalog` call. A row without one (older, or a variant no longer stored) answers from the
+  live, and the picker's records carry it as their one candidate, so picking one offers that variant
+  to confirm without a `vehiclecatalog` call. A row without one (older, or a variant no longer stored) answers from the
   stored variants at its Typenschein and calls only when none are stored.
 - Every variant a rung returns is stored (master data, each upsert in a savepoint, a lost race
   re-read in a fresh savepoint up to four attempts — KAN-593); the stored rows are a cache of

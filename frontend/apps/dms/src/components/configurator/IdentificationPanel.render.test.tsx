@@ -110,11 +110,11 @@ describe('IdentificationPanel', () => {
     expect(start.confirmedBestMatchCode).toBeUndefined()
   })
 
-  it('starts from the variant the provider named for a picked record, with no lookup at its Typenschein (KAN-592)', async () => {
+  it('offers the variant the provider named for a picked record, with no lookup at its Typenschein (KAN-592)', async () => {
     const user = userEvent.setup()
     const NAMED = {
       ...WECHSELSCHILD,
-      plateRecords: [WECHSELSCHILD.plateRecords[0], { ...WECHSELSCHILD.plateRecords[1], modelVariantId: 'v1' }],
+      plateRecords: [WECHSELSCHILD.plateRecords[0], { ...WECHSELSCHILD.plateRecords[1], variant: GOLF_CANDIDATE }],
     }
     const { backend, onStart } = setup([
       { method: 'GET', match: /^\/vehicle-identification$/, handler: () => NAMED },
@@ -122,14 +122,17 @@ describe('IdentificationPanel', () => {
 
     await identify(user, 'ZH999999')
     await screen.findByText(i18n.t('configurator.identify.plateRecords.wechselschild'))
-    expect(onStart).not.toHaveBeenCalled()
 
+    // Picking the Golf offers its one candidate — the advisor still confirms it.
     await user.click(screen.getByText('Volkswagen Golf GTI'))
-    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
-
+    await screen.findByText(i18n.t('configurator.identify.variantTitle'))
+    expect(onStart).not.toHaveBeenCalled()
     const lookups = backend.calls.filter((c) => c.pathname === '/vehicle-identification')
     expect(lookups.map((c) => c.params.get('q'))).toEqual(['ZH999999'])
-    expect(backend.calls.some((c) => c.pathname === '/catalogue/variants/v1')).toBe(true)
+
+    await user.click(screen.getByText('Volkswagen Golf Golf GTI'))
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+    expect(backend.calls.filter((c) => c.pathname === '/vehicle-identification')).toHaveLength(1)
     const start = onStart.mock.calls[0][0]
     expect(start.variant.id).toBe(catalogueVariant().id)
     expect(start.matchMethod).toBe('kontrollschild')

@@ -185,13 +185,22 @@ def test_a_wechselschild_is_the_picker_and_nothing_is_chosen(db_session, monkeyp
     assert _calls(db_session, "vehiclebuild") == 1
     # both variants were stored by the one answer
     assert db_session.scalar(select(func.count()).select_from(ModelVariant)) == 2
-    # KAN-592: each record carries the variant the provider named, live and cached alike
-    named = [r.model_variant_id for r in result.plate_records]
-    assert all(named) and len(set(named)) == 2
+    # KAN-592: each record carries the variant the provider named as its one
+    # candidate, live and cached alike
+    named = [r.variant.catalogue_variant_id for r in result.plate_records if r.variant is not None]
+    assert len(named) == 2 and len(set(named)) == 2
+    assert set(named) == set(db_session.scalars(select(ModelVariant.id)).all())
+    assert [r.variant.variant_name for r in result.plate_records] == ["2.0 TDI Avant quattro", "2.0 TDI Avant"]
     cached = _identify(db_session, s, PLATE)
     assert IdentificationNote.PLATE_CACHE_HIT in cached.notes
-    assert [r.model_variant_id for r in cached.plate_records] == named
-    assert set(named) == set(db_session.scalars(select(ModelVariant.id)).all())
+    assert [r.variant.catalogue_variant_id for r in cached.plate_records] == named
+    # a cached record whose variant the catalogue no longer holds offers none
+    db_session.query(PlateLookupCacheEntry).filter(PlateLookupCacheEntry.model_variant_id == named[1]).update(
+        {PlateLookupCacheEntry.model_variant_id: uuid.uuid4()}
+    )
+    db_session.commit()
+    again = _identify(db_session, s, PLATE)
+    assert [r.variant.catalogue_variant_id if r.variant else None for r in again.plate_records] == [named[0], None]
 
 
 def test_a_wechselschild_whose_stammnummern_the_account_may_not_see_is_still_the_picker(db_session, monkeypatch):

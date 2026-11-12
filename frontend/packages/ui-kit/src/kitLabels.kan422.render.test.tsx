@@ -210,6 +210,22 @@ describe("kit components show none of their former English defaults (KAN-422)", 
     expect(englishLeft()).toEqual([]);
   });
 
+  it("Picker: the search input's accessible name is the caller's (KAN-652)", () => {
+    render(
+      <MantineProvider theme={testTheme}>
+        <Picker
+          rows={[]}
+          query=""
+          onQueryChange={() => {}}
+          onSelect={() => {}}
+          emptyLabel="Aucune correspondance"
+          inputLabel="Choisir le groupe"
+        />
+      </MantineProvider>,
+    );
+    expect(screen.getByRole("textbox", { name: "Choisir le groupe" })).toBeInTheDocument();
+  });
+
   it("InlineEditField: an empty value reads as the caller's label", () => {
     render(
       <MantineProvider theme={testTheme}>

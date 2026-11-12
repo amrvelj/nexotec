@@ -194,9 +194,11 @@ class PlateRecord:
     # user group definition"): the car is still offered, by its Typenschein.
     stammnummer: str | None
     # KAN-592: the stored catalogue variant the provider named for this car,
-    # when it named one — picking the record then starts from that variant
-    # (no second, billed `vehiclecatalog` call at its Typenschein).
-    model_variant_id: uuid.UUID | None = None
+    # as the one candidate picking the record offers — no second, billed
+    # `vehiclecatalog` call at its Typenschein. None when the provider named
+    # none, or the variant is no longer stored: the pick then continues at the
+    # Typenschein as before.
+    variant: "VariantCandidate | None" = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -315,7 +317,17 @@ def _candidate(db: Session, variant: ModelVariant, *, first_registration_date: d
     )
 
 
-def _plate_record(cached: CachedPlateRecord) -> PlateRecord:
+def _named_candidate(
+    db: Session, model_variant_id: uuid.UUID | None, *, first_registration_date: dt.date | None
+) -> "VariantCandidate | None":
+    """The candidate for the stored variant a record named (KAN-592), or None
+    when it named none or the catalogue no longer holds it."""
+
+    variant = db.get(ModelVariant, model_variant_id) if model_variant_id is not None else None
+    return _candidate(db, variant, first_registration_date=first_registration_date) if variant is not None else None
+
+
+def _plate_record(db: Session, cached: CachedPlateRecord) -> PlateRecord:
     record = cached.info
     return PlateRecord(
         vehicle_kind_code=record.vehicle_kind_code,
@@ -326,7 +338,7 @@ def _plate_record(cached: CachedPlateRecord) -> PlateRecord:
         type_approval_number=record.type_approval_number,
         first_registration_date=record.first_registration_date,
         stammnummer=record.stammnummer,
-        model_variant_id=cached.model_variant_id,
+        variant=_named_candidate(db, cached.model_variant_id, first_registration_date=record.first_registration_date),
     )
 
 
@@ -666,11 +678,11 @@ def _records_result(
     if len(records) > 1:
         return _picker_result(
             db, tenant_id=tenant_id, kind=kind, match_method=match_method, observed=observed,
-            rows=[_plate_record(r) for r in records], notes=notes, conflict_plate=conflict_plate,
+            rows=[_plate_record(db, r) for r in records], notes=notes, conflict_plate=conflict_plate,
         )
     (cached,) = records
     record = cached.info
-    named = db.get(ModelVariant, cached.model_variant_id) if cached.model_variant_id is not None else None
+    named = _named_candidate(db, cached.model_variant_id, first_registration_date=record.first_registration_date)
     if named is not None:
         return IdentificationResult(
             kind=kind,
@@ -682,7 +694,7 @@ def _records_result(
                 type_approval_number=record.type_approval_number,
                 first_registration_date=record.first_registration_date,
             ),
-            variants=[_candidate(db, named, first_registration_date=record.first_registration_date)],
+            variants=[named],
             best_match_available=False,
             notes=notes,
         )
@@ -697,7 +709,9 @@ def _records_result(
     )
 
 
-def _picker_row(vehicle: BuiltVehicleData, *, model_variant_id: uuid.UUID | None = None) -> PlateRecord | None:
+def _picker_row(
+    db: Session, vehicle: BuiltVehicleData, *, model_variant_id: uuid.UUID | None = None
+) -> PlateRecord | None:
     """A registered car the picker can offer: it needs a Typenschein to
     continue at; the Stammnummer may be withheld from this account. It
     carries the stored variant the record named (KAN-592)."""
@@ -713,7 +727,7 @@ def _picker_row(vehicle: BuiltVehicleData, *, model_variant_id: uuid.UUID | None
         type_approval_number=vehicle.type_approval_number,
         first_registration_date=vehicle.first_registration_date,
         stammnummer=vehicle.stammnummer,
-        model_variant_id=model_variant_id,
+        variant=_named_candidate(db, model_variant_id, first_registration_date=vehicle.first_registration_date),
     )
 
 
@@ -797,7 +811,7 @@ def _built_vehicles_result(
         return IdentificationResult(kind=kind, match_method=match_method, outcome=IdentificationOutcome.NONE, observed=observed)
 
     rows = [
-        r for r in (_picker_row(v, model_variant_id=_named_variant_id(v, by_fz_key)) for v in vehicles) if r is not None
+        r for r in (_picker_row(db, v, model_variant_id=_named_variant_id(v, by_fz_key)) for v in vehicles) if r is not None
     ]
     if len(rows) < len(vehicles):
         logger.info("%d of %d registered cars carry no Typenschein and cannot be offered", len(vehicles) - len(rows), len(vehicles))

@@ -130,36 +130,29 @@ export function IdentificationPanel({
   }
 
   const pickPlateRecord = (record: PlateRecordRead) => {
-    // KAN-592: the provider named this car's variant — start from it, with the
-    // record's own facts, instead of a billed lookup at its Typenschein.
-    if (record.modelVariantId && result) {
-      const recordObserved: ObservedIdentityRead = {
-        ...result.observed,
-        stammnummer: record.stammnummer ?? result.observed.stammnummer,
-        typeApprovalNumber: record.typeApprovalNumber,
-        firstRegistrationDate: record.firstRegistrationDate ?? result.observed.firstRegistrationDate,
-      }
-      const variantId = record.modelVariantId
-      void (async () => {
-        setError(null)
-        try {
-          const variant = await api.get<CatalogueVariantRead>(`/catalogue/variants/${variantId}`)
-          onStart({ variant, observed: recordObserved, matchMethod: result.matchMethod })
-        } catch {
-          setError(t('configurator.identify.error'))
-        }
-      })()
+    const carry = {
+      licencePlate: result?.observed.licencePlate ?? null,
+      stammnummer: record.stammnummer,
+      firstRegistrationDate: record.firstRegistrationDate,
+    }
+    // KAN-592: the provider named this car's variant — offer it as the one
+    // candidate, as a single registered car is offered, without a billed
+    // lookup at its Typenschein.
+    if (record.variant && result) {
+      setError(null)
+      setResult({
+        ...result,
+        outcome: 'variants',
+        observed: { ...result.observed, typeApprovalNumber: record.typeApprovalNumber },
+        variants: [record.variant],
+        bestMatchAvailable: false,
+        plateRecords: [],
+      })
+      setCarried(carry)
+      setCarriedMethod(result.matchMethod)
       return
     }
-    void identify(
-      record.typeApprovalNumber,
-      {
-        licencePlate: result?.observed.licencePlate ?? null,
-        stammnummer: record.stammnummer,
-        firstRegistrationDate: record.firstRegistrationDate,
-      },
-      result?.matchMethod ?? null,
-    )
+    void identify(record.typeApprovalNumber, carry, result?.matchMethod ?? null)
   }
 
   const visibleNotes = result?.notes ?? []

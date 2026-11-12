@@ -270,6 +270,7 @@ export function OnboardingPage() {
                       onQueryChange={setGroupSearch}
                       onSelect={(row) => setForm((current) => ({ ...current, dealerGroupId: row.id, dealerGroupName: row.label }))}
                       placeholder={t('onboarding.group.searchPlaceholder')}
+                      inputLabel={t('onboarding.group.pick')}
                       loading={groups.isPending}
                       emptyLabel={t('common.noMatches')}
                       autoFocus={false}

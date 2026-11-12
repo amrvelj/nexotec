@@ -34,7 +34,8 @@ as any change to what it states. -->
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, no bulk catalogue retrieval
-  and no daily job reaching a provider (KAN-485), the capability vocabulary,
+  and no daily job reaching an integration provider through the gateway (KAN-485; a
+  connected-account revoker, KAN-559, is not one), the capability vocabulary,
   catalogue browse as a bounded live query (one provider request per page and per facet field,
   `page[number]` only in the adapter, no catalogue query in a loop — ADR-112, KAN-548), configurations never writing vehicle-mdm, margin
   never in a rendered document, no ambient group reads, layout code only in the document

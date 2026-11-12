@@ -175,7 +175,7 @@ describe('OnboardingPage (KAN-210)', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Bestehende Gruppe' }))
     expect(await screen.findByText('Bären Garage')).toBeInTheDocument()
-    await user.type(screen.getByPlaceholderText('Namen eingeben, um zu suchen'), 'emil')
+    await user.type(screen.getByRole('textbox', { name: 'Gruppe wählen' }), 'emil')
 
     await waitFor(() =>
       expect(backend.callsTo(/\/platform\/dealer-groups$/).some((c) => c.params.get('q') === 'emil')).toBe(true),
