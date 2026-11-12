@@ -39,6 +39,7 @@ EXPECTED_CAPABILITY: dict[tuple[str, str], str] = {
     ("PUT", "/v1/inventory/stock-items/{stock_item_id}/options"): "stock_items",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/configuration"): "stock_items",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/condition"): "stock_condition",
+    ("POST", "/v1/inventory/stock-items/{stock_item_id}/vin-correction"): "stock_vin_correction",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/purchase"): "stock_acquisition",
     ("PATCH", "/v1/inventory/stock-items/{stock_item_id}/purchase/notional-input-tax"): "stock_acquisition",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/purchase/storno"): "stock_acquisition",

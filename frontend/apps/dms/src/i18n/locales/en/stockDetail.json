@@ -194,5 +194,23 @@
     "submit": "Save",
     "cancel": "Cancel",
     "failed": "The condition could not be changed."
+  },
+  "vinCorrection": {
+    "action": "Correct VIN",
+    "title": "Correct VIN",
+    "body": "The VIN is changed on stock vehicle {{stockNumber}}, in the vehicle record and in the configuration.",
+    "currentVin": "Current VIN:",
+    "newVinLabel": "New VIN",
+    "newVinRequired": "Please enter the new VIN.",
+    "reasonLabel": "Reason",
+    "reasonRequired": "Please give a reason.",
+    "submit": "Correct VIN",
+    "cancel": "Back",
+    "failed": "The VIN could not be corrected.",
+    "needsPurchase": "Only after the purchase — until then the VIN is corrected in the configuration.",
+    "configuratorHint": "A changed VIN is applied after saving with «Correct VIN» to the stock vehicle, the vehicle record and the configuration.",
+    "configuratorClearRefused": "On a bought vehicle the VIN is changed with «Correct VIN» and cannot be cleared.",
+    "configuratorReadOnly": "Only the business's manager corrects a bought vehicle's VIN, with «Correct VIN».",
+    "notCorrected": "The VIN was not corrected. The other changes are saved."
   }
 }

@@ -9,6 +9,7 @@ import datetime as dt
 from sqlalchemy import Exists, func, select
 from sqlalchemy.orm import Session
 
+from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import Customer
@@ -69,6 +70,29 @@ def _names_an_untaken_configuration() -> StateCheck:
         .correlate(Valuation)
         .exists()
         & (Valuation.updated_at < utcnow() - _OUTBOX_LAG_GRACE),
+    )
+
+
+def _vin_the_car_carried_before_a_correction() -> Exists:
+    """KAN-557: a valuation is never edited (ADR-066), so one made before
+    «VIN korrigieren» keeps the VIN the car carried then. That is dated
+    evidence, not a copy gone wrong: a VIN its record's own
+    `vin_corrected` audit row names as the one before is not a finding —
+    for a valuation made before that correction."""
+
+    return (
+        select(AuditEvent.id)
+        .where(
+            AuditEvent.entity_type == "vehicle_mdm",
+            AuditEvent.entity_id == Valuation.vehicle_id,
+            AuditEvent.action == "vin_corrected",
+            AuditEvent.before["vin"].as_string() == func.upper(Valuation.vehicle_vin),
+            # Made before that correction — a valuation written later with
+            # the old VIN is a copy gone wrong and is still reported.
+            Valuation.created_at <= AuditEvent.created_at,
+        )
+        .correlate(Valuation)
+        .exists()
     )
 
 
@@ -142,7 +166,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             # characters leave no room for a space in a VIN.)
             VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
         )
-        .exists(),
+        .exists()
+        & ~_vin_the_car_carried_before_a_correction(),
     ),
     # KAN-552: a quote belongs to a Betrieb. Its configuration_id is not
     # checked: a quote the advisor never turned into a valuation names a

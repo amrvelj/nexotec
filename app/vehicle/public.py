@@ -32,6 +32,8 @@ from app.vehicle.services.host_configuration import (
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
+from app.vehicle.services.vin_correction import VIN_CORRECTED_EVENT, CorrectedVehicleVin
+from app.vehicle.services.vin_correction import correct_vehicle_vin as _correct_vehicle_vin
 from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
 from app.vehicle.services.vin_resolution import resolve_vehicle_mdm_by_vin as _resolve_vehicle_mdm_by_vin
 
@@ -303,6 +305,51 @@ def discard_configuration_copy(
     _discard(db, tenant_id=tenant_id, configuration_id=configuration_id, actor_id=actor_id)
 
 
+def correct_vehicle_vin(
+    db: Session,
+    *,
+    vehicle_id: uuid.UUID,
+    old_vin: str,
+    new_vin: str,
+    reason: str,
+    actor_id: uuid.UUID | None,
+    tenant_id: uuid.UUID,
+    configuration_id: uuid.UUID | None = None,
+    compensation: bool = False,
+    include_record: bool = True,
+    relink_configuration_only: bool = False,
+) -> CorrectedVehicleVin:
+    """KAN-557 (ADR-116 (2)-(3)): Stock's «VIN korrigieren» asks Vehicle,
+    which owns the VIN, to rewrite the record's VIN from `old_vin` to
+    `new_vin` — and, when `configuration_id` names the stock car's
+    configuration in `tenant_id`, to have that configuration follow. On a
+    session of Vehicle's own, committed before this returns, so the caller's
+    pending work is neither committed nor rolled back (ADR-047). Compare and
+    set: a record already carrying `new_vin` writes nothing again (a retry).
+    The answer says what changed (`record_changed`, `configuration_vin_changed`,
+    `configuration_relinked`); a re-linked configuration is compensated with
+    `relink_configuration_only=True`;
+    the compensation is the same call with the VINs swapped,
+    `compensation=True`, and only what changed — `include_record=False` and
+    no `configuration_id` leave either alone. Refusals: 404, 409 `vehicle_merged`,
+    `vehicle_vin_changed`, `vin_belongs_to_other_vehicle`, 422
+    `configuration_vin_differs` — each with nothing written."""
+
+    return _correct_vehicle_vin(
+        db,
+        vehicle_id=vehicle_id,
+        old_vin=old_vin,
+        new_vin=new_vin,
+        reason=reason,
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        configuration_id=configuration_id,
+        compensation=compensation,
+        include_record=include_record,
+        relink_configuration_only=relink_configuration_only,
+    )
+
+
 def run_daily_plate_lookup_purge(db: Session) -> None:
     """KAN-42 (C-D) — the daily job that deletes plate-lookup cache rows past
     their TTL (`app.vehicle.services.plate_lookup_cache`). Registered in
@@ -317,9 +364,11 @@ __all__ = [
     "CONFIGURATION_MODE_BUILD",
     "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "VIN_CORRECTED_EVENT",
     "ConfigurationLabel",
     "ConfigurationModeNotAllowedError",
     "ConfigurationPriceLine",
+    "CorrectedVehicleVin",
     "CustodyEventType",
     "HostConfiguration",
     "NoCatalogueVariantError",
@@ -334,6 +383,7 @@ __all__ = [
     "VehicleSummary",
     "check_plate_handover",
     "copy_configuration_for_host",
+    "correct_vehicle_vin",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
     "discard_configuration_copy",

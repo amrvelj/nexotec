@@ -267,10 +267,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **One stock row menu** (KAN-571, ADR-061; PRD-Stock FR-I-07): `components/stockRowMenu.tsx::buildStockRowMenu`
   is the one definition the Stock list's ⋯ menu and the stock detail's header (primary «Vertrag
   erstellen», alternative «Offerte erstellen», overflow) render from — Einkauf erfassen · Zustand ändern
-  · Konfiguration zuordnen/bearbeiten · Vertrag/Offerte erstellen · Einkauf stornieren. Both purchase
+  · Konfiguration zuordnen/bearbeiten · VIN korrigieren · Vertrag/Offerte erstellen · Einkauf stornieren. Both purchase
   actions are always listed, the one that does not apply disabled with its reason (Anto, 2026-11-07, 2a
   option A); a role's unusable action is hidden (KAN-430); a car that left stock, or a configuration a
   contract's reservation freezes, is disabled with its reason. «Zustand ändern» is
-  `ChangeConditionDialog` (`POST …/condition`, `stock_condition`, If-Match). The list opens the car with
+  `ChangeConditionDialog` (`stock_condition`, If-Match). The list opens the car with
   the action in the router state (`stockOpenState`); the detail runs it once and drops the state.
   `StockRowMenu.render.test.tsx` compares the two menus item by item.

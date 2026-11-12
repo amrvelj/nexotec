@@ -203,6 +203,14 @@ _OWN_COMMIT_WRITES = {
             "since KAN-189 neither the trade-in nor a valuation creates a record"
         ),
     ),
+    # KAN-557 «VIN korrigieren» (ADR-116): Stock asks Vehicle, which owns the
+    # VIN, to rewrite the record and the stock car's configuration on a
+    # session of its own, before Stock writes its item; the compensation is
+    # the same call with the two VINs swapped.
+    "app.vehicle.public.correct_vehicle_vin": (
+        "app.vehicle.services.vin_correction.correct_vehicle_vin",
+        "inventory: VIN correction on a car in stock, on Vehicle's own session; reversed as its compensation",
+    ),
     # Sales' Save-and-copy gives a copied offer a configuration of its own
     # (FR-C-11, KAN-188), on a session of its own, and discards it again as
     # the compensation when the copy offer's write fails.

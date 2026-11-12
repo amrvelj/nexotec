@@ -348,3 +348,194 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     expect(onRecordPurchase.mock.calls[1][0]).toMatchObject({ vin: CORRECTED_VIN, supplierName: 'Hans Muster' })
   })
 })
+
+// KAN-557 — on a car with a vehicle-mdm record (bought), the VIN is Stock's
+// «VIN korrigieren»: the configurator's PATCH leaves `vin` out and hands a
+// changed VIN to that action, which corrects the stock item, the record and
+// the configuration together. A pipeline car without a record keeps writing
+// its VIN in the PATCH (it wins at booking, KAN-575).
+describe('Stock detail — the configurator routes a bought car\'s VIN through «VIN korrigieren» (KAN-557)', () => {
+  const BOUGHT_ITEM: StockItemRead = {
+    ...PIPELINE_ITEM,
+    lifecycleStatus: 'in_stock',
+    vin: CONFIGURED_VIN,
+    vehicleId: 'v-557',
+    inStockAt: NOW,
+    purchasePrice: '8000.00',
+    version: 7,
+  }
+  const configuratorVin = () =>
+    screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) }) as HTMLInputElement
+
+  function boughtBackend(item: StockItemRead) {
+    const patches: Record<string, unknown>[] = []
+    let current = configurationRead({ ...RECORDED, vehicleId: item.vehicleId })
+    let stock = item
+    const backend = installFakeBackend([
+      ...CODED_REFERENCE_ROUTES,
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /^\/vehicle-mdm\/v-557$/, handler: () => ({ id: 'v-557', vehicleNumber: 'F-000557', vin: current.vin }) },
+      { method: 'GET', match: /^\/configurations\/cfg-1$/, handler: () => current },
+      { method: 'GET', match: /^\/inventory\/stock-items\/s1$/, handler: () => stock },
+      {
+        method: 'PATCH',
+        match: /^\/configurations\/cfg-1$/,
+        handler: (req) => {
+          const body = req.body as Record<string, unknown>
+          patches.push(body)
+          current = { ...current, ...('vin' in body ? { vin: (body.vin as string | null) ?? null } : {}), version: current.version + 1 }
+          // Stock's label refresh may bump the item meanwhile.
+          stock = { ...stock, version: stock.version + 1 }
+          return current
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/configurations\/cfg-1\/options$/,
+        handler: () => {
+          current = { ...current, version: current.version + 1 }
+          return current
+        },
+      },
+      {
+        method: 'POST',
+        match: /^\/inventory\/stock-items\/s1\/vin-correction$/,
+        handler: (req) => {
+          const body = req.body as { newVin: string }
+          current = { ...current, vin: body.newVin, version: current.version + 1 }
+          stock = { ...stock, vin: body.newVin, version: stock.version + 1 }
+          return stock
+        },
+      },
+    ])
+    return { backend, patches, configuration: () => current }
+  }
+
+  const renderStock = (item: StockItemRead, canCorrectVin: boolean) =>
+    renderWithProviders(
+      <DetailsTab
+        item={item}
+        locale="de-CH"
+        onSaveField={vi.fn()}
+        onReload={vi.fn()}
+        canEditConfiguration
+        canCorrectVin={canCorrectVin}
+        onRecordPurchase={vi.fn()}
+      />,
+    )
+
+  async function openConfigurator(user: ReturnType<typeof userEvent.setup>) {
+    const card = await screen.findByTestId('configuration-summary-card')
+    await user.click(within(card).getByRole('button', { name: editLabel() }))
+    await screen.findByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) })
+  }
+
+  it('on a bought car: the PATCH carries no vin, then «VIN korrigieren» POSTs the new one, and the overlay closes', async () => {
+    const user = userEvent.setup()
+    const { backend, patches, configuration } = boughtBackend(BOUGHT_ITEM)
+    renderStock(BOUGHT_ITEM, true)
+    await openConfigurator(user)
+
+    await user.clear(configuratorVin())
+    await user.type(configuratorVin(), CORRECTED_VIN.toLowerCase())
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    // The dialog opens over the configurator, prefilled, after the configuration's own save.
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('stockDetail.vinCorrection.title') })
+    expect(patches).toHaveLength(1)
+    expect(patches[0]).not.toHaveProperty('vin')
+    expect(patches[0]).toMatchObject({ mode: 'record' })
+    const newVin = within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.vinCorrection.newVinLabel')) })
+    expect((newVin as HTMLInputElement).value).toBe(CORRECTED_VIN)
+    expect(within(dialog).getByText(i18n.t('stockDetail.vinCorrection.body', { stockNumber: 'S-000510' }))).toBeInTheDocument()
+
+    await user.type(
+      within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.vinCorrection.reasonLabel')) }),
+      'Tippfehler',
+    )
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('stockDetail.vinCorrection.submit') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/vin-correction$/, 'POST')).toHaveLength(1))
+    const [post] = backend.callsTo(/\/vin-correction$/, 'POST')
+    expect(post.body).toEqual({ newVin: CORRECTED_VIN, reason: 'Tippfehler' })
+    // The stock item's version as the server holds it after the configuration's save.
+    expect(post.headers.get('If-Match')).toBe('8')
+    // The overlay re-read the configuration and closed.
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) })).toBeNull(),
+    )
+    expect(configuration().vin).toBe(CORRECTED_VIN)
+    const writes = backend.calls.filter((c) => c.method !== 'GET').map((c) => `${c.method} ${c.pathname}`)
+    expect(writes[0]).toBe('PATCH /configurations/cfg-1')
+    expect(writes[writes.length - 1]).toBe('POST /inventory/stock-items/s1/vin-correction')
+  })
+
+  it('on a bought car: a cancelled correction keeps the configurator open, the other fields saved', async () => {
+    const user = userEvent.setup()
+    const { backend, patches } = boughtBackend(BOUGHT_ITEM)
+    renderStock(BOUGHT_ITEM, true)
+    await openConfigurator(user)
+
+    await user.clear(configuratorVin())
+    await user.type(configuratorVin(), CORRECTED_VIN)
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('stockDetail.vinCorrection.title') })
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('stockDetail.vinCorrection.cancel') }))
+
+    expect(await screen.findByText(i18n.t('stockDetail.vinCorrection.notCorrected'))).toBeInTheDocument()
+    expect(configuratorVin().value).toBe(CORRECTED_VIN)
+    expect(patches).toHaveLength(1)
+    expect(backend.callsTo(/\/vin-correction$/, 'POST')).toHaveLength(0)
+  })
+
+  it('on a bought car: an emptied VIN is refused in place, nothing sent', async () => {
+    const user = userEvent.setup()
+    const { backend, patches } = boughtBackend(BOUGHT_ITEM)
+    renderStock(BOUGHT_ITEM, true)
+    await openConfigurator(user)
+
+    expect(screen.queryByRole('button', { name: i18n.t('configurator.vehicleLink.clearVin') })).toBeNull()
+    await user.clear(configuratorVin())
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    expect(await screen.findByText(i18n.t('stockDetail.vinCorrection.configuratorClearRefused'))).toBeInTheDocument()
+    expect(patches).toHaveLength(0)
+    expect(backend.callsTo(/\/vin-correction$/, 'POST')).toHaveLength(0)
+  })
+
+  it('on a bought car, without the stock_vin_correction row: the VIN is read-only, the hint says why; saving sends no vin', async () => {
+    const user = userEvent.setup()
+    const { backend, patches } = boughtBackend(BOUGHT_ITEM)
+    renderStock(BOUGHT_ITEM, false)
+    await openConfigurator(user)
+
+    const vin = configuratorVin()
+    expect(vin).toHaveAttribute('readonly')
+    expect(vin).toHaveAccessibleDescription(i18n.t('stockDetail.vinCorrection.configuratorReadOnly'))
+    await user.type(vin, 'X')
+    expect(vin.value).toBe(CONFIGURED_VIN)
+
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0]).not.toHaveProperty('vin')
+    expect(backend.callsTo(/\/vin-correction$/, 'POST')).toHaveLength(0)
+  })
+
+  it('on a pipeline car without a vehicle-mdm record: the PATCH carries the VIN, no correction is POSTed', async () => {
+    const user = userEvent.setup()
+    const { backend, patches } = boughtBackend({ ...PIPELINE_ITEM, vehicleId: null })
+    renderStock({ ...PIPELINE_ITEM, vehicleId: null }, true)
+    await openConfigurator(user)
+
+    await user.clear(configuratorVin())
+    await user.type(configuratorVin(), CORRECTED_VIN)
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0]).toMatchObject({ vin: CORRECTED_VIN })
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) })).toBeNull(),
+    )
+    expect(backend.callsTo(/\/vin-correction$/, 'POST')).toHaveLength(0)
+  })
+})

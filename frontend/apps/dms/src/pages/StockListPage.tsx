@@ -355,6 +355,7 @@ export function StockListPage() {
   const canChangeCondition = useCanWrite('stock_condition')
   const canCreateContract = useCanWrite('sales_contracts')
   const canCreateOffer = useCanWrite('sales_offers')
+  const canCorrectVin = useCanWrite('stock_vin_correction')
   const canAddVehicle = canWriteStockItems && canWriteConfigurations
 
   const applyView = (view: SavedView) => {
@@ -497,6 +498,7 @@ export function StockListPage() {
                 changeCondition: openAt('changeCondition'),
                 attachConfiguration: openAt('attachConfiguration'),
                 editConfiguration: openAt('editConfiguration'),
+                correctVin: openAt('correctVin'),
               },
               {
                 canCreateContract,
@@ -505,6 +507,7 @@ export function StockListPage() {
                 canChangeCondition,
                 canAttachConfiguration: canWriteStockItems && canWriteConfigurations,
                 canEditConfiguration: canWriteConfigurations,
+                canCorrectVin,
               },
               row.leftStockAt ? formatDate(row.leftStockAt, locale) : null,
             )

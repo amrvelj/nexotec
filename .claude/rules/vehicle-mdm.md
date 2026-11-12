@@ -4,6 +4,7 @@ paths:
   - "app/vehicle/api/vehicles.py"
   - "app/vehicle/api/lookup.py"
   - "app/vehicle/services/vehicle*.py"
+  - "app/vehicle/services/vin_correction.py"
   - "app/vehicle/services/plate.py"
   - "app/vehicle/services/plate_handover.py"
   - "app/vehicle/services/plate_read_guard.py"
@@ -122,6 +123,8 @@ re-verified against the code. -->
   summary read before its write. **Ruled exception:** a brand rename publishes nothing; customers'
   Vehicles tabs catch up by the nightly label refresh (Anto;
   `test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning`).
+- **A bought car's VIN is corrected from Stock** (KAN-557): `vehicle.public.correct_vehicle_vin`
+  (`services/vin_correction.py`) — the rules are in `inventory-vin-correction.md`.
 - Every identity PATCH writes an `update` audit row (changed fields before/after, camelCase; none
   for a no-op). `"vin": null` or `"vehicleStatus": null` is 422; a duplicate VIN or Stammnummer is a
   409 naming the field — any other integrity error is not reported as a duplicate.

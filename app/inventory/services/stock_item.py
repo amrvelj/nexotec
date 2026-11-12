@@ -1,6 +1,7 @@
 """StockItem service layer (WP-7 PR-1)."""
 
 import hashlib
+import logging
 import uuid
 from collections.abc import Iterable
 
@@ -22,11 +23,17 @@ from app.inventory.models.stock_item import (
     StockItemCondition,
     StockNumberSequence,
 )
-from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
+from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate, StockItemVinCorrectionRequest
 from app.inventory.services import commercial_change
-from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD, get_configuration_for_host
+from app.vehicle.public import (
+    CONFIGURATION_MODE_BUILD,
+    CONFIGURATION_MODE_RECORD,
+    correct_vehicle_vin,
+    get_configuration_for_host,
+)
 
 _EVENT_PRODUCER = "inventory"
+logger = logging.getLogger(__name__)
 
 
 def compute_ageing_bucket(item: StockItem) -> AgeingBucket | None:
@@ -622,3 +629,204 @@ def list_stock_items(
     rows = list(db.scalars(stmt).all())
     items, next_cursor = build_sorted_page(rows, params)
     return items, next_cursor, total, total_is_estimate
+
+
+def correct_vin(
+    db: Session, *, item: StockItem, data: StockItemVinCorrectionRequest, actor_id: uuid.UUID | None
+) -> StockItem:
+    """KAN-557 «VIN korrigieren» (ADR-116 (2)-(3); Anto, 2026-11-03, on
+    KAN-544: «wir lassen eine Korrektur am Lager zu»). The VIN a car in
+    stock was bought under was wrong; the correction travels to every record
+    that carries it — the stock item, its vehicle-mdm record and its
+    configuration — so the three describe one car again.
+
+    **Two contexts, two transactions (ADR-047).** Vehicle owns the VIN: it is
+    asked first, through `vehicle.public.correct_vehicle_vin`, which rewrites
+    the record and the configuration and commits on its own session. A
+    refusal there leaves this item untouched. Then the item is written,
+    audited `vin_corrected` and `inventory.stock_item.vin_corrected` is
+    published, in this session's one commit. Should that fail, the
+    compensation asks Vehicle to put the old VIN back (the same call, VINs
+    swapped, audited `vin_correction_reverted`); should even that fail, the
+    nightly reconciliation reports the drift (rule 10). A retry with the
+    same Idempotency-Key completes it: Vehicle's step is compare-and-set and
+    writes nothing a second time.
+
+    Refused before anything is written: the car has left stock (409
+    `vin_correction_left_stock`); it has no vehicle-mdm record — a pipeline
+    car never bought, whose VIN is corrected in its configuration and wins at
+    booking (KAN-575) — (409 `vin_correction_needs_vehicle`); the VIN is the
+    one it has (422 `vin_unchanged`); another item of the Betrieb holds it in
+    stock (409 `vin_already_in_stock`); the configuration names a third VIN
+    (422 `configuration_vin_differs`). Vehicle's refusals pass through
+    (`vin_belongs_to_other_vehicle`, `vehicle_vin_changed`, `vehicle_merged`).
+
+    The caller loaded `item` with its row lock and checked If-Match."""
+
+    if item.left_stock_at is not None:
+        raise ConflictError(
+            f"Stock item {item.stock_number} has left stock — its VIN is no longer corrected here.",
+            details={"reason": "vin_correction_left_stock", "stockItemId": str(item.id)},
+        )
+    if item.vehicle_id is None or item.vin is None:
+        raise ConflictError(
+            f"Stock item {item.stock_number} has no vehicle record yet — correct the VIN in its configuration.",
+            details={"reason": "vin_correction_needs_vehicle", "stockItemId": str(item.id)},
+        )
+    old_vin = item.vin
+    new_vin = data.new_vin
+    tenant_id = item.tenant_id
+    configuration_id = item.configuration_id
+    if new_vin == old_vin:
+        raise UnprocessableEntityError(
+            "The new VIN is the one the car already has.",
+            details={"field": "newVin", "reason": "vin_unchanged"},
+        )
+    _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=new_vin, excluding=item.id)
+    if item.configuration_id is not None:
+        configuration = get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=item.configuration_id)
+        if configuration.vin is not None and normalise_vin(configuration.vin) not in (old_vin, new_vin):
+            raise configuration_vin_differs_error(field="newVin")
+
+    vehicle = correct_vehicle_vin(
+        db,
+        vehicle_id=item.vehicle_id,
+        old_vin=old_vin,
+        new_vin=new_vin,
+        reason=data.reason,
+        actor_id=actor_id,
+        tenant_id=item.tenant_id,
+        configuration_id=item.configuration_id,
+    )
+
+    try:
+        _write_corrected_vin(db, item=item, old_vin=old_vin, new_vin=new_vin, reason=data.reason, actor_id=actor_id)
+        db.commit()
+    except Exception:
+        # Compensate before this transaction ends: every stock write was
+        # flushed inside `_write_corrected_vin`'s savepoint, so a refused one
+        # rolled back only that savepoint and the item's row lock is still
+        # held — no second correction of the item slips in between. (Only a
+        # failure of the COMMIT itself ends it first; reconciliation reports
+        # what that leaves.) Vehicle's own session needs nothing from this one.
+        if vehicle.record_changed or vehicle.configuration_changed:
+            # Only what this call changed is put back: a record already
+            # carrying the new VIN stays; a configuration it only re-linked
+            # is re-linked, never given the old VIN.
+            _compensate_vin_correction(
+                db,
+                vehicle_id=vehicle.vehicle_id,
+                tenant_id=tenant_id,
+                configuration_id=configuration_id if vehicle.configuration_changed else None,
+                include_record=vehicle.record_changed,
+                relink_configuration_only=not vehicle.configuration_vin_changed,
+                old_vin=old_vin,
+                new_vin=new_vin,
+                reason=data.reason,
+                actor_id=actor_id,
+            )
+        db.rollback()
+        raise
+    db.refresh(item)
+    return item
+
+
+def _write_corrected_vin(
+    db: Session, *, item: StockItem, old_vin: str, new_vin: str, reason: str, actor_id: uuid.UUID | None
+) -> None:
+    """The stock half of the correction: the row, its audit row and its
+    event, in the caller's transaction — all three flushed inside one
+    savepoint, so a refused write rolls back only that savepoint and the
+    caller's transaction (with the item's row lock) stays open for the
+    compensation; the commit that follows has nothing left to flush. A
+    racing writer that took the VIN into this Betrieb's stock meanwhile is
+    refused by the unique index — mapped to the same 409 the pre-check
+    gives."""
+
+    payload: dict[str, object] = {
+        "stockNumber": item.stock_number,
+        "vehicleId": str(item.vehicle_id),
+        "previousVin": old_vin,
+        "vin": new_vin,
+        "correctedBy": str(actor_id) if actor_id else None,
+    }
+    if item.configuration_id is not None:
+        payload["configurationId"] = str(item.configuration_id)
+    try:
+        with db.begin_nested():
+            item.vin = new_vin
+            item.updated_by = actor_id
+            item.version += 1
+            db.flush()
+            record_audit_event(
+                db,
+                entity_type="stock_item",
+                entity_id=item.id,
+                tenant_id=item.tenant_id,
+                action="vin_corrected",
+                actor_id=actor_id,
+                before={"vin": old_vin},
+                after={"vin": new_vin},
+                reason=reason,
+            )
+            publish(
+                db,
+                OutboxEvent(
+                    event_type="inventory.stock_item.vin_corrected",
+                    tenant_id=item.tenant_id,
+                    producer=_EVENT_PRODUCER,
+                    aggregate_type="stock_item",
+                    aggregate_id=item.id,
+                    payload=payload,
+                ),
+            )
+            db.flush()
+    except IntegrityError:
+        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=new_vin, excluding=item.id)
+        if held_by is None:
+            raise
+        raise _vin_already_in_stock(held_by) from None
+
+
+def _compensate_vin_correction(
+    db: Session,
+    *,
+    vehicle_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    configuration_id: uuid.UUID | None,
+    include_record: bool,
+    relink_configuration_only: bool,
+    old_vin: str,
+    new_vin: str,
+    reason: str,
+    actor_id: uuid.UUID | None,
+) -> None:
+    """ADR-047's compensating action: Vehicle puts the old VIN back on what
+    this correction changed — the record when `include_record`, the
+    configuration when `configuration_id` is given (only its link, when
+    `relink_configuration_only`) — and nothing else. The two legs share
+    Vehicle's one transaction: should the configuration leg be refused (it
+    names a third VIN by now), the record's revert is rolled back with it,
+    logged at ERROR and reported by reconciliation. A failure here is logged at
+    ERROR and left to the nightly reconciliation, which reports a stock item
+    whose VIN differs from its record's or its configuration's."""
+
+    try:
+        correct_vehicle_vin(
+            db,
+            vehicle_id=vehicle_id,
+            old_vin=new_vin,
+            new_vin=old_vin,
+            reason=reason,
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            configuration_id=configuration_id,
+            compensation=True,
+            include_record=include_record,
+            relink_configuration_only=relink_configuration_only,
+        )
+    except Exception:
+        logger.exception(
+            "VIN correction compensation failed; the nightly reconciliation will report the drift",
+            extra={"vehicleId": str(vehicle_id), "tenantId": str(tenant_id)},
+        )

@@ -34,6 +34,10 @@ interface DetailsTabProps {
    * (`configurations`) — «Konfiguration bearbeiten» on the card and beside
    * the purchase dialog's VIN refusal. Hidden when not. */
   canEditConfiguration?: boolean
+  /** KAN-557: whether the user may «VIN korrigieren» (`stock_vin_correction`,
+   * the dealer manager). On a car with a vehicle-mdm record the configurator
+   * hands a changed VIN to that action; without it the VIN is read-only there. */
+  canCorrectVin?: boolean
   /** KAN-211 (ADR-123): whether this user may «Neu laden» the car's
    * catalogue details — a dealer manager or platform staff; the stock
    * detail passes the session's answer, the API refuses anyone else. */
@@ -77,6 +81,7 @@ export function DetailsTab({
   canRecordPurchase = true,
   canAttachConfiguration = true,
   canEditConfiguration = true,
+  canCorrectVin = false,
   canReloadCatalogueDetails = false,
   onPurchaseStornoed,
   requestedAction = null,
@@ -88,7 +93,7 @@ export function DetailsTab({
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
   const [stornoDialogOpen, setStornoDialogOpen] = useState(false)
   const stornoReasonId = useId()
-  const editConfiguration = useStockConfigurationEditor()
+  const editConfiguration = useStockConfigurationEditor(item, canCorrectVin)
   // KAN-510 (Anto, 2026-11-02, option A): «Konfiguration bearbeiten» on
   // every stock car, in the pipeline or in stock (not one that has left
   // stock), unless a contract reserves it. Then the change belongs to that

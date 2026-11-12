@@ -215,6 +215,29 @@ class StockItemConditionChange(CamelModel):
     condition: StockItemCondition
 
 
+class StockItemVinCorrectionRequest(CamelModel):
+    """KAN-557 «VIN korrigieren» (ADR-116 (2)-(3)): the corrected VIN —
+    normalised and validated as vehicle-mdm does (KAN-244, 422 otherwise) —
+    and the reason, required, audited on every record the correction
+    rewrites."""
+
+    new_vin: NormalisedVin = Field(
+        description=(
+            "The car's corrected VIN. It replaces the VIN on the stock item, on its vehicle-mdm record and on its "
+            "configuration together (KAN-557)."
+        )
+    )
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped
+
+
 class StockItemPage(CamelModel):
     items: list[StockItemRead]
     next_cursor: str | None

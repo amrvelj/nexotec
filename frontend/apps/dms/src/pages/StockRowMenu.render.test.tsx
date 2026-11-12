@@ -58,11 +58,11 @@ function session(writableCapabilities: string[]): FakeRoute {
   }
 }
 
-function install(writableCapabilities?: string[]): FakeBackend {
+function install(writableCapabilities?: string[], item: StockItemRead = ITEM): FakeBackend {
   return installFakeBackend([
     ...(writableCapabilities ? [session(writableCapabilities)] : []),
-    { method: 'GET', match: /^\/inventory\/stock-items$/, handler: (): StockItemPage => ({ items: [ITEM], nextCursor: null, total: 1, totalIsEstimate: false }) },
-    { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
+    { method: 'GET', match: /^\/inventory\/stock-items$/, handler: (): StockItemPage => ({ items: [item], nextCursor: null, total: 1, totalIsEstimate: false }) },
+    { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => item },
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
     { method: 'POST', match: new RegExp(`^/inventory/stock-items/${ID}/condition$`), handler: () => ({ ...ITEM, condition: 'demo', version: 4 }) },
   ])
@@ -118,6 +118,7 @@ describe('Stock — one row menu for list and detail (KAN-571)', () => {
       'stockDetail.purchase.recordButton',
       'stockDetail.rowMenu.changeCondition',
       'stockDetail.configuration.attach',
+      'stockDetail.vinCorrection.action',
       'stockDetail.actions.createContract',
       'stockDetail.actions.createOffer',
       'stockDetail.purchase.storno.button',
@@ -170,6 +171,67 @@ describe('Stock — one row menu for list and detail (KAN-571)', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: i18n.t('stockDetail.purchase.storno.title') })).toBeInTheDocument()
+  })
+
+  describe('«VIN korrigieren» (KAN-557)', () => {
+    const label = () => i18n.t('stockDetail.vinCorrection.action')
+    const entryIn = (menu: HTMLElement) => within(menu).queryByRole('menuitem', { name: (n) => n.includes(label()) })
+
+    async function bothMenus(user: ReturnType<typeof userEvent.setup>, item: StockItemRead, capabilities?: string[]) {
+      install(capabilities, item)
+      render('/stock')
+      const list = entryIn(await openListMenu(user))
+      const listState = list ? { disabled: list.hasAttribute('data-disabled'), text: list.textContent ?? '' } : null
+      cleanup()
+      install(capabilities, item)
+      render(`/stock/${ID}`)
+      await screen.findAllByText('Škoda Octavia Combi 2.0 TDI RS 4x4')
+      await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
+      const detail = entryIn(await screen.findByRole('menu'))
+      const detailState = detail ? { disabled: detail.hasAttribute('data-disabled'), text: detail.textContent ?? '' } : null
+      return { list: listState, detail: detailState }
+    }
+
+    it('is in both menus on a bought car, enabled', async () => {
+      const { list, detail } = await bothMenus(userEvent.setup(), ITEM)
+      expect(list).toEqual({ disabled: false, text: expect.stringContaining(label()) })
+      expect(detail).toEqual(list)
+    })
+
+    it('on a car that left stock: disabled in both, with the left-stock reason', async () => {
+      const { list, detail } = await bothMenus(userEvent.setup(), { ...ITEM, leftStockAt: '2026-11-01T09:00:00Z' })
+      const reason = i18n.t('stockDetail.actions.leftStock', { date: '01.11.2026' })
+      expect(list?.disabled).toBe(true)
+      expect(list?.text).toContain(reason)
+      expect(detail).toEqual(list)
+    })
+
+    it('on a car without a vehicle-mdm record (never bought): disabled in both, saying the configuration corrects it', async () => {
+      const pipeline: StockItemRead = { ...ITEM, vehicleId: null, purchasePrice: null, lifecycleStatus: 'pipeline', inStockAt: null }
+      const { list, detail } = await bothMenus(userEvent.setup(), pipeline)
+      expect(list?.disabled).toBe(true)
+      expect(list?.text).toContain(i18n.t('stockDetail.vinCorrection.needsPurchase'))
+      expect(detail).toEqual(list)
+    })
+
+    it('is hidden in both without the stock_vin_correction row (KAN-430)', async () => {
+      const { list, detail } = await bothMenus(userEvent.setup(), ITEM, [
+        'configurations', 'stock_items', 'stock_condition', 'stock_acquisition', 'sales_offers', 'sales_contracts',
+      ])
+      expect(list).toBeNull()
+      expect(detail).toBeNull()
+    })
+
+    it('from the list opens the car with its dialog, naming the stock number', async () => {
+      const user = userEvent.setup()
+      install()
+      render('/stock')
+      await user.click(entryIn(await openListMenu(user))!)
+
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText(i18n.t('stockDetail.vinCorrection.body', { stockNumber: 'S-000571' }))).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTestId('router-state').textContent).toBe('null'))
+    })
   })
 
   it('a role that may not create offers or contracts sees neither in the header nor in the menu (KAN-430)', async () => {

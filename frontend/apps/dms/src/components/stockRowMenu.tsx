@@ -1,4 +1,4 @@
-import { FileSignature, Handshake, PackagePlus, RefreshCcw, Undo2, Workflow } from 'lucide-react'
+import { FileSignature, FingerprintPattern, Handshake, PackagePlus, RefreshCcw, Undo2, Workflow } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { StockItemRead } from '../api/types'
 
@@ -16,6 +16,11 @@ import type { StockItemRead } from '../api/types'
  * - «Zustand ändern» (Anto, 2b option A) opens its own dialog.
  * - «Konfiguration bearbeiten» on a car with a configuration, «Konfiguration
  *   zuordnen» on one without (KAN-463, KAN-510).
+ * - «VIN korrigieren» (KAN-557, ADR-116) for the dealer manager
+ *   (`stock_vin_correction`): the stock item, its vehicle-mdm record and its
+ *   configuration together. Disabled on a car that left stock, and on one
+ *   without a vehicle-mdm record (never bought) — that car's VIN is
+ *   corrected in its configuration.
  *
  * What the user's role may never use is hidden (KAN-430) — «Vertrag
  * erstellen» and «Offerte erstellen» too (`sales_contracts`, `sales_offers`),
@@ -32,6 +37,7 @@ export type StockOpenAction =
   | 'changeCondition'
   | 'attachConfiguration'
   | 'editConfiguration'
+  | 'correctVin'
 
 const OPEN_ACTIONS: readonly StockOpenAction[] = [
   'createContract',
@@ -41,6 +47,7 @@ const OPEN_ACTIONS: readonly StockOpenAction[] = [
   'changeCondition',
   'attachConfiguration',
   'editConfiguration',
+  'correctVin',
 ]
 
 /** The Stock list opens the car with the action picked there in the router
@@ -57,7 +64,7 @@ export function readStockOpenAction(state: unknown): StockOpenAction | null {
 
 export type StockRowMenuItem = Pick<
   StockItemRead,
-  'purchasePrice' | 'leftStockAt' | 'reservationState' | 'configurationId'
+  'purchasePrice' | 'leftStockAt' | 'reservationState' | 'configurationId' | 'vehicleId'
 >
 
 export interface StockRowMenuPermissions {
@@ -73,6 +80,8 @@ export interface StockRowMenuPermissions {
   canAttachConfiguration: boolean
   /** `configurations`. */
   canEditConfiguration: boolean
+  /** `stock_vin_correction` — the dealer manager only (KAN-557). */
+  canCorrectVin: boolean
 }
 
 export type StockRowMenuHandlers = Record<StockOpenAction, () => void>
@@ -165,6 +174,17 @@ export function buildStockRowMenu(
       label: t('stockDetail.configuration.attach'),
       icon: <Workflow size={16} />,
       onClick: handlers.attachConfiguration,
+    }))
+  }
+
+  if (permissions.canCorrectVin) {
+    const reason = leftStockReason ?? (item.vehicleId == null ? t('stockDetail.vinCorrection.needsPurchase') : undefined)
+    edit.push(register('correctVin', {
+      label: t('stockDetail.vinCorrection.action'),
+      icon: <FingerprintPattern size={16} />,
+      onClick: handlers.correctVin,
+      disabled: reason !== undefined,
+      disabledReason: reason,
     }))
   }
 
