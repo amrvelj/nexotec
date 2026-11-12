@@ -19,7 +19,9 @@
     "new": "Nouveau groupe (entreprise indépendante)",
     "existing": "Groupe existant",
     "newName": "Nom du groupe",
-    "pick": "Choisir le groupe"
+    "pick": "Choisir le groupe",
+    "searchPlaceholder": "Saisir un nom pour rechercher",
+    "change": "Choisir un autre groupe"
   },
   "legal": {
     "seat": "Siège (devient le premier site)"

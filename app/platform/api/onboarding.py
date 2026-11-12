@@ -3,24 +3,26 @@
 `POST /v1/platform/onboarding` — platform staff onboard a Betrieb in one
 atomic step (`services/onboarding.py`); the older `POST /v1/dealerships`
 stays for API clients, deprecated. `GET /v1/platform/dealer-groups` lists the
-groups the wizard's first step offers.
+groups the wizard's first step offers — searched by name and cursor-paginated
+(KAN-652), never the whole table in one answer.
 """
 
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, require_access_role, require_mfa_session
+from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
+from app.core.pagination import decode_sort_cursor
 from app.db import get_db
 from app.platform.api.auth import client_ip
-from app.platform.models.dealership import DealerGroup
 from app.platform.schemas.onboarding import (
     DealerGroupOption,
     DealerGroupOptionList,
     OnboardingRequest,
     OnboardingResult,
 )
+from app.platform.services import dealer_group_options
 from app.platform.services import onboarding as onboarding_service
 from app.platform.services.mailer import PlatformMailer, get_mailer
 
@@ -61,8 +63,20 @@ def onboard_dealership(
 
 @router.get("/platform/dealer-groups", response_model=DealerGroupOptionList)
 def list_dealer_groups(
+    q: str | None = Query(default=None, max_length=200, description="Name contains (case-insensitive)."),
+    limit: int = Query(
+        default=get_settings().pagination_default_limit, ge=1, le=get_settings().pagination_max_limit
+    ),
+    cursor: str | None = Query(default=None),
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    rows = db.scalars(select(DealerGroup).order_by(DealerGroup.name)).all()
-    return DealerGroupOptionList(items=[DealerGroupOption(id=row.id, name=row.name) for row in rows])
+    """The groups whose name contains `q`, by name, one page at a time
+    (KAN-652): the wizard's group picker asks as the user types."""
+
+    rows, next_cursor = dealer_group_options.list_dealer_group_options(
+        db, q=q, limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None
+    )
+    return DealerGroupOptionList(
+        items=[DealerGroupOption(id=row.id, name=row.name) for row in rows], next_cursor=next_cursor
+    )
