@@ -36,7 +36,6 @@ OVER_LIMIT: dict[str, tuple[int, str]] = {
     "app/platform/api/dealerships.py": (1076, "KAN-668"),
     "app/platform/services/user.py": (1071, "KAN-669"),
     "app/vehicle/services/identification.py": (1032, "KAN-670"),
-    "frontend/apps/dms/src/components/configurator/ConfiguratorOverlay.tsx": (1459, "KAN-671"),
 }
 
 # The list as it stood on 2026-11-12 (KAN-668 to KAN-671). It never gains a

@@ -5,7 +5,6 @@ import {
   CloseButton,
   Group,
   NumberInput,
-  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -14,35 +13,52 @@ import {
   Title,
 } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Info, PencilRuler } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, DetailTabs, StickyActionFooter } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
-import { CatalogueBrowseGrid } from '../catalogue/CatalogueBrowseGrid'
 import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 import { OptionsTab } from './OptionsTab'
 import { ColourWheelsTab } from './ColourWheelsTab'
 import { ImagesTab } from './ImagesTab'
 import { DetailStateNotice } from './DetailStateNotice'
-import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel'
+import type { IdentifiedStart } from './IdentificationPanel'
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
+import { ConfiguratorFindPhase } from './ConfiguratorFindPhase'
+import { CodedSelect, ProviderCodedFields } from './ConfiguratorCodedFields'
 import { HostCommitError } from './hostCommitError'
 import {
-  LABEL_FIELD,
-  fetchActiveReferenceValues,
-  fetchAllReferenceValues,
-  resolveLanguage,
-} from '../../hooks/useReferenceValueOptions'
+  draftFromRead,
+  draftFromVariant,
+  emptyManualDraft,
+  finalOptionsPayload,
+  fullSpec,
+  pickSpec,
+  previewRead,
+  toConfigurationOptionInput,
+  withObserved,
+  type Draft,
+  type Phase,
+  type Section,
+} from './configuratorDraft'
+import {
+  codedValueRetiredOf,
+  refLabelOf,
+  specRefOptionsOf,
+  specRefRetiredOf,
+  specRefWillBeSent,
+  type RefLabelRows,
+  type SpecFieldGroupDef,
+} from './configuratorFieldRules'
+import type { ConfiguratorOverlayProps } from './configuratorOverlayProps'
+import { useCodedFieldValues, useReferenceLabels } from './useConfiguratorReferenceData'
+import { LABEL_FIELD, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
-import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 import { normalisedVin, vinRefusalKey } from '../../utils/vin'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import {
   CODED_FIELDS,
-  CODED_REF_LIST_CODES,
   SPEC_FIELD_GROUPS,
-  SPEC_REF_LIST_CODES,
-  configuratorModeOptions,
   specFieldLabelKey,
   type CodedFieldKey,
   type ConfiguratorMode,
@@ -51,257 +67,18 @@ import type {
   CatalogueOptionRead,
   CatalogueSpecificationRead,
   CatalogueVariantRead,
-  ConfigurationMatchMethod,
-  ConfigurationOptionInput,
-  ConfigurationOptionRead,
   ConfigurationRead,
-  ReferenceValueRead,
   VehicleMdmRead,
   VehicleSpecBlockRead,
 } from '../../api/types'
 
-// KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
-// reference lists in the one label-lookup query this file already has;
-// nothing here needs its own fetch.
-// KAN-211 — and the two colour-type lists the advisor picks from.
-const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature', 'colour_type', 'interior_colour_type']
+export type { ConfiguratorOverlayProps, HostOwnedVin } from './configuratorOverlayProps'
+
 // KAN-245 — the spec block's reference fields (engine cycle, vehicle class,
 // valuation classification, emission standard, consumption norm).
 const SPEC_REF_FIELDS = SPEC_FIELD_GROUPS.flatMap((g) => g.fields).filter((f) => f.kind === 'ref')
 
-type CodedValues = Record<CodedFieldKey, string | null>
-
-type Phase = 'find' | 'configure'
-type Section = 'specification' | 'options' | 'colour' | 'images' | 'summary'
-
-interface Draft {
-  source: 'provider' | 'manual'
-  catalogueVariantId: string | null
-  brandDisplayName: string | null
-  modelGroupName: string | null
-  variantName: string | null
-  spec: VehicleSpecBlockRead
-  /** spec keys the advisor changed after a catalogue copy */
-  overridden: Set<string>
-  /** KAN-96 — the five coded fields. Picked from their reference lists on a
-   * manual configuration, all five required (Anto, 2026-10-12); on a
-   * provider one they are the catalogue's, shown read-only and never sent
-   * back (the API refuses a change, `coded_field_locked`). */
-  coded: CodedValues
-  vin: string
-  firstRegistrationDate: string
-  mileageKm: string
-  exteriorColour: string
-  interiorColour: string
-  /** KAN-211 — the hand-named colour types (`ColourWheelsFields`); `''` is not set. */
-  exteriorColourType: string
-  interiorColourType: string
-  /** Empty string means "not set" (matches `mileageKm`'s own convention) —
-   * `''` never reaches the wire as `NaN`, `save()` maps it to `null`. */
-  exteriorColourSurcharge: string
-  interiorColourSurcharge: string
-  wheels: string
-  wheelsSurcharge: string
-  notes: string
-  /** C-D (KAN-42) — what identification established, kept as observed
-   * data, and how the car was identified (kept permanently). */
-  licencePlate: string
-  stammnummer: string
-  typeApprovalNumber: string
-  matchMethod: ConfigurationMatchMethod | null
-  confirmedBestMatchCode: number | null
-  /** Explicit overrides only (KAN-43/C-E) — see `OptionsTabProps.selected`'s
-   * own doc comment for what "explicit" means here. */
-  selectedOptions: Map<string, ConfigurationOptionInput>
-}
-
-const EMPTY_SPEC: VehicleSpecBlockRead = {}
-
-function codedFrom(source: CodedValues): CodedValues {
-  return {
-    vehicleKind: source.vehicleKind,
-    fuelType: source.fuelType,
-    bodyStyle: source.bodyStyle,
-    drivetrain: source.drivetrain,
-    transmission: source.transmission,
-  }
-}
-
-function draftFromVariant(v: CatalogueVariantRead): Draft {
-  return {
-    source: 'provider',
-    catalogueVariantId: v.id,
-    brandDisplayName: v.brandDisplayName,
-    modelGroupName: v.modelGroupName,
-    variantName: v.variantName,
-    spec: { ...v.spec },
-    overridden: new Set(),
-    coded: codedFrom(v),
-    vin: '',
-    firstRegistrationDate: '',
-    mileageKm: '',
-    exteriorColour: '',
-    interiorColour: '',
-    exteriorColourType: '',
-    interiorColourType: '',
-    exteriorColourSurcharge: '',
-    interiorColourSurcharge: '',
-    wheels: '',
-    wheelsSurcharge: '',
-    notes: '',
-    licencePlate: '',
-    stammnummer: '',
-    typeApprovalNumber: '',
-    matchMethod: null,
-    confirmedBestMatchCode: null,
-    selectedOptions: new Map(),
-  }
-}
-
-function emptyManualDraft(): Draft {
-  return {
-    source: 'manual',
-    catalogueVariantId: null,
-    brandDisplayName: '',
-    modelGroupName: '',
-    variantName: '',
-    spec: { ...EMPTY_SPEC },
-    overridden: new Set(),
-    coded: { vehicleKind: null, fuelType: null, bodyStyle: null, drivetrain: null, transmission: null },
-    vin: '',
-    firstRegistrationDate: '',
-    mileageKm: '',
-    exteriorColour: '',
-    interiorColour: '',
-    exteriorColourType: '',
-    interiorColourType: '',
-    exteriorColourSurcharge: '',
-    interiorColourSurcharge: '',
-    wheels: '',
-    wheelsSurcharge: '',
-    notes: '',
-    licencePlate: '',
-    stammnummer: '',
-    typeApprovalNumber: '',
-    matchMethod: null,
-    confirmedBestMatchCode: null,
-    selectedOptions: new Map(),
-  }
-}
-
-/** C-F — reopening a saved configuration: phase 2, every field as stored,
- * catalogue options keyed by the variant option they came from. */
-function draftFromRead(c: ConfigurationRead): Draft {
-  const selectedOptions = new Map<string, ConfigurationOptionInput>()
-  for (const o of c.options) {
-    if (o.variantOptionId) {
-      selectedOptions.set(o.variantOptionId, {
-        variantOptionId: o.variantOptionId,
-        optionCode: o.optionCode,
-        description: o.description,
-        optionGroup: o.optionGroup,
-        price: o.price,
-        isIncluded: o.isIncluded,
-        isPackage: o.isPackage,
-        selected: o.selected,
-        equipmentFeatures: [...o.equipmentFeatures],
-      })
-    }
-  }
-  return {
-    source: c.source,
-    catalogueVariantId: c.catalogueVariantId,
-    brandDisplayName: c.brandDisplayName,
-    modelGroupName: c.modelGroupName,
-    variantName: c.variantName,
-    spec: { ...c.spec },
-    overridden: new Set(c.overriddenFields),
-    coded: codedFrom(c),
-    vin: c.vin ?? '',
-    firstRegistrationDate: c.firstRegistrationDate ?? '',
-    mileageKm: c.mileageKm != null ? String(c.mileageKm) : '',
-    exteriorColour: c.exteriorColour ?? '',
-    interiorColour: c.interiorColour ?? '',
-    exteriorColourType: c.exteriorColourType ?? '',
-    interiorColourType: c.interiorColourType ?? '',
-    exteriorColourSurcharge: c.exteriorColourSurcharge ?? '',
-    interiorColourSurcharge: c.interiorColourSurcharge ?? '',
-    wheels: c.wheels ?? '',
-    wheelsSurcharge: c.wheelsSurcharge ?? '',
-    notes: c.notes ?? '',
-    licencePlate: c.licencePlate ?? '',
-    stammnummer: c.stammnummer ?? '',
-    typeApprovalNumber: c.typeApprovalNumber ?? '',
-    matchMethod: c.matchMethod,
-    confirmedBestMatchCode: null,
-    selectedOptions,
-  }
-}
-
-function withObserved(draft: Draft, start: IdentifiedStart): Draft {
-  const o = start.observed
-  return {
-    ...draft,
-    vin: o.vin ?? draft.vin,
-    licencePlate: o.licencePlate ?? '',
-    stammnummer: o.stammnummer ?? '',
-    typeApprovalNumber: o.typeApprovalNumber ?? '',
-    firstRegistrationDate: o.firstRegistrationDate ?? draft.firstRegistrationDate,
-    matchMethod: start.matchMethod,
-    confirmedBestMatchCode: start.confirmedBestMatchCode ?? null,
-  }
-}
-
 const ALL_MODES: ConfiguratorMode[] = ['build', 'record']
-
-/**
- * KAN-557 — a host that corrects the car's VIN through its own action owns
- * the configuration's VIN: the overlay never sends `vin` in its PATCH. A VIN
- * the user changed is handed to the host after the configuration's own saves
- * (fields, then options); the overlay closes only once the host resolves.
- * Applies to a saved configuration (`existing`) only. What the host says
- * comes from the host — the overlay names no host.
- */
-export interface HostOwnedVin {
-  /** Called with the changed VIN, normalised. Resolves once the host has
-   * corrected it — the overlay then re-reads the configuration (its new
-   * version and VIN) and commits; rejects with a `HostCommitError` when it
-   * did not (cancelled, refused): the overlay stays open, the other fields
-   * saved, and shows that message. */
-  correctVin: (vin: string) => Promise<void>
-  /** The VIN field's hint: how a changed VIN is applied. */
-  hint: string
-  /** Said in place when the VIN is emptied: the host cannot clear it. */
-  clearRefused: string
-  /** Set when this user may not correct the VIN: the field is read-only and
-   * its hint is this reason. */
-  readOnlyReason?: string
-}
-
-
-export interface ConfiguratorOverlayProps {
-  /** The modes this host allows (PRD v1.4 mode matrix): offer Path B
-   * `['build']`, valuation and the offer's trade-in `['record']`, the stock
-   * pipeline both. With one mode there is **no mode switch at all**. */
-  allowedModes?: ConfiguratorMode[]
-  /** Prefilled from the host, changeable in phase 1 among `allowedModes`. */
-  initialMode?: ConfiguratorMode
-  /** C-F — reopen a saved configuration in phase 2 (edit, re-sync). */
-  existing?: ConfigurationRead | null
-  /** KAN-468 — a host that already knows the car (a valuation requested
-   * from the vehicle) prefills phase 1's identification input with its VIN,
-   * so nobody types it twice. */
-  initialVin?: string
-  /** Called with the saved configuration when the advisor commits. May be
-   * async; a rejected `HostCommitError` is shown in the overlay. */
-  onCommitted: (configuration: ConfigurationRead) => void | Promise<void>
-  /** KAN-557 — the host corrects the VIN through its own action
-   * (`HostOwnedVin`). Absent: the VIN is the configuration's, in its PATCH. */
-  hostOwnsVin?: HostOwnedVin
-  /** Close without committing (the overlay's close button / Escape also
-   * calls this via the host's `useOverlay().pop`). */
-  onClose: () => void
-}
 
 /**
  * The two-phase configurator (ADR-059 overlay, ADR-068 entity). Phase 1
@@ -474,8 +251,8 @@ export function ConfiguratorOverlay({
     })
   }
 
-  // The rules behind these labels and flags are the pure functions at the
-  // foot of this file (KAN-335), shared by the memoised fields and save().
+  // The rules behind these labels and flags are the pure functions in
+  // `configuratorFieldRules.ts` (KAN-335), shared by the memoised fields and save().
   const optionGroupLabel = (code: string) => refLabelOf(refLabels.data, 'option_group', code)
   const equipmentFeatureLabel = (code: string) => refLabelOf(refLabels.data, 'equipment_feature', code)
   // A picker offers active values only — the full list is for labelling
@@ -712,60 +489,24 @@ export function ConfiguratorOverlay({
   // -- Phase 1 -----------------------------------------------------------
   if (phase === 'find' || draft === null) {
     return (
-      <Stack gap="lg" p="xl" maw={1100} mx="auto">
-        <Title order={3}>{t('configurator.find.title')}</Title>
-
-        {allowedModes.length > 1 && (
-          <Group gap="xs">
-            <Text size="sm" fw={500}>
-              {t('configurator.mode.label')}
-            </Text>
-            <SegmentedControl
-              size="xs"
-              data={configuratorModeOptions(t).filter((o) => allowedModes.includes(o.value))}
-              value={mode}
-              onChange={(v) => setMode(v as ConfiguratorMode)}
-              aria-label={t('configurator.mode.label')}
-            />
-          </Group>
-        )}
-
-        {error && <Alert color="red">{error}</Alert>}
-
-        <IdentificationPanel
-          allowedModes={allowedModes}
-          onStart={startFromIdentification}
-          onReuse={(configuration) => {
-            setError(null)
-            Promise.resolve(onCommitted(configuration)).catch((err: unknown) =>
-              setError(err instanceof HostCommitError ? err.message : t('configurator.saveError')),
-            )
-          }}
-          onQueryChange={setVinInput}
-          initialQuery={identificationPrefill}
-        />
-
-        <Group>
-          <Button
-            variant="light"
-            leftSection={<PencilRuler size={16} />}
-            onClick={startManual}
-          >
-            {t('configurator.find.manual')}
-          </Button>
-        </Group>
-
-        <Text fw={600} size="sm">
-          {t('configurator.find.browse')}
-        </Text>
-        <CatalogueBrowseGrid mode={mode} onSelectVariant={startFromVariant} />
-
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-        </Group>
-      </Stack>
+      <ConfiguratorFindPhase
+        allowedModes={allowedModes}
+        mode={mode}
+        setMode={setMode}
+        error={error}
+        startFromIdentification={startFromIdentification}
+        onReuse={(configuration) => {
+          setError(null)
+          Promise.resolve(onCommitted(configuration)).catch((err: unknown) =>
+            setError(err instanceof HostCommitError ? err.message : t('configurator.saveError')),
+          )
+        }}
+        setVinInput={setVinInput}
+        identificationPrefill={identificationPrefill}
+        startManual={startManual}
+        startFromVariant={startFromVariant}
+        onClose={onClose}
+      />
     )
   }
 
@@ -1032,12 +773,6 @@ export function ConfiguratorOverlay({
 // select (`ConfiguratorOverlay.renderCount.render.test.tsx`). What is shown,
 // validated and saved is unchanged.
 
-type RefLabelRows = Record<string, { valueCode: string; label: string; active: boolean }[] | null>
-type CodedValueRows = Record<string, ReferenceValueRead[] | null>
-type LabelField = (typeof LABEL_FIELD)[keyof typeof LABEL_FIELD]
-type SpecFieldGroupDef = (typeof SPEC_FIELD_GROUPS)[number]
-type CodedFieldDef = (typeof CODED_FIELDS)[number]
-
 interface SpecFieldGroupProps {
   group: SpecFieldGroupDef
   spec: VehicleSpecBlockRead
@@ -1145,315 +880,3 @@ const SpecFieldGroup = memo(function SpecFieldGroup({
     </Stack>
   )
 }, specFieldGroupPropsEqual)
-
-interface CodedSelectProps {
-  field: CodedFieldDef
-  value: string | null
-  codedValues: CodedValueRows | undefined
-  labelField: LabelField
-  onPick: (key: CodedFieldKey, value: string) => void
-}
-
-/** KAN-96 — one of a manual configuration's five coded fields. */
-const CodedSelect = memo(function CodedSelect({ field, value, codedValues, labelField, onPick }: CodedSelectProps) {
-  const { t } = useTranslation()
-  const error =
-    codedValues?.[field.listCode] === null
-      ? t('configurator.spec.listUnavailable')
-      : codedValueRetiredOf(codedValues, field.listCode, value)
-        ? t('configurator.spec.retired')
-        : undefined
-  return (
-    <Select
-      label={t(field.labelKey)}
-      data={codedOptionsOf(codedValues, labelField, field.listCode, value)}
-      value={value}
-      onChange={(v) => {
-        if (v != null) onPick(field.key, v)
-      }}
-      error={error}
-      // Anto, 2026-10-12 — all five are required on a manual
-      // configuration and none can be cleared (the API answers
-      // an explicit null with 422 `coded_field_required`): a
-      // field can be changed, never emptied.
-      required
-      clearable={false}
-      allowDeselect={false}
-      w={200}
-    />
-  )
-})
-
-/** A provider configuration's coded values, shown read-only — the same
- * shared lookup the summary card reads (KAN-260). Anto, 2026-10-12: they are
- * the catalogue's, never editable (the API refuses a change,
- * `coded_field_locked`); FR-C-16's re-sync is the one way they change. */
-const ProviderCodedFields = memo(function ProviderCodedFields({ coded }: { coded: CodedValues }) {
-  const { t } = useTranslation()
-  const codedLabels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
-  return (
-    <Stack gap="xs">
-      <Text fw={600} size="sm">
-        {t('configurator.spec.groups.vehicleType')}
-      </Text>
-      <Text size="xs" c="dimmed">
-        {t('configurator.spec.codedLocked')}
-      </Text>
-      <Group grow align="flex-start" wrap="wrap">
-        {CODED_FIELDS.map((f) => {
-          const code = coded[f.key]
-          return (
-            <TextInput
-              key={f.key}
-              label={t(f.labelKey)}
-              value={code != null ? codedLabels.label(f.listCode, code) : '—'}
-              readOnly
-              variant="filled"
-              w={200}
-            />
-          )
-        })}
-      </Group>
-    </Stack>
-  )
-})
-
-// --- field rules (pure; KAN-335) -------------------------------------
-
-/** A list that failed to load marks its codes `⚠`, as does a code missing
- * from its loaded list — never the raw code as if it were a label. Until
- * the lists arrive, the code stands in. */
-function refLabelOf(refLabels: RefLabelRows | undefined, listCode: string, code: string): string {
-  if (!refLabels) return code
-  const label = refLabels[listCode]?.find((r) => r.valueCode === code)?.label
-  return label ?? `⚠ ${code}`
-}
-
-/** KAN-239 — a spec reference field offers its list's active values; a
- * stored value retired since stays visible, disabled (the KAN-96 pattern). */
-function specRefOptionsOf(refLabels: RefLabelRows | undefined, listCode: string, current: string | null) {
-  const rows = refLabels?.[listCode] ?? []
-  const data: { value: string; label: string; disabled?: boolean }[] = rows
-    .filter((r) => r.active)
-    .map((r) => ({ value: r.valueCode, label: r.label }))
-  if (current != null && !data.some((d) => d.value === current)) {
-    data.push({ value: current, label: refLabelOf(refLabels, listCode, current), disabled: true })
-  }
-  return data
-}
-
-/** KAN-245 — the API refuses a save that carries a spec reference value
- * that is not active (R5: one sent back unchanged included). A manual
- * configuration sends its whole spec block; a provider one only the fields
- * the advisor overrode. A list that failed to load flags nothing. */
-function specRefWillBeSent(source: Draft['source'], overridden: Set<string>, key: string): boolean {
-  return source === 'manual' || overridden.has(key)
-}
-
-function specRefRetiredOf(refLabels: RefLabelRows | undefined, listCode: string, current: string | null): boolean {
-  const rows = refLabels?.[listCode]
-  if (current == null || rows == null) return false
-  return !rows.some((r) => r.valueCode === current && r.active)
-}
-
-/** KAN-96 — a coded field offers the active values of its list, the same
- * set the API accepts. A stored value outside that set (retired by the
- * admin, or never on the list) stays visible as its code, disabled and
- * flagged with a field error, because the API refuses a save that carries
- * it (Anto, 2026-10-07). `⚠ <code>` is kept for the other case, an active
- * value with no label in this language. A list that failed to load says so
- * on its field and flags nothing — the API remains the authority. */
-function codedOptionsOf(
-  codedValues: CodedValueRows | undefined,
-  labelField: LabelField,
-  listCode: string,
-  current: string | null,
-) {
-  const data: { value: string; label: string; disabled?: boolean }[] = [...(codedValues?.[listCode] ?? [])]
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((r) => ({
-      value: r.valueCode,
-      label: r[labelField].trim() !== '' ? r[labelField] : `⚠ ${r.valueCode}`,
-    }))
-  if (current != null && !data.some((d) => d.value === current)) {
-    data.push({ value: current, label: current, disabled: true })
-  }
-  return data
-}
-
-function codedValueRetiredOf(codedValues: CodedValueRows | undefined, listCode: string, current: string | null): boolean {
-  const rows = codedValues?.[listCode]
-  if (current == null || rows == null) return false
-  return !rows.some((r) => r.valueCode === current)
-}
-
-// --- helpers --------------------------------------------------------
-
-/** Every value of the spec and option lists, labelled in the UI language.
- * KAN-239 — each list is paged within the API's cap (it once asked
- * `limit=200`, which the API answers 422, and the catch hid it as an empty
- * list). Retired values are kept to label what is stored; pickers filter to
- * `active`. A list that failed to load is `null`, so its field can say so; a
- * value with no label in this language renders `⚠ <code>`. */
-function useReferenceLabels() {
-  const { i18n } = useTranslation()
-  const field = LABEL_FIELD[resolveLanguage(i18n.language)]
-  return useQuery({
-    queryKey: ['configurator-ref-labels', OPTION_REF_LIST_CODES, field],
-    queryFn: async () => {
-      const entries = await Promise.all(
-        OPTION_REF_LIST_CODES.map(async (code) => {
-          try {
-            const rows = await fetchAllReferenceValues(code)
-            return [
-              code,
-              rows.map((v) => ({
-                valueCode: v.valueCode,
-                label: v[field]?.trim() ? v[field] : `⚠ ${v.valueCode}`,
-                active: v.active,
-              })),
-            ] as const
-          } catch {
-            return [code, null] as const
-          }
-        }),
-      )
-      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string; active: boolean }[] | null>
-    },
-  })
-}
-
-/** KAN-96 — the active values of the five coded fields' lists, paged within
- * the API's cap. A list that fails to load is `null`, so its field can say
- * so instead of silently offering nothing. */
-function useCodedFieldValues() {
-  return useQuery({
-    queryKey: ['reference-data', 'configurator-coded-fields', 'active'],
-    queryFn: async () => {
-      const entries = await Promise.all(
-        CODED_REF_LIST_CODES.map(async (code) => {
-          try {
-            return [code, await fetchActiveReferenceValues(code)] as const
-          } catch {
-            return [code, null] as const
-          }
-        }),
-      )
-      return Object.fromEntries(entries) as Record<string, ReferenceValueRead[] | null>
-    },
-  })
-}
-
-/** The spec fields the advisor changed after a catalogue copy — a cleared
- * one as `null`, which the API reads as "clear it" (KAN-247). */
-function pickSpec(spec: VehicleSpecBlockRead, keys: Set<string>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const k of keys) out[k] = emptyToNull((spec as Record<string, unknown>)[k])
-  return out
-}
-
-/** A manual configuration's whole spec block, every empty field as `null`:
- * a field the advisor cleared is cleared on the server too (KAN-247); one
- * that was never set is null on both sides, which changes nothing. */
-function fullSpec(spec: VehicleSpecBlockRead): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(spec)) out[k] = emptyToNull(v)
-  return out
-}
-
-function emptyToNull(v: unknown): unknown {
-  return v === undefined || v === '' ? null : v
-}
-
-function toConfigurationOptionInput(option: CatalogueOptionRead): ConfigurationOptionInput {
-  return {
-    variantOptionId: option.id,
-    optionCode: option.optionCode,
-    description: option.description,
-    optionGroup: option.optionGroup,
-    price: option.price,
-    isIncluded: option.isIncluded,
-    isPackage: option.isPackage,
-    selected: true,
-    equipmentFeatures: [...option.equipmentFeatures],
-  }
-}
-
-/** Every included option (always) plus whatever the advisor explicitly
- * selected — see `OptionsTabProps.selected`'s own doc comment on why the
- * draft only ever tracks explicit overrides. */
-function finalOptionsPayload(
-  draft: Draft,
-  spec: CatalogueSpecificationRead | undefined,
-): ConfigurationOptionInput[] {
-  if (!spec) return []
-  return spec.options
-    .filter((o) => o.isIncluded || draft.selectedOptions.get(o.id)?.selected === true)
-    .map((o) => draft.selectedOptions.get(o.id) ?? toConfigurationOptionInput(o))
-}
-
-function previewOptions(draft: Draft, spec: CatalogueSpecificationRead | undefined): ConfigurationOptionRead[] {
-  return finalOptionsPayload(draft, spec).map((o, sequence) => ({
-    id: o.variantOptionId ?? `preview-${sequence}`,
-    sequence,
-    variantOptionId: o.variantOptionId ?? null,
-    optionCode: o.optionCode ?? null,
-    description: o.description,
-    optionGroup: o.optionGroup ?? null,
-    price: o.price != null ? String(o.price) : null,
-    isIncluded: o.isIncluded ?? false,
-    isPackage: o.isPackage ?? false,
-    selected: o.selected ?? true,
-    equipmentFeatures: o.equipmentFeatures ?? [],
-    // KAN-595: the catalogue row's own texts, so the preview names the option
-    // as the saved configuration will (the server copies the same row's).
-    descriptions: spec?.options.find((c) => c.id === o.variantOptionId)?.descriptions,
-  }))
-}
-
-/** A client-side `ConfigurationRead` shape for the summary card preview,
- * before the draft is saved. */
-function previewRead(draft: Draft, mode: ConfiguratorMode, spec: CatalogueSpecificationRead | undefined): ConfigurationRead {
-  return {
-    id: 'draft',
-    tenantId: 'draft',
-    source: draft.source,
-    mode,
-    catalogueMatchStatus:
-      draft.source !== 'provider'
-        ? 'unverified'
-        : draft.confirmedBestMatchCode === 2
-          ? 'best_match_confirmed'
-          : 'matched',
-    matchMethod: draft.matchMethod ?? (draft.source === 'provider' ? 'catalogue_browse' : 'manual'),
-    catalogueVariantId: draft.catalogueVariantId,
-    catalogueVariantLabel: null,
-    vehicleId: null,
-    vehicleLabel: null,
-    vin: draft.vin || null,
-    stammnummer: draft.stammnummer || null,
-    typeApprovalNumber: draft.typeApprovalNumber || null,
-    firstRegistrationDate: draft.firstRegistrationDate || null,
-    licencePlate: draft.licencePlate || null,
-    mileageKm: draft.mileageKm ? Number(draft.mileageKm) : null,
-    brandDisplayName: draft.brandDisplayName,
-    modelGroupName: draft.modelGroupName,
-    variantName: draft.variantName,
-    exteriorColour: draft.exteriorColour || null,
-    interiorColour: draft.interiorColour || null,
-    exteriorColourType: draft.exteriorColourType || null,
-    interiorColourType: draft.interiorColourType || null,
-    exteriorColourSurcharge: draft.exteriorColourSurcharge || null,
-    interiorColourSurcharge: draft.interiorColourSurcharge || null,
-    wheels: draft.wheels || null,
-    wheelsSurcharge: draft.wheelsSurcharge || null,
-    ...draft.coded,
-    spec: draft.spec,
-    overriddenFields: [...draft.overridden],
-    options: previewOptions(draft, spec),
-    notes: draft.notes || null,
-    version: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-}
