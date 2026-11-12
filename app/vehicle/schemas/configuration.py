@@ -140,6 +140,26 @@ class ConfigurationEnergyLabelRead(CamelModel):
     label_url: str | None
 
 
+class ConfigurationTyreSpecRead(CamelModel):
+    """KAN-596 (FR-C-08) — one approved wheel of the catalogue variant as the
+    Betrieb stored it: dimension, axle and season (canonical codes, null
+    while a mapping gap), the provider's remark, and the rim it is approved
+    with. Read from the Betrieb's own tyre rows; null fields where the
+    provider sends none. Shown on the stock car's technical data."""
+
+    axle: str | None
+    size: str
+    load_index: str | None
+    speed_rating: str | None
+    season: str | None
+    remark: str | None
+    rims: str | None
+    rim_width: Decimal | None
+    rim_size: int | None
+    rim_offset: int | None
+    is_standard: bool | None
+
+
 class ConfigurationRead(CamelModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
@@ -180,6 +200,8 @@ class ConfigurationRead(CamelModel):
     energy_rating: ConfigurationEnergyRatingRead | None = None
     # KAN-597 — additive: the variant's per-gearbox labels for the same year.
     energy_labels: list[ConfigurationEnergyLabelRead] = []
+    # KAN-596 — additive: the catalogue variant's approved wheels, this Betrieb's rows.
+    catalogue_tyre_specs: list[ConfigurationTyreSpecRead] = []
     overridden_fields: list[str]
     options: list[ConfigurationOptionRead]
     notes: str | None

@@ -197,12 +197,23 @@ _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
         VariantTyreSpecData(
             axle_code="2", size="225/45 R18", load_index="95", speed_rating="Y",
             remark="nur mit Leichtmetallfelgen", season_code="121",
+            rims="8Jx18", rim_width=Decimal("8"), rim_size=18, rim_offset=44, is_standard=False,
         ),
         VariantTyreSpecData(
             axle_code="3", size="225/45 R18", load_index="95", speed_rating="Y",
             remark="nur mit Leichtmetallfelgen", season_code="121",
+            rims="8Jx18", rim_width=Decimal("8"), rim_size=18, rim_offset=44, is_standard=False,
         ),
-        VariantTyreSpecData(axle_code="1", size="205/55 R16", load_index="91", speed_rating="H", season_code="122"),
+        # KAN-596: the factory fitment beside the option — a second dimension
+        # for the same axle and season, which the key now keeps.
+        VariantTyreSpecData(
+            axle_code="1", size="205/60 R16", load_index="92", speed_rating="V", season_code="121",
+            rims="6.5Jx16", rim_width=Decimal("6.5"), rim_size=16, rim_offset=46, is_standard=True,
+        ),
+        VariantTyreSpecData(
+            axle_code="1", size="205/55 R16", load_index="91", speed_rating="H", season_code="122",
+            rims="6.5Jx16", rim_width=Decimal("6.5"), rim_size=16, rim_offset=46, is_standard=True,
+        ),
     ]
     for master in _MASTER_DATA.values()
     if master.type_approval_numbers

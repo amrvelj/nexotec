@@ -17,7 +17,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DECIMAL, Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
@@ -65,10 +65,16 @@ class TyreSpecCache(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "vehicle_tyre_spec_cache"
+    # KAN-596 (ADR-141): one row per approved wheel — axle, season, dimension
+    # and rim. A Typenschein approves several dimensions per axle and season
+    # (16", 17", 18"), each with its rim; the key before kept the first only.
+    # Rows that differ by gearbox alone name the same wheel and stay one row.
+    # `rims` may be NULL (a row naming no rim): the loader keeps one row per
+    # key in Python, as it does for a NULL axle or season code.
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "model_variant_id", "axle_code", "season_code",
-            name="uq_vehicle_tyre_spec_cache_tenant_variant_raw_codes",
+            "tenant_id", "model_variant_id", "axle_code", "season_code", "size", "rims",
+            name="uq_vehicle_tyre_spec_cache_tenant_variant_wheel",
         ),
     )
 
@@ -94,6 +100,15 @@ class TyreSpecCache(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     # dimension valid only with alloy wheels and shown without that
     # caveat is how the wrong tyre gets ordered."
     remark: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    # KAN-596 / FR-C-08 — the rim the dimension is approved with, as
+    # delivered: designation («7.5Jx18»), width and diameter in inches,
+    # offset (ET) in mm, and whether this is the factory fitment. NULL where
+    # the provider sends none.
+    rims: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    rim_width: Mapped[Decimal | None] = mapped_column(DECIMAL(4, 1), nullable=True)
+    rim_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rim_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_standard: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class ImageRef(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):

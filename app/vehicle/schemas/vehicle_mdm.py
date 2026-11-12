@@ -261,6 +261,14 @@ class CatalogueTyreSpecRead(CamelModel):
     speed_rating: str | None
     season: str | None
     remark: str | None
+    # KAN-596 — additive: the rim the dimension is approved with, as delivered
+    # (designation, width and diameter in inches, offset in mm) and whether
+    # this is the factory fitment; null where the provider sends none.
+    rims: str | None = None
+    rim_width: Decimal | None = None
+    rim_size: int | None = None
+    rim_offset: int | None = None
+    is_standard: bool | None = None
 
 
 class CatalogueImageRead(CamelModel):

@@ -506,6 +506,17 @@ def has_next_page(body: Mapping[str, Any]) -> bool:
     return isinstance(links, Mapping) and bool(_text(links.get("next")))
 
 
+def _flag(value: Any) -> bool | None:
+    """A provider yes/no sent as a boolean or as 1/0; anything else is
+    unknown (None), never a guessed no."""
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return value == 1
+    return None
+
+
 def parse_tyre_specs(body: Mapping[str, Any]) -> list[VariantTyreSpecData]:
     """`TyresAndRimsDimensionData`: `info.state` 0 = data, 1 = no data,
     2 = no vehicle (both read as no rows); `values` one row per axle, season
@@ -532,6 +543,11 @@ def parse_tyre_specs(body: Mapping[str, Any]) -> list[VariantTyreSpecData]:
                 speed_rating=_text(raw.get("speedIndex")),
                 remark=_text(raw.get("remark")) or _text(raw.get("rimRemark")),
                 season_code=_code(raw.get("tyreType")),
+                rims=_text(raw.get("rims")),
+                rim_width=_decimal(raw.get("rimWidth")),
+                rim_size=_int(raw.get("rimSize")),
+                rim_offset=_int(raw.get("rimOffset")),
+                is_standard=_flag(raw.get("standardTyres")),
             )
         )
     return tyres

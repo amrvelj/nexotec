@@ -437,20 +437,22 @@ def _load_tyre_specs(
     tyres = adapter.fetch_tyre_specs(type_approval_number=number) if number else []
     kind = _raw_vehicle_kind(db, variant=variant, provider_code=provider_code)
     existing = {
-        (row.axle_code, row.season_code): row
+        (row.axle_code, row.season_code, row.size, row.rims): row
         for row in db.scalars(
             select(TyreSpecCache).where(
                 TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == variant.id
             )
         )
     }
-    seen: set[tuple[str | None, str | None]] = set()
+    seen: set[tuple[str | None, str | None, str, str | None]] = set()
     for tyre in tyres:
-        key = (_fit(tyre.axle_code, 16), _fit(tyre.season_code, 16))
+        size = _fit(tyre.size, 32) or tyre.size
+        rims = _fit(tyre.rims, 32)
+        key = (_fit(tyre.axle_code, 16), _fit(tyre.season_code, 16), size, rims)
         if key in seen:
-            # One row per axle and season (the table's key): a second
-            # dimension for the same pair — another gearbox's — is not a
-            # second row here; the first one listed is kept (KAN-596).
+            # One row per approved wheel (KAN-596, ADR-141: axle, season,
+            # dimension, rim). Rows differing by gearbox alone name the same
+            # wheel; the first one listed is kept.
             continue
         seen.add(key)
         # Resolved before the row is touched: the lookup may flush, and a new
@@ -461,19 +463,22 @@ def _load_tyre_specs(
         season = resolve_colour_or_tyre_code(
             db, provider_code=provider_code, vehicle_kind_code=kind, code_group=_TYRE_TYPE, raw_code=key[1]
         )
-        size = _fit(tyre.size, 32) or tyre.size
         row = existing.get(key)
         if row is None:
             row = TyreSpecCache(
-                tenant_id=tenant_id, model_variant_id=variant.id, axle_code=key[0], season_code=key[1], size=size
+                tenant_id=tenant_id, model_variant_id=variant.id, axle_code=key[0], season_code=key[1], size=size,
+                rims=rims,
             )
             db.add(row)
         row.axle = axle
         row.season = season
-        row.size = size
         row.load_index = _fit(tyre.load_index, 8)
         row.speed_rating = _fit(tyre.speed_rating, 4)
         row.remark = _fit(tyre.remark, 160)
+        row.rim_width = tyre.rim_width if tyre.rim_width is not None and abs(tyre.rim_width) < 1000 else None
+        row.rim_size = tyre.rim_size
+        row.rim_offset = tyre.rim_offset
+        row.is_standard = tyre.is_standard
     for key, row in existing.items():
         if key not in seen:
             db.delete(row)
