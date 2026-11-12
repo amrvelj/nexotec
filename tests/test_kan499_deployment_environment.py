@@ -31,19 +31,19 @@ from app.core.deployment_environment import (
 _REPO = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("name", ["development", "test", "staging", "production", " Production "])
+@pytest.mark.parametrize("name", ["development", "test", "staging", "production"])
 def test_each_of_the_four_names_parses(name):
-    assert parse_deployment_environment(name) is DeploymentEnvironment(name.strip().lower())
+    assert parse_deployment_environment(name) is DeploymentEnvironment(name)
 
 
-@pytest.mark.parametrize("name", ["prod", "local", "preview", "", "dev"])
+@pytest.mark.parametrize("name", ["prod", "local", "preview", "", "dev", "Production", " staging"])
 def test_any_other_name_is_refused_at_startup(name):
     settings = Settings(environment=name)
     with pytest.raises(InvalidDeploymentEnvironmentError, match="KAN-499"):
         require_valid_deployment_environment(settings)
 
 
-@pytest.mark.parametrize("name", ["prod", "local", "Prodution"])
+@pytest.mark.parametrize("name", ["prod", "local", "Prodution", "Development"])
 def test_a_name_that_does_not_parse_reads_as_production(name):
     assert current_deployment_environment(Settings(environment=name)) is DeploymentEnvironment.PRODUCTION
 
@@ -100,15 +100,55 @@ def test_the_object_store_runs_outside_production(monkeypatch, tmp_path, name):
     assert object_store.get_object_store() is not None
 
 
-@pytest.mark.parametrize("name", ["development", " Development"])
-def test_the_logging_mailer_runs_in_development_however_it_is_spelled(monkeypatch, name):
+def test_the_logging_mailer_runs_in_development(monkeypatch):
+    from app.platform.services import mailer
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "platform_mail_sender", "logging")
+    monkeypatch.setattr(mailer, "_mailer", None)
+    assert isinstance(mailer.get_mailer(), mailer.LoggingMailer)
+
+
+@pytest.mark.parametrize("name", ["test", "staging", "production", "prod", "Development"])
+def test_the_logging_mailer_is_refused_on_every_other_value(monkeypatch, name):
+    """`test` too, as before KAN-499 (KAN-397: only development keeps the
+    logging sender); a value that does not parse is refused like production."""
+
     from app.platform.services import mailer
 
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", name)
     monkeypatch.setattr(settings, "platform_mail_sender", "logging")
     monkeypatch.setattr(mailer, "_mailer", None)
-    assert isinstance(mailer.get_mailer(), mailer.LoggingMailer)
+    with pytest.raises(RuntimeError, match="must be 'smtp'"):
+        mailer.get_mailer()
+
+
+@pytest.mark.parametrize("name", ["test", "staging", "development"])
+def test_the_gateway_uses_a_sandbox_connection_off_production(db_session, monkeypatch, name):
+    from app.integration.models.call_log import IntegrationCallLog
+    from app.integration.services import gateway
+    from tests.test_integration_gateway import _make_connection, _make_provider
+
+    monkeypatch.setattr(get_settings(), "environment", name)
+    connection = _make_connection(db_session, _make_provider(db_session))  # a sandbox connection
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+        adapter.fetch_variant("FZ100001")
+    assert db_session.query(IntegrationCallLog).count() == 1
+
+
+@pytest.mark.parametrize("name", ["production", "prod", "local", "Staging"])
+def test_the_gateway_refuses_a_sandbox_connection_on_production_or_an_unparsed_name(db_session, monkeypatch, name):
+    from app.integration.services import gateway
+    from tests.test_integration_gateway import _make_connection, _make_provider
+
+    monkeypatch.setattr(get_settings(), "environment", name)
+    connection = _make_connection(db_session, _make_provider(db_session))
+    with pytest.raises(gateway.SandboxConnectionOnProductionError), gateway.call_capability(
+        db_session, connection=connection, capability="vehicle_data"
+    ) as adapter:
+        adapter.fetch_variant("FZ100001")
 
 
 def test_every_deployed_service_in_render_yaml_names_a_valid_environment():
@@ -161,3 +201,12 @@ def test_the_web_app_starts_with_a_named_environment(tmp_path):
         capture_output=True, text=True, timeout=120, check=False,
     )
     assert started.returncode == 0, started.stderr
+
+
+def test_the_worker_refuses_to_start_with_an_unset_environment_and_no_dot_env(tmp_path):
+    started = subprocess.run(
+        [sys.executable, "-m", "app.worker"], cwd=tmp_path, env=_startup_env(DMS_OUTBOX_WORKER_MAX_ITERATIONS="1"),
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert started.returncode != 0
+    assert "DMS_ENVIRONMENT is not set" in started.stderr

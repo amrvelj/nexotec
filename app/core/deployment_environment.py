@@ -20,6 +20,12 @@ one of four names, and
   `.dockerignore` keeps out of every image. Docker Compose and CI's jobs that
   start the app name their environment explicitly.
 
+Known limit of the local-development test: a deployment that ships its
+configuration as a `.env` file in the app's working directory and leaves
+`DMS_ENVIRONMENT` out still reads as development. No deployment here does
+(render.yaml sets the variable; Render's secret files live under
+/etc/secrets); one that starts to must name its environment in that file.
+
 The check runs where a process starts serving: `app/main.py` before its
 mailer and object store are resolved, and the worker's ``__main__``.
 `app/core/config.py` is preserved verbatim, so the setting itself stays a
@@ -49,10 +55,12 @@ _NAMES = ", ".join(member.value for member in DeploymentEnvironment)
 
 
 def parse_deployment_environment(value: str) -> DeploymentEnvironment:
-    """Exactly one of the four names, compared trimmed and lower-cased."""
+    """Exactly one of the four names, as written: `Production`, ` staging`
+    or `prod` is none of them (the staging seed has compared exactly since
+    KAN-551; one spelling everywhere)."""
 
     try:
-        return DeploymentEnvironment(value.strip().lower())
+        return DeploymentEnvironment(value)
     except ValueError:
         raise InvalidDeploymentEnvironmentError(
             f"DMS_ENVIRONMENT={value!r} is not one of {_NAMES} (KAN-499)."
