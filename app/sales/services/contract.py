@@ -33,7 +33,7 @@ from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
 from app.sales.services.numbering import allocate_contract_number
-from app.sales.services.offer import apply_customer_change, resolve_customer_label
+from app.sales.services.offer import apply_customer_change, refuse_unattachable_customer, resolve_customer_label
 from app.sales.services.priced_deal import has_trade_in, require_editable, require_pending
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
@@ -110,11 +110,7 @@ def create_contract(
         if group_id is None:
             raise ValueError("create_contract(customer_id=...) requires group_id.")
         customer = get_customer_or_404(db, group_id, customer_id)
-        if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
-            raise ConflictError(
-                f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract.",
-                details={"reason": "customer_do_not_contact", "customerNumber": customer.customer_number},
-            )
+        refuse_unattachable_customer(db, customer=customer, group_id=group_id, host="a contract")
 
     if offer is not None:
         # KAN-147 — one live contract per offer: a second one would sell the

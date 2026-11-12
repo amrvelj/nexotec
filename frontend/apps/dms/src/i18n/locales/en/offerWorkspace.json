@@ -19,7 +19,12 @@
     "creditBlockTitle": "Credit block",
     "creditBlockBody": "This customer has a credit block ({{reason}}) — an offer is possible, a contract cannot be confirmed.",
     "doNotContactTitle": "Do not contact",
-    "doNotContactBody": "This customer is marked do-not-contact — neither the offer nor a contract can proceed."
+    "doNotContactBody": "This customer is marked do-not-contact — neither the offer nor a contract can proceed.",
+    "mergedRefused": "This customer has been merged into another and can no longer be chosen as the buyer.",
+    "mergedTitle": "Customer merged",
+    "mergedInto": "The chosen customer has been merged into {{name}} ({{customerNumber}}).",
+    "mergedIntoUnknown": "The chosen customer has been merged into another. Search for the customer it was merged into.",
+    "useSurvivor": "Choose {{name}}"
   },
   "vehicle": {
     "emptyHint": "From your own stock — stock number, VIN or plate.",

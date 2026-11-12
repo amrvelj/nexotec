@@ -311,6 +311,63 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(screen.queryByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).not.toBeInTheDocument()
   })
 
+  it('a merged customer is refused as the buyer: the refusal says so and offers the survivor (KAN-656)', async () => {
+    const user = userEvent.setup()
+    let current = PRICED_WITHOUT_INPUTS_NO_BUYER
+    const backend = installFakeBackend([
+      {
+        method: 'GET',
+        match: /^\/customers$/,
+        handler: () => ({
+          items: [{ id: 'cust-dup', customerNumber: 'K-000008', firstName: 'Ursi', lastName: 'Vogt', companyName: null }],
+          nextCursor: null,
+        }),
+      },
+      {
+        method: 'GET',
+        match: /^\/customers\/cust-9$/,
+        handler: () => ({ id: 'cust-9', customerNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null, lifecycleStatus: 'active' }),
+      },
+      {
+        method: 'PATCH',
+        match: /^\/sales\/contracts\/k1$/,
+        handler: (req) => {
+          if ((req.body as { customerId?: string }).customerId === 'cust-dup') {
+            return status(409, {
+              error: {
+                code: 'conflict',
+                message: 'Customer K-000008 has been merged into another — cannot be attached to a contract.',
+                details: { reason: 'customer_merged', mergedIntoCustomerId: 'cust-9' },
+              },
+            })
+          }
+          current = { ...current, customerId: 'cust-9', customerLabel: 'Ursula Vogt', version: current.version + 1 }
+          return current
+        },
+      },
+      ...baseRoutes(() => current),
+    ])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') }))
+    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.customer.search')), 'Vogt')
+    await user.click(await screen.findByText('Ursi Vogt'))
+
+    // Hardcoded German on purpose: a key missing on both sides must not pass.
+    expect(await screen.findByText('Dieser Kunde wurde mit einem anderen zusammengeführt und kann nicht mehr als Käufer gewählt werden.')).toBeInTheDocument()
+    expect(await screen.findByText('Der gewählte Kunde wurde mit Ursula Vogt (K-000009) zusammengeführt.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ursula Vogt wählen' }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(2))
+    expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH').map((c) => c.body)).toEqual([
+      { customerId: 'cust-dup' },
+      { customerId: 'cust-9' },
+    ])
+    const section = screen.getByTestId('contract-priced-without-inputs')
+    expect(await within(section).findByText('Ursula Vogt')).toBeInTheDocument()
+    expect(screen.queryByText('Der gewählte Kunde wurde mit Ursula Vogt (K-000009) zusammengeführt.')).not.toBeInTheDocument()
+  })
+
   it('a discount typed just before Confirm is saved first, then signed with its version (review finding)', async () => {
     let current: SalesContractRead = { ...PRICED, discountType: 'amount' }
     const backend = installFakeBackend([
