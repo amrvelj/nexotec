@@ -242,6 +242,7 @@ weekly. -->
   LOCKED) and waits for a held one, so it could hold one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
   `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
+- **A vehicle merge moves party rows in a consumer** (KAN-634): `vehicle-mdm.md`.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
@@ -255,7 +256,6 @@ weekly. -->
   without a label yet is filled for a read in memory only, and labelled by its next PATCH,
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).
-  `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
   A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):

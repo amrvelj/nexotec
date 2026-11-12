@@ -46,6 +46,7 @@ from app.customer.public import (
     refresh_advisor_labels,
     refresh_vehicle_party_labels,
 )
+from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
@@ -213,6 +214,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         "vehicle.vehicle_mdm.summary_changed",
         consumer_name="customer.vehicle_party_labels_on_summary_changed",
         handler=handle_vehicle_summary_changed_message,
+    )
+    # KAN-634 (ADR-131) — a vehicle merge (FR-V-12) moves customer's party
+    # rows from the duplicate onto the survivor when the fact is delivered;
+    # vehicle publishes it and never calls customer.
+    transport.register(
+        "vehicle.vehicle_mdm.merged",
+        consumer_name="customer.vehicle_parties_on_vehicle_merged",
+        handler=handle_vehicle_merged_message,
     )
     # KAN-270 — a host took a configuration: vehicle stamps it taken, so the
     # daily purge of configurations no host ever took keeps it for good.

@@ -168,18 +168,10 @@ _OWN_COMMIT_WRITES = {
         "app.inventory.services.reservation._release",
         "sales: cancel_contract, confirm_contract's compensation",
     ),
-    # A vehicle merge re-points VehicleParty rows; customer stays their
-    # writer (FR-V-12). Called after vehicle's own commit.
-    "app.customer.public.repoint_vehicle_party": (
-        "app.customer.services.customer.repoint_vehicle_party",
-        "vehicle: merge flow",
-    ),
-    # The vehicle 360 allocates a customer to a vehicle (FR-V-05, ADR-064);
-    # since KAN-189 the trade-in allocates no party.
-    "app.customer.public.allocate_vehicle_party": (
-        "app.customer.services.customer.allocate_vehicle_party",
-        "vehicle: allocate endpoint",
-    ),
+    # KAN-634: a vehicle merge re-points VehicleParty rows through
+    # customer's consumer of `vehicle.vehicle_mdm.merged`, and the vehicle
+    # 360's «Allocate to customer» (FR-V-05) is served from the composition
+    # root (app/api/v1/vehicle_parties.py) — no context calls either write.
     # A confirmation consumes its trade-in valuation, and reverts it as
     # the compensating action (KAN-101, ADR-074).
     "app.valuation.public.consume_valuation_for_contract": (
@@ -264,7 +256,6 @@ _RULED_SHARED_TRANSACTIONS = {
 
 # Reviewed: read only, no commit reachable.
 _READS = {
-    "app.customer.public.customer_display_name",
     # KAN-121: vehicle's legacy-reference check counts party rows through customer; a SELECT only.
     "app.customer.public.count_vehicle_parties_for_vehicles",
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
@@ -275,7 +266,6 @@ _READS = {
     "app.customer.public.has_usable_domicile_address",
     # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.
     "app.customer.public.resolve_live_customer_id",
-    "app.customer.public.list_vehicle_party_holders",
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
     "app.integration.public.resolve_adapter",
@@ -349,6 +339,8 @@ _READS = {
     "app.vehicle.public.get_vehicle_or_404",
     # KAN-84: vehicle labels for customer's VehicleParty, batched.
     "app.vehicle.public.get_vehicle_summaries",
+    # KAN-634: customer's vehicle-merged consumer follows the merge chain; a SELECT only.
+    "app.vehicle.public.resolve_merged_vehicle_id",
     "app.vehicle.public.has_current_energy_rating",
     "app.vehicle.public.match_vehicle",
 }

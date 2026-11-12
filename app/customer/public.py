@@ -22,7 +22,6 @@ from app.customer.services.customer import (
     list_vehicle_party_holders,
     oldest_vehicle_party_label_age_seconds,
     refresh_vehicle_party_labels,
-    repoint_vehicle_party,
     resolve_live_customer_id,
     set_credit_block,
 )
@@ -53,7 +52,6 @@ __all__ = [
     "oldest_vehicle_party_label_age_seconds",
     "refresh_advisor_labels",
     "refresh_vehicle_party_labels",
-    "repoint_vehicle_party",
     "resolve_live_customer_id",
     "set_credit_block",
 ]

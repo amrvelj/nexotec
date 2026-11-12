@@ -29,6 +29,8 @@ from app.vehicle.services.host_configuration import (
     NoCatalogueVariantError,
     ProviderValuationInput,
 )
+from app.vehicle.services.merge import MERGED_EVENT as VEHICLE_MERGED_EVENT
+from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
@@ -46,15 +48,27 @@ logger = logging.getLogger(__name__)
 #
 # get_vehicle_mdm_or_404 is wrapped, not re-exported directly from
 # app.vehicle.services.vehicle_mdm: that module imports app.vehicle.schemas.
-# vehicle_mdm (for update_vehicle_mdm's parameter type), which imports
+# vehicle_mdm (for update_vehicle_mdm's parameter type), which imported
 # app.customer.public — and app.customer's services import THIS module, so a
-# module-level import here would be a real import cycle, not just a slow
+# module-level import here was a real import cycle, not just a slow
 # one. Deferred to call time, well after both modules have finished
-# loading at process startup.
+# loading at process startup. (Since KAN-634 the schemas no longer import
+# customer, so the cycle is gone; the deferral is kept, harmless.)
 def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> VehicleMdm:
     from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_or_404 as _get_vehicle_mdm_or_404
 
     return _get_vehicle_mdm_or_404(db, vehicle_id)
+
+
+def resolve_merged_vehicle_id(db: Session, vehicle_id: uuid.UUID) -> uuid.UUID:
+    """KAN-634 (FR-V-12) — the record a merged vehicle-mdm id now lives on:
+    follows `merged_into_vehicle_id` to the end of the chain (A merged into
+    B, B later into C gives C). An id that was never merged, or names no
+    record, comes back unchanged. Read-only. Customer's consumer of
+    `vehicle.vehicle_mdm.merged` asks it, so a merge delivered after a later
+    one moves the party rows onto the live record, never onto a merged one."""
+
+    return _resolve_merged_id(db, vehicle_id)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -393,6 +407,7 @@ __all__ = [
     "CONFIGURATION_MODE_BUILD",
     "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "VEHICLE_MERGED_EVENT",
     "VIN_CORRECTED_EVENT",
     "ConfigurationLabel",
     "ConfigurationModeNotAllowedError",
@@ -425,6 +440,7 @@ __all__ = [
     "get_vehicle_summaries",
     "has_current_energy_rating",
     "match_vehicle",
+    "resolve_merged_vehicle_id",
     "resolve_vehicle_mdm_by_vin",
     "resolve_vehicle_mdm_ids",
     "run_daily_plate_lookup_purge",

@@ -4054,27 +4054,6 @@ def _vehicle_party_payload(party: VehicleParty) -> dict[str, Any]:
     }
 
 
-def repoint_vehicle_party(db: Session, *, duplicate_vehicle_id: uuid.UUID, survivor_vehicle_id: uuid.UUID) -> int:
-    """Called from app.vehicle's merge flow (FR-V-12) via app.customer.public
-    — customer stays the sole writer of VehicleParty.vehicle_id even though
-    the merge decision belongs to vehicle. ADR-047: a write spanning two
-    contexts is a call with a compensating action, never a shared
-    transaction — this function commits its OWN transaction and is called AFTER the vehicle side has already committed
-    its own repointing. A failure here is repaired by the nightly
-    reconciliation job, not by rolling back the vehicle merge — the correct
-    trade per ADR-047, not an oversight.
-    """
-
-    rows = list(db.scalars(select(VehicleParty).where(VehicleParty.vehicle_id == duplicate_vehicle_id)).all())
-    for party in rows:
-        party.vehicle_id = survivor_vehicle_id
-    # KAN-84: the label follows the vehicle id — the survivor's, not the
-    # duplicate's (which may differ in VIN, number and catalogue match).
-    _write_vehicle_labels(db, rows)
-    db.commit()
-    return len(rows)
-
-
 def set_credit_block(
     db: Session, *, customer: Customer, blocked: bool, reason: str | None, actor_id: uuid.UUID
 ) -> Customer:

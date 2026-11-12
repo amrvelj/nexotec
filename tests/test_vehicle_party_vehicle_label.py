@@ -27,7 +27,8 @@ from app.core.auth import AccessRole
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.services.customer import refresh_vehicle_party_labels, repoint_vehicle_party
+from app.customer.services.customer import refresh_vehicle_party_labels
+from app.customer.services.vehicle_merge import repoint_vehicle_parties_on_vehicle_merge
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.catalogue import BrandUpdate
@@ -133,9 +134,11 @@ def test_a_vehicle_merge_relabels_repointed_parties_with_the_survivor(client, db
     survivor = _create_vehicle(client, dealer_id)
     body = _link(client, dealer_id, customer["id"], duplicate["id"])
 
-    assert repoint_vehicle_party(
+    # KAN-634: the consumer of `vehicle.vehicle_mdm.merged` re-points (flushes; the harness commits).
+    assert repoint_vehicle_parties_on_vehicle_merge(
         db_session, duplicate_vehicle_id=uuid.UUID(duplicate["id"]), survivor_vehicle_id=uuid.UUID(survivor["id"])
     ) == 1
+    db_session.commit()
 
     row = _party(db_session, body["id"])
     assert row.vehicle_id == uuid.UUID(survivor["id"])
