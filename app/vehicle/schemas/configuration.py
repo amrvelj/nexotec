@@ -128,6 +128,18 @@ class ConfigurationEnergyRatingRead(CamelModel):
     source: str
 
 
+class ConfigurationEnergyLabelRead(CamelModel):
+    """KAN-597 (ADR-142) — one gearbox's Energieetikette as the identAPI
+    delivers it: the class, the gearbox as delivered (null when the provider
+    named none) and the link to the label as PDF. Shown to the seller beside
+    the class; printed on no customer document."""
+
+    year: int
+    gearbox: str | None
+    category: str
+    label_url: str | None
+
+
 class ConfigurationRead(CamelModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
@@ -166,6 +178,8 @@ class ConfigurationRead(CamelModel):
     spec: VehicleSpecBlockRead
     # KAN-547 / KAN-479: read from the variant's per-year ratings, never a block field.
     energy_rating: ConfigurationEnergyRatingRead | None = None
+    # KAN-597 — additive: the variant's per-gearbox labels for the same year.
+    energy_labels: list[ConfigurationEnergyLabelRead] = []
     overridden_fields: list[str]
     options: list[ConfigurationOptionRead]
     notes: str | None

@@ -398,7 +398,15 @@ class MockAutoIDatAdapter:
         master = next((m for m in _MASTER_DATA.values() if type_approval_number in m.type_approval_numbers), None)
         if master is None or not master.energy_label:
             return []
-        return [EnergyLabelData(energy_class=master.energy_label, calculation_year=_swiss_year())]
+        # KAN-597: one row per gearbox, each with its label's PDF link (an
+        # invented host, like every demo value).
+        return [
+            EnergyLabelData(
+                energy_class=master.energy_label, calculation_year=_swiss_year(), gearbox=gearbox,
+                label_url=f"https://energielabel.example.test/demo/{type_approval_number}-{suffix}.pdf",
+            )
+            for gearbox, suffix in (("Automat", "a"), ("Manuell", "m"))
+        ]
 
     @_request("vehiclematch")
     def find_best_match(

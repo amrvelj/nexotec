@@ -22,6 +22,7 @@ from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.vehicle.schemas.configuration import (
     ConfigurationCreate,
+    ConfigurationEnergyLabelRead,
     ConfigurationEnergyRatingRead,
     ConfigurationOptionRead,
     ConfigurationOptionsReplace,
@@ -33,7 +34,7 @@ from app.vehicle.schemas.configuration import (
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
-from app.vehicle.services.energy_rating import energy_rating_for_configuration
+from app.vehicle.services.energy_rating import energy_labels_for_configuration, energy_rating_for_configuration
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
@@ -54,6 +55,21 @@ def _energy_rating(db: Session, config) -> ConfigurationEnergyRatingRead | None:
     )
 
 
+def _energy_labels(db: Session, config) -> list[ConfigurationEnergyLabelRead]:
+    return [
+        ConfigurationEnergyLabelRead(
+            year=label.label_year, gearbox=label.gearbox or None, category=label.energy_efficiency_category,
+            label_url=label.label_url,
+        )
+        for label in energy_labels_for_configuration(
+            db,
+            model_variant_id=config.catalogue_variant_id,
+            first_registration_year=config.first_registration_date.year if config.first_registration_date else None,
+            model_year=config.model_year,
+        )
+    ]
+
+
 def _read(config, db: Session | None = None) -> ConfigurationRead:
     row = {c.name: getattr(config, c.name) for c in config.__table__.columns}
     return ConfigurationRead.model_validate(
@@ -61,6 +77,7 @@ def _read(config, db: Session | None = None) -> ConfigurationRead:
             **row,
             "spec": VehicleSpecBlockRead.model_validate(config, from_attributes=True),
             "energy_rating": _energy_rating(db, config) if db is not None else None,
+            "energy_labels": _energy_labels(db, config) if db is not None else [],
             "options": [
                 ConfigurationOptionRead(
                     id=o.id,

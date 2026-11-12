@@ -83,7 +83,7 @@ from app.vehicle.models.catalogue_mirror import (
     TyreSpecCache,
     VariantDetailState,
 )
-from app.vehicle.models.energy_rating import ModelVariantEnergyRating
+from app.vehicle.models.energy_rating import ModelVariantEnergyLabel, ModelVariantEnergyRating
 from app.vehicle.models.provider import ProviderEntityRef, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services.catalogue_sync import (
     COLOUR_AND_TYRE_CODE_GROUPS,
@@ -570,8 +570,57 @@ def _load_energy_label(
                 db.flush()
         except IntegrityError:
             pass
+    # KAN-597 (ADR-142): every gearbox's own label, class and PDF link, beside
+    # the one-class-per-year rating above — stored even for a year whose
+    # gearboxes disagree, since that is exactly when the seller needs both.
+    _store_energy_labels(db, variant=variant, labels=labels, known=known)
     if ambiguous:
         raise _LoadedWithNote(ENERGY_LABEL_AMBIGUOUS)
+
+
+def _store_energy_labels(db: Session, *, variant: ModelVariant, labels: list, known: set[str]) -> None:
+    """One `ModelVariantEnergyLabel` per (year, gearbox) the provider sent,
+    under a class the list knows; a row already held is kept (fill-if-absent,
+    ADR-122 (3)) and only gains a link it lacked. The first row listed for a
+    (year, gearbox) wins. Each insert in its own savepoint: the table is
+    shared by every Betrieb, and a concurrent open's row stands."""
+
+    seen: set[tuple[int, str]] = set()
+    for label in labels:
+        code = label.energy_class.strip().lower()
+        if code not in known:
+            continue
+        gearbox = _fit(label.gearbox, 64) or ""
+        key = (label.calculation_year, gearbox)
+        if key in seen:
+            continue
+        seen.add(key)
+        url = label.label_url if label.label_url is not None and len(label.label_url) <= 500 else None
+        if label.label_url is not None and url is None:
+            logger.warning("energy label link of variant %s left out: longer than 500 characters", variant.id)
+        held = db.scalar(
+            select(ModelVariantEnergyLabel).where(
+                ModelVariantEnergyLabel.model_variant_id == variant.id,
+                ModelVariantEnergyLabel.label_year == key[0],
+                ModelVariantEnergyLabel.gearbox == gearbox,
+            )
+        )
+        if held is not None:
+            if held.label_url is None and url is not None:
+                held.label_url = url
+                db.flush()
+            continue
+        try:
+            with db.begin_nested():
+                db.add(
+                    ModelVariantEnergyLabel(
+                        model_variant_id=variant.id, label_year=key[0], gearbox=gearbox,
+                        energy_efficiency_category=code, label_url=url,
+                    )
+                )
+                db.flush()
+        except IntegrityError:
+            pass
 
 
 _Loader = Callable[..., None]

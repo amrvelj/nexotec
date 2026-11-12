@@ -85,7 +85,7 @@ from app.vehicle.models.configuration import (
     VehicleConfigurationOption,
     VehicleConfigurationOptionFeature,
 )
-from app.vehicle.models.energy_rating import ModelVariantEnergyRating
+from app.vehicle.models.energy_rating import ModelVariantEnergyLabel, ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
 from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
 from app.vehicle.models.provider import (
@@ -146,6 +146,7 @@ __all__ = [
     "MissingTranslation",
     "ModelGroup",
     "ModelVariant",
+    "ModelVariantEnergyLabel",
     "ModelVariantEnergyRating",
     "ModuleEntitlement",
     "Notification",
