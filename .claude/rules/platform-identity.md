@@ -167,10 +167,8 @@ Every login outcome, lock, token, factor and session change, read by the manager
   the consumer runs only there), given plain `RevokedGrant` data; it must be idempotent, raise on a
   refusal, and never put token material in its exception text. None is registered yet: then the
   consumer records nothing (WARNING) — the grant ends in Nexotec only. An outage longer than the
-  outbox's retries dead-letters it (alert). Reconciliation reports a revoked grant still holding a
-  reference after 24 h, **whatever its provider** — a missing registration is a finding — and the
-  daily repair after it, `platform.connected_account.repair` (KAN-559, `repair_revoked_grants`), runs
-  `end_at_provider` again for every such grant, one transaction each: no manual replay needed.
+  outbox's retries dead-letters it. Reconciliation reports a revoked grant holding a reference after
+  24 h, **whatever its provider**; the daily `platform.connected_account.repair` (KAN-559) retries it.
 
 ## Realms (D-A-13, D-A-14)
 staff (this) · terminal (ADR-028, ADR-110) · customer (reserved, `aud=portal`, never a `user`
