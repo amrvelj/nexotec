@@ -330,11 +330,61 @@ def test_a_failed_stock_write_puts_the_vehicle_and_configuration_back(client, db
         _correct(client, _manager(tenant_id), item)
 
     assert _state(db_session, item) == (VIN, VIN, VIN)
-    [reverted] = _audit(db_session, "vin_correction_reverted")
-    assert (reverted.entity_type, reverted.before["vin"], reverted.after["vin"]) == ("vehicle_mdm", NEW_VIN, VIN)
+    reverted = _audit(db_session, "vin_correction_reverted")
+    assert sorted((row.entity_type, row.before["vin"], row.after["vin"]) for row in reverted) == [
+        ("vehicle_configuration", NEW_VIN, VIN),
+        ("vehicle_mdm", NEW_VIN, VIN),
+    ]
     assert _events(db_session, "inventory.stock_item.vin_corrected") == []
     db_session.expire_all()
     assert db_session.get(StockItem, uuid.UUID(item["id"])).version == item["version"]
+
+
+def test_the_compensation_never_puts_back_a_record_this_correction_did_not_change(client, db_session, monkeypatch):
+    """The reviewer's case: the record already carried the new VIN before
+    the request (an identity PATCH, another Betrieb's correction), so
+    Vehicle changed only the configuration. A failed stock write reverts that
+    configuration — and leaves the record as it found it."""
+
+    item, tenant_id = _bought(client, db_session)
+    vehicle = db_session.get(VehicleMdm, uuid.UUID(item["vehicleId"]))
+    vehicle.vin = NEW_VIN
+    db_session.commit()
+
+    def _fail(*_args, **_kwargs):
+        raise RuntimeError("stock write failed")
+
+    monkeypatch.setattr(stock_item_service, "_write_corrected_vin", _fail)
+
+    with pytest.raises(RuntimeError):
+        _correct(client, _manager(tenant_id), item)
+
+    assert _state(db_session, item) == (VIN, NEW_VIN, VIN)
+    reverted = _audit(db_session, "vin_correction_reverted")
+    assert [(row.entity_type, row.before["vin"], row.after["vin"]) for row in reverted] == [
+        ("vehicle_configuration", NEW_VIN, VIN)
+    ]
+    assert [row.entity_type for row in _audit(db_session, "vin_corrected")] == ["vehicle_configuration"]
+
+
+def test_the_compensation_of_an_unchanged_record_and_configuration_writes_nothing(client, db_session, monkeypatch):
+    item, tenant_id = _bought(client, db_session, configuration_vin=None)
+    vehicle = db_session.get(VehicleMdm, uuid.UUID(item["vehicleId"]))
+    vehicle.vin = NEW_VIN
+    db_session.commit()
+
+    def _fail(*_args, **_kwargs):
+        raise RuntimeError("stock write failed")
+
+    monkeypatch.setattr(stock_item_service, "_write_corrected_vin", _fail)
+
+    with pytest.raises(RuntimeError):
+        _correct(client, _manager(tenant_id), item)
+
+    db_session.expire_all()
+    assert db_session.get(VehicleMdm, vehicle.id).vin == NEW_VIN
+    assert _audit(db_session, "vin_correction_reverted") == []
+    assert _audit(db_session, "vin_corrected") == []
 
 
 def test_a_retry_after_vehicle_committed_completes_without_a_second_vehicle_write(client, db_session):
@@ -460,3 +510,17 @@ def test_a_valuation_from_before_the_correction_is_not_reported(client, db_sessi
 
     assert before.id not in reported
     assert wrong.id in reported
+
+
+def test_a_valuation_written_after_the_correction_with_the_old_vin_is_reported(client, db_session):
+    item, tenant_id = _bought(client, db_session)
+    assert _correct(client, _manager(tenant_id), item).status_code == 200
+    later = _stored_valuation(db_session, vin=VIN, vehicle_id=uuid.UUID(item["vehicleId"]))
+
+    try:
+        valuation_reconciliation.run(db_session)
+        reported = set()
+    except ReconciliationAlarm as alarm:
+        reported = {o.source_row_id for o in alarm.orphans if o.check_label == VIN_DIFFERS}
+
+    assert later.id in reported

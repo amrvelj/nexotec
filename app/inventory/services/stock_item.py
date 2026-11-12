@@ -704,16 +704,20 @@ def correct_vin(
         db.commit()
     except Exception:
         db.rollback()
-        _compensate_vin_correction(
-            db,
-            vehicle_id=vehicle.vehicle_id,
-            tenant_id=tenant_id,
-            configuration_id=configuration_id,
-            old_vin=old_vin,
-            new_vin=new_vin,
-            reason=data.reason,
-            actor_id=actor_id,
-        )
+        if vehicle.record_changed or vehicle.configuration_changed:
+            # Only what this call changed is put back: a record or
+            # configuration already carrying the new VIN stays as it was.
+            _compensate_vin_correction(
+                db,
+                vehicle_id=vehicle.vehicle_id,
+                tenant_id=tenant_id,
+                configuration_id=configuration_id if vehicle.configuration_changed else None,
+                include_record=vehicle.record_changed,
+                old_vin=old_vin,
+                new_vin=new_vin,
+                reason=data.reason,
+                actor_id=actor_id,
+            )
         raise
     db.refresh(item)
     return item
@@ -776,13 +780,15 @@ def _compensate_vin_correction(
     vehicle_id: uuid.UUID,
     tenant_id: uuid.UUID,
     configuration_id: uuid.UUID | None,
+    include_record: bool,
     old_vin: str,
     new_vin: str,
     reason: str,
     actor_id: uuid.UUID | None,
 ) -> None:
-    """ADR-047's compensating action: Vehicle puts the old VIN back on the
-    record (and the configuration) it corrected. A failure here is logged at
+    """ADR-047's compensating action: Vehicle puts the old VIN back on what
+    this correction changed — the record when `include_record`, the
+    configuration when `configuration_id` is given — and nothing else. A failure here is logged at
     ERROR and left to the nightly reconciliation, which reports a stock item
     whose VIN differs from its record's or its configuration's."""
 
@@ -797,6 +803,7 @@ def _compensate_vin_correction(
             tenant_id=tenant_id,
             configuration_id=configuration_id,
             compensation=True,
+            include_record=include_record,
         )
     except Exception:
         logger.exception(

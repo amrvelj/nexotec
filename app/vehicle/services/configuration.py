@@ -317,7 +317,8 @@ def follow_vehicle_vin_correction(
     new_vin: str,
     reason: str,
     actor_id: uuid.UUID | None,
-) -> None:
+    action: str = "vin_corrected",
+) -> bool:
     """KAN-557: a stock car's configuration follows its vehicle-mdm
     record's corrected VIN, inside that correction's transaction
     (`services/vin_correction.py`). Never commits, never writes vehicle-mdm
@@ -329,7 +330,9 @@ def follow_vehicle_vin_correction(
     configurator corrected it first, the KAN-510 path) is only re-linked.
     Any third VIN is 422 `configuration_vin_differs` — the configuration
     describes yet another car, and nothing is written. Another tenant's
-    configuration is 404 (rule 7)."""
+    configuration is 404 (rule 7). Compared in the one spelling
+    (`normalise_vin`). Returns whether it wrote; `action` names the audit
+    row (`vin_correction_reverted` for the compensation)."""
 
     config = db.scalar(
         select(VehicleConfiguration)
@@ -339,8 +342,8 @@ def follow_vehicle_vin_correction(
     if config is None:
         raise NotFoundError(f"Configuration {configuration_id} was not found.")
     if config.vin is None:
-        return
-    if config.vin not in (old_vin, new_vin):
+        return False
+    if normalise_vin(config.vin) not in (old_vin, new_vin):
         raise UnprocessableEntityError(
             "The configuration's VIN is neither the car's old nor its new VIN.",
             details={"field": "newVin", "reason": "configuration_vin_differs"},
@@ -350,7 +353,7 @@ def follow_vehicle_vin_correction(
     _link_vehicle_if_vin_resolves(db, config)
     after = {"vin": config.vin, "vehicleId": str(config.vehicle_id) if config.vehicle_id else None}
     if before == after:
-        return
+        return False
     config.updated_by = actor_id
     config.version += 1
     db.flush()
@@ -359,13 +362,14 @@ def follow_vehicle_vin_correction(
         entity_type=_ENTITY_TYPE,
         entity_id=config.id,
         tenant_id=config.tenant_id,
-        action="vin_corrected",
+        action=action,
         actor_id=actor_id,
         before=before,
         after=after,
         reason=reason,
     )
     _publish(db, config, "configuration.updated")
+    return True
 
 
 def create_configuration(

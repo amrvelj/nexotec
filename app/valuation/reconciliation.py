@@ -77,7 +77,8 @@ def _vin_the_car_carried_before_a_correction() -> Exists:
     """KAN-557: a valuation is never edited (ADR-066), so one made before
     «VIN korrigieren» keeps the VIN the car carried then. That is dated
     evidence, not a copy gone wrong: a VIN its record's own
-    `vin_corrected` audit row names as the one before is not a finding."""
+    `vin_corrected` audit row names as the one before is not a finding —
+    for a valuation made before that correction."""
 
     return (
         select(AuditEvent.id)
@@ -86,6 +87,9 @@ def _vin_the_car_carried_before_a_correction() -> Exists:
             AuditEvent.entity_id == Valuation.vehicle_id,
             AuditEvent.action == "vin_corrected",
             AuditEvent.before["vin"].as_string() == func.upper(Valuation.vehicle_vin),
+            # Made before that correction — a valuation written later with
+            # the old VIN is a copy gone wrong and is still reported.
+            Valuation.created_at <= AuditEvent.created_at,
         )
         .correlate(Valuation)
         .exists()
