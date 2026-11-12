@@ -15,8 +15,11 @@ export function axleLabel(t: TFunction, axle: string | null | undefined): string
  * where one is sent; empty when the row names no rim. */
 export function rimLabel(
   t: TFunction,
-  tyre: { rims?: string | null; rimOffset?: number | null },
+  tyre: { rims?: string | null; rimWidth?: number | string | null; rimSize?: number | null; rimOffset?: number | null },
 ): string {
-  if (!tyre.rims) return ''
-  return tyre.rimOffset != null ? t('configurator.wheels.rimValue', { rims: tyre.rims, offset: tyre.rimOffset }) : tyre.rims
+  // A row naming width and diameter but no designation still shows the rim,
+  // in the designation's own notation («7.5Jx18»).
+  const rims = tyre.rims || (tyre.rimWidth != null && tyre.rimSize != null ? `${Number(tyre.rimWidth)}Jx${tyre.rimSize}` : '')
+  if (!rims) return ''
+  return tyre.rimOffset != null ? t('configurator.wheels.rimValue', { rims, offset: tyre.rimOffset }) : rims
 }

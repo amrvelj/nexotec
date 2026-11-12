@@ -1331,6 +1331,9 @@ function previewOptions(draft: Draft, spec: CatalogueSpecificationRead | undefin
     isPackage: o.isPackage ?? false,
     selected: o.selected ?? true,
     equipmentFeatures: o.equipmentFeatures ?? [],
+    // KAN-595: the catalogue row's own texts, so the preview names the option
+    // as the saved configuration will (the server copies the same row's).
+    descriptions: spec?.options.find((c) => c.id === o.variantOptionId)?.descriptions,
   }))
 }
 

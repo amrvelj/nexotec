@@ -79,3 +79,18 @@ def test_a_held_label_is_kept_and_only_gains_a_link_it_lacked(db_session, monkey
     _open(db_session, s, variant, force=True)
 
     assert _labels(db_session, variant.id) == [(2025, "", "b", "https://energielabel.example.test/x.pdf")]
+
+
+@NEEDS_ITS_OWN_CONNECTION
+def test_a_link_that_is_not_https_is_left_out_and_the_label_kept(db_session, monkeypatch):
+    """Every Betrieb's screen renders `label_url` as a link: only an https URL is stored."""
+
+    bodies = fix.detail_bodies()
+    bodies[fix.ENERGY_LABEL_PATH] = fix.body(
+        [_label("B", "Manuell", link="javascript:alert(1)"), _label("C", "Automat", link="http://plain.example.test/a.pdf")]
+    )
+    s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=bodies))
+
+    _open(db_session, s, variant)
+
+    assert _labels(db_session, variant.id) == [(2025, "Automat", "c", None), (2025, "Manuell", "b", None)]

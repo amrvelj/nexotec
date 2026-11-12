@@ -604,9 +604,12 @@ def _store_energy_labels(db: Session, *, variant: ModelVariant, labels: list, kn
         if key in seen:
             continue
         seen.add(key)
-        url = label.label_url if label.label_url is not None and len(label.label_url) <= 500 else None
-        if label.label_url is not None and url is None:
-            logger.warning("energy label link of variant %s left out: longer than 500 characters", variant.id)
+        # Rendered as a link by every Betrieb's screens: an https URL that fits
+        # its column, else none (logged) — never another scheme.
+        raw = label.label_url
+        url = raw if raw is not None and raw.startswith("https://") and len(raw) <= 500 else None
+        if raw is not None and url is None:
+            logger.warning("energy label link of variant %s left out: not an https URL of at most 500 characters", variant.id)
         held = db.scalar(
             select(ModelVariantEnergyLabel).where(
                 ModelVariantEnergyLabel.model_variant_id == variant.id,

@@ -166,6 +166,20 @@ describe('ColourWheelsTab', () => {
     expect(within(option).queryByText(i18n.t('configurator.wheels.standard'))).not.toBeInTheDocument()
   })
 
+  it('writes the rim from width and diameter when no designation is sent (KAN-596)', () => {
+    renderTab({
+      spec: buildSpec({
+        tyreSpecs: [
+          {
+            axle: 'both', size: '225/45 R18', loadIndex: '95', speedRating: 'Y', remark: null, season: 'summer',
+            rims: null, rimWidth: '7.5', rimSize: 18, rimOffset: 39, isStandard: null,
+          },
+        ],
+      }),
+    })
+    expect(within(screen.getByTestId('tyre-spec-table')).getByText('7.5Jx18 ET39')).toBeInTheDocument()
+  })
+
   it('does not render the tyre-spec table when the catalogue has no tyre data', () => {
     renderTab({ spec: buildSpec({ tyreSpecs: [] }) })
     expect(screen.queryByTestId('tyre-spec-table')).not.toBeInTheDocument()
