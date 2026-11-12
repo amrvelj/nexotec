@@ -16,6 +16,7 @@ from email.message import EmailMessage
 from typing import Protocol
 
 from app.core.config import get_settings
+from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 
 logger = logging.getLogger(__name__)
 _settings = get_settings()
@@ -74,7 +75,10 @@ def get_mailer() -> PlatformMailer:
 
     global _mailer
     if _mailer is None:
-        if _settings.platform_mail_sender != "smtp" and _settings.environment != "development":
+        if (
+            _settings.platform_mail_sender != "smtp"
+            and current_deployment_environment(_settings) is not DeploymentEnvironment.DEVELOPMENT  # KAN-499
+        ):
             # The logging sender writes live reset and invitation links to
             # the application log, so anyone who reads the log can take over
             # an account (CLAUDE.md: secrets are never logged). Local runs,

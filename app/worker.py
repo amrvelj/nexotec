@@ -21,6 +21,7 @@ import time
 from sqlalchemy.orm import Session
 
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
+from app.core.deployment_environment import require_valid_deployment_environment
 from app.core.idempotent_route import run_daily_idempotency_record_purge
 from app.core.observability import (
     configure_logging,
@@ -493,6 +494,7 @@ def run(*, max_iterations: int | None = None) -> None:
 
 
 if __name__ == "__main__":
+    require_valid_deployment_environment()  # KAN-499, as app/main.py
     configure_observability()
     _max_iterations_env = os.environ.get("DMS_OUTBOX_WORKER_MAX_ITERATIONS")
     _max_iterations = int(_max_iterations_env) if _max_iterations_env else None

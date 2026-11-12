@@ -399,6 +399,9 @@ jobs:
           --health-retries 10
     env:
       DMS_DATABASE_URL: postgresql+psycopg://dms:dms@localhost:5432/dms_platform_outbox_smoke
+      # KAN-499: this job starts the worker (python -m app.worker) with no .env,
+      # so it names its environment; unset refuses to start outside pytest.
+      DMS_ENVIRONMENT: development
       # CI-only dummy key, not a secret — EncryptedString just needs a
       # structurally valid Fernet key to construct itself at settings load.
       DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
@@ -531,6 +534,8 @@ jobs:
     if: ${{ needs.freshness.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     env:
+      # KAN-499: importing app.main checks DMS_ENVIRONMENT; CI has no .env.
+      DMS_ENVIRONMENT: development
       DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
       DMS_JWT_PRIVATE_KEY: |
         -----BEGIN PRIVATE KEY-----

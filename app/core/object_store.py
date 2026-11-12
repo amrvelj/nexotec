@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Protocol
 
 from app.core.config import get_settings
+from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 
 logger = logging.getLogger("app.core.object_store")
 
@@ -104,7 +105,7 @@ def get_object_store() -> ObjectStore:
             raise RuntimeError(
                 f"DMS_OBJECT_STORE_BACKEND={settings.object_store_backend!r} is not built — only 'local' is (KAN-200)."
             )
-        if settings.environment == "production":
+        if current_deployment_environment(settings) is DeploymentEnvironment.PRODUCTION:  # KAN-499
             # A directory on the web service's disk is emptied by every deploy
             # (Render), while the rows keep their keys: a signature image would
             # vanish silently. Production refuses to start until a durable
