@@ -39,9 +39,7 @@ from app.inventory.services.configuration_label import (
 )
 from app.inventory.services.configuration_reference import referenced_configuration_ids
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
-from app.inventory.services.ledger import purchase_booked_after
 from app.inventory.services.pricing import get_stock_item_pricing
-from app.inventory.services.purchase import standing_purchase_date
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
 from app.inventory.services.sales_contract import apply_backfilled_contract, record_backfill
@@ -64,7 +62,6 @@ __all__ = [
     "get_stock_numbers",
     "is_stock_item_purchased",
     "oldest_configuration_label_age_seconds",
-    "purchase_booked_after",
     "record_backfill",
     "referenced_configuration_ids",
     "refresh_configuration_labels",
@@ -72,5 +69,4 @@ __all__ = [
     "reserve",
     "reserve_for_contract",
     "set_valuation_ref",
-    "standing_purchase_date",
 ]

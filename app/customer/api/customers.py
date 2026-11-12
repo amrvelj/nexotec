@@ -24,7 +24,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.permissions import ModuleCode, holds_entitlement, require_read, require_write
+from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, parse_sort
 from app.core.validators import CantonCode
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
@@ -58,16 +58,13 @@ from app.customer.schemas.customer import (
     CustomerRead,
     CustomerUpdate,
     CustomerVehicleCreate,
-    CustomerVehiclePage,
     CustomerVehicleRead,
     CustomerVehicleUpdate,
-    VehicleStockLinkSummary,
 )
 from app.customer.schemas.legal_basis import LegalBasisCreate, LegalBasisRead
 from app.customer.services import customer as customer_service
 from app.customer.services import legal_basis as legal_basis_service
 from app.db import get_db
-from app.inventory.public import get_stock_items_for_vehicles
 from app.platform.public import get_dealership_or_404
 
 router = APIRouter(tags=["customers"], route_class=IdempotentRoute)
@@ -587,49 +584,8 @@ def delete_customer_external_id(
 # (see app/models/vehicle.py), so the tenant boundary is enforced entirely
 # by resolving `customer` through get_customer_or_404 — the vehicle_id a
 # caller supplies is looked up with no tenant filter, same as GET
-# /v1/vehicles/{id}.
-
-
-@router.get("/customers/{customer_id}/vehicles", response_model=CustomerVehiclePage)
-def list_customer_vehicles(
-    customer_id: uuid.UUID,
-    # KAN-49 / FR-19 — the Vehicles tab needs this customer's own historical
-    # (ended) roles to remain readable, marked as ended (it already renders
-    # `effectiveTo` for exactly this). Defaults to False, matching the
-    # service's own default and every other caller of this route — only the
-    # tab opts in, rather than the endpoint's default silently changing for
-    # whoever else reads it.
-    include_closed: bool = Query(default=False),
-    principal: Principal = Depends(get_current_principal),
-    db: Session = Depends(get_db),
-):
-    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_vehicles(db, customer_id=customer_id, include_closed=include_closed)
-    vehicle_ids = [r.vehicle_id for r in rows]
-    other_parties_by_vehicle = customer_service.list_other_vehicle_parties_batch(
-        db, vehicle_ids=vehicle_ids, exclude_customer_id=customer_id, group_id=principal.group_id
-    )
-    # KAN-378 (Anto, option A): the stock summary is inventory data, licensed
-    # with the sales module (D-A-04) — a Betrieb without it gets no stock
-    # fields here, as it gets no /v1/stock-items — nor does a token minted
-    # before the module was taken away.
-    stock_by_vehicle = (
-        get_stock_items_for_vehicles(db, principal=principal, vehicle_ids=vehicle_ids)
-        if holds_entitlement(db, principal, ModuleCode.SALES)
-        else {}
-    )
-    items = [
-        CustomerVehicleRead.model_validate(r, from_attributes=True).model_copy(
-            update={
-                "other_parties": other_parties_by_vehicle.get(r.vehicle_id, []),
-                "stock_item": (
-                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id]) if r.vehicle_id in stock_by_vehicle else None
-                ),
-            }
-        )
-        for r in rows
-    ]
-    return CustomerVehiclePage(items=items)
+# /v1/vehicles/{id}. The list read (GET) is composed at the root,
+# app/api/v1/customer_vehicles.py (KAN-632): it embeds Stock's answer.
 
 
 @router.post("/customers/{customer_id}/vehicles", response_model=CustomerVehicleRead, status_code=201)

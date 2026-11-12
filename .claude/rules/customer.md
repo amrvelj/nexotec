@@ -140,8 +140,9 @@ weekly. -->
 - **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
   rulings below, 2026-11-03, all A): the
   customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
-  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
-  the contract's customer and signature through `sales.public.get_trade_in_seller` and, in its own
+  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it takes
+  the contract's customer and signature from the event (`tradeInCustomerId`/`tradeInSignedAt`, KAN-632;
+  an older event's from the worker's `seller_of_old_event`, which asks Sales; none given raises) and, in its own
   consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
   keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
   when that date is not after the signature or is still to come (never later than the booking: an
@@ -159,29 +160,19 @@ weekly. -->
   `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
   open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
   the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
-  failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
-  records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
-  purchase, or of one booked again under another date, writes nothing; booked again under the same
-  date, the late event is taken for the standing one, and the history may then end at the late event's
-  booking instead — whenever `purchase_moment` falls back to the booking for it: a date not after the
-  signature, or still to come when it was booked; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
-  purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
-  `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
-  stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
+  failed delivery, both consumers record every purchase/storno event in `customer_stock_item_booking`
+  (KAN-632; seeded from the outbox; per-item lock) and judge by `occurredAt`: a purchase is recorded only
+  while no later booking of the item is known, and a returned storno a later purchase overtook (standing
+  or stornoed in turn) reopens nobody. The reopen also leaves a role alone when a row of it was
   recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
   recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
   promptly and in order, the returned customer does not get that role back and the role has no current
   holder until the future holder starts (never ended before it began; KAN-583).
   **Accepted residual**
-  (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
-  whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
-  backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
-  *unflagged* storno records no handover unless the car is bought again — after a *returned* storno
-  the customer who got the car back is then recorded nowhere (in order, they would be its current
-  owner and keeper) —, a returned storno consumed
-  after a later booking reopens nobody (so the period the customer held the car again is not
-  recorded), with a re-booking the history may end at either purchase, depending on which event is
-  consumed when, and
+  (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632 to out-of-order delivery — a backlog in
+  order now gives the in-order result): a purchase event consumed after its storno's records no
+  handover — after a *returned* storno the customer who got the car back is recorded nowhere —, a
+  returned storno consumed after a later booking's event reopens nobody, and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
   before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
@@ -259,7 +250,7 @@ weekly. -->
   A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
-  `GET /v1/customers/{id}/vehicles` fills `stockItem` from
+  `GET /v1/customers/{id}/vehicles` (composed in `app/api/v1/customer_vehicles.py`, KAN-632) fills `stockItem` from
   `app.inventory.public.get_stock_items_for_vehicles` (which takes the caller's `Principal` and reads
   only its token's group, KAN-538) only when
   `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a

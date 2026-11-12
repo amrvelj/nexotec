@@ -98,10 +98,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   per stock item and never queries Stock synchronously for it on the invoicing path (ADR-052
   addendum 2026-11-06, KAN-146: Sales' storno consumer re-reads it asynchronously, `sales.md`). Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
-  The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
-  `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
-  `originRole` (read back from `pipeline_ref`, `stock_item.pipeline_origin`), which the customer
-  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
+  The event carries `stockNumber`, `vehicleId`, `purchaseDate`, `purchasedBy` (KAN-189) and, for an
+  item a contract's confirmation created, `originContractId`/`originRole` (`pipeline_origin`) and
+  (KAN-632; on the storno too) `tradeInCustomerId`/`tradeInSignedAt`, which
+  `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
 - **A stock item's configuration label follows the configuration within a day** (KAN-534, rule 2):
   `configuration_label` and `configuration_label_refreshed_at` are written when a configuration is
   attached or a pipeline item created, and re-read nightly by `inventory.configuration_labels`
@@ -136,8 +136,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `pipeline` (`in_stock_at` cleared) **keeping its VIN and `vehicle_id`** — so it still blocks the
   VIN and is booked again without a new one (`record_purchase` restocks it without promoting; another
   VIN is 422 `purchase_vin_mismatch`) — audits `purchase_storno` with the reason and publishes
-  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`; since KAN-572 additively
-  `returnedToCustomer`, the cancelled `purchaseDate` and a trade-in's `originContractId`/`originRole`),
+  `inventory.stock_item.storno` (`stockNumber`, `vehicleId`, `stornoedBy`; KAN-572 adds
+  `returnedToCustomer`, the cancelled `purchaseDate`, `originContractId`/`originRole`),
   all in one transaction. **A trade-in may go back to its customer** (KAN-572; Anto, 2026-11-07,
   option C): `returnedToCustomer: true` on the storno (optional, default false; 422
   `storno_return_not_trade_in` on any other car), audited with it; the customer context then reopens

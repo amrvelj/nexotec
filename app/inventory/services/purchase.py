@@ -11,7 +11,6 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -33,6 +32,7 @@ from app.inventory.services.stock_item import (
     configuration_vin_differs_error,
     mark_purchased_if_ready,
     pipeline_origin,
+    trade_in_seller_fields,
 )
 from app.platform.public import get_dealership_or_404
 from app.vehicle.public import get_configuration_for_host
@@ -226,25 +226,6 @@ def _purchase_facts(item: StockItem) -> dict[str, Any]:
     }
 
 
-def standing_purchase_date(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> dt.date | None:
-    """KAN-572: the purchase date of the purchase this Betrieb holds the item
-    as bought by now (`is_invoiceable`), or None when it holds no purchase —
-    never booked, or stornoed and not booked again. The customer context's
-    `customer.trade_in_purchased` re-reads it, because delivery is unordered
-    after a failed delivery: a purchase event that arrives after its storno
-    reports a purchase that no longer stands. A SELECT only; an item of
-    another dealership, or none, is None."""
-
-    row = db.execute(
-        select(StockItem.is_invoiceable, StockItem.purchase_date).where(
-            StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id
-        )
-    ).one_or_none()
-    if row is None or not row.is_invoiceable:
-        return None
-    return row.purchase_date
-
-
 def storno_purchase(
     db: Session, *, item: StockItem, data: PurchaseStornoRequest, actor_id: uuid.UUID | None
 ) -> StockItem:
@@ -356,9 +337,12 @@ def storno_purchase(
                 # the trade-in's contract (`originContractId`/`originRole`, as
                 # `inventory.stock_item.purchased` carries them) — what the
                 # customer context needs to reopen that customer as holder.
+                # KAN-632 (additive): the trade-in's seller and signature, as
+                # the purchase event carries them (`trade_in_seller_fields`).
                 "returnedToCustomer": data.returned_to_customer,
                 "purchaseDate": stornoed_purchase_date.isoformat() if stornoed_purchase_date else None,
                 **origin,
+                **trade_in_seller_fields(item),
             },
         ),
     )

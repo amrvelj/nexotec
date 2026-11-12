@@ -290,7 +290,6 @@ _READS = {
     "app.integration.public.valuation_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_item_vehicle",
-    "app.inventory.public.get_stock_items_for_vehicles",
     # KAN-243: builds the actor ReferenceChecks every context's nightly
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
@@ -321,14 +320,6 @@ _READS = {
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
-    # KAN-572: the customer context's trade-in purchase consumer re-reads the
-    # purchase Stock holds now (delivery is unordered); a SELECT only.
-    "app.inventory.public.standing_purchase_date",
-    # KAN-572: the customer context's trade-in storno consumer asks whether a
-    # later purchase overtook the storno (delivery is unordered); a SELECT only.
-    "app.inventory.public.purchase_booked_after",
-    # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
-    "app.sales.public.get_trade_in_seller",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.

@@ -6,6 +6,7 @@ contract allows `app.<other-context>` to import `app.customer.public`, never
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.ownership import CustomerOwnershipProvider
+from app.customer.schemas.customer import CustomerVehiclePage
 from app.customer.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
 from app.customer.services.customer import (
     CustomerSalesLabel,
@@ -26,6 +27,7 @@ from app.customer.services.customer import (
     set_credit_block,
 )
 from app.customer.services.legal_basis import has_any_basis_for_group
+from app.customer.services.vehicle_page import StockItemsFor, customer_vehicle_page
 from app.customer.services.vehicle_party_counts import count_vehicle_parties_for_vehicles
 
 __all__ = [
@@ -33,6 +35,8 @@ __all__ = [
     "CustomerLifecycleStatus",
     "CustomerOwnershipProvider",
     "CustomerSalesLabel",
+    "CustomerVehiclePage",
+    "StockItemsFor",
     "VehicleParty",
     "VehiclePartyRole",
     "allocate_vehicle_party",
@@ -41,6 +45,7 @@ __all__ = [
     "customer_display_name",
     "customer_in_group",
     "customer_is_merged",
+    "customer_vehicle_page",
     "get_customer_or_404",
     "get_customer_sales_labels",
     "has_any_basis_for_group",

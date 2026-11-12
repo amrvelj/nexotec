@@ -18,8 +18,10 @@ every contract's status, number, car and invoice request, as plain data, a
 page at a time. A SELECT only. Stock itself never calls Sales (ADR-131): its
 sweep and «Einkauf stornieren» read the projection its consumers keep.
 
-`get_trade_in_seller` (KAN-189) is the customer context's read when a trade-in
-is bought: the contract's customer and since when it is known, plain data.
+`get_trade_in_seller` (KAN-189) is the worker's fallback for a trade-in
+purchase or storno event that does not name its seller (published before
+KAN-632, which carries it in the events): the contract's customer and since
+when it is known, plain data. Customer, below sales, never calls it (ADR-131).
 `referenced_configuration_ids` (KAN-270) is vehicle's read for its daily purge of
 configurations no host ever took: which of the ids it names any offer or
 contract holds. A SELECT only.

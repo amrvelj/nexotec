@@ -10,6 +10,8 @@ reads its `sales.contract.confirmed` payload against an OPAQUE
         "contractId": "<uuid>",
         "vehicleSource": "manual" | "existing",
         "manualConfiguration": {"vehicleLabel": str, "condition": str} | null,
+        "customerId": "<uuid>" | null,
+        "signedAt": "<iso datetime>",
         "tradeIn": {"vehicleLabel": str, "condition": str, "valuationId"?: "<uuid>"} | null,
         "pricingSnapshot": {"currency": "CHF", "basePrice": str|null, ...},
     }
@@ -17,6 +19,11 @@ reads its `sales.contract.confirmed` payload against an OPAQUE
 `tradeIn.valuationId` (KAN-101) is present when the trade-in carries a
 valuation; the trade-in's pipeline item then gets Stock's valuation
 pointer, read from app.valuation.public in this same transaction.
+
+`customerId` and `signedAt` (KAN-632) are kept on a trade-in's pipeline
+item (`trade_in_customer_id`, `trade_in_signed_at`) and carried on by its
+purchase and storno events, so the customer context names the former owner
+without asking Sales; a confirmation published before KAN-632 has neither.
 
 `pricingSnapshot` (WP-8, ADR-046) is the frozen price build-up, added for
 the WP-9 invoice leg; this consumer ignores it. It never carries margin,
@@ -51,6 +58,7 @@ from app.inventory.services.stock_item import (
     _check_vin_not_in_stock,
     _item_in_stock_with_vin,
     _vin_already_in_stock,
+    apply_trade_in_seller,
     mark_purchased_if_ready,
 )
 from app.inventory.services.valuation import apply_valuation_ref
@@ -163,7 +171,7 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
 
     trade_in = payload.get("tradeIn")
     if trade_in is not None:
-        item, _created = _create_pipeline_item_idempotent(
+        item, created = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,
             vehicle_label=trade_in["vehicleLabel"],
@@ -172,6 +180,13 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             origin={"originContractId": str(contract_id), "originRole": "trade_in"},
             configuration_id=trade_in.get("configurationId"),
         )
+        if created:
+            # KAN-632 — who traded the car in and when the contract was
+            # signed, kept for the item's purchase and storno events
+            # (`trade_in_origin`). A confirmation published before KAN-632
+            # carries neither; the item then keeps none.
+            apply_trade_in_seller(item, customer_id=payload.get("customerId"), signed_at=payload.get("signedAt"))
+            db.flush()
         valuation_id = trade_in.get("valuationId")
         if valuation_id is not None:
             # KAN-101 (ADR-048) — Stock holds the pointer, never a copy of

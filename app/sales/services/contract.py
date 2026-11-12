@@ -460,6 +460,13 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
 
     return {
         "contractId": str(contract.id),
+        # KAN-632 (additive): the buyer — the customer who traded the car in,
+        # when there is a trade-in — named as `sales.contract.created` names
+        # it, and the signature. Stock keeps both on a trade-in's pipeline item
+        # and carries them on its purchase and storno events, so the customer
+        # context records the former owner without asking Sales (ADR-131).
+        "customerId": str(contract.customer_id) if contract.customer_id is not None else None,
+        "signedAt": contract.signed_at.isoformat() if contract.signed_at is not None else None,
         "vehicleSource": "existing" if contract.vehicle_source == "stock" else "manual",
         "manualConfiguration": manual_configuration,
         "tradeIn": trade_in,

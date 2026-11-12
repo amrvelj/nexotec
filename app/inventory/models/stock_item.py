@@ -207,6 +207,18 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # __table_args__ above). An item added from the Stock list (the
     # configurator intake, KAN-463) never has one.
     pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    # KAN-632 — a trade-in's pipeline item keeps who traded the car in and
+    # when the contract was signed, as `sales.contract.confirmed` said
+    # (`customerId`, `signedAt`), so its purchase and storno events carry
+    # them on (`tradeInCustomerId`, `tradeInSignedAt`) and the customer
+    # context needs to ask nobody (ADR-131). A relayed fact, not a display
+    # reference: no label (it would copy a customer's name nobody here
+    # reads), as `reserved_by_contract_id`. Null on every other item and on
+    # a trade-in created before KAN-632.
+    trade_in_customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the customer context (Customer). No DB-level FK."
+    )
+    trade_in_signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     # C-F (KAN-10, FR-C-12/FR-C-13) — the configuration this pipeline item

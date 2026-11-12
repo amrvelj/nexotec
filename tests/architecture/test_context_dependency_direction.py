@@ -88,13 +88,7 @@ _TOP_LEVEL: dict[str, int] = {
 # The upward imports that exist today, each with the ticket that removes it
 # (KAN-611's dependency strand). (file, imported module, imported name) ->
 # ticket. A plain `import app.x.y` has the name "".
-_DEBT: dict[tuple[str, str, str], str] = {
-    # customer -> sales, inventory
-    ("app/customer/consumers.py", "app.sales.public", "get_trade_in_seller"): "KAN-632",
-    ("app/customer/consumers.py", "app.inventory.public", "purchase_booked_after"): "KAN-632",
-    ("app/customer/consumers.py", "app.inventory.public", "standing_purchase_date"): "KAN-632",
-    ("app/customer/api/customers.py", "app.inventory.public", "get_stock_items_for_vehicles"): "KAN-632",
-}
+_DEBT: dict[tuple[str, str, str], str] = {}
 
 
 def _module_name(path: Path) -> str:
