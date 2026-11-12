@@ -186,6 +186,13 @@ def update_customer_vehicle(
     # An empty period (a cancelled planned row, KAN-583) never held the role,
     # so reopening it publishes `linked`.
     held_before = _is_open(party.effective_to) and party.effective_to != party.effective_from
+    if holds_after and party.merged_into_vehicle_id is not None:
+        # KAN-672: the copy a vehicle merge kept names the merged record; the
+        # customer's row on the surviving vehicle carries the role.
+        raise ConflictError(
+            "This row is the copy a vehicle merge kept; it cannot hold its role again.",
+            details={"reason": "merged_party_row", "mergedIntoVehicleId": str(party.merged_into_vehicle_id)},
+        )
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
         # reads as a current party again; reopening it would also close the
@@ -461,6 +468,7 @@ def _close_vehicle_party(
     group_id: uuid.UUID,
     effective_to: dt.datetime | None = None,
     merged_into_customer_id: uuid.UUID | None = None,
+    merged_into_vehicle_id: uuid.UUID | None = None,
     reason: str | None = None,
     closed_for_party_id: uuid.UUID | None = None,
 ) -> None:
@@ -473,7 +481,8 @@ def _close_vehicle_party(
 
     `effective_to` defaults to now. A customer merge (KAN-177) passes the
     row's own start and the survivor it merged into, which the audit row
-    and the event carry as `mergedIntoCustomerId`.
+    and the event carry as `mergedIntoCustomerId`; a vehicle merge's kept
+    copy (KAN-672) passes `merged_into_vehicle_id` the same way.
     """
 
     before = {
@@ -490,6 +499,9 @@ def _close_vehicle_party(
     if merged_into_customer_id is not None:
         party.merged_into_customer_id = merged_into_customer_id
         after["mergedIntoCustomerId"] = str(merged_into_customer_id)
+    if merged_into_vehicle_id is not None:
+        party.merged_into_vehicle_id = merged_into_vehicle_id
+        after["mergedIntoVehicleId"] = str(merged_into_vehicle_id)
 
     record_audit_event(
         db,
@@ -835,4 +847,6 @@ def _vehicle_party_payload(party: VehicleParty) -> dict[str, Any]:
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
         # KAN-177: set only on a copy a customer merge kept closed.
         "mergedIntoCustomerId": str(party.merged_into_customer_id) if party.merged_into_customer_id else None,
+        # KAN-672: set only on a copy a vehicle merge kept closed.
+        "mergedIntoVehicleId": str(party.merged_into_vehicle_id) if party.merged_into_vehicle_id else None,
     }

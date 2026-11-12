@@ -14,45 +14,76 @@ The event's contract: the duplicate is the aggregate (`aggregate_id`),
 `vehicleId` (the duplicate) and `mergedIntoVehicleId` (the survivor the merge
 named).
 
-What the re-point does is what the synchronous call it replaces did, no more:
-every row moves — every dealer group's, open, closed or planned — none is
-closed, deleted, audited or published as `linked`/`unlinked`, and each takes
-the survivor's label (KAN-84). The close rule is not applied to the moved rows
-(KAN-634 leaves it untouched).
+Every row moves — every dealer group's, open, closed or planned — and takes
+the survivor's label (KAN-84); a row that only moves is not audited or
+published. Two things the move would otherwise break are settled in the same
+transaction (KAN-672; Anto's ruling 2026-11-12, option C):
+
+- **One holder per role and dealer group.** Where both cars bring a holder of
+  a role in one group, the holder with the later start stays and the others
+  are closed at its start, through the close rule's own `_close_vehicle_party`
+  (audited `vehicle_party_remove`, reason `vehicle_merged`, published
+  `unlinked`) — see `_settle_role`.
+- **The same customer, role and start on both cars** cannot move
+  (`uq_vehicle_party_scope`). Like the copy a customer merge keeps (KAN-177),
+  that row stays on the duplicate, closed at its own start and marked
+  `merged_into_vehicle_id` — see `_keep_copy`.
 """
 
+import datetime as dt
+import itertools
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
-from app.customer.models.vehicle_party import VehicleParty
+from app.customer.models.customer import Customer
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.customer.services.vehicle_party import _close_vehicle_party
 from app.customer.services.vehicle_party_labels import relabel_vehicle_parties_for_vehicle
+from app.customer.services.vehicle_party_locks import _lock_vehicle_role_in_group, _try_lock_vehicle_role_in_group
 from app.vehicle.public import resolve_merged_vehicle_id
 
 logger = logging.getLogger(__name__)
+
+# The audit reason of every close and mark this consumer writes.
+VEHICLE_MERGED_REASON = "vehicle_merged"
+
+_RoleLock = tuple[uuid.UUID, VehiclePartyRole, uuid.UUID]
+
+
+class VehiclePartyRoleBusyError(RuntimeError):
+    """Another writer holds a (vehicle, role, group) lock this move found it
+    needs only after it had taken the others. Waiting for it out of order
+    could deadlock, so the delivery fails and the transport retries it."""
 
 
 def repoint_vehicle_parties_on_vehicle_merge(
     db: Session, *, duplicate_vehicle_id: uuid.UUID, survivor_vehicle_id: uuid.UUID
 ) -> int:
-    """Moves every party row naming the duplicate onto the survivor and
-    relabels the survivor's rows from `app.vehicle.public` (never from the
-    event). Flushes only — the consumer harness commits it with the
-    processed_event row. Returns the number of rows moved.
+    """Moves every party row naming the duplicate onto the survivor, settles
+    the roles both cars held (KAN-672) and relabels the survivor's rows from
+    `app.vehicle.public` (never from the event). Flushes only — the consumer
+    harness commits it with the processed_event row. Returns the number of
+    rows moved.
 
     The survivor is resolved to the live record first: delivery is
     unordered, so A→B consumed after B→C must land A's rows on C, not on the
-    merged B. A duplicate no row names moves nothing, so a late or repeated
-    event is harmless even past the processed-events guard.
+    merged B. A duplicate no row names moves nothing — a kept copy still names
+    it and is skipped by its mark — so a late or repeated event is harmless
+    even past the processed-events guard.
 
-    The rows of both vehicles are locked FOR NO KEY UPDATE in one statement,
-    in id order — the order every other writer of party rows takes them in
-    (an allocation and a customer merge after their advisory locks, the
-    summary-changed consumer) — so this never holds one vehicle's rows while
-    waiting for the other's."""
+    Locks, in the order every writer of party rows takes them (KAN-148,
+    KAN-356): first the (vehicle, role, group) advisory lock of both cars for
+    every role and group the duplicate has a row in, sorted; then the rows of
+    both vehicles FOR NO KEY UPDATE in one statement, in id order — so this
+    never interleaves with an allocation, a reopen or a customer merge on a
+    role it settles, and never holds one vehicle's rows while waiting for the
+    other's."""
 
     target = resolve_merged_vehicle_id(db, survivor_vehicle_id)
     if target == duplicate_vehicle_id:
@@ -60,23 +91,250 @@ def repoint_vehicle_parties_on_vehicle_merge(
         # they are on would only relabel them.
         logger.warning("Vehicle merge of %s resolves back to itself; no party row moved.", duplicate_vehicle_id)
         return 0
+    held = _lock_roles(db, duplicate_vehicle_id=duplicate_vehicle_id, target=target)
     rows = list(
         db.scalars(
             select(VehicleParty)
-            .where(VehicleParty.vehicle_id.in_((duplicate_vehicle_id, target)))
+            .where(
+                or_(
+                    VehicleParty.vehicle_id.in_((duplicate_vehicle_id, target)),
+                    VehicleParty.merged_into_vehicle_id == duplicate_vehicle_id,
+                )
+            )
             .order_by(VehicleParty.id)
             .with_for_update(key_share=True)
             .execution_options(populate_existing=True)
         ).all()
     )
-    moved = [party for party in rows if party.vehicle_id == duplicate_vehicle_id]
-    if not moved:
+    # A copy an earlier merge kept for this duplicate (it was that merge's
+    # survivor) follows it, so the mark always names the live record.
+    for party in rows:
+        if party.merged_into_vehicle_id == duplicate_vehicle_id:
+            party.merged_into_vehicle_id = target
+    leaving = [
+        party for party in rows if party.vehicle_id == duplicate_vehicle_id and party.merged_into_vehicle_id is None
+    ]
+    if not leaving:
+        db.flush()
         return 0
-    for party in moved:
+
+    groups = _group_ids(db, rows)
+    # A row committed between the advisory locks and the row lock can name a
+    # role not locked yet: tried, never waited for (out of the sorted order).
+    late = {
+        (vehicle_id, party.role, groups[party.customer_id])
+        for party in leaving
+        if party.customer_id in groups
+        for vehicle_id in (duplicate_vehicle_id, target)
+    } - held
+    _take_role_locks(db, late, wait=False)
+
+    now = utcnow()
+    on_target = {
+        (party.customer_id, party.role, party.effective_from) for party in rows if party.vehicle_id == target
+    }
+    moved: list[VehicleParty] = []
+    for party in leaving:
+        key = (party.customer_id, party.role, party.effective_from)
+        if key in on_target:
+            _keep_copy(db, party, target=target, group_id=groups.get(party.customer_id), now=now)
+            continue
         party.vehicle_id = target
+        on_target.add(key)
+        moved.append(party)
+    db.flush()
+
+    moved_ids = {party.id for party in moved}
+    for role, group_id in sorted(
+        {(party.role, groups[party.customer_id]) for party in moved if party.customer_id in groups},
+        key=lambda pair: (pair[0].value, str(pair[1])),
+    ):
+        _settle_role(
+            db,
+            [
+                party
+                for party in rows
+                if party.vehicle_id == target and party.role == role and groups.get(party.customer_id) == group_id
+            ],
+            moved_ids=moved_ids,
+            group_id=group_id,
+            now=now,
+        )
     db.flush()
     relabel_vehicle_parties_for_vehicle(db, vehicle_id=target)
     return len(moved)
+
+
+def _lock_roles(db: Session, *, duplicate_vehicle_id: uuid.UUID, target: uuid.UUID) -> set[_RoleLock]:
+    """The (vehicle, role, group) advisory lock of the duplicate and of the
+    survivor, for every role and dealer group the duplicate has a row in —
+    the group through `Customer.group_id`, as the close rule finds it
+    (KAN-99). Sorted by vehicle, then role, the order a customer merge takes
+    its own in (KAN-356), so the two never deadlock. The pairs are read again
+    until every one is held; one that appeared while this waited is out of the
+    sorted order and only tried."""
+
+    held: set[_RoleLock] = set()
+    while True:
+        pairs = db.execute(
+            select(VehicleParty.role, Customer.group_id)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(VehicleParty.vehicle_id == duplicate_vehicle_id, VehicleParty.merged_into_vehicle_id.is_(None))
+            .distinct()
+        ).all()
+        missing = {
+            (vehicle_id, role, group_id) for role, group_id in pairs for vehicle_id in (duplicate_vehicle_id, target)
+        } - held
+        if not missing:
+            return held
+        _take_role_locks(db, missing, wait=not held)
+        held |= missing
+
+
+def _take_role_locks(db: Session, locks: set[_RoleLock], *, wait: bool) -> None:
+    for vehicle_id, role, group_id in sorted(locks, key=lambda lock: (str(lock[0]), lock[1].value, str(lock[2]))):
+        if wait:
+            _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+        elif not _try_lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id):
+            raise VehiclePartyRoleBusyError(
+                f"The {role.value} of vehicle {vehicle_id} is being changed right now; the merge's move is retried."
+            )
+
+
+def _group_ids(db: Session, rows: list[VehicleParty]) -> dict[uuid.UUID, uuid.UUID]:
+    """Each row's dealer group, through its customer (the row has no group
+    column, KAN-99). A row whose customer no longer exists is in no group: it
+    moves, and no role is settled for it."""
+
+    customer_ids = {party.customer_id for party in rows}
+    if not customer_ids:
+        return {}
+    found = db.execute(select(Customer.id, Customer.group_id).where(Customer.id.in_(customer_ids))).all()
+    return {customer_id: group_id for customer_id, group_id in found}
+
+
+def _holds(party: VehicleParty, now: dt.datetime) -> bool:
+    """`_holds_now_or_later` on a loaded row: open, or ending later, and never
+    an empty period (a cancelled planned row, a merge's kept copy)."""
+
+    return party.effective_to is None or (party.effective_to > now and party.effective_to > party.effective_from)
+
+
+def _keep_copy(
+    db: Session, party: VehicleParty, *, target: uuid.UUID, group_id: uuid.UUID | None, now: dt.datetime
+) -> None:
+    """The survivor already carries this customer's row of this role from
+    this very start, so the duplicate's cannot move (`uq_vehicle_party_scope`).
+    It is kept as the customer merge keeps its copy (KAN-177): on the
+    duplicate, marked with the vehicle it was merged into, never deleted. One
+    that holds its role — open, or ending later — is closed at its own start
+    (`vehicle_party_remove`, `unlinked`, both carrying `mergedIntoVehicleId`),
+    so it never reads as a current party again; one that already ended keeps
+    its end, takes the mark and is audited as a `vehicle_party_update`. The
+    survivor's row is not touched."""
+
+    if group_id is not None and _holds(party, now):
+        _close_vehicle_party(
+            db,
+            party=party,
+            actor_id=None,
+            group_id=group_id,
+            effective_to=party.effective_from,
+            merged_into_vehicle_id=target,
+            reason=VEHICLE_MERGED_REASON,
+        )
+        return
+    party.merged_into_vehicle_id = target
+    if group_id is None:
+        # No customer, so no group to stamp an audit row or an event with.
+        logger.warning("Vehicle party %s names no customer; kept on its merged vehicle unaudited.", party.id)
+        if _holds(party, now):
+            party.effective_to = party.effective_from
+        return
+    period = {
+        "vehicleId": str(party.vehicle_id),
+        "role": party.role.value,
+        "effectiveFrom": party.effective_from.isoformat(),
+        "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+    }
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=party.customer_id,
+        tenant_id=group_id,
+        action="vehicle_party_update",
+        actor_id=None,
+        before=period,
+        after={**period, "mergedIntoVehicleId": str(target)},
+        reason=VEHICLE_MERGED_REASON,
+    )
+
+
+def _settle_role(
+    db: Session, parties: list[VehicleParty], *, moved_ids: set[uuid.UUID], group_id: uuid.UUID, now: dt.datetime
+) -> None:
+    """KAN-672 (Anto, 2026-11-12, option C) — one role of the survivor in one
+    dealer group, after the move. Nothing is done unless both cars brought a
+    row that holds the role now or later: a role only one of them held is as
+    it was, and what was already wrong on one car is not this consumer's to
+    repair. Never another group's row (KAN-99): `parties` is one group's.
+
+    Of the holders current now, the one with the later start stays; every
+    other is closed **at that start**, the instant it was replaced — through
+    `_close_vehicle_party`, as a new holder closes the previous one: audited
+    `vehicle_party_remove` (reason `vehicle_merged`, no actor) and published
+    `unlinked`, losing any link to a planned handover. Equal starts: the
+    survivor vehicle's own row stays (then the row recorded later), and the
+    other is closed at its own start — an empty period, it never held the
+    role on the merged car.
+
+    A holder whose start is still to come («ab …», KAN-583/KAN-644) is what
+    it would be had it been allocated on the survivor: the current holder
+    keeps the role until that start, closed there and linked
+    (`closed_for_party_id`), with no `unlinked`; one already ending first is
+    spared. Two planned holders follow the same rule between them — the
+    earlier ends where the later starts.
+    """
+
+    holding = [party for party in parties if _holds(party, now)]
+    brought = [party for party in holding if party.id in moved_ids]
+    if not brought or len(brought) == len(holding):
+        return
+
+    def rank(party: VehicleParty) -> tuple[dt.datetime, bool, uuid.UUID]:
+        return (party.effective_from, party.id not in moved_ids, party.id)
+
+    current = sorted((party for party in holding if party.effective_from <= now), key=rank)
+    planned = sorted((party for party in holding if party.effective_from > now), key=rank)
+    for replaced in current[:-1]:
+        _close_vehicle_party(
+            db,
+            party=replaced,
+            actor_id=None,
+            group_id=group_id,
+            effective_to=current[-1].effective_from,
+            reason=VEHICLE_MERGED_REASON,
+        )
+    chain = current[-1:] + planned
+    for earlier, later in itertools.pairwise(chain):
+        if earlier.effective_to is not None and earlier.effective_to <= later.effective_from:
+            continue
+        empty = later.effective_from == earlier.effective_from
+        _close_vehicle_party(
+            db,
+            party=earlier,
+            actor_id=None,
+            group_id=group_id,
+            effective_to=later.effective_from,
+            closed_for_party_id=None if empty else later.id,
+            reason=VEHICLE_MERGED_REASON,
+        )
+        if empty:
+            # Two planned holders from the same instant: the rows waiting for
+            # the one that never starts now wait for the one that does.
+            for party in parties:
+                if party.closed_for_party_id == earlier.id:
+                    party.closed_for_party_id = later.id
 
 
 def handle_vehicle_merged_message(db: Session, message: OutboxMessage) -> None:

@@ -138,8 +138,14 @@ re-verified against the code. -->
   `customer.vehicle_parties_on_vehicle_merged` (`app/customer/services/vehicle_merge.py`, KAN-634)
   then moves every party row naming the duplicate (every group's, open or closed) onto the survivor,
   followed to the live record via `vehicle.public.resolve_merged_vehicle_id` (delivery is unordered),
-  locks both cars' rows in one id-ordered `FOR NO KEY UPDATE` and relabels them; nothing is closed,
-  audited or published. Customer's reconciliation reports a party row naming a merged vehicle.
+  under both cars' (vehicle, role, group) advisory locks (sorted), then both cars' rows in one id-ordered
+  `FOR NO KEY UPDATE`, and relabels them. Where both cars bring a holder of a role in one dealer group
+  (KAN-672; Anto, 2026-11-12, option C) the later start stays and the others are closed at its start
+  (`_close_vehicle_party`: `vehicle_party_remove`, reason `vehicle_merged`, `unlinked`; equal starts: the
+  survivor's row stays); a holder still to come ends the current one at its start, linked (KAN-644). A row
+  whose (customer, role, start) the survivor already carries stays on the duplicate, closed at its start
+  and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `merged_party_row`).
+  Customer's reconciliation reports any other party row naming a merged vehicle.
 - **Vehicle never reads or writes `VehicleParty`** (KAN-634, ADR-131 (5)): the Vehicle 360's
   «Allocate to customer» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders
   (`GET /v1/vehicle-mdm/{id}/party-roles`) are served from the composition root

@@ -107,6 +107,23 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
         ),
     )
 
+    # KAN-672 (Anto's ruling 2026-11-12, option C): a vehicle merge moves the
+    # duplicate vehicle's rows onto the survivor — except a row whose
+    # (customer, role, effective_from) the survivor already carries, which
+    # uq_vehicle_party_scope (it spans vehicle_id) would refuse. Like KAN-177's
+    # copy, that row is never deleted: it stays on the duplicate's vehicle_id,
+    # closed at its own start, and this column names the vehicle its car was
+    # merged into. NULL on every row a vehicle merge did not keep this way.
+    merged_into_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment=(
+            "Owned by the vehicle context (vehicle_mdm.id, no DB-level FK): the vehicle this row's vehicle was "
+            "merged into, set only on a copy the vehicle merge kept closed because the survivor already carried "
+            "its (customer, role, effective_from). KAN-672."
+        ),
+    )
+
     # KAN-644/KAN-583: a current holder recorded to end at a planned holder's
     # start (closed «at the handover», not now) names that planned row here.
     # Cancelling the planned handover gives the role back to exactly the rows
