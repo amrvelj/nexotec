@@ -190,6 +190,21 @@ _OWN_COMMIT_WRITES = {
         "app.valuation.services.valuation.revert_use",
         "sales: confirm_contract's compensation",
     ),
+    # KAN-631 (ADR-131): Sales tells valuation which contracts carry a
+    # valuation — pending before the Sales write commits (released again if
+    # it fails), signed and released after — each on a session of its own.
+    "app.valuation.public.record_contract_carry_pending": (
+        "app.valuation.services.contract_carry.record_pending",
+        "sales: a contract starting to carry a valuation (valuation_carry.commit_carrying)",
+    ),
+    "app.valuation.public.record_contract_carry_signed": (
+        "app.valuation.services.contract_carry.record_signed",
+        "sales: confirm_contract, after the signing commits",
+    ),
+    "app.valuation.public.release_contract_carry": (
+        "app.valuation.services.contract_carry.record_released",
+        "sales: a pending contract's cancel, a replaced valuation, a failed write's compensation",
+    ),
     # A VIN resolves to (or creates) the vehicle master record (FR-V-04).
     # Every caller hands it a session of its own — never the request's,
     # whose pending work its commit would land and its race guard's
@@ -330,10 +345,6 @@ _READS = {
     "app.sales.public.contract_with_invoice_requested_for_stock_item",
     # KAN-189: the customer context asks who traded a bought car in; a SELECT only.
     "app.sales.public.get_trade_in_seller",
-    # KAN-115: valuation asks which valuations a signed contract carries.
-    "app.sales.public.valuations_carried_by_signed_contracts",
-    # KAN-520: «Verwendung aufheben» asks which valuations a pending contract carries.
-    "app.sales.public.valuations_carried_by_pending_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.

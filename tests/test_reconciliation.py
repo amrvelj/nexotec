@@ -698,7 +698,8 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     # What confirmation does: stamp the trade-in valuation used (KAN-101),
     # then hold the car for the contract.
     consume_valuation_for_contract(
-        db_session, tenant_id=uuid.UUID(dealer_id), valuation_id=valuation.id, actor_id=user_id,
+        db_session, tenant_id=uuid.UUID(dealer_id), valuation_id=valuation.id,
+        contract_id=confirmed.id, contract_label=confirmed.contract_number, actor_id=user_id,
     )
     held = reserve_for_contract(
         db_session, tenant_id=uuid.UUID(dealer_id), stock_item_id=held_item.id, contract_id=confirmed.id,

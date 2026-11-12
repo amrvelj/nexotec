@@ -29,6 +29,7 @@ from app.valuation.services.valuation import (
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from tests.token_support import dealer_group_of
+from tests.valuation_carry_support import tell_valuation
 from tests.vin_support import unique_vin
 
 
@@ -210,6 +211,7 @@ def _contract_carrying(
     )
     db_session.add(contract)
     db_session.commit()
+    tell_valuation(db_session, contract)  # KAN-631: as Sales' own calls would
     return contract
 
 

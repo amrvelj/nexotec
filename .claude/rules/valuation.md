@@ -4,7 +4,7 @@ paths:
   - "app/sales/services/trade_in.py"
   - "app/sales/services/contract.py"
   - "app/inventory/services/pipeline.py"
-  - "app/sales/services/signed_trade_ins.py"
+  - "app/sales/services/valuation_carry.py"
   - "app/sales/reconciliation.py"
   - "app/inventory/reconciliation.py"
   - "frontend/apps/dms/src/**/*aluation*"
@@ -103,9 +103,11 @@ file in the same PR as any change to what it states. -->
   repairs a missed stamp: allowed only when a signed contract of the same dealership
   (`signed_at` set, cancelled included) carries the valuation, **whatever its status, expired
   included** — the contracts signed before KAN-101 stamped nothing; refused otherwise
-  (`no_signed_contract`). Sales answers through
-  `sales.public.valuations_carried_by_signed_contracts`; `ValuationRead.hasSignedContract`
-  carries the same answer to the row menu. `mark_used` is the one place that sets `used_at`;
+  (`no_signed_contract`); `ValuationRead.hasSignedContract` carries it to the row menu. Valuation
+  answers from its own `valuation_contract_carry` rows, never by asking Sales (KAN-631, ADR-131):
+  Sales' calls write them (`sales/services/valuation_carry.py`): pending before a contract
+  starts carrying it commits, signed after signing, released after a pending cancel or a
+  replacement; signed is final (ADR-066). `scripts/backfill_valuation_contract_carry.py` fills old ones. `mark_used` is the one place that sets `used_at`;
   `revert_use` the one that clears it — the confirmation's compensation, and «Verwendung
   aufheben» below.
 - **«Verwendung aufheben»** (Anto, 2026-10-31, KAN-253 option C): `POST
@@ -119,15 +121,11 @@ file in the same PR as any change to what it states. -->
   younger than the nightly check's one-hour grace (409 `stamp_too_recent`, `CONFIRMATION_GRACE`: a
   confirmation stamps before it signs, and the lock holds only the valuation row; the row menu
   disables the entry with that reason), and **while a pending contract of the dealership carries
-  it** (409 `pending_contract_carries_it`; KAN-520, Anto 2026-11-03, option A, read through
-  `sales.public.valuations_carried_by_pending_contracts`): that contract's confirmation would find
-  the stamp set, write nothing and release the valuation's lock before signing, so a clear in
-  between would leave a signed contract on an unstamped valuation. The contract is cancelled
-  first. A confirmation only runs on a contract already committed as pending, which leaves pending
-  only in the commit that signs it, and the clear reads pending contracts **before** signed ones,
-  so a signing committed between the two reads is still seen — the window is closed
-  (`tests/test_valuation_revert_use.py` interleaves a clear with a re-confirmation, and a signing
-  with each of the two reads). Audited
+  it** (409 `pending_contract_carries_it`; KAN-520, Anto 2026-11-03, option A): that contract's
+  confirmation would find the stamp set, write nothing and release the valuation's lock before
+  signing, so a clear in between would leave a signed contract on an unstamped valuation. The
+  contract is cancelled first. One read of the carry rows, pending before its contract commits:
+  no signing escapes it (`tests/test_valuation_revert_use.py`). Audited
   (`valuation_use_reverted_by_hand`, before/after `usedAt`, the reason) and published as
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
@@ -140,7 +138,7 @@ file in the same PR as any change to what it states. -->
   valuation, or a `valuation_ref_amount` that differs from its `final_offer`
   (`inventory/reconciliation.py`); a valuation whose `vehicle_vin` differs from the VIN of the
   vehicle its `vehicle_id` names (`valuation/reconciliation.py`, KAN-449 — rows written before
-  the refusal). Nothing writes `used_at` from these checks.
+  the refusal); carry rows disagreeing with Sales (KAN-631). Nothing writes from these checks.
 - **Stock's `valuationRef`** on a trade-in (ADR-074) is set when inventory's
   `sales.contract.confirmed` consumer creates the pipeline item (`inventory/services/pipeline.py`,
   from `tradeIn.valuationId`, read through `valuation.public` in the same transaction) — the

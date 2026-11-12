@@ -63,6 +63,7 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
+from app.valuation.models.contract_carry import ValuationContractCarry
 from app.valuation.models.valuation import (
     Valuation,
     ValuationDeduction,
@@ -188,6 +189,7 @@ __all__ = [
     "UserNotificationPreference",
     "UserPreference",
     "Valuation",
+    "ValuationContractCarry",
     "ValuationDeduction",
     "ValuationNumberSequence",
     "ValuationProviderQuote",

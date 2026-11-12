@@ -450,7 +450,8 @@ def test_two_simultaneous_consumptions_serialise_on_the_row_lock(db_session, eng
         session = factory()
         try:
             result["newly_used"] = consume_valuation_for_contract(
-                session, tenant_id=dealership.id, valuation_id=valuation.id, actor_id=None
+                session, tenant_id=dealership.id, valuation_id=valuation.id,
+                contract_id=uuid.uuid4(), contract_label="C-000002", actor_id=None,
             )
         finally:
             session.close()
