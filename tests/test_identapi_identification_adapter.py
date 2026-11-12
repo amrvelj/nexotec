@@ -193,7 +193,7 @@ def test_a_plate_answer_keeps_every_built_vehicle_and_the_variant_carries_its_pr
     they were served from. A plate answer keeps every built vehicle — one
     without a Stammnummer (the spec: `vrn` "depends on user group definition")
     or without a Typenschein included; what the plate cache may store is the
-    waterfall's decision (`identification._cacheable`) — and the list prices
+    waterfall's decision (`identification_registered._cacheable`) — and the list prices
     and Typenscheine travel on the variant row, in one request."""
 
     fake = FakeAutoi(

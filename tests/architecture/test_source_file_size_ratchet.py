@@ -32,11 +32,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 LIMIT = 1000
 
 # repo-relative path -> (line count when listed, the ticket that splits it).
-OVER_LIMIT: dict[str, tuple[int, str]] = {
-    "app/platform/api/dealerships.py": (1076, "KAN-668"),
-    "app/platform/services/user.py": (1071, "KAN-669"),
-    "app/vehicle/services/identification.py": (1032, "KAN-670"),
-}
+OVER_LIMIT: dict[str, tuple[int, str]] = {}
 
 # The list as it stood on 2026-11-12 (KAN-668 to KAN-671). It never gains a
 # path: `test_the_frozen_baseline_is_unchanged` pins it by digest. It keeps a

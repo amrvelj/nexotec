@@ -65,6 +65,7 @@ from app.platform.services import auth_events, auth_sessions, auth_tokens, ident
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
+from app.platform.services import user_reads as user_reads_service
 from app.platform.services.mailer import PlatformMailer, get_mailer
 
 # The front door sets or clears the session cookie on `Response`, which the
@@ -84,7 +85,7 @@ def _set_session_cookie(response: Response, token: str, *, max_age: int) -> None
 
 
 def _membership_ids(db: Session, *, user_id: uuid.UUID, home_dealership_id: uuid.UUID) -> frozenset[uuid.UUID]:
-    return frozenset({home_dealership_id}) | user_service.list_membership_dealership_ids(db, user_id=user_id)
+    return frozenset({home_dealership_id}) | user_reads_service.list_membership_dealership_ids(db, user_id=user_id)
 
 
 def client_ip(request: Request) -> str:
@@ -509,7 +510,7 @@ def get_current_session_user(principal: Principal = Depends(get_current_principa
     """Restores "logged in as X" after a page reload. The memberships are
     read from the database (KAN-237), never the token's claim."""
 
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_or_404(db, principal.user_id)
     dealership = dealership_service.get_dealership_or_404(db, principal.tenant_id)
     membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
     return _login_response(
@@ -546,7 +547,7 @@ def switch_dealership(
     `session` row stays the same one (the guard already checked it).
     """
 
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_or_404(db, principal.user_id)
     row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
     # What the session proved is the row's (a factor confirmed from this
     # session joined it) — the token's claim is what it was minted with.
@@ -643,13 +644,13 @@ def _mfa_status(db: Session, *, user: User, principal: Principal) -> MfaStatusRe
 
 @account_router.get("/auth/mfa", response_model=MfaStatusRead)
 def mfa_status(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_or_404(db, principal.user_id)
     return _mfa_status(db, user=user, principal=principal)
 
 
 @account_router.post("/auth/mfa/totp/enrol", response_model=TotpEnrolmentRead)
 def totp_enrol(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     enrolment = mfa.begin_totp(db, user=user)
     db.commit()
     return TotpEnrolmentRead(secret=enrolment.secret, provisioning_uri=enrolment.provisioning_uri)
@@ -667,7 +668,7 @@ def totp_confirm(
     longer one that owes a factor (the guard would otherwise confine the
     user until they signed out)."""
 
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     codes = mfa.confirm_totp(db, user=user, code=body.code, ip_address=client_ip(request))
     _record_factor_on_session(db, principal=principal, method="otp")
     db.commit()
@@ -692,7 +693,7 @@ def _record_factor_on_session(db: Session, *, principal: Principal, method: str)
 
 @account_router.delete("/auth/mfa/totp", status_code=204)
 def totp_remove(request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     if mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request)):
         _drop_factor_from_session_if_none_left(db, principal=principal, user=user)
     db.commit()
@@ -732,7 +733,7 @@ def _drop_factor_from_session_if_none_left(db: Session, *, principal: Principal,
 def recovery_codes_regenerate(
     request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
 ):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     codes = mfa.regenerate_recovery_codes(db, user=user, ip_address=client_ip(request))
     db.commit()
     return RecoveryCodesRead(codes=codes)
@@ -740,7 +741,7 @@ def recovery_codes_regenerate(
 
 @account_router.post("/auth/mfa/passkeys/options", response_model=PasskeyOptionsResponse)
 def passkey_register_options(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     challenge_id = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.PASSKEY_REGISTRATION, actor_id=user.id)
     options = mfa.passkey_registration_options(db, user=user, challenge=mfa.challenge_for(challenge_id, "register"))
     db.commit()
@@ -754,7 +755,7 @@ def passkey_register(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     token = auth_tokens.peek(db, raw=body.challenge_id, kind=AuthTokenKind.PASSKEY_REGISTRATION)
     if token is None or token.user_id != user.id:
         raise UnauthorizedError("The passkey step has expired — start again.")
@@ -782,7 +783,7 @@ def passkey_remove(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     if not mfa.remove_passkey(
         db, user=user, passkey_id=passkey_id, actor_id=principal.user_id, ip_address=client_ip(request)
     ):

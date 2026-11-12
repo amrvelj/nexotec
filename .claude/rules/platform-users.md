@@ -22,10 +22,12 @@ paths:
   - "tests/test_platform_concurrent_*.py"
   - "tests/test_platform_idempotency.py"
   - "tests/test_platform_chain_renders_offline.py"
-  - "app/platform/api/dealerships.py"
+  - "app/platform/api/dealership*.py"
   - "app/api/v1/dealer_groups.py"
   - "app/platform/api/me.py"
   - "app/platform/services/user.py"
+  - "app/platform/services/user_common.py"
+  - "app/platform/services/user_reads.py"
   - "app/platform/services/membership.py"
   - "app/platform/services/ownership.py"
   - "app/platform/services/me.py"
@@ -93,7 +95,7 @@ platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; 
   target. A manager sees only the sister Betriebe they manage themselves (the Users screen's
   «Weitere Betriebe»; a 404 reads «not yours to manage», an empty list never «no access»).
 - **Every route that writes a user's memberships, delegations or user row locks the user row first**
-  (`user_service.get_user_for_update_or_404`, FOR NO KEY UPDATE) before any child row —
+  (`user_reads_service.get_user_for_update_or_404`, FOR NO KEY UPDATE) before any child row —
   `tests/test_platform_concurrent_first_grants.py` pins them; a new such route joins it. (Lock order: `platform-identity.md`.)
 - `LoginResponse.user.isDealerManager` is the **home** flag — never gate a screen on it; the
   session's own flag is `LoginResponse.isActiveDealershipManager`.

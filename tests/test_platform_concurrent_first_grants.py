@@ -15,7 +15,7 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from app.platform.api import dealerships as dealerships_api
+from app.platform.api import dealership_identity, dealership_memberships, dealership_users
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.standard_text_delegation import StandardTextDelegation
@@ -217,7 +217,9 @@ def test_every_user_administration_write_takes_the_user_row_lock_first(route):
     A route on the plain read locks them the other way round and deadlocks
     against the others — only a few of those pairs have a race test."""
 
-    source = inspect.getsource(getattr(dealerships_api, route))
+    # KAN-668: the user-administration routes live in three modules.
+    module = next(m for m in (dealership_users, dealership_memberships, dealership_identity) if hasattr(m, route))
+    source = inspect.getsource(getattr(module, route))
     assert "get_user_for_update_or_404(" in source
     assert "get_user_or_404(" not in source
 

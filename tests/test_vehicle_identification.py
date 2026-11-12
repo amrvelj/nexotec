@@ -37,8 +37,8 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import identification as svc
-from app.vehicle.services import plate_lookup_cache
-from app.vehicle.services.identification import (
+from app.vehicle.services import identification_types, plate_lookup_cache
+from app.vehicle.services.identification_types import (
     IdentificationNote,
     IdentificationOutcome,
     IdentifierKind,
@@ -147,7 +147,7 @@ def _bearer(tenant_id: uuid.UUID, role: AccessRole = AccessRole.SALES) -> dict[s
     ],
 )
 def test_the_input_decides_what_it_is(raw, kind, value):
-    assert svc.classify_identifier(raw) == (kind, value)
+    assert identification_types.classify_identifier(raw) == (kind, value)
 
 
 def test_an_unrecognisable_input_is_a_422_not_a_guess(db_session):

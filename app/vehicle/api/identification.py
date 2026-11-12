@@ -22,7 +22,7 @@ from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.vehicle.schemas.identification import BestMatchProposalRead, IdentificationRead
 from app.vehicle.services import identification as identification_service
-from app.vehicle.services.identification import NewPriceSource
+from app.vehicle.services.identification_types import NewPriceSource
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
