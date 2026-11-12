@@ -29,6 +29,7 @@ from app.core.sorting import SortField
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.services import customer as customer_service
 from tests.enum_test_support import drop_enum_checks
+from tests.postgres_only import POSTGRES_SQL
 
 _MIG_PATH = (
     pathlib.Path(__file__).resolve().parents[1] / "alembic/versions/customer/a3f8d2c91b64_fix_d21_case_mismatch.py"
@@ -89,6 +90,7 @@ def _insert_raw_customer(db_session, *, customer_number: str, preferred_channel:
 # --- the migration itself ----------------------------------------------------------
 
 
+@POSTGRES_SQL
 def test_upgrade_converts_the_real_uppercase_legacy_values(db_session):
     _insert_raw_customer(db_session, customer_number="K-MAIL", preferred_channel="MAIL")
     _insert_raw_customer(db_session, customer_number="K-CALL", preferred_channel="CALL")
@@ -109,6 +111,7 @@ def test_upgrade_converts_the_real_uppercase_legacy_values(db_session):
     assert rows["K-MESSAGE"] == "MESSAGE"  # no clean target (KAN-54) — left untouched
 
 
+@POSTGRES_SQL
 def test_downgrade_reverses_it(db_session):
     _insert_raw_customer(db_session, customer_number="K-EMAIL", preferred_channel="EMAIL")
 
@@ -121,6 +124,7 @@ def test_downgrade_reverses_it(db_session):
     assert value == "MAIL"
 
 
+@POSTGRES_SQL
 def test_rename_is_idempotent_a_second_run_changes_nothing_further(db_session):
     _insert_raw_customer(db_session, customer_number="K-MAIL", preferred_channel="MAIL")
 
@@ -138,6 +142,7 @@ def test_rename_is_idempotent_a_second_run_changes_nothing_further(db_session):
 # --- list_customers survives a row it can't decode ---------------------------------
 
 
+@POSTGRES_SQL
 def test_list_customers_omits_the_bad_row_but_returns_everyone_else_in_the_same_group(db_session):
     group_id = uuid.uuid4()
     good = Customer(

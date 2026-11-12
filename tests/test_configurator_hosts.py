@@ -53,6 +53,7 @@ from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.dealership_support import valid_uid
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.route_walk import api_routes
 from tests.test_sales_lifecycle_reservation import _with_buyer
 from tests.vin_support import unique_vin
@@ -501,6 +502,7 @@ def test_a_valuation_without_a_configuration_writes_no_vehicle_mdm_either(db_ses
 # --- the trade-in carve-out ----------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_reference(db_session, engine):
     """Exit criterion 4: plate → record configuration → valuation → the
     offer references the valuation; confirmation makes the trade-in a

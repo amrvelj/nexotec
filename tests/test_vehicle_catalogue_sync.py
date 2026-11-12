@@ -27,6 +27,7 @@ from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantOpti
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
 from tests.catalogue_lookup_support import look_up_demo_variants
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 
 
 def _bare_variant(db_session, name: str = "Bare Variant") -> ModelVariant:
@@ -71,6 +72,7 @@ def _make_connection(db_session, provider, *, tenant_id=None):
 # --- single lookup ------------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_repeated_lookup_duplicates_neither_variants_nor_tenant_content(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -83,6 +85,7 @@ def test_a_repeated_lookup_duplicates_neither_variants_nor_tenant_content(db_ses
     assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 3
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_persists_the_variant_base_price_the_adapter_already_returns(db_session):
     """C-A: `VariantMasterData.base_price` (LetzterNP) was being dropped —
     the adapter returns it, nothing persisted it. KAN-547: the price's year
@@ -100,6 +103,7 @@ def test_a_lookup_persists_the_variant_base_price_the_adapter_already_returns(db
     assert {(v.base_price_year, v.price_is_net) for v in priced} == {(2021, False), (2023, False)}
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session):
     """No ProviderCodeMap rows exist for `auto_i_dat_mock` in this test —
     every *_code field on every demo variant misses, and the existing
@@ -131,6 +135,7 @@ def test_a_lookup_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session
 # --- KAN-43 (C-E): options/colours/tyres field wiring --------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_populates_option_included_package_and_model_year(db_session):
     """`is_included` / `is_package` / `model_year` were added to
     `VariantOption` by C-A but never populated by this sync until now."""
@@ -158,6 +163,7 @@ def test_a_lookup_populates_option_included_package_and_model_year(db_session):
     assert all(o.model_year == swiss_today().year for o in options.values())
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_resolves_equipment_features_via_provider_code_map(db_session):
     """`SuchCode` resolves through the same `resolve_provider_code`/
     `MappingGap` machinery every other coded field uses — a mapped code
@@ -258,6 +264,7 @@ def test_sync_option_equipment_features_replaces_the_set_on_each_call(db_session
     assert codes == set()
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_populates_colour_surcharge_price(db_session):
     """FR-C-07: "the surcharge is a price line in build mode." `Preis`
     was on the raw response but parsed by no one until now."""
@@ -278,6 +285,7 @@ def test_a_lookup_populates_colour_surcharge_price(db_session):
     assert colours["GRY"].price is None  # interior colour, no surcharge in the fixture
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_populates_tyre_remark_and_season(db_session):
     """FR-C-08: BemDe ("nur mit Leichtmetallfelgen") and PneuTyp
     (summer/winter) must be shown with the dimension."""
@@ -300,6 +308,7 @@ def test_a_lookup_populates_tyre_remark_and_season(db_session):
     assert specs[("1", "122")].remark is None
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_populates_the_full_image_url(db_session):
     """FR-C-09 — the full BildURL, previously discarded at ingestion
     (an explicit WP-6 Open Item); without it no caller can render a photo,
@@ -359,6 +368,7 @@ def test_tyre_spec_cache_still_rejects_a_true_duplicate(db_session):
         db_session.flush()
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_lookup_links_each_variant_to_its_typenscheine_once(db_session):
     """KAN-42 (C-D): FR-C-02 step 4 resolves a Typenschein through
     `vehicle_variant_type_approval`, which the sync never wrote before."""
@@ -378,6 +388,7 @@ def test_a_lookup_links_each_variant_to_its_typenscheine_once(db_session):
     assert db_session.query(VariantTypeApproval).count() == 3
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_variant_mirrored_without_its_typenscheine_is_linked_by_its_next_lookup(db_session):
     """KAN-190 item 3: a variant mirrored before KAN-42 has no
     `vehicle_variant_type_approval` rows. No backfill fetches them — no
@@ -451,6 +462,7 @@ def _fuel_gap(db_session, provider_code: str) -> MappingGap:
     return gap
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_sync_records_each_variants_raw_provider_codes(db_session):
     _looked_up_tenant(db_session)
 
@@ -468,6 +480,7 @@ def test_the_sync_records_each_variants_raw_provider_codes(db_session):
     }
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_gap_fills_the_variants_it_left_null_at_once(db_session):
     """No sync runs after the resolve: the variants are filled by the
     resolve itself, and only those whose raw code is the gap's."""
@@ -493,6 +506,7 @@ def test_resolving_a_gap_fills_the_variants_it_left_null_at_once(db_session):
     assert events[0].after["variantsFilled"] == 2
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_gap_never_overwrites_a_field_that_already_holds_a_value(db_session):
     _looked_up_tenant(db_session)
     _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
@@ -517,6 +531,7 @@ def test_resolving_a_gap_never_overwrites_a_field_that_already_holds_a_value(db_
     assert filled.version == 2
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_resync_fills_a_coded_field_whose_code_has_been_mapped_since(db_session):
     """A mapping written outside a resolve (a seed migration) is picked up
     by the next visit of the variant."""
@@ -540,6 +555,7 @@ def test_a_resync_fills_a_coded_field_whose_code_has_been_mapped_since(db_sessio
     assert _variant(db_session, "FZ100003").body_style is None  # raw code "4", still unmapped
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_resync_fills_null_master_fields_and_never_overwrites_set_ones(db_session):
     tenant_id = _looked_up_tenant(db_session)
     emptied = _variant(db_session, "FZ100001")
@@ -561,6 +577,7 @@ def test_a_resync_fills_null_master_fields_and_never_overwrites_set_ones(db_sess
     assert (edited.base_price, edited.werkscode, edited.name) == (Decimal("1.00"), "LOCAL", "Locally renamed")
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_resync_of_an_unchanged_variant_does_not_bump_its_version(db_session):
     tenant_id = _looked_up_tenant(db_session)
     before = _variant(db_session, "FZ100001").version
@@ -570,6 +587,7 @@ def test_a_resync_of_an_unchanged_variant_does_not_bump_its_version(db_session):
     assert _variant(db_session, "FZ100001").version == before
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(db_session, monkeypatch):
     tenant_id = _looked_up_tenant(db_session)
     original = MockAutoIDatAdapter.fetch_variant
@@ -610,6 +628,7 @@ def _variant_with_raw_fuel_code(db_session, *, provider: str, vehicle_kind: str,
     return variant
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_gap_fills_only_variants_of_its_own_vehicle_kind_and_provider(db_session):
     """The vehicle-kind qualifier is load-bearing (`ProviderCodeMap`): fuel
     code "3" is Diesel for a car and Bleifrei for a motorcycle. A gap for
@@ -634,6 +653,7 @@ def test_resolving_a_gap_fills_only_variants_of_its_own_vehicle_kind_and_provide
     assert db_session.get(ModelVariant, other_provider.id).fuel_type is None
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(db_session):
     """An equipment feature is an option attribute, not a variant column:
     its resolve succeeds and fills no variant (never an AttributeError).
@@ -697,6 +717,7 @@ def _feature_gap(db_session, provider_code: str) -> MappingGap:
     ).one()
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_sync_records_each_options_raw_such_codes_in_its_tenant(db_session):
     tenant_id = _looked_up_tenant(db_session)
 
@@ -713,6 +734,7 @@ def test_the_sync_records_each_options_raw_such_codes_in_its_tenant(db_session):
     }
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_an_equipment_feature_gap_adds_the_feature_to_every_tenants_options_at_once(db_session):
     """No sync runs after the resolve: each tenant's option whose SuchCode
     list carried the code gains the feature in that tenant's partition."""
@@ -742,6 +764,7 @@ def test_resolving_an_equipment_feature_gap_adds_the_feature_to_every_tenants_op
     assert events[0].after["optionsFilled"] == 2
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_feature_an_option_already_carries_adds_no_second_row(db_session):
     tenant_id = _looked_up_tenant(db_session)
     _seed_reference_list(db_session, "equipment_feature", ("navigation",))
@@ -762,6 +785,7 @@ def test_resolving_a_feature_an_option_already_carries_adds_no_second_row(db_ses
     assert _features(db_session, nav) == {(tenant_id, "navigation")}
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_feature_gap_reaches_only_options_of_its_own_vehicle_kind_and_provider(db_session):
     tenant_id = _looked_up_tenant(db_session)
     _seed_reference_list(db_session, "equipment_feature", ("apple_carplay",))

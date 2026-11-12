@@ -141,7 +141,9 @@ services:
         # DMS_SENTRY_DSN is configured (neither is set here yet). Without this
         # value staging would then have reported itself as "development", the
         # default of settings.environment, a plain string in app/core/config.py
-        # (KAN-258). A plain value, not a secret.
+        # (KAN-258). Since KAN-499 an unset value refuses to start outside
+        # pytest and local development, and the value must be one of
+        # development / test / staging / production. A plain value, not a secret.
         value: staging
       - key: DMS_DATABASE_URL
         fromDatabase:
