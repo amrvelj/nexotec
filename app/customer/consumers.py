@@ -11,6 +11,10 @@ Registered in app.worker.register_handlers:
   `changedFields` (camelCase names of the summary fields that changed) and
   `summary` (`vin`, `vehicleNumber`, `make`, `model`, `modelYear`, `trim` as
   they now stand).
+- `inventory.stock_item.purchased` as "customer.stock_item_bookings_on_purchased"
+  and `inventory.stock_item.storno` as "customer.stock_item_bookings_on_storno"
+  (KAN-632): the booking record and nothing else, registered before the
+  trade-in consumers of the same event.
 - `inventory.stock_item.purchased` as "customer.trade_in_purchased" (KAN-189).
 - `inventory.stock_item.storno` as "customer.trade_in_storno" (KAN-572).
 
@@ -102,6 +106,31 @@ def handle_vehicle_summary_changed_message(db: Session, message: OutboxMessage) 
     relabel_vehicle_parties_for_vehicle(db, vehicle_id=message.aggregate_id)
 
 
+def _record_booking(db: Session, message: OutboxMessage, kind: StockItemBookingKind) -> None:
+    if message.tenant_id is None:
+        return
+    lock_stock_item(db, stock_item_id=message.aggregate_id)
+    record_booking(db, message=message, kind=kind)
+
+
+def handle_stock_item_booking_purchased_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-632 — every purchase event, trade-in or not, is recorded in this
+    context's booking record, in a consumer of its own: a trade-in step that
+    fails (retried, dead-lettered) never takes the row with it, so the
+    ordering guard of the trade-in consumers always knows the booking.
+    Registered before `customer.trade_in_purchased`; commit-free."""
+
+    _record_booking(db, message, StockItemBookingKind.PURCHASED)
+
+
+def handle_stock_item_booking_storno_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-632 — every storno event, returned or not, is recorded in the
+    booking record, as the purchase's is. Registered before
+    `customer.trade_in_storno`; commit-free."""
+
+    _record_booking(db, message, StockItemBookingKind.STORNOED)
+
+
 def handle_stock_item_purchased_message(
     db: Session, message: OutboxMessage, *, seller_of_old_event: SellerOfOldEvent | None = None
 ) -> None:
@@ -121,8 +150,9 @@ def handle_stock_item_purchased_message(
     context's transaction). Flushes only; consume_once commits. A customer
     merged since the contract is followed to its survivor.
 
-    Every purchase event, trade-in or not, is recorded in this context's
-    booking record (KAN-632), which the storno consumer judges by too.
+    Whether the purchase was overtaken is judged from the booking record
+    (KAN-632), which `customer.stock_item_bookings_on_*` keep; this consumer
+    writes none of it.
     """
 
     payload = message.payload or {}
@@ -133,7 +163,6 @@ def handle_stock_item_purchased_message(
         return
     lock_stock_item(db, stock_item_id=message.aggregate_id)
     overtaken = purchase_overtaken(db, message=message)
-    record_booking(db, message=message, kind=StockItemBookingKind.PURCHASED)
     if not is_trade_in:
         return
     if not payload.get("vehicleId"):
@@ -199,16 +228,15 @@ def handle_stock_item_storno_message(
     consumers judge by the bookings this context has learnt from Stock's
     events, so a storno consumed before its purchase (a failed delivery)
     finds nothing to reopen and the purchase consumed after it records
-    nothing — the residual customer.md states. Every storno, returned or
-    not, is recorded in that booking record. Flushes only; consume_once
-    commits."""
+    nothing — the residual customer.md states. The record is kept by
+    `customer.stock_item_bookings_on_*`, not here. Flushes only;
+    consume_once commits."""
 
     payload = message.payload or {}
     overtaken = False
     if message.tenant_id is not None:
         lock_stock_item(db, stock_item_id=message.aggregate_id)
         overtaken = storno_overtaken(db, message=message)
-        record_booking(db, message=message, kind=StockItemBookingKind.STORNOED)
     if not payload.get("returnedToCustomer"):
         return
     if payload.get("originRole") != "trade_in" or not payload.get("originContractId"):

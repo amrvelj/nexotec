@@ -18,8 +18,8 @@ from sqlalchemy import func, select
 
 from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage
+from app.customer.consumers import handle_stock_item_booking_purchased_message, purchase_moment
 from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
-from app.customer.consumers import purchase_moment
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.vehicle_party import allocate_vehicle_party
@@ -245,6 +245,14 @@ def _parties(db_session) -> list[VehicleParty]:
 
 
 def _customer_consumes(db_session, message) -> bool:
+    """As the worker delivers the event to the customer context: its booking
+    record first (KAN-632), then the trade-in step; returns whether the
+    trade-in step ran."""
+
+    consume_once(
+        db_session, message=message, consumer_name="customer.stock_item_bookings_on_purchased",
+        handler=handle_stock_item_booking_purchased_message,
+    )
     return consume_once(
         db_session, message=message, consumer_name="customer.trade_in_purchased",
         handler=handle_trade_in_purchased_message,

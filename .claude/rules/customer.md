@@ -160,13 +160,13 @@ weekly. -->
   `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
   open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
   the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
-  failed delivery, both consumers record every purchase/storno event in `customer_stock_item_booking`
-  (KAN-632; seeded from the outbox; per-item lock) and judge by `occurredAt`: a purchase is recorded only
+  failed delivery, `customer.stock_item_bookings_on_{purchased,storno}` (registered first, nothing else to fail)
+  record every purchase/storno event in `customer_stock_item_booking` (KAN-632; seeded from the outbox, re-seeded
+  by `scripts/backfill_customer_stock_item_booking.py`; nightly check; per-item lock); the trade-in consumers judge by `occurredAt`: a purchase is recorded only
   while no later booking of the item is known, and a returned storno a later purchase overtook (standing
   or stornoed in turn) reopens nobody. The reopen also leaves a role alone when a row of it was
   recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
-  recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
-  promptly and in order, the returned customer does not get that role back and the role has no current
+  recorded later does not count), or a holder of it starts after the storno — then, even in order, the returned customer does not get that role back and the role has no current
   holder until the future holder starts (never ended before it began; KAN-583).
   **Accepted residual**
   (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632 to out-of-order delivery — a backlog in

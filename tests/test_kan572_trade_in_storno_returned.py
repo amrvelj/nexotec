@@ -20,6 +20,7 @@ from app.core.audit_model import AuditEvent
 from app.core.consumer import consume_once
 from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
+from app.customer.consumers import handle_stock_item_booking_storno_message
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.customer.models.vehicle_party import VehiclePartyRole
 from app.customer.schemas.customer import CustomerVehicleCreate
@@ -65,6 +66,13 @@ def _storno(db_session, item, *, returned: bool) -> OutboxMessage:
 
 
 def _customer_consumes_storno(db_session, message) -> bool:
+    """The booking record first (KAN-632), then the trade-in step, as the
+    worker delivers it; returns whether the trade-in step ran."""
+
+    consume_once(
+        db_session, message=message, consumer_name="customer.stock_item_bookings_on_storno",
+        handler=handle_stock_item_booking_storno_message,
+    )
     return consume_once(
         db_session, message=message, consumer_name="customer.trade_in_storno", handler=handle_trade_in_storno_message,
     )

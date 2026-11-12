@@ -30,6 +30,7 @@ from app.core.consumer import Handler
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
+from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.sales_contract import InventorySalesContract, ProjectedContractStatus
 from app.inventory.models.stock_item import StockItem
@@ -311,6 +312,37 @@ def _trade_in_storno(db_session, engine, monkeypatch):
         )
 
     return message, reopened
+
+
+def _booking_rows(message: OutboxMessage) -> Measure:
+    def rows(db: Session) -> int:
+        return db.scalar(
+            select(func.count()).select_from(StockItemBooking).where(StockItemBooking.event_id == message.id)
+        )
+
+    return rows
+
+
+def _booking_on_purchased(db_session, engine, monkeypatch):
+    """KAN-632 — Stock books a purchase: the customer context records the
+    booking once (one customer_stock_item_booking row for the event)."""
+
+    _contract, _item, message = _bought_trade_in(db_session, engine)
+    db_session.commit()
+    return message, _booking_rows(message)
+
+
+def _booking_on_storno(db_session, engine, monkeypatch):
+    """KAN-632 — Stock stornos the purchase: the storno's booking row, once."""
+
+    _contract, item, purchased = _bought_trade_in(db_session, engine)
+    _customer_consumes(db_session, purchased)
+    db_session.refresh(item)
+    storno_purchase(
+        db_session, item=item, data=PurchaseStornoRequest(reason="Lieferung storniert"), actor_id=None,
+    )
+    message = _message(db_session, "inventory.stock_item.storno", item.id)
+    return message, _booking_rows(message)
 
 
 def _customer_merged(db_session, engine, monkeypatch):
@@ -651,6 +683,8 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.stock_item_purchased": _stock_item_purchased,
     "sales.stock_item_storno": _stock_item_storno,
     "sales.stock_item_commercial_changed": _stock_item_commercial_changed,
+    "customer.stock_item_bookings_on_purchased": _booking_on_purchased,
+    "customer.stock_item_bookings_on_storno": _booking_on_storno,
     "customer.trade_in_purchased": _trade_in_purchased,
     "customer.trade_in_storno": _trade_in_storno,
     "sales.customer_merged": _customer_merged,

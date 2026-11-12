@@ -17,18 +17,23 @@ Postgres lane.
 
 import datetime as dt
 import importlib.util
+import os
 import re
 import uuid
 from pathlib import Path
 
 import pytest
 from sqlalchemy import event, func, select, text
+from sqlalchemy.orm import sessionmaker
 
+from app.core.base import utcnow
 from app.core.consumer import consume_once
 from app.core.outbox import OutboxEvent, publish
 from app.core.outbox_model import OutboxMessage
+from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.customer.consumers import (
     OldTradeInEventWithoutSellerLookup,
+    handle_stock_item_booking_purchased_message,
     handle_stock_item_purchased_message,
 )
 from app.customer.models.stock_item_booking import StockItemBooking, StockItemBookingKind
@@ -36,7 +41,8 @@ from app.customer.models.vehicle_party import VehiclePartyRole
 from app.inventory.models.stock_item import StockItem
 from app.sales.models.contract import SalesContract
 from app.vehicle.public import resolve_vehicle_mdm_by_vin
-from tests.test_consumer_redelivery_idempotency import _registered
+from app.worker import register_handlers
+from tests.test_consumer_redelivery_idempotency import _RecordingTransport, _registered
 from tests.test_kan189_trade_in_without_register import _SIGNED_AT, _bought_trade_in, _customer_consumes, _parties
 from tests.test_kan572_trade_in_storno_returned import _buy_again, _customer_consumes_storno, _messages, _storno
 from tests.test_sales_lifecycle_reservation import _customer, _dealership
@@ -351,3 +357,140 @@ def test_reconciliation_reports_a_trade_in_item_naming_no_customer(db_session, e
     db_session.commit()
 
     assert find_orphans(db_session, check) == [(item.id, dangling)]
+
+
+# --- The booking record survives a failing trade-in step (review of KAN-632) ----
+
+
+def _worker_transport(engine) -> InProcessTransport:
+    """The customer context's consumers of the two booking events, in the
+    order and under the names `register_handlers` gives them."""
+
+    recording = _RecordingTransport()
+    register_handlers(recording)
+    transport = InProcessTransport(sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
+    for event_type in ("inventory.stock_item.purchased", "inventory.stock_item.storno"):
+        for consumer_name, handler in recording._handlers[event_type]:
+            if consumer_name.startswith("customer."):
+                transport.register(event_type, consumer_name=consumer_name, handler=handler)
+    return transport
+
+
+def test_the_booking_consumers_run_before_the_trade_in_consumers():
+    recording = _RecordingTransport()
+    register_handlers(recording)
+
+    def order(event_type):
+        return [name for name, _handler in recording._handlers[event_type] if name.startswith("customer.")]
+
+    assert order("inventory.stock_item.purchased") == [
+        "customer.stock_item_bookings_on_purchased", "customer.trade_in_purchased",
+    ]
+    assert order("inventory.stock_item.storno") == ["customer.stock_item_bookings_on_storno", "customer.trade_in_storno"]
+
+
+def _booking_row(db_session, message) -> StockItemBooking | None:
+    db_session.expire_all()
+    return db_session.get(StockItemBooking, message.id)
+
+
+def test_a_purchase_whose_trade_in_step_raises_keeps_its_booking_so_a_late_storno_sees_it(
+    db_session, engine, monkeypatch
+):
+    """P1 consumed → S1 (returned) delayed → P2, a re-purchase whose trade-in
+    step raises (retried, finally dead-lettered) → S1 delivered. P2's
+    booking row comes from its own consumer, so S1 is stale and reopens
+    nobody. Before the booking consumers the row was written in the trade-in
+    step's transaction and rolled back with it: S1 reopened the customer."""
+
+    dealership, seller, _vehicle, facts = _hand_made_trade_in(db_session)
+    transport = _worker_transport(engine)
+    stock_item_id = uuid.uuid4()
+    transport.deliver(_purchased(db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED))
+    stale = _stornoed(
+        db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED + dt.timedelta(days=3), returned=True
+    )
+    again = _purchased(db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED + dt.timedelta(days=9))
+
+    def trade_in_step_fails(*args, **kwargs):
+        raise RuntimeError("the trade-in step failed")
+
+    monkeypatch.setattr("app.customer.consumers.record_former_holder_on_purchase", trade_in_step_fails)
+    with pytest.raises(DeliveryError) as failed:
+        transport.deliver(again)
+    assert [name for name, _exc in failed.value.failures] == ["customer.trade_in_purchased"]
+    row = _booking_row(db_session, again)
+    assert row is not None and row.kind == StockItemBookingKind.PURCHASED
+    monkeypatch.undo()
+
+    transport.deliver(stale)
+
+    parties = _parties(db_session)
+    assert {p.customer_id for p in parties} == {seller.id}
+    assert all(p.effective_to is not None for p in parties)  # the stale storno reopened nobody
+    assert _booking_row(db_session, stale) is not None
+
+
+def test_reconciliation_reports_a_booking_event_without_its_row_after_the_grace(db_session):
+    from app.core.reconciliation import find_rows_in_state
+    from app.customer import reconciliation as customer_reconciliation
+
+    dealership, _seller, _vehicle, facts = _hand_made_trade_in(db_session)
+    stock_item_id = uuid.uuid4()
+    purchase = _purchased(db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED)
+    storno = _stornoed(
+        db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED + dt.timedelta(days=3), returned=False
+    )
+    check = _check(customer_reconciliation.CHECKS, "stock item booking event with no customer_stock_item_booking row")
+
+    assert find_rows_in_state(db_session, check) == []  # within the grace: the consumer may be on its way
+
+    for message in (purchase, storno):
+        message.created_at = utcnow() - dt.timedelta(hours=1, minutes=5)
+    db_session.commit()
+    assert sorted(find_rows_in_state(db_session, check)) == sorted([(purchase.id, purchase.id), (storno.id, storno.id)])
+
+    consume_once(
+        db_session, message=purchase, consumer_name="customer.stock_item_bookings_on_purchased",
+        handler=handle_stock_item_booking_purchased_message,
+    )
+    assert find_rows_in_state(db_session, check) == [(storno.id, storno.id)]
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="the re-seed is Postgres SQL")
+def test_the_backfill_adds_the_rows_an_old_worker_left_out_and_a_second_run_adds_none(db_session, engine):
+    from scripts import backfill_customer_stock_item_booking as backfill_script
+
+    dealership, _seller, _vehicle, facts = _hand_made_trade_in(db_session)
+    stock_item_id = uuid.uuid4()
+    consumed = _purchased(db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED)
+    consume_once(
+        db_session, message=consumed, consumer_name="customer.stock_item_bookings_on_purchased",
+        handler=handle_stock_item_booking_purchased_message,
+    )
+    # Consumed by a worker without the booking consumers during the deploy:
+    stornoed = _stornoed(
+        db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED + dt.timedelta(days=3), returned=False
+    )
+    bought_again = _purchased(db_session, dealership, stock_item_id, facts, occurred_at=_BOOKED + dt.timedelta(days=9))
+    _stock_event(
+        db_session, "inventory.stock_item.purchased", tenant_id=None, stock_item_id=uuid.uuid4(),
+        occurred_at=_BOOKED, payload={},
+    )  # no Betrieb: no booking
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    dry = backfill_script.backfill(commit=False, session_factory=factory)
+    assert (dry.rows_before, dry.rows_added) == (1, 2)
+    assert db_session.scalar(select(func.count()).select_from(StockItemBooking)) == 1  # the dry run wrote nothing
+
+    done = backfill_script.backfill(commit=True, session_factory=factory)
+    assert done.rows_added == 2
+    db_session.expire_all()
+    rows = {row.event_id: row for row in db_session.scalars(select(StockItemBooking)).all()}
+    assert set(rows) == {consumed.id, stornoed.id, bought_again.id}
+    assert rows[stornoed.id].kind == StockItemBookingKind.STORNOED
+    assert rows[bought_again.id].stock_item_label == "S-632"
+    assert rows[bought_again.id].occurred_at == bought_again.occurred_at
+
+    again = backfill_script.backfill(commit=True, session_factory=factory)
+    assert (again.rows_before, again.rows_added) == (3, 0)

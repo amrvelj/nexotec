@@ -7,9 +7,10 @@ offered as `app.vehicle.public.resolve_vehicle_mdm_by_vin`, so no caller
 keeps a copy of the session handling or of the race predicate.
 
 This module imports nothing of Vehicle's at load time: `app.vehicle.public`
-imports `ResolvedVehicleMdm` from here, and `services.vehicle_mdm` reaches
-`app.customer.public`, which imports `app.vehicle.public` back — the same
-deferred-import reasoning as `public.get_vehicle_mdm_or_404`.
+imports `ResolvedVehicleMdm` from here, and `services.vehicle_mdm` is
+imported at call time, as `public.get_vehicle_mdm_or_404` defers it. The
+customer import cycle that once made this necessary is gone since KAN-634
+(vehicle imports nothing of customer's); the deferral is kept, harmless.
 """
 
 import dataclasses
