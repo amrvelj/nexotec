@@ -409,3 +409,41 @@ def test_another_dealerships_contract_is_never_recorded(db_session):
         contract_label="C-1", actor_id=None,
     ) is False
     assert _carries(db_session, valuation.id) == {}
+
+
+CARRY_CONTRACT_REF = "valuation_contract_carry.contract_id -> sales_contract.id"
+CARRY_TENANT_REF = "valuation_contract_carry.tenant_id -> dealership.id"
+
+
+def test_a_carry_row_naming_no_contract_or_betrieb_is_reported(db_session):
+    """Rule 10 (KAN-631 review): the carry row's contract and Betrieb are
+    plain GUIDs into other contexts; a dangling one is reported, never fixed."""
+
+    dealership = _dealership(db_session)
+    valuation = _valuation(db_session, dealership.id, uuid.uuid4())
+    orphan = ValuationContractCarry(
+        tenant_id=dealership.id, valuation_id=valuation.id, contract_id=uuid.uuid4(), state=ContractCarryState.PENDING,
+    )
+    no_betrieb = ValuationContractCarry(
+        tenant_id=uuid.uuid4(), valuation_id=valuation.id, contract_id=uuid.uuid4(), state=ContractCarryState.PENDING,
+    )
+    db_session.add_all([orphan, no_betrieb])
+    db_session.commit()
+
+    assert {f.source_row_id for f in _findings(valuation_reconciliation, db_session, CARRY_CONTRACT_REF)} == {
+        orphan.id, no_betrieb.id,
+    }
+    assert [f.source_row_id for f in _findings(valuation_reconciliation, db_session, CARRY_TENANT_REF)] == [
+        no_betrieb.id
+    ]
+
+
+def test_a_carry_row_naming_its_contract_and_betrieb_is_not_a_dangling_reference(db_session):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id)
+    _trade_in_contract(db_session, dealership.id, group_id, valuation)
+    assert _carries(db_session, valuation.id)
+
+    assert _findings(valuation_reconciliation, db_session, CARRY_CONTRACT_REF) == []
+    assert _findings(valuation_reconciliation, db_session, CARRY_TENANT_REF) == []

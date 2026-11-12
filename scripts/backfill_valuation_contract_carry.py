@@ -18,7 +18,13 @@ Sales' answer read through `app.sales.public.trade_in_valuation_carries`
 - a contract cancelled unsigned → an existing pending row `released`, no
   new row;
 - a pending row whose contract no longer carries its valuation (replaced
-  before the deploy) → `released`.
+  before the deploy) → `released` — once it is older than `PENDING_GRACE`
+  (one hour, the nightly check's): Sales' call writes a pending row before
+  the Sales commit that makes the contract carry it, so a younger one may be
+  a write in flight. It is reported as RECENT and left for a re-run.
+
+Valuation's rows are read first, then Sales' answer on a session of its own
+that ends before any row is written (ADR-047: no transaction spans both).
 
 A signed row is never taken back (ADR-066): one Sales does not hold as
 signed is reported as a CONFLICT and left for a person, as the nightly check
@@ -31,8 +37,8 @@ transaction that is rolled back, and any commit on the way is refused.
 Re-run with --commit after reading it. Re-runnable: a second --commit run
 writes nothing.
 
-Exit status: 0 when nothing is in conflict or foreign (dry run: and nothing
-needed writing), 1 otherwise.
+Exit status: 0 when nothing is in conflict, foreign or recent (dry run: and
+nothing needed writing), 1 otherwise.
 
 Usage:
     DMS_DATABASE_URL=... python scripts/backfill_valuation_contract_carry.py           # dry run
@@ -40,13 +46,16 @@ Usage:
 """
 
 import argparse
+import datetime as dt
 import sys
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from sqlalchemy import event, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.base import utcnow
 from app.db import SessionLocal
 from app.sales.public import ContractValuationCarry, trade_in_valuation_carries
 from app.valuation.models.contract_carry import ContractCarryState, ValuationContractCarry
@@ -55,6 +64,11 @@ from app.valuation.services.contract_carry import mark_pending, mark_released, m
 
 _Key = tuple[uuid.UUID, uuid.UUID]  # (valuation_id, contract_id)
 
+# Sales' call writes a pending row before the Sales commit that makes the
+# contract carry it (`commit_carrying`); a pending row touched this recently
+# may be such a write in flight. The nightly check's grace (`_CARRY_GRACE`).
+PENDING_GRACE = dt.timedelta(hours=1)
+
 
 @dataclass
 class Report:
@@ -62,6 +76,7 @@ class Report:
     unchanged: int = 0
     conflicts: list[tuple[_Key, str]] = field(default_factory=list)
     foreign: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)  # (contract, valuation)
+    recent_pending: list[_Key] = field(default_factory=list)  # stale-looking, inside the grace
 
     @property
     def writes(self) -> int:
@@ -72,11 +87,20 @@ class _CommitRefused(RuntimeError):
     pass
 
 
-def _states(db: Session) -> dict[_Key, ContractCarryState]:
+def _rows(db: Session) -> dict[_Key, tuple[ContractCarryState, dt.datetime]]:
     rows = db.execute(
-        select(ValuationContractCarry.valuation_id, ValuationContractCarry.contract_id, ValuationContractCarry.state)
+        select(
+            ValuationContractCarry.valuation_id,
+            ValuationContractCarry.contract_id,
+            ValuationContractCarry.state,
+            ValuationContractCarry.updated_at,
+        )
     ).all()
-    return {(valuation_id, contract_id): state for valuation_id, contract_id, state in rows}
+    return {(valuation_id, contract_id): (state, updated_at) for valuation_id, contract_id, state, updated_at in rows}
+
+
+def _states(db: Session) -> dict[_Key, ContractCarryState]:
+    return {key: state for key, (state, _updated_at) in _rows(db).items()}
 
 
 def _is_tenants(db: Session, carry: ContractValuationCarry) -> bool:
@@ -105,8 +129,35 @@ def _apply(db: Session, carry: ContractValuationCarry, before: ContractCarryStat
             mark_released(db, **ids)
 
 
-def backfill(db: Session, *, commit: bool) -> Report:
+def _read_sales(
+    session_factory: Callable[[], Session], *, stale_contract_ids: Callable[[list[ContractValuationCarry]], set[uuid.UUID]]
+) -> tuple[list[ContractValuationCarry], dict[uuid.UUID, ContractValuationCarry]]:
+    """Sales' side, on a session of its own that ends before valuation's rows
+    are written (ADR-047: each context's work in its own transaction, as
+    scripts/backfill_inventory_sales_contract_projection.py reads Sales):
+    every contract carrying a valuation, then the current state of the
+    contracts `stale_contract_ids` picks from that list."""
+
+    with session_factory() as sales_db:
+        carries = trade_in_valuation_carries(sales_db)
+        stale = stale_contract_ids(carries)
+        current = {c.contract_id: c for c in trade_in_valuation_carries(sales_db, contract_ids=stale)} if stale else {}
+    return carries, current
+
+
+def backfill(
+    db: Session,
+    *,
+    commit: bool,
+    session_factory: Callable[[], Session] | None = None,
+    as_of: dt.datetime | None = None,
+) -> Report:
+    """`db` writes valuation's rows; Sales is read on sessions from
+    `session_factory` (default: sessions on `db`'s engine)."""
+
     report = Report()
+    as_of = as_of or utcnow()
+    factory = session_factory or sessionmaker(bind=db.get_bind(), autoflush=False, expire_on_commit=False)
 
     def refuse(session: Session) -> None:
         # A savepoint's release (the insert race guard) fires before_commit
@@ -118,8 +169,17 @@ def backfill(db: Session, *, commit: bool) -> Report:
     if not commit:
         event.listen(db, "before_commit", refuse)
     try:
-        before = _states(db)
-        sales = trade_in_valuation_carries(db)
+        # Valuation's rows first, Sales after: a carry Sales' call wrote before
+        # its own commit is then either already in Sales' answer or — pending,
+        # touched within the grace — left alone below.
+        rows = _rows(db)
+        before = {key: state for key, (state, _updated_at) in rows.items()}
+
+        def stale_contract_ids(carries: list[ContractValuationCarry]) -> set[uuid.UUID]:
+            carried = {(c.valuation_id, c.contract_id) for c in carries}
+            return {key[1] for key, state in before.items() if key not in carried and state != ContractCarryState.RELEASED}
+
+        sales, current = _read_sales(factory, stale_contract_ids=stale_contract_ids)
         seen: set[_Key] = set()
         for carry in sales:
             assert carry.valuation_id is not None
@@ -130,17 +190,21 @@ def backfill(db: Session, *, commit: bool) -> Report:
             seen.add(key)
             _apply(db, carry, before.get(key), report)
         # Rows whose contract no longer carries their valuation (or is gone).
-        stale = {key: state for key, state in before.items() if key not in seen and state != ContractCarryState.RELEASED}
-        if stale:
-            current = {c.contract_id: c for c in trade_in_valuation_carries(db, contract_ids={k[1] for k in stale})}
-            for (valuation_id, contract_id), state in sorted(stale.items()):
-                contract = current.get(contract_id)
-                if contract is not None and contract.valuation_id == valuation_id:
-                    continue  # foreign, reported above
-                if state == ContractCarryState.SIGNED:
-                    report.conflicts.append(((valuation_id, contract_id), "signed here, not carried in Sales"))
-                    continue
-                mark_released(db, valuation_id=valuation_id, contract_id=contract_id)
+        stale = {key: rows[key] for key, state in before.items() if key not in seen and state != ContractCarryState.RELEASED}
+        for (valuation_id, contract_id), (state, updated_at) in sorted(stale.items()):
+            contract = current.get(contract_id)
+            if contract is not None and contract.valuation_id == valuation_id:
+                continue  # foreign, reported above
+            if state == ContractCarryState.SIGNED:
+                report.conflicts.append(((valuation_id, contract_id), "signed here, not carried in Sales"))
+                continue
+            if as_of - updated_at < PENDING_GRACE:
+                # `commit_carrying` writes the pending row before the Sales
+                # commit that makes the contract carry it: Sales may not show
+                # it yet. Released only once it is older than the grace.
+                report.recent_pending.append((valuation_id, contract_id))
+                continue
+            mark_released(db, valuation_id=valuation_id, contract_id=contract_id)
         db.flush()
         after = _states(db)
         for key in sorted(set(before) | set(after)):
@@ -171,6 +235,8 @@ def render(report: Report, *, committed: bool) -> str:
     lines += [f"  valuation {v} / contract {c}: {why}" for (v, c), why in report.conflicts]
     lines += ["", f"FOREIGN (contract names another dealership's valuation — Sales' KAN-259 finding): {len(report.foreign)}"]
     lines += [f"  contract {c}: valuation {v}" for c, v in report.foreign]
+    lines += ["", f"RECENT (pending, not carried in Sales, younger than {PENDING_GRACE} — re-run later): {len(report.recent_pending)}"]
+    lines += [f"  valuation {v} / contract {c}" for v, c in report.recent_pending]
     return "\n".join(lines)
 
 
@@ -182,13 +248,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     db = SessionLocal()
     try:
-        report = backfill(db, commit=args.commit)
+        report = backfill(db, commit=args.commit, session_factory=SessionLocal)
     finally:
         db.close()
     print(render(report, committed=args.commit))
     if args.commit:
-        return 1 if report.conflicts or report.foreign else 0
-    return 1 if report.writes or report.conflicts or report.foreign else 0
+        return 1 if report.conflicts or report.foreign or report.recent_pending else 0
+    return 1 if report.writes or report.conflicts or report.foreign or report.recent_pending else 0
 
 
 if __name__ == "__main__":

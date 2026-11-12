@@ -200,6 +200,24 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     _names_an_untaken_configuration(),
     _carry_disagrees_with_its_contract(),
     _carried_by_a_contract_valuation_does_not_know(),
+    # KAN-631 (rule 2's plain GUIDs, as KAN-630 checks Stock's projection):
+    # a carry row names a contract and a Betrieb that exist.
+    ReferenceCheck(
+        label="valuation_contract_carry.contract_id -> sales_contract.id",
+        source_model=ValuationContractCarry,
+        source_row_id_column=ValuationContractCarry.id,
+        source_fk_column=ValuationContractCarry.contract_id,
+        target_model=SalesContract,
+        target_id_column=SalesContract.id,
+    ),
+    ReferenceCheck(
+        label="valuation_contract_carry.tenant_id -> dealership.id",
+        source_model=ValuationContractCarry,
+        source_row_id_column=ValuationContractCarry.id,
+        source_fk_column=ValuationContractCarry.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
     ReferenceCheck(
         label="valuation.tenant_id -> dealership.id",
         source_model=Valuation,
