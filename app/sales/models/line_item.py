@@ -46,6 +46,15 @@ class SalesLineItem(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     kind: Mapped[LineItemKind] = mapped_column(StoredEnum(LineItemKind, length=16), nullable=False)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)
+    # KAN-595 — a configured car's factory option in each language as the
+    # provider delivered it, frozen with the line from the configuration's
+    # price line (ADR-041). The document prints the one of its language
+    # (the customer's correspondence language), else `label`. NULL on every
+    # other line: an accessory or a colour/wheels line has the one text typed.
+    label_de: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    label_fr: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    label_it: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    label_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     unit_price: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # A factory option deselected without being deleted (PR-8) — its price

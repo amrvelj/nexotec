@@ -23,15 +23,16 @@ from app.db import get_db
 from app.vehicle.schemas.configuration import (
     ConfigurationCreate,
     ConfigurationEnergyLabelRead,
-    ConfigurationTyreSpecRead,
     ConfigurationEnergyRatingRead,
     ConfigurationOptionRead,
     ConfigurationOptionsReplace,
     ConfigurationRead,
+    ConfigurationTyreSpecRead,
     ConfigurationUpdate,
     ResyncFieldRead,
     ResyncRequest,
 )
+from app.vehicle.schemas.localised import provider_texts
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
@@ -107,6 +108,7 @@ def _read(config, db: Session | None = None) -> ConfigurationRead:
                     is_package=o.is_package,
                     selected=o.selected,
                     equipment_features=[link.feature_value_code for link in o.equipment_feature_links],
+                    descriptions=provider_texts(o),
                 )
                 for o in config.options
             ],

@@ -147,11 +147,11 @@ class ModelVariant(VehicleSpecBlock, PrimaryKeyMixin, VersionedMixin, TimestampM
 
 class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     """A factory option offered on a variant. `description` is stored
-    exactly as delivered by the provider — auto-i-dat returns English only
-    for options (PRD §Provider abstraction), and translating thousands of
-    provider option strings is explicitly out of scope (PRD §Language and
-    translations). This is why VariantOption has no label_de/fr/it — it is
-    not a reference_value.
+    exactly as delivered by the provider; since KAN-595 so are the four
+    language texts the identAPI sends beside it (`description_de/fr/it/en`).
+    Translating provider option strings ourselves stays out of scope (PRD
+    §Language and translations): these are the provider's own texts, and the
+    option is still not a reference_value.
 
     **Tenant-partitioned (WP-6 PR-4, retrofitted)**: ADR-013 — licensed
     provider data is tenant-partitioned, never global, and this table
@@ -186,6 +186,14 @@ class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
         comment="KAN-211: the manufacturer's option code (identAPI optionCode); option_code is the provider's key.",
     )
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # KAN-595 — the identAPI delivers the option's name in four languages
+    # (`descriptionDe/Fr/It/En`); `description` stays the text in the language
+    # asked for, the default every reader falls back to. Provider text as
+    # delivered, never translated by us (ADR-044) and never a locale key.
+    description_de: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_fr: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_it: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     # `Gruppe` (CodeGrpNr 046) — a canonical `option_group` value_code
     # string resolved through `provider_code_map`, not a raw provider code
     # and not a FK (reference data is platform-owned). Drives the

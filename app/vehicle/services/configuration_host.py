@@ -84,11 +84,23 @@ def get_configuration_labels(
     }
 
 
+def _texts(option) -> dict[str, str]:
+    """KAN-595 — the option's provider texts by language, the empty ones left out."""
+
+    texts = {
+        "de": option.description_de,
+        "fr": option.description_fr,
+        "it": option.description_it,
+        "en": option.description_en,
+    }
+    return {language: text for language, text in texts.items() if text}
+
+
 def _price_lines(config: VehicleConfiguration) -> list[ConfigurationPriceLine]:
     if config.mode != ConfigurationMode.BUILD:
         return []
     lines = [
-        ConfigurationPriceLine(kind="option", code=o.option_code, label=o.description, price=o.price)
+        ConfigurationPriceLine(kind="option", code=o.option_code, label=o.description, price=o.price, labels=_texts(o))
         for o in sorted(config.options, key=lambda o: (o.sequence, o.id))
         if o.selected and o.price is not None and not o.is_included
     ]

@@ -62,6 +62,13 @@ class LineItemRead(CamelModel):
     discount_resolved_amount: Decimal | None
     discount_suppressed_reason: str | None
     position: int
+    # KAN-595 — additive: a configured car's factory option in each language
+    # as the provider delivered it (null where it sent none, and on every
+    # other line); `label` is the fallback.
+    label_de: str | None = None
+    label_fr: str | None = None
+    label_it: str | None = None
+    label_en: str | None = None
 
 
 class LineItemPage(CamelModel):

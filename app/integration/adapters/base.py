@@ -205,6 +205,12 @@ class VariantOptionData:
     pack_option_codes: list[str] = field(default_factory=list)
     excluded_option_codes: list[str] = field(default_factory=list)
     priced_with: list["OptionPriceWithData"] = field(default_factory=list)
+    # KAN-595 — the option's name in each language as the identAPI delivers
+    # it (`descriptionDe/Fr/It/En`); `description` stays the one asked for.
+    description_de: str | None = None
+    description_fr: str | None = None
+    description_it: str | None = None
+    description_en: str | None = None
 
 
 @dataclass(frozen=True)

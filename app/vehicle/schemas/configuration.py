@@ -12,6 +12,7 @@ from app.vehicle.models.configuration import (
     ConfigurationMode,
     ConfigurationSource,
 )
+from app.vehicle.schemas.localised import ProviderTextsRead
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput, VehicleSpecBlockRead
 
 
@@ -39,6 +40,9 @@ class ConfigurationOptionRead(CamelModel):
     is_package: bool
     selected: bool
     equipment_features: list[str]
+    # KAN-595 — additive: the catalogue option's own four language texts
+    # (null each on a hand-typed option); `description` is the fallback.
+    descriptions: ProviderTextsRead = Field(default_factory=ProviderTextsRead)
 
 
 _CODED_FIELD_RULE = (
@@ -199,9 +203,9 @@ class ConfigurationRead(CamelModel):
     # KAN-547 / KAN-479: read from the variant's per-year ratings, never a block field.
     energy_rating: ConfigurationEnergyRatingRead | None = None
     # KAN-597 — additive: the variant's per-gearbox labels for the same year.
-    energy_labels: list[ConfigurationEnergyLabelRead] = []
+    energy_labels: list[ConfigurationEnergyLabelRead] = Field(default_factory=list)
     # KAN-596 — additive: the catalogue variant's approved wheels, this Betrieb's rows.
-    catalogue_tyre_specs: list[ConfigurationTyreSpecRead] = []
+    catalogue_tyre_specs: list[ConfigurationTyreSpecRead] = Field(default_factory=list)
     overridden_fields: list[str]
     options: list[ConfigurationOptionRead]
     notes: str | None

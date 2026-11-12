@@ -45,7 +45,7 @@ from app.core.validators import (
     normalise_vin,
     require_vin_or_pre_1981_chassis_number,
 )
-from app.vehicle.models.catalogue import ModelVariant
+from app.vehicle.models.catalogue import ModelVariant, VariantOption
 from app.vehicle.models.configuration import (
     ConfigurationMatchStatus,
     ConfigurationSource,
@@ -602,6 +602,10 @@ def copy_configuration(
             is_included=opt.is_included,
             is_package=opt.is_package,
             selected=opt.selected,
+            description_de=opt.description_de,
+            description_fr=opt.description_fr,
+            description_it=opt.description_it,
+            description_en=opt.description_en,
         )
         db.add(new_opt)
         db.flush()
@@ -656,6 +660,35 @@ def discard_configuration_copy(
     db.commit()
 
 
+_NO_TEXTS: dict[str, str | None] = {}
+
+
+def _catalogue_option_texts(
+    db: Session, *, tenant_id: uuid.UUID, variant_option_ids: list[uuid.UUID | None]
+) -> dict[uuid.UUID, dict[str, str | None]]:
+    """KAN-595 — the four language texts of each catalogue option a
+    configuration names, read from the Betrieb's own `vehicle_variant_option`
+    rows (ADR-013: never another Betrieb's licensed text), never taken from
+    the client. An id the Betrieb holds no row for — a hand-typed option, or a
+    stale id — gets none, and the option keeps its one `description`."""
+
+    ids = {i for i in variant_option_ids if i is not None}
+    if not ids:
+        return {}
+    rows = db.scalars(
+        select(VariantOption).where(VariantOption.tenant_id == tenant_id, VariantOption.id.in_(ids))
+    ).all()
+    return {
+        row.id: {
+            "description_de": row.description_de,
+            "description_fr": row.description_fr,
+            "description_it": row.description_it,
+            "description_en": row.description_en,
+        }
+        for row in rows
+    }
+
+
 def replace_options(
     db: Session,
     *,
@@ -668,6 +701,9 @@ def replace_options(
 
     configuration.options.clear()
     db.flush()
+    catalogue_texts = _catalogue_option_texts(
+        db, tenant_id=configuration.tenant_id, variant_option_ids=[item.variant_option_id for item in options]
+    )
     for position, item in enumerate(options):
         opt = VehicleConfigurationOption(
             tenant_id=configuration.tenant_id,
@@ -681,6 +717,7 @@ def replace_options(
             is_included=item.is_included,
             is_package=item.is_package,
             selected=item.selected,
+            **(catalogue_texts.get(item.variant_option_id, _NO_TEXTS) if item.variant_option_id else _NO_TEXTS),
         )
         db.add(opt)
         db.flush()

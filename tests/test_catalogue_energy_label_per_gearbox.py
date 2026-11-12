@@ -13,7 +13,7 @@ from app.vehicle.models.energy_rating import ModelVariantEnergyLabel, ModelVaria
 from tests import identapi_fixtures as fix
 from tests.identapi_support import FakeAutoi
 from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
-from tests.test_catalogue_details_on_open import _connected, _fresh_adapter_state, _open  # noqa: F401
+from tests.test_catalogue_details_on_open import _connected, _fresh_adapter_state, _open
 
 _fresh = _fresh_adapter_state
 

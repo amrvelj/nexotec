@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 from app.integration.public import get_entitlement
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
 from app.vehicle.models.catalogue_mirror import CatalogueDetail, ColourCache, ImageRef, TyreSpecCache
+from app.vehicle.schemas.localised import ProviderTextsRead, provider_texts
 from app.vehicle.services import catalogue_details
 from app.vehicle.services.catalogue_sync import find_enabled_vehicle_data_connection
 
@@ -68,6 +69,8 @@ class OptionSpec:
     equipment_features: list[str]
     # KAN-211 — the manufacturer's own code, what the advisor searches by.
     manufacturer_code: str | None = None
+    # KAN-595 — the provider's four language texts (`descriptions.de` …).
+    descriptions: ProviderTextsRead | None = None
 
 
 @dataclass(frozen=True)
@@ -269,6 +272,7 @@ def get_catalogue_specification(
             is_package=row.is_package,
             equipment_features=[link.feature_value_code for link in row.equipment_feature_links],
             manufacturer_code=row.manufacturer_code,
+            descriptions=provider_texts(row),
         )
         for row in option_rows
     ]

@@ -459,7 +459,8 @@ def parse_option(item: Mapping[str, Any]) -> VariantOptionData | None:
     """One `VehicleOptionData`. `optionKey` is auto-i's identifier and the
     natural key (`option_code`); `optionCode` is the manufacturer's code the
     advisor searches by (`manufacturer_code`). `description` is the text in
-    the language asked for, `descriptionDe` the fallback. `pack` says the
+    the language asked for, `descriptionDe` the fallback; the four language
+    texts are kept beside it (KAN-595). `pack` says the
     option is *inside* a pack; an option *is* a pack when it lists
     `packOptions`."""
 
@@ -492,6 +493,10 @@ def parse_option(item: Mapping[str, Any]) -> VariantOptionData | None:
         pack_option_codes=_option_keys(pack_options),
         excluded_option_codes=_option_keys(item.get("exclusions")),
         priced_with=priced_with,
+        description_de=_text(item.get("descriptionDe")),
+        description_fr=_text(item.get("descriptionFr")),
+        description_it=_text(item.get("descriptionIt")),
+        description_en=_text(item.get("descriptionEn")),
     )
 
 

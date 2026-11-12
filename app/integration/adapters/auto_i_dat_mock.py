@@ -123,23 +123,25 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
     ),
 }
 
+# KAN-595: each option carries its four language texts, as the identAPI's
+# `descriptionDe/Fr/It/En` do; `description` is the text the lookup asked for.
 _OPTIONS: dict[str, list[VariantOptionData]] = {
     "FZ100001": [
         VariantOptionData(
-            option_code="MET", description="Metallic paint", option_group="exterior", price=Decimal("800.00")
+            option_code="MET", description="Metallic paint", description_de="Metallic-Lackierung", description_fr="Peinture métallisée", description_it="Vernice metallizzata", description_en="Metallic paint", option_group="exterior", price=Decimal("800.00")
         ),
     ],
     "FZ100002": [
         VariantOptionData(
             option_code="LED",
-            description="LED headlights",
+            description="LED headlights", description_de="LED-Scheinwerfer", description_fr="Phares LED", description_it="Fari LED", description_en="LED headlights",
             option_group="exterior",
             price=Decimal("1200.00"),
             equipment_feature_codes=["LED_HEADLIGHTS"],
         ),
         VariantOptionData(
             option_code="NAV",
-            description="Navigation Pro",
+            description="Navigation Pro", description_de="Navigation Pro", description_fr="Navigation Pro", description_it="Navigazione Pro", description_en="Navigation Pro",
             option_group="infotainment",
             price=Decimal("1800.00"),
             equipment_feature_codes=["navigation", "APPLE_CARPLAY"],
@@ -149,14 +151,14 @@ _OPTIONS: dict[str, list[VariantOptionData]] = {
         # the "standard on this variant, still listed, zero price" case.
         VariantOptionData(
             option_code="WNTR",
-            description="Winter package",
+            description="Winter package", description_de="Winterpaket", description_fr="Pack hiver", description_it="Pacchetto inverno", description_en="Winter package",
             option_group="comfort",
             price=Decimal("450.00"),
             is_package=True,
         ),
         VariantOptionData(
             option_code="AC",
-            description="Air conditioning",
+            description="Air conditioning", description_de="Klimaanlage", description_fr="Climatisation", description_it="Climatizzatore", description_en="Air conditioning",
             option_group="comfort",
             price=Decimal("0.00"),
             is_included=True,
@@ -165,7 +167,7 @@ _OPTIONS: dict[str, list[VariantOptionData]] = {
     ],
     "FZ100003": [
         VariantOptionData(
-            option_code="PAN", description="Panoramic sunroof", option_group="exterior", price=Decimal("1600.00")
+            option_code="PAN", description="Panoramic sunroof", description_de="Panorama-Glasdach", description_fr="Toit panoramique", description_it="Tetto panoramico", description_en="Panoramic sunroof", option_group="exterior", price=Decimal("1600.00")
         ),
     ],
 }
@@ -197,12 +199,12 @@ _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
         VariantTyreSpecData(
             axle_code="2", size="225/45 R18", load_index="95", speed_rating="Y",
             remark="nur mit Leichtmetallfelgen", season_code="121",
-            rims="8Jx18", rim_width=Decimal("8"), rim_size=18, rim_offset=44, is_standard=False,
+            rims="8Jx18", rim_width=Decimal(8), rim_size=18, rim_offset=44, is_standard=False,
         ),
         VariantTyreSpecData(
             axle_code="3", size="225/45 R18", load_index="95", speed_rating="Y",
             remark="nur mit Leichtmetallfelgen", season_code="121",
-            rims="8Jx18", rim_width=Decimal("8"), rim_size=18, rim_offset=44, is_standard=False,
+            rims="8Jx18", rim_width=Decimal(8), rim_size=18, rim_offset=44, is_standard=False,
         ),
         # KAN-596: the factory fitment beside the option — a second dimension
         # for the same axle and season, which the key now keeps.

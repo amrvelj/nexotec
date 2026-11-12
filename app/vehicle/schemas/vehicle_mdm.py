@@ -16,6 +16,7 @@ from app.core.validators import Vin
 from app.customer.public import VehiclePartyRole
 from app.vehicle.models.vehicle_history import OdometerSource
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleStatus
+from app.vehicle.schemas.localised import ProviderTextsRead
 
 
 class VehicleMdmCreate(CamelModel):
@@ -215,6 +216,9 @@ class CatalogueOptionRead(CamelModel):
     # KAN-211 — the manufacturer's own code (identAPI `optionCode`); the
     # advisor searches the list by it and by the description.
     manufacturer_code: str | None = None
+    # KAN-595 — additive: the option's name in each language as delivered;
+    # `description` is the fallback (the language the lookup asked for).
+    descriptions: ProviderTextsRead = Field(default_factory=ProviderTextsRead)
 
 
 CatalogueDetailState = Literal["present", "notInContract", "unavailable", "notLoaded"]

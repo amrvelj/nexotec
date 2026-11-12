@@ -374,6 +374,10 @@ def _load_options(
             )
             db.add(row)
         row.description = option.description
+        row.description_de = option.description_de
+        row.description_fr = option.description_fr
+        row.description_it = option.description_it
+        row.description_en = option.description_en
         row.option_group = option_group
         row.option_group_code = _fit(option.option_group, 32)
         row.price = option.price
