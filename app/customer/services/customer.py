@@ -2499,10 +2499,11 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
 
 
 def _validate_effective_range(effective_from, effective_to) -> None:
-    # A client never writes a zero-length period. The one such row is the
-    # copy a customer merge keeps (KAN-177: effective_to = effective_from),
-    # written by the merge itself, so a PATCH of that row's dates is refused
-    # here like any other empty period.
+    # A client never writes a zero-length period. Such rows are written by
+    # the server alone: the copy a customer merge keeps (KAN-177) and a
+    # planned holder cancelled before its start (KAN-583, «planned, never
+    # started»), both closed at their own start — so a PATCH of those dates
+    # is refused here like any other empty period.
     if effective_to is not None and effective_to <= effective_from:
         raise BadRequestError(
             "effective_to must be after effective_from (a zero-length period is only ever the copy a "
@@ -3178,6 +3179,13 @@ def update_customer_vehicle(
     for field, value in changes.items():
         setattr(party, field, value)
 
+    if "effective_from" in changes:
+        # KAN-644: the holders this row was planned to replace end at its new
+        # start first — with or without an `effectiveTo` in the same PATCH —
+        # so the close below neither spares them at their old end (a gap) nor
+        # closes one twice.
+        _follow_planned_start(db, planned=party, actor_id=actor_id, group_id=group_id)
+        to_close = [row for row in to_close if _is_open(row.effective_to)]
     _close_incumbents(
         db, to_close, new_effective_from=new_effective_from, actor_id=actor_id, group_id=group_id,
         new_party_id=party.id,
@@ -3185,8 +3193,6 @@ def update_customer_vehicle(
     if "effective_to" in changes:
         # A row given its own end is no longer «closed at a planned start».
         party.closed_for_party_id = None
-    if "effective_from" in changes and not holds_after:
-        _follow_planned_start(db, planned=party, actor_id=actor_id, group_id=group_id)
 
     try:
         db.flush()

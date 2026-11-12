@@ -345,3 +345,20 @@ def test_moving_a_planned_start_into_the_past_ends_the_current_owner_there(db_se
     assert _row(db_session, clara_party.id).effective_to == earlier
     assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({meier.id}, set())  # one current owner
     assert len(_events(db_session, "customer.vehicle_party.unlinked", clara_party.id)) == 1
+
+
+def test_a_patch_moving_the_planned_start_later_with_an_end_moves_the_current_owners_end_too(db_session):
+    """The review's probe: {effectiveFrom: later, effectiveTo: …} in one PATCH
+    used to spare the linked owner at its old end — a gap of weeks."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583207")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    later = _handover(40)
+
+    for effective_to in (None, _handover(80)):
+        _patch(db_session, meier_party, group_id, effective_from=later, effective_to=effective_to)
+        assert _row(db_session, clara_party.id).effective_to == later
+        assert _row(db_session, clara_party.id).closed_for_party_id == meier_party.id
