@@ -14,10 +14,11 @@ says anything about the real provider's behaviour.
 import datetime as dt
 import os
 import threading
+import time
 import uuid
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
@@ -144,21 +145,44 @@ def test_a_variant_another_session_is_storing_is_re_read_not_a_failure(db_sessio
     holder.flush()
 
     outcome: dict[str, object] = {}
+    backend_known = threading.Event()
 
     def _second() -> None:
         with factory() as session:
             try:
+                outcome["pid"] = session.scalar(text("SELECT pg_backend_pid()"))
+                backend_known.set()
                 (variant,) = catalogue_sync.store_seen_variants(session, provider_code="auto_i_dat_mock", masters=[master])
                 outcome["variant_id"] = variant.id
             except Exception as exc:  # noqa: BLE001 - reported below, the assertion names it
                 session.rollback()
                 outcome["error"] = exc
+            finally:
+                backend_known.set()
+
+    def _waits_on_a_lock(pid: object) -> bool:
+        """KAN-655: Postgres' own word that the backend is blocked on a lock —
+        a live thread alone could be slow, not waiting."""
+
+        with engine.connect() as observer:
+            return (
+                observer.scalar(
+                    text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"), {"pid": pid}
+                )
+                == "Lock"
+            )
 
     second = threading.Thread(target=_second, name="second")
     try:
         second.start()
-        second.join(timeout=1.0)
-        assert second.is_alive(), "the second session should wait on the first's uncommitted insert"
+        assert backend_known.wait(timeout=10), "the second session never started"
+        deadline = time.monotonic() + 10
+        while not _waits_on_a_lock(outcome.get("pid")) and time.monotonic() < deadline and second.is_alive():
+            time.sleep(0.05)
+        assert _waits_on_a_lock(outcome.get("pid")), (
+            "the second session should wait on the first's uncommitted insert (pg_stat_activity: no Lock wait)"
+        )
+        assert "variant_id" not in outcome, "the second session answered before the first committed"
         holder.commit()
         second.join(timeout=20)
     finally:
