@@ -58,8 +58,6 @@ from tests.route_walk import api_routes
 from tests.test_sales_lifecycle_reservation import _with_buyer
 from tests.vin_support import unique_vin
 
-pytestmark = NEEDS_ITS_OWN_CONNECTION
-
 # --- fixtures -----------------------------------------------------------
 
 
@@ -504,6 +502,7 @@ def test_a_valuation_without_a_configuration_writes_no_vehicle_mdm_either(db_ses
 # --- the trade-in carve-out ----------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_reference(db_session, engine):
     """Exit criterion 4: plate → record configuration → valuation → the
     offer references the valuation; confirmation makes the trade-in a

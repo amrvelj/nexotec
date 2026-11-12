@@ -20,8 +20,6 @@ from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
 from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.token_support import dealer_group_of
 
-pytestmark = NEEDS_ITS_OWN_CONNECTION
-
 VALID_VIN = "1HGCM82633A004352"
 
 
@@ -115,6 +113,7 @@ def test_a_declared_denial_is_respected(db_session):
     assert entitlements.images is False
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_specification_flattens_option_groups_without_packages_entitlement(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -147,6 +146,7 @@ def test_specification_flattens_option_groups_without_packages_entitlement(db_se
     assert all(o.option_group is None for o in spec.options)
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_specification_hides_images_without_images_entitlement(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -165,6 +165,7 @@ def test_specification_hides_images_without_images_entitlement(db_session):
     assert db_session.query(ModelVariant).count() == 3
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_specification_carries_the_full_image_url(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -182,6 +183,7 @@ def test_specification_carries_the_full_image_url(db_session):
         assert image.image_url == f"https://images.autoi.ch/img/{image.image_key}"
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_specification_carries_the_new_c_e_fields_on_options_colours_and_tyres(db_session):
     """KAN-43 (C-E) — is_included/is_package/equipment_features on
     options, price on colours, season/remark on tyres. The season resolves
@@ -208,6 +210,7 @@ def test_specification_carries_the_new_c_e_fields_on_options_colours_and_tyres(d
     assert any(t.remark is not None for t in spec.tyre_specs)
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_specification_omits_option_relations_without_packages_entitlement(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -222,6 +225,7 @@ def test_specification_omits_option_relations_without_packages_entitlement(db_se
     assert spec.option_relations == []
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_specification_renders_a_relation_with_the_related_option_denormalised(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -297,6 +301,7 @@ def test_catalogue_specification_endpoint_for_an_unmatched_vehicle(client, db_se
     assert body["options"] == []
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_catalogue_specification_endpoint_for_a_matched_vehicle_with_full_entitlements(client, db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -321,6 +326,7 @@ def test_catalogue_specification_endpoint_for_a_matched_vehicle_with_full_entitl
 # --- the Configurator's own read, keyed by model_variant_id (KAN-43) -----
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_variant_specification_endpoint_for_the_configurator(client, db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -344,6 +350,7 @@ def test_variant_specification_endpoint_404s_for_an_unknown_variant(client, db_s
     assert response.status_code == 404
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_variant_specification_endpoint_needs_no_manager_flag(client, db_session):
     """Same posture as catalogue browse — any authenticated user reads it."""
 

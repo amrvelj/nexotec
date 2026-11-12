@@ -48,8 +48,6 @@ from tests.catalogue_lookup_support import look_up_demo_variants
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 
-pytestmark = NEEDS_ITS_OWN_CONNECTION
-
 # --- fixtures -----------------------------------------------------------
 
 
@@ -157,6 +155,7 @@ def test_an_unrecognisable_input_is_a_422_not_a_guess(db_session):
         svc.identify(db_session, tenant_id=uuid.uuid4(), actor_id=None, query="§§§")
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_one_input_resolves_all_four_kinds_without_saying_which(client, db_session):
     """Exit criterion 1: the same endpoint, the same parameter, four kinds."""
 
@@ -295,6 +294,7 @@ def test_a_vin_lookup_writes_nothing_into_integration(db_session):
 # --- Kontrollschild -------------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_single_plate_record_continues_at_the_typenschein(db_session):
     tenant_id = _connected_tenant(db_session)
 
@@ -309,6 +309,7 @@ def test_a_single_plate_record_continues_at_the_typenschein(db_session):
     assert result.observed.first_registration_date == dt.date(2022, 3, 1)
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_wechselschild_is_a_legitimate_picker_and_nothing_is_selected(db_session):
     """Exit criteria 2 and 3."""
 
@@ -328,6 +329,7 @@ def test_a_wechselschild_is_a_legitimate_picker_and_nothing_is_selected(db_sessi
     ) == 0
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_genuine_plate_conflict_is_a_data_quality_event_and_still_a_picker(db_session):
     tenant_id = _connected_tenant(db_session)
 
@@ -380,6 +382,7 @@ def test_a_plate_lookup_the_account_is_not_entitled_to_is_never_made(db_session)
 # --- the plate-lookup cache -----------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_plate_cache_turns_repeat_lookups_into_no_calls(db_session):
     """Exit criterion 5: three lookups of one plate, one billed call."""
 
@@ -395,6 +398,7 @@ def test_the_plate_cache_turns_repeat_lookups_into_no_calls(db_session):
     assert third.variants == first.variants
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_plate_cache_is_per_tenant(db_session):
     tenant_a = _connected_tenant(db_session)
     provider = db_session.scalar(select(IntegrationProvider).where(IntegrationProvider.provider_code == "auto_i_dat_mock"))
@@ -412,6 +416,7 @@ def test_the_plate_cache_is_per_tenant(db_session):
     assert _plate_calls(db_session, tenant_b) == 1
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_cached_answer_past_its_ttl_is_fetched_again_and_then_purged(db_session):
     tenant_id = _connected_tenant(db_session)
     svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="BE123456")
@@ -456,6 +461,7 @@ def test_a_stammnummer_resolves_against_mdm_first(db_session):
     assert result.existing_vehicle is not None and result.existing_vehicle.vehicle_id == vehicle.id
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_stammnummer_is_a_live_vrn_lookup_that_names_the_variant_in_one_call(db_session):
     """KAN-547 (ADR-111): the identAPI identifies by `vrn`; the Vehicle Build
     answer carries the catalogue variant, so one call is the candidate."""
@@ -471,6 +477,7 @@ def test_a_stammnummer_is_a_live_vrn_lookup_that_names_the_variant_in_one_call(d
     assert _all_calls(db_session) == calls + 1
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_stammnummer_the_provider_does_not_know_falls_back_to_an_earlier_plate_answer(db_session):
     """The plate-lookup cache stays the fallback behind the live rung."""
 
@@ -507,6 +514,7 @@ def test_a_typenschein_shared_by_two_variants_is_a_picker_with_best_match_offere
     assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == configurations_before
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_typenschein_with_one_variant_is_decisive(db_session):
     tenant_id = _connected_tenant(db_session)
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="2CD456")
@@ -514,6 +522,7 @@ def test_a_typenschein_with_one_variant_is_decisive(db_session):
     assert result.best_match_available is False
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_werkscode_is_a_live_lookup_merged_with_the_stored_variants(db_session):
     tenant_id = _connected_tenant(db_session)
     calls = _all_calls(db_session)
@@ -525,6 +534,7 @@ def test_a_werkscode_is_a_live_lookup_merged_with_the_stored_variants(db_session
 # --- best match -----------------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_best_match_is_a_proposal_and_writes_no_configuration(db_session):
     """Exit criterion 4, first half: nothing is applied by asking."""
 
@@ -544,6 +554,7 @@ def test_a_best_match_is_a_proposal_and_writes_no_configuration(db_session):
     assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == configurations_before
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_best_match_on_a_variant_mirrored_without_its_typenscheine_links_them(db_session):
     """KAN-190 item 3: a variant mirrored before KAN-42 has no
     `vehicle_variant_type_approval` rows, and no backfill may ask a provider
@@ -569,6 +580,7 @@ def test_a_best_match_on_a_variant_mirrored_without_its_typenscheine_links_them(
     assert [v.name for v in find_model_variants_by_type_approval(db_session, "2CD456")] == ["Golf GTI 2.0 TSI DSG"]
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_unique_best_match_still_needs_confirmation(db_session):
     tenant_id = _connected_tenant(db_session)
     proposal = svc.propose_best_match(
@@ -579,6 +591,7 @@ def test_a_unique_best_match_still_needs_confirmation(db_session):
     assert proposal.requires_confirmation is True
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_confirming_a_best_match_records_best_match_confirmed(db_session):
     """Exit criterion 4, second half: confirming is what writes the status."""
 
@@ -620,6 +633,7 @@ def test_best_match_without_a_provider_is_a_422(db_session):
         )
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_best_match_api_round_trip(client, db_session):
     tenant_id = _connected_tenant(db_session)
     response = client.get(
@@ -646,6 +660,7 @@ def test_identification_needs_configuration_write_access(client, db_session):
     assert _plate_calls(db_session, tenant_id) == 0
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_picked_candidate_reads_back_as_a_full_catalogue_variant(client, db_session):
     tenant_id = _connected_tenant(db_session)
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="2CD456")
@@ -660,6 +675,7 @@ def test_a_picked_candidate_reads_back_as_a_full_catalogue_variant(client, db_se
     assert client.get(f"/v1/catalogue/variants/{uuid.uuid4()}", headers=_bearer(tenant_id)).status_code == 404
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_stammnummer_with_several_cached_records_is_a_picker_never_a_choice(db_session):
     """Exit criterion 2 on the Stammnummer rung's cache fallback: GE111111's
     answer names one Stammnummer under two Typenscheine. The rows are moved to
@@ -681,6 +697,7 @@ def test_a_stammnummer_with_several_cached_records_is_a_picker_never_a_choice(db
     assert result.plate_records_conflict is True
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_plate_conflict_is_raised_once_per_provider_answer_not_per_lookup(db_session):
     tenant_id = _connected_tenant(db_session)
     for _ in range(3):

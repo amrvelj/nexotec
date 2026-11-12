@@ -26,8 +26,6 @@ from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 from tests.test_provider_code_map_seed import _canonical_values
 from tests.test_vehicle_catalogue_sync import _make_connection, _make_mock_provider, _seed_reference_list
 
-pytestmark = NEEDS_ITS_OWN_CONNECTION
-
 MOCK = "auto_i_dat_mock"
 GROUPS = ("colour_area", "axle_position", "tyre_type")
 
@@ -154,6 +152,7 @@ def test_the_seed_is_insert_if_absent_and_leaves_an_admins_row_alone(db_session)
 # --- the sync -------------------------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_with_the_seed_the_sync_resolves_colours_and_tyres_and_keeps_the_raw_codes(db_session):
     seed_colour_tyre_code_map(db_session)
     tenant_id = _sync_tenant(db_session)
@@ -173,6 +172,7 @@ def test_with_the_seed_the_sync_resolves_colours_and_tyres_and_keeps_the_raw_cod
     assert _gaps(db_session) == set()
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_an_unmapped_code_is_a_gap_and_its_value_stays_empty_never_a_guess(db_session):
     """No seed: every code is unknown. Before KAN-75 the colour would have
     been "exterior" and the axle "front" whatever the provider sent."""
@@ -192,6 +192,7 @@ def test_an_unmapped_code_is_a_gap_and_its_value_stays_empty_never_a_guess(db_se
     }
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_an_unknown_code_beside_known_ones_is_a_gap_and_a_missing_code_is_no_value(db_session, monkeypatch):
     seed_colour_tyre_code_map(db_session)
     real_variant = MockAutoIDatAdapter.fetch_variant_with_colours
@@ -234,6 +235,7 @@ def test_an_unknown_code_beside_known_ones_is_a_gap_and_a_missing_code_is_no_val
     assert _gaps(db_session) == {("01", "colour_area", "7"), ("01", "axle_position", "5"), ("01", "tyre_type", "129")}
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_an_unclassified_colour_reaches_the_configurator_without_a_group(db_session):
     """A2: the configurator offers a colour under Exterior or Interior only,
     so one whose FarbArt is a gap is not offered until the gap is resolved."""
@@ -249,6 +251,7 @@ def test_an_unclassified_colour_reaches_the_configurator_without_a_group(db_sess
 # --- resolving a gap (B1) -----------------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_gap_fills_the_cached_colours_and_tyres_of_every_tenant_at_once(db_session):
     first = _sync_tenant(db_session)
     second = _sync_tenant(db_session)
@@ -292,6 +295,7 @@ def test_resolving_a_gap_fills_the_cached_colours_and_tyres_of_every_tenant_at_o
     assert events[0].after["coloursAndTyresFilled"] == 12
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_resolving_a_gap_never_overwrites_a_value_and_stays_within_its_vehicle_kind(db_session):
     tenant_id = _sync_tenant(db_session)
     _seed_reference_list(db_session, "colour_area", ("exterior", "interior"))
@@ -321,6 +325,7 @@ def test_resolving_a_gap_never_overwrites_a_value_and_stays_within_its_vehicle_k
     assert colours["BLK"].colour_type == "exterior"
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_two_raw_axle_codes_mapped_onto_one_value_stay_two_rows(db_session, monkeypatch):
     """The tyre row is keyed by the raw codes: an admin may map an
     undocumented AchsenCode onto "front", and its row must not collide with

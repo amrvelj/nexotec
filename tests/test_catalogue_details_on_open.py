@@ -37,12 +37,10 @@ from tests import identapi_support as fx
 from tests.catalogue_lookup_support import DEMO_FZ_KEYS, assert_all_present, open_demo_variant, see_demo_variant
 from tests.colour_tyre_code_map_support import seed_colour_tyre_code_map
 from tests.identapi_support import FakeAutoi
-from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION, POSTGRES_SQL
 from tests.test_provider_code_map_seed import _seed_migration
 from tests.test_vehicle_catalogue_entitlements import _make_connection, _make_mock_provider
 from tests.token_support import dealer_group_of
-
-pytestmark = NEEDS_ITS_OWN_CONNECTION
 
 OPERATIONS = (
     "vehiclecatalog",
@@ -135,6 +133,7 @@ def _deny(db_session, connection_id, capability_code):
 # --- the first open, on the identAPI ---------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_first_open_fetches_and_stores_every_detail_with_one_request_each(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
     tenant_id = s.connection.tenant_id
@@ -190,6 +189,7 @@ def test_the_first_open_fetches_and_stores_every_detail_with_one_request_each(db
     assert (rating.energy_efficiency_category, rating.source) == ("b", "auto_i_dat")
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_an_official_bfe_label_for_the_year_is_left_alone(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
     db_session.add(
@@ -208,6 +208,7 @@ def test_an_official_bfe_label_for_the_year_is_left_alone(db_session, monkeypatc
     assert (rating.energy_efficiency_category, rating.source) == ("a", "bfe")
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_second_open_sends_nothing(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
     _open(db_session, s, variant)
@@ -219,6 +220,7 @@ def test_the_second_open_sends_nothing(db_session, monkeypatch):
     assert _states(result) == dict.fromkeys(_states(result), "present")
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_options_of_one_car_are_followed_page_by_page_to_the_last(db_session, monkeypatch):
     """Anto, 2026-11-08: every option. Three pages of ten, the third without
     `links.next`: three `vehicleoption_catalog` rows, thirty options stored,
@@ -255,6 +257,7 @@ def test_the_options_of_one_car_are_followed_page_by_page_to_the_last(db_session
     assert db_session.query(VariantOption).filter_by(model_variant_id=variant.id).count() == 30
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_option_relations_are_stored_from_the_answer_and_never_enforced(db_session, monkeypatch):
     items = [
         fix.option("2001", packOptions=[{"optionKey": "2002", "description": "Sitzheizung"}], exclusions=["2003"]),
@@ -282,6 +285,7 @@ def test_option_relations_are_stored_from_the_answer_and_never_enforced(db_sessi
 # --- the states: refused, failed, retried ----------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_403_on_one_detail_keeps_the_others_and_marks_that_one_not_in_contract(db_session, monkeypatch):
     """KAN-212 (criterion 4): a refused detail never discards the car or the
     other details; the refusal is its own ERROR row and never charges the
@@ -315,6 +319,7 @@ def test_a_403_on_one_detail_keeps_the_others_and_marks_that_one_not_in_contract
     assert len(s.fake.api_requests()) == seen
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_an_outage_on_one_detail_marks_it_unavailable_and_the_next_open_retries_only_that_one(db_session, monkeypatch):
     fake = FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.IMAGES_PATH: 503})
     s, variant = _connected(db_session, monkeypatch, fake)
@@ -342,6 +347,7 @@ def test_an_outage_on_one_detail_marks_it_unavailable_and_the_next_open_retries_
     assert db_session.query(ImageRef).filter_by(model_variant_id=variant.id).count() == 3
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_timeout_is_unavailable_too(db_session, monkeypatch):
     fake = FakeAutoi(api_bodies=fix.detail_bodies())
     s, variant = _connected(db_session, monkeypatch, fake)
@@ -354,6 +360,7 @@ def test_a_timeout_is_unavailable_too(db_session, monkeypatch):
     assert _calls(db_session, "vehiclecatalog", CallStatus.TIMEOUT) == 2  # two attempts, one row each (KAN-486)
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_licence_option_the_probe_recorded_as_absent_sends_nothing(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
     _deny(db_session, s.connection.id, "ausstattung")  # options and images
@@ -416,6 +423,7 @@ def test_a_variant_unknown_at_the_provider_asks_nothing(db_session, monkeypatch)
 # --- «Neu laden» -------------------------------------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_neu_laden_makes_exactly_one_request_per_detail_replaces_the_rows_and_is_audited(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
     _open(db_session, s, variant)
@@ -444,6 +452,7 @@ def test_neu_laden_makes_exactly_one_request_per_detail_replaces_the_rows_and_is
     assert set(events[0].before) == {d.value for d in catalogue_details.DETAILS}
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_neu_laden_drops_an_option_with_its_raw_feature_codes(db_session, monkeypatch):
     """A dropped option goes with its `VariantOptionProviderCode` rows (no
     cascade on that key) — the review probe that crashed the reload."""
@@ -461,6 +470,7 @@ def test_neu_laden_drops_an_option_with_its_raw_feature_codes(db_session, monkey
 # --- what a provider may send: duplicates, a vanished key, a malformed request -----------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_key_the_provider_no_longer_lists_is_present_with_a_note_and_never_a_500(db_session, monkeypatch):
     bodies = fix.detail_bodies()
     bodies[fix.VARIANT_PATH] = fix.body([])
@@ -480,6 +490,7 @@ def test_a_key_the_provider_no_longer_lists_is_present_with_a_note_and_never_a_5
     assert len(s.fake.api_requests()) == seen  # not asked again on open
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_request_the_provider_refuses_as_malformed_is_present_with_the_class_and_not_re_sent(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.TYRES_PATH: 422}))
 
@@ -492,6 +503,7 @@ def test_a_request_the_provider_refuses_as_malformed_is_present_with_the_class_a
     assert len(s.fake.api_requests()) == seen
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_key_repeated_in_one_answer_is_one_row(db_session, monkeypatch):
     bodies = fix.detail_bodies(options=[fix.option("3001"), fix.option("3001", price=999), fix.option("3002", addition=[{"optionKey": "3001", "price": 100}, {"optionKey": "3001", "price": 100}])])
     bodies[fix.VARIANT_PATH] = fix.body([fix.catalog_variant(colorOptionsData=fix.colour_options() + fix.colour_options())])
@@ -509,6 +521,7 @@ def test_a_key_repeated_in_one_answer_is_one_row(db_session, monkeypatch):
     assert db_session.query(VariantOptionRelation).filter_by(**where).count() == 1
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_provider_texts_are_cut_to_their_columns_and_an_over_long_image_url_is_left_out(db_session, monkeypatch):
     long = "x" * 700
     bodies = fix.detail_bodies(options=[fix.option("4001", optionCode=long, group=long)])
@@ -533,6 +546,7 @@ def test_provider_texts_are_cut_to_their_columns_and_an_over_long_image_url_is_l
     assert max(len(t.remark or "") for t in db_session.query(TyreSpecCache).filter_by(**where)) == 160
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_resolved_option_group_gap_fills_the_options_it_left_flat_at_once(db_session, monkeypatch):
     """KAN-75's rule for options (review round 2): the raw group code stays on
     the row, and the admin's resolve reaches every Betrieb's options."""
@@ -561,6 +575,7 @@ def test_a_resolved_option_group_gap_fills_the_options_it_left_flat_at_once(db_s
     assert option.option_group == "comfort"
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_states_note_says_why(db_session, monkeypatch):
     bodies = fix.detail_bodies()
     bodies[fix.VARIANT_PATH] = fix.body([])
@@ -576,6 +591,7 @@ def test_the_states_note_says_why(db_session, monkeypatch):
     assert (spec.details.images.state, spec.details.images.note) == ("present", None)
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_an_energy_label_whose_gearboxes_disagree_is_not_stored_and_said_so(db_session, monkeypatch):
     bodies = fix.detail_bodies()
     # 2025: a manual B and an automatic C — nothing stored for 2025. (2026 is
@@ -592,6 +608,7 @@ def test_an_energy_label_whose_gearboxes_disagree_is_not_stored_and_said_so(db_s
     assert db_session.query(ModelVariantEnergyRating).filter_by(model_variant_id=variant.id, rating_year=2025).count() == 0
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_refused_detail_is_asked_again_once_a_later_probe_records_the_option_as_granted(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies(), api_status={fix.OPTIONS_PATH: 403}))
     result = _open(db_session, s, variant)
@@ -614,6 +631,7 @@ def test_a_refused_detail_is_asked_again_once_a_later_probe_records_the_option_a
     assert _states(result)["options"] == "present"
 
 
+@POSTGRES_SQL
 def test_an_open_that_cannot_get_the_lock_in_time_asks_nothing_and_still_answers(db_session, engine, monkeypatch):
     """The second open waits `LOCK_WAIT` for the first; past it, it leaves the
     rest to the holder — every state as read, no request, no error."""
@@ -637,6 +655,7 @@ def test_an_open_that_cannot_get_the_lock_in_time_asks_nothing_and_still_answers
     assert set(_states(_open(db_session, s, variant)).values()) == {"present"}
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_rival_betrieb_writing_each_shared_row_first_never_fails_the_open(db_session, engine, monkeypatch):
     """Shared rows two Betriebe's opens write at the same moment: a new
     mapping gap (the options detail), this Swiss year's label (the colours
@@ -711,6 +730,7 @@ def test_a_rival_betrieb_writing_each_shared_row_first_never_fails_the_open(db_s
     assert db_session.query(ColourCache).filter_by(tenant_id=s.connection.tenant_id, model_variant_id=variant.id).count() == 3
 
 
+@POSTGRES_SQL
 def test_a_statement_timeout_while_waiting_for_the_lock_is_not_read_as_another_open(db_session, engine, monkeypatch):
     """Only `lock_not_available` (55P03) means another open holds the lock;
     any other database error propagates (a dropped connection, a statement
@@ -747,6 +767,7 @@ def test_neu_laden_on_a_variant_without_a_key_at_the_provider_records_nothing(db
     assert list_audit_events(db_session, entity_type="vehicle_variant_details", entity_id=foreign.id, tenant_id=None) == []
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_two_tabs_retrying_an_unavailable_detail_send_one_request(db_session, engine, monkeypatch):
     """The second open waits for the first's lock, then reads the states the
     first one decided — from the database, not its identity map."""
@@ -785,6 +806,7 @@ def test_two_tabs_retrying_an_unavailable_detail_send_one_request(db_session, en
 # --- ADR-013: one Betrieb's details are not another's ----------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_contract_less_betrieb_reads_none_of_another_betriebs_details(db_session, monkeypatch):
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))
     _open(db_session, s, variant)
@@ -806,6 +828,7 @@ def test_a_contract_less_betrieb_reads_none_of_another_betriebs_details(db_sessi
 # --- the mock provider: what the local app runs on -------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_opening_a_demo_variant_loads_its_details_once_with_one_row_per_request(db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -829,6 +852,7 @@ def test_opening_a_demo_variant_loads_its_details_once_with_one_row_per_request(
     assert db_session.query(IntegrationCallLog).filter_by(connection_id=connection.id).count() == 5
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_second_betrieb_opening_the_same_car_loads_its_own_copy(db_session):
     provider = _make_mock_provider(db_session)
     first, second = uuid.uuid4(), uuid.uuid4()
@@ -861,6 +885,7 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_specification_read_loads_the_details_once_and_reports_their_states(client, db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()
@@ -898,6 +923,7 @@ def test_a_betrieb_without_a_connection_reads_not_loaded_states(client, db_sessi
     )
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_reload_is_the_dealer_managers_and_platform_staffs_only(client, db_session):
     provider = _make_mock_provider(db_session)
     tenant_id = uuid.uuid4()

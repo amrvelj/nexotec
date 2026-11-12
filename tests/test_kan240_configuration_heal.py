@@ -31,8 +31,6 @@ from tests.test_vehicle_catalogue_sync import (
     _variant,
 )
 
-pytestmark = NEEDS_ITS_OWN_CONNECTION
-
 
 def _configuration(db_session, *, tenant_id: uuid.UUID, fz_key: str) -> VehicleConfiguration:
     return configuration_service.create_configuration(
@@ -73,6 +71,7 @@ def _setup(db_session) -> uuid.UUID:
     return tenant_id
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_configuration_with_a_null_fuel_type_is_filled_when_the_gap_is_resolved(db_session):
     tenant_id = _setup(db_session)
     config = _configuration(db_session, tenant_id=tenant_id, fz_key="FZ100001")
@@ -103,6 +102,7 @@ def test_a_configuration_with_a_null_fuel_type_is_filled_when_the_gap_is_resolve
     assert gap_audit.after["configurationsFilled"] == 1
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_configuration_holding_a_value_keeps_it(db_session):
     tenant_id = _setup(db_session)
     config = _configuration(db_session, tenant_id=tenant_id, fz_key="FZ100001")
@@ -118,6 +118,7 @@ def test_a_configuration_holding_a_value_keeps_it(db_session):
     assert _fills(db_session, kept) == []
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_field_the_advisor_cleared_stays_null(db_session):
     tenant_id = _setup(db_session)
     config = _configuration(db_session, tenant_id=tenant_id, fz_key="FZ100001")
@@ -131,6 +132,7 @@ def test_a_field_the_advisor_cleared_stays_null(db_session):
     assert _fills(db_session, config) == []
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_each_tenant_s_configurations_follow_only_their_own_variant(db_session):
     """The variant is global (ADR-075); each configuration is its tenant's.
     Tenant B's configuration of a variant with the gap's raw code is filled
@@ -153,6 +155,7 @@ def test_each_tenant_s_configurations_follow_only_their_own_variant(db_session):
     assert (untouched.fuel_type, untouched.version) == (None, 1)
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_manual_configuration_pointing_at_the_variant_is_not_touched(db_session):
     tenant_id = _setup(db_session)
     seed_manual_coded_lists(db_session)  # a manual configuration names its five coded fields (KAN-247)
