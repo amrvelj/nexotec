@@ -7091,7 +7091,7 @@ export interface components {
             /** Items */
             items: components["schemas"]["DealerGroupOption"][];
             /** Nextcursor */
-            nextCursor?: string | null;
+            nextCursor: string | null;
         };
         /** DealerGroupRead */
         DealerGroupRead: {
@@ -9387,7 +9387,7 @@ export interface components {
             stammnummer: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber: string;
-            variant?: components["schemas"]["VariantCandidateRead"] | null;
+            variant: components["schemas"]["VariantCandidateRead"] | null;
             /** Vehiclekindcode */
             vehicleKindCode: string;
         };

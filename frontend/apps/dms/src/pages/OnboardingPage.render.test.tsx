@@ -149,7 +149,7 @@ describe('OnboardingPage (KAN-210)', () => {
     expect(screen.queryByText(/ist verschickt/)).toBeNull()
   })
 
-  it('searches the groups on the server as the user types and pages them (KAN-652)', async () => {
+  it('searches the groups on the server as the user types, one page at a time (KAN-652)', async () => {
     const ALL = [
       { id: 'g-1', name: 'Emil Gruppe' },
       { id: 'g-2', name: 'Garage Emilio' },

@@ -17,7 +17,12 @@ removed; this guard keeps them out:
      (`GET /vehiclecatalog/mutations/{sinceDate}`, «Get catalog mutations») in
      any string under `app/` or `scripts/` — also assembled by `+` or an
      f-string from literals, names bound once to a literal and such names
-     read as attributes (`self.BASE`; KAN-655) — and a method
+     read as attributes (`self.BASE`; KAN-655). Out of reach, deliberately:
+     an instance attribute set in `__init__`, a constant imported from another
+     module (both need resolution across scopes or modules), and `%`,
+     `.format()`, `"/".join(...)` and `+=` (reading those as paths would
+     need evaluation and invites false positives); the literal path itself
+     is still refused in any of them — and a method
      named for it (`fetch_catalog_mutations`, `fetchCatalogMutations`, … — any
      name holding `catalogmutations`, `cataloguemutations` or `mutationssince`
      once lower-cased with its underscores removed; on an adapter, any name

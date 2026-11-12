@@ -20,11 +20,11 @@ const WECHSELSCHILD = identification({
   plateRecords: [
     {
       vehicleKindCode: '01', brandName: 'Alfa Romeo', modelDescription: 'Giulietta 1.4 TB', productionFrom: 2010,
-      productionTo: 2013, typeApprovalNumber: '1AB234', firstRegistrationDate: '2011-05-12', stammnummer: '111222333',
+      productionTo: 2013, typeApprovalNumber: '1AB234', firstRegistrationDate: '2011-05-12', stammnummer: '111222333', variant: null,
     },
     {
       vehicleKindCode: '01', brandName: 'Volkswagen', modelDescription: 'Golf GTI', productionFrom: 2021,
-      productionTo: null, typeApprovalNumber: '2CD456', firstRegistrationDate: '2022-03-01', stammnummer: '444555666',
+      productionTo: null, typeApprovalNumber: '2CD456', firstRegistrationDate: '2022-03-01', stammnummer: '444555666', variant: null,
     },
   ],
   plateRecordsInterchangeable: true,
