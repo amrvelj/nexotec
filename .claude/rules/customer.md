@@ -169,14 +169,14 @@ weekly. -->
   recorded later does not count), or a holder of it starts after the storno — then, even in order, the returned customer does not get that role back and the role has no current
   holder until the future holder starts (never ended before it began; KAN-583).
   **Accepted residual**
-  (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632 to out-of-order delivery — a backlog in
-  order now gives the in-order result): a purchase event consumed after its storno's records no
+  (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632 to out-of-order delivery and to a purchase and
+  storno both still pending at the deploy, which the seed takes as out of order): a purchase event consumed after its storno's records no
   handover — after a *returned* storno the customer who got the car back is recorded nowhere —, a
   returned storno consumed after a later booking's event reopens nobody, and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
-  before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
-  after first ruling A on a narrower «failed delivery only» description.*
+  before its own recording reads as history, so a late returned storno reopens over it. *Anto ruled A on 2026-11-07 on the pre-KAN-632 (wider)
+  text; the narrowing is disclosed in PR #316.*
 - **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
   `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
   refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock and

@@ -429,7 +429,7 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         CustomerAddress child rows are the single source of truth now; the
         API-facing `address` projection comes from there (the primary
         `domicile` row), not from this property — see
-        app.customer.services.customer's projection function. Deliberately
+        app.customer.services.projections' projection function. Deliberately
         NOT named `address`: CustomerRead.address is a CustomerAddressRead
         (a full child row shape) now, and this property's plain dict would
         silently mismatch it if pydantic ever picked this up by attribute

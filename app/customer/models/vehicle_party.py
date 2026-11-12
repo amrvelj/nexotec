@@ -7,7 +7,7 @@ DB-level ForeignKey any more. vehicle_id was a genuine cross-context FK
 (customer -> vehicle); customer_id is intra-context after the PR-1 move but
 was named explicitly in the PR-2 scope, so it's dropped too rather than
 re-litigated. Existence is checked at the application layer (see
-app.customer.services.customer, app.vehicle.public.get_vehicle_mdm_or_404);
+app.customer.services.vehicle_party, app.vehicle.public.get_vehicle_mdm_or_404);
 drift is caught by the nightly reconciliation job (app.customer.reconciliation),
 not by Postgres.
 
