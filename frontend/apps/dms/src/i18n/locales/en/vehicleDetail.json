@@ -47,7 +47,12 @@
     "unnamedCustomer": "Unnamed customer",
     "showFormer": "Show former parties",
     "hideFormer": "Hide former parties",
-    "allocateError": "The customer could not be allocated."
+    "allocateError": "The customer could not be allocated.",
+    "upcoming": "from {{date}}",
+    "plannedNeverStarted": "Planned, never started",
+    "endEntry": "End entry",
+    "endEntryError": "The entry could not be ended.",
+    "entryMenu": "Entry actions"
   },
   "plates": {
     "plate": "Plate",

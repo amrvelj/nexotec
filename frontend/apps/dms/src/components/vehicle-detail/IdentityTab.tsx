@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Alert, Badge, Button, Group, Select, Stack } from '@mantine/core'
-import { UserPlus } from 'lucide-react'
+import { CalendarX, UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, useOverlay } from '@nexotec/ui-kit'
+import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, RowMenu, useOverlay } from '@nexotec/ui-kit'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { isStaleVersion } from '../../utils/apiRefusal'
-import { formatDateOnly } from '../../utils/format'
+import { formatDate, formatDateOnly } from '../../utils/format'
 import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
+import { isPlannedNeverStarted, isUpcoming } from '../../utils/vehicleParty'
 import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
 import type { VehicleMdmRead, VehiclePartyAllocationRead, VehiclePartyRole } from '../../api/types'
 
@@ -27,6 +28,11 @@ interface IdentityTabProps {
   onCustomerSearchChange: (q: string) => void
   /** U-11: fired when a customer overlay opened from a party row closes. */
   onCustomerOverlayClose: () => void
+  /** KAN-583 (ruling 2A): «Eintrag beenden» in each party row's menu — ends a
+   * current entry now, cancels a planned one. Offered only when the session
+   * may write vehicle links (KAN-430). */
+  canEndEntry?: boolean
+  onEndEntry?: (party: VehiclePartyAllocationRead) => Promise<void>
 }
 
 const ROLES: VehiclePartyRole[] = ['owner', 'keeper', 'driver']
@@ -54,6 +60,8 @@ export function IdentityTab({
   customerSearch,
   onCustomerSearchChange,
   onCustomerOverlayClose,
+  canEndEntry = false,
+  onEndEntry,
 }: IdentityTabProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
@@ -61,7 +69,43 @@ export function IdentityTab({
   const [allocationError, setAllocationError] = useState<string | null>(null)
   const [role, setRole] = useState<VehiclePartyRole>('owner')
   const [showFormer, setShowFormer] = useState(false)
+  const [endingId, setEndingId] = useState<string | null>(null)
+  const [endError, setEndError] = useState<string | null>(null)
   const { describeError, reloadLabel } = useInlineEditRefusal()
+
+  const endEntry = async (party: VehiclePartyAllocationRead) => {
+    if (!onEndEntry || endingId) return
+    setEndingId(party.id)
+    setEndError(null)
+    try {
+      await onEndEntry(party)
+    } catch {
+      setEndError(t('vehicleDetail.parties.endEntryError'))
+    } finally {
+      setEndingId(null)
+    }
+  }
+
+  // KAN-644 (Anto, 2026-11-12, A): one current holder per role; a holder
+  // whose start is still to come is listed after them as upcoming.
+  const currentParties = parties.filter((p) => !isUpcoming(p))
+  const upcomingParties = parties.filter((p) => isUpcoming(p))
+  const partyMenu = (p: VehiclePartyAllocationRead) =>
+    canEndEntry && onEndEntry ? (
+      <RowMenu
+        ariaLabel={t('vehicleDetail.parties.entryMenu')}
+        groups={{
+          destructive: [
+            {
+              label: t('vehicleDetail.parties.endEntry'),
+              icon: <CalendarX size={16} />,
+              onClick: () => void endEntry(p),
+              disabled: endingId === p.id,
+            },
+          ],
+        }}
+      />
+    ) : null
   const overlay = useOverlay()
 
   // KAN-269 (ADR-035): a failed allocation leaves the picker open with the
@@ -173,18 +217,33 @@ export function IdentityTab({
       <OverviewCard title={t('vehicleDetail.parties.title')}>
         <Stack gap="xs">
           {parties.length === 0 && <span style={{ fontStyle: 'italic', color: 'var(--mantine-color-gray-5)' }}>{t('vehicleDetail.parties.none')}</span>}
-          {parties.map((p) => (
-            <Group key={p.id} justify="space-between">
-              <Badge variant="light">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
-              <button
-                type="button"
-                onClick={() => openCustomerOverlay(p.customerId)}
-                style={PARTY_LINK_STYLE}
-              >
-                {partyLabel(p)}
-              </button>
+          {[...currentParties, ...upcomingParties].map((p) => (
+            <Group key={p.id} justify="space-between" wrap="nowrap">
+              <Group gap={6}>
+                <Badge variant="light">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
+                {isUpcoming(p) && (
+                  <Badge variant="outline" color="blue">
+                    {t('vehicleDetail.parties.upcoming', { date: formatDate(p.effectiveFrom, locale) })}
+                  </Badge>
+                )}
+              </Group>
+              <Group gap={4} wrap="nowrap">
+                <button
+                  type="button"
+                  onClick={() => openCustomerOverlay(p.customerId)}
+                  style={PARTY_LINK_STYLE}
+                >
+                  {partyLabel(p)}
+                </button>
+                {partyMenu(p)}
+              </Group>
             </Group>
           ))}
+          {endError && (
+            <Alert color="red" role="alert">
+              {endError}
+            </Alert>
+          )}
 
           {!allocating && (
             <Button size="xs" variant="light" leftSection={<UserPlus size={14} />} onClick={() => setAllocating(true)}>
@@ -228,7 +287,10 @@ export function IdentityTab({
               {showFormer &&
                 formerParties.map((p) => (
                   <Group key={p.id} justify="space-between" style={{ opacity: 0.6 }}>
-                    <Badge variant="outline">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
+                    <Group gap={6}>
+                      <Badge variant="outline">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
+                      {isPlannedNeverStarted(p) && <Badge variant="outline" color="gray">{t('vehicleDetail.parties.plannedNeverStarted')}</Badge>}
+                    </Group>
                     <button
                       type="button"
                       onClick={() => openCustomerOverlay(p.customerId)}

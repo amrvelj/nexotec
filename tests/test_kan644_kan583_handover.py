@@ -203,3 +203,18 @@ def test_ending_a_current_entry_still_ends_it_now(db_session):
 
     ended = _row(db_session, clara_party.id).effective_to
     assert ended is not None and before <= ended <= utcnow()
+
+
+def test_the_vehicles_tab_names_another_party_from_a_later_date_with_its_start(client, db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW644006")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    _allocate(db_session, vehicle.id, clara, group_id)
+    handover = _handover()
+    _allocate(db_session, vehicle.id, meier, group_id, effective_from=handover)
+    db_session.commit()
+
+    items = client.get(f"/v1/customers/{clara.id}/vehicles", headers=_sales_headers(group_id)).json()["items"]
+
+    [others] = [item["otherParties"] for item in items]
+    assert [(o["customerId"], dt.datetime.fromisoformat(o["effectiveFrom"])) for o in others] == [(str(meier.id), handover)]

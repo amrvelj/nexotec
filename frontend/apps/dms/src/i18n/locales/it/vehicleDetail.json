@@ -47,7 +47,12 @@
     "unnamedCustomer": "Cliente senza nome",
     "showFormer": "Mostra parti precedenti",
     "hideFormer": "Nascondi parti precedenti",
-    "allocateError": "Impossibile assegnare il cliente."
+    "allocateError": "Impossibile assegnare il cliente.",
+    "upcoming": "dal {{date}}",
+    "plannedNeverStarted": "Previsto, mai iniziato",
+    "endEntry": "Termina voce",
+    "endEntryError": "Impossibile terminare la voce.",
+    "entryMenu": "Azioni sulla voce"
   },
   "plates": {
     "plate": "Targa",

@@ -2941,7 +2941,10 @@ def list_other_vehicle_parties_batch(
         if other_customer is None:
             continue
         by_vehicle.setdefault(party.vehicle_id, []).append(
-            OtherVehiclePartySummary(customer_id=party.customer_id, role=party.role, display_name=customer_display_name(other_customer))
+            OtherVehiclePartySummary(
+                customer_id=party.customer_id, role=party.role, display_name=customer_display_name(other_customer),
+                effective_from=party.effective_from,
+            )
         )
     return by_vehicle
 

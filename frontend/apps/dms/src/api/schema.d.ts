@@ -9168,6 +9168,8 @@ export interface components {
             customerId: string;
             /** Displayname */
             displayName: string;
+            /** Effectivefrom */
+            effectiveFrom?: string | null;
             role: components["schemas"]["VehiclePartyRole"];
         };
         /**

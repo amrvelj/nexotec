@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useCanWrite } from '../auth/useCanWrite'
+import { holdsNowOrLater } from '../utils/vehicleParty'
 import { buildVehicleRowMenu, readVehicleOpenAction, type VehicleOpenAction } from '../components/vehicleRowMenu'
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
@@ -154,6 +156,14 @@ export function VehicleDetailPage() {
     const path = `/vehicle-mdm/${id}/allocate`
     const body = { customerId, role }
     await api.post(path, body, allocateKey.headers([path, body]))
+    invalidatePartyRoles()
+  }
+
+  // KAN-583 (ruling 2A): «Eintrag beenden» — the customer's Disconnect,
+  // which ends a current entry now and cancels a planned one.
+  const canEndPartyEntry = useCanWrite('customer_vehicle_links')
+  const endPartyEntry = async (party: VehiclePartyAllocationRead) => {
+    await api.delete(`/customers/${party.customerId}/vehicles/${party.id}`)
     invalidatePartyRoles()
   }
 
@@ -309,10 +319,14 @@ export function VehicleDetailPage() {
         <IdentityTab
           vehicle={vehicle}
           parties={partiesQuery.data ?? []}
-          formerParties={(formerPartiesQuery.data ?? []).filter((p) => p.effectiveTo !== null)}
+          // KAN-644: a row ending later (a current holder until a planned handover)
+          // is not former; a cancelled planned entry is (KAN-583).
+          formerParties={(formerPartiesQuery.data ?? []).filter((p) => !holdsNowOrLater(p))}
           onSaveField={saveField}
           onReload={reload}
           onAllocate={allocate}
+          canEndEntry={canEndPartyEntry}
+          onEndEntry={endPartyEntry}
           allocating={allocating}
           onAllocatingChange={setAllocating}
           customerCandidates={customerCandidates}

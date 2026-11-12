@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Group } from '@mantine/core'
-import { Car, FileText, Plus, Warehouse } from 'lucide-react'
+import { Alert, Button, Group } from '@mantine/core'
+import { CalendarX, Car, FileText, Plus, Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge, DataGrid, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
@@ -10,6 +10,7 @@ import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
 import type { CustomerVehicleRead } from '../../api/types'
 import { vehicleLabel } from './vehicleLabel'
 import { useDataGridLabels } from '../../hooks/useDataGridLabels'
+import { holdsNowOrLater, isPlannedNeverStarted, isUpcoming } from '../../utils/vehicleParty'
 
 // FR-06 Vehicles tab: "use the same data grid component as the overview
 // screens." Per-customer relationship lists are small (no server-side
@@ -22,6 +23,8 @@ export function VehiclesTab({
   error,
   locale,
   onAdd,
+  canEndEntry = false,
+  onEndEntry,
 }: {
   vehicles: CustomerVehicleRead[]
   loading: boolean
@@ -32,10 +35,30 @@ export function VehiclesTab({
   // LinkVehicleModal that overflow action already uses; never a second
   // implementation of "link a vehicle".
   onAdd: () => void
+  /** KAN-583 (ruling 2A): «Eintrag beenden» — ends a current entry now, or
+   * cancels a planned one (it stays as «planned, never started»). Offered
+   * only when the session may write vehicle links (KAN-430). */
+  canEndEntry?: boolean
+  onEndEntry?: (row: CustomerVehicleRead) => Promise<void>
 }) {
   const { t } = useTranslation()
   const dataGridLabels = useDataGridLabels()
   const { density } = useUiPreferencesContext()
+  const [endingId, setEndingId] = useState<string | null>(null)
+  const [endError, setEndError] = useState<string | null>(null)
+
+  const endEntry = async (row: CustomerVehicleRead) => {
+    if (!onEndEntry || endingId) return
+    setEndingId(row.id)
+    setEndError(null)
+    try {
+      await onEndEntry(row)
+    } catch {
+      setEndError(t('customerDetail.vehicles.endEntryError'))
+    } finally {
+      setEndingId(null)
+    }
+  }
 
   const columns: GridColumnDef<CustomerVehicleRead>[] = useMemo(
     () => [
@@ -88,6 +111,25 @@ export function VehiclesTab({
         cell: ({ row }) => {
           const { role, mergedIntoCustomerId } = row.original
           const label = translatedVehiclePartyRoleLabel(t, role)
+          // KAN-644 (Anto, 2026-11-12, A): a holder whose start is still to
+          // come is upcoming, not current — «ab <date>» beside the role.
+          // KAN-583 (1A): a planned entry cancelled before it began says so.
+          if (!mergedIntoCustomerId && isUpcoming(row.original)) {
+            return (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {label}
+                <Badge tone="informational">{t('customerDetail.vehicles.upcoming', { date: formatDate(row.original.effectiveFrom, locale) })}</Badge>
+              </span>
+            )
+          }
+          if (!mergedIntoCustomerId && isPlannedNeverStarted(row.original)) {
+            return (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {label}
+                <Badge tone="slate">{t('customerDetail.vehicles.plannedNeverStarted')}</Badge>
+              </span>
+            )
+          }
           if (!mergedIntoCustomerId) return label
           return (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -134,6 +176,9 @@ export function VehiclesTab({
                 <span key={`${party.customerId}-${party.role}`}>
                   {translatedVehiclePartyRoleLabel(t, party.role)}:{' '}
                   <Link to={`/customers/${party.customerId}`}>{party.displayName}</Link>
+                  {party.effectiveFrom && isUpcoming({ effectiveFrom: party.effectiveFrom })
+                    ? ` (${t('customerDetail.vehicles.upcoming', { date: formatDate(party.effectiveFrom, locale) })})`
+                    : ''}
                   {index < others.length - 1 ? ' ·' : ''}
                 </span>
               ))}
@@ -147,6 +192,11 @@ export function VehiclesTab({
 
   return (
     <>
+      {endError && (
+        <Alert color="red" role="alert" mb="xs">
+          {endError}
+        </Alert>
+      )}
       <Group justify="flex-end" mb="xs">
         <Button size="xs" variant="default" leftSection={<Plus size={14} />} onClick={onAdd}>
           {t('customerDetail.vehicles.addAction')}
@@ -156,6 +206,23 @@ export function VehiclesTab({
         columns={columns}
         rows={vehicles}
         getRowId={(row) => row.id}
+        rowActions={
+          canEndEntry && onEndEntry
+            ? (row) =>
+                !row.mergedIntoCustomerId && holdsNowOrLater(row)
+                  ? {
+                      destructive: [
+                        {
+                          label: t('customerDetail.vehicles.endEntry'),
+                          icon: <CalendarX size={16} />,
+                          onClick: () => void endEntry(row),
+                          disabled: endingId === row.id,
+                        },
+                      ],
+                    }
+                  : {}
+            : undefined
+        }
         sort={[]}
         onSortChange={() => {}}
         density={density}

@@ -788,6 +788,9 @@ class OtherVehiclePartySummary(CamelModel):
     customer_id: uuid.UUID
     role: VehiclePartyRole
     display_name: str
+    # KAN-644: a party whose start is still to come is upcoming, not current;
+    # the tab says «ab <date>». Optional: an additive contract change.
+    effective_from: dt.datetime | None = None
 
 
 class VehicleStockLinkSummary(CamelModel):
