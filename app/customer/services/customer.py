@@ -3311,7 +3311,11 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     if not _is_open(party.effective_to) or party.effective_to == party.effective_from:
         return
 
-    if party.effective_from > utcnow():
+    # KAN-664: one clock for the whole decision, so a start passing between
+    # «is it planned» and «which rows does it link» cannot cancel the planned
+    # row and give nobody the role back.
+    now = utcnow()
+    if party.effective_from > now:
         # KAN-583 (Anto, 2026-11-12, ruling 1A): «Eintrag beenden» on a holder
         # whose start is still to come cancels it. The row is kept in the
         # history as «planned, never started»: closed at its own start, an
@@ -3321,20 +3325,22 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
             db, party=party, actor_id=actor_id, group_id=group_id, effective_to=party.effective_from,
             reason="planned_never_started",
         )
-        _restore_holders_ended_by(db, planned=party, actor_id=actor_id, group_id=group_id)
+        _restore_holders_ended_by(db, planned=party, actor_id=actor_id, group_id=group_id, now=now)
     else:
         _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
     db.commit()
 
 
-def _linked_holders(db: Session, *, planned: VehicleParty, starts: dt.datetime) -> list[VehicleParty]:
+def _linked_holders(
+    db: Session, *, planned: VehicleParty, starts: dt.datetime, now: dt.datetime | None = None
+) -> list[VehicleParty]:
     """The rows `_close_incumbents` closed at `planned`'s start, locked — while
     the link is live: the row still ends exactly at that start (`starts`, the
     planned row's start before this write) and the start is still to come. A
     handover that has happened, or an end changed since, leaves the link
     dead: such a row is history and never given the role back or moved."""
 
-    if starts <= utcnow():
+    if starts <= (now or utcnow()):
         return []
     return list(
         db.scalars(
@@ -3347,7 +3353,7 @@ def _linked_holders(db: Session, *, planned: VehicleParty, starts: dt.datetime) 
 
 
 def _restore_holders_ended_by(
-    db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID
+    db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID, now: dt.datetime
 ) -> None:
     """KAN-583 + KAN-644: recording `planned` closed the current holder of the
     role at `planned`'s start and linked it (`closed_for_party_id`).
@@ -3356,19 +3362,43 @@ def _restore_holders_ended_by(
     `planned_handover_cancelled`. They never stopped holding the role and no
     `unlinked` was published for them, so none is now. An end a user typed
     carries no link and is never touched. The caller holds the (vehicle,
-    role, group) lock."""
+    role, group) lock and its rows.
 
-    for row in _linked_holders(db, planned=planned, starts=planned.effective_from):
+    KAN-664: «open again» is up to the next holder still to come — when
+    another holder of the role is already recorded from a later date, the
+    restored row ends at that start and is linked to it, exactly what that
+    holder's own allocation would have written: one current holder at a
+    time (KAN-644), never two from that start on."""
+
+    for row in _linked_holders(db, planned=planned, starts=planned.effective_from, now=now):
         before = {
             "effectiveFrom": row.effective_from.isoformat(),
             "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
         }
-        row.effective_to = None
-        row.closed_for_party_id = None
+        upcoming = db.scalar(
+            select(VehicleParty)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(
+                VehicleParty.vehicle_id == row.vehicle_id,
+                VehicleParty.role == row.role,
+                Customer.group_id == group_id,
+                VehicleParty.id.not_in([row.id, planned.id]),
+                VehicleParty.effective_from > now,
+                VehicleParty.effective_from > row.effective_from,
+                _holds_now_or_later(),
+            )
+            .order_by(VehicleParty.effective_from, VehicleParty.id)
+            .limit(1)
+        )
+        row.effective_to = upcoming.effective_from if upcoming is not None else None
+        row.closed_for_party_id = upcoming.id if upcoming is not None else None
         record_audit_event(
             db, entity_type="customer", entity_id=row.customer_id, tenant_id=group_id,
             action="vehicle_party_update", actor_id=actor_id, before=before,
-            after={"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": None},
+            after={
+                "effectiveFrom": row.effective_from.isoformat(),
+                "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
+            },
             reason="planned_handover_cancelled",
         )
 

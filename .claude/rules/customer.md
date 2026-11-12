@@ -198,8 +198,8 @@ weekly. -->
   nothing. One from a later date closes the current holders at its start (sparing one ending
   first; no `unlinked`) and links them (`closed_for_party_id`): one current holder, the new one
   upcoming («ab …» on both tabs); moving its start moves their end. «Eintrag beenden» (Disconnect)
-  on a planned row closes it at its own start («planned, never started») and reopens the rows it
-  links. An empty period never holds the role (`_holds_now_or_later`; KAN-572 too).
+  on a planned row closes it at its own start («planned, never started»); rows it still links
+  hold until the next holder (KAN-664). An empty period never holds (KAN-572 too).
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
   duplicate has a row in, in sorted order — so it never interleaves with an allocation or a
