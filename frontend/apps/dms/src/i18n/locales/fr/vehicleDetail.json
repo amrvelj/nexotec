@@ -47,7 +47,12 @@
     "unnamedCustomer": "Client sans nom",
     "showFormer": "Afficher les anciennes parties",
     "hideFormer": "Masquer les anciennes parties",
-    "allocateError": "Le client n'a pas pu être attribué."
+    "allocateError": "Le client n'a pas pu être attribué.",
+    "upcoming": "à partir du {{date}}",
+    "plannedNeverStarted": "Prévu, jamais commencé",
+    "endEntry": "Terminer l’entrée",
+    "endEntryError": "L’entrée n’a pas pu être terminée.",
+    "entryMenu": "Actions sur l’entrée"
   },
   "plates": {
     "plate": "Plaque",

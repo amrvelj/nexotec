@@ -165,7 +165,11 @@
     "specification": "Specification",
     "unknownVehicle": "Vehicle not in the register",
     "mergedInto": "Merged",
-    "mergedIntoTitle": "Kept here by a customer merge — open the surviving customer"
+    "mergedIntoTitle": "Kept here by a customer merge — open the surviving customer",
+    "upcoming": "from {{date}}",
+    "plannedNeverStarted": "Planned, never started",
+    "endEntry": "End entry",
+    "endEntryError": "The entry could not be ended."
   },
   "offersContracts": {
     "emptyState": {
@@ -248,6 +252,7 @@
   "linkVehicleRefused": {
     "customerMerged": "This customer has been merged into another. Link the vehicle to the customer it was merged into.",
     "roleAlreadyHeld": "This customer already holds this role on this vehicle from this date.",
+    "futureHolder": "{{customer}} is already recorded as {{role}} of this vehicle from {{date}} — use «End entry» on that entry first.",
     "notFound": "The vehicle or the customer no longer exists. Reload the page and search again."
   },
   "merge": {

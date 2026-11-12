@@ -126,21 +126,17 @@ weekly. -->
   only the mark, listed by the merge's own audit event. **Not built:** the transfer on
   `finance.invoice.issued` (WP-9, KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
-  legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
-  it first (the allocate routes 404 an unknown one; since KAN-189 the trade-in on an offer or a
-  pending contract allocates no party at all — the car is linked to the customer once it is
-  bought, below) — and resolves the customer in the caller's group (404, never a cross-group link).
-- **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
-  (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
-  `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this
-  covered the trade-in path too before KAN-189), then closes **every** open holder of that (vehicle, role) in
-  the caller's group, found through `Customer.group_id`, in the **same transaction** as the
-  insert — never another group's row. Concurrent allocations are serialised by a Postgres
-  advisory lock on (vehicle, role, group): a row lock cannot do it, because a concurrent
-  request never sees the row being inserted. Reads (`list_vehicle_parties`, and
-  `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
-  KAN-140) are filtered the same way, through one shared statement: a name can only come from
-  a holder the group filter already admits.
+  legacy `vehicle` table — its callers resolve it first (the allocate routes 404 an unknown one;
+  since KAN-189 a trade-in on an offer or pending contract allocates no party: the car is linked
+  once bought, below) — and the customer in the caller's group (404, never a cross-group link).
+- **Holders are per dealer group** (Anto, KAN-99, 2026-10-04): the VIN is global, each group keeps
+  its own owner/keeper/driver history. `allocate_vehicle_party` closes **every** current holder of
+  the (vehicle, role) in the caller's group (through `Customer.group_id`) in the **same
+  transaction** as the insert — never another group's row — serialised by a Postgres advisory lock
+  on (vehicle, role, group): a row lock cannot do it, a concurrent request never sees the row
+  being inserted. Reads (`list_vehicle_parties`; `list_vehicle_party_holders`, with each holder's
+  name for the Identity tab, KAN-140) share one group-filtered statement, so a name only comes
+  from a holder the filter admits.
 - **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
   rulings below, 2026-11-03, all A): the
   customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
@@ -175,8 +171,7 @@ weekly. -->
   recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
   recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
   promptly and in order, the returned customer does not get that role back and the role has no current
-  holder until the future holder starts (never ended before it began; KAN-583 is the same question
-  for allocations).
+  holder until the future holder starts (never ended before it began; KAN-583).
   **Accepted residual**
   (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
   whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
@@ -191,15 +186,20 @@ weekly. -->
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
   before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,
   after first ruling A on a narrower «failed delivery only» description.*
-- **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
-  is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
-  date); one already past is history and closes nobody, but takes the allocation's locks and
-  refuses a merged customer the same way (KAN-370). A PATCH whose `effectiveTo` leaves the
-  row holding its role (`null` or still to come) takes the same advisory lock and closes every
-  other open holder in the group; a reopen publishes `customer.vehicle_party.linked`, and a PATCH
-  that ends a holding row (`effectiveTo` now or past) publishes `unlinked` (KAN-352). Disconnect
-  locks and re-reads its row, so a race closes it once (one `unlinked`). Lock order is advisory,
-  then row. The copy a customer merge kept (KAN-177) is never reopened (409 `merged_party_row`).
+- **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
+  `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
+  refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock and
+  closes the others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
+  `unlinked` (KAN-352).
+  Disconnect re-reads its locked row (one `unlinked` per race). Lock order: advisory, then rows by id.
+  A merge's kept copy (KAN-177) is never reopened (409 `merged_party_row`).
+- **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
+  overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes
+  nothing. One from a later date closes the current holders at its start (sparing one ending
+  first; no `unlinked`) and links them (`closed_for_party_id`): one current holder, the new one
+  upcoming («ab …» on both tabs); moving its start moves their end. «Eintrag beenden» (Disconnect)
+  on a planned row closes it at its own start («planned, never started») and reopens the rows it
+  links. An empty period never holds the role (`_holds_now_or_later`; KAN-572 too).
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
   duplicate has a row in, in sorted order — so it never interleaves with an allocation or a
@@ -238,9 +238,8 @@ weekly. -->
   holding one waits on the merge (allocation, a reopen and a merge into or of X refuse a merged
   customer; a credit-block change takes only X's row; the nightly advisor-label refresh skips a
   customer it cannot lock, KAN-403). The copies are only tried, never waited
-  for — the nightly vehicle-party label refresh takes no explicit lock and no SKIP LOCKED: its
-  UPDATEs lock a batch's party rows as they are written and wait for a held one, so it could hold
-  one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
+  for — the nightly vehicle-party label refresh locks each batch's rows in id order (no SKIP
+  LOCKED) and waits for a held one, so it could hold one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
   `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):

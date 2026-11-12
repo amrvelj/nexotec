@@ -47,7 +47,12 @@
     "unnamedCustomer": "Kunde ohne Namen",
     "showFormer": "Frühere Beteiligte anzeigen",
     "hideFormer": "Frühere Beteiligte ausblenden",
-    "allocateError": "Der Kunde konnte nicht zugeordnet werden."
+    "allocateError": "Der Kunde konnte nicht zugeordnet werden.",
+    "upcoming": "ab {{date}}",
+    "plannedNeverStarted": "Geplant, nie begonnen",
+    "endEntry": "Eintrag beenden",
+    "endEntryError": "Der Eintrag konnte nicht beendet werden.",
+    "entryMenu": "Aktionen zum Eintrag"
   },
   "plates": {
     "plate": "Kennzeichen",

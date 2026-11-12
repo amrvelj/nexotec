@@ -165,7 +165,11 @@
     "specification": "Spezifikation",
     "unknownVehicle": "Fahrzeug nicht im Register",
     "mergedInto": "Zusammengeführt",
-    "mergedIntoTitle": "Bei einer Kundenzusammenführung hier behalten — Zielkunden öffnen"
+    "mergedIntoTitle": "Bei einer Kundenzusammenführung hier behalten — Zielkunden öffnen",
+    "upcoming": "ab {{date}}",
+    "plannedNeverStarted": "Geplant, nie begonnen",
+    "endEntry": "Eintrag beenden",
+    "endEntryError": "Der Eintrag konnte nicht beendet werden."
   },
   "offersContracts": {
     "emptyState": {
@@ -248,6 +252,7 @@
   "linkVehicleRefused": {
     "customerMerged": "Dieser Kunde wurde mit einem anderen zusammengeführt. Verknüpfen Sie das Fahrzeug mit dem Kunden, in den er zusammengeführt wurde.",
     "roleAlreadyHeld": "Dieser Kunde hat diese Rolle für dieses Fahrzeug ab diesem Datum bereits.",
+    "futureHolder": "Für dieses Fahrzeug ist ab {{date}} bereits {{customer}} als {{role}} erfasst — zuerst diesen Eintrag mit «Eintrag beenden» beenden.",
     "notFound": "Das Fahrzeug oder der Kunde existiert nicht mehr. Laden Sie die Seite neu und suchen Sie erneut."
   },
   "merge": {

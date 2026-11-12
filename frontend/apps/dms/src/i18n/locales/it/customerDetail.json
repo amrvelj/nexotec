@@ -165,7 +165,11 @@
     "specification": "Specifica",
     "unknownVehicle": "Veicolo non presente nel registro",
     "mergedInto": "Unito",
-    "mergedIntoTitle": "Conservato qui in un'unione di clienti — apri il cliente di destinazione"
+    "mergedIntoTitle": "Conservato qui in un'unione di clienti — apri il cliente di destinazione",
+    "upcoming": "dal {{date}}",
+    "plannedNeverStarted": "Previsto, mai iniziato",
+    "endEntry": "Termina voce",
+    "endEntryError": "Impossibile terminare la voce."
   },
   "offersContracts": {
     "emptyState": {
@@ -248,6 +252,7 @@
   "linkVehicleRefused": {
     "customerMerged": "Questo cliente è stato unito a un altro. Collega il veicolo al cliente in cui è stato unito.",
     "roleAlreadyHeld": "Questo cliente ha già questo ruolo su questo veicolo a partire da questa data.",
+    "futureHolder": "{{customer}} è già registrato come {{role}} di questo veicolo dal {{date}} — usare prima «Termina voce» su questa voce.",
     "notFound": "Il veicolo o il cliente non esiste più. Ricarica la pagina e cerca di nuovo."
   },
   "merge": {

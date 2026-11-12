@@ -15,6 +15,8 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useCanWrite } from '../auth/useCanWrite'
+import { holdsNowOrLater } from '../utils/vehicleParty'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
@@ -42,6 +44,7 @@ import type {
   CustomerRead,
   CustomerUpdateInput,
   CustomerVehiclePage,
+  CustomerVehicleRead,
   EmailType,
   PhoneType,
   SalesContractPage,
@@ -162,6 +165,13 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     queryFn: () => api.get<CustomerEmailPage>(`/customers/${id}/emails`),
     enabled: Boolean(id),
   })
+  // KAN-583 (ruling 2A): «Eintrag beenden» on the Vehicles tab — Disconnect,
+  // which ends a current entry now and cancels a planned one.
+  const canEndVehicleEntry = useCanWrite('customer_vehicle_links')
+  const endVehicleEntry = async (row: CustomerVehicleRead) => {
+    await api.delete(`/customers/${id}/vehicles/${row.id}`)
+    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'vehicles'] })
+  }
   const vehiclesQuery = useQuery({
     queryKey: ['customer', id, 'vehicles'],
     // KAN-49 / FR-19 — include_closed=true: the tab shows this customer's
@@ -444,7 +454,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       {
         id: 'vehicles',
         label: t('customerDetail.tabs.vehicles'),
-        count: vehiclesQuery.data?.items.filter((v) => v.effectiveTo == null).length,
+        // KAN-644: a role ending later (until a planned handover) still counts.
+        count: vehiclesQuery.data?.items.filter((v) => holdsNowOrLater(v)).length,
       },
       ...(salesEntitled
         ? [
@@ -558,6 +569,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           error={vehiclesQuery.isError ? t('customerDetail.errors.failedToLoadVehicles') : null}
           locale={locale}
           onAdd={() => setLinkVehicleOpen(true)}
+          canEndEntry={canEndVehicleEntry}
+          onEndEntry={endVehicleEntry}
         />
       )}
       {activeTab === 'offersContracts' && (

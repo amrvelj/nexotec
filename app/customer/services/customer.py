@@ -21,7 +21,7 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Exists, Select, func, or_, select, text, update
+from sqlalchemy import ColumnElement, Exists, Select, and_, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import InstrumentedAttribute, Session, load_only
 
@@ -34,6 +34,7 @@ from app.core.outbox import publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
+from app.core.uuid7 import uuid7
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
@@ -2498,14 +2499,15 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
 
 
 def _validate_effective_range(effective_from, effective_to) -> None:
-    # A client never writes a zero-length period. The one such row is the
-    # copy a customer merge keeps (KAN-177: effective_to = effective_from),
-    # written by the merge itself, so a PATCH of that row's dates is refused
-    # here like any other empty period.
+    # A client never writes a zero-length period. Such rows are written by
+    # the server alone: the copy a customer merge keeps (KAN-177) and a
+    # planned holder cancelled before its start (KAN-583, «planned, never
+    # started»), both closed at their own start — so a PATCH of those dates
+    # is refused here like any other empty period.
     if effective_to is not None and effective_to <= effective_from:
         raise BadRequestError(
-            "effective_to must be after effective_from (a zero-length period is only ever the copy a "
-            "customer merge keeps, written by the merge itself)."
+            "effective_to must be after effective_from (a zero-length period is written only by the "
+            "server: the copy a customer merge keeps, or an entry cancelled before it began)."
         )
 
 
@@ -2526,7 +2528,7 @@ def list_customer_vehicles(
         .order_by(VehicleParty.effective_from.desc())
     )
     if not include_closed:
-        stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
+        stmt = stmt.where(_holds_now_or_later())
     parties = list(db.scalars(stmt).all())
     _fill_unlabelled_vehicle_parties_for_read(db, parties)
     return parties
@@ -2637,7 +2639,17 @@ def refresh_vehicle_party_labels(db: Session) -> int:
     changed = 0
     last_id: uuid.UUID | None = None
     while True:
-        stmt = select(VehicleParty).order_by(VehicleParty.id).limit(_LABEL_REFRESH_BATCH)
+        # KAN-583: the batch's rows are locked FOR NO KEY UPDATE in id order
+        # before any is written — the order every multi-row writer of a
+        # vehicle's rows takes (the KAN-186 consumer, `_lock_role_rows`); the
+        # bulk stamp below would otherwise lock in scan order.
+        stmt = (
+            select(VehicleParty)
+            .order_by(VehicleParty.id)
+            .limit(_LABEL_REFRESH_BATCH)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        )
         if last_id is not None:
             stmt = stmt.where(VehicleParty.id > last_id)
         batch = list(db.scalars(stmt).all())
@@ -2781,7 +2793,7 @@ def _vehicle_parties_in_group_stmt(
         .order_by(VehicleParty.effective_from.desc())
     )
     if not include_closed:
-        stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
+        stmt = stmt.where(_holds_now_or_later())
     return stmt
 
 
@@ -2915,7 +2927,7 @@ def list_other_vehicle_parties_batch(
             .where(
                 VehicleParty.vehicle_id.in_(vehicle_ids),
                 VehicleParty.customer_id != exclude_customer_id,
-                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+                _holds_now_or_later(),
             )
             .order_by(VehicleParty.role)
         ).all()
@@ -2941,7 +2953,10 @@ def list_other_vehicle_parties_batch(
         if other_customer is None:
             continue
         by_vehicle.setdefault(party.vehicle_id, []).append(
-            OtherVehiclePartySummary(customer_id=party.customer_id, role=party.role, display_name=customer_display_name(other_customer))
+            OtherVehiclePartySummary(
+                customer_id=party.customer_id, role=party.role, display_name=customer_display_name(other_customer),
+                effective_from=party.effective_from,
+            )
         )
     return by_vehicle
 
@@ -2963,6 +2978,25 @@ def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id
     return party
 
 
+def _lock_role_rows(db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID) -> None:
+    """KAN-583/KAN-644: every party row of (vehicle, role) in the group,
+    locked FOR UPDATE in **id order**, in one statement — taken right after
+    the (vehicle, role, group) advisory lock by a Disconnect, a PATCH and an
+    allocation. A cancel or a moved planned start writes the planned row and
+    the older row it links; locking them one by one (the newer first) would
+    deadlock against the vehicle-party label refresh (KAN-186), which locks a
+    vehicle's rows in id order. Later per-row locks in the same transaction
+    then find their rows already held."""
+
+    db.execute(
+        select(VehicleParty.id)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(VehicleParty.vehicle_id == vehicle_id, VehicleParty.role == role, Customer.group_id == group_id)
+        .order_by(VehicleParty.id)
+        .with_for_update(of=VehicleParty)
+    ).all()
+
+
 def _lock_party(db: Session, party: VehicleParty) -> VehicleParty:
     """KAN-148: the party row, locked FOR UPDATE and re-read, so a write
     decides on the committed row and not on what this session read before a
@@ -2981,6 +3015,19 @@ def _lock_party(db: Session, party: VehicleParty) -> VehicleParty:
     if locked.vehicle_label_refreshed_at is None:
         _write_vehicle_labels(db, [locked])
     return locked
+
+
+def _holds_now_or_later() -> ColumnElement[bool]:
+    """A row that holds its role now or will (open, or ending later), as
+    every «current» read and the incumbent lookup filter it. A row with an
+    empty period — closed at its own start: a planned holder cancelled before
+    it began (KAN-583, ruling 1A) or the copy a merge kept (KAN-177) — never
+    holds the role, even while its start is still to come."""
+
+    return or_(
+        VehicleParty.effective_to.is_(None),
+        and_(VehicleParty.effective_to > utcnow(), VehicleParty.effective_to > VehicleParty.effective_from),
+    )
 
 
 def _is_open(effective_to: dt.datetime | None) -> bool:
@@ -3112,10 +3159,31 @@ def update_customer_vehicle(
 
     changes = data.model_dump(exclude_unset=True)
     holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
-    if holds_after:
+    if holds_after or "effective_from" in changes:
+        # A moved start moves the end of the holder it was planned to replace
+        # (KAN-644, `_follow_planned_start`): the role's lock first, then its
+        # rows in id order.
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+        _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
-    held_before = _is_open(party.effective_to)
+    old_start = party.effective_from
+    if (
+        "effective_from" in changes
+        and not holds_after
+        and party.effective_to is not None
+        and party.effective_to == party.effective_from
+    ):
+        # KAN-583: an entry cancelled before it began (an empty period) moves
+        # only by being reopened (`effectiveTo`), which runs the overlap check
+        # and the close rule; a start-only change would make it a second
+        # current holder behind the close rule's back.
+        raise BadRequestError(
+            "This entry was cancelled before it began; reopen it with effectiveTo to change its start.",
+            details={"field": "effectiveFrom"},
+        )
+    # An empty period (a cancelled planned row, KAN-583) never held the role,
+    # so reopening it publishes `linked`.
+    held_before = _is_open(party.effective_to) and party.effective_to != party.effective_from
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
         # reads as a current party again; reopening it would also close the
@@ -3140,14 +3208,37 @@ def update_customer_vehicle(
     new_effective_to = changes.get("effective_to", party.effective_to)
     _validate_effective_range(new_effective_from, new_effective_to)
 
+    # KAN-583: a future holder the reopened period overlaps refuses the PATCH
+    # before anything is changed.
+    to_close = (
+        _current_holders_refusing_future_overlap(
+            db,
+            _open_holders_in_group(
+                db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
+            ),
+            starts=new_effective_from, ends=new_effective_to,
+        )
+        if holds_after
+        else []
+    )
+
     for field, value in changes.items():
         setattr(party, field, value)
 
-    if holds_after:
-        for other in _open_holders_in_group(
-            db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
-        ):
-            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
+    if "effective_from" in changes:
+        # KAN-644: the holders this row was planned to replace end at its new
+        # start first — with or without an `effectiveTo` in the same PATCH —
+        # so the close below neither spares them at their old end (a gap) nor
+        # closes one twice.
+        _follow_planned_start(db, planned=party, old_start=old_start, actor_id=actor_id, group_id=group_id)
+        to_close = [row for row in to_close if _is_open(row.effective_to)]
+    _close_incumbents(
+        db, to_close, new_effective_from=new_effective_from, actor_id=actor_id, group_id=group_id,
+        new_party_id=party.id,
+    )
+    if "effective_to" in changes:
+        # A row given its own end is no longer «closed at a planned start».
+        party.closed_for_party_id = None
 
     try:
         db.flush()
@@ -3211,12 +3302,104 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     then finds the row closed — one close, one `unlinked` event.
     """
 
+    # The (vehicle, role, group) lock first, as every writer of the role
+    # takes it, then the row; planned or not is decided on the locked row, so
+    # a start moved meanwhile is seen (never an end before the start).
+    _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+    _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
-    if not _is_open(party.effective_to):
+    if not _is_open(party.effective_to) or party.effective_to == party.effective_from:
         return
 
-    _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
+    if party.effective_from > utcnow():
+        # KAN-583 (Anto, 2026-11-12, ruling 1A): «Eintrag beenden» on a holder
+        # whose start is still to come cancels it. The row is kept in the
+        # history as «planned, never started»: closed at its own start, an
+        # empty period, as a merge's kept copy is (KAN-177). Never deleted
+        # (ADR-064), never an end before its start.
+        _close_vehicle_party(
+            db, party=party, actor_id=actor_id, group_id=group_id, effective_to=party.effective_from,
+            reason="planned_never_started",
+        )
+        _restore_holders_ended_by(db, planned=party, actor_id=actor_id, group_id=group_id)
+    else:
+        _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
     db.commit()
+
+
+def _linked_holders(db: Session, *, planned: VehicleParty, starts: dt.datetime) -> list[VehicleParty]:
+    """The rows `_close_incumbents` closed at `planned`'s start, locked — while
+    the link is live: the row still ends exactly at that start (`starts`, the
+    planned row's start before this write) and the start is still to come. A
+    handover that has happened, or an end changed since, leaves the link
+    dead: such a row is history and never given the role back or moved."""
+
+    if starts <= utcnow():
+        return []
+    return list(
+        db.scalars(
+            select(VehicleParty)
+            .where(VehicleParty.closed_for_party_id == planned.id, VehicleParty.effective_to == starts)
+            .order_by(VehicleParty.id)
+            .with_for_update()
+        ).all()
+    )
+
+
+def _restore_holders_ended_by(
+    db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> None:
+    """KAN-583 + KAN-644: recording `planned` closed the current holder of the
+    role at `planned`'s start and linked it (`closed_for_party_id`).
+    Cancelling the planned handover takes that end back: exactly the linked
+    rows are open again, audited `vehicle_party_update` with reason
+    `planned_handover_cancelled`. They never stopped holding the role and no
+    `unlinked` was published for them, so none is now. An end a user typed
+    carries no link and is never touched. The caller holds the (vehicle,
+    role, group) lock."""
+
+    for row in _linked_holders(db, planned=planned, starts=planned.effective_from):
+        before = {
+            "effectiveFrom": row.effective_from.isoformat(),
+            "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
+        }
+        row.effective_to = None
+        row.closed_for_party_id = None
+        record_audit_event(
+            db, entity_type="customer", entity_id=row.customer_id, tenant_id=group_id,
+            action="vehicle_party_update", actor_id=actor_id, before=before,
+            after={"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": None},
+            reason="planned_handover_cancelled",
+        )
+
+
+def _follow_planned_start(
+    db: Session, *, planned: VehicleParty, old_start: dt.datetime, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> None:
+    """KAN-644: a PATCH moving a planned holder's start moves the end of the
+    holders it was planned to replace, so the history keeps no gap and never
+    two current holders. A start moved to now or earlier is the handover
+    itself: they end there (never before their own start), lose the link, and
+    `unlinked` is published as for any end now or past (KAN-352). The caller
+    holds the (vehicle, role, group) lock."""
+
+    now = utcnow()
+    for row in _linked_holders(db, planned=planned, starts=old_start):
+        before = {
+            "effectiveFrom": row.effective_from.isoformat(),
+            "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
+        }
+        ends = max(planned.effective_from, row.effective_from)
+        if ends > now:
+            row.effective_to = ends
+            record_audit_event(
+                db, entity_type="customer", entity_id=row.customer_id, tenant_id=group_id,
+                action="vehicle_party_update", actor_id=actor_id, before=before,
+                after={"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": ends.isoformat()},
+                reason="planned_handover_moved",
+            )
+        else:
+            _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ends)
 
 
 def _close_vehicle_party(
@@ -3227,6 +3410,8 @@ def _close_vehicle_party(
     group_id: uuid.UUID,
     effective_to: dt.datetime | None = None,
     merged_into_customer_id: uuid.UUID | None = None,
+    reason: str | None = None,
+    closed_for_party_id: uuid.UUID | None = None,
 ) -> None:
     """Sets effective_to and writes the audit row and the unlinked outbox
     event — WITHOUT committing, so allocate_vehicle_party can close the
@@ -3247,6 +3432,9 @@ def _close_vehicle_party(
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
     }
     party.effective_to = effective_to or utcnow()
+    # KAN-644: a row closed at a planned holder's start names it; any other
+    # close ends the row for its own reason and drops a link it had.
+    party.closed_for_party_id = closed_for_party_id
     after: dict[str, Any] = {"effectiveTo": party.effective_to.isoformat()}
     if merged_into_customer_id is not None:
         party.merged_into_customer_id = merged_into_customer_id
@@ -3261,7 +3449,13 @@ def _close_vehicle_party(
         actor_id=actor_id,
         before=before,
         after=after,
+        reason=reason,
     )
+    # KAN-352/KAN-644: `unlinked` says the row stopped holding its role. A
+    # close at a date still to come (a current holder until a planned
+    # handover) publishes nothing now, as a PATCH with a future end does not.
+    if party.effective_to > utcnow() and party.effective_to != party.effective_from:
+        return
     publish_event(
         db,
         OutboxEvent(
@@ -3323,8 +3517,12 @@ def allocate_vehicle_party(
     get_customer_or_404(db, group_id, customer_id)
     _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
+    _lock_role_rows(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     effective_from = effective_from or utcnow()
-    incumbents = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    incumbents = _current_holders_refusing_future_overlap(
+        db, _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id),
+        starts=effective_from, ends=effective_to,
+    )
     if effective_to is None and len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
         incumbent = incumbents[0]
         # KAN-84: a re-confirmed row written before KAN-84 has no label yet;
@@ -3611,7 +3809,7 @@ def _open_holders_in_group(
             VehicleParty.vehicle_id == vehicle_id,
             VehicleParty.role == role,
             Customer.group_id == group_id,
-            or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+            _holds_now_or_later(),
         )
         .order_by(VehicleParty.effective_from)
         .with_for_update(of=VehicleParty)
@@ -3619,6 +3817,54 @@ def _open_holders_in_group(
     if excluding is not None:
         stmt = stmt.where(VehicleParty.id != excluding)
     return list(db.scalars(stmt).all())
+
+
+def _current_holders_refusing_future_overlap(
+    db: Session, holders: list[VehicleParty], *, starts: dt.datetime, ends: dt.datetime | None
+) -> list[VehicleParty]:
+    """KAN-583 (Anto, 2026-11-10, option A): of `_open_holders_in_group`'s
+    rows, those holding the role now — the ones an allocation or a reopen
+    closes (KAN-148). A row whose start is still to come does not hold it yet:
+    closing it at now would end it before it began (`effective_to <
+    effective_from`, a period that never existed). When the new period
+    [`starts`, `ends`) overlaps such a future holder, the write is refused,
+    409 `vehicle_party_future_holder` naming that holder and its start: the
+    user ends or moves one of the two entries — nothing changes behind their
+    back. A future holder the new period ends before is left as it is.
+
+    A row with an empty period (closed at its own start — the copy a merge
+    kept, KAN-177) holds nothing, now or later, and is neither closed nor in
+    the way. The caller holds the (vehicle, role, group) advisory lock, so no
+    holder appears behind this check."""
+
+    now = utcnow()
+    current: list[VehicleParty] = []
+    for holder in holders:
+        if holder.effective_to is not None and holder.effective_to <= holder.effective_from:
+            continue
+        if holder.effective_from <= now:
+            current.append(holder)
+            continue
+        overlaps = (ends is None or holder.effective_from < ends) and (
+            holder.effective_to is None or holder.effective_to > starts
+        )
+        if overlaps:
+            future = db.get(Customer, holder.customer_id)
+            raise ConflictError(
+                "Another customer is recorded in this role for this vehicle from a later date; "
+                "end or move that entry first.",
+                details={
+                    "reason": "vehicle_party_future_holder",
+                    "vehicleId": str(holder.vehicle_id),
+                    "role": holder.role.value,
+                    "vehiclePartyId": str(holder.id),
+                    "customerId": str(holder.customer_id),
+                    "customerName": customer_display_name(future) if future is not None else None,
+                    "effectiveFrom": holder.effective_from.isoformat(),
+                    "effectiveTo": holder.effective_to.isoformat() if holder.effective_to else None,
+                },
+            )
+    return current
 
 
 def _refuse_merged_customer(db: Session, customer_id: uuid.UUID) -> None:
@@ -3682,17 +3928,49 @@ def _vehicle_role_lock_key(vehicle_id: uuid.UUID, role: VehiclePartyRole, group_
     return int.from_bytes(digest[:8], "big", signed=True)
 
 
+def _close_incumbents(
+    db: Session, incumbents: list[VehicleParty], *, new_effective_from: dt.datetime, actor_id: uuid.UUID,
+    group_id: uuid.UUID, new_party_id: uuid.UUID,
+) -> None:
+    """Closes the current holders a new (or reopened) holder replaces —
+    KAN-148's close rule, at the moment KAN-644 rules.
+
+    KAN-644 (Anto, 2026-11-11, option A; 2026-11-12, A): a holder recorded
+    from a date still to come does not end the current one today. The current
+    holder keeps the role until the new one starts: its row is closed at the
+    new holder's `effective_from`, so the history has no gap, and until then
+    it is the one current holder (the new one is upcoming: its start is still
+    to come). A current holder ending on or before that start does not overlap
+    and is left as it is; closing it «at the new start» would lengthen it. A
+    new holder starting now or earlier closes them now, as before.
+
+    A row closed at a future start names the new holder
+    (`closed_for_party_id`): cancelling that planned handover gives it the
+    role back, and moving the planned start moves its end
+    (`_follow_planned_start`). It is still holding, so no `unlinked` is
+    published now (KAN-352)."""
+
+    close_at = new_effective_from if new_effective_from > utcnow() else None
+    for incumbent in incumbents:
+        if close_at is not None and incumbent.effective_to is not None and incumbent.effective_to <= close_at:
+            continue
+        _close_vehicle_party(
+            db, party=incumbent, actor_id=actor_id, group_id=group_id, effective_to=close_at,
+            closed_for_party_id=new_party_id if close_at is not None else None,
+        )
+
+
 def _open_vehicle_party(
     db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
     actor_id: uuid.UUID, effective_from: dt.datetime, effective_to: dt.datetime | None,
     incumbents: list[VehicleParty],
 ) -> VehicleParty:
-    for incumbent in incumbents:
-        _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id)
-
     party = VehicleParty(
-        vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from,
+        id=uuid7(), vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from,
         effective_to=effective_to,
+    )
+    _close_incumbents(
+        db, incumbents, new_effective_from=effective_from, actor_id=actor_id, group_id=group_id, new_party_id=party.id,
     )
     _write_vehicle_labels(db, [party])
     db.add(party)
