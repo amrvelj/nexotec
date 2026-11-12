@@ -196,9 +196,9 @@ weekly. -->
   date); one already past is history and closes nobody, but takes the allocation's locks and
   refuses a merged customer the same way (KAN-370). A PATCH whose `effectiveTo` leaves the
   row holding its role (`null` or still to come) takes the same advisory lock and closes every
-  other open holder in the group — at a later new `effectiveFrom`, sparing one ending
-  first (KAN-644); a reopen publishes `linked`, a PATCH ending a holding
-  row `unlinked` (KAN-352). Disconnect locks and re-reads its row (one `unlinked` per race). Lock order is advisory,
+  other open holder in the group; a reopen publishes `customer.vehicle_party.linked`, and a PATCH
+  that ends a holding row (`effectiveTo` now or past) publishes `unlinked` (KAN-352). Disconnect
+  locks and re-reads its row, so a race closes it once (one `unlinked`). Lock order is advisory,
   then row. The copy a customer merge kept (KAN-177) is never reopened (409 `merged_party_row`).
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the

@@ -3144,13 +3144,10 @@ def update_customer_vehicle(
         setattr(party, field, value)
 
     if holds_after:
-        _close_incumbents(
-            db,
-            _open_holders_in_group(
-                db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
-            ),
-            new_effective_from=party.effective_from, actor_id=actor_id, group_id=group_id,
-        )
+        for other in _open_holders_in_group(
+            db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
+        ):
+            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
 
     try:
         db.flush()
@@ -3685,37 +3682,13 @@ def _vehicle_role_lock_key(vehicle_id: uuid.UUID, role: VehiclePartyRole, group_
     return int.from_bytes(digest[:8], "big", signed=True)
 
 
-def _close_incumbents(
-    db: Session, incumbents: list[VehicleParty], *, new_effective_from: dt.datetime, actor_id: uuid.UUID,
-    group_id: uuid.UUID,
-) -> None:
-    """Closes the current holders a new (or reopened) holder of the role
-    replaces — KAN-148's close rule, at the moment KAN-644 rules.
-
-    KAN-644 (Anto, 2026-11-11, option A): a holder recorded from a date still
-    to come does not end the current one today. The current holder keeps the
-    role until the new one starts: its row is closed at the new holder's
-    `effective_from`, so the history has no gap. A holder whose own end comes
-    on or before that start does not overlap the new one and is left as it
-    is: closing it «at the new start» would lengthen it. A new holder starting
-    now or in the past closes the others now, as before (KAN-148).
-
-    A holder whose own start is still to come (KAN-583) is not decided here."""
-
-    now = utcnow()
-    close_at = new_effective_from if new_effective_from > now else None
-    for incumbent in incumbents:
-        if close_at is not None and incumbent.effective_to is not None and incumbent.effective_to <= close_at:
-            continue
-        _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id, effective_to=close_at)
-
-
 def _open_vehicle_party(
     db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
     actor_id: uuid.UUID, effective_from: dt.datetime, effective_to: dt.datetime | None,
     incumbents: list[VehicleParty],
 ) -> VehicleParty:
-    _close_incumbents(db, incumbents, new_effective_from=effective_from, actor_id=actor_id, group_id=group_id)
+    for incumbent in incumbents:
+        _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id)
 
     party = VehicleParty(
         vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from,
