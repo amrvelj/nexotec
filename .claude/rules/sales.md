@@ -100,7 +100,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
   a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
   the stock item. A Sales row naming a merged customer last written over an
-  hour ago is a `customer.merged` `sales.customer_merged` missed, or one attached since (KAN-581, KAN-656). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
+  hour ago is a `customer.merged` `sales.customer_merged` missed (KAN-581): an offer or contract attach refuses a merged customer (409 `customer_merged`, KAN-656), and it and `sales.customer_merged` serialise on Sales' own advisory lock per customer (`services/customer_attach_lock.py`, KAN-657): the attach takes it before its offer/contract row lock, the consumer before it reads, and the consumer reads the duplicate's rows `FOR UPDATE` — so an attach racing the merge commits first and is moved, or waits and is refused, and a buyer changed while the consumer waited is never overwritten. Not a `FOR SHARE` of the customer row through `customer.public`: that is a shared transaction (ADR-047). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
   context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
   `test_actor_columns_reconciled.py`).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via

@@ -31,6 +31,7 @@ from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
 from app.sales.services import vehicle_change
+from app.sales.services.customer_attach_lock import lock_customer_for_attach
 from app.sales.services.invoice_handover import HandoverPlate
 from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
@@ -124,6 +125,8 @@ def update_contract(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
+    # KAN-657: a new buyer's attach lock comes before the contract's row lock.
+    lock_customer_for_attach(db, body.customer_id)
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = contract_service.update_contract(

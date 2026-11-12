@@ -19,6 +19,7 @@ from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
+from app.sales.services.customer_attach_lock import lock_customer_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
@@ -92,6 +93,10 @@ def apply_customer_change(
         deal.customer_language = None
         deal.customer_denorm_refreshed_at = None
         return
+    # KAN-657: serialised with `sales.customer_merged` on this customer, so a
+    # merge committing meanwhile either finds this deal or is read here. The
+    # route took the lock before its row lock already (re-entrant).
+    lock_customer_for_attach(db, customer_id)
     customer = get_customer_or_404(db, group_id, customer_id)
     refuse_unattachable_customer(db, customer=customer, group_id=group_id, host=host)
     deal.customer_id = customer.id

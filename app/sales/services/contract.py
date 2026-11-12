@@ -29,6 +29,7 @@ from app.sales.schemas.contract import ContractUpdate
 from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
+from app.sales.services.customer_attach_lock import lock_customer_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
@@ -110,6 +111,7 @@ def create_contract(
     if customer_id is not None:
         if group_id is None:
             raise ValueError("create_contract(customer_id=...) requires group_id.")
+        lock_customer_for_attach(db, customer_id)  # KAN-657, before any row lock of this transaction
         customer = get_customer_or_404(db, group_id, customer_id)
         refuse_unattachable_customer(db, customer=customer, group_id=group_id, host="a contract")
 
