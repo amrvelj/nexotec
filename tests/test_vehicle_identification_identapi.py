@@ -104,11 +104,7 @@ def test_the_second_lookup_of_the_same_plate_within_30_days_makes_no_call(db_ses
     assert second.observed.stammnummer == STAMMNUMMER and second.observed.first_registration_date == dt.date(2022, 5, 17)
 
 
-def test_a_cache_hit_whose_typenschein_several_stored_variants_share_is_a_picker_not_a_guess(db_session, monkeypatch):
-    """The cache keeps the Typenschein, not the FzKey the live answer named
-    (KAN-592): with two stored variants under it, the cached answer offers
-    both with the best match, rather than guessing which the provider meant."""
-
+def _two_variants_under_the_typenschein(db_session, monkeypatch):
     s = _connected(
         db_session, monkeypatch,
         FakeAutoi(api_bodies={
@@ -117,14 +113,61 @@ def test_a_cache_hit_whose_typenschein_several_stored_variants_share_is_a_picker
         }),
     )
     _identify(db_session, s, fix.DEMO_TYPE_APPROVAL)  # stores both variants under the Typenschein
+    return s
+
+
+def test_a_cache_hit_gives_the_variant_the_provider_named_not_a_picker(db_session, monkeypatch):
+    """KAN-592 (option A, ADR-126): the cache row keeps the variant the live
+    answer named, so the repeat lookup is the same single candidate — even
+    where two stored variants share the Typenschein — with no call at all."""
+
+    s = _two_variants_under_the_typenschein(db_session, monkeypatch)
     first = _identify(db_session, s, PLATE)
     assert [v.variant_name for v in first.variants] == ["2.0 TDI Avant quattro"] and first.best_match_available is False
+    named = first.variants[0].catalogue_variant_id
+    (row,) = db_session.scalars(select(PlateLookupCacheEntry)).all()
+    assert row.model_variant_id == named
+    typenschein_calls = len(s.fake.api_requests_to(TYPENSCHEIN_PATH))
+
+    second = _identify(db_session, s, PLATE)
+
+    assert IdentificationNote.PLATE_CACHE_HIT in second.notes
+    assert second.outcome is IdentificationOutcome.VARIANTS
+    assert [v.catalogue_variant_id for v in second.variants] == [named]
+    assert second.best_match_available is False
+    assert second.observed.stammnummer == STAMMNUMMER and second.observed.type_approval_number == fix.DEMO_TYPE_APPROVAL
+    assert len(s.fake.api_requests_to(PLATE_PATH)) == 1
+    assert len(s.fake.api_requests_to(TYPENSCHEIN_PATH)) == typenschein_calls, "no catalogue call either"
+
+
+def test_a_cache_row_without_a_variant_is_still_the_picker_not_a_guess(db_session, monkeypatch):
+    """A row written before KAN-592 (or for an answer that named no variant)
+    continues at the Typenschein: both stored variants, best match offered."""
+
+    s = _two_variants_under_the_typenschein(db_session, monkeypatch)
+    _identify(db_session, s, PLATE)
+    (row,) = db_session.scalars(select(PlateLookupCacheEntry)).all()
+    row.model_variant_id = None
+    db_session.commit()
 
     second = _identify(db_session, s, PLATE)
 
     assert IdentificationNote.PLATE_CACHE_HIT in second.notes
     assert sorted(v.variant_name for v in second.variants) == ["2.0 TDI Avant", "2.0 TDI Avant quattro"]
     assert second.best_match_available is True
+    assert len(s.fake.api_requests_to(PLATE_PATH)) == 1
+
+
+def test_a_cache_row_naming_a_variant_no_longer_stored_continues_at_the_typenschein(db_session, monkeypatch):
+    s = _two_variants_under_the_typenschein(db_session, monkeypatch)
+    _identify(db_session, s, PLATE)
+    (row,) = db_session.scalars(select(PlateLookupCacheEntry)).all()
+    row.model_variant_id = uuid.uuid4()
+    db_session.commit()
+
+    second = _identify(db_session, s, PLATE)
+
+    assert sorted(v.variant_name for v in second.variants) == ["2.0 TDI Avant", "2.0 TDI Avant quattro"]
     assert len(s.fake.api_requests_to(PLATE_PATH)) == 1
 
 
@@ -142,6 +185,13 @@ def test_a_wechselschild_is_the_picker_and_nothing_is_chosen(db_session, monkeyp
     assert _calls(db_session, "vehiclebuild") == 1
     # both variants were stored by the one answer
     assert db_session.scalar(select(func.count()).select_from(ModelVariant)) == 2
+    # KAN-592: each record carries the variant the provider named, live and cached alike
+    named = [r.model_variant_id for r in result.plate_records]
+    assert all(named) and len(set(named)) == 2
+    cached = _identify(db_session, s, PLATE)
+    assert IdentificationNote.PLATE_CACHE_HIT in cached.notes
+    assert [r.model_variant_id for r in cached.plate_records] == named
+    assert set(named) == set(db_session.scalars(select(ModelVariant.id)).all())
 
 
 def test_a_wechselschild_whose_stammnummern_the_account_may_not_see_is_still_the_picker(db_session, monkeypatch):

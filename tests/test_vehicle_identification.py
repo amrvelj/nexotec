@@ -691,7 +691,8 @@ def test_a_plate_conflict_is_raised_once_per_provider_answer_not_per_lookup(db_s
 def test_a_record_stored_twice_never_reads_as_a_wechselschild(db_session):
     tenant_id = uuid.uuid4()
     (record,) = __import__("app.integration.adapters.auto_i_dat_mock", fromlist=["_PLATES"])._PLATES["BE123456"]
-    plate_lookup_cache.store_records_for_plate(db_session, tenant_id=tenant_id, plate="BE123456", records=[record, record])
+    cached = plate_lookup_cache.CachedPlateRecord(info=record)
+    plate_lookup_cache.store_records_for_plate(db_session, tenant_id=tenant_id, plate="BE123456", records=[cached, cached])
     db_session.commit()
 
-    assert plate_lookup_cache.cached_records_for_plate(db_session, tenant_id=tenant_id, plate="BE123456") == [record]
+    assert plate_lookup_cache.cached_records_for_plate(db_session, tenant_id=tenant_id, plate="BE123456") == [cached]

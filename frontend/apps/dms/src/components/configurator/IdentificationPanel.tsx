@@ -129,7 +129,28 @@ export function IdentificationPanel({
     }
   }
 
-  const pickPlateRecord = (record: PlateRecordRead) =>
+  const pickPlateRecord = (record: PlateRecordRead) => {
+    // KAN-592: the provider named this car's variant — start from it, with the
+    // record's own facts, instead of a billed lookup at its Typenschein.
+    if (record.modelVariantId && result) {
+      const recordObserved: ObservedIdentityRead = {
+        ...result.observed,
+        stammnummer: record.stammnummer ?? result.observed.stammnummer,
+        typeApprovalNumber: record.typeApprovalNumber,
+        firstRegistrationDate: record.firstRegistrationDate ?? result.observed.firstRegistrationDate,
+      }
+      const variantId = record.modelVariantId
+      void (async () => {
+        setError(null)
+        try {
+          const variant = await api.get<CatalogueVariantRead>(`/catalogue/variants/${variantId}`)
+          onStart({ variant, observed: recordObserved, matchMethod: result.matchMethod })
+        } catch {
+          setError(t('configurator.identify.error'))
+        }
+      })()
+      return
+    }
     void identify(
       record.typeApprovalNumber,
       {
@@ -139,6 +160,7 @@ export function IdentificationPanel({
       },
       result?.matchMethod ?? null,
     )
+  }
 
   const visibleNotes = result?.notes ?? []
 

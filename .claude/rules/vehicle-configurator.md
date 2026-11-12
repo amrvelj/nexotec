@@ -90,8 +90,11 @@ reconciliation reports the dangling reference.
   → vehicle-mdm, `identify_by_vrn`, then the cache. **Typenschein / Werkscode** → one provider page
   merged with the stored variants.
 - The cache is filled by a plate lookup only, **whole or not at all** — a part would later read as
-  the whole truth about the plate; a `vrn` answer never fills it. A hit answers from stored variants
-  and calls only when none are stored (keeping the FzKey is a migration, Anto's call — KAN-592).
+  the whole truth about the plate; a `vrn` answer never fills it. Each row keeps the stored variant
+  the answer named (`model_variant_id`, KAN-592): a hit on one such record is that one candidate, as
+  live, and the picker's records carry it, so picking one starts from that variant without a
+  `vehiclecatalog` call. A row without one (older, or a variant no longer stored) answers from the
+  stored variants at its Typenschein and calls only when none are stored.
 - Every variant a rung returns is stored (master data, each upsert in a savepoint, a lost race
   re-read in a fresh savepoint up to four attempts — KAN-593); the stored rows are a cache of
   what was seen, never the source. `vehicle.plate_lookup.conflicted` names only records carrying

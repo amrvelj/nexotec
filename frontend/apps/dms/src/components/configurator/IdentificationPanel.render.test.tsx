@@ -110,6 +110,37 @@ describe('IdentificationPanel', () => {
     expect(start.confirmedBestMatchCode).toBeUndefined()
   })
 
+  it('starts from the variant the provider named for a picked record, with no lookup at its Typenschein (KAN-592)', async () => {
+    const user = userEvent.setup()
+    const NAMED = {
+      ...WECHSELSCHILD,
+      plateRecords: [WECHSELSCHILD.plateRecords[0], { ...WECHSELSCHILD.plateRecords[1], modelVariantId: 'v1' }],
+    }
+    const { backend, onStart } = setup([
+      { method: 'GET', match: /^\/vehicle-identification$/, handler: () => NAMED },
+    ])
+
+    await identify(user, 'ZH999999')
+    await screen.findByText(i18n.t('configurator.identify.plateRecords.wechselschild'))
+    expect(onStart).not.toHaveBeenCalled()
+
+    await user.click(screen.getByText('Volkswagen Golf GTI'))
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+
+    const lookups = backend.calls.filter((c) => c.pathname === '/vehicle-identification')
+    expect(lookups.map((c) => c.params.get('q'))).toEqual(['ZH999999'])
+    expect(backend.calls.some((c) => c.pathname === '/catalogue/variants/v1')).toBe(true)
+    const start = onStart.mock.calls[0][0]
+    expect(start.variant.id).toBe(catalogueVariant().id)
+    expect(start.matchMethod).toBe('kontrollschild')
+    expect(start.observed).toMatchObject({
+      licencePlate: 'ZH999999',
+      stammnummer: '444555666',
+      firstRegistrationDate: '2022-03-01',
+      typeApprovalNumber: '2CD456',
+    })
+  })
+
   it('titles a genuine plate conflict as a conflict, not as a Wechselschild', async () => {
     const user = userEvent.setup()
     setup([
