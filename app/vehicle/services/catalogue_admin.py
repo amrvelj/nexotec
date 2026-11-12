@@ -110,8 +110,25 @@ def list_mapping_gaps(db: Session, *, resolved: bool | None, params: PageParams)
 
 
 def resolve_gap(
-    db: Session, *, gap: MappingGap, canonical_list_code: str, canonical_value_code: str, actor_id: uuid.UUID
+    db: Session,
+    *,
+    gap: MappingGap,
+    canonical_list_code: str,
+    canonical_value_code: str,
+    actor_id: uuid.UUID | None,
+    reason: str | None = None,
 ) -> MappingGap:
+    """Resolves a mapping gap and fills everything it left NULL, audited.
+
+    The route passes the platform admin's id. A script with nobody behind it
+    (the demo provider's seed, KAN-649) passes `actor_id=None` and a
+    `reason`, which the audit row carries (KAN-243: a system write has a null
+    actor, never an invented one); one without the other is a programming
+    error.
+    """
+
+    if actor_id is None and not (reason and reason.strip()):
+        raise ValueError("A gap resolved without an actor is a system resolve and must name its reason (KAN-649).")
     changed = resolve_mapping_gap(
         db, gap=gap, canonical_list_code=canonical_list_code, canonical_value_code=canonical_value_code,
         actor_id=actor_id,
@@ -158,6 +175,7 @@ def resolve_gap(
             "coloursAndTyresFilled": colours_and_tyres_filled, "optionGroupsFilled": option_groups_filled,
             "configurationsFilled": configurations_filled,
         },
+        reason=reason,
     )
     db.commit()
     db.refresh(gap)
