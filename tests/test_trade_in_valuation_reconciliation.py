@@ -143,7 +143,7 @@ def test_a_confirmation_whose_commit_and_compensation_both_failed_is_reported(db
 
     with (
         patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
-        patch("app.sales.services.contract.revert_valuation_use", side_effect=OSError("valuation unreachable")),
+        patch("app.sales.services.contract_compensation.revert_valuation_use", side_effect=OSError("valuation unreachable")),
         pytest.raises(RuntimeError, match="boom"),
     ):
         _confirm(db_session, engine, contract, group_id)

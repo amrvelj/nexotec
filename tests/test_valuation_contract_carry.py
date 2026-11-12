@@ -198,7 +198,7 @@ def test_the_manager_clears_a_stamp_once_the_pending_contract_is_cancelled(clien
     contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation)
     with (
         patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
-        patch("app.sales.services.contract.revert_valuation_use", side_effect=OSError("valuation unreachable")),
+        patch("app.sales.services.contract_compensation.revert_valuation_use", side_effect=OSError("valuation unreachable")),
         pytest.raises(RuntimeError, match="boom"),
     ):
         _confirm(db_session, engine, contract, group_id)

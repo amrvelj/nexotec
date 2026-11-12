@@ -333,7 +333,7 @@ def test_a_failing_release_does_not_stop_the_valuation_revert_or_mask_the_error(
 
     with (
         patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
-        patch("app.sales.services.contract.release", side_effect=OSError("inventory unreachable")),
+        patch("app.sales.services.contract_compensation.release", side_effect=OSError("inventory unreachable")),
         pytest.raises(RuntimeError, match="boom"),
     ):
         _confirm(db_session, engine, contract, group_id)
