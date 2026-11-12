@@ -20,8 +20,10 @@ on a session of its own (ADR-047).
 before it stornos a purchase: a contract on the car whose invoice was
 requested, by number. A SELECT only, on the caller's own session.
 
-`get_trade_in_seller` (KAN-189) is the customer context's read when a trade-in
-is bought: the contract's customer and since when it is known, plain data.
+`get_trade_in_seller` (KAN-189) is the worker's fallback for a trade-in
+purchase or storno event that does not name its seller (published before
+KAN-632, which carries it in the events): the contract's customer and since
+when it is known, plain data. Customer, below sales, never calls it (ADR-131).
 `referenced_configuration_ids` (KAN-270) is vehicle's read for its daily purge of
 configurations no host ever took: which of the ids it names any offer or
 contract holds. A SELECT only.

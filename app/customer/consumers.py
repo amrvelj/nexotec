@@ -13,28 +13,85 @@ Registered in app.worker.register_handlers:
   they now stand).
 - `inventory.stock_item.purchased` as "customer.trade_in_purchased" (KAN-189).
 - `inventory.stock_item.storno` as "customer.trade_in_storno" (KAN-572).
+
+KAN-632 (ADR-131): customer sits below sales and inventory and imports
+neither. The two trade-in consumers take what they need from the event —
+who traded the car in and when the contract was signed
+(`tradeInCustomerId`, `tradeInSignedAt`, Stock's copy of
+`sales.contract.confirmed`'s `customerId` / `signedAt`) — and judge whether
+the event was overtaken from this context's own record of Stock's bookings
+(`services/stock_item_booking.py`). An event without the seller (published
+before KAN-632, or of a trade-in whose pipeline item was created before it)
+is answered by `seller_of_old_event`, which the composition root hands in
+(`app/worker.py` asks Sales); without one such an event fails loudly, so it
+is redelivered and dead-lettered with its alert, never silently dropped.
 """
 
+import dataclasses
 import datetime as dt
 import logging
 import uuid
+from collections.abc import Callable
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.outbox_model import OutboxMessage
+from app.customer.models.stock_item_booking import StockItemBookingKind
 from app.customer.services.customer import (
     record_former_holder_on_purchase,
     relabel_vehicle_parties_for_vehicle,
     reopen_former_holder_after_storno,
     resolve_live_customer_id,
 )
-from app.inventory.public import purchase_booked_after, standing_purchase_date
+from app.customer.services.stock_item_booking import (
+    lock_stock_item,
+    purchase_overtaken,
+    record_booking,
+    storno_overtaken,
+)
 from app.platform.public import get_dealership_or_404
-from app.sales.public import get_trade_in_seller
 
 logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass(frozen=True)
+class TradeInSeller:
+    """The customer who traded the car in, and since when the system knows
+    they held it: the contract's signature (KAN-189)."""
+
+    customer_id: uuid.UUID
+    known_since: dt.datetime
+
+
+SellerOfOldEvent = Callable[[Session, uuid.UUID, uuid.UUID], TradeInSeller | None]
+"""(db, tenant_id, contract_id) -> the trade-in's seller, for an event that
+does not carry it; None when the Betrieb has no such contract or it names no
+customer."""
+
+
+class OldTradeInEventWithoutSellerLookup(RuntimeError):
+    """An event without `tradeInCustomerId` reached a consumer that was given
+    no `seller_of_old_event` — a wiring fault, raised so the event is retried
+    and dead-lettered rather than dropped."""
+
+
+def _trade_in_seller(
+    db: Session, message: OutboxMessage, *, contract_id: uuid.UUID, seller_of_old_event: SellerOfOldEvent | None
+) -> TradeInSeller | None:
+    """The seller the event names (KAN-632), else the old event's answer."""
+
+    payload = message.payload or {}
+    customer_id, signed_at = payload.get("tradeInCustomerId"), payload.get("tradeInSignedAt")
+    if customer_id and signed_at:
+        return TradeInSeller(customer_id=uuid.UUID(customer_id), known_since=dt.datetime.fromisoformat(signed_at))
+    if seller_of_old_event is None:
+        raise OldTradeInEventWithoutSellerLookup(
+            f"{message.event_type} message {message.id} names no trade-in seller and no lookup was given."
+        )
+    assert message.tenant_id is not None
+    return seller_of_old_event(db, message.tenant_id, contract_id)
 
 
 def handle_vehicle_summary_changed_message(db: Session, message: OutboxMessage) -> None:
@@ -48,7 +105,9 @@ def handle_vehicle_summary_changed_message(db: Session, message: OutboxMessage) 
     relabel_vehicle_parties_for_vehicle(db, vehicle_id=message.aggregate_id)
 
 
-def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> None:
+def handle_stock_item_purchased_message(
+    db: Session, message: OutboxMessage, *, seller_of_old_event: SellerOfOldEvent | None = None
+) -> None:
     """KAN-189 (Anto, 2026-11-02, option A): when the Betrieb books the
     purchase of a trade-in's pipeline item, the contract's customer becomes
     the car's former owner and keeper, ended at the purchase. Every other
@@ -57,19 +116,29 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
     The trade-in itself creates no vehicle-mdm record (ADR-070 as amended),
     so this is the first moment the car has one to link to: the purchase
     promotes the item (ADR-103) and the event names the record
-    (`vehicleId`). The contract's customer is Sales' fact, read through
-    `app.sales.public`; the write is this context's own, in this consumer's
-    transaction with its processed_event row (rules 4, 6 and 12: nothing is
-    written in another context's transaction). Flushes only; consume_once
-    commits. A customer merged since the contract is followed to its
-    survivor.
+    (`vehicleId`). The contract's customer and signature are Sales' facts,
+    carried by the event since KAN-632 (`tradeInCustomerId`,
+    `tradeInSignedAt`; an older event's come from `seller_of_old_event`); the
+    write is this context's own, in this consumer's transaction with its
+    processed_event row (rules 4, 6 and 12: nothing is written in another
+    context's transaction). Flushes only; consume_once commits. A customer
+    merged since the contract is followed to its survivor.
+
+    Every purchase event, trade-in or not, is recorded in this context's
+    booking record (KAN-632), which the storno consumer judges by too.
     """
 
     payload = message.payload or {}
-    if payload.get("originRole") != "trade_in" or not payload.get("originContractId"):
-        return
+    is_trade_in = payload.get("originRole") == "trade_in" and bool(payload.get("originContractId"))
     if message.tenant_id is None:
-        raise ValueError(f"inventory.stock_item.purchased message {message.id} has no tenant_id.")
+        if is_trade_in:
+            raise ValueError(f"inventory.stock_item.purchased message {message.id} has no tenant_id.")
+        return
+    lock_stock_item(db, stock_item_id=message.aggregate_id)
+    overtaken = purchase_overtaken(db, message=message)
+    record_booking(db, message=message, kind=StockItemBookingKind.PURCHASED)
+    if not is_trade_in:
+        return
     if not payload.get("vehicleId"):
         # A purchased item is in stock, and promotion gave it its record; an
         # event without one was published before KAN-189 added the field.
@@ -78,21 +147,17 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
 
     # KAN-572: delivery is unordered after a failed delivery, so a purchase
     # event may arrive after its storno (or after the car was booked again).
-    # Stock's fact is re-read as it is now: only a purchase that still
-    # stands is recorded, judged by its purchase date (a purchase stornoed
-    # and booked again under the same date is taken for the standing one) — a later booking publishes its own event, and a
-    # car that went back to its customer must not show a handover. Accepted
-    # residual (Anto, 2026-11-07, KAN-572 option A; customer.md): consumed
-    # after an unflagged storno committed — a failed delivery, or just a
-    # worker backlog — no handover is recorded unless the car is bought again.
-    standing = standing_purchase_date(db, tenant_id=message.tenant_id, stock_item_id=message.aggregate_id)
-    reported = payload.get("purchaseDate")
-    if standing is None or (reported is not None and standing.isoformat() != reported):
-        logger.info("Trade-in purchase %s no longer stands in Stock; no former owner recorded for it.", message.id)
+    # KAN-632: judged by the bookings this context has learnt from Stock's
+    # events (`services/stock_item_booking.py`), never by asking Stock: a
+    # purchase a later storno or booking overtook no longer stands — a later
+    # booking publishes its own event, and a car that went back to its
+    # customer must not show a handover.
+    if overtaken:
+        logger.info("Trade-in purchase %s was overtaken by a later booking; no former owner recorded.", message.id)
         return
 
     contract_id = uuid.UUID(payload["originContractId"])
-    seller = get_trade_in_seller(db, tenant_id=message.tenant_id, contract_id=contract_id)
+    seller = _trade_in_seller(db, message, contract_id=contract_id, seller_of_old_event=seller_of_old_event)
     if seller is None:
         logger.warning("Trade-in purchase %s: contract %s names no customer here.", message.id, contract_id)
         return
@@ -119,7 +184,9 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
     )
 
 
-def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> None:
+def handle_stock_item_storno_message(
+    db: Session, message: OutboxMessage, *, seller_of_old_event: SellerOfOldEvent | None = None
+) -> None:
     """KAN-572 (Anto, 2026-11-07, option C): Stock cancelled the purchase of a
     trade-in and said the car went back to the customer who traded it in
     (`returnedToCustomer`). That customer holds it again: the owner and
@@ -129,15 +196,22 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
     storno a later purchase booking overtook (Stock asked, as Sales does),
     whether that booking stands or was stornoed in turn.
 
-    The contract's customer is Sales' fact, read through `app.sales.public`,
-    and followed through a merge to its survivor, as the purchase consumer
-    does. Both consumers judge by Stock's state when they run, so a storno
-    consumed before its purchase (a failed delivery, a backlog) finds nothing
-    to reopen and the purchase consumed after it records nothing — the
-    residual customer.md states. Flushes
-    only; consume_once commits."""
+    The contract's customer is Sales' fact, carried by the event since
+    KAN-632 (an older event's comes from `seller_of_old_event`), and followed
+    through a merge to its survivor, as the purchase consumer does. Both
+    consumers judge by the bookings this context has learnt from Stock's
+    events, so a storno consumed before its purchase (a failed delivery)
+    finds nothing to reopen and the purchase consumed after it records
+    nothing — the residual customer.md states. Every storno, returned or
+    not, is recorded in that booking record. Flushes only; consume_once
+    commits."""
 
     payload = message.payload or {}
+    overtaken = False
+    if message.tenant_id is not None:
+        lock_stock_item(db, stock_item_id=message.aggregate_id)
+        overtaken = storno_overtaken(db, message=message)
+        record_booking(db, message=message, kind=StockItemBookingKind.STORNOED)
     if not payload.get("returnedToCustomer"):
         return
     if payload.get("originRole") != "trade_in" or not payload.get("originContractId"):
@@ -151,17 +225,15 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
         return
     # A storno may be consumed long after it happened (a failed delivery, a
     # dead letter replayed, a backlog): the car may have been bought again
-    # since — and that booking may itself have been stornoed. Stock is
-    # asked whether a purchase was booked after this storno; if so the storno
-    # is stale and says nothing about who holds the car now.
-    if purchase_booked_after(
-        db, tenant_id=message.tenant_id, stock_item_id=message.aggregate_id, after=message.occurred_at
-    ):
+    # since — and that booking may itself have been stornoed. If a later
+    # purchase of the car is known here, the storno is stale and says nothing
+    # about who holds the car now.
+    if overtaken:
         logger.info("Trade-in storno %s: a later purchase overtook it; no holder reopened.", message.id)
         return
 
     contract_id = uuid.UUID(payload["originContractId"])
-    seller = get_trade_in_seller(db, tenant_id=message.tenant_id, contract_id=contract_id)
+    seller = _trade_in_seller(db, message, contract_id=contract_id, seller_of_old_event=seller_of_old_event)
     if seller is None:
         logger.warning("Trade-in storno %s: contract %s names no customer here.", message.id, contract_id)
         return

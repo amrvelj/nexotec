@@ -17,6 +17,7 @@ deliberate, not an oversight.
 import logging
 import os
 import time
+import uuid
 
 from sqlalchemy.orm import Session
 
@@ -34,12 +35,13 @@ from app.core.observability import (
     record_reconciliation_age_seconds,
 )
 from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pending_age_seconds
+from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.consumers import TradeInSeller, handle_vehicle_summary_changed_message
 from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
-from app.customer.consumers import handle_vehicle_summary_changed_message
 from app.customer.public import (
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
@@ -78,6 +80,7 @@ from app.sales.consumers import (
     handle_stock_item_storno_message,
 )
 from app.sales.public import (
+    get_trade_in_seller,
     oldest_customer_label_age_seconds,
     oldest_owner_label_age_seconds,
     refresh_customer_labels,
@@ -93,6 +96,29 @@ logger = logging.getLogger("app.worker")
 
 _POLL_INTERVAL_SECONDS = 1.0
 _HEARTBEAT_INTERVAL_SECONDS = 30.0
+
+
+def _trade_in_seller_from_sales(db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> TradeInSeller | None:
+    """KAN-632 (ADR-131): the seller of a trade-in whose purchase or storno
+    event does not carry it — published before KAN-632, or of a pipeline item
+    created before it, when Sales' confirmation named nobody to keep. Asked
+    here, at the composition root, because customer sits below sales and
+    never imports it; the answer is the one the customer consumers read
+    before (`sales.public.get_trade_in_seller`, a SELECT only, in the
+    consumer's transaction — nothing of Sales' is written). Once no trade-in
+    item without a kept seller remains unbought and no such event is
+    undelivered, this fallback can go (a follow-up ticket)."""
+
+    seller = get_trade_in_seller(db, tenant_id=tenant_id, contract_id=contract_id)
+    return None if seller is None else TradeInSeller(customer_id=seller.customer_id, known_since=seller.known_since)
+
+
+def _customer_trade_in_purchased(db: Session, message: OutboxMessage) -> None:
+    handle_trade_in_purchased_message(db, message, seller_of_old_event=_trade_in_seller_from_sales)
+
+
+def _customer_trade_in_storno(db: Session, message: OutboxMessage) -> None:
+    handle_trade_in_storno_message(db, message, seller_of_old_event=_trade_in_seller_from_sales)
 
 
 def configure_observability() -> None:
@@ -167,7 +193,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     transport.register(
         "inventory.stock_item.purchased",
         consumer_name="customer.trade_in_purchased",
-        handler=handle_trade_in_purchased_message,
+        handler=_customer_trade_in_purchased,
     )
     # KAN-572 (Anto, 2026-11-07, option C) — a trade-in whose purchase was
     # stornoed and which went back to its customer reopens that customer as
@@ -175,7 +201,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     transport.register(
         "inventory.stock_item.storno",
         consumer_name="customer.trade_in_storno",
-        handler=handle_trade_in_storno_message,
+        handler=_customer_trade_in_storno,
     )
     # KAN-144 — a manual configuration's contract learns the pipeline stock
     # item its confirmation created, so the purchase gate can apply to it.

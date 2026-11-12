@@ -140,9 +140,14 @@ weekly. -->
 - **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
   rulings below, 2026-11-03, all A): the
   customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
-  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it reads
-  the contract's customer and signature through `sales.public.get_trade_in_seller` and, in its own
-  consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
+  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it takes
+  the contract's customer and signature from the event (`tradeInCustomerId`, `tradeInSignedAt`:
+  KAN-632, ADR-131 — Sales' `sales.contract.confirmed` names `customerId`/`signedAt`, Stock keeps them
+  on the trade-in's pipeline item and carries them on its purchase and storno events; customer
+  imports neither context). An event without them — published before KAN-632, or of an item created
+  before it — is answered by the `seller_of_old_event` the worker hands in (`app/worker.py` asks
+  `sales.public.get_trade_in_seller`); a handler given none raises, so such an event is redelivered and
+  dead-lettered, never dropped. Then, in its own consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
   keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
   when that date is not after the signature or is still to come (never later than the booking: an
   end to come would make a current holder) — held since the signature. A row of the customer
@@ -159,29 +164,28 @@ weekly. -->
   `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
   open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
   the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
-  failed delivery, `customer.trade_in_purchased` re-reads `inventory.public.standing_purchase_date` and
-  records only a purchase that still stands, judged by its purchase date (a late event of a stornoed
-  purchase, or of one booked again under another date, writes nothing; booked again under the same
-  date, the late event is taken for the standing one, and the history may then end at the late event's
-  booking instead — whenever `purchase_moment` falls back to the booking for it: a date not after the
-  signature, or still to come when it was booked; the standing one publishes its own), and `customer.trade_in_storno` asks Stock whether a
-  purchase was booked after the storno (`inventory.public.purchase_booked_after`, the automatic
-  `purchase:` Wagenbuch entries): a stale returned storno — overtaken by a later booking, standing or
-  stornoed in turn — reopens nobody. The reopen also leaves a role alone when a row of it was
+  failed delivery, both consumers judge an event by the bookings this context has learnt from Stock's
+  own events (KAN-632; `customer_stock_item_booking`, `services/stock_item_booking.py`): each consumer
+  records every purchase and storno event it sees — trade-in or not, keyed by the event id, ordered by
+  its `occurredAt` (Stock publishes each booking under the item's row lock) — under a per-item advisory
+  lock, and the migration seeded every such event already in the outbox. A purchase is recorded only
+  while no later storno or purchase of the item is known (a late event of a stornoed purchase, or of
+  one booked again, writes nothing — the later booking publishes its own); a returned storno reopens
+  nobody once a later purchase is known (stale: overtaken by a later booking, standing or stornoed in
+  turn). The reopen also leaves a role alone when a row of it was
   recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
   recorded later does not count), or a holder of it starts after the storno — then, even for a storno consumed
   promptly and in order, the returned customer does not get that role back and the role has no current
   holder until the future holder starts (never ended before it began; KAN-583).
   **Accepted residual**
-  (Anto, 2026-11-07, KAN-572 option A): both consumers judge by Stock's state when they *run*, so
-  whenever one runs after a later Stock write has committed — a failed delivery, but also a worker
-  backlog, an outage or a deploy, with delivery still in order — a purchase event consumed after an
-  *unflagged* storno records no handover unless the car is bought again — after a *returned* storno
-  the customer who got the car back is then recorded nowhere (in order, they would be its current
-  owner and keeper) —, a returned storno consumed
-  after a later booking reopens nobody (so the period the customer held the car again is not
-  recorded), with a re-booking the history may end at either purchase, depending on which event is
-  consumed when, and
+  (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632): the consumers judge by the later bookings
+  whose events were *consumed* before them (before KAN-632: by Stock's state when they ran, so a
+  backlog, an outage or a deploy with delivery in order counted too — those now give the in-order
+  result), so when delivery is out of order — a failed delivery redelivered after a later event of the
+  same car — a purchase event consumed after its storno's event records no handover unless the car is bought
+  again — after a *returned* storno the customer who got the car back is then recorded nowhere (in
+  order, they would be its current owner and keeper) —, a returned storno consumed after a later
+  booking's event reopens nobody (so the period the customer held the car again is not recorded), and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
   before its own recording reads as history, so a late returned storno reopens over it. *Anto confirmed this wider statement (A) on 2026-11-07,

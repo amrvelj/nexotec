@@ -101,7 +101,13 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   The event carries `stockNumber` and, additively since KAN-189, `vehicleId`, `purchaseDate`,
   `purchasedBy` and — for an item a contract's confirmation created — `originContractId` /
   `originRole` (read back from `pipeline_ref`, `stock_item.pipeline_origin`), which the customer
-  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner.
+  context's `customer.trade_in_purchased` uses to name a bought trade-in's former owner. Since
+  KAN-632 (additive) a trade-in's purchase **and storno** events also carry `tradeInCustomerId` and
+  `tradeInSignedAt` (`trade_in_seller_fields`): `sales.contract.confirmed`'s `customerId`/`signedAt`,
+  kept on the pipeline item (`trade_in_customer_id`, `trade_in_signed_at`; GUID with owner comment,
+  no label — a relayed fact, as `reserved_by_contract_id`; reconciled against `customer.id`) by the
+  confirmation consumer. An item created before KAN-632 keeps neither and its events carry neither
+  key.
 - **A stock item's configuration label follows the configuration within a day** (KAN-534, rule 2):
   `configuration_label` and `configuration_label_refreshed_at` are written when a configuration is
   attached or a pipeline item created, and re-read nightly by `inventory.configuration_labels`

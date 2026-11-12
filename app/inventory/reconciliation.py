@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
+from app.customer.public import Customer
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
@@ -179,6 +180,17 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Valuation,
         target_id_column=Valuation.id,
         nullable=True,  # set only on a trade-in item whose contract carried a valuation
+    ),
+    # KAN-632 — who traded the car in, kept from Sales' confirmation for the
+    # item's purchase and storno events.
+    ReferenceCheck(
+        label="stock_item.trade_in_customer_id -> customer.id",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        source_fk_column=StockItem.trade_in_customer_id,
+        target_model=Customer,
+        target_id_column=Customer.id,
+        nullable=True,  # set only on a trade-in's pipeline item created since KAN-632
     ),
     StateCheck(
         # A valuation is never edited after creation (ADR-066), so a copied

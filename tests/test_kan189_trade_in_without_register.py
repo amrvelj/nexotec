@@ -212,8 +212,12 @@ def _bought_trade_in(db_session, engine, *, purchase_date=dt.date(2026, 10, 20))
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
         session_factory=_session_factory(engine),
     )
-    # Signed weeks before the car comes in, as in a dealer's week.
+    # Signed weeks before the car comes in, as in a dealer's week — on the
+    # contract and in its confirmation event, which Stock keeps the
+    # signature from for the purchase event (KAN-632).
     contract.signed_at = _SIGNED_AT
+    confirmed = _message(db_session, "sales.contract.confirmed", contract.id)
+    confirmed.payload = {**confirmed.payload, "signedAt": _SIGNED_AT.isoformat()}
     db_session.commit()
     _stock_consumes_the_confirmation(db_session, contract)
     item = db_session.scalars(
@@ -256,6 +260,9 @@ def test_the_purchased_event_names_the_vehicle_the_contract_and_the_date(db_sess
         "purchasedBy": str(_BUYER_ACTOR),
         "originContractId": str(contract.id),
         "originRole": "trade_in",
+        # KAN-632: who traded the car in and when, as the confirmation named them.
+        "tradeInCustomerId": str(contract.customer_id),
+        "tradeInSignedAt": _SIGNED_AT.isoformat(),
     }
 
 
