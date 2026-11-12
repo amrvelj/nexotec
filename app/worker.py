@@ -39,7 +39,12 @@ from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
-from app.customer.consumers import TradeInSeller, handle_vehicle_summary_changed_message
+from app.customer.consumers import (
+    TradeInSeller,
+    handle_stock_item_booking_purchased_message,
+    handle_stock_item_booking_storno_message,
+    handle_vehicle_summary_changed_message,
+)
 from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.customer.public import (
@@ -113,7 +118,7 @@ def _trade_in_seller_from_sales(db: Session, tenant_id: uuid.UUID, contract_id: 
     before (`sales.public.get_trade_in_seller`, a SELECT only, in the
     consumer's transaction — nothing of Sales' is written). Once no trade-in
     item without a kept seller remains unbought and no such event is
-    undelivered, this fallback can go (a follow-up ticket)."""
+    undelivered, this fallback can go (KAN-674)."""
 
     seller = get_trade_in_seller(db, tenant_id=tenant_id, contract_id=contract_id)
     return None if seller is None else TradeInSeller(customer_id=seller.customer_id, known_since=seller.known_since)
@@ -196,6 +201,22 @@ def register_handlers(transport: InProcessTransport) -> None:
         "customer.merged",
         consumer_name="sales.customer_merged",
         handler=handle_customer_merged_message,
+    )
+    # KAN-632 (ADR-147) — the customer context's record of Stock's bookings,
+    # which the two trade-in consumers below judge an event's order by. Its
+    # own consumers, so a failing trade-in step never loses the row; and
+    # registered first: the transport runs one event type's consumers in
+    # registration order, each in its own committed transaction, so an
+    # event's booking row is there before its own trade-in step runs.
+    transport.register(
+        "inventory.stock_item.purchased",
+        consumer_name="customer.stock_item_bookings_on_purchased",
+        handler=handle_stock_item_booking_purchased_message,
+    )
+    transport.register(
+        "inventory.stock_item.storno",
+        consumer_name="customer.stock_item_bookings_on_storno",
+        handler=handle_stock_item_booking_storno_message,
     )
     # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
     # recorded as the car's former owner and keeper, in the customer

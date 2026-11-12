@@ -143,5 +143,5 @@ re-verified against the code. -->
 - **Vehicle never reads or writes `VehicleParty`** (KAN-634, ADR-131 (5)): the Vehicle 360's
   «Allocate to customer» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders
   (`GET /v1/vehicle-mdm/{id}/party-roles`) are served from the composition root
-  `app/api/v1/vehicle_parties.py`, same paths and shapes; no `app/vehicle` module imports
-  `app.customer`.
+  `app/api/v1/vehicle_parties.py`, same paths and shapes; no `app/vehicle` module outside
+  `reconciliation.py` (ADR-107) imports `app.customer`.

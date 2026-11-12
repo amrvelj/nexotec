@@ -291,7 +291,8 @@ def lock_contract(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) 
     then sees the item the confirmation created, or the confirmation sees the
     recorded cancellation. SQLite (the fast local lane, ADR-011) has no
     advisory locks and serialises writers on its own, so this is a no-op
-    there. Same idiom as app.customer.services.customer.
+    there. Same idiom as
+    app.customer.services.vehicle_party_locks._lock_vehicle_role_in_group.
     """
 
     if db.get_bind().dialect.name != "postgresql":
