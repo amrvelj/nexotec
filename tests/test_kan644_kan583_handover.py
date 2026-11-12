@@ -218,3 +218,130 @@ def test_the_vehicles_tab_names_another_party_from_a_later_date_with_its_start(c
 
     [others] = [item["otherParties"] for item in items]
     assert [(o["customerId"], dt.datetime.fromisoformat(o["effectiveFrom"])) for o in others] == [(str(meier.id), handover)]
+
+
+# --- the independent review's findings (2026-11-12) ----------------------------------------
+
+
+def _events(db, event_type: str, aggregate_id) -> list:
+    from app.core.outbox_model import OutboxMessage
+
+    db.expire_all()
+    return list(
+        db.scalars(
+            select(OutboxMessage).where(OutboxMessage.event_type == event_type, OutboxMessage.aggregate_id == aggregate_id)
+        ).all()
+    )
+
+
+def _patch(db, party, group_id, **fields):
+    loaded = get_customer_vehicle_or_404(db, customer_id=party.customer_id, party_id=party.id)
+    return update_customer_vehicle(
+        db, party=loaded, data=CustomerVehicleUpdate(**fields), actor_id=uuid.uuid4(), group_id=group_id,
+    )
+
+
+def _end(db, party, group_id):
+    loaded = get_customer_vehicle_or_404(db, customer_id=party.customer_id, party_id=party.id)
+    delete_customer_vehicle(db, party=loaded, actor_id=uuid.uuid4(), group_id=group_id)
+
+
+def test_cancelling_a_planned_entry_leaves_an_end_the_user_typed_alone(db_session):
+    """Clara «bis 1.12.» typed by hand, Meier «ab 1.12.»: the dates meet, but
+    Meier's handover closed nobody, so cancelling it gives nobody a role back."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583201")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    handover = _handover()
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    _patch(db_session, clara_party, group_id, effective_to=handover)
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=handover)
+
+    _end(db_session, meier_party, group_id)
+
+    assert _row(db_session, clara_party.id).effective_to == handover
+
+
+def test_disconnect_decides_on_the_locked_row_when_its_start_moved_meanwhile(engine, db_session):
+    """The row was read as current; another session moved its start into the
+    future before the Disconnect locked it. It is cancelled at its new start,
+    never closed at now (an end before its start)."""
+
+    from sqlalchemy.orm import sessionmaker
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583202")
+    meier = _customer(db_session, group_id, "Anna", "Meier")
+    party = _allocate(db_session, vehicle.id, meier, group_id)
+    stale = get_customer_vehicle_or_404(db_session, customer_id=meier.id, party_id=party.id)
+    later = _handover()
+    with sessionmaker(bind=engine)() as other:
+        other.execute(
+            VehicleParty.__table__.update().where(VehicleParty.id == party.id).values(effective_from=later)
+        )
+        other.commit()
+
+    delete_customer_vehicle(db_session, party=stale, actor_id=uuid.uuid4(), group_id=group_id)
+
+    row = _row(db_session, party.id)
+    assert row.effective_from == row.effective_to == later
+
+
+def test_a_close_at_a_future_start_publishes_nothing_and_the_cancel_publishes_only_the_planned_rows_unlinked(db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583203")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+
+    assert _events(db_session, "customer.vehicle_party.unlinked", clara_party.id) == []  # Clara still holds (KAN-352)
+
+    _end(db_session, meier_party, group_id)
+
+    assert _events(db_session, "customer.vehicle_party.unlinked", clara_party.id) == []
+    assert len(_events(db_session, "customer.vehicle_party.unlinked", meier_party.id)) == 1
+
+
+def test_reopening_a_cancelled_planned_entry_publishes_linked_and_closes_the_current_owner_at_its_start(db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583204")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    handover = _handover()
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=handover)
+    _end(db_session, meier_party, group_id)
+
+    _patch(db_session, meier_party, group_id, effective_to=None)
+
+    assert len(_events(db_session, "customer.vehicle_party.linked", meier_party.id)) == 2
+    assert _row(db_session, clara_party.id).effective_to == handover
+    assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({clara.id}, {meier.id})
+
+
+def test_moving_a_planned_start_later_moves_the_current_owners_end_with_it(db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583205")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id)
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    later = _handover(40)
+
+    _patch(db_session, meier_party, group_id, effective_from=later)
+
+    assert _row(db_session, clara_party.id).effective_to == later  # no gap
+
+
+def test_moving_a_planned_start_into_the_past_ends_the_current_owner_there(db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583206")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id, effective_from=utcnow() - dt.timedelta(days=30))
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    earlier = (utcnow() - dt.timedelta(hours=1)).replace(microsecond=0)
+
+    _patch(db_session, meier_party, group_id, effective_from=earlier)
+
+    assert _row(db_session, clara_party.id).effective_to == earlier
+    assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({meier.id}, set())  # one current owner
+    assert len(_events(db_session, "customer.vehicle_party.unlinked", clara_party.id)) == 1

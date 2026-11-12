@@ -189,16 +189,17 @@ weekly. -->
 - **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
   `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
   refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock and
-  closes the others; a reopen publishes `linked`, a PATCH ending a holding row `unlinked` (KAN-352).
+  closes the others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
+  `unlinked` (KAN-352).
   Disconnect locks and re-reads its row (one `unlinked` per race). Lock order: advisory, then row.
   A merge's kept copy (KAN-177) is never reopened (409 `merged_party_row`).
 - **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
   overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes
-  nothing. One from a later date closes the current holders at its start, not now (sparing one
-  ending first), so there is one current holder and the new one is upcoming («ab …» on both tabs).
-  «Eintrag beenden» (Disconnect, row menu) on a planned row closes it at its own start —
-  «planned, never started», audited `planned_never_started` — and reopens the holder it would have
-  ended (`planned_handover_cancelled`). An empty period never reads as current (`_holds_now_or_later`).
+  nothing. One from a later date closes the current holders at its start (sparing one ending
+  first; no `unlinked` yet) and links them (`closed_for_party_id`): one current holder, the new one
+  upcoming («ab …» on both tabs); moving its start moves their end. «Eintrag beenden» (Disconnect)
+  on a planned row closes it at its own start («planned, never started») and reopens the rows it
+  links. An empty period never holds the role (`_holds_now_or_later`; KAN-572 too).
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
   duplicate has a row in, in sorted order — so it never interleaves with an allocation or a

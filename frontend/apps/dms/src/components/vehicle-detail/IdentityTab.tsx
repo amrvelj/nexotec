@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Badge, Button, Group, Select, Stack } from '@mantine/core'
 import { CalendarX, UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, RowMenu, useOverlay } from '@nexotec/ui-kit'
+import { Badge as KitBadge, InlineEditField, KeyValueRow, OverviewCard, Picker, purple, RowMenu, useOverlay } from '@nexotec/ui-kit'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { isStaleVersion } from '../../utils/apiRefusal'
@@ -222,9 +222,9 @@ export function IdentityTab({
               <Group gap={6}>
                 <Badge variant="light">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
                 {isUpcoming(p) && (
-                  <Badge variant="outline" color="blue">
+                  <KitBadge tone="informational">
                     {t('vehicleDetail.parties.upcoming', { date: formatDate(p.effectiveFrom, locale) })}
-                  </Badge>
+                  </KitBadge>
                 )}
               </Group>
               <Group gap={4} wrap="nowrap">
@@ -289,7 +289,7 @@ export function IdentityTab({
                   <Group key={p.id} justify="space-between" style={{ opacity: 0.6 }}>
                     <Group gap={6}>
                       <Badge variant="outline">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
-                      {isPlannedNeverStarted(p) && <Badge variant="outline" color="gray">{t('vehicleDetail.parties.plannedNeverStarted')}</Badge>}
+                      {isPlannedNeverStarted(p) && <KitBadge tone="slate">{t('vehicleDetail.parties.plannedNeverStarted')}</KitBadge>}
                     </Group>
                     <button
                       type="button"

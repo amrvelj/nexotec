@@ -34,6 +34,7 @@ from app.core.outbox import publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
+from app.core.uuid7 import uuid7
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
@@ -3128,10 +3129,14 @@ def update_customer_vehicle(
 
     changes = data.model_dump(exclude_unset=True)
     holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
-    if holds_after:
+    if holds_after or "effective_from" in changes:
+        # A moved start moves the end of the holder it was planned to replace
+        # (KAN-644, `_follow_planned_start`): the role's lock first.
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
-    held_before = _is_open(party.effective_to)
+    # An empty period (a cancelled planned row, KAN-583) never held the role,
+    # so reopening it publishes `linked`.
+    held_before = _is_open(party.effective_to) and party.effective_to != party.effective_from
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
         # reads as a current party again; reopening it would also close the
@@ -3173,7 +3178,15 @@ def update_customer_vehicle(
     for field, value in changes.items():
         setattr(party, field, value)
 
-    _close_incumbents(db, to_close, new_effective_from=new_effective_from, actor_id=actor_id, group_id=group_id)
+    _close_incumbents(
+        db, to_close, new_effective_from=new_effective_from, actor_id=actor_id, group_id=group_id,
+        new_party_id=party.id,
+    )
+    if "effective_to" in changes:
+        # A row given its own end is no longer «closed at a planned start».
+        party.closed_for_party_id = None
+    if "effective_from" in changes and not holds_after:
+        _follow_planned_start(db, planned=party, actor_id=actor_id, group_id=group_id)
 
     try:
         db.flush()
@@ -3237,17 +3250,15 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     then finds the row closed — one close, one `unlinked` event.
     """
 
-    planned = party.effective_from > utcnow()
-    if planned:
-        # Cancelling a planned holder gives the current one its role back
-        # (below): the (vehicle, role, group) lock first, as every writer of
-        # the role takes it, then the row.
-        _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+    # The (vehicle, role, group) lock first, as every writer of the role
+    # takes it, then the row; planned or not is decided on the locked row, so
+    # a start moved meanwhile is seen (never an end before the start).
+    _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
     if not _is_open(party.effective_to) or party.effective_to == party.effective_from:
         return
 
-    if planned and party.effective_from > utcnow():
+    if party.effective_from > utcnow():
         # KAN-583 (Anto, 2026-11-12, ruling 1A): «Eintrag beenden» on a holder
         # whose start is still to come cancels it. The row is kept in the
         # history as «planned, never started»: closed at its own start, an
@@ -3263,42 +3274,73 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     db.commit()
 
 
+def _linked_holders(db: Session, *, planned: VehicleParty) -> list[VehicleParty]:
+    """The rows `_close_incumbents` closed at `planned`'s start, locked."""
+
+    return list(
+        db.scalars(
+            select(VehicleParty)
+            .where(VehicleParty.closed_for_party_id == planned.id)
+            .order_by(VehicleParty.id)
+            .with_for_update()
+        ).all()
+    )
+
+
 def _restore_holders_ended_by(
     db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID
 ) -> None:
     """KAN-583 + KAN-644: recording `planned` closed the current holder of the
-    role at `planned`'s start (`_close_incumbents`). Cancelling the planned
-    handover takes that end back: the holder's row is open again, audited as
-    a `vehicle_party_update` with reason `planned_handover_cancelled`. The
-    holder never stopped holding the role, so no event is published (a PATCH
-    that leaves a row holding publishes nothing, KAN-352). Found as the rows
-    of the role in the group that started earlier and end exactly at the
-    planned start; the caller holds the (vehicle, role, group) lock."""
+    role at `planned`'s start and linked it (`closed_for_party_id`).
+    Cancelling the planned handover takes that end back: exactly the linked
+    rows are open again, audited `vehicle_party_update` with reason
+    `planned_handover_cancelled`. They never stopped holding the role and no
+    `unlinked` was published for them, so none is now. An end a user typed
+    carries no link and is never touched. The caller holds the (vehicle,
+    role, group) lock."""
 
-    ended = db.scalars(
-        select(VehicleParty)
-        .join(Customer, Customer.id == VehicleParty.customer_id)
-        .where(
-            VehicleParty.vehicle_id == planned.vehicle_id,
-            VehicleParty.role == planned.role,
-            Customer.group_id == group_id,
-            VehicleParty.id != planned.id,
-            VehicleParty.merged_into_customer_id.is_(None),
-            VehicleParty.effective_from < planned.effective_from,
-            VehicleParty.effective_to == planned.effective_from,
-        )
-        .order_by(VehicleParty.id)
-        .with_for_update(of=VehicleParty)
-    ).all()
-    for row in ended:
-        before = {"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": row.effective_to.isoformat()}
+    for row in _linked_holders(db, planned=planned):
+        before = {
+            "effectiveFrom": row.effective_from.isoformat(),
+            "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
+        }
         row.effective_to = None
+        row.closed_for_party_id = None
         record_audit_event(
             db, entity_type="customer", entity_id=row.customer_id, tenant_id=group_id,
             action="vehicle_party_update", actor_id=actor_id, before=before,
             after={"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": None},
             reason="planned_handover_cancelled",
         )
+
+
+def _follow_planned_start(
+    db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> None:
+    """KAN-644: a PATCH moving a planned holder's start moves the end of the
+    holders it was planned to replace, so the history keeps no gap and never
+    two current holders. A start moved to now or earlier is the handover
+    itself: they end there (never before their own start), lose the link, and
+    `unlinked` is published as for any end now or past (KAN-352). The caller
+    holds the (vehicle, role, group) lock."""
+
+    now = utcnow()
+    for row in _linked_holders(db, planned=planned):
+        before = {
+            "effectiveFrom": row.effective_from.isoformat(),
+            "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
+        }
+        ends = max(planned.effective_from, row.effective_from)
+        if ends > now:
+            row.effective_to = ends
+            record_audit_event(
+                db, entity_type="customer", entity_id=row.customer_id, tenant_id=group_id,
+                action="vehicle_party_update", actor_id=actor_id, before=before,
+                after={"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": ends.isoformat()},
+                reason="planned_handover_moved",
+            )
+        else:
+            _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ends)
 
 
 def _close_vehicle_party(
@@ -3310,6 +3352,7 @@ def _close_vehicle_party(
     effective_to: dt.datetime | None = None,
     merged_into_customer_id: uuid.UUID | None = None,
     reason: str | None = None,
+    closed_for_party_id: uuid.UUID | None = None,
 ) -> None:
     """Sets effective_to and writes the audit row and the unlinked outbox
     event — WITHOUT committing, so allocate_vehicle_party can close the
@@ -3330,6 +3373,9 @@ def _close_vehicle_party(
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
     }
     party.effective_to = effective_to or utcnow()
+    # KAN-644: a row closed at a planned holder's start names it; any other
+    # close ends the row for its own reason and drops a link it had.
+    party.closed_for_party_id = closed_for_party_id
     after: dict[str, Any] = {"effectiveTo": party.effective_to.isoformat()}
     if merged_into_customer_id is not None:
         party.merged_into_customer_id = merged_into_customer_id
@@ -3346,6 +3392,11 @@ def _close_vehicle_party(
         after=after,
         reason=reason,
     )
+    # KAN-352/KAN-644: `unlinked` says the row stopped holding its role. A
+    # close at a date still to come (a current holder until a planned
+    # handover) publishes nothing now, as a PATCH with a future end does not.
+    if party.effective_to > utcnow() and party.effective_to != party.effective_from:
+        return
     publish_event(
         db,
         OutboxEvent(
@@ -3819,7 +3870,7 @@ def _vehicle_role_lock_key(vehicle_id: uuid.UUID, role: VehiclePartyRole, group_
 
 def _close_incumbents(
     db: Session, incumbents: list[VehicleParty], *, new_effective_from: dt.datetime, actor_id: uuid.UUID,
-    group_id: uuid.UUID,
+    group_id: uuid.UUID, new_party_id: uuid.UUID,
 ) -> None:
     """Closes the current holders a new (or reopened) holder replaces —
     KAN-148's close rule, at the moment KAN-644 rules.
@@ -3833,14 +3884,20 @@ def _close_incumbents(
     and is left as it is; closing it «at the new start» would lengthen it. A
     new holder starting now or earlier closes them now, as before.
 
-    The `unlinked` event is published when the end is recorded, with the end
-    in its payload — as `linked` is for a holder recorded from a later date."""
+    A row closed at a future start names the new holder
+    (`closed_for_party_id`): cancelling that planned handover gives it the
+    role back, and moving the planned start moves its end
+    (`_follow_planned_start`). It is still holding, so no `unlinked` is
+    published now (KAN-352)."""
 
     close_at = new_effective_from if new_effective_from > utcnow() else None
     for incumbent in incumbents:
         if close_at is not None and incumbent.effective_to is not None and incumbent.effective_to <= close_at:
             continue
-        _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id, effective_to=close_at)
+        _close_vehicle_party(
+            db, party=incumbent, actor_id=actor_id, group_id=group_id, effective_to=close_at,
+            closed_for_party_id=new_party_id if close_at is not None else None,
+        )
 
 
 def _open_vehicle_party(
@@ -3848,11 +3905,12 @@ def _open_vehicle_party(
     actor_id: uuid.UUID, effective_from: dt.datetime, effective_to: dt.datetime | None,
     incumbents: list[VehicleParty],
 ) -> VehicleParty:
-    _close_incumbents(db, incumbents, new_effective_from=effective_from, actor_id=actor_id, group_id=group_id)
-
     party = VehicleParty(
-        vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from,
+        id=uuid7(), vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from,
         effective_to=effective_to,
+    )
+    _close_incumbents(
+        db, incumbents, new_effective_from=effective_from, actor_id=actor_id, group_id=group_id, new_party_id=party.id,
     )
     _write_vehicle_labels(db, [party])
     db.add(party)

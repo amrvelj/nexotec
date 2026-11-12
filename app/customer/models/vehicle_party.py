@@ -107,6 +107,20 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
         ),
     )
 
+    # KAN-644/KAN-583: a current holder recorded to end at a planned holder's
+    # start (closed «at the handover», not now) names that planned row here.
+    # Cancelling the planned handover gives the role back to exactly the rows
+    # it names, and moving the planned start moves their end with it; an end a
+    # user typed never carries it. NULL on every other row.
+    closed_for_party_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment=(
+            "Same context (customer): the planned vehicle_party row whose start this row was closed at "
+            "(KAN-644); cleared when that handover is cancelled. KAN-583."
+        ),
+    )
+
     # KAN-84 — the vehicle's label, denormalised (rule 2). Owned by the
     # vehicle context; copied from app.vehicle.public.get_vehicle_summaries.
     # Nullable only because rows written before KAN-84 carry none until the
