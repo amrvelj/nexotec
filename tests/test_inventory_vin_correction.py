@@ -126,6 +126,8 @@ def test_correction_publishes_stock_vehicle_and_summary_events(client, db_sessio
     assert vehicle_event.tenant_id is None
     summary = [e for e in _events(db_session, "vehicle.vehicle_mdm.summary_changed") if e.payload["vehicleId"] == item["vehicleId"]]
     assert [e.payload["changedFields"] for e in summary] == [["vin"]]
+    updated = [e for e in _events(db_session, "configuration.updated") if str(e.aggregate_id) == item["configurationId"]]
+    assert len(updated) == 1
 
 
 def test_the_vin_is_normalised(client, db_session):
@@ -338,6 +340,26 @@ def test_a_failed_stock_write_puts_the_vehicle_and_configuration_back(client, db
     assert _events(db_session, "inventory.stock_item.vin_corrected") == []
     db_session.expire_all()
     assert db_session.get(StockItem, uuid.UUID(item["id"])).version == item["version"]
+
+
+def test_a_failed_outbox_write_leaves_no_stock_audit_row_and_is_compensated(client, db_session, monkeypatch):
+    """The audit row and the event are flushed in the stock write's
+    savepoint: a failure at the event rolls back only that savepoint — no
+    stock audit row survives — and the compensation puts Vehicle back."""
+
+    item, tenant_id = _bought(client, db_session)
+
+    def _fail(*_args, **_kwargs):
+        raise RuntimeError("outbox write failed")
+
+    monkeypatch.setattr(stock_item_service, "publish", _fail)
+
+    with pytest.raises(RuntimeError):
+        _correct(client, _manager(tenant_id), item)
+
+    assert _state(db_session, item) == (VIN, VIN, VIN)
+    assert [row.entity_type for row in _audit(db_session, "vin_corrected")].count("stock_item") == 0
+    assert _events(db_session, "inventory.stock_item.vin_corrected") == []
 
 
 def test_the_compensation_never_puts_back_a_record_this_correction_did_not_change(client, db_session, monkeypatch):

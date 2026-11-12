@@ -703,9 +703,12 @@ def correct_vin(
         _write_corrected_vin(db, item=item, old_vin=old_vin, new_vin=new_vin, reason=data.reason, actor_id=actor_id)
         db.commit()
     except Exception:
-        # Compensate while this transaction still holds the item's row lock
-        # (it is aborted, not ended), so no second correction of the item can
-        # slip in between; Vehicle's own session needs nothing from this one.
+        # Compensate before this transaction ends: every stock write was
+        # flushed inside `_write_corrected_vin`'s savepoint, so a refused one
+        # rolled back only that savepoint and the item's row lock is still
+        # held — no second correction of the item slips in between. (Only a
+        # failure of the COMMIT itself ends it first; reconciliation reports
+        # what that leaves.) Vehicle's own session needs nothing from this one.
         if vehicle.record_changed or vehicle.configuration_changed:
             # Only what this call changed is put back: a record already
             # carrying the new VIN stays; a configuration it only re-linked
@@ -732,31 +735,14 @@ def _write_corrected_vin(
     db: Session, *, item: StockItem, old_vin: str, new_vin: str, reason: str, actor_id: uuid.UUID | None
 ) -> None:
     """The stock half of the correction: the row, its audit row and its
-    event, in the caller's transaction. A racing writer that took the VIN
-    into this Betrieb's stock meanwhile is refused by the unique index —
-    mapped to the same 409 the pre-check gives."""
+    event, in the caller's transaction — all three flushed inside one
+    savepoint, so a refused write rolls back only that savepoint and the
+    caller's transaction (with the item's row lock) stays open for the
+    compensation; the commit that follows has nothing left to flush. A
+    racing writer that took the VIN into this Betrieb's stock meanwhile is
+    refused by the unique index — mapped to the same 409 the pre-check
+    gives."""
 
-    try:
-        with db.begin_nested():
-            item.vin = new_vin
-            item.updated_by = actor_id
-            item.version += 1
-    except IntegrityError:
-        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=new_vin, excluding=item.id)
-        if held_by is None:
-            raise
-        raise _vin_already_in_stock(held_by) from None
-    record_audit_event(
-        db,
-        entity_type="stock_item",
-        entity_id=item.id,
-        tenant_id=item.tenant_id,
-        action="vin_corrected",
-        actor_id=actor_id,
-        before={"vin": old_vin},
-        after={"vin": new_vin},
-        reason=reason,
-    )
     payload: dict[str, object] = {
         "stockNumber": item.stock_number,
         "vehicleId": str(item.vehicle_id),
@@ -766,17 +752,40 @@ def _write_corrected_vin(
     }
     if item.configuration_id is not None:
         payload["configurationId"] = str(item.configuration_id)
-    publish(
-        db,
-        OutboxEvent(
-            event_type="inventory.stock_item.vin_corrected",
-            tenant_id=item.tenant_id,
-            producer=_EVENT_PRODUCER,
-            aggregate_type="stock_item",
-            aggregate_id=item.id,
-            payload=payload,
-        ),
-    )
+    try:
+        with db.begin_nested():
+            item.vin = new_vin
+            item.updated_by = actor_id
+            item.version += 1
+            db.flush()
+            record_audit_event(
+                db,
+                entity_type="stock_item",
+                entity_id=item.id,
+                tenant_id=item.tenant_id,
+                action="vin_corrected",
+                actor_id=actor_id,
+                before={"vin": old_vin},
+                after={"vin": new_vin},
+                reason=reason,
+            )
+            publish(
+                db,
+                OutboxEvent(
+                    event_type="inventory.stock_item.vin_corrected",
+                    tenant_id=item.tenant_id,
+                    producer=_EVENT_PRODUCER,
+                    aggregate_type="stock_item",
+                    aggregate_id=item.id,
+                    payload=payload,
+                ),
+            )
+            db.flush()
+    except IntegrityError:
+        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=new_vin, excluding=item.id)
+        if held_by is None:
+            raise
+        raise _vin_already_in_stock(held_by) from None
 
 
 def _compensate_vin_correction(
