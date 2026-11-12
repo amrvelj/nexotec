@@ -4214,6 +4214,11 @@ export interface paths {
          *     of its own to catch this at the write; a customer from another group
          *     is a 404, per rule #7, never a 403 and never a silent cross-group
          *     write.
+         *
+         *     KAN-673: a `vehicle_id` that names a merged record is not refused. The
+         *     allocation is carried out on the record it was merged into
+         *     (`allocate_vehicle_party` resolves it under its lock), and the response's
+         *     `vehicleId` names that survivor. An unknown id is the 404 below, as before.
          */
         post: operations["allocate_to_customer_v1_vehicle_mdm__vehicle_id__allocate_post"];
         delete?: never;
@@ -9839,7 +9844,7 @@ export interface components {
             supplierName: string;
             /**
              * Vin
-             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and never bought is the exception: when its configuration's VIN has changed since, the configuration's wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`).
+             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and never bought is the exception: when its configuration's VIN has changed since, the configuration's wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). A trade-in whose configuration carries none is bought under the VIN its contract holds (the item's `tradeInVin`; 422 `trade_in_vin_differs`, KAN-536). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`).
              */
             vin?: string | null;
         };
@@ -10681,6 +10686,11 @@ export interface components {
             supplierIsVatRegistered: boolean | null;
             /** Suppliername */
             supplierName: string | null;
+            /**
+             * Tradeinvin
+             * @description KAN-536: the VIN the contract holds for a trade-in, kept on its pipeline item. «Einkauf buchen» prefills it, and the booking refuses another (422 `trade_in_vin_differs`) unless the item's configuration carries a VIN, which then decides (`configuration_vin_differs`). Null on every other item. It is not the item's `vin`, which stays empty until the purchase is booked.
+             */
+            tradeInVin?: string | null;
             /**
              * Updatedat
              * Format: date-time

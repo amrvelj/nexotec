@@ -133,6 +133,7 @@
     "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
     "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
     "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen.",
+    "trade_in_vin_differs": "Diese VIN ist nicht die VIN, die im Vertrag für das Eintauschfahrzeug erfasst ist.",
     "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
     "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
     "brand_required": "Zuerst eine Marke wählen.",

@@ -198,6 +198,8 @@ const REASON_KEYS: Record<string, string> = {
       'source_ref_reserved',
       // KAN-572 — only a trade-in's car can go back to its customer.
       'storno_return_not_trade_in',
+      // KAN-536 — a trade-in is bought under the VIN its contract holds.
+      'trade_in_vin_differs',
       // KAN-557 — «VIN korrigieren».
       'vehicle_merged',
       'vehicle_vin_changed',

@@ -133,6 +133,7 @@
     "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
     "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
     "storno_return_not_trade_in": "Only a trade-in can go back to its customer.",
+    "trade_in_vin_differs": "This VIN is not the one the contract holds for the trade-in.",
     "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
     "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade.",
     "brand_required": "Choose a brand first.",

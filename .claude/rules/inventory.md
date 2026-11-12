@@ -33,7 +33,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   carries one, another `vin` is 422 `configuration_vin_differs` (`field: vin`), compared in the one
   spelling (`services/stock_item.py::configuration_vin_differs`, the create's and
   «Konfiguration zuordnen»'s rule), before vehicle-mdm or the item is touched; a configuration
-  without one (a factory order) takes the typed VIN, an item without a configuration is unchanged.
+  without one (a factory order) takes the typed VIN; no config: `inventory-vin-correction.md`.
   `RecordPurchaseDialog` prefills it, and on a car no contract reserves the refusal offers
   «Konfiguration bearbeiten», which corrects the VIN in the configurator (vehicle-configurator.md,
   hosts; Anto, 2026-11-02, KAN-510 option A: every stock car, pipeline or in stock, trade-ins

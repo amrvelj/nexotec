@@ -176,7 +176,10 @@ def test_confirmation_makes_a_vin_only_trade_in_a_pipeline_item_with_its_valuati
     )
 
     payload = _message(db_session, "sales.contract.confirmed", contract.id).payload
-    assert payload["tradeIn"] == {"vehicleLabel": "Seat Leon", "condition": "used", "valuationId": str(valuation.id)}
+    assert payload["tradeIn"] == {
+        "vehicleLabel": "Seat Leon", "condition": "used", "valuationId": str(valuation.id),
+        "vin": "WVWZZZ1KZAW189005",  # KAN-536 (additive): the VIN the contract holds
+    }
 
     _stock_consumes_the_confirmation(db_session, contract)
     trade_in_item = db_session.scalars(
