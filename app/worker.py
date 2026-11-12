@@ -494,8 +494,9 @@ def run(*, max_iterations: int | None = None) -> None:
 
 
 if __name__ == "__main__":
-    require_valid_deployment_environment()  # KAN-499, as app/main.py
     configure_observability()
+    # KAN-499, as app/main.py; after observability, so a refused start is reported.
+    require_valid_deployment_environment()
     _max_iterations_env = os.environ.get("DMS_OUTBOX_WORKER_MAX_ITERATIONS")
     _max_iterations = int(_max_iterations_env) if _max_iterations_env else None
     logger.info("outbox worker starting", extra={"maxIterations": _max_iterations})
