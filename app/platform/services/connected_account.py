@@ -25,9 +25,13 @@ dropped (the secret it pointed to is gone) with an audit row. When it
 raises, the consumer raises: the outbox redelivers on its backoff and
 finally dead-letters, which alerts; the row keeps its `secret_ref` so the
 secret can still be found. Nightly reconciliation reports a revoked grant
-still holding a reference a day after the revoke (rule 10). No revoker is
-registered yet — the Outlook integration registers Microsoft's when it
-links the first account.
+still holding a reference a day after the revoke (rule 10), and the daily
+repair after it (`repair_revoked_grants`, KAN-559) runs `end_at_provider`
+again for every one: a provider outage longer than the outbox's retries, or
+a grant revoked before its provider's revoker was registered, is ended the
+next night without anyone replaying the event. No revoker is registered
+yet — the Outlook integration registers Microsoft's when it links the first
+account.
 """
 
 import dataclasses
@@ -269,3 +273,61 @@ def end_at_provider(db: Session, *, account_id: uuid.UUID) -> bool:
         reason=account.provider.value,
     )
     return True
+
+
+@dataclasses.dataclass(frozen=True)
+class GrantRepairRun:
+    """What one night's repair did (KAN-559): grants ended at the provider,
+    grants whose provider has no registered revoker (left as they were), and
+    grants whose revoker raised (left holding their reference, tried again
+    the next night)."""
+
+    ended: int
+    no_revoker: int
+    failed: int
+
+
+def repair_revoked_grants(db: Session) -> GrantRepairRun:
+    """The daily repair (KAN-559; ADR-118, decided as option (a)): every
+    revoked grant still holding a reference gets `end_at_provider` again,
+    each in a transaction of its own, so one provider still refusing never
+    holds back the others. A revoker that raises is rolled back and logged at
+    ERROR; the grant keeps its `secret_ref` and reconciliation keeps
+    reporting it until a night succeeds. The row lock in `end_at_provider`
+    makes a delivery of the event running at the same moment a no-op on the
+    second arrival — the provider is asked once.
+
+    Commits (a daily job owns its transactions)."""
+
+    account_ids = list(
+        db.scalars(
+            select(UserConnectedAccount.id)
+            .where(
+                UserConnectedAccount.status == ConnectedAccountStatus.REVOKED,
+                UserConnectedAccount.secret_ref.is_not(None),
+            )
+            .order_by(UserConnectedAccount.revoked_at, UserConnectedAccount.id)
+        )
+    )
+    db.rollback()
+    ended = no_revoker = failed = 0
+    for account_id in account_ids:
+        provider = db.scalar(select(UserConnectedAccount.provider).where(UserConnectedAccount.id == account_id))
+        try:
+            if end_at_provider(db, account_id=account_id):
+                db.commit()
+                ended += 1
+            else:
+                db.rollback()
+                if provider is not None and provider not in _REVOKERS:
+                    no_revoker += 1
+        except Exception:  # one provider's refusal must not stop the others
+            db.rollback()
+            failed += 1
+            # The exception names no token material (the revoker's contract); the id says which grant.
+            logger.exception(
+                "platform.connected_account.repair: the provider refused to end grant %s; kept, tried again tomorrow",
+                account_id,
+                extra={"connectedAccountId": str(account_id)},
+            )
+    return GrantRepairRun(ended=ended, no_revoker=no_revoker, failed=failed)

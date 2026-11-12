@@ -65,6 +65,7 @@ from app.platform.consumers import (
 from app.platform.daily_jobs import (
     run_daily_notification_digest,
     run_daily_notification_purge,
+    run_daily_revoked_grant_repair,
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
@@ -355,7 +356,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Fourteen daily jobs, run in registration order once per day on this
+    """Fifteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -421,6 +422,11 @@ def register_daily_jobs() -> None:
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
        and kept for good (app.vehicle.daily_jobs; the hosts it asks are
        ``CONFIGURATION_HOSTS``, KAN-633). Retention, not a repair.
+    15. ``platform.connected_account.repair`` — KAN-559 (FR-AU-24, ADR-118):
+       every revoked connected-account grant still holding a secret reference
+       is ended at the provider again (an outage longer than the outbox's
+       retries, a grant revoked before its revoker was registered). A repair,
+       so after reconciliation: the night's report names the grant first.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
@@ -442,6 +448,8 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
     # 14. KAN-270: a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
+    # 15. KAN-559: a revoked grant still holding a reference is ended at the provider.
+    register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
 
 
 def run(*, max_iterations: int | None = None) -> None:
