@@ -95,10 +95,6 @@ _DEBT: dict[tuple[str, str, str], str] = {
     ),
     ("app/inventory/services/reservation_sweep.py", "app.sales.public", "ContractStatus"): "KAN-630",
     ("app/inventory/services/reservation_sweep.py", "app.sales.public", "get_contract_statuses"): "KAN-630",
-    # valuation -> sales
-    ("app/valuation/services/valuation.py", "app.sales.public", "valuations_carried_by_pending_contracts"): "KAN-631",
-    ("app/valuation/services/valuation.py", "app.sales.public", "valuations_carried_by_signed_contracts"): "KAN-631",
-    ("app/valuation/api/valuations.py", "app.sales.public", "valuations_carried_by_signed_contracts"): "KAN-631",
     # customer -> sales, inventory
     ("app/customer/consumers.py", "app.sales.public", "get_trade_in_seller"): "KAN-632",
     ("app/customer/consumers.py", "app.inventory.public", "purchase_booked_after"): "KAN-632",

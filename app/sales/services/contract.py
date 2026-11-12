@@ -36,6 +36,7 @@ from app.sales.services.invoice_handover import HandoverPlate, handover_payload,
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import apply_customer_change, refuse_unattachable_customer, resolve_customer_label
 from app.sales.services.priced_deal import has_trade_in, require_editable, require_pending
+from app.sales.services.valuation_carry import commit_carrying, record_signed_after_commit, release_after_cancel
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
@@ -75,6 +76,7 @@ def create_contract(
     group_id: uuid.UUID | None = None,
     stock_item_id: uuid.UUID | None = None,
     vehicle_label: str | None = None,
+    session_factory: Callable[[], Session] | None = None,
 ) -> SalesContract:
     """`offer=None, customer_id=None` — a contract with neither — is refused
     at the API since KAN-276 (Anto, 2026-10-11: "no empty contracts";
@@ -258,7 +260,9 @@ def create_contract(
     # KAN-270: a contract from an offer holds the offer's configurations too.
     publish_held_configurations(db, deal=contract)
     upsert_deal_projection(db, contract=contract)
-    db.commit()
+    # KAN-631: a contract from an offer carries the offer's trade-in
+    # valuation — valuation records it before this commit.
+    commit_carrying(db, contract=contract, previous_valuation_id=None, actor_id=actor_id, session_factory=session_factory)
     db.refresh(contract)
     return contract
 
@@ -572,6 +576,8 @@ def confirm_contract(
                 short_lived,
                 tenant_id=contract.tenant_id,
                 valuation_id=contract.trade_in_valuation_id,
+                contract_id=contract.id,
+                contract_label=contract.contract_number,
                 actor_id=actor_id,
             )
         except ConflictError as exc:
@@ -645,6 +651,12 @@ def confirm_contract(
         )
         raise
 
+    if ids.valuation_id is not None and contract.signed_at is not None:
+        # KAN-631: signed on its valuation — told after the signing committed.
+        record_signed_after_commit(
+            session_factory, tenant_id=ids.tenant_id, valuation_id=ids.valuation_id, contract_id=ids.contract_id,
+            contract_label=contract.contract_number, signed_at=contract.signed_at, actor_id=actor_id,
+        )
     db.refresh(contract)
     return contract
 
@@ -955,6 +967,9 @@ def cancel_contract(
         finally:
             short_lived.close()
 
+    # KAN-631: a pending contract's cancel frees its valuation; a signed one
+    # stays signed on it (ADR-066).
+    released_valuation_id = contract.trade_in_valuation_id if contract.status == ContractStatus.PENDING else None
     contract.status = ContractStatus.CANCELLED
     contract.cancelled_reason = reason
     contract.updated_by = actor_id
@@ -974,6 +989,11 @@ def cancel_contract(
     )
     upsert_deal_projection(db, contract=contract)
     db.commit()
+    if released_valuation_id is not None:
+        release_after_cancel(
+            session_factory, tenant_id=contract.tenant_id, valuation_id=released_valuation_id,
+            contract_id=contract.id, actor_id=actor_id,
+        )
     db.refresh(contract)
     return contract
 

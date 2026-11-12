@@ -25,6 +25,11 @@ is bought: the contract's customer and since when it is known, plain data.
 `referenced_configuration_ids` (KAN-270) is vehicle's read for its daily purge of
 configurations no host ever took: which of the ids it names any offer or
 contract holds. A SELECT only.
+
+`trade_in_valuation_carries` (KAN-631) is the valuation backfill's read of
+which contracts carry which trade-in valuation, pending or signed — plain
+data. Valuation itself no longer asks Sales (ADR-131): Sales tells it, through
+`valuation.public`'s carry calls.
 """
 
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -39,14 +44,12 @@ from app.sales.services.customer_label import oldest_customer_label_age_seconds,
 from app.sales.services.numbering import legacy_offer_counters
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
-from app.sales.services.signed_trade_ins import (
-    valuations_carried_by_pending_contracts,
-    valuations_carried_by_signed_contracts,
-)
 from app.sales.services.trade_in_seller import TradeInSeller, get_trade_in_seller
+from app.sales.services.valuation_carry import ContractValuationCarry, trade_in_valuation_carries
 
 __all__ = [
     "ContractStatus",
+    "ContractValuationCarry",
     "SalesContract",
     "SalesOffer",
     "SalesOwnershipProvider",
@@ -61,6 +64,5 @@ __all__ = [
     "referenced_configuration_ids",
     "refresh_customer_labels",
     "refresh_owner_labels",
-    "valuations_carried_by_pending_contracts",
-    "valuations_carried_by_signed_contracts",
+    "trade_in_valuation_carries",
 ]

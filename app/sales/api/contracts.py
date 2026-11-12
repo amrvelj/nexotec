@@ -3,6 +3,7 @@ KAN-67: editing a pending contract — PATCH, trade-in, line items — through
 the same services and request bodies as the offer's)."""
 
 import uuid
+from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -14,7 +15,7 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField, parse_sort
-from app.db import get_db
+from app.db import get_db, get_session_factory
 from app.sales.models.contract import SalesContract
 from app.sales.schemas.contract import (
     ContractCancelRequest,
@@ -66,6 +67,7 @@ def create_contract(
     body: ContractCreate,
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
 ):
     offer = None
     if body.offer_id is not None:
@@ -79,6 +81,7 @@ def create_contract(
         group_id=principal.group_id,
         stock_item_id=body.stock_item_id,
         vehicle_label=body.vehicle_label,
+        session_factory=session_factory,
     )
     return _contract_read(contract)
 
@@ -142,6 +145,7 @@ def set_contract_trade_in(
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
@@ -155,6 +159,7 @@ def set_contract_trade_in(
         vehicle_label=body.vehicle_label,
         customer_id=body.customer_id,
         actor_id=principal.user_id,
+        session_factory=session_factory,
     )
     return _contract_read(contract)
 
@@ -166,11 +171,12 @@ def attach_contract_trade_in_valuation(
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = trade_in_service.attach_trade_in_valuation(
-        db, deal=contract, valuation_id=body.valuation_id, actor_id=principal.user_id
+        db, deal=contract, valuation_id=body.valuation_id, actor_id=principal.user_id, session_factory=session_factory
     )
     return _contract_read(contract)
 
@@ -242,11 +248,12 @@ def confirm_contract(
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = contract_service.confirm_contract(
-        db, contract=contract, group_id=principal.group_id, actor_id=principal.user_id
+        db, contract=contract, group_id=principal.group_id, actor_id=principal.user_id, session_factory=session_factory
     )
     return _contract_read(contract)
 
@@ -283,8 +290,11 @@ def cancel_contract(
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
-    contract = contract_service.cancel_contract(db, contract=contract, reason=body.reason, actor_id=principal.user_id)
+    contract = contract_service.cancel_contract(
+        db, contract=contract, reason=body.reason, actor_id=principal.user_id, session_factory=session_factory
+    )
     return _contract_read(contract)

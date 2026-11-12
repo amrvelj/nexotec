@@ -13,7 +13,6 @@ from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
-from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationProviderQuote
 from app.valuation.schemas.valuation import (
     DeductionRead,
@@ -26,6 +25,7 @@ from app.valuation.schemas.valuation import (
 )
 from app.valuation.services import provider_quote as provider_quote_service
 from app.valuation.services import valuation as valuation_service
+from app.valuation.services.contract_carry import valuations_carried_by_signed_contracts
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
@@ -80,7 +80,8 @@ def _quote_read(quote: ValuationProviderQuote | None) -> ProviderQuoteRead | Non
 
 
 def _valuation_reads(db: Session, tenant_id: uuid.UUID, valuations: list[Valuation]) -> list[ValuationRead]:
-    """KAN-115 — one Sales read for the whole page, not one per row."""
+    """KAN-115 — one read for the whole page, not one per row; valuation's
+    own carry rows since KAN-631 (ADR-131), never a call into Sales."""
 
     carried = valuations_carried_by_signed_contracts(
         db, tenant_id=tenant_id, valuation_ids=[valuation.id for valuation in valuations]
