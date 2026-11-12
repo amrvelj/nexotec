@@ -134,6 +134,7 @@
     "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
     "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen.",
     "trade_in_vin_differs": "Diese VIN ist nicht die VIN, die im Vertrag für das Eintauschfahrzeug erfasst ist.",
+    "vehicle_merge_in_progress": "Dieses Fahrzeug wird gerade mit einem anderen Datensatz zusammengeführt. Bitte versuchen Sie es in einem Moment noch einmal.",
     "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
     "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
     "brand_required": "Zuerst eine Marke wählen.",

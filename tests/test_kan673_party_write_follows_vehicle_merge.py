@@ -18,6 +18,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
+from app.core.errors import ConflictError
 from app.core.reconciliation import find_rows_in_state
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.reconciliation import CHECKS as CUSTOMER_CHECKS
@@ -306,7 +307,14 @@ def test_a_merge_committed_while_the_write_waited_for_its_lock_is_followed(db_se
         locked.append(vehicle_id)
         take_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
 
+    try_lock = vehicle_party_locks._try_lock_vehicle_role_in_group
+
+    def try_the_survivors(db, *, vehicle_id, role, group_id):
+        locked.append(vehicle_id)
+        return try_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+
     monkeypatch.setattr(vehicle_party_locks, "_lock_vehicle_role_in_group", lock_while_a_merge_commits)
+    monkeypatch.setattr(vehicle_party_locks, "_try_lock_vehicle_role_in_group", try_the_survivors)
 
     with factory() as request:
         party = allocate_vehicle_party(
@@ -314,7 +322,52 @@ def test_a_merge_committed_while_the_write_waited_for_its_lock_is_followed(db_se
             actor_id=uuid.uuid4(),
         )
         assert party.vehicle_id == survivor.id
-    assert locked == [duplicate.id, survivor.id]
+    assert locked == [duplicate.id, survivor.id]  # waited for the first, only tried the second
     db_session.expire_all()
     assert db_session.get(VehicleMdm, duplicate.id).merged_into_vehicle_id == survivor.id
     assert find_rows_in_state(db_session, _MERGED_CHECK) == []
+
+
+@NEEDS_ITS_OWN_CONNECTION
+def test_a_survivor_lock_that_is_busy_after_such_a_merge_is_refused_not_waited_for(db_session, engine, monkeypatch):
+    """The second lock is out of the sorted order merges take theirs in:
+    waiting for it while a merge holds it and waits for ours is a deadlock
+    (a 500 for whoever Postgres aborts). It is tried; busy is a 409 the user
+    can retry, and nothing is written."""
+
+    survivor, duplicate = _two_cars(db_session)
+    group_id = uuid.uuid4()
+    customer = _service_customer(db_session, group_id)
+    db_session.commit()
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    take_lock = vehicle_party_locks._lock_vehicle_role_in_group
+    merged = False
+
+    with factory() as holder:
+
+        def lock_while_a_merge_commits_and_settles(db, *, vehicle_id, role, group_id):
+            nonlocal merged
+            if not merged:
+                merged = True
+                with factory() as merge:
+                    merge_vehicles(merge, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
+                # ... and somebody (the merge's consumer) now holds the survivor's lock.
+                take_lock(holder, vehicle_id=survivor.id, role=role, group_id=group_id)
+            take_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+
+        monkeypatch.setattr(vehicle_party_locks, "_lock_vehicle_role_in_group", lock_while_a_merge_commits_and_settles)
+        try:
+            with factory() as request:
+                request.execute(text("SET LOCAL lock_timeout = '300ms'"))  # a wait would fail differently
+                with pytest.raises(ConflictError) as refused:
+                    allocate_vehicle_party(
+                        request, vehicle_id=duplicate.id, customer_id=customer.id, role=OWNER, group_id=group_id,
+                        actor_id=uuid.uuid4(),
+                    )
+                request.rollback()
+        finally:
+            holder.rollback()
+
+    assert refused.value.details == {"reason": "vehicle_merge_in_progress"}
+    db_session.expire_all()
+    assert db_session.scalars(select(VehicleParty).where(VehicleParty.customer_id == customer.id)).all() == []

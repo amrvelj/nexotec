@@ -76,7 +76,7 @@ paths:
 - **Lock order: user row → token → factor → credential, on every path.** Every login step locks the
   user first (`identity.lock_user_for_login`) and judges password, throttle and status under the
   lock; the front door (invitation acceptance, reset confirm) locks the user before it consumes its
-  token; the account's MFA routes take `user_service.get_own_user_for_update_or_404`, staff
+  token; the account's MFA routes take `user_reads_service.get_own_user_for_update_or_404`, staff
   recovery `recovery.get_user_for_recovery_or_404`, the reset request `lock_user_for_login` (an
   address changed meanwhile is answered like an unknown one). `tests/test_platform_account_lock_order.py`.
   A single-row write (logout, revoking one's own session, the guard's touch) takes no user lock.

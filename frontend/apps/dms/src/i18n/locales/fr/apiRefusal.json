@@ -134,6 +134,7 @@
     "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation.",
     "storno_return_not_trade_in": "Seul un véhicule de reprise peut retourner au client.",
     "trade_in_vin_differs": "Ce VIN n'est pas celui que le contrat indique pour le véhicule de reprise.",
+    "vehicle_merge_in_progress": "Ce véhicule est en cours de fusion avec une autre fiche. Veuillez réessayer dans un instant.",
     "valuation_names_no_car": "Une évaluation nomme son véhicule : le VIN, la marque et le modèle sont obligatoires.",
     "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris.",
     "brand_required": "Choisir d’abord une marque.",

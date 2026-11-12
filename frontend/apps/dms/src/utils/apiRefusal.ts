@@ -200,6 +200,7 @@ const REASON_KEYS: Record<string, string> = {
       'storno_return_not_trade_in',
       // KAN-536 — a trade-in is bought under the VIN its contract holds.
       'trade_in_vin_differs',
+      'vehicle_merge_in_progress',
       // KAN-557 — «VIN korrigieren».
       'vehicle_merged',
       'vehicle_vin_changed',
