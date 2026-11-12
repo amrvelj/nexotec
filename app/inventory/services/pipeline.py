@@ -54,8 +54,8 @@ from app.inventory.services.stock_item import (
     mark_purchased_if_ready,
 )
 from app.inventory.services.valuation import apply_valuation_ref
-from app.inventory.services.vehicle_resolution import resolve_vehicle_mdm_by_vin
 from app.valuation.public import get_valuation_or_404
+from app.vehicle.public import resolve_vehicle_mdm_by_vin
 
 _EVENT_PRODUCER = "inventory"
 
@@ -251,7 +251,8 @@ def promote_and_flush(
     # itself is left out: one created with its VIN holds it already (KAN-554).
     _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
 
-    # On vehicle-mdm's own session (vehicle_resolution's docstring): its
+    # On vehicle-mdm's own session (`vehicle.public.resolve_vehicle_mdm_by_vin`,
+    # KAN-337): its
     # commit never commits this transaction, and losing its insert race to
     # another promotion of a VIN it had never seen (KAN-257) resolves to the
     # winner's record instead of rolling this session back. A winner that
