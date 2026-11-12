@@ -95,7 +95,7 @@ in the same PR as any change to what it states. -->
   customer, dealership and `vehicle_mdm` rows it resolves against through their models — the four
   things ADR-091 (KAN-106) names, bounded to `migrate_transaction_rows.py` alone and pinned by the
   ADR-047 architecture test, which also names the migration smoke test's two CI fixtures
-  (`seed_migration_smoke_test.py`, `verify_migration_smoke_test_seed.py`), excepted by ADR-133
+  (`seed_migration_smoke_test.py`, `verify_migration_smoke_test_seed.py`), excepted by ADR-140
   (KAN-342) because they never run against a real database; a new one fails by name. Any other
   script reads a second context through its `public` surface (the KAN-31 repoint pass reads
   `vehicle.public.resolve_vehicle_mdm_ids`).

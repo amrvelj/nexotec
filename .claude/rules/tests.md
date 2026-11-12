@@ -51,7 +51,7 @@ as any change to what it states. -->
   write committing its own transaction except number allocation (`platform.public.allocate_number`, ruled by ADR-109,
   KAN-207); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
   is the one exception ruled by ADR (ADR-091, KAN-106) and the migration smoke test's two CI fixtures
-  are excepted by name (ADR-133, KAN-342), every POST an `IdempotentRoute` declaring an optional
+  are excepted by name (ADR-140, KAN-342), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven
   unauthenticated front-door POSTs (KAN-196); a new one is Anto's ruling by name —
   every route of a sales, inventory, valuation or configurator router behind the `sales`
