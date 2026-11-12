@@ -2639,7 +2639,17 @@ def refresh_vehicle_party_labels(db: Session) -> int:
     changed = 0
     last_id: uuid.UUID | None = None
     while True:
-        stmt = select(VehicleParty).order_by(VehicleParty.id).limit(_LABEL_REFRESH_BATCH)
+        # KAN-583: the batch's rows are locked FOR NO KEY UPDATE in id order
+        # before any is written — the order every multi-row writer of a
+        # vehicle's rows takes (the KAN-186 consumer, `_lock_role_rows`); the
+        # bulk stamp below would otherwise lock in scan order.
+        stmt = (
+            select(VehicleParty)
+            .order_by(VehicleParty.id)
+            .limit(_LABEL_REFRESH_BATCH)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        )
         if last_id is not None:
             stmt = stmt.where(VehicleParty.id > last_id)
         batch = list(db.scalars(stmt).all())
@@ -3156,7 +3166,7 @@ def update_customer_vehicle(
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
         _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
-    was_planned = party.effective_from > utcnow()
+    old_start = party.effective_from
     if (
         "effective_from" in changes
         and not holds_after
@@ -3215,12 +3225,12 @@ def update_customer_vehicle(
     for field, value in changes.items():
         setattr(party, field, value)
 
-    if "effective_from" in changes and was_planned:
+    if "effective_from" in changes:
         # KAN-644: the holders this row was planned to replace end at its new
         # start first — with or without an `effectiveTo` in the same PATCH —
         # so the close below neither spares them at their old end (a gap) nor
         # closes one twice.
-        _follow_planned_start(db, planned=party, actor_id=actor_id, group_id=group_id)
+        _follow_planned_start(db, planned=party, old_start=old_start, actor_id=actor_id, group_id=group_id)
         to_close = [row for row in to_close if _is_open(row.effective_to)]
     _close_incumbents(
         db, to_close, new_effective_from=new_effective_from, actor_id=actor_id, group_id=group_id,
@@ -3317,13 +3327,19 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     db.commit()
 
 
-def _linked_holders(db: Session, *, planned: VehicleParty) -> list[VehicleParty]:
-    """The rows `_close_incumbents` closed at `planned`'s start, locked."""
+def _linked_holders(db: Session, *, planned: VehicleParty, starts: dt.datetime) -> list[VehicleParty]:
+    """The rows `_close_incumbents` closed at `planned`'s start, locked — while
+    the link is live: the row still ends exactly at that start (`starts`, the
+    planned row's start before this write) and the start is still to come. A
+    handover that has happened, or an end changed since, leaves the link
+    dead: such a row is history and never given the role back or moved."""
 
+    if starts <= utcnow():
+        return []
     return list(
         db.scalars(
             select(VehicleParty)
-            .where(VehicleParty.closed_for_party_id == planned.id)
+            .where(VehicleParty.closed_for_party_id == planned.id, VehicleParty.effective_to == starts)
             .order_by(VehicleParty.id)
             .with_for_update()
         ).all()
@@ -3342,7 +3358,7 @@ def _restore_holders_ended_by(
     carries no link and is never touched. The caller holds the (vehicle,
     role, group) lock."""
 
-    for row in _linked_holders(db, planned=planned):
+    for row in _linked_holders(db, planned=planned, starts=planned.effective_from):
         before = {
             "effectiveFrom": row.effective_from.isoformat(),
             "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,
@@ -3358,7 +3374,7 @@ def _restore_holders_ended_by(
 
 
 def _follow_planned_start(
-    db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID
+    db: Session, *, planned: VehicleParty, old_start: dt.datetime, actor_id: uuid.UUID, group_id: uuid.UUID
 ) -> None:
     """KAN-644: a PATCH moving a planned holder's start moves the end of the
     holders it was planned to replace, so the history keeps no gap and never
@@ -3368,7 +3384,7 @@ def _follow_planned_start(
     holds the (vehicle, role, group) lock."""
 
     now = utcnow()
-    for row in _linked_holders(db, planned=planned):
+    for row in _linked_holders(db, planned=planned, starts=old_start):
         before = {
             "effectiveFrom": row.effective_from.isoformat(),
             "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,

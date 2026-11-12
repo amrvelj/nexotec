@@ -464,3 +464,105 @@ def test_a_cancel_or_a_moved_start_never_deadlocks_against_the_label_refresh(eng
 
     assert not writer.is_alive()
     assert errors == []
+
+
+# --- the fourth review's findings (2026-11-12) ---------------------------------------------
+
+
+def _let_the_handover_pass(engine, clara_party, meier_party) -> dt.datetime:
+    """Real time passing: Clara's end and Meier's start move to yesterday,
+    the state the clock leaves behind (the link stays on Clara's row)."""
+
+    from sqlalchemy.orm import sessionmaker
+
+    yesterday = (utcnow() - dt.timedelta(days=1)).replace(microsecond=0)
+    with sessionmaker(bind=engine)() as s:
+        table = VehicleParty.__table__
+        s.execute(table.update().where(table.c.id == clara_party.id).values(effective_to=yesterday))
+        s.execute(table.update().where(table.c.id == meier_party.id).values(effective_from=yesterday))
+        s.commit()
+    return yesterday
+
+
+def test_after_the_handover_a_re_planned_and_cancelled_entry_gives_no_role_back_to_the_former_owner(engine, db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583401")
+    clara, meier, weber = (
+        _customer(db_session, group_id, "Clara"),
+        _customer(db_session, group_id, "Anna", "Meier"),
+        _customer(db_session, group_id, "Hans", "Weber"),
+    )
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id, effective_from=utcnow() - dt.timedelta(days=60))
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    db_session.commit()
+    handed_over = _let_the_handover_pass(engine, clara_party, meier_party)
+    db_session.expire_all()
+    weber_party = _allocate(db_session, vehicle.id, weber, group_id)  # closes Meier now
+    _patch(db_session, meier_party, group_id, effective_from=_handover(30), effective_to=None)  # Weber linked
+
+    _end(db_session, meier_party, group_id)
+
+    assert _row(db_session, clara_party.id).effective_to == handed_over  # history stays history
+    assert _row(db_session, weber_party.id).effective_to is None  # Weber gets his role back
+    assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({weber.id}, set())
+
+
+def test_after_the_handover_moving_the_start_twice_never_moves_the_former_owners_end(engine, db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583402")
+    clara, meier = _customer(db_session, group_id, "Clara"), _customer(db_session, group_id, "Anna", "Meier")
+    clara_party = _allocate(db_session, vehicle.id, clara, group_id, effective_from=utcnow() - dt.timedelta(days=60))
+    meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
+    db_session.commit()
+    handed_over = _let_the_handover_pass(engine, clara_party, meier_party)
+    db_session.expire_all()
+
+    _patch(db_session, meier_party, group_id, effective_from=_handover(10))
+    _patch(db_session, meier_party, group_id, effective_from=_handover(20))
+
+    assert _row(db_session, clara_party.id).effective_to == handed_over
+
+
+def test_the_nightly_label_refresh_takes_a_batchs_rows_in_id_order_before_it_writes(engine, db_session):
+    """It waits on the older row before it touches the newer one, as every
+    multi-row writer of a vehicle's rows does (so none can deadlock it)."""
+
+    import threading
+
+    from sqlalchemy import text
+    from sqlalchemy.orm import sessionmaker
+
+    from app.customer.services.customer import refresh_vehicle_party_labels
+    from tests.test_customer_vehicle_party_close_rule import _wait_until_a_backend_waits_on_a_lock
+
+    if engine.dialect.name != "postgresql":
+        pytest.skip("row locks are Postgres-only")
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW583403")
+    older = _allocate(db_session, vehicle.id, _customer(db_session, group_id, "Clara"), group_id)
+    newer = _allocate(db_session, vehicle.id, _customer(db_session, group_id, "Anna", "Meier"), group_id)
+    db_session.commit()
+    assert older.id < newer.id
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _nightly():
+        with factory() as s:
+            try:
+                refresh_vehicle_party_labels(s)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+    with factory() as holder:
+        holder.execute(text("SELECT 1 FROM vehicle_party WHERE id = :id FOR UPDATE"), {"id": older.id})
+        nightly = threading.Thread(target=_nightly)
+        nightly.start()
+        _wait_until_a_backend_waits_on_a_lock(engine)
+        with factory() as probe:  # the newer row is still free: the refresh waits before it
+            probe.execute(text("SET LOCAL lock_timeout = '1s'"))
+            probe.execute(text("SELECT 1 FROM vehicle_party WHERE id = :id FOR UPDATE NOWAIT"), {"id": newer.id})
+            probe.rollback()
+        holder.commit()
+        nightly.join(timeout=30)
+    assert not nightly.is_alive()
+    assert errors == []

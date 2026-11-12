@@ -238,9 +238,8 @@ weekly. -->
   holding one waits on the merge (allocation, a reopen and a merge into or of X refuse a merged
   customer; a credit-block change takes only X's row; the nightly advisor-label refresh skips a
   customer it cannot lock, KAN-403). The copies are only tried, never waited
-  for — the nightly vehicle-party label refresh takes no explicit lock and no SKIP LOCKED: its
-  UPDATEs lock a batch's party rows as they are written and wait for a held one, so it could hold
-  one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
+  for — the nightly vehicle-party label refresh locks each batch's rows in id order (no SKIP
+  LOCKED) and waits for a held one, so it could hold one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
   `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
