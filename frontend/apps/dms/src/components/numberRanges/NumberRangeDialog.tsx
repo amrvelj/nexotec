@@ -22,6 +22,8 @@ const PREVIEW_DELAY_MS = 300
  * applies, so a pattern the save would refuse says why before the save).
  * A frozen range (A-RULE-3) reaches this dialog only for platform staff, who
  * must give a reason; the dialog says the range is frozen before anything.
+ * KAN-540: when the server says a ticked yearly restart is deferred (the
+ * offer range, for now), the dialog says so under the checkbox.
  */
 export function NumberRangeDialog({
   dealershipId,
@@ -41,6 +43,7 @@ export function NumberRangeDialog({
   const [yearlyReset, setYearlyReset] = useState(false)
   const [reason, setReason] = useState('')
   const [example, setExample] = useState<string | null>(null)
+  const [resetDeferred, setResetDeferred] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -52,6 +55,7 @@ export function NumberRangeDialog({
     setYearlyReset(range.yearlyReset)
     setReason('')
     setExample(range.nextNumber)
+    setResetDeferred(range.yearlyResetDeferred)
     setPreviewError(null)
     setError(null)
   }, [range])
@@ -70,6 +74,7 @@ export function NumberRangeDialog({
         .then((preview) => {
           if (cancelled) return
           setExample(preview.nextNumber)
+          setResetDeferred(preview.yearlyResetDeferred)
           setPreviewError(null)
         })
         .catch((err: unknown) => {
@@ -140,6 +145,11 @@ export function NumberRangeDialog({
           checked={yearlyReset}
           onChange={(e) => setYearlyReset(e.currentTarget.checked)}
         />
+        {yearlyReset && resetDeferred && (
+          <Alert color="yellow" variant="light" role="note">
+            {t('numberRanges.yearlyResetDeferredNote')}
+          </Alert>
+        )}
         {frozen && (
           <Textarea
             label={t('numberRanges.reason')}

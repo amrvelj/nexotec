@@ -15,6 +15,10 @@ class NumberRangeRead(CamelModel):
     pattern: str
     start_value: int
     yearly_reset: bool
+    # KAN-540: the yearly reset is saved but does not take effect yet (the
+    # offer range, until Sales' own counter is retired). The screen says so;
+    # `next_number` already counts on, as the allocation does.
+    yearly_reset_deferred: bool
     # The value the range stands at (read-only on screen); null before its first.
     last_value: int | None
     # The number it would hand out next — the screen's example.
@@ -50,3 +54,5 @@ class NumberRangePreviewRequest(CamelModel):
 
 class NumberRangePreviewRead(CamelModel):
     next_number: str
+    # As on NumberRangeRead, for the edit as typed.
+    yearly_reset_deferred: bool

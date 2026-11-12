@@ -8804,6 +8804,8 @@ export interface components {
         NumberRangePreviewRead: {
             /** Nextnumber */
             nextNumber: string;
+            /** Yearlyresetdeferred */
+            yearlyResetDeferred: boolean;
         };
         /** NumberRangePreviewRequest */
         NumberRangePreviewRequest: {
@@ -8833,6 +8835,8 @@ export interface components {
             version: number;
             /** Yearlyreset */
             yearlyReset: boolean;
+            /** Yearlyresetdeferred */
+            yearlyResetDeferred: boolean;
         };
         /**
          * NumberRangeUpdate

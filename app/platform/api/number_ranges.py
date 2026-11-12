@@ -44,6 +44,9 @@ def _read(db: Session, row: NumberRange) -> NumberRangeRead:
         pattern=row.pattern,
         start_value=row.start_value,
         yearly_reset=row.yearly_reset,
+        yearly_reset_deferred=number_range_service.yearly_reset_deferred(
+            row.document_type, yearly_reset=row.yearly_reset
+        ),
         last_value=row.last_value,
         next_number=number_range_service.next_number_example(db, row),
         frozen_at=row.frozen_at,
@@ -99,7 +102,12 @@ def preview_number_range(
         yearly_reset=body.yearly_reset,
     )
     db.rollback()  # a range seeded for the probe is not kept
-    return NumberRangePreviewRead(next_number=example)
+    return NumberRangePreviewRead(
+        next_number=example,
+        yearly_reset_deferred=number_range_service.yearly_reset_deferred(
+            body.document_type, yearly_reset=body.yearly_reset
+        ),
+    )
 
 
 @router.patch("/dealerships/{dealership_id}/number-ranges/{document_type}", response_model=NumberRangeRead)

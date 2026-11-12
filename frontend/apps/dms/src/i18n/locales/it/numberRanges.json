@@ -18,6 +18,7 @@
   },
   "frozenSince": "Congelata dal {{date}}",
   "yearlyResetShort": "Riparte ogni anno",
+  "yearlyResetDeferredNote": "Per le offerte la ripartenza annuale ha effetto solo quando il passaggio alla nuova numerazione è concluso. Fino ad allora la numerazione prosegue senza interruzione; il prossimo numero mostra ciò che verrà realmente assegnato.",
   "edit": "Modifica",
   "editTitle": "Serie di numeri {{type}}",
   "pattern": "Modello",
