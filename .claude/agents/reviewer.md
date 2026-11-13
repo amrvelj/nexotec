@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Independent reviewer for Nexotec changes, with fresh context. Use before every push of ticket work (/ticket requires it) and for /verify audits. Full review - give it the ticket URL, the exit criteria verbatim, the git range, the checkout to review and what the builder claims is met and not met. Re-review after fixes (/ticket only) - give it the previous report, the previously reviewed sha and the range from that sha to HEAD as well. It cannot edit files. It ends with the reviewed commit and VERDICT PASS or VERDICT FINDINGS.
-tools: Read, Grep, Glob, Bash, WebFetch, mcp__claude_ai_Notion__notion-fetch, mcp__claude_ai_Notion__notion-search, mcp__claude_ai_Notion__notion-query-data-sources
+tools: Read, Grep, Glob, Bash, WebFetch, ToolSearch, mcp__claude_ai_Notion__notion-fetch, mcp__claude_ai_Notion__notion-search, mcp__claude_ai_Notion__notion-query-data-sources, mcp__Notion__notion-fetch, mcp__Notion__notion-search, mcp__Notion__notion-query-data-sources
 model: claude-opus-5-5
 effort: high
 color: purple

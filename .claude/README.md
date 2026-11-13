@@ -157,7 +157,9 @@ session. Several can run at once, each on its own machine, with the Mac closed.
   background and captures with `npx playwright screenshot`, which the gate records.
 - The Drive folder (UI prototype, auto-i-dat PDFs) is out of reach: tickets that need it run on
   the Mac.
-- Notion comes from the same claude.ai connector; `gh` is pre-installed and authenticated
+- Notion comes from the same claude.ai connector, but its server is named `mcp__Notion` here
+  (`mcp__claude_ai_Notion` on the Mac) and its tools are deferred: an agent with a `tools:` list
+  needs both names and `ToolSearch` to reach it (KAN-695). `gh` is pre-installed and authenticated
   through the cloud's GitHub proxy, which refuses GraphQL (`gh pr view`, `gh pr checks`,
   `gh pr create`): the gates and `/ticket` use `gh api` REST calls, which work here and on the
   Mac. The weekly `/drift-audit` routine is a cloud session too.
