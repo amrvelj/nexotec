@@ -21,7 +21,8 @@
   "countEstimate": "Più di {{count, number}} chiavi",
   "columns": {
     "key": "Chiave",
-    "actions": "Azioni"
+    "namespace": "Area",
+    "updatedAt": "Ultima modifica"
   },
   "languages": {
     "de": "Tedesco",
@@ -39,7 +40,6 @@
   "empty": "Nessuna chiave trovata.",
   "noSeed": "Non è ancora stato importato alcun testo dell'interfaccia. L'importazione si avvia con scripts/import_ui_translation_bundles.py --commit.",
   "loadError": "Non è stato possibile caricare le traduzioni.",
-  "loadMore": "Carica altri",
   "editor": {
     "keyLabel": "Chiave",
     "seedLabel": "Fornito",
@@ -65,8 +65,10 @@
       "key": "Chiave",
       "language": "Lingua",
       "count": "Segnalazioni",
-      "last": "Ultima segnalazione"
-    }
+      "last": "Ultima segnalazione",
+      "first": "Prima segnalazione"
+    },
+    "gridLabel": "Chiavi mancanti"
   },
   "seeds": {
     "subtitle": "I modelli che Nexotec fornisce a ogni azienda. Una modifica non sovrascrive mai l'adattamento di un'azienda; l'azienda vede che il modello è cambiato.",
@@ -82,11 +84,16 @@
     "count_other": "{{count, number}} modelli",
     "columns": {
       "code": "Codice",
-      "target": "Utilizzo"
+      "target": "Utilizzo",
+      "category": "Categoria",
+      "appliesTo": "Usato per",
+      "slot": "Posizione"
     },
     "fieldTitle": "Titolo",
     "fieldBody": "Testo",
     "empty": "Nessun modello trovato.",
-    "loadError": "Non è stato possibile caricare i modelli."
-  }
+    "loadError": "Non è stato possibile caricare i modelli.",
+    "gridLabel": "Modelli di testi standard"
+  },
+  "gridLabel": "Testi dell'interfaccia"
 }

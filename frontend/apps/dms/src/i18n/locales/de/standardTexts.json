@@ -46,7 +46,9 @@
     "slot": "Position",
     "source": "Herkunft",
     "languages": "Sprachen",
-    "default": "Standard"
+    "default": "Standard",
+    "code": "Code",
+    "updatedAt": "Zuletzt geändert"
   },
   "badge": {
     "template": "Vorlage — bitte prüfen",

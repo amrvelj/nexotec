@@ -116,6 +116,15 @@ export interface DataGridProps<T> {
   columnLayout?: ColumnLayoutState;
   onColumnLayoutChange?: (layout: ColumnLayoutState) => void;
   labels: DataGridLabels;
+  /** The grid's accessible name (its `role="table"`), in the UI language —
+   * for a screen that holds more than one list, or names its list (a
+   * category tab's label). Omit where the page's heading names the grid. */
+  ariaLabel?: string;
+  /** A row that needs attention as a whole — a reference value missing a
+   * language (KAN-516): its background is the semantic destructive surface,
+   * explained by the row's own status cell. A selected row keeps the
+   * selection colour. Omit for a grid whose rows carry no tone. */
+  rowTone?: (row: T) => "destructive" | undefined;
 }
 
 /**
@@ -151,6 +160,8 @@ export function DataGrid<T>({
   columnLayout,
   onColumnLayoutChange,
   labels,
+  ariaLabel,
+  rowTone,
 }: DataGridProps<T>) {
   const L = labels;
   const Link = linkComponent;
@@ -343,7 +354,7 @@ export function DataGrid<T>({
             children anyway) — a div grid with ARIA table roles keeps the
             same semantics/accessibility without that conflict, the
             standard pattern for a virtualized table. */}
-        <div role="table" aria-rowcount={total ?? rows.length} style={{ width: "100%", minWidth: tableMinWidth }}>
+        <div role="table" aria-label={ariaLabel} aria-rowcount={total ?? rows.length} style={{ width: "100%", minWidth: tableMinWidth }}>
           <div role="rowgroup" style={{ position: "sticky", top: 0, zIndex: 2 }}>
             {table.getHeaderGroups().map((headerGroup) => (
               <div role="row" key={headerGroup.id} style={{ display: "flex" }}>
@@ -413,7 +424,11 @@ export function DataGrid<T>({
                         width: "100%",
                         height: virtualRow.size,
                         transform: `translateY(${virtualRow.start}px)`,
-                        backgroundColor: isSelected ? purple[0] : undefined,
+                        backgroundColor: isSelected
+                          ? purple[0]
+                          : rowTone?.(row.original) === "destructive"
+                            ? semantic.destructive.surface
+                            : undefined,
                       }}
                       href={href}
                       Link={Link}

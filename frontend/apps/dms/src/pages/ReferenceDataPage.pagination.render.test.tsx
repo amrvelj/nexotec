@@ -1,9 +1,22 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import { ReferenceDataPage } from './ReferenceDataPage'
+
+// KAN-516: the values are the kit's grid; jsdom has no layout, so TanStack
+// Virtual would window it down to zero rows — render every row instead.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () => Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
 
 // KAN-59: the endpoint caps a page at 100 (Settings.pagination_max_limit).
 // `country` alone is ~250 rows, so a naive single `limit=200` request 422s

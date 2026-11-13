@@ -12,7 +12,11 @@
   "maintainedBy": "Géré par Nexotec",
   "columns": {
     "code": "Code",
-    "status": "État"
+    "status": "État",
+    "active": "Actif",
+    "sortOrder": "Ordre",
+    "createdAt": "Créé",
+    "updatedAt": "Dernière modification"
   },
   "forbidden": {
     "title": "Accès refusé",
@@ -33,5 +37,12 @@
     "error": "Impossible de créer la valeur.",
     "invalidField": "Vérifiez cette saisie : elle est vide ou trop longue.",
     "duplicate": "Le code de valeur {{valueCode}} existe déjà dans cette liste."
-  }
+  },
+  "edit": {
+    "action": "Modifier les libellés",
+    "title": "Modifier {{valueCode}} dans {{code}}",
+    "submit": "Enregistrer",
+    "error": "Impossible d'enregistrer les libellés."
+  },
+  "gridLabel": "Valeurs de la liste de référence"
 }
