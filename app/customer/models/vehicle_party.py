@@ -12,18 +12,9 @@ drift is caught by the nightly reconciliation job (app.customer.reconciliation),
 not by Postgres.
 
 KAN-31: vehicle_id resolves against `vehicle_mdm` (WP-5's three-layer
-model), never the legacy `vehicle` table this replaces — that table's
-writes are frozen (ADR-021) and its rows are provenance-only going
-forward. A row created before this fix could in principle still point at
-a legacy vehicle id; app.vehicle.reconciliation::
-count_unrepointed_legacy_vehicle_party_references (WP-5 PR-7) is the
-health check for exactly that, gating the old table's eventual
-retirement — it counts, it does not repoint. As of this fix there are
-zero VehicleParty rows in any environment (the customer-side create path
-404'd on every real attempt before now), so there is nothing to migrate;
-see scripts/repoint_legacy_vehicle_party_references.py for the
-defensive, idempotent repoint-or-report pass this ticket's own review
-asked for, kept as a safety net rather than a live migration.
+model), never the legacy `vehicle` table it replaced (retired by KAN-79,
+ADR-153). A row whose vehicle_id names no vehicle-mdm record is reported
+by customer's nightly reconciliation.
 
 KAN-84 (CLAUDE.md rule 2): the vehicle's display fields are denormalised
 onto this row — the three-column pattern, with six label columns in place

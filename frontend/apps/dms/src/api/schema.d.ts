@@ -4425,94 +4425,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/vehicles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Vehicles */
-        get: operations["list_vehicles_v1_vehicles_get"];
-        put?: never;
-        /** Create Vehicle */
-        post: operations["create_vehicle_v1_vehicles_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/vehicles/by-vin/{vin}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Vehicle By Vin */
-        get: operations["get_vehicle_by_vin_v1_vehicles_by_vin__vin__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/vehicles/{vehicle_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Vehicle */
-        get: operations["get_vehicle_v1_vehicles__vehicle_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update Vehicle */
-        patch: operations["update_vehicle_v1_vehicles__vehicle_id__patch"];
-        trace?: never;
-    };
-    "/v1/vehicles/{vehicle_id}/audit-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Vehicle Audit Log */
-        get: operations["get_vehicle_audit_log_v1_vehicles__vehicle_id__audit_log_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/vehicles/{vehicle_id}/custody-events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Custody Events */
-        get: operations["list_custody_events_v1_vehicles__vehicle_id__custody_events_get"];
-        put?: never;
-        /** Create Custody Event */
-        post: operations["create_custody_event_v1_vehicles__vehicle_id__custody_events_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6293,66 +6205,6 @@ export interface components {
             /** Ratio */
             ratio: number;
         };
-        /**
-         * CustodyEventCreate
-         * @description `partner_id` defaults to the caller's own tenant and must equal it
-         *     unless the caller is platform_admin — a dealer can't claim or relinquish
-         *     custody on another dealer's behalf (see services/vehicle.py).
-         */
-        CustodyEventCreate: {
-            /** Eventdate */
-            eventDate?: string | null;
-            eventType: components["schemas"]["CustodyEventType"];
-            /** Partnerid */
-            partnerId?: string | null;
-            /** Transactionid */
-            transactionId?: string | null;
-        };
-        /** CustodyEventPage */
-        CustodyEventPage: {
-            /** Items */
-            items: components["schemas"]["CustodyEventRead"][];
-            /** Nextcursor */
-            nextCursor: string | null;
-        };
-        /** CustodyEventRead */
-        CustodyEventRead: {
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /** Createdby */
-            createdBy: string | null;
-            /**
-             * Eventdate
-             * Format: date-time
-             */
-            eventDate: string;
-            eventType: components["schemas"]["CustodyEventType"];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Partnerid
-             * Format: uuid
-             */
-            partnerId: string;
-            /** Transactionid */
-            transactionId: string | null;
-            /**
-             * Vehicleid
-             * Format: uuid
-             */
-            vehicleId: string;
-        };
-        /**
-         * CustodyEventType
-         * @enum {string}
-         */
-        CustodyEventType: "acquired" | "transferred" | "sold" | "repossessed";
         /** CustomerAddressCreate */
         CustomerAddressCreate: {
             /**
@@ -10115,11 +9967,6 @@ export interface components {
             /** Sortorder */
             sortOrder?: number | null;
         };
-        /**
-         * RegistrationStatus
-         * @enum {string}
-         */
-        RegistrationStatus: "unregistered" | "registered" | "deregistered" | "export";
         /** ReorderMediaRequest */
         ReorderMediaRequest: {
             /** Orderedmediaids */
@@ -10584,9 +10431,8 @@ export interface components {
          *     the configuration it produced — the hand-typed intake, which created a
          *     label with no vehicle and no technical data, is gone. Enforced here, at
          *     the endpoint only (Anto, decision 1a): the contract-confirmation
-         *     consumers (FR-I-02/02b) build a `StockItemCreate` of their own and the
-         *     ADR-091 legacy import writes its rows directly — neither passes this
-         *     door.
+         *     consumers (FR-I-02/02b) build a `StockItemCreate` of their own and do
+         *     not pass this door.
          */
         StockItemCreateRequest: {
             condition: components["schemas"]["StockItemCondition"];
@@ -11750,69 +11596,6 @@ export interface components {
             customerId: string;
             role: components["schemas"]["VehiclePartyRole"];
         };
-        /**
-         * VehicleCondition
-         * @description Hardcoded, not reference-data — dealers won't need to add categories
-         *     here (CTO ruling, 2026-08-06). Was in the original spec draft
-         *     (`condition new|used|certified_pre_owned|unknown`) but dropped when it
-         *     got condensed into the issue #5 backlog text; restored here.
-         * @enum {string}
-         */
-        VehicleCondition: "new" | "used" | "certified_pre_owned" | "demo";
-        /**
-         * VehicleCreate
-         * @description `status` defaults to `in_transit` if omitted, matching the natural
-         *     start of the spec's lifecycle. Rejecting a caller-supplied terminal
-         *     status (totaled/scrapped) at creation — nonsensical to create an
-         *     already-dead record.
-         *
-         *     No `current_custodian_partner_id` field: creating a Vehicle always
-         *     establishes the creating dealer as the first custodian via an implicit
-         *     `acquired` custody event (services/vehicle.py) — an assumption filling
-         *     the original spec's open question 8 ("who can create a Vehicle before
-         *     it has a custodian?"), not something stated explicitly. Flagged in the PR.
-         */
-        VehicleCreate: {
-            /** Bodystyle */
-            bodyStyle?: string | null;
-            /** Co2Emissionsgkm */
-            co2EmissionsGkm?: number | null;
-            condition: components["schemas"]["VehicleCondition"];
-            /** Drivetrain */
-            drivetrain?: string | null;
-            /** Energyefficiencycategory */
-            energyEfficiencyCategory?: string | null;
-            /** Engine */
-            engine?: string | null;
-            /** Exteriorcolor */
-            exteriorColor?: string | null;
-            /** Fueltype */
-            fuelType?: string | null;
-            /** Interiorcolor */
-            interiorColor?: string | null;
-            /** Make */
-            make: string;
-            /** Model */
-            model: string;
-            /** Modelyear */
-            modelYear: number;
-            /** Odometer */
-            odometer?: number | null;
-            /** Registrationcanton */
-            registrationCanton?: string | null;
-            /** @default unregistered */
-            registrationStatus?: components["schemas"]["RegistrationStatus"];
-            /** @default in_transit */
-            status?: components["schemas"]["app__vehicle__models__vehicle__VehicleStatus"];
-            /** Transmission */
-            transmission?: string | null;
-            /** Trim */
-            trim?: string | null;
-            /** Vehicletype */
-            vehicleType?: string | null;
-            /** Vin */
-            vin: string;
-        };
         /** VehicleMdmCreate */
         VehicleMdmCreate: {
             /** Cataloguevariantid */
@@ -11881,7 +11664,7 @@ export interface components {
             updatedAt: string;
             /** Vehiclenumber */
             vehicleNumber: string;
-            vehicleStatus: components["schemas"]["app__vehicle__models__vehicle_mdm__VehicleStatus"];
+            vehicleStatus: components["schemas"]["VehicleStatus"];
             /** Version */
             version: number;
             /** Vin */
@@ -11900,7 +11683,7 @@ export interface components {
             stammnummer?: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber?: string | null;
-            vehicleStatus?: components["schemas"]["app__vehicle__models__vehicle_mdm__VehicleStatus"] | null;
+            vehicleStatus?: components["schemas"]["VehicleStatus"] | null;
             /** Vin */
             vin?: string | null;
         };
@@ -11932,13 +11715,6 @@ export interface components {
             source: components["schemas"]["OdometerSource"];
             /** Value */
             value: number;
-        };
-        /** VehiclePage */
-        VehiclePage: {
-            /** Items */
-            items: components["schemas"]["VehicleRead"][];
-            /** Nextcursor */
-            nextCursor: string | null;
         };
         /** VehiclePartyAllocationRead */
         VehiclePartyAllocationRead: {
@@ -12101,77 +11877,6 @@ export interface components {
             version: number;
         };
         /**
-         * VehicleRead
-         * @description `status` and `current_custodian_partner_id` are typed nullable here
-         *     even though the DB columns are not — they're redacted to null in the
-         *     response unless the requester is the current custodian or platform_admin
-         *     (Swiss addendum Round 3 visibility rule). See services/vehicle.py's
-         *     serialization helper for where that redaction actually happens; this
-         *     schema only describes the shape.
-         */
-        VehicleRead: {
-            /** Bodystyle */
-            bodyStyle: string | null;
-            /** Co2Emissionsgkm */
-            co2EmissionsGkm: number | null;
-            condition: components["schemas"]["VehicleCondition"];
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /** Createdby */
-            createdBy: string | null;
-            /** Currentcustodianpartnerid */
-            currentCustodianPartnerId: string | null;
-            /** Drivetrain */
-            drivetrain: string | null;
-            /** Energyefficiencycategory */
-            energyEfficiencyCategory: string | null;
-            /** Engine */
-            engine: string | null;
-            /** Exteriorcolor */
-            exteriorColor: string | null;
-            /** Fueltype */
-            fuelType: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Interiorcolor */
-            interiorColor: string | null;
-            /** Make */
-            make: string;
-            /** Model */
-            model: string;
-            /** Modelyear */
-            modelYear: number;
-            /** Odometer */
-            odometer: number | null;
-            /** Registrationcanton */
-            registrationCanton: string | null;
-            registrationStatus: components["schemas"]["RegistrationStatus"];
-            status: components["schemas"]["app__vehicle__models__vehicle__VehicleStatus"] | null;
-            /** Transmission */
-            transmission: string | null;
-            /** Trim */
-            trim: string | null;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /** Updatedby */
-            updatedBy: string | null;
-            /** Vehicletype */
-            vehicleType: string | null;
-            /** Version */
-            version: number;
-            /** Vin */
-            vin: string;
-        };
-        /**
          * VehicleSearchHit
          * @description The vehicle an identifier resolved to (FR-V-06), plus its plate valid
          *     today — the "one line of disambiguating context" a global-search row
@@ -12218,7 +11923,7 @@ export interface components {
             updatedAt: string;
             /** Vehiclenumber */
             vehicleNumber: string;
-            vehicleStatus: components["schemas"]["app__vehicle__models__vehicle_mdm__VehicleStatus"];
+            vehicleStatus: components["schemas"]["VehicleStatus"];
             /** Version */
             version: number;
             /** Vin */
@@ -12408,6 +12113,15 @@ export interface components {
             wheelbaseMm?: number | null;
         };
         /**
+         * VehicleStatus
+         * @description Lifecycle only — never stock state (ADR-040). Labels for these four
+         *     codes are also seeded as reference values (PR-1's vehicle_status list)
+         *     purely so PR-8's admin screen is the one place translations are
+         *     maintained; the column itself stays this hardcoded enum.
+         * @enum {string}
+         */
+        VehicleStatus: "active" | "exported" | "scrapped" | "stolen";
+        /**
          * VehicleStockLinkSummary
          * @description FR-19's 2026-09-07 amendment — a vehicle currently in the group's
          *     own stock links to its stock item, beside the party roles. Just enough
@@ -12423,65 +12137,6 @@ export interface components {
             /** Stocknumber */
             stockNumber: string;
         };
-        /**
-         * VehicleUpdate
-         * @description `status` changes are custodian-gated at the service layer (only the
-         *     current custodian or platform_admin — see services/vehicle.py); every
-         *     other field here is a shared-catalog spec correction, open to any
-         *     dealer_admin/inventory user. `current_custodian_partner_id` is still
-         *     never settable here — only custody-events mutate it.
-         */
-        VehicleUpdate: {
-            /** Bodystyle */
-            bodyStyle?: string | null;
-            /** Co2Emissionsgkm */
-            co2EmissionsGkm?: number | null;
-            condition?: components["schemas"]["VehicleCondition"] | null;
-            /** Drivetrain */
-            drivetrain?: string | null;
-            /** Energyefficiencycategory */
-            energyEfficiencyCategory?: string | null;
-            /** Engine */
-            engine?: string | null;
-            /** Exteriorcolor */
-            exteriorColor?: string | null;
-            /** Fueltype */
-            fuelType?: string | null;
-            /** Interiorcolor */
-            interiorColor?: string | null;
-            /** Make */
-            make?: string | null;
-            /** Model */
-            model?: string | null;
-            /** Modelyear */
-            modelYear?: number | null;
-            /** Odometer */
-            odometer?: number | null;
-            /** Registrationcanton */
-            registrationCanton?: string | null;
-            registrationStatus?: components["schemas"]["RegistrationStatus"] | null;
-            status?: components["schemas"]["app__vehicle__models__vehicle__VehicleStatus"] | null;
-            /** Transmission */
-            transmission?: string | null;
-            /** Trim */
-            trim?: string | null;
-            /** Vehicletype */
-            vehicleType?: string | null;
-        };
-        /**
-         * VehicleStatus
-         * @enum {string}
-         */
-        app__vehicle__models__vehicle__VehicleStatus: "in_transit" | "in_stock" | "sold" | "in_service" | "totaled" | "scrapped";
-        /**
-         * VehicleStatus
-         * @description Lifecycle only — never stock state (ADR-040). Labels for these four
-         *     codes are also seeded as reference values (PR-1's vehicle_status list)
-         *     purely so PR-8's admin screen is the one place translations are
-         *     maintained; the column itself stays this hardcoded enum.
-         * @enum {string}
-         */
-        app__vehicle__models__vehicle_mdm__VehicleStatus: "active" | "exported" | "scrapped" | "stolen";
     };
     responses: never;
     parameters: never;
@@ -23683,308 +23338,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehiclePlateRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_vehicles_v1_vehicles_get: {
-        parameters: {
-            query?: {
-                status?: components["schemas"]["app__vehicle__models__vehicle__VehicleStatus"] | null;
-                custodian_partner_id?: string | null;
-                updated_since?: string | null;
-                limit?: number;
-                cursor?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VehiclePage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_vehicle_v1_vehicles_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
-                "Idempotency-Key"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VehicleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VehicleRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_vehicle_by_vin_v1_vehicles_by_vin__vin__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                vin: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VehicleRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_vehicle_v1_vehicles__vehicle_id__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                vehicle_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VehicleRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_vehicle_v1_vehicles__vehicle_id__patch: {
-        parameters: {
-            query?: never;
-            header?: {
-                "If-Match"?: string | null;
-                authorization?: string | null;
-            };
-            path: {
-                vehicle_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VehicleUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VehicleRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_vehicle_audit_log_v1_vehicles__vehicle_id__audit_log_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                vehicle_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditEventPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_custody_events_v1_vehicles__vehicle_id__custody_events_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                vehicle_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustodyEventPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_custody_event_v1_vehicles__vehicle_id__custody_events_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
-                "Idempotency-Key"?: string | null;
-            };
-            path: {
-                vehicle_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustodyEventCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustodyEventRead"];
                 };
             };
             /** @description Validation Error */

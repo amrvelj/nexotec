@@ -1,7 +1,6 @@
 ---
 paths:
   - "app/vehicle/api/vehicle_mdm*.py"
-  - "app/vehicle/api/vehicles.py"
   - "app/vehicle/api/lookup.py"
   - "app/vehicle/services/vehicle*.py"
   - "app/vehicle/services/vin_correction.py"
@@ -22,7 +21,6 @@ paths:
   - "app/vehicle/schemas/lookup.py"
   - "app/core/validators.py"
   - "alembic/versions/vehicle/**"
-  - "tests/test_vehicle.py"
   - "tests/test_vehicle_mdm*.py"
   - "tests/test_vehicle_plate*.py"
   - "tests/plate_support.py"
@@ -37,7 +35,6 @@ paths:
   - "tests/architecture/test_vehicle_write_services_have_a_caller.py"
   - "tests/architecture/test_shared_identity_lookup_response_shape.py"
   - "scripts/repair_configuration_vins.py"
-  - "scripts/migrate_legacy_vehicles.py"
   - "frontend/apps/dms/src/**/*ehicle*"
   - "frontend/apps/dms/src/**/*ehicle*/**"
   - "frontend/apps/dms/src/utils/vin.ts"

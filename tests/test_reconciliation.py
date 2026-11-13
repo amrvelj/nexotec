@@ -48,7 +48,7 @@ from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.catalogue import Brand
 from app.vehicle.models.configuration import ConfigurationMatchMethod, ConfigurationMode, ConfigurationSource
 from app.vehicle.models.plate import VehiclePlate
-from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
+from app.vehicle.models.vehicle_history import CustodyEventType, VehicleCustodyEvent
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services.configuration import create_configuration
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
@@ -177,13 +177,13 @@ def _random_vin() -> str:
     return "".join(random.choices(alphabet, k=17))
 
 
-def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
+def _create_vehicle(client, dealer_id: str) -> dict:
+    """A vehicle-mdm record (the legacy `POST /v1/vehicles` went with KAN-79)."""
+
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=_real_actor(client, dealer_id))
-    payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
-    payload.update(overrides)
-    response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
-    assert response.status_code == 201, response.text
-    return response.json()
+    response = client.post("/v1/vehicle-mdm", json={"vin": _random_vin()}, headers=_bearer(token))
+    assert response.status_code in (200, 201), response.text
+    return response.json()["vehicle"]
 
 
 def _create_transaction(db_session, dealer_id: str, user: dict, customer: dict, vehicle: dict) -> dict:
@@ -240,14 +240,9 @@ def test_customer_reconciliation_clean_data_finds_zero_orphans(client, db_sessio
     assert run.finished_at is not None
 
 
-def test_vehicle_reconciliation_clean_data_and_null_custodian_finds_zero_orphans(client, db_session):
-    """current_custodian_partner_id defaults to NULL until a custody event
-    assigns it — that must never be flagged as an orphan, since NULL means
-    "no reference yet", not "dangling reference".
-    """
-
+def test_vehicle_reconciliation_clean_data_finds_zero_orphans(client, db_session):
     dealer_id = _create_dealer(client)
-    _create_vehicle(client, dealer_id)  # current_custodian_partner_id stays NULL
+    _create_vehicle(client, dealer_id)
     db_session.expire_all()
 
     run = vehicle_reconciliation.run(db_session)
@@ -333,7 +328,7 @@ def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, d
         vehicle_reconciliation.run(db_session)
 
     assert exc_info.value.run.orphans_found == 1
-    assert exc_info.value.orphans[0].check_label == "vehicle_custody_event.partner_id -> dealership.id"
+    assert exc_info.value.orphans[0].check_label == "vehicle_mdm_custody_event.partner_id -> dealership.id"
 
 
 def _plate_in_the_register(db_session, dealer_id: str):
@@ -440,7 +435,7 @@ def _invoiceable_stock_item(db_session, dealer_id, *, hours_ago):
 
 
 def test_sales_reconciliation_detects_a_purchase_sales_never_learned_of(client, db_session):
-    """KAN-100 — e.g. a trade-in migrated by scripts/migrate_transaction_rows.py
+    """KAN-100 — e.g. a trade-in the (since deleted) legacy import migrated
     before it wrote the replica, or an event never published: Stock says
     purchased, Sales cannot invoice, and only reconciliation can tell."""
 
@@ -1016,10 +1011,12 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
     db_session.expire_all()
 
     # Orphan customer (via vehicle_party) and sales (via transaction), leave
-    # vehicle clean — proves run_all doesn't stop at the first alarm.
+    # vehicle clean — proves run_all doesn't stop at the first alarm. (The
+    # transaction's vehicle_id is no longer checked: the legacy vehicle table
+    # it named is gone, KAN-79 — its customer_id is.)
     db_session.add(VehicleParty(vehicle_id=uuid.uuid4(), customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER))
     txn_row = db_session.get(Transaction, uuid.UUID(txn["id"]))
-    txn_row.vehicle_id = uuid.uuid4()
+    txn_row.customer_id = uuid.uuid4()
     db_session.commit()
     # Platform runs too (KAN-318) and must stay clean, like vehicle.
     _make_platform_actors_real(db_session, uuid.UUID(user["id"]))

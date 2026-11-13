@@ -14,7 +14,6 @@ from app.customer.services.customer_common import customer_display_name, get_cus
 from app.customer.services.legal_basis import has_any_basis_for_group
 from app.customer.services.vehicle_page import StockItemsFor, customer_vehicle_page
 from app.customer.services.vehicle_party import allocate_vehicle_party, resolve_live_customer_id
-from app.customer.services.vehicle_party_counts import count_vehicle_parties_for_vehicles
 from app.customer.services.vehicle_party_labels import (
     oldest_vehicle_party_label_age_seconds,
     refresh_vehicle_party_labels,
@@ -40,7 +39,6 @@ __all__ = [
     "VehiclePartyRole",
     "allocate_vehicle_party",
     "channel_authorises_marketing",
-    "count_vehicle_parties_for_vehicles",
     "customer_display_name",
     "customer_in_group",
     "customer_is_merged",

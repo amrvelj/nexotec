@@ -88,7 +88,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   `platform.public.allocate_number(...)`, `SELECT … FOR UPDATE` on the range row, never a commit —
   so a document write that fails consumes no number. **ADR-109** is the ruled exception to ADR-047
   (CLAUDE.md rule 12), classified in `test_adr_047_no_shared_transaction.py`; number allocation is
-  the only shared transaction it rules (the other is ADR-091's backfill).
+  the only shared transaction it rules (ADR-091's backfill expired with its script, KAN-79).
 - The first number freezes the range (audit `number_range_frozen`); after that a change is 409
   `number_range_frozen` for everyone but a `platform_admin`, who must give a reason.
 - The screen shows the ranges of the modules the Betrieb holds, the next number as an example and

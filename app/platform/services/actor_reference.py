@@ -7,7 +7,7 @@ platform `User` who made the change: the access token's subject, which is
 only ever minted for a `User` row (`app.platform.api.auth._mint_session`).
 It is null when no user made it: a consumer, a scheduled job, a provider
 sync, a migration, a seed's system write (KAN-345, `system_write_reason`
-below) or a legacy import (`scripts/migrate_transaction_rows.py` writes null). Null names nobody, so it is never an orphan. There is no
+below) or a legacy import (the deleted transaction import wrote null). Null names nobody, so it is never an orphan. There is no
 sentinel or service-principal id.
 
 Platform owns what a valid actor is, so each context with a nightly job

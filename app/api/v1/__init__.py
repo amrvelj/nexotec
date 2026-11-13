@@ -54,7 +54,6 @@ from app.vehicle.api.identification import router as vehicle_identification_rout
 from app.vehicle.api.lookup import router as vehicle_lookup_router
 from app.vehicle.api.vehicle_mdm import router as vehicle_mdm_router
 from app.vehicle.api.vehicle_mdm_detail import router as vehicle_mdm_detail_router
-from app.vehicle.api.vehicles import router as vehicles_router
 
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)
@@ -73,7 +72,6 @@ api_v1_router.include_router(platform_recovery_router)
 api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(ui_translations_router)
 api_v1_router.include_router(standard_text_seeds_router)
-api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)
 api_v1_router.include_router(vehicle_catalogue_router)
 api_v1_router.include_router(vehicle_configuration_router)

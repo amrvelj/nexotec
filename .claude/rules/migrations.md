@@ -16,7 +16,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-015 (PR-3 chains),
 ADR-011, ADR-021, ADR-088, rule 2 and the verification lessons from the WP audits; also cites
-ADR-047, ADR-091. Verified against main@73baf3f on 2026-10-25 (every present-tense claim checked
+ADR-047 (ADR-091 expired with its script, KAN-79). Verified against main@73baf3f on 2026-10-25 (every present-tense claim checked
 against the code). Fix this file
 in the same PR as any change to what it states. -->
 
@@ -81,24 +81,19 @@ in the same PR as any change to what it states. -->
 - **Data-migration scripts** (`scripts/migrate_*.py`, `scripts/repoint_*.py`,
   `scripts/backfill_*.py`) are dry-run by default (`--commit` writes), idempotent, and reuse the
   production computations instead of re-implementing them. A historical import **publishes no
-  outbox events**: live consumers would act on old history as if it happened today (see the
-  `migrate_transaction_rows.py` docstring). A backfill that repairs current state through the
+  outbox events**: live consumers would act on old history as if it happened today. A backfill that repairs current state through the
   production write path publishes what that path publishes
   (`backfill_manual_configuration_reservations.py`, KAN-166: `inventory.stock_item.reserved` /
   `released`). The dry run reports what the real run would write, including rows it cannot
   migrate and why. It gets there by running the real path in one transaction it rolls back —
-  flushing, so a later row sees an earlier one — and refuses any commit while it runs
-  (`migrate_transaction_rows.py`, KAN-263); a dry run that skips the writes cannot see
-  conflicts between rows of the same pass.
-  That one transaction is the one place a script may write two contexts (Sales and Inventory)
-  together, import Inventory's internals directly, and read the legacy `vehicle` row and the
-  customer, dealership and `vehicle_mdm` rows it resolves against through their models — the four
-  things ADR-091 (KAN-106) names, bounded to `migrate_transaction_rows.py` alone and pinned by the
-  ADR-047 architecture test, which also names the migration smoke test's two CI fixtures
+  flushing, so a later row sees an earlier one — and refuses any commit while it runs (KAN-263);
+  a dry run that skips the writes cannot see conflicts between rows of the same pass.
+  No script writes two contexts in one transaction (ADR-091's exception for the legacy transaction
+  import expired when KAN-79 deleted it). The ADR-047 architecture test names the migration smoke
+  test's two CI fixtures
   (`seed_migration_smoke_test.py`, `verify_migration_smoke_test_seed.py`), excepted by ADR-140
   (KAN-342) because they never run against a real database; a new one fails by name. Any other
-  script reads a second context through its `public` surface (the KAN-31 repoint pass reads
-  `vehicle.public.resolve_vehicle_mdm_ids`).
+  script reads a second context through its `public` surface.
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it), and hold the member's **`.value`** and nothing else
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`
@@ -121,8 +116,9 @@ in the same PR as any change to what it states. -->
   constraint on the model with the migration's exact name and shape; a column comment the
   model declares and the migration omitted is fixed by a comment-only migration in that
   context's chain (`*_column_comments_match_the_models_kan_170.py` is the pattern).
-- The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
-  never writes it.
+- The legacy `vehicle` table and its `vehicle_custody_event` are gone (KAN-79, vehicle-chain
+  `8d03887f7876`; Anto 2026-11-02, ADR-021 amended). `Settings.legacy_vehicle_write_frozen` is
+  read by nothing since; its removal waits on a preserved-file edit (`config.py`).
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or anything a
   migration run loads change (every such `app/` file, derived at run time — KAN-300): upgrade
   from empty → seed → downgrade to CI's target → upgrade → two concurrent upgrades (KAN-92), and

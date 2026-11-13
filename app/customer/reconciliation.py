@@ -92,12 +92,9 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
         # WP-5 PR-2 (ADR-021): a VehicleParty links a customer to the
         # physical vehicle, which in the three-layer model is VehicleMdm,
-        # not the legacy `vehicle` table this used to target. The legacy
-        # table is being retired after the one-way migration
-        # (scripts/migrate_legacy_vehicles.py); its seven-consecutive-
-        # clean-nights exit criterion is only meaningful once this check
-        # measures the surviving table. VehicleMdm comes through
-        # app.vehicle.public — the only door.
+        # not the legacy `vehicle` table this used to target (retired by
+        # KAN-79, ADR-153). VehicleMdm comes through app.vehicle.public —
+        # the only door.
         label="vehicle_party.vehicle_id -> vehicle_mdm.id",
         source_model=VehicleParty,
         source_row_id_column=VehicleParty.id,

@@ -49,8 +49,6 @@ LEGACY_SNAKE_CASE = frozenset(
         ("vehicle_id", "GET /v1/transactions"),
         ("vehicle_number", "GET /v1/vehicle-mdm/lookup"),
         ("include_closed", "GET /v1/vehicle-mdm/{vehicle_id}/party-roles"),
-        ("custodian_partner_id", "GET /v1/vehicles"),
-        ("updated_since", "GET /v1/vehicles"),
     }
 )
 
