@@ -135,7 +135,7 @@ def _to_name_form(db_session, customer_id: str) -> None:
 # KAN-79 retired the legacy `vehicle` table and its `vehicle_custody_event`:
 # no model maps them, so the test schema lacks them, yet the frozen enum
 # migrations (KAN-86's e1b483faad5c, KAN-175's 0ba433107313) still read and
-# rewrite them. Their tests recreate both, empty, exactly as KAN-79's own
+# rewrite them. Their tests recreate both, with one row each, in the shape KAN-79's own
 # downgrade recreates them (that migration's DDL, run here), and drop them
 # again afterwards (`drop_retired_legacy_tables`): the schema rebuild after a
 # DDL test drops only the tables the models know.

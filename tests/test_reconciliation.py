@@ -435,7 +435,7 @@ def _invoiceable_stock_item(db_session, dealer_id, *, hours_ago):
 
 
 def test_sales_reconciliation_detects_a_purchase_sales_never_learned_of(client, db_session):
-    """KAN-100 — e.g. a trade-in migrated by scripts/migrate_transaction_rows.py
+    """KAN-100 — e.g. a trade-in the (since deleted) legacy import migrated
     before it wrote the replica, or an event never published: Stock says
     purchased, Sales cannot invoice, and only reconciliation can tell."""
 

@@ -225,7 +225,6 @@ def _rewrite_all(conn, *, up: bool) -> None:
         module._rewrite(conn, up=up)
 
 
-
 @pytest.fixture()
 def retired_legacy_tables(engine):
     """KAN-79: the legacy tables the frozen vehicle migration rewrites, for a
@@ -237,12 +236,13 @@ def retired_legacy_tables(engine):
     with engine.begin() as conn:
         drop_retired_legacy_tables(conn)
 
+
 @pytest.fixture()
 def seeded(engine):
     columns = _frozen_columns_still_mapped()
     tables = [Base.metadata.tables[name] for name in sorted({table for table, _ in columns})]
     with engine.begin() as conn:
-        create_retired_legacy_tables(conn)  # KAN-79: empty, so the frozen rewrite finds them
+        create_retired_legacy_tables(conn)  # KAN-79: one row each, so the frozen rewrite finds them
         drop_enum_checks(conn)
         widen_connection_scope_check(conn)
         rows = _seed_one_row_each(conn, tables)

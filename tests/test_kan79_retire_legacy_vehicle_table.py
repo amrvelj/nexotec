@@ -81,51 +81,54 @@ def test_the_downgrade_recreates_both_tables_in_their_old_shape_and_the_upgrade_
     assert _tables(engine) == set()  # no model maps them any more
 
     _run(engine, _MIGRATION.downgrade)
-    shape = _shape(engine)
+    try:
+        shape = _shape(engine)
 
-    vehicle_columns = [c[1] for c in shape["columns"] if c[0] == "vehicle"]
-    assert vehicle_columns == [
-        "id", "vin", "make", "model", "model_year", "trim", "engine", "condition", "vehicle_type", "fuel_type",
-        "body_style", "drivetrain", "transmission", "exterior_color", "interior_color",
-        "energy_efficiency_category", "co2_emissions_gkm", "odometer", "registration_status",
-        "registration_canton", "status", "current_custodian_partner_id", "version", "created_at", "updated_at",
-        "created_by", "updated_by",
-    ]
-    custody_columns = [c[1] for c in shape["columns"] if c[0] == "vehicle_custody_event"]
-    assert custody_columns == [
-        "id", "vehicle_id", "partner_id", "event_type", "event_date", "transaction_id", "created_at", "created_by",
-    ]
-    defaults = {(c[0], c[1]): c[5] for c in shape["columns"] if c[5] is not None}
-    assert defaults == {
-        ("vehicle", "registration_status"): "'unregistered'::character varying",
-        ("vehicle", "status"): "'in_transit'::character varying",
-        ("vehicle", "version"): "1",
-    }
-    assert {(c[0], c[1], c[2]) for c in shape["constraints"]} == {
-        ("vehicle", "vehicle_pkey", "p"),
-        ("vehicle", "uq_vehicle_vin", "u"),
-        ("vehicle", "ck_vehicle_condition_enum", "c"),
-        ("vehicle", "ck_vehicle_registration_status_enum", "c"),
-        ("vehicle", "ck_vehicle_status_enum", "c"),
-        ("vehicle_custody_event", "vehicle_custody_event_pkey", "p"),
-        ("vehicle_custody_event", "fk_vehicle_custody_event_vehicle_id_vehicle", "f"),
-        ("vehicle_custody_event", "ck_vehicle_custody_event_event_type_enum", "c"),
-    }
-    checks = {c[1]: c[3] for c in shape["constraints"] if c[2] == "c"}
-    assert "'certified_pre_owned'" in checks["ck_vehicle_condition_enum"]
-    assert "'scrapped'" in checks["ck_vehicle_status_enum"]
-    assert "'repossessed'" in checks["ck_vehicle_custody_event_event_type_enum"]
-    assert {i[1] for i in shape["indexes"]} == {
-        "vehicle_pkey", "uq_vehicle_vin", "ix_vehicle_vin", "vehicle_custody_event_pkey",
-        "ix_vehicle_custody_event_vehicle_id", "ix_vehicle_custody_event_partner_id",
-        "ix_vehicle_custody_event_vehicle_id_partner_id",
-    }
-    assert {(c[0], c[1]) for c in shape["comments"]} == {
-        ("vehicle", "current_custodian_partner_id"),
-        ("vehicle_custody_event", "partner_id"),
-        ("vehicle_custody_event", "transaction_id"),
-    }
-    assert all("No DB-level FK (PR-2, ADR-015) — reconciled nightly." in c[2] for c in shape["comments"])
+        vehicle_columns = [c[1] for c in shape["columns"] if c[0] == "vehicle"]
+        assert vehicle_columns == [
+            "id", "vin", "make", "model", "model_year", "trim", "engine", "condition", "vehicle_type", "fuel_type",
+            "body_style", "drivetrain", "transmission", "exterior_color", "interior_color",
+            "energy_efficiency_category", "co2_emissions_gkm", "odometer", "registration_status",
+            "registration_canton", "status", "current_custodian_partner_id", "version", "created_at", "updated_at",
+            "created_by", "updated_by",
+        ]
+        custody_columns = [c[1] for c in shape["columns"] if c[0] == "vehicle_custody_event"]
+        assert custody_columns == [
+            "id", "vehicle_id", "partner_id", "event_type", "event_date", "transaction_id", "created_at", "created_by",
+        ]
+        defaults = {(c[0], c[1]): c[5] for c in shape["columns"] if c[5] is not None}
+        assert defaults == {
+            ("vehicle", "registration_status"): "'unregistered'::character varying",
+            ("vehicle", "status"): "'in_transit'::character varying",
+            ("vehicle", "version"): "1",
+        }
+        assert {(c[0], c[1], c[2]) for c in shape["constraints"]} == {
+            ("vehicle", "vehicle_pkey", "p"),
+            ("vehicle", "uq_vehicle_vin", "u"),
+            ("vehicle", "ck_vehicle_condition_enum", "c"),
+            ("vehicle", "ck_vehicle_registration_status_enum", "c"),
+            ("vehicle", "ck_vehicle_status_enum", "c"),
+            ("vehicle_custody_event", "vehicle_custody_event_pkey", "p"),
+            ("vehicle_custody_event", "fk_vehicle_custody_event_vehicle_id_vehicle", "f"),
+            ("vehicle_custody_event", "ck_vehicle_custody_event_event_type_enum", "c"),
+        }
+        checks = {c[1]: c[3] for c in shape["constraints"] if c[2] == "c"}
+        assert "'certified_pre_owned'" in checks["ck_vehicle_condition_enum"]
+        assert "'scrapped'" in checks["ck_vehicle_status_enum"]
+        assert "'repossessed'" in checks["ck_vehicle_custody_event_event_type_enum"]
+        assert {i[1] for i in shape["indexes"]} == {
+            "vehicle_pkey", "uq_vehicle_vin", "ix_vehicle_vin", "vehicle_custody_event_pkey",
+            "ix_vehicle_custody_event_vehicle_id", "ix_vehicle_custody_event_partner_id",
+            "ix_vehicle_custody_event_vehicle_id_partner_id",
+        }
+        assert {(c[0], c[1]) for c in shape["comments"]} == {
+            ("vehicle", "current_custodian_partner_id"),
+            ("vehicle_custody_event", "partner_id"),
+            ("vehicle_custody_event", "transaction_id"),
+        }
+        assert all("No DB-level FK (PR-2, ADR-015) — reconciled nightly." in c[2] for c in shape["comments"])
 
-    _run(engine, _MIGRATION.upgrade)
+    finally:
+        # The schema reset drops only the tables the models know: never leave these behind.
+        _run(engine, _MIGRATION.upgrade)
     assert _tables(engine) == set()

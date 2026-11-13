@@ -131,7 +131,6 @@ def test_the_database_refuses_a_name_and_an_unknown_string(db_session):
 # --- the real upgrade() / downgrade(), as alembic runs them -----------------------
 
 
-
 @pytest.fixture()
 def retired_legacy_tables(engine):
     """KAN-79: the legacy tables the frozen vehicle migration rewrites, for a
@@ -143,6 +142,7 @@ def retired_legacy_tables(engine):
     with engine.begin() as conn:
         drop_retired_legacy_tables(conn)
 
+
 @pytest.fixture()
 def seeded_in_name_form(engine):
     """One row in every table with an enum column, every enum column in the
@@ -152,7 +152,7 @@ def seeded_in_name_form(engine):
     frozen = _frozen()
     tables = [
         Base.metadata.tables[name]
-        for name in sorted({table for table, _ in frozen} - RETIRED_LEGACY_TABLES)  # KAN-79: created empty below
+        for name in sorted({table for table, _ in frozen} - RETIRED_LEGACY_TABLES)  # KAN-79: created below, one row each
     ]
     with engine.begin() as conn:
         create_retired_legacy_tables(conn)

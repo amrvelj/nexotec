@@ -93,8 +93,7 @@ in the same PR as any change to what it states. -->
   test's two CI fixtures
   (`seed_migration_smoke_test.py`, `verify_migration_smoke_test_seed.py`), excepted by ADR-140
   (KAN-342) because they never run against a real database; a new one fails by name. Any other
-  script reads a second context through its `public` surface (the KAN-31 repoint pass reads
-  `vehicle.public.resolve_vehicle_mdm_ids`).
+  script reads a second context through its `public` surface.
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it), and hold the member's **`.value`** and nothing else
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`

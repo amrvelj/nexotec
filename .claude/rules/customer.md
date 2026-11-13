@@ -108,9 +108,7 @@ weekly. -->
 - A credit block must be visible on the customer's own screens, not only inside the offer.
 - **`vatStatusConfirmed`** (Anto, 2026-10-11, KAN-295): `vatRegistered = false` is also the
   default, so a second checkbox on the customer says someone checked it. Every row started
-  unconfirmed. The legacy transaction import holds a trade-in from a non-registered,
-  unconfirmed customer (it would book a fiktiver Vorsteuerabzug on a guess); live business
-  does not read it yet.
+  unconfirmed. Live business does not read it yet.
 
 ## Vehicles and parties
 

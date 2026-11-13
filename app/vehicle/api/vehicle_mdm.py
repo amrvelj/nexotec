@@ -1,9 +1,7 @@
 """VehicleMdm endpoints (WP-5 PR-9): identity editing and the one search box.
 «Allocate to customer» is customer's write and lives at the composition
 root (`app/api/v1/vehicle_parties.py`, KAN-634). No tenant scoping on reads —
-VehicleMdm is a global fact, same as the shipped table it replaces
-(app.vehicle.api.vehicles's own docstring); writes require the
-"vehicle_mdm" capability, same gate the old endpoints already used.
+VehicleMdm is a global fact; writes require the "vehicle_mdm" capability.
 """
 
 import uuid

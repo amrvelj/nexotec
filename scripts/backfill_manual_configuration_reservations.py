@@ -5,7 +5,7 @@ rules are app.inventory.services.reservation_backfill's docstring.
 MANDATORY DRY RUN. The default writes nothing: each contract's transaction
 is rolled back, and the report says what a real run would do. Nothing
 commits until a person has read that report and re-runs with --commit,
-the same convention as migrate_transaction_rows.py.
+the data-migration scripts' convention (.claude/rules/migrations.md).
 
 Re-runnable: a second --commit run changes nothing and publishes nothing.
 
