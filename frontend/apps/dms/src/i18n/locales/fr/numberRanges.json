@@ -18,7 +18,6 @@
   },
   "frozenSince": "Gelée depuis le {{date}}",
   "yearlyResetShort": "Recommence chaque année",
-  "yearlyResetDeferredNote": "Pour les offres, le redémarrage annuel ne prend effet qu'une fois le passage à la nouvelle numérotation terminé. D'ici là, la numérotation se poursuit sans interruption ; le prochain numéro indique ce qui sera réellement attribué.",
   "edit": "Modifier",
   "editTitle": "Plage de numéros {{type}}",
   "pattern": "Modèle",
