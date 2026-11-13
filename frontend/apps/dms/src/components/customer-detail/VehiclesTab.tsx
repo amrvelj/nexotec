@@ -60,6 +60,7 @@ export function VehiclesTab({
     }
   }
 
+  const hasVehicleMergeCopy = vehicles.some((row) => row.mergedIntoVehicleId)
   const columns: GridColumnDef<CustomerVehicleRead>[] = useMemo(
     () => [
       { id: 'vin', header: t('customerDetail.vehicles.columns.vin'), cell: ({ row }) => row.original.vehicle.vin ?? '—', meta: { mono: true } },
@@ -159,8 +160,9 @@ export function VehiclesTab({
             </span>
           )
         },
-        // Wide enough for the longest role beside the merge badge (FR «Fusionné», DE «Zusammengeführt»).
-        meta: { width: 240 },
+        // Wide enough for the longest role beside the merge badge (FR «Fusionné», DE «Zusammengeführt»);
+        // KAN-680: wider while a vehicle-merge copy is on the page, whose mark names a VIN.
+        meta: { width: hasVehicleMergeCopy ? 460 : 240 },
       },
       {
         id: 'effectiveFrom',
@@ -208,7 +210,7 @@ export function VehiclesTab({
         meta: { width: 420 },
       },
     ],
-    [t, locale]
+    [t, locale, hasVehicleMergeCopy]
   )
 
   return (
