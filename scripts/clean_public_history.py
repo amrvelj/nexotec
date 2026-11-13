@@ -20,8 +20,8 @@ that test runs over the working tree, in every form it knows. Four kinds:
 the replacements file next to it, runs `git filter-repo` on the mirror, then runs `inventory` again
 and checks that nothing is left, that `main`'s tree is unchanged, and which branch tips moved. It
 never pushes: the force-push is Anto's, from his own machine (KAN-687), with the script it writes
-(`push.sh`: one `--force-with-lease` per branch, so a branch that moved since the clone is refused,
-not overwritten). A run with `--main-at` simulates `main` and writes no push script.
+(`push.sh`: one `--force-with-lease` per branch and tag, so a ref that moved since the clone is
+refused, not overwritten). A run with `--main-at` simulates `main` and writes no push script.
 
 The plaintext for the replacements file comes from a guard test that still names the values,
 `--values-from REV:PATH` read from this checkout's history (the ticket names it; this file does not).
@@ -56,8 +56,8 @@ ORIGIN = "https://github.com/amrvelj/nexotec.git"
 SAMPLE_XML = re.compile(r"<(FzKey|TypSchNr|OptKey|KontrollschildInfo|Resultat)\b|spec Resultat\sXML")
 
 # Retired SOAP-era files, none of them on `main`, removed from every commit: the adapter, the parser
-# and its tests (sample result documents, an outline of the result document, the meaning of each
-# status code with the specification's page references), the verify script, and the decryption helper
+# and its tests (sample result documents, an outline of the result document, the specification's
+# page references and its remarks on its own samples), the verify script, and the decryption helper
 # (the specification's encryption scheme).
 # Kept, by Anto's ruling of 2026-11-13: code-to-meaning tables are vocabulary, not covered by §12 -
 # the code-map migration on `main`, the coded-field snapshot script, the code-map seed tests. Kept as

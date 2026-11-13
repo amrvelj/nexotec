@@ -62,7 +62,7 @@ def test_a_retired_soap_path_is_inventoried_by_path(tmp_path):
     assert reaching == ["refs/heads/main"] and messages == []
 
 
-def test_a_rewrite_inside_a_checkout_is_refused_before_anything_is_written(tmp_path):
+def test_a_rewrite_inside_a_checkout_is_refused_before_anything_is_written():
     inside = ROOT / "tmp-kan682-refused"
     with pytest.raises(SystemExit, match="inside a checkout"):
         chp.rewrite(inside, "HEAD:x.py", "https://example.invalid/r.git", None)
