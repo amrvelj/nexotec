@@ -3,6 +3,7 @@ paths:
   - "frontend/apps/dms/src/App.tsx"
   - "frontend/apps/dms/src/pages/**"
   - "frontend/apps/dms/src/components/**"
+  - "frontend/apps/dms/src/modules/**"
   - "frontend/apps/dms/src/layout/**"
   - "frontend/apps/dms/src/api/**"
   - "frontend/packages/ui-kit/src/**"

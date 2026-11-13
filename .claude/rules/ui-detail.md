@@ -9,6 +9,8 @@ paths:
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
   - "frontend/apps/dms/src/pages/*DetailPage*"
   - "frontend/apps/dms/src/pages/*CreatePage*"
+  - "frontend/apps/dms/src/modules/*/pages/*DetailPage*"
+  - "frontend/apps/dms/src/modules/*/pages/*CreatePage*"
   - "frontend/apps/dms/src/pages/DetailHeader*"
   - "frontend/apps/dms/src/pages/DetailBreadcrumb*"
   - "frontend/apps/dms/src/pages/OfferWorkspace*"

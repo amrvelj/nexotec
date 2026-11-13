@@ -7,7 +7,7 @@ paths:
   - "tests/valuation_carry_support.py"
   - "scripts/backfill_valuation_contract_carry.py"
   - "frontend/apps/dms/src/**/*aluation*"
-  - "frontend/apps/dms/src/test/nameValuationCar.ts"
+  - "frontend/apps/dms/src/modules/valuation/**"
   - "frontend/packages/ui-kit/src/components/Valuation*Badge.tsx"
 ---
 <!-- Maintainer note. PRD-Vehicles (FR-V-09, FR-V-17); ADR-029, ADR-048 as amended, ADR-066, ADR-070.
