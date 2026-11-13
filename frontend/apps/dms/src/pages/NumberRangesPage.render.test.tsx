@@ -19,7 +19,6 @@ const range = (overrides: Record<string, unknown> = {}) => ({
   pattern: 'O-{counter:6}',
   startValue: 1,
   yearlyReset: false,
-  yearlyResetDeferred: false,
   lastValue: 123,
   nextNumber: 'O-000124',
   frozenAt: null,
@@ -140,20 +139,16 @@ describe('NumberRangesPage (KAN-207)', () => {
     expect(backend.callsTo(/\/number-ranges\/invoice$/, 'PATCH')[0]!.body).toMatchObject({ reason: 'Treuhänder-Vorgabe' })
   })
 
-  // KAN-540 (Anto, 2026-11-12, option A): until Sales' own offer counter is
-  // retired, a yearly restart on the offer range does nothing. The server
-  // says so (`yearlyResetDeferred`) and the screen carries a note on that
-  // range only; nothing is refused.
-  it('says on the offer range only that its yearly restart is deferred', async () => {
+  // KAN-540 (Anto, 2026-11-13): Sales' own offer counter is retired, so a
+  // yearly restart on the offer range works like any other range's: the row
+  // shows the restart as its next number and carries no deferral note.
+  it('shows a yearly offer range like any other, its next number the restart', async () => {
     installFakeBackend([
       {
         method: 'GET',
         match: /^\/dealerships\/dealership-1\/number-ranges$/,
         handler: () => ({
-          items: [
-            range({ pattern: 'O-{year}-{counter:5}', yearlyReset: true, yearlyResetDeferred: true, nextNumber: 'O-2027-00125', lastValue: 124 }),
-            INVOICE,
-          ],
+          items: [range({ pattern: 'O-{year}-{counter:5}', yearlyReset: true, nextNumber: 'O-2027-00001', lastValue: 124 }), INVOICE],
           mayChangeFrozen: false,
         }),
       },
@@ -162,15 +157,12 @@ describe('NumberRangesPage (KAN-207)', () => {
 
     const table = await screen.findByRole('table', { name: i18n.t('numberRanges.title') })
     const offer = within(table).getByRole('row', { name: (n) => n.startsWith(i18n.t('numberRanges.documentType.offer')) })
-    const invoice = within(table).getByRole('row', { name: (n) => n.startsWith(i18n.t('numberRanges.documentType.invoice')) })
-    expect(within(offer).getByText(i18n.t('numberRanges.yearlyResetDeferredNote'))).toBeInTheDocument()
-    expect(within(offer).getByText('O-2027-00125')).toBeInTheDocument() // the example counts on
-    // The invoice range restarts yearly too, and really does: no note.
-    expect(within(invoice).getByText(i18n.t('numberRanges.yearlyResetShort'))).toBeInTheDocument()
-    expect(within(invoice).queryByText(i18n.t('numberRanges.yearlyResetDeferredNote'))).not.toBeInTheDocument()
+    expect(within(offer).getByText(i18n.t('numberRanges.yearlyResetShort'))).toBeInTheDocument()
+    expect(within(offer).getByText('O-2027-00001')).toBeInTheDocument()
+    expect(within(offer).queryByRole('note')).not.toBeInTheDocument()
   })
 
-  it('the dialog says a ticked yearly restart is deferred as soon as the server says so, and saves it all the same', async () => {
+  it('the dialog shows the restart a ticked yearly reset gives and saves it', async () => {
     const user = userEvent.setup()
     const backend = install([
       {
@@ -178,13 +170,13 @@ describe('NumberRangesPage (KAN-207)', () => {
         match: /\/number-range-previews$/,
         handler: (req: FakeRequest) => {
           const body = req.body as { yearlyReset: boolean }
-          return { nextNumber: 'O-000124', yearlyResetDeferred: body.yearlyReset }
+          return { nextNumber: body.yearlyReset ? 'O-2027-00001' : 'O-000124' }
         },
       },
       {
         method: 'PATCH',
         match: /\/number-ranges\/offer$/,
-        handler: (req: FakeRequest) => range({ ...(req.body as object), yearlyResetDeferred: true, version: 3 }),
+        handler: (req: FakeRequest) => range({ ...(req.body as object), version: 3 }),
       },
     ])
     renderWithProviders(<NumberRangesPage />, { route: '/administration/number-ranges' })
@@ -193,22 +185,12 @@ describe('NumberRangesPage (KAN-207)', () => {
     const offer = within(table).getByRole('row', { name: (n) => n.startsWith(i18n.t('numberRanges.documentType.offer')) })
     await user.click(within(offer).getByRole('button', { name: i18n.t('numberRanges.edit') }))
     const dialog = await screen.findByRole('dialog')
-    const note = i18n.t('numberRanges.yearlyResetDeferredNote')
-    expect(within(dialog).queryByText(note)).not.toBeInTheDocument()
 
-    const yearly = within(dialog).getByRole('checkbox', { name: i18n.t('numberRanges.yearlyReset') })
-    await user.click(yearly)
-    expect(await within(dialog).findByText(note)).toBeInTheDocument()
-    await user.click(yearly)
-    await waitFor(() => expect(within(dialog).queryByText(note)).not.toBeInTheDocument())
-
-    await user.click(yearly)
-    expect(await within(dialog).findByText(note)).toBeInTheDocument()
-    const save = within(dialog).getByRole('button', { name: i18n.t('common.save') })
-    expect(save).toBeEnabled() // a note, never a refusal
-    await user.click(save)
+    await user.click(within(dialog).getByRole('checkbox', { name: i18n.t('numberRanges.yearlyReset') }))
+    expect(await within(dialog).findByText('O-2027-00001')).toBeInTheDocument()
+    expect(within(dialog).queryByRole('note')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
     await waitFor(() => expect(backend.callsTo(/\/number-ranges\/offer$/, 'PATCH')).toHaveLength(1))
     expect(backend.callsTo(/\/number-ranges\/offer$/, 'PATCH')[0]!.body).toMatchObject({ yearlyReset: true })
-    expect(await within(offer).findByText(note)).toBeInTheDocument()
   })
 })

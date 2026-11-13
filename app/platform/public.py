@@ -40,7 +40,7 @@ from app.platform.services.group_read_dealerships import DealershipRef, list_gro
 from app.platform.services.location import get_location_or_404
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
-from app.platform.services.number_range import allocate_number, continue_sequence
+from app.platform.services.number_range import allocate_number
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
@@ -128,7 +128,6 @@ __all__ = [
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
-    "continue_sequence",
     "enable_group_read",
     "get_active_reference_value_codes",
     "get_active_user_acting_in",

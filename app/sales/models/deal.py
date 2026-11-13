@@ -1,6 +1,6 @@
 """SalesDeal — the ADR-060 grid-facing read model, and `SalesNumberSequence`
-— the per-tenant, per-series number allocator shared by offers and
-contracts.
+— the per-tenant, per-series number allocator (contracts today; offers draw
+from Platform's number range since KAN-207, their series retired by KAN-540).
 
 Why a materialized table rather than `UNION ALL sales_offer, sales_contract`
 at query time: `app.core.pagination.paginate_query_sorted` takes a single
@@ -54,8 +54,9 @@ from app.db import Base
 class SalesNumberSequence(Base):
     """Row-lock allocator, one row per (tenant_id, series) — mirrors
     app.inventory's per-tenant StockNumberSequence, with an added `series`
-    column since sales allocates two independent number spaces
-    ("offer" -> O-000001, "contract" -> C-000001) rather than one.
+    column. One series is left, "contract" -> C-000001: the "offer" series
+    went with KAN-540 (sales migration `976ea5f43dc0` deleted its rows), as
+    offers draw from the Betrieb's `offer` range in Platform (ADR-109).
     """
 
     __tablename__ = "sales_number_sequence"

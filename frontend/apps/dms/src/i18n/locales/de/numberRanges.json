@@ -18,7 +18,6 @@
   },
   "frozenSince": "Eingefroren seit {{date}}",
   "yearlyResetShort": "Beginnt jedes Jahr neu",
-  "yearlyResetDeferredNote": "Der jährliche Neubeginn greift für Offerten erst, wenn die Umstellung auf die neue Nummerierung abgeschlossen ist. Bis dahin wird fortlaufend weitergezählt; die nächste Nummer zeigt, was tatsächlich vergeben wird.",
   "edit": "Bearbeiten",
   "editTitle": "Nummernkreis {{type}}",
   "pattern": "Muster",
