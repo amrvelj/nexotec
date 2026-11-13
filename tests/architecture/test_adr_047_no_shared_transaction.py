@@ -337,6 +337,9 @@ _READS = {
     "app.vehicle.public.get_vehicle_mdm_or_404",
     # KAN-84: vehicle labels for customer's VehicleParty, batched.
     "app.vehicle.public.get_vehicle_summaries",
+    # KAN-706: the trade-in consumers read the customer's rows on every record of a
+    # merge chain whose party move may not have run; a SELECT per link, no commit.
+    "app.vehicle.public.merged_vehicle_chain",
     # KAN-634: customer's vehicle-merged consumer follows the merge chain; a SELECT only.
     "app.vehicle.public.resolve_merged_vehicle_id",
     "app.vehicle.public.has_current_energy_rating",

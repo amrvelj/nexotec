@@ -3,7 +3,8 @@
 1. The trade-in purchase (`record_former_holder_on_purchase`) and its storno
    (`reopen_former_holder_after_storno`) follow a merged vehicle-mdm record to
    the one it lives on and take that record's (vehicle, role, group) locks, as
-   an allocation does since KAN-673 — so no row lands on the duplicate.
+   an allocation does since KAN-673 — so no row lands on the duplicate. Since
+   KAN-706 they take the duplicate's locks too (`test_kan706_*`).
 2. The History names `mergedIntoVehicleId` (backend keys; the frontend's
    `REFERENCE_KEYS` are held equal by `test_history_reference_keys.py`).
 3. Anto, 2026-11-13, option A: reopening a vehicle-merge copy is refused with
@@ -96,7 +97,12 @@ def test_a_purchase_naming_a_merged_record_is_recorded_on_its_survivor(db_sessio
 
 @NEEDS_ITS_OWN_CONNECTION
 @pytest.mark.parametrize("locked", ["survivor", "duplicate"])
-def test_the_purchase_takes_the_survivors_locks_not_the_duplicates(db_session, engine, locked):
+def test_the_purchase_takes_the_locks_of_both_records(db_session, engine, locked):
+    """KAN-680 took the survivor's locks only. KAN-706 (ADR-160 amended): the
+    purchase cannot tell whether the merge's party move has run, so it takes
+    the locks of every record of the chain — the duplicate's too — and the
+    move, which holds both, waits for it or it for the move."""
+
     survivor_id, duplicate_id = _two_cars(db_session)
     group_id = uuid.uuid4()
     customer = _customer(db_session, group_id)
@@ -109,12 +115,8 @@ def test_the_purchase_takes_the_survivors_locks_not_the_duplicates(db_session, e
         _lock_vehicle_role_in_group(holder, vehicle_id=held_vehicle, role=KEEPER, group_id=group_id)
         writer.execute(text("SET LOCAL lock_timeout = '300ms'"))
         try:
-            if locked == "survivor":
-                with pytest.raises(OperationalError, match="lock timeout"):
-                    _purchase(writer, vehicle_id=duplicate_id, customer_id=customer.id, group_id=group_id)
-            else:
-                written = _purchase(writer, vehicle_id=duplicate_id, customer_id=customer.id, group_id=group_id)
-                assert {row.vehicle_id for row in written} == {survivor_id}
+            with pytest.raises(OperationalError, match="lock timeout"):
+                _purchase(writer, vehicle_id=duplicate_id, customer_id=customer.id, group_id=group_id)
         finally:
             holder.rollback()
             writer.rollback()
