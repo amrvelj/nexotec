@@ -228,6 +228,7 @@
       "vehiclePartiesKeptClosed": "Vehicle links kept closed",
       "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (vehicles)",
       "earlierMergesRepointedIds": "Earlier merges re-pointed",
+      "vehiclePartyCopiesRepointedIds": "Vehicle links of earlier merges re-pointed",
       "transactionsRepointed": "Transactions moved",
       "phonesRepointed": "Phone numbers moved",
       "phonesDropped": "Phone numbers dropped",

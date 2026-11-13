@@ -228,6 +228,7 @@
       "vehiclePartiesKeptClosed": "Liens véhicule conservés clôturés",
       "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (véhicules)",
       "earlierMergesRepointedIds": "Fusions antérieures redirigées",
+      "vehiclePartyCopiesRepointedIds": "Liens véhicule des fusions antérieures redirigés",
       "transactionsRepointed": "Transactions transférées",
       "phonesRepointed": "Numéros de téléphone transférés",
       "phonesDropped": "Numéros de téléphone écartés",

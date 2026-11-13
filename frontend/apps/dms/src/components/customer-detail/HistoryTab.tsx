@@ -109,6 +109,7 @@ const HISTORY_FIELDS = new Set([
   'vehiclePartiesKeptClosed',
   'vehiclePartiesKeptClosedIds',
   'earlierMergesRepointedIds',
+  'vehiclePartyCopiesRepointedIds',
   'transactionsRepointed',
   'phonesRepointed',
   'phonesDropped',
@@ -214,6 +215,7 @@ const REFERENCE_KEYS = new Set([
   'duplicateOfCustomerId',
   'vehicleId',
   'earlierMergesRepointedIds',
+  'vehiclePartyCopiesRepointedIds',
   'vehiclePartiesKeptClosedIds',
 ])
 

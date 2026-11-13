@@ -36,6 +36,8 @@ from app.customer.services.customer_common import (
 from app.customer.services.vehicle_party import _close_vehicle_party
 from app.customer.services.vehicle_party_locks import _lock_vehicle_role_in_group, _try_lock_vehicle_role_in_group
 
+# KAN-392: the audit reason on a kept vehicle-link copy a later merge re-points.
+CUSTOMER_MERGED_REASON = "customer_merged"
 
 def _lock_merge_customers(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> None:
     """KAN-372: a merge locks both customer rows — the duplicate FOR NO KEY
@@ -193,8 +195,10 @@ def _repoint_vehicle_parties(
 
 def _repoint_earlier_merges(
     db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
-) -> list[uuid.UUID]:
-    """KAN-383 (Anto, 2026-10-18, option A): a customer X merged into this
+) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    """Returns the re-pointed customers' ids and the re-pointed copies' ids.
+
+    KAN-383 (Anto, 2026-10-18, option A): a customer X merged into this
     duplicate D earlier names D in `duplicate_of_customer_id`; once D is
     merged into T, X would name a merged customer. Every such X is re-pointed
     to T in the merge's own transaction, its version bumped and the change
@@ -205,7 +209,12 @@ def _repoint_earlier_merges(
 
     The vehicle-party copies an earlier merge kept on X (KAN-177) name D in
     `merged_into_customer_id`; they are re-pointed to T the same way, so a
-    `merged_party_row` refusal never names a merged customer.
+    `merged_party_row` refusal never names a merged customer. Each moved
+    copy is audited on X as a `vehicle_party_update` (before/after
+    `mergedIntoCustomerId`, reason `customer_merged`), and the caller lists
+    the copies in the merge's own audit (`vehiclePartyCopiesRepointedIds`) —
+    KAN-392, Anto 2026-10-31, option B: the History explains why a copy now
+    names T. Chains written before KAN-383 are not repaired.
 
     Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
     X→D still in flight holds D FOR SHARE, so this merge waits for it to
@@ -250,6 +259,21 @@ def _repoint_earlier_merges(
         )
     for copy in kept_copies:
         copy.merged_into_customer_id = target_id
+        record_audit_event(
+            db,
+            entity_type="customer",
+            entity_id=copy.customer_id,
+            tenant_id=group_id,
+            action="vehicle_party_update",
+            actor_id=actor_id,
+            before={
+                "vehicleId": str(copy.vehicle_id),
+                "role": copy.role.value,
+                "mergedIntoCustomerId": str(duplicate_id),
+            },
+            after={"mergedIntoCustomerId": str(target_id)},
+            reason=CUSTOMER_MERGED_REASON,
+        )
     for merged in earlier:
         merged.duplicate_of_customer_id = target_id
         merged.updated_by = actor_id
@@ -264,7 +288,7 @@ def _repoint_earlier_merges(
             before={"duplicateOfCustomerId": str(duplicate_id)},
             after={"duplicateOfCustomerId": str(target_id)},
         )
-    return [merged.id for merged in earlier]
+    return [merged.id for merged in earlier], [copy.id for copy in kept_copies]
 
 
 def _repoint_contacts(
@@ -414,7 +438,7 @@ def merge_customer(
         db, duplicate_id=customer.id, target_id=target.id
     )
     tags_repointed, tags_dropped = _repoint_customer_tags(db, duplicate_id=customer.id, target_id=target.id)
-    earlier_merges_repointed = _repoint_earlier_merges(
+    earlier_merges_repointed, party_copies_repointed = _repoint_earlier_merges(
         db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
     )
 
@@ -450,6 +474,8 @@ def merge_customer(
             "tagsDropped": tags_dropped,
             # KAN-383: customers merged into this duplicate earlier now name the survivor.
             "earlierMergesRepointedIds": [str(customer_id) for customer_id in earlier_merges_repointed],
+            # KAN-392: the vehicle-link copies those earlier merges kept, now naming the survivor.
+            "vehiclePartyCopiesRepointedIds": [str(party_id) for party_id in party_copies_repointed],
         },
     )
     # KAN-185 (ADR-047) — Sales moves its records of the duplicate (legacy

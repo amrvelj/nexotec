@@ -626,7 +626,7 @@ _HISTORY_CUSTOMER_KEYS = frozenset(
     {"mergedIntoCustomerId", "duplicateOfCustomerId", "customerId", "earlierMergesRepointedIds"}
 )
 _HISTORY_VEHICLE_KEYS = frozenset({"vehicleId"})
-_HISTORY_PARTY_KEYS = frozenset({"vehiclePartiesKeptClosedIds"})
+_HISTORY_PARTY_KEYS = frozenset({"vehiclePartiesKeptClosedIds", "vehiclePartyCopiesRepointedIds"})
 
 
 def _uuid_or_none(value: Any) -> uuid.UUID | None:

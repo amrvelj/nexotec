@@ -228,6 +228,7 @@
       "vehiclePartiesKeptClosed": "Collegamenti veicolo mantenuti chiusi",
       "vehiclePartiesKeptClosedIds": "Collegamenti veicolo mantenuti chiusi (veicoli)",
       "earlierMergesRepointedIds": "Unioni precedenti reindirizzate",
+      "vehiclePartyCopiesRepointedIds": "Collegamenti veicolo delle unioni precedenti reindirizzati",
       "transactionsRepointed": "Transazioni trasferite",
       "phonesRepointed": "Numeri di telefono trasferiti",
       "phonesDropped": "Numeri di telefono scartati",
