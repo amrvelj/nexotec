@@ -38,7 +38,6 @@ from app.sales.models.transaction import Transaction
 from app.sales.services.configuration_reference import referenced_configuration_ids
 from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.customer_label import oldest_customer_label_age_seconds, refresh_customer_labels
-from app.sales.services.numbering import legacy_offer_counters
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
 from app.sales.services.trade_in_seller import TradeInSeller, get_trade_in_seller
@@ -54,7 +53,6 @@ __all__ = [
     "TradeInSeller",
     "Transaction",
     "get_trade_in_seller",
-    "legacy_offer_counters",
     "list_contract_facts",
     "oldest_customer_label_age_seconds",
     "oldest_owner_label_age_seconds",
