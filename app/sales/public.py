@@ -34,7 +34,6 @@ data. Valuation itself no longer asks Sales (ADR-131): Sales tells it, through
 
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import SalesOffer
-from app.sales.models.transaction import Transaction
 from app.sales.services.configuration_reference import referenced_configuration_ids
 from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.customer_label import oldest_customer_label_age_seconds, refresh_customer_labels
@@ -51,7 +50,6 @@ __all__ = [
     "SalesOffer",
     "SalesOwnershipProvider",
     "TradeInSeller",
-    "Transaction",
     "get_trade_in_seller",
     "list_contract_facts",
     "oldest_customer_label_age_seconds",

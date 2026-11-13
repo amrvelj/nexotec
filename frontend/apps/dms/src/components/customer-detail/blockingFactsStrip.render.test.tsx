@@ -22,7 +22,6 @@ function installBackend(over: Partial<CustomerRead> = {}) {
     { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
-    { match: /^\/transactions$/, handler: () => ({ items: [], nextCursor: null }) },
     // KAN-58 — the enabled "New contract" test below actually clicks it.
     {
       method: 'POST',

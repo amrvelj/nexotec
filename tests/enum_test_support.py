@@ -132,33 +132,39 @@ def _to_name_form(db_session, customer_id: str) -> None:
     db_session.commit()
 
 
-# KAN-79 retired the legacy `vehicle` table and its `vehicle_custody_event`:
-# no model maps them, so the test schema lacks them, yet the frozen enum
-# migrations (KAN-86's e1b483faad5c, KAN-175's 0ba433107313) still read and
-# rewrite them. Their tests recreate both, with one row each, in the shape KAN-79's own
-# downgrade recreates them (that migration's DDL, run here), and drop them
-# again afterwards (`drop_retired_legacy_tables`): the schema rebuild after a
-# DDL test drops only the tables the models know.
-RETIRED_LEGACY_TABLES = frozenset({"vehicle", "vehicle_custody_event"})
+# KAN-79 retired the legacy `vehicle` table and its `vehicle_custody_event`,
+# KAN-555 Sales' legacy `transaction` table: no model maps them, so the test
+# schema lacks them, yet the frozen enum migrations (KAN-86's e1b483faad5c and
+# 63b0d0b20fab, KAN-175's 0ba433107313 and bfbe941673c3) still read and rewrite
+# them. Their tests recreate all three, with one row each, in the shape the
+# dropping migrations' own downgrades recreate them (their DDL, run here), and
+# drop them again afterwards (`drop_retired_legacy_tables`): the schema rebuild
+# after a DDL test drops only the tables the models know.
+RETIRED_LEGACY_TABLES = frozenset({"vehicle", "vehicle_custody_event", "transaction"})
 
 
-def create_retired_legacy_tables(conn) -> None:
+def _downgrade_of(conn, chain: str, revision: str) -> None:
     import importlib.util
     from pathlib import Path
 
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
 
-    versions = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "vehicle"
-    (path,) = sorted(versions.glob("8d03887f7876_*.py"))
-    spec = importlib.util.spec_from_file_location("kan79_retired_legacy_tables", path)
+    versions = Path(__file__).resolve().parents[1] / "alembic" / "versions" / chain
+    (path,) = sorted(versions.glob(f"{revision}_*.py"))
+    spec = importlib.util.spec_from_file_location(f"retired_legacy_tables_{revision}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    drop_retired_legacy_tables(conn)
     with Operations.context(MigrationContext.configure(conn)):
         module.downgrade()
-    # One row each, as a database from before KAN-79 held them.
+
+
+def create_retired_legacy_tables(conn) -> None:
+    drop_retired_legacy_tables(conn)
+    _downgrade_of(conn, "vehicle", "8d03887f7876")  # KAN-79
+    _downgrade_of(conn, "sales", "4726dcd89260")  # KAN-555
+    # One row each, as a database from before KAN-79 and KAN-555 held them.
     vehicle_id = uuid.uuid4()
     conn.execute(
         text(
@@ -174,7 +180,18 @@ def create_retired_legacy_tables(conn) -> None:
         ),
         {"id": uuid.uuid4(), "vehicle_id": vehicle_id, "partner_id": uuid.uuid4()},
     )
+    conn.execute(
+        text(
+            'INSERT INTO "transaction" (id, tenant_id, transaction_type, status, customer_id, vehicle_id, '
+            "primary_user_id, version, created_at, updated_at) "
+            "VALUES (:id, :tenant_id, 'sale', 'draft', :customer_id, :vehicle_id, :user_id, 1, now(), now())"
+        ),
+        {
+            "id": uuid.uuid4(), "tenant_id": uuid.uuid4(), "customer_id": uuid.uuid4(), "vehicle_id": vehicle_id,
+            "user_id": uuid.uuid4(),
+        },
+    )
 
 
 def drop_retired_legacy_tables(conn) -> None:
-    conn.execute(text("DROP TABLE IF EXISTS vehicle_custody_event, vehicle"))
+    conn.execute(text('DROP TABLE IF EXISTS vehicle_custody_event, vehicle, "transaction"'))

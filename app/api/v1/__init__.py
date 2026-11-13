@@ -46,7 +46,6 @@ from app.sales.api.contracts import router as sales_contracts_router
 from app.sales.api.deals import router as sales_deals_router
 from app.sales.api.documents import router as sales_documents_router
 from app.sales.api.offers import router as sales_offers_router
-from app.sales.api.transactions import router as transactions_router
 from app.valuation.api.valuations import router as valuations_router
 from app.vehicle.api.catalogue import router as vehicle_catalogue_router
 from app.vehicle.api.catalogue_admin import router as vehicle_catalogue_admin_router
@@ -91,7 +90,6 @@ api_v1_router.include_router(inventory_ledger_router)
 api_v1_router.include_router(inventory_group_router)
 api_v1_router.include_router(inventory_publishing_router)
 api_v1_router.include_router(inventory_pricing_router)
-api_v1_router.include_router(transactions_router)
 api_v1_router.include_router(sales_deals_router)
 api_v1_router.include_router(sales_offers_router)
 api_v1_router.include_router(sales_contracts_router)

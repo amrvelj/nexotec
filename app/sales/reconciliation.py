@@ -68,7 +68,6 @@ from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
-from app.sales.models.transaction import Transaction
 from app.sales.services.ownership import offer_is_open
 from app.valuation.public import Valuation
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
@@ -80,7 +79,7 @@ CONTEXT = "sales"
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
 
 # Every Sales table with created_by / updated_by (KAN-243).
-ACTOR_TABLES = (Transaction, SalesOffer, SalesContract, SalesDeal, SalesLineItem, SalesDocument)
+ACTOR_TABLES = (SalesOffer, SalesContract, SalesDeal, SalesLineItem, SalesDocument)
 
 _Deal = type[SalesOffer] | type[SalesContract]
 
@@ -129,11 +128,10 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
 
 
-def _names_a_merged_customer(model: _Deal | type[SalesDeal] | type[Transaction]) -> StateCheck:
+def _names_a_merged_customer(model: _Deal | type[SalesDeal]) -> StateCheck:
     """KAN-581 — a customer merge reaches Sales only through `customer.merged`
-    (KAN-185): the consumer `sales.customer_merged` moves every legacy
-    transaction, offer, contract and deal row of the duplicate to the
-    survivor. A row still naming a merged customer after outbox lag has one
+    (KAN-185): the consumer `sales.customer_merged` moves every offer,
+    contract and deal row of the duplicate to the survivor. A row still naming a merged customer after outbox lag has one
     of two causes: that delivery failed — dead-lettered after its last
     attempt, or never run (staging has no worker, ADR-081). An attach or an
     offer copy no longer causes one: an attach refuses a merged customer
@@ -362,30 +360,6 @@ def _stock_price_moved_unflagged(deal: _Deal, is_open: Callable[[], ColumnElemen
 
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
-    ReferenceCheck(
-        label="transaction.tenant_id -> dealership.id",
-        source_model=Transaction,
-        source_row_id_column=Transaction.id,
-        source_fk_column=Transaction.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
-    ),
-    ReferenceCheck(
-        label="transaction.customer_id -> customer.id",
-        source_model=Transaction,
-        source_row_id_column=Transaction.id,
-        source_fk_column=Transaction.customer_id,
-        target_model=Customer,
-        target_id_column=Customer.id,
-    ),
-    ReferenceCheck(
-        label="transaction.primary_user_id -> user.id",
-        source_model=Transaction,
-        source_row_id_column=Transaction.id,
-        source_fk_column=Transaction.primary_user_id,
-        target_model=User,
-        target_id_column=User.id,
-    ),
     # --- sales_offer (KAN-145) ---
     ReferenceCheck(
         label="sales_offer.tenant_id -> dealership.id",
@@ -749,7 +723,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # --- the deal grid against its live entity (KAN-408, KAN-409) ---
     *deal_row_checks(),
     # --- a customer merge Sales never followed (KAN-581) ---
-    *(_names_a_merged_customer(model) for model in (Transaction, SalesOffer, SalesContract, SalesDeal)),
+    *(_names_a_merged_customer(model) for model in (SalesOffer, SalesContract, SalesDeal)),
 ]
 
 

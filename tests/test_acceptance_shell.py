@@ -2,28 +2,25 @@
 (PLANS/DMS_MDM_V1_SPEC.md "Acceptance criteria for v1", 1-9) asserted
 end-to-end against the merged system, not each entity's own unit tests in
 isolation. Every per-field/per-role edge case already has dedicated
-coverage in tests/test_{dealer,user,customer,vehicle,transaction,login,
-reference_data}.py — this file proves the *connected* scenarios spec'd as
+coverage in tests/test_{dealer,user,customer,vehicle,login,reference_data}.py
+and the Sales tests — this file proves the *connected* scenarios spec'd as
 acceptance criteria, and doesn't re-derive what's already covered there.
 
-R1's two specific assertions (PM ruling, 2026-08-06 — Dealer A sees
-`status: "sold"` after completing their own sale; Dealer B with no custody
-history stays redacted) are NOT duplicated here — they're already covered
-by tests/test_transaction.py::test_complete_sale_marks_vehicle_sold_and_
-clears_custodian and ::test_dealer_with_no_custody_history_still_gets_
-redacted_status_after_sale (checked per CTO's instruction before adding
-anything here).
+The shell's fourth entity, the legacy Sales `transaction`, is gone (ADR-050
+retired its writes; KAN-555 dropped the table, ADR-117): the sale and
+trade-in walkthroughs of AC4 and AC8's cancel live on as Sales' offer and
+contract flows (tests/test_sales_lifecycle_reservation.py,
+tests/test_sales_trade_in.py), and AC7 and AC9 assert on a sales offer, the
+record that replaced it.
 """
 
 import uuid
 
 import pytest
-from sqlalchemy.orm import sessionmaker
 
 import app.model_registry
 from app.core.auth import AccessRole, create_access_token
 from app.db import Base
-from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 
@@ -128,41 +125,6 @@ def _create_vehicle(client, dealer_id: str, headers: dict[str, str]) -> dict:
     return response.json()["vehicle"]
 
 
-def _seed_transaction(
-    engine, *, dealer_id: str, user_id: str, customer_id: str, vehicle_id: str, amount: str | None = None
-) -> dict:
-    """WP-8 PR-7 (ADR-050/S-D12): `transaction` writes are retired at the
-    service layer — every test in this file that still needs an existing
-    row (to exercise a READ path, or to prove a mutation is now refused)
-    seeds it directly via the ORM instead, exactly like seeding any other
-    retired-but-still-real table.
-    """
-
-    from decimal import Decimal
-
-    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
-    session = factory()
-    try:
-        transaction = Transaction(
-            tenant_id=uuid.UUID(dealer_id),
-            transaction_type=TransactionType.SALE,
-            status=TransactionStatus.DRAFT,
-            customer_id=uuid.UUID(customer_id),
-            vehicle_id=uuid.UUID(vehicle_id),
-            primary_user_id=uuid.UUID(user_id),
-            amount=Decimal(amount) if amount is not None else None,
-        )
-        session.add(transaction)
-        session.commit()
-        session.refresh(transaction)
-        return {
-            "id": str(transaction.id),
-            "amount": str(transaction.amount) if transaction.amount is not None else None,
-            "createdAt": transaction.created_at.isoformat(),
-        }
-    finally:
-        session.close()
-
 
 def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
     payload = {
@@ -200,19 +162,17 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     entry — the single most important connected scenario in the shell.
 
     AC4's own "sale Transaction, draft -> completed, Vehicle status +
-    custodian update" step is RETIRED (WP-8 PR-7, ADR-050/S-D12): Sales'
-    own confirm_contract flow supersedes it, but operates on
-    StockItem/VehicleMdm (WP-5/7), never on this legacy Vehicle's own
-    status/custodian fields — there is no direct replacement scenario to
-    walk through here. What's left of AC4 is that the retirement itself
-    holds (asserted below); the analogous connected sale scenario for the
-    new flow lives in tests/test_sales_lifecycle_reservation.py.
+    custodian update" step went with the legacy table (ADR-050, KAN-555):
+    Sales' confirm_contract flow supersedes it on StockItem/VehicleMdm
+    (WP-5/7); the connected sale scenario lives in
+    tests/test_sales_lifecycle_reservation.py. What is left here is that the
+    retired route is gone.
     """
 
     dealer_id = _create_dealer(client)
-    # KAN-198: a freshly created Betrieb holds no module licence; without the
-    # sales module the transactions route is 404 for everyone, so license it
-    # the way platform_admin does before the user signs in.
+    # KAN-198: a freshly created Betrieb holds no module licence; license
+    # sales the way platform_admin does before the user signs in, so the 404
+    # below is the retired route's absence, not the missing licence.
     _grant_sales_module(client, dealer_id)
     user = _create_user(client, dealer_id, email="walkthrough@example.ch")
     session_token = _login_and_get_session_cookie(client, mailbox, user)
@@ -233,113 +193,33 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     # AC3: a vehicle by VIN entry. The legacy shell's vehicle (custodian,
     # implicit custody event) went with KAN-79; vehicle-mdm's own creation
     # and VIN rules are covered in test_vehicle_mdm_api.py.
-    vehicle = _create_vehicle(client, dealer_id, headers)
+    _create_vehicle(client, dealer_id, headers)
 
-    # AC4 (retired path) — creating a sale Transaction is refused.
-    transaction = client.post(
-        "/v1/transactions",
-        json={
-            "transactionType": "sale",
-            "customerId": customer["id"],
-            "vehicleId": vehicle["id"],
-            "primaryUserId": user["id"],
-            "amount": "42000.00",
-        },
-        headers=headers,
-    )
-    assert transaction.status_code == 409, transaction.text
-
-
-def test_ac4_full_shell_walkthrough_trade_in(client):
-    """Same connected scenario, `trade_in` type — RETIRED the same way as
-    `test_ac2_to_4_full_shell_walkthrough_sale` (WP-8 PR-7, ADR-050/S-D12):
-    creating a `trade_in` Transaction is refused; the connected trade-in
-    scenario for the new flow lives in tests/test_sales_trade_in.py
-    (`set_trade_in`, offer-time, not a Vehicle-status mutation at all —
-    S-D18/ADR-064 records vehicle-party links, never legacy Vehicle
-    status/custodian fields).
-    """
-
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
-    customer = _create_customer(client, headers)
-
-    other_dealer_id = _create_dealer(client)
-    trade_in_vehicle = _create_vehicle(
-        client, other_dealer_id, _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(other_dealer_id)))
-    )
-
-    transaction = client.post(
-        "/v1/transactions",
-        json={
-            "transactionType": "trade_in",
-            "customerId": customer["id"],
-            "vehicleId": trade_in_vehicle["id"],
-            "primaryUserId": user["id"],
-            "amount": "8000.00",
-        },
-        headers=headers,
-    )
-    assert transaction.status_code == 409, transaction.text
-
-
-# --- AC8: cancel never mutates Vehicle -----------------------------------------
-
-
-def test_ac8_cancel_never_mutates_vehicle(client, engine):
-    """Cancel is one of the writes retired in WP-8 PR-7 (ADR-050/S-D12) —
-    the row is seeded directly via the ORM (the create path that used to
-    produce it is refused, see `test_ac2_to_4_full_shell_walkthrough_sale`),
-    and cancel is asserted refused rather than asserted to leave the
-    Vehicle untouched — the property this test is actually proving (a
-    Transaction write can never mutate Vehicle) holds even more strongly
-    now that Transaction accepts *no* writes at all.
-    """
-
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
-    customer = _create_customer(client, headers)
-    vehicle = _create_vehicle(client, dealer_id, headers)
-
-    transaction = _seed_transaction(
-        engine, dealer_id=dealer_id, user_id=user["id"], customer_id=customer["id"], vehicle_id=vehicle["id"]
-    )
-
-    cancelled = client.post(
-        f"/v1/transactions/{transaction['id']}/cancel",
-        json={"reason": "customer changed their mind"},
-        headers={**headers, "If-Match": "1"},
-    )
-    assert cancelled.status_code == 409, cancelled.text
+    # AC4 (retired path) — the legacy transaction routes are gone (KAN-555).
+    assert not [path for path in client.app.openapi()["paths"] if path.startswith("/v1/transactions")]
+    assert client.get("/v1/transactions", headers=headers).status_code == 404
 
 
 # --- AC7: cross-tenant isolation across all four entities -----------------------
 
 
-def test_ac7_cross_tenant_isolation_across_all_entities(client, engine):
+def test_ac7_cross_tenant_isolation_across_all_entities(client):
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
-    token_a = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a)))
-    token_b = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b)))
     user_a = _create_user(client, dealer_a)
+    token_a = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a), user_id=uuid.UUID(user_a["id"])))
+    token_b = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b)))
 
     customer_a = _create_customer(client, token_a)
-    vehicle_a = _create_vehicle(client, dealer_a, token_a)
-    # Transaction create is refused now (WP-8 PR-7) — a still-readable row
-    # is seeded directly via the ORM so the GET/list isolation checks below
-    # keep exercising a real cross-tenant row, same as before retirement.
-    transaction_a = _seed_transaction(
-        engine, dealer_id=dealer_a, user_id=user_a["id"], customer_id=customer_a["id"], vehicle_id=vehicle_a["id"]
-    )
+    # The sales offer took the legacy transaction's place (ADR-050, KAN-555).
+    offer_a = client.post("/v1/sales/offers", headers=token_a).json()
 
-    # Dealer B cannot read Dealer A's Customer or Transaction at all (404).
+    # Dealer B cannot read Dealer A's Customer or offer at all (404).
     assert client.get(f"/v1/customers/{customer_a['id']}", headers=token_b).status_code == 404
-    assert client.get(f"/v1/transactions/{transaction_a['id']}", headers=token_b).status_code == 404
+    assert client.get(f"/v1/sales/offers/{offer_a['id']}", headers=token_b).status_code == 404
     # ...nor via list endpoints.
     assert client.get("/v1/customers", headers=token_b).json()["items"] == []
-    assert client.get("/v1/transactions", headers=token_b).json()["items"] == []
+    assert client.get("/v1/sales/offers", headers=token_b).json()["items"] == []
     # ...nor mutate them.
     assert (
         client.patch(
@@ -347,25 +227,22 @@ def test_ac7_cross_tenant_isolation_across_all_entities(client, engine):
         ).status_code
         == 404
     )
-    # `get_transaction_or_404` runs before the retirement refusal, so a
-    # cross-tenant "complete" still 404s (not the 409 same-tenant callers
-    # get, see test_transaction.py) — tenant scoping is unaffected by the
-    # write being retired.
     assert (
-        client.post(
-            f"/v1/transactions/{transaction_a['id']}/complete", headers={**token_b, "If-Match": "1"}
+        client.patch(
+            f"/v1/sales/offers/{offer_a['id']}", json={"vehicleLabel": "x"}, headers={**token_b, "If-Match": "1"}
         ).status_code
         == 404
     )
+
 
 # --- AC5: audit_event coverage across all four entities -------------------------
 
 
 def test_ac5_audit_trail_covers_all_four_entities(client):
     """AC5's fourth entity (Transaction, "complete" audited with actor
-    recorded) is retired (WP-8 PR-7) — complete is refused, so there is no
-    write-path left to produce that audit-log entry, and `app.sales` has
-    not (yet) grown its own `GET .../audit-log` endpoint the way
+    recorded) is gone (ADR-050 retired its writes, KAN-555 dropped the
+    table), and `app.sales` has not (yet) grown its own `GET .../audit-log`
+    endpoint the way
     dealership/customer/vehicle each have (no PR in this package added
     one). The legacy vehicle's audit trail went with its table (KAN-79;
     vehicle-mdm's identity PATCH audit is covered in its own tests). The
@@ -410,10 +287,8 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
         lambda client, headers, ids: client.patch(
             f"/v1/customers/{ids['customer']}", json={"lastName": "X"}, headers={**headers, "If-Match": "1"}
         ),
-        # Transaction's own cancel is retired (WP-8 PR-7) and always 409s
-        # regardless of If-Match, so it can no longer prove this property —
-        # SalesOffer's own autosave PATCH substitutes it, proving optimistic
-        # concurrency holds for the entity that superseded Transaction too.
+        # The legacy Transaction's cancel used to prove this; SalesOffer's own
+        # autosave PATCH, the entity that superseded it (ADR-050), does now.
         lambda client, headers, ids: client.patch(
             f"/v1/sales/offers/{ids['offer']}",
             json={"vehicleLabel": "x"},
@@ -499,31 +374,25 @@ def test_ac6_schema_has_no_payment_card_ssn_or_drivers_license_columns():
 # --- AC9: UTC ISO-8601 timestamps, 2-decimal money (CHF per Swiss addendum) -----
 
 
-def test_ac9_timestamps_are_utc_iso8601_and_amount_is_two_decimal_precision(client, engine):
-    """Create is refused (WP-8 PR-7) so the row is seeded directly via the
-    ORM and read back through the still-working GET path — the property
-    under test (serialization shape, not the retired write) is unchanged.
-    """
+def test_ac9_timestamps_are_utc_iso8601_and_amount_is_two_decimal_precision(client):
+    """Asserted on a sales offer, the record that replaced the legacy
+    transaction (ADR-050, KAN-555): a CHF amount keeps two decimals, a
+    timestamp carries its UTC offset."""
 
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
     headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
-    customer = _create_customer(client, headers)
-    vehicle = _create_vehicle(client, dealer_id, headers)
+    offer = client.post("/v1/sales/offers", headers=headers).json()
 
-    seeded = _seed_transaction(
-        engine,
-        dealer_id=dealer_id,
-        user_id=user["id"],
-        customer_id=customer["id"],
-        vehicle_id=vehicle["id"],
-        amount="12345.67",
+    patched = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"manualBasePrice": "12345.67"},
+        headers={**headers, "If-Match": str(offer["version"])},
     )
+    assert patched.status_code == 200, patched.text
+    read = client.get(f"/v1/sales/offers/{offer['id']}", headers=headers).json()
 
-    transaction = client.get(f"/v1/transactions/{seeded['id']}", headers=headers).json()
-
-    assert transaction["amount"] == "12345.67"
+    assert read["manualBasePrice"] == "12345.67"
     # Pydantic's isoformat() serialization always includes a UTC offset for
     # timezone-aware datetimes (created_at/updated_at are DateTime(timezone=True)).
-    created_at = transaction["createdAt"]
-    assert created_at.endswith(("+00:00", "Z"))
+    assert read["createdAt"].endswith(("+00:00", "Z"))

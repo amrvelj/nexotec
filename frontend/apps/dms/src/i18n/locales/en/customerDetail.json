@@ -270,7 +270,7 @@
     "survivorColumn": "Survivor — will remain",
     "survivorContactsFailed": "The surviving customer's phone and email could not be loaded. Choose again or try another survivor.",
     "irreversibleTitle": "This cannot be undone",
-    "irreversibleBody": "Vehicles, transactions, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden from search.",
+    "irreversibleBody": "Vehicles, offers, contracts, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden from search.",
     "confirm": "I understand this is permanent",
     "submitting": "Merging…",
     "submit": "Merge customers",

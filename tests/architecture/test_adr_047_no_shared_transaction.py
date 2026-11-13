@@ -302,7 +302,6 @@ _READS = {
     "app.platform.public.get_group_display_labels",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
-    "app.platform.public.get_user_or_404",
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.
     "app.platform.public.list_active_users_acting_in",
     "app.platform.public.list_dealer_manager_emails",

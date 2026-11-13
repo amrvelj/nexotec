@@ -37,7 +37,7 @@ interface MergeCustomerModalProps {
  * reason — every other edit in the DMS is inline.
  *
  * `customer` is the duplicate — the one that gets marked `merged` and
- * whose vehicles/transactions/contacts/external IDs are re-pointed away
+ * whose vehicles, offers, contracts, contacts and external IDs are re-pointed away
  * from it. The record the user picks in this modal is the survivor.
  */
 export function MergeCustomerModal({ opened, onClose, customer, phones, emails, onMerged }: MergeCustomerModalProps) {

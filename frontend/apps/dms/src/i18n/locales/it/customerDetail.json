@@ -270,7 +270,7 @@
     "survivorColumn": "Cliente mantenuto — resterà",
     "survivorContactsFailed": "Non è stato possibile caricare telefono ed e-mail del cliente che rimane. Sceglierlo di nuovo o sceglierne un altro.",
     "irreversibleTitle": "Questa operazione non può essere annullata",
-    "irreversibleBody": "Veicoli, transazioni, numeri di telefono, e-mail e ID esterni passano al cliente mantenuto. Questo cliente diventa di sola lettura e non compare più nella ricerca.",
+    "irreversibleBody": "Veicoli, offerte, contratti, numeri di telefono, e-mail e ID esterni passano al cliente mantenuto. Questo cliente diventa di sola lettura e non compare più nella ricerca.",
     "confirm": "Ho capito che l'operazione è definitiva",
     "submitting": "Unione in corso…",
     "submit": "Unisci clienti",

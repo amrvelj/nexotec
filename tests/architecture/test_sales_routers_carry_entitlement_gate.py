@@ -25,7 +25,7 @@ from tests.route_walk import api_routes
 
 _GATED_PACKAGES = ("app.sales.api.", "app.inventory.api.", "app.valuation.api.")
 _GATED_MODULES = {"app.vehicle.api.configuration", "app.vehicle.api.identification"}
-_GATED_ROUTERS = 14
+_GATED_ROUTERS = 13  # KAN-555: the legacy transactions router is gone
 
 
 def _is_gated_module(module: str) -> bool:
