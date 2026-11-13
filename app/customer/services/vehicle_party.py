@@ -158,7 +158,7 @@ def update_customer_vehicle(
     `merged_party_row`. KAN-352: a PATCH that ends a holding row (an
     `effectiveTo` now or past) publishes `customer.vehicle_party.unlinked`,
     as Disconnect does. KAN-662: a PATCH changing only `effectiveFrom` of a
-    row that holds its role counts as a reopen - same lock, refusals and
+    row that holds its role counts as a reopen — same lock, refusals and
     close rule; it publishes nothing new (the row held before and after)."""
 
     changes = data.model_dump(exclude_unset=True)
