@@ -361,7 +361,6 @@ source_modules = [
 ]
 forbidden_modules = [
     "app.valuation.api",
-    "app.valuation.daily_jobs",
     "app.valuation.models",
     "app.valuation.reconciliation",
     "app.valuation.schemas",
