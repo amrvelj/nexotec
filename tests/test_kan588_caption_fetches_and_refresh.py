@@ -151,3 +151,9 @@ def test_a_provider_without_a_vocabulary_is_refused_and_still_audited(client, db
     assert response.json()["error"]["details"]["reason"] == "provider_has_no_captions"
     (audit,) = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "captions_refreshed")).all()
     assert audit.after == {"provider": "auto_i_dat", "languages": [], "complete": False}
+    # Nothing left for the provider: no failed call logged, the breaker not charged.
+    calls = db_session.scalars(select(IntegrationCallLog).where(IntegrationCallLog.connection_id == s.connection.id)).all()
+    assert [c for c in calls if c.capability == OP_CAPTION_CODE] == []
+    for _ in range(5):
+        again = client.post("/v1/integrations/captions/refresh", headers=_headers(user_id=staff.id, tenant_id=s.connection.tenant_id))
+        assert again.json()["error"]["details"]["reason"] == "provider_has_no_captions"

@@ -102,7 +102,7 @@ def test_a_second_contract_on_the_same_offer_reuses_the_free_pipeline_car(db_ses
     assert db_session.scalar(select(func.count()).select_from(StockItem).where(StockItem.configuration_id == config.id)) == 1
     (reassigned,) = _messages(db_session, "inventory.stock_item.reassigned", car.id)
     assert reassigned.payload["contractId"] == str(second.id)
-    assert reassigned.payload["role"] == "manual_configuration"
+    assert reassigned.payload["originRole"] == "manual_configuration"
     assert "originContractId" not in reassigned.payload  # the car's origin stays its first contract's
 
     # Sales records the reused car on the second contract, as on `added`.
@@ -234,7 +234,7 @@ def test_the_consumer_maps_the_index_refusal_to_the_409(db_session, engine, monk
     contract = confirm_contract(
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine)
     )
-    holder = StockItem(  # a writer that took no lock (the ADR-091 import, say) got there first
+    holder = StockItem(  # a writer that skipped the lock got there first
         tenant_id=dealership.id, stock_number="S-513203", vehicle_label="held", condition=StockItemCondition.NEW,
         lifecycle_status=LifecycleStatus.PIPELINE, configuration_id=config.id,
     )

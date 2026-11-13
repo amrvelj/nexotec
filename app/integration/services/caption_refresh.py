@@ -25,7 +25,7 @@ from app.integration.errors import ProviderConfigurationError, ProviderGatewayEr
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.provider import IntegrationProvider
 from app.integration.services import captions as captions_service
-from app.integration.services.gateway import _ADAPTER_FACTORIES, call_capability
+from app.integration.services.gateway import _ADAPTER_FACTORIES, call_capability, resolve_adapter
 
 
 def _vehicle_data_connection(db: Session, *, tenant_id: uuid.UUID) -> tuple[IntegrationConnection, str] | None:
@@ -87,19 +87,26 @@ def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) 
     fetched: list[str] = []
     failure: ProviderGatewayError | ConflictError | None = None
     try:
-        with call_capability(
-            db, connection=connection, capability="caption_code", actor_id=actor_id, purpose="captions_refresh"
-        ) as adapter:
-            fetch = getattr(adapter, "fetch_captions", None)
-            if fetch is None:
-                raise ConflictError(
-                    "This provider has no caption vocabulary.", details={"reason": "provider_has_no_captions"}
-                )
-            for lang in captions_service.CAPTION_LANGUAGES:
-                captions_service.store_captions(db, provider_code=provider_code, lang=lang, captions=fetch(lang))
-                db.commit()  # each language kept as it lands
-                fetched.append(lang)
-    except (ProviderGatewayError, ConflictError) as exc:
+        # A purely local look at the adapter (no I/O, no call-log row, no
+        # breaker): a provider without a vocabulary is refused before any
+        # block, so nothing is logged or charged for a call that never left.
+        speaks_captions = hasattr(
+            resolve_adapter(db, connection, actor_id=actor_id, purpose="captions_refresh"), "fetch_captions"
+        )
+        if not speaks_captions:
+            failure = ConflictError(
+                "This provider has no caption vocabulary.", details={"reason": "provider_has_no_captions"}
+            )
+        else:
+            with call_capability(
+                db, connection=connection, capability="caption_code", actor_id=actor_id, purpose="captions_refresh"
+            ) as adapter:
+                for lang in captions_service.CAPTION_LANGUAGES:
+                    captions = adapter.fetch_captions(lang)
+                    captions_service.store_captions(db, provider_code=provider_code, lang=lang, captions=captions)
+                    db.commit()  # each language kept as it lands
+                    fetched.append(lang)
+    except ProviderGatewayError as exc:
         db.rollback()
         failure = exc
     record_audit_event(

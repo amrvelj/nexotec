@@ -121,8 +121,10 @@ def discard_copies(db: Session, *, tenant_id: uuid.UUID, configuration_ids: list
 
 
 def publish_reassigned(db: Session, *, item: StockItem, contract_id: uuid.UUID) -> None:
-    """The fact Sales links the reused car to the new contract by. Its own
-    key, `contractId`: the item's `originContractId` on its other facts
+    """The fact Sales links the reused car to the new contract by.
+    `originRole` as on the entity's other facts (the car was ordered for a
+    manual configuration); its own key, `contractId`: the item's
+    `originContractId` on its other facts
     (`purchased`, `storno`, from `pipeline_ref`) still names the contract it
     was ordered for."""
 
@@ -139,7 +141,7 @@ def publish_reassigned(db: Session, *, item: StockItem, contract_id: uuid.UUID) 
                 "vehicleLabel": item.vehicle_label,
                 "configurationId": str(item.configuration_id),
                 "contractId": str(contract_id),
-                "role": "manual_configuration",
+                "originRole": "manual_configuration",
             },
         ),
     )

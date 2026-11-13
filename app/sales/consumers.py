@@ -6,8 +6,9 @@ Registered in app.worker.register_handlers: `inventory.stock_item.purchased`
 as "sales.stock_item_purchased", since KAN-144 `inventory.stock_item.added`
 as "sales.stock_item_added", since KAN-146 `inventory.stock_item.storno`
 as "sales.stock_item_storno", and since KAN-185 `customer.merged` as
-"sales.customer_merged", and since KAN-553 `inventory.stock_item.commercial_changed`
-as "sales.stock_item_commercial_changed".
+"sales.customer_merged", since KAN-553 `inventory.stock_item.commercial_changed`
+as "sales.stock_item_commercial_changed", and since KAN-513
+`inventory.stock_item.reassigned` as "sales.stock_item_reassigned".
 """
 
 import datetime as dt
@@ -96,7 +97,7 @@ def handle_stock_item_reassigned_message(db: Session, message: OutboxMessage) ->
     if message.tenant_id is None:
         raise ValueError(f"inventory.stock_item.reassigned message {message.id} has no tenant_id.")
     payload = message.payload or {}
-    if payload.get("role") != "manual_configuration" or not payload.get("contractId"):
+    if payload.get("originRole") != "manual_configuration" or not payload.get("contractId"):
         return
     link_manual_configuration_to_pipeline_item(
         db,
