@@ -143,9 +143,12 @@ def repoint_vehicle_parties_on_vehicle_merge(
     # The survivor's rows that took their copy's later end: what the duplicate
     # brought, as a moved row is, when the role is settled.
     extended: list[VehicleParty] = []
+    # A kept copy's id -> the survivor's row that stands for it.
+    stands_for: dict[uuid.UUID, uuid.UUID] = {}
     for party in leaving:
         key = (party.customer_id, party.role, party.effective_from)
         if key in on_target:
+            stands_for[party.id] = on_target[key].id
             group_id = groups.get(party.customer_id)
             # Anto's ruling is for a customer *still* holding on the duplicate:
             # a copy that ended in the past leaves the survivor's history as it is.
@@ -167,6 +170,14 @@ def repoint_vehicle_parties_on_vehicle_merge(
         party.vehicle_id = target
         on_target[key] = party
         moved.append(party)
+    # A row waiting for a planned holder (KAN-644) that is itself a kept copy
+    # — the same customer planned on both cars — waits for the survivor's row
+    # of that holder instead: the copy stays on the duplicate and never
+    # changes again, so cancelling or moving the planned holder would not
+    # reach a row still linked to it.
+    for party in rows:
+        if party.vehicle_id == target and party.closed_for_party_id in stands_for:
+            party.closed_for_party_id = stands_for[party.closed_for_party_id]
     db.flush()
 
     moved_ids = {party.id for party in moved + extended}
@@ -260,8 +271,10 @@ def _take_later_end(
     survivor's (`kept`), or not at all: the customer remains the holder. The
     survivor's row takes the duplicate's end (`until`; open when that is) and,
     with it, the duplicate row's link to the planned holder that end waits
-    for (`link`, KAN-644: that holder moves to the survivor under its own id,
-    so cancelling it or moving its start still reaches this row) — audited
+    for (`link`, KAN-644: that holder moves to the survivor under its own id
+    — or, when it is itself a kept copy, the caller re-points the link to the
+    survivor's row of it — so cancelling it or moving its start still reaches
+    this row) — audited
     `vehicle_party_update` (reason `vehicle_merged`,
     no actor) and, when the row did not hold its role and now does, published
     `linked`. An end that is not later changes nothing, and a copy an earlier
@@ -375,9 +388,10 @@ def _settle_role(
     dealer group, after the move. Nothing is done unless both cars brought a
     row that holds the role now or later: a role only one of them held is as
     it was, and what was already wrong on one car is not this consumer's to
-    repair. A survivor's row that took its copy's later end (`extended_ids`)
-    is both cars' at once, so its role is always settled — it must not hold
-    beside another holder the duplicate brought. Never another group's row
+    repair — except in a role with a survivor's row that took its copy's
+    later end (`extended_ids`): that row is both cars' at once, so its role
+    is always settled, which also leaves a double holder the duplicate alone
+    brought with one current holder. Never another group's row
     (KAN-99): `parties` is one group's.
 
     Of the holders current now, the one with the later start stays; every

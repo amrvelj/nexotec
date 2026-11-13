@@ -25,7 +25,11 @@ from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.reconciliation import CHECKS as CUSTOMER_CHECKS
 from app.customer.schemas.customer import CustomerVehicleUpdate
 from app.customer.services.vehicle_merge import repoint_vehicle_parties_on_vehicle_merge
-from app.customer.services.vehicle_party import allocate_vehicle_party, update_customer_vehicle
+from app.customer.services.vehicle_party import (
+    allocate_vehicle_party,
+    delete_customer_vehicle,
+    update_customer_vehicle,
+)
 from app.customer.services.vehicle_party_locks import _lock_vehicle_role_in_group
 from app.vehicle.services.merge import merge_vehicles
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
@@ -419,6 +423,42 @@ def test_a_planned_successor_on_the_duplicate_keeps_its_link_to_the_row_that_too
     assert _row(db_session, planned).effective_to is None
     assert _current(db_session, survivor) == {ended.id}
     assert _row(db_session, copy).merged_into_vehicle_id == survivor.id
+
+
+@pytest.mark.parametrize("on_survivor_too", [True, False])
+def test_a_row_waiting_for_a_planned_holder_kept_as_a_copy_waits_for_the_survivors_row_of_it(
+    db_session, engine, on_survivor_too
+):
+    """The same customer is the planned holder on both cars from the same
+    start, so the duplicate's planned row stays there as a kept copy. A row
+    linked to that copy — the survivor's reopened row, or a row that simply
+    moved — is linked to the survivor's planned row instead: cancelling the
+    planned holder gives the role back, and bringing its start forward to now
+    leaves one current holder (KAN-644, KAN-664)."""
+
+    group_id = uuid.uuid4()
+    starts = dt.datetime.now(dt.UTC).replace(microsecond=0) + dt.timedelta(days=30)
+    survivor, duplicate = _cars(db_session)
+    holder, successor = _customer(db_session, group_id), _customer(db_session, group_id)
+    if on_survivor_too:
+        mine = _holder(db_session, survivor, group_id, customer=holder, effective_from=Y2020, effective_to=Y2022)
+    planned = _holder(db_session, survivor, group_id, customer=successor, effective_from=starts)
+    theirs = _holder(db_session, duplicate, group_id, customer=holder, effective_from=Y2020)
+    planned_copy = _holder(db_session, duplicate, group_id, customer=successor, effective_from=starts)
+    assert _row(db_session, theirs).closed_for_party_id == planned_copy.id
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    waiting = _row(db_session, mine if on_survivor_too else theirs)
+    assert (waiting.vehicle_id, waiting.effective_to, waiting.closed_for_party_id) == (survivor.id, starts, planned.id)
+    assert _row(db_session, planned_copy).merged_into_vehicle_id == survivor.id
+    assert _current(db_session, survivor) == {waiting.id}
+
+    # Cancelling the planned holder («planned, never started») gives the role back.
+    delete_customer_vehicle(db_session, party=_row(db_session, planned), actor_id=uuid.uuid4(), group_id=group_id)
+    db_session.commit()
+    assert _row(db_session, waiting).effective_to is None
+    assert _current(db_session, survivor) == {waiting.id}
 
 
 def test_the_row_that_took_the_later_end_does_not_hold_beside_another_holder_the_duplicate_brought(db_session, engine):
