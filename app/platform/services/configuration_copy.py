@@ -298,9 +298,10 @@ def _write_text(
         if not changes:
             item.outcome = CopyOutcome.UNCHANGED
             return None
-        if existing.template_approved and "body" in changes:
-            # The provider approved the target's own wording, not the source's
-            # (FR-A-54): a changed body is a template to submit again.
+        if (existing.template_approved or existing.provider_template_id) and "body" in changes:
+            # The provider approved (or holds a submission of) the target's own
+            # wording, not the source's (FR-A-54): a changed body is a template
+            # to submit again.
             changes["template_approved"] = False
             changes["provider_template_id"] = None
             item.reason = "whatsapp_approval_reset"

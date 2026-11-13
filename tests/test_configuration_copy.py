@@ -7,6 +7,7 @@ that lists exactly what the commit does.
 
 import uuid
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
@@ -592,7 +593,8 @@ def test_the_target_text_is_locked_while_the_copy_writes_it(client, engine, stan
     assert probes == [True]
 
 
-def test_an_overwritten_whatsapp_text_loses_the_targets_approval(client, engine, standard_text_seeds):
+@pytest.mark.parametrize("approved", [True, False], ids=["approved", "submitted"])
+def test_an_overwritten_whatsapp_text_loses_the_targets_approval(client, engine, standard_text_seeds, approved):
     from app.core.i18n import SwissLanguage
     from app.platform.models.standard_text import (
         StandardTextAppliesTo,
@@ -605,7 +607,8 @@ def test_an_overwritten_whatsapp_text_loses_the_targets_approval(client, engine,
     source, target, _, in_target, _ = _pair(client, engine)
     session = sessionmaker(bind=engine)()
     try:
-        for owner, body, approved in ((source, "Quelle.", False), (target, "Ziel.", True)):
+        # The target's template is approved, or only submitted (an id, no approval yet).
+        for owner, body, target_side in ((source, "Quelle.", False), (target, "Ziel.", True)):
             session.add(
                 StandardText(
                     dealership_id=uuid.UUID(owner),
@@ -618,8 +621,8 @@ def test_an_overwritten_whatsapp_text_loses_the_targets_approval(client, engine,
                     title="Abholbereit",
                     body=body,
                     source=StandardTextSource.DEALER,
-                    template_approved=approved,
-                    provider_template_id="target-template" if approved else None,
+                    template_approved=target_side and approved,
+                    provider_template_id="target-template" if target_side else None,
                     version=1,
                 )
             )

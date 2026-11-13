@@ -3,7 +3,7 @@ PRD D-A-01, FR-A-01). The service holds the rules; see its docstring.
 
 Both routes answer 404 unless the caller holds the manager flag in the
 target — the active dealership — and, for the copy, in the source too
-(platform staff pass): a caller learns nothing about a Betrieb it does not
+(platform staff hold no flag and get 404 too): a caller learns nothing about a Betrieb it does not
 manage (rule 7). Not `require_write`, whose refusal is a 403.
 """
 
