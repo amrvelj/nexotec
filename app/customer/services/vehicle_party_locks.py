@@ -5,6 +5,7 @@ then the customer row FOR SHARE (refusing a merged customer), then party rows.
 
 import hashlib
 import uuid
+from collections.abc import Iterable
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -28,10 +29,28 @@ def _lock_role_rows(db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRol
     vehicle's rows in id order. Later per-row locks in the same transaction
     then find their rows already held."""
 
+    _lock_rows_of_roles(db, vehicle_id=vehicle_id, roles=(role,), group_id=group_id)
+
+
+def _lock_rows_of_roles(
+    db: Session, *, vehicle_id: uuid.UUID, roles: Iterable[VehiclePartyRole], group_id: uuid.UUID
+) -> None:
+    """`_lock_role_rows` for a writer of several roles at once (KAN-663: the
+    trade-in purchase and its storno write owner and keeper): every row of
+    those roles in **one** statement, in id order across the roles — locking
+    them role by role would take a newer keeper row before an older owner row,
+    out of the order the label refresh (KAN-186) and the nightly refresh take
+    them. Taken after the roles' advisory locks and the customer row, as an
+    allocation takes its rows."""
+
     db.execute(
         select(VehicleParty.id)
         .join(Customer, Customer.id == VehicleParty.customer_id)
-        .where(VehicleParty.vehicle_id == vehicle_id, VehicleParty.role == role, Customer.group_id == group_id)
+        .where(
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.role.in_(list(roles)),
+            Customer.group_id == group_id,
+        )
         .order_by(VehicleParty.id)
         .with_for_update(of=VehicleParty)
     ).all()

@@ -33,11 +33,11 @@ from app.platform.services.dealership import (
     get_dealer_group_or_404,
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
-    get_location_or_404,
 )
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
+from app.platform.services.location import get_location_or_404
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.services.number_range import allocate_number, continue_sequence

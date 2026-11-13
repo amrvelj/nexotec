@@ -157,11 +157,13 @@ def update_customer_vehicle(
     merge kept (KAN-177, `merged_into_customer_id`) is never reopened: 409
     `merged_party_row`. KAN-352: a PATCH that ends a holding row (an
     `effectiveTo` now or past) publishes `customer.vehicle_party.unlinked`,
-    as Disconnect does."""
+    as Disconnect does. KAN-662: a PATCH changing only `effectiveFrom` of a
+    row that holds its role counts as a reopen — same lock, refusals and
+    close rule; it publishes nothing new (the row held before and after)."""
 
     changes = data.model_dump(exclude_unset=True)
-    holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
-    if holds_after or "effective_from" in changes:
+    reopens = "effective_to" in changes and _is_open(changes["effective_to"])
+    if reopens or "effective_from" in changes:
         # A moved start moves the end of the holder it was planned to replace
         # (KAN-644, `_follow_planned_start`): the role's lock first, then its
         # rows in id order.
@@ -171,7 +173,7 @@ def update_customer_vehicle(
     old_start = party.effective_from
     if (
         "effective_from" in changes
-        and not holds_after
+        and not reopens
         and party.effective_to is not None
         and party.effective_to == party.effective_from
     ):
@@ -186,6 +188,12 @@ def update_customer_vehicle(
     # An empty period (a cancelled planned row, KAN-583) never held the role,
     # so reopening it publishes `linked`.
     held_before = _is_open(party.effective_to) and party.effective_to != party.effective_from
+    # KAN-662: a start-only PATCH of a row that holds its role (now or from
+    # its start on) is a holder's period changing as much as a reopen is: a
+    # start moved earlier can reach into another holder's period. It takes the
+    # same refusal (KAN-583) and close rule (KAN-148, KAN-644) — decided on
+    # the locked row. A row that holds nothing (history) closes nobody.
+    holds_after = reopens or ("effective_to" not in changes and "effective_from" in changes and held_before)
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
         # reads as a current party again; reopening it would also close the
@@ -396,7 +404,7 @@ def _restore_holders_ended_by(
                 VehicleParty.id.not_in([row.id, planned.id]),
                 VehicleParty.effective_from > now,
                 VehicleParty.effective_from > row.effective_from,
-                _holds_now_or_later(),
+                _holds_now_or_later(now),
             )
             .order_by(VehicleParty.effective_from, VehicleParty.id)
             .limit(1)
@@ -430,7 +438,7 @@ def _follow_planned_start(
     holds the (vehicle, role, group) lock."""
 
     now = utcnow()
-    for row in _linked_holders(db, planned=planned, starts=old_start):
+    for row in _linked_holders(db, planned=planned, starts=old_start, now=now):
         before = {
             "effectiveFrom": row.effective_from.isoformat(),
             "effectiveTo": row.effective_to.isoformat() if row.effective_to else None,

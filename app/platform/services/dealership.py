@@ -22,7 +22,6 @@ from app.platform.models.dealership import (
     DealerGroup,
     Dealership,
     DealershipStatus,
-    Location,
 )
 from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
 from app.platform.schemas.dealership import (
@@ -160,13 +159,6 @@ def get_dealership_for_update_or_404(db: Session, dealership_id: uuid.UUID) -> D
     if dealership is None:
         raise NotFoundError(f"Dealership {dealership_id} was not found.")
     return dealership
-
-
-def get_location_or_404(db: Session, location_id: uuid.UUID) -> Location:
-    location = db.get(Location, location_id)
-    if location is None:
-        raise NotFoundError(f"Location {location_id} was not found.")
-    return location
 
 
 def get_dealership_default_correspondence_language(db: Session, dealership_id: uuid.UUID) -> SwissLanguage:
