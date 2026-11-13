@@ -156,7 +156,7 @@ def inventory(mirror: Path) -> tuple[dict[str, Finding], list[str], list[str]]:
     return dict(findings), reaching, messages
 
 
-def _report(findings: dict[str, Finding], reaching: list[str], messages: list[str]) -> None:
+def _report(findings: dict[str, Finding], reaching: list[str], messages: list[str]) -> list[int]:
     for path, finding in sorted(findings.items()):
         commits = sorted(finding.commits)
         print(
@@ -165,14 +165,23 @@ def _report(findings: dict[str, Finding], reaching: list[str], messages: list[st
             f"{len(commits)} commits"
         )
     heads = [r for r in reaching if not r.startswith("refs/pull/")]
-    pulls = [r for r in reaching if r.startswith("refs/pull/")]
+    pulls = sorted({_pr(r) for r in reaching if r.startswith("refs/pull/")})
     print(f"paths with a finding: {len(findings)}")
     print(f"commit messages with a value: {len(messages)}")
     print(f"branches and tags reaching a finding: {len(heads)}")
-    print(
-        f"refs/pull/* reaching a finding: {len(pulls)}"
-        + (f" (PRs #{_pr(pulls[0])} … #{_pr(pulls[-1])})" if pulls else "")
-    )
+    print(f"pull requests whose refs/pull/* reach a finding: {len(pulls)}" + (f" — {_ranges(pulls)}" if pulls else ""))
+    return pulls
+
+
+def _ranges(numbers: list[int]) -> str:
+    """#3, #5-#9 style, for the GitHub Support request."""
+    spans: list[list[int]] = []
+    for n in numbers:
+        if spans and n == spans[-1][1] + 1:
+            spans[-1][1] = n
+        else:
+            spans.append([n, n])
+    return ", ".join(f"#{a}" if a == b else f"#{a}-#{b}" for a, b in spans)
 
 
 def _pr(ref: str) -> int:
@@ -230,7 +239,7 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
     )
     main_tree = _git(mirror, "rev-parse", "refs/heads/main^{tree}").decode().strip()
     print("\n== before")
-    _report(*inventory(mirror))
+    pulls_before = _report(*inventory(mirror))
 
     args = [
         "git",
@@ -248,7 +257,7 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
         args += ["--path", path]
     subprocess.run(args, check=True, capture_output=True)
 
-    print("\n== after")
+    print("\n== after (refs/pull/* rewritten in this mirror only: GitHub keeps its own)")
     findings, reaching, messages = inventory(mirror)
     _report(findings, reaching, messages)
     after_tips = dict(
@@ -273,6 +282,8 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
         print("\nAnto's force-push, from his Mac, after the order on KAN-687:")
         print(f"  git -C {mirror} push --force {origin} 'refs/heads/*:refs/heads/*'")
         print(f"  git -C {mirror} push --force {origin} 'refs/tags/*:refs/tags/*'")
+        print(f"\nGitHub Support, after the push: drop the refs/pull/* and cached views of {len(pulls_before)} PRs:")
+        print(f"  {_ranges(pulls_before)}")
     return 0 if clean else 1
 
 

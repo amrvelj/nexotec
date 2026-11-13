@@ -3,6 +3,9 @@
 For Anto and any future developer. Claude does not load this file automatically — it opens it
 when it needs to explain or change the setup.
 
+The repository `amrvelj/nexotec` is **public for now** (Anto, 2026-11-13) and returns to private;
+until then nothing the identAPI agreement's §5 or §12 covers enters it (`.claude/rules/vehicle-gateway.md`).
+
 ## What a rule file may contain (KAN-614)
 
 `CLAUDE.md` loads in every session and a rule file whenever a matching file is read — in the

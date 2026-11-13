@@ -92,7 +92,9 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   `ALLOWED_MCP_DEPENDENCIES` does not name — empty: Anto's ruling by name). An AI prompt hook may use
   provider data only inside the tenant's own request and response, never as a tool the model can
   call to fetch more. `.claude/` is not the application.
-- **Specification excerpts never leave this private repository** (§5, §12): never pasted into a
-  public issue, gist, other repo or chat. Fixtures and the mock use values that read as invented,
-  never an account value or a specification example (`test_no_real_provider_account_values.py`);
-  the probes' inputs are examples from auto-i's **publicly served** OpenAPI document.
+- **The repository is public for now** (Anto, 2026-11-13; it returns to private), so **nothing §5
+  or §12 covers enters it**: no specification excerpt, account value or specification example in a
+  file, a PR, an issue or a commit message, nor pasted into a gist, another repo or chat. Fixtures
+  and the mock use values that read as invented (`test_no_real_provider_account_values.py`, which
+  names them by hash only); the probes' inputs are examples from auto-i's **publicly served**
+  OpenAPI document.
