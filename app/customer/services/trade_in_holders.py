@@ -5,7 +5,7 @@ storno (KAN-572); split from customer.py, KAN-617.
 import datetime as dt
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -44,9 +44,13 @@ def record_former_holder_on_purchase(
 
     Per role: a row of this customer that holds the role at `ended_at` (an
     earlier link, open or ending later) is closed at `ended_at`; one already
-    ending exactly then is left alone; otherwise a closed row
-    [`held_from`, `ended_at`) is written — history, so it closes nobody else
-    (KAN-148/KAN-370: a row ended in the past is not a holder). Taken under
+    ending exactly then is left alone; one starting at `held_from` and ended
+    before is ended at `ended_at` (KAN-566 case 1); otherwise a closed row
+    [`held_from`, `ended_at`) is written — or, when a row of this customer
+    ended inside that period, from that row's end (KAN-566 case 2, the
+    latest such end), so the periods never overlap. Written rows are history,
+    so they close nobody else (KAN-148/KAN-370: a row ended in the past is
+    not a holder). Taken under
     the allocation's locks, and refused for a merged customer the same way
     (409 `customer_merged`); the caller resolves the survivor first, so that
     refusal means a merge committed in between and a redelivery will find
@@ -90,27 +94,62 @@ def record_former_holder_on_purchase(
                 if row.effective_to is None or row.effective_to > ended_at:
                     _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
             continue
-        # uq_vehicle_party_scope spans (vehicle, customer, role, effective_from):
-        # an earlier row of this customer starting at exactly `held_from` (and
-        # ended before the purchase) already records that start. Writing a
-        # second would fail the consumer on every redelivery until it is
-        # dead-lettered, so that row stands for the period.
-        same_start = db.scalar(
-            select(VehicleParty.id).where(
+        # KAN-566 (Anto, 2026-11-11, option B), case 1: a row of this customer
+        # starting exactly at `held_from` and ended before the purchase (typed
+        # by hand, say) is ended at the purchase — the same row, so the
+        # history joins up and uq_vehicle_party_scope (vehicle, customer,
+        # role, effective_from) never sees a second row with that start.
+        same_start = db.scalars(
+            select(VehicleParty)
+            .where(
                 VehicleParty.vehicle_id == vehicle_id,
                 VehicleParty.customer_id == customer_id,
                 VehicleParty.role == role,
                 VehicleParty.effective_from == held_from,
             )
-        )
+            .with_for_update()
+        ).first()
         if same_start is not None:
+            # A merge's kept copy is never moved (KAN-177); it keeps standing
+            # for the start, as before.
+            if same_start.merged_into_customer_id is None and same_start.merged_into_vehicle_id is None:
+                _extend_to_purchase(db, party=same_start, ended_at=ended_at, actor_id=actor_id, group_id=group_id)
             continue
+        # Case 2: a row of this customer that ended between `held_from` and
+        # the purchase — the new row starts where the latest such row ended,
+        # so the periods meet without overlapping.
+        start = held_from
+        latest_end = db.scalar(
+            select(func.max(VehicleParty.effective_to)).where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.customer_id == customer_id,
+                VehicleParty.role == role,
+                VehicleParty.merged_into_customer_id.is_(None),
+                VehicleParty.merged_into_vehicle_id.is_(None),
+                VehicleParty.effective_to > held_from,
+                VehicleParty.effective_to < ended_at,
+            )
+        )
+        if latest_end is not None:
+            start = latest_end
+            taken = db.scalar(
+                select(VehicleParty.id).where(
+                    VehicleParty.vehicle_id == vehicle_id,
+                    VehicleParty.customer_id == customer_id,
+                    VehicleParty.role == role,
+                    VehicleParty.effective_from == start,
+                )
+            )
+            if taken is not None:
+                # Only a kept merge copy can start there (any other row of
+                # this customer would end after `latest_end`): it stands.
+                continue
 
         party = VehicleParty(
             vehicle_id=vehicle_id,
             customer_id=customer_id,
             role=role,
-            effective_from=held_from,
+            effective_from=start,
             effective_to=ended_at,
         )
         _write_vehicle_labels(db, [party])
@@ -144,6 +183,39 @@ def record_former_holder_on_purchase(
         written.append(party)
     db.flush()
     return written
+
+
+def _extend_to_purchase(
+    db: Session, *, party: VehicleParty, ended_at: dt.datetime, actor_id: uuid.UUID | None, group_id: uuid.UUID
+) -> None:
+    """KAN-566 case 1: a history row of the trade-in's customer that starts at
+    the signature and ended before the purchase is ended at the purchase.
+    It was history and stays history (it ended before it was moved, and ends
+    in the past now), so it closes nobody and publishes nothing — as a PATCH
+    moving a past end does not; audited `vehicle_party_update` with reason
+    `trade_in_purchased`."""
+
+    if party.effective_to is None or party.effective_to >= ended_at:
+        return
+    before = {
+        "vehicleId": str(party.vehicle_id),
+        "role": party.role.value,
+        "effectiveFrom": party.effective_from.isoformat(),
+        "effectiveTo": party.effective_to.isoformat(),
+    }
+    party.effective_to = ended_at
+    db.flush()
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=party.customer_id,
+        tenant_id=group_id,
+        action="vehicle_party_update",
+        actor_id=actor_id,
+        before=before,
+        after={"effectiveTo": ended_at.isoformat()},
+        reason="trade_in_purchased",
+    )
 
 
 def reopen_former_holder_after_storno(

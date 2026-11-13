@@ -147,8 +147,10 @@ weekly. -->
   keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
   when that date is not after the signature or is still to come (never later than the booking: an
   end to come would make a current holder) — held since the signature. A row of the customer
-  already holding the role then is closed there instead, and one already starting at the
-  signature stands for the period; no other holder is touched (history closes nobody, KAN-370);
+  already holding the role then is closed there instead; one of the customer's own rows starting at the
+  signature and ended before the purchase is ended at the purchase, and when one ended inside the period the new
+  row starts at its end — the periods join without gap or overlap (KAN-566; Anto, 2026-11-11, option B; audited
+  `vehicle_party_update`, reason `trade_in_purchased`, no event: it stays history); no other holder is touched (history closes nobody, KAN-370);
   a customer merged since is followed to its survivor. Same locks and `customer_merged` refusal
   as an allocation. The step lives in the customer context (Anto's ruling 1 A), so no write
   spans two contexts (rule 12).
