@@ -2044,9 +2044,13 @@ def rereview_base(root, prev, commit):
     gained; otherwise the base is `prev` itself."""
     facts = merge_facts(root, commit)
     rc, prev_tree = git(root, "rev-parse", prev + "^{tree}")
-    if facts and rc == 0 and facts["result_tree"] and facts["first_tree"] == prev_tree:
-        return facts["result_tree"], facts
-    return prev, None
+    if not (facts and rc == 0 and facts["result_tree"] and facts["first_tree"] == prev_tree):
+        return prev, None
+    # Only a merge OF MAIN: what the second parent brings was reviewed and checked where it landed. Any
+    # other branch's lines are unreviewed, so they stay in the range (the resolution of a side merge is empty).
+    if git(root, "merge-base", "--is-ancestor", facts["second"], "refs/remotes/origin/main")[0] != 0:
+        return prev, None
+    return facts["result_tree"], facts
 
 
 # --------------------------------------------------------------------------
@@ -3485,14 +3489,18 @@ def selftest():
         land_commit("s.py", "side\n")
         git(work, "switch", "-q", "kan-1-x")
         git(work, "merge", "-q", "--no-ff", "--no-edit", "side")
-        side_merge = carry_merge_evidence(work)
-        assert side_merge["kind"] == "evidence-not-carried" and "is not the same" in side_merge["reason"], side_merge
-        # a push in the same command line as a commit keeps its bookkeeping
+        # ... and its re-review is not narrowed to an (empty) resolution: side's lines are unreviewed
+        side_first = git(work, "rev-parse", "HEAD^1")[1]
+        assert rereview_base(work, side_first, head_commit(work)) == (side_first, None), "a side merge was narrowed"
+        # a push and a commit in one command line: the push is recorded and the merge's note still said
         pushes_before = len(events(load_state(work), "push"))
         git(work, "push", "-q", "origin", "HEAD")
         git(work, "fetch", "-q", "origin")
-        post_bash_at("git push -u origin HEAD; git commit --dry-run -m x")
+        said = post_bash_at("git push -u origin HEAD; git commit --dry-run -m x")
         assert len(events(load_state(work), "push")) == pushes_before + 1, "the push was not recorded"
+        assert "no evidence carried over" in said, said
+        side_merge = latest(events(load_state(work), "evidence-not-carried"))
+        assert side_merge["to"] == head_commit(work) and "is not the same" in side_merge["reason"], side_merge
         # the network never blocks a push: a failed fetch judges by the last known origin/main and says so
         git(work, "remote", "set-url", "origin", os.path.join(repo, "gone.git"))
         checked()

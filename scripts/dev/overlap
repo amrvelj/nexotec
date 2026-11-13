@@ -37,8 +37,7 @@ MAX_PAGES = 30  # GitHub lists at most 3000 files of a PR
 
 def run(cmd, cwd, timeout=60):
     try:
-        proc = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              universal_newlines=True, timeout=timeout)
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 127, "", exc.__class__.__name__
     return proc.returncode, proc.stdout, proc.stderr
@@ -156,8 +155,8 @@ def render(report):
     lines.append("Overlaps ({} file(s) or pattern(s) against {} open PR(s)):".format(
         len(report["compared"]), report["open_prs"]))
     for path in sorted(report["files"]):
-        lines.append("  {}".format(path))
-        lines += ["      also {}".format(describe(label)) for label in report["files"][path]]
+        lines.append(f"  {path}")
+        lines += [f"      also {describe(label)}" for label in report["files"][path]]
     for chain in sorted(report["chains"]):
         for label in report["chains"][chain]:
             lines.append("  migration chain `{}`: {} adds a revision too - the second to merge makes a second head. "
@@ -180,7 +179,7 @@ def main(argv, fetch=None, root=None):
 def selftest():
     """Recorded API answers (shapes as `gh api` returned them on 2026-11-13); no network."""
     def pull(number, ref, title, sha="0123456789abcdef", draft=False):
-        return {"number": number, "title": title, "draft": draft, "html_url": "https://github.com/o/r/pull/%d" % number,
+        return {"number": number, "title": title, "draft": draft, "html_url": f"https://github.com/o/r/pull/{number}",
                 "head": {"ref": ref, "sha": sha}}
     secret = "DIFF-CONTENT-NEVER-PRINTED"
     recorded = {
@@ -229,7 +228,7 @@ def selftest():
     refused = overlap(changes, [], "mine", lambda path: (None, "GitHub refused `gh api x`: HTTP 403"))
     assert render(refused).startswith("Overlaps: unknown - GitHub refused") and refused["files"] == {}
     # paging: a full page asks for the next one
-    many = {"repos/{owner}/{repo}/pulls?state=open&per_page=100&page=1": [pull(n, "b%d" % n, "x") for n in range(100)],
+    many = {"repos/{owner}/{repo}/pulls?state=open&per_page=100&page=1": [pull(n, f"b{n}", "x") for n in range(100)],
             "repos/{owner}/{repo}/pulls?state=open&per_page=100&page=2": [pull(500, "kan-500-z", "KAN-500")]}
     items, problem = pages(lambda p: (many.get(p, []), None), "repos/{owner}/{repo}/pulls?state=open")
     assert problem is None and len(items) == 101
