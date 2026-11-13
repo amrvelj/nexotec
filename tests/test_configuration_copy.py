@@ -199,7 +199,7 @@ def test_the_dry_run_lists_exactly_what_the_commit_then_does_and_writes_nothing(
 
     committed = _copy(client, target, in_target, source, dry_run=False)
     assert committed.status_code == 200, committed.text
-    strip = lambda body: {k: v for k, v in body.items() if k != "dryRun"}  # noqa: E731
+    strip = lambda body: {k: v for k, v in body.items() if k != "dryRun"}
     assert strip(committed.json()) == strip(preview.json())
 
     outcomes = {(i["subset"], i["key"], i["language"]): i["outcome"] for i in committed.json()["items"]}

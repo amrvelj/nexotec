@@ -77,6 +77,10 @@ POST_WITHOUT_IF_MATCH = {
     "the caller did not name, its version bumped and audited as its own update (the bank account's precedent)",
     "/v1/dealerships/{dealership_id}/standard-text-previews": "the editor's preview (KAN-208): renders a body on "
     "sample data and writes nothing",
+    "/v1/dealerships/{dealership_id}/copy-configuration": "the one-shot copy from a sister Betrieb (KAN-220, "
+    "FR-A-01): it writes the target's texts, template and ranges through each entity's own write path, which checks "
+    "the version of the row it read or locked in the same transaction — rows the caller did not name, each audited; "
+    "the dealership's own version does not move, and the dry run is the preview the caller confirms",
     "/v1/dealerships/{dealership_id}/number-range-previews": "the edit dialog's live example (KAN-207): renders "
     "the next number of an unsaved pattern and writes nothing",
     "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428 + "a custody event row and the legacy "
