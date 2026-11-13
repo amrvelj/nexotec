@@ -1,30 +1,32 @@
 """Find, and remove from git history, what the identAPI test agreement keeps out of a public repository (KAN-682).
 
     python scripts/clean_public_history.py inventory <mirror.git>
-    python scripts/clean_public_history.py rewrite   <workdir>
+    python scripts/clean_public_history.py rewrite   <workdir> --values-from <REV:PATH>
 
 `inventory` scans every blob reachable from every ref of a mirror clone and prints, per path, the kinds
 found there and the first and last commit holding one — never a value. It needs no plaintext: it looks
 values up by the hashes in tests/architecture/test_no_real_provider_account_values.py, the same lookup
-that test runs over the working tree. Three kinds:
+that test runs over the working tree, in every form it knows. Four kinds:
 
 - account value — a value from the real account sheet (KAN-491);
-- specification example — the specification's KontrollschildInfo example, its OptKeys, an option text;
+- specification example — one of the specification's own example values;
 - specification-derived sample XML — a result document of the retired SOAP «Webservice Fahrzeuge»
-  service (KAN-550), recognised by its element names.
-
-A guarded value written as two string literals joined by `+` (how the guard test held them before
-KAN-682) counts as the value.
+  service (KAN-550), recognised by its element names;
+- specification-derived file — a retired SOAP-era file (`REMOVED_PATHS`) that described the
+  specification's documents, codes or encryption, whatever its content matches.
 
 `rewrite` is the dry run and, once Anto has read its report, the input to his force-push. In
 <workdir> (outside every checkout; refused otherwise) it clones a fresh mirror of `origin`, writes
 the replacements file next to it, runs `git filter-repo` on the mirror, then runs `inventory` again
 and checks that nothing is left, that `main`'s tree is unchanged, and which branch tips moved. It
-never pushes: the force-push is Anto's, from his own machine (KAN-687), with the commands it prints.
+never pushes: the force-push is Anto's, from his own machine (KAN-687), with the script it writes
+(`push.sh`: one `--force-with-lease` per branch, so a branch that moved since the clone is refused,
+not overwritten). A run with `--main-at` simulates `main` and writes no push script.
 
-The plaintext for the replacements file comes from the guard test as it stood before KAN-682
-(`--values-from`, default the commit that introduced it). After the rewrite that commit is gone; a
-later run passes a file of its own. The file stays in <workdir> and never enters a repository.
+The plaintext for the replacements file comes from a guard test that still names the values,
+`--values-from REV:PATH` read from this checkout's history (the ticket names it; this file does not).
+It is written to <workdir>, never to a repository, read once by filter-repo and deleted. No bytecode
+of it is written.
 
 `refs/pull/*` are GitHub's: read-only, kept after any force-push, and they keep the old commits
 reachable by SHA. Only GitHub Support can drop them; the report counts the ones that reach a finding.
@@ -35,7 +37,7 @@ Needs `git filter-repo` (`pip install git-filter-repo`, outside the project's en
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import os
 import re
 import shutil
 import subprocess
@@ -43,25 +45,26 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import ModuleType
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / "tests" / "architecture" / "test_no_real_provider_account_values.py"
 ORIGIN = "https://github.com/amrvelj/nexotec.git"
 
-# The guard test's first version (KAN-491, PR #251): the one that names the values, assembled.
-DEFAULT_VALUES_FROM = "85a9a977:tests/architecture/test_no_real_provider_account_values.py"
-
 # The SOAP service's result documents, by their element names (KAN-550 removed the last of them).
 # (`\s`, so that this file does not match itself.)
 SAMPLE_XML = re.compile(r"<(FzKey|TypSchNr|OptKey|KontrollschildInfo|Resultat)\b|spec Resultat\sXML")
 
-# Two string literals joined by `+`: how the guard test assembled a value so as not to match itself.
-ASSEMBLED = re.compile(r"""(["'])(\w+)\1\s*\+\s*(["'])(\w+)\3""")
-
-# Paths that no longer exist on `main` and carried sample XML: removed from every commit.
+# Retired SOAP-era files, none of them on `main`, removed from every commit: the adapter, the parser
+# and its tests (sample result documents, the specification's status codes and page references), the
+# verify script, the decryption helper (the specification's encryption scheme) and the coded-field
+# snapshot script (its tables). The WSDL and envelope stubs of the timeout, WSDL-cache and
+# failure-accounting tests were looked at and stay: invented (a `.invalid` namespace, minimal).
 REMOVED_PATHS = (
+    "app/integration/adapters/aes_decrypt.py",
+    "app/integration/adapters/auto_i_dat_parse.py",
     "app/integration/adapters/auto_i_dat_soap.py",
+    "scripts/auto_i_dat_code_snapshot.py",
     "scripts/verify_auto_i_dat.py",
     "tests/test_integration_auto_i_dat_parse.py",
     "tests/test_integration_soap_adapter.py",
@@ -70,12 +73,11 @@ REMOVED_PATHS = (
 REPLACEMENT = "***REMOVED***"
 
 
-def _load(name: str, path: Path) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _load(source: str, file: Path) -> dict[str, Any]:
+    """Run a guard test's source in a namespace of its own: no import, so no bytecode on disk."""
+    namespace: dict[str, Any] = {"__file__": str(file), "__name__": "guard"}
+    exec(compile(source, str(file), "exec"), namespace)  # noqa: S102 - this repository's own guard test, from its history
+    return namespace
 
 
 def _git(repo: Path, *args: str, stdin: bytes | None = None) -> bytes:
@@ -88,14 +90,12 @@ class Finding:
     commits: list[tuple[str, str]] = field(default_factory=list)  # (ISO date, sha)
 
 
-def _kinds_in(text: str, guard: ModuleType) -> set[str]:
+def _kinds_in(text: str, guard: dict[str, Any]) -> set[str]:
     kinds = set()
-    assembled = "\n".join(a + b for _, a, _, b in ASSEMBLED.findall(text))
-    for source in (text, assembled):
-        if guard.guarded_hits(source, guard.REAL_ACCOUNT_VALUE_HASHES):
-            kinds.add("account value")
-        if guard.guarded_hits(source, guard.SPECIFICATION_EXAMPLE_HASHES):
-            kinds.add("specification example")
+    if guard["guarded_hits"](text, guard["REAL_ACCOUNT_VALUE_HASHES"]):
+        kinds.add("account value")
+    if guard["guarded_hits"](text, guard["SPECIFICATION_EXAMPLE_HASHES"]):
+        kinds.add("specification example")
     if SAMPLE_XML.search(text):
         kinds.add("specification-derived sample XML")
     return kinds
@@ -116,7 +116,7 @@ def _blobs(mirror: Path) -> list[str]:
 
 def inventory(mirror: Path) -> tuple[dict[str, Finding], list[str], list[str]]:
     """(findings per path, refs reaching a finding, commit messages holding a value)."""
-    guard = _load("guard", GUARD)
+    guard = _load(GUARD.read_text(encoding="utf-8"), GUARD)
     hit_blobs: dict[str, set[str]] = {}
     out = _git(mirror, "cat-file", "--batch", stdin="\n".join(_blobs(mirror)).encode())
     pos = 0
@@ -140,8 +140,11 @@ def inventory(mirror: Path) -> tuple[dict[str, Finding], list[str], list[str]]:
         for entry in _git(mirror, "ls-tree", "-r", commit).decode("utf-8", "replace").splitlines():
             meta, path = entry.split("\t", 1)
             blob = meta.split()[2]
-            if blob in hit_blobs:
-                findings[path].kinds |= hit_blobs[blob]
+            kinds = set(hit_blobs.get(blob, ()))
+            if path in REMOVED_PATHS:
+                kinds.add("specification-derived file")
+            if kinds:
+                findings[path].kinds |= kinds
                 findings[path].commits.append((date, commit))
                 hit_commits.add(commit)
         body = _git(mirror, "log", "-1", "--format=%B", commit).decode("utf-8", "replace")
@@ -190,15 +193,13 @@ def _pr(ref: str) -> int:
 
 def _replacements(values_from: str, out: Path) -> int:
     revision, path = values_from.split(":", 1)
-    source = _git(ROOT, "show", f"{revision}:{path}")
-    old = out.parent / "values_source.py"
-    old.write_bytes(source)
-    guard = _load("old_guard", old)
-    old.unlink()
-    values = [*guard.REAL_ACCOUNT_VALUES, *guard.SPEC_EXAMPLES_IN_THE_MOCK]
+    source = _git(ROOT, "show", f"{revision}:{path}").decode("utf-8")
+    guard = _load(source, ROOT / path)
+    values = [*guard["REAL_ACCOUNT_VALUES"], *guard["SPEC_EXAMPLES_IN_THE_MOCK"]]
     lines = []
     for value in values:
-        lines.append(rf"regex:(?<!\w){re.escape(value)}(?!\w)==>{REPLACEMENT}")
+        # Any case, and inside a snake_case name too: the forms the guard test looks for.
+        lines.append(rf"regex:(?i)(?<![0-9A-Za-z]){re.escape(value)}(?![0-9A-Za-z])==>{REPLACEMENT}")
         for cut in range(1, len(value)):
             head, tail = re.escape(value[:cut]), re.escape(value[cut:])
             lines.append(
@@ -210,12 +211,13 @@ def _replacements(values_from: str, out: Path) -> int:
 
 def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -> int:
     workdir = workdir.resolve()
-    workdir.mkdir(parents=True, exist_ok=True)
+    existing = next(p for p in (workdir, *workdir.parents) if p.exists())
     inside = subprocess.run(
-        ["git", "-C", str(workdir), "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True, check=False
+        ["git", "-C", str(existing), "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True, check=False
     )
     if workdir.is_relative_to(ROOT) or inside.stdout.strip() == "true":
         sys.exit(f"refused: {workdir} is inside a checkout; use a folder of its own")
+    workdir.mkdir(parents=True, exist_ok=True)
     if shutil.which("git-filter-repo") is None:
         sys.exit("git filter-repo is not installed (pip install git-filter-repo)")
     mirror = workdir / "mirror.git"
@@ -255,7 +257,10 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
     args.append("--invert-paths")
     for path in REMOVED_PATHS:
         args += ["--path", path]
-    subprocess.run(args, check=True, capture_output=True)
+    try:
+        subprocess.run(args, check=True, capture_output=True)
+    finally:
+        replacements.unlink()
 
     print("\n== after (refs/pull/* rewritten in this mirror only: GitHub keeps its own)")
     findings, reaching, messages = inventory(mirror)
@@ -284,10 +289,24 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
         "\nRESULT:",
         "clean — every finding gone from every ref, main's tree unchanged" if clean else "NOT CLEAN — do not push",
     )
+    if clean and main_at:
+        print("\nmain was simulated: no push script. The real run is made without --main-at, after the merge.")
+    elif clean:
+        push = workdir / "push.sh"
+        leases = [
+            f"--force-with-lease={ref}:{before_tips[ref]}"
+            for ref in sorted(before_tips)
+            if ref.startswith(("refs/heads/", "refs/tags/"))
+        ]
+        push.write_text(
+            "#!/bin/sh\n# KAN-682: Anto's force-push, after the order on KAN-687. A branch that moved since the clone\n"
+            "# is refused (the lease), never overwritten. Use your own remote URL if you push over SSH.\n"
+            f"exec git -C '{mirror}' push --no-verify {' '.join(leases)} '{origin}' 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'\n",
+            encoding="utf-8",
+        )
+        os.chmod(push, 0o755)
+        print(f"\nAnto's force-push: {push} ({len(leases)} refs, each with its lease)")
     if clean:
-        print("\nAnto's force-push, from his Mac, after the order on KAN-687:")
-        print(f"  git -C {mirror} push --force {origin} 'refs/heads/*:refs/heads/*'")
-        print(f"  git -C {mirror} push --force {origin} 'refs/tags/*:refs/tags/*'")
         print(f"\nGitHub Support, after the push: drop the refs/pull/* and cached views of {len(pulls_before)} PRs:")
         print(f"  {_ranges(pulls_before)}")
     return 0 if clean else 1
@@ -300,7 +319,9 @@ def main() -> int:
     inv.add_argument("mirror", type=Path)
     rw = sub.add_parser("rewrite", help="dry run: fresh mirror, filter-repo, verify; never pushes")
     rw.add_argument("workdir", type=Path)
-    rw.add_argument("--values-from", default=DEFAULT_VALUES_FROM, help="REV:PATH of a guard test that names the values")
+    rw.add_argument(
+        "--values-from", required=True, help="REV:PATH of a guard test that names the values (on the ticket)"
+    )
     rw.add_argument("--origin", default=ORIGIN)
     rw.add_argument("--main-at", help="dry run only: a local commit descending from origin's main to stand main on")
     args = parser.parse_args()
