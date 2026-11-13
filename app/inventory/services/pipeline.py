@@ -388,7 +388,11 @@ def promote_and_flush(
             producer=_EVENT_PRODUCER,
             aggregate_type="stock_item",
             aggregate_id=item.id,
-            payload={"vin": vin, "vehicleId": str(vehicle.id)},
+            # KAN-667 (additive): the stock number, the label Vehicle's
+            # projection of the records a Betrieb holds in stock links the
+            # Vehicle 360 to this car by; a consumer that ignores unknown keys
+            # is unaffected.
+            payload={"vin": vin, "vehicleId": str(vehicle.id), "stockNumber": item.stock_number},
         ),
     )
     # WP-7 PR-5 (ADR-052) — an item whose purchase was booked before its VIN

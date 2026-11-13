@@ -46,7 +46,9 @@
     "slot": "Posizione",
     "source": "Origine",
     "languages": "Lingue",
-    "default": "Predefinito"
+    "default": "Predefinito",
+    "code": "Codice",
+    "updatedAt": "Ultima modifica"
   },
   "badge": {
     "template": "Modello — da verificare",

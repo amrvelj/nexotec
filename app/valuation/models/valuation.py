@@ -61,6 +61,10 @@ class ValuationProviderQuote(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin,
     after creation (ADR-066), so the quote comes first. Written once, never
     updated. Tenant-private like the valuation (ADR-029).
 
+    Kept as long as a valuation references it; one no valuation references is
+    deleted ten years after `fetched_at` (KAN-599; Anto, 2026-11-13, option A;
+    services/provider_quote_retention.py). No maximum age backs a valuation.
+
     «Wert auto-i-dat» is the trade-in (exchange) price, vehicle plus options;
     purchase and sale prices are kept beside it (Anto, 2026-11-09)."""
 
@@ -105,7 +109,9 @@ class ValuationProviderQuote(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin,
 
     # The call-log correlation id of the requests that produced this quote.
     provider_request_ref: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
-    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # Indexed for the daily retention purge (KAN-599,
+    # services/provider_quote_retention.py), which reads by fetch date.
+    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, index=True)
 
 
 class ValuationNumberSequence(Base):

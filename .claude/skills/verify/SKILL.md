@@ -61,7 +61,15 @@ and the directory from step 2, plus this brief:
   constraint (held / violated / not exercised — for preserve-verbatim files, whether behaviour
   changed, separately from whether the file changed); anything real but outside the spec
   (inconsistent payloads, inert fields, breaking required fields, lanes that gate nothing); and
-  each Notion delivery obligation against the live page.
+  each Notion delivery obligation against Notion as it is now.
+- **Notion obligations, cheaply (ADR-157, KAN-622):** start from the builder's one-sentence
+  statements of each change (the hand-over callout and the final reply list them: page, row or
+  anchor line, new text). Confirm each with a targeted search — `notion-search` with `page_url`
+  set to the PRD or the Gap Analysis, for the line under its «Status» or «Heads» anchor — or a
+  row query on the Gap register (`SELECT "Gap ID", "Status", "Cited head", "Ticket" FROM
+  "collection://0c8fe912-888b-40db-862f-9694a07dedae" WHERE "Gap ID" = 'G-<n>'`). Fetch a PRD,
+  the Gap Analysis or the Target Architecture whole only for a statement the search cannot
+  confirm, and say which. A missing statement is itself a finding.
 
 ## 4. Report
 

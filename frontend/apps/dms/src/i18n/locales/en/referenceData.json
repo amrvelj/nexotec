@@ -12,7 +12,11 @@
   "maintainedBy": "Maintained by Nexotec",
   "columns": {
     "code": "Code",
-    "status": "Status"
+    "status": "Status",
+    "active": "Active",
+    "sortOrder": "Order",
+    "createdAt": "Created",
+    "updatedAt": "Last changed"
   },
   "forbidden": {
     "title": "No access",
@@ -33,5 +37,12 @@
     "error": "Could not create the value.",
     "invalidField": "Check this entry: it is empty or too long.",
     "duplicate": "The value code {{valueCode}} already exists in this list."
-  }
+  },
+  "edit": {
+    "action": "Edit labels",
+    "title": "Edit {{valueCode}} in {{code}}",
+    "submit": "Save",
+    "error": "Could not save the labels."
+  },
+  "gridLabel": "Values of the reference list"
 }

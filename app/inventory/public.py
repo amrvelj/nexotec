@@ -31,6 +31,9 @@ Stock's consumers of Sales' contract facts; `apply_backfilled_contract` and
 (scripts/backfill_inventory_sales_contract_projection.py), commit-free;
 `backfill_recorded` (KAN-678) is whether a run of it has been committed —
 the legacy transaction import re-runs it only then. A SELECT only, a bool.
+`list_held_vehicle_records` (KAN-667) is the backfill of Vehicle's projection
+of the records a Betrieb holds in stock (scripts/backfill_vehicle_stock_holding.py):
+every item with a record that has not left stock, plain data, a SELECT only.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -47,10 +50,11 @@ from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PR
 from app.inventory.services.sales_contract import apply_backfilled_contract, backfill_recorded, record_backfill
 from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers, is_stock_item_purchased
 from app.inventory.services.valuation import set_valuation_ref
-from app.inventory.services.vehicle_link import get_stock_item_vehicle
+from app.inventory.services.vehicle_link import HeldVehicleRecord, get_stock_item_vehicle, list_held_vehicle_records
 
 __all__ = [
     "SALES_CONTRACT_PROJECTION_CONSUMERS",
+    "HeldVehicleRecord",
     "InventoryOwnershipProvider",
     "LifecycleStatus",
     "ReservationState",
@@ -64,6 +68,7 @@ __all__ = [
     "get_stock_items_for_vehicles",
     "get_stock_numbers",
     "is_stock_item_purchased",
+    "list_held_vehicle_records",
     "oldest_configuration_label_age_seconds",
     "record_backfill",
     "referenced_configuration_ids",

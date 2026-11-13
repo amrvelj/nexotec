@@ -294,7 +294,12 @@ def test_the_same_customer_from_the_same_instant_on_both_cars_is_kept_as_a_marke
             db_session, party=kept, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(),
             group_id=group_id,
         )
-    assert refused.value.details == {"reason": "merged_party_row", "mergedIntoVehicleId": str(survivor.id)}
+    # KAN-680 (Anto, 2026-11-13, option A): its own reason, naming the survivor's VIN.
+    assert refused.value.details == {
+        "reason": "vehicle_merged_party_row",
+        "mergedIntoVehicleId": str(survivor.id),
+        "mergedIntoVehicleVin": survivor.vin,
+    }
     db_session.rollback()
 
     # Past the processed-events guard the move finds nothing left to do.

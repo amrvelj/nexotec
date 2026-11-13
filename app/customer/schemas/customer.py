@@ -814,6 +814,12 @@ class CustomerVehicleRead(CamelModel):
     # for (KAN-177 — the survivor already held its vehicle, role and start);
     # null on every other row. Lets a reader tell a merge from an ended role.
     merged_into_customer_id: uuid.UUID | None = None
+    # KAN-680 (Anto, 2026-11-13, option A): the record a vehicle merge kept
+    # this row as history for (KAN-672), and that record's VIN, which the
+    # Vehicles tab's page fills in its batch pass (null on a single-row read);
+    # null on every other row. The tab marks the row and links the record.
+    merged_into_vehicle_id: uuid.UUID | None = None
+    merged_into_vehicle_vin: str | None = None
     vehicle: VehiclePartySummary
     # KAN-49 / FR-19 — populated in a batch pass by the route, not derivable
     # from the ORM row alone; see list_other_vehicle_parties_batch and

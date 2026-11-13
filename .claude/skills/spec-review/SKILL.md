@@ -15,7 +15,8 @@ named in the arguments (plus everything that area depends on).
 ## Sources — read all of them before writing a single finding
 
 - Target Architecture and its ADR log, Build Sequence, Gap Analysis, Risk Register (links in
-  CLAUDE.md).
+  CLAUDE.md). The Gap Analysis register is the Gap register database on that page (ADR-157);
+  read its rows, and its frozen archive child page only for history before 2026-11-13.
 - The Requirements tree (https://app.notion.com/p/3b53e79334dd800195e9cfe6c851bd06): discover
   every child page instead of relying on a list, including Dealer Administration,
   Authentication & Identity and Integrations & API Credentials. Treat any page you find as in

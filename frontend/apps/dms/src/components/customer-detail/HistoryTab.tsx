@@ -102,6 +102,7 @@ const HISTORY_FIELDS = new Set([
   'consentSource',
   'consentTimestamp',
   'mergedIntoCustomerId',
+  'mergedIntoVehicleId',
   'duplicateOfCustomerId',
   'creditBlock',
   'creditBlockReason',
@@ -109,6 +110,7 @@ const HISTORY_FIELDS = new Set([
   'vehiclePartiesKeptClosed',
   'vehiclePartiesKeptClosedIds',
   'earlierMergesRepointedIds',
+  'vehiclePartyCopiesRepointedIds',
   'transactionsRepointed',
   'phonesRepointed',
   'phonesDropped',
@@ -211,9 +213,11 @@ const REFERENCE_KEYS = new Set([
   'advisorId',
   'customerId',
   'mergedIntoCustomerId',
+  'mergedIntoVehicleId',
   'duplicateOfCustomerId',
   'vehicleId',
   'earlierMergesRepointedIds',
+  'vehiclePartyCopiesRepointedIds',
   'vehiclePartiesKeptClosedIds',
 ])
 

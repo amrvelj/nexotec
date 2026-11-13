@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen } from '@testing-library/react'
 import i18n from '../i18n'
 import de from '../i18n/locales/de'
@@ -9,6 +9,19 @@ import it_ from '../i18n/locales/it'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { ReferenceDataPage } from './ReferenceDataPage'
+
+// KAN-516: the values are the kit's grid; jsdom has no layout, so TanStack
+// Virtual would window it down to zero rows — render every row instead.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () => Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
 
 // KAN-515 — the page told every user «PLATFORM_ADMIN» in a badge, and its
 // 403 texts named the role code too. A role code is not a word a dealer

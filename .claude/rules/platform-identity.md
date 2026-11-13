@@ -3,7 +3,6 @@ paths:
   - "app/core/auth*.py"
   - "app/core/nul_guard.py"
   - "app/core/config.py"
-  - "app/main.py"
   - "app/platform/consumers.py"
   - "app/platform/schemas/auth.py"
   - "app/platform/schemas/recovery.py"
@@ -68,8 +67,7 @@ paths:
   is the only implementation (D-A-08, D-A-11; Entra OIDC is [P3]).
 - **Every refusal is the same 401 body with the same argon2 work** (a dummy verify for an unknown
   address) — never a reason-specific message (`tests/test_identity_login_policy.py` counts the
-  verifies). A NUL in path, query or JSON/form body is 422 `nul_character` before any route
-  (`app/core/nul_guard.py`: refuse, never strip) — at the login door it is the same 401.
+  verifies); a NUL character there is the same 401 (`platform-sessions.md`).
 - Per-account backoff from the third failure, soft lockout after `auth_lockout_failures` (a reset
   clears it); per-IP backoff on the **last** X-Forwarded-For entry, never the first. Wrong
   second-factor answers count on the account axis and per challenge, never per IP.
@@ -92,13 +90,7 @@ paths:
   `scripts/benchmark_argon2.py`); a hash below them is rehashed on the next login.
 
 ## Sessions
-- One `session` row per login. `enforce_live_session` (app-level in `app/main.py`) 401s a revoked,
-  idle or expired row — the absolute end is **the next midnight Europe/Zurich** — and touches the row at most once a minute, never for `X-DMS-Background`
-  requests (an unattended tab still idles out). Logout is the one route a dead session reaches.
-- Every session of the user is revoked by: suspension or deactivation, a change of roles, manager
-  flag or membership (the claims live for the day), a password reset, an accepted invitation,
-  staff `revoke-sessions` — each a `session_revoked` event.
-- KAN-229: `dealership_auth_config.session_*` (15–120 min, 1–12 h) shorten it; not staff.
+The session guard, its idle and absolute ends and what revokes a session: `platform-sessions.md`.
 - The reset request is 202 whether or not the address exists, its mail sent after the response.
 
 ## MFA (D-A-36)

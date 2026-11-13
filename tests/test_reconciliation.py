@@ -713,7 +713,7 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     _line_item(db_session, dealer_id, **actors)
     _document(db_session, dealer_id, rendered_by=user_id, **actors)
     _document(db_session, dealer_id)
-    db_session.add(SalesNumberSequence(tenant_id=uuid.UUID(dealer_id), series="offer", next_value=2))
+    db_session.add(SalesNumberSequence(tenant_id=uuid.UUID(dealer_id), series="contract", next_value=2))
     db_session.commit()
 
     run = sales_reconciliation.run(db_session)
@@ -726,7 +726,7 @@ def test_sales_reconciliation_detects_a_number_sequence_of_no_dealership(client,
     finding names the row by its tenant_id, the one id column it has."""
 
     dangling = uuid.uuid4()
-    db_session.add(SalesNumberSequence(tenant_id=dangling, series="offer", next_value=1))
+    db_session.add(SalesNumberSequence(tenant_id=dangling, series="contract", next_value=1))
     db_session.commit()
 
     with pytest.raises(ReconciliationAlarm) as exc_info:

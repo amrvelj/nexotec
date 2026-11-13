@@ -21,12 +21,15 @@ builder and again in every reviewer pass — so each line costs on every ticket.
 - **Never:** ticket history («KAN-n because …»), what the code already says (routes, columns,
   function signatures), or a second copy of a PRD section.
 
-Budget: a rule file at most **12,000 bytes**, `CLAUDE.md` at most **16,000 bytes** (and 200 lines).
-`scripts/dev/check`'s `config` lane runs `scripts/rule_budget.py check`, which prints every file's
-size and fails over budget, with no allowlist: until KAN-615 has cut them, a file already over on
-`main` may only shrink. A file that outgrows its budget is split by sub-area, each part with globs
-for its own files only. `scripts/rule_budget.py scenarios` shows which rule files three typical
-tickets load, before and after a change.
+Budget: a rule file at most **12,000 bytes**, `CLAUDE.md` at most **16,000 bytes** (and 200 lines);
+`events.md` and `tests.md`, which load for nearly every service file and test, at most **4,000**; a
+full-stack sales ticket at most **60,000 bytes** of rules in total and a one-file frontend fix
+**15,000** (KAN-615). `scripts/dev/check`'s `config` lane runs `scripts/rule_budget.py check`,
+which prints every file's size and the scenarios' totals and fails over any of these, with no
+allowlist and no exception. A file that outgrows its budget is split by sub-area, each part with
+globs for its own files only — in the frontend, a file list until it has module folders (KAN-611).
+`scripts/rule_budget.py scenarios` shows which rule files three typical tickets load, before and
+after a change.
 
 ## The pieces and their jobs
 

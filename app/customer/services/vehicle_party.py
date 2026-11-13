@@ -32,12 +32,12 @@ from app.customer.services.vehicle_party_labels import _write_vehicle_labels
 from app.customer.services.vehicle_party_locks import (
     _lock_live_vehicle_role_in_group,
     _lock_party,
+    _lock_party_vehicle_role,
     _lock_role_rows,
-    _lock_vehicle_role_in_group,
     _refuse_merged_customer,
 )
 from app.customer.services.vehicle_party_reads import _holds_now_or_later, _is_open, _validate_effective_range
-from app.vehicle.public import get_vehicle_mdm_or_404
+from app.vehicle.public import get_vehicle_mdm_or_404, get_vehicle_summaries
 
 
 def create_customer_vehicle(
@@ -171,8 +171,9 @@ def update_customer_vehicle(
         # A moved start moves the end of the holder it was planned to replace
         # (KAN-644, `_follow_planned_start`): the role's lock first, then its
         # rows in id order.
-        _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
-        _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+        # KAN-680: a row a vehicle merge moved while this waited takes the
+        # survivor's lock too.
+        _lock_party_vehicle_role(db, party=party, group_id=group_id)
     party = _lock_party(db, party)
     old_start = party.effective_from
     if (
@@ -201,9 +202,16 @@ def update_customer_vehicle(
     if holds_after and party.merged_into_vehicle_id is not None:
         # KAN-672: the copy a vehicle merge kept names the merged record; the
         # customer's row on the surviving vehicle carries the role.
+        # KAN-680 (Anto, 2026-11-13, option A): its own reason, naming the
+        # surviving record and its VIN, where the entry is edited instead.
+        survivor = get_vehicle_summaries(db, [party.merged_into_vehicle_id]).get(party.merged_into_vehicle_id)
         raise ConflictError(
-            "This row is the copy a vehicle merge kept; it cannot hold its role again.",
-            details={"reason": "merged_party_row", "mergedIntoVehicleId": str(party.merged_into_vehicle_id)},
+            "This row belongs to a merged vehicle and stays as history; edit the entry on the surviving vehicle.",
+            details={
+                "reason": "vehicle_merged_party_row",
+                "mergedIntoVehicleId": str(party.merged_into_vehicle_id),
+                "mergedIntoVehicleVin": survivor.vin if survivor else None,
+            },
         )
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
@@ -331,8 +339,9 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     # The (vehicle, role, group) lock first, as every writer of the role
     # takes it, then the row; planned or not is decided on the locked row, so
     # a start moved meanwhile is seen (never an end before the start).
-    _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
-    _lock_role_rows(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+    # KAN-680: a row a vehicle merge moved while this waited takes the
+    # survivor's lock too.
+    _lock_party_vehicle_role(db, party=party, group_id=group_id)
     party = _lock_party(db, party)
     if not _is_open(party.effective_to) or party.effective_to == party.effective_from:
         return

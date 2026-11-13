@@ -30,7 +30,10 @@
     "stammnummer": "Numéro souche",
     "typeApprovalNumber": "N° de réception",
     "firstRegistrationDate": "Première mise en circulation",
-    "matchStatus": "Correspondance catalogue"
+    "matchStatus": "Correspondance catalogue",
+    "vinHeldInStock": "Ce véhicule est en stock dans votre entreprise. Son VIN se modifie sur le véhicule en stock avec «Corriger le VIN», pour que le véhicule en stock, la fiche véhicule et la configuration portent le même VIN.",
+    "correctVinInStock": "Corriger le VIN sur le véhicule en stock {{stockNumber}}",
+    "correctVinInStockUnnumbered": "Corriger le VIN sur le véhicule en stock"
   },
   "parties": {
     "title": "Parties",

@@ -1,11 +1,24 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import { ReferenceDataPage } from './ReferenceDataPage'
+
+// KAN-516: the values are the kit's grid; jsdom has no layout, so TanStack
+// Virtual would window it down to zero rows — render every row instead.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () => Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
 
 // KAN-471 — the reference lists are platform staff's to write (the PRD's
 // "Reference lists" row since KAN-514; POST and PATCH answer 403 to

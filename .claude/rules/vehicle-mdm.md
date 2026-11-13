@@ -111,6 +111,8 @@ re-verified against the code. -->
   shared lookup (ADR-043) answers `currentPlate: null` — its shape has no withheld flag.
 
 ## Changes and audits
+- A VIN change on a car the caller's Betrieb holds in stock is refused (KAN-667, ADR-160; own Betrieb only, never another's; the
+  projection plus unapplied facts, outbox first — `inventory-vin-correction.md`, `events-stock-sales.md`).
 - **A changed label is an event** (ADR-119): `update_vehicle_mdm` publishes
   `vehicle.vehicle_mdm.summary_changed` in its own transaction whenever a field
   `vehicle.public.VehicleSummary` carries changes — and only then (a Stammnummer, a status, a first
@@ -141,14 +143,15 @@ re-verified against the code. -->
   (`_close_vehicle_party`: `vehicle_party_remove`, reason `vehicle_merged`, `unlinked`; equal starts: the
   survivor's row stays, 2026-11-13); a holder still to come ends the current one at its start, linked (KAN-644). A row
   whose (customer, role, start) the survivor already carries stays on the duplicate, closed at its start
-  and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `merged_party_row`); where it
+  and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `vehicle_merged_party_row` with the survivor's VIN; the Vehicles tab marks it — Anto, KAN-680 A); where it
   still holds and ends later than the survivor's row, or not at all, that row first takes its end and
   its link to a planned holder (Anto, 2026-11-13: `vehicle_party_update`, `linked` on a reopen), then
   the role is settled. A copy that ended in the past changes nothing on the survivor.
   An allocation or a customer-side link naming a merged record is carried out on its survivor
   (KAN-673: `_lock_live_vehicle_role_in_group` resolves it, takes the survivor's lock and re-reads
   under it; a second lock, after a merge during the wait, is only tried — busy is 409
-  `vehicle_merge_in_progress`; the response names the survivor). Customer's reconciliation reports any other party
+  `vehicle_merge_in_progress`; the response names the survivor). So are the trade-in purchase and storno
+  consumers, and a PATCH or Disconnect whose row a merge moved while it waited takes the survivor's lock too (KAN-680). Customer's reconciliation reports any other party
   row naming a merged vehicle.
 - **Vehicle never reads or writes `VehicleParty`** (KAN-634, ADR-131 (5)): the Vehicle 360's
   «Allocate to customer» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders

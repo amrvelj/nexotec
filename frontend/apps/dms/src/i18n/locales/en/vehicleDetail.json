@@ -30,7 +30,10 @@
     "stammnummer": "Stammnummer",
     "typeApprovalNumber": "Type approval no.",
     "firstRegistrationDate": "First registration",
-    "matchStatus": "Catalogue match"
+    "matchStatus": "Catalogue match",
+    "vinHeldInStock": "This vehicle is in your business's stock. Its VIN is changed on the stock vehicle with “Correct VIN”, so the stock vehicle, the vehicle record and the configuration carry the same VIN.",
+    "correctVinInStock": "Correct VIN on stock vehicle {{stockNumber}}",
+    "correctVinInStockUnnumbered": "Correct VIN on the stock vehicle"
   },
   "parties": {
     "title": "Parties",
