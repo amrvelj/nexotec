@@ -19,7 +19,11 @@ from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.customer_common import _EVENT_PRODUCER
 from app.customer.services.vehicle_party import _close_vehicle_party, _open_holders_in_group, _vehicle_party_payload
 from app.customer.services.vehicle_party_labels import _write_vehicle_labels
-from app.customer.services.vehicle_party_locks import _lock_vehicle_role_in_group, _refuse_merged_customer
+from app.customer.services.vehicle_party_locks import (
+    _lock_rows_of_roles,
+    _lock_vehicle_role_in_group,
+    _refuse_merged_customer,
+)
 
 
 def record_former_holder_on_purchase(
@@ -61,6 +65,9 @@ def record_former_holder_on_purchase(
     for role in roles:
         _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
+    # KAN-663: both roles' rows in id order, in one statement, before any is
+    # written — never the keeper rows and then the owner rows.
+    _lock_rows_of_roles(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
     written: list[VehicleParty] = []
     for role in roles:
         own_rows = list(
@@ -183,6 +190,9 @@ def reopen_former_holder_after_storno(
     for role in roles:
         _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
+    # KAN-663: both roles' rows in id order, in one statement — never this
+    # customer's row and then the role's older holders.
+    _lock_rows_of_roles(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
     now = utcnow()
     reopened: list[VehicleParty] = []
     for role in roles:
