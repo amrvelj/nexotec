@@ -5,14 +5,16 @@ name: check-evidence
 # evidence commit on the PR's head. This job reads that commit and posts the status for it:
 #
 # - `success` only when the head carries the evidence marker, has one parent, is empty against
-#   it, and its tree is the tree its message names; the description says it came from a cloud
-#   session's evidence commit;
+#   it, and its tree is the tree its message names; the description says it came from an
+#   evidence commit (a session that cannot write the status);
 # - `error`, with the reason, for a head that carries the marker but fails one of those;
 # - nothing for any other head (a Mac session's push posts the status itself, KAN-625).
 #
 # The rules live in `evidence_verdict` in .claude/hooks/nexotec_hooks.py, beside the code that
 # writes the commit, and are pinned by its selftest. The status says what the session's hook
 # recorded - it is not an independent run (Route B, ADR-128); the evidence is not signed (ADR-129).
+# It runs the PR's own copy of the hooks file, as a pull_request workflow runs the PR's own copy of
+# this file: a guard against mistakes, not against a PR that means to cheat.
 
 on:
   pull_request:
@@ -29,6 +31,8 @@ permissions:
 jobs:
   check-evidence:
     name: check-evidence
+    # A fork's PR gets a read-only token and was not pushed by a session: nothing to post.
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -1329,7 +1329,7 @@ def cmd_pre_bash(data):
             denies.append("The `{}` commit status is posted by the push hook from the recorded check result, "
                           "never by a command typed here (KAN-625). Run `scripts/dev/check`, then push."
                           .format(CHECK_STATUS_CONTEXT))
-        if types_evidence_commit(words, where) or (
+        if types_evidence_commit(words, where, redirects) or (
                 EVIDENCE_MARKER in command and git_verb(words)[0] in ("commit", "commit-tree")):  # `printf … | git commit-tree -F -`
             denies.append("A commit carrying `{}` is made only by the push hook, from the recorded check result "
                           "(KAN-647). Run `scripts/dev/check`, then push.".format(EVIDENCE_MARKER))
@@ -1347,7 +1347,8 @@ def cmd_pre_bash(data):
                               "gate never saw. Run `git push` as its own command once `scripts/dev/check` has "
                               "passed for what you are pushing.".format(moved))
             denies.extend(push_problems(root, args))
-            if push_mode(args) == "push" and all(src == "HEAD" for src, _dst in push_pairs(args, current_branch(root))):
+            if push_mode(args) == "push" and "--tags" not in args and \
+                    all(src == "HEAD" for src, _dst in push_pairs(args, current_branch(root))):
                 evidence_roots.append(root)
         elif verb == "commit":
             if "--no-verify" in args or "n" in option_letters(args, takes_value="mFcCt", takes_attached="Su"):
@@ -1386,7 +1387,10 @@ def cmd_pre_bash(data):
     elif asks:
         pre_decision("ask", "\n".join(dict.fromkeys(asks)))
     else:
-        # KAN-647: only for a push that is going out, never one the gates stop or ask about.
+        # KAN-647: never for a push the gates stop or ask about. The harness's own permission prompt
+        # (`git push*` is an `ask` rule) comes after this hook, and a push can still fail: the
+        # PostToolUse hook drops the commit again when the push did not land; a declined prompt
+        # runs no PostToolUse, and the commit then waits, unpushed, for the next push (never two).
         for root in dict.fromkeys(evidence_roots):
             add_evidence_commit(root)
 
@@ -1502,6 +1506,8 @@ def cmd_post_tool(data):
                     if any(notes):
                         emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                                      "additionalContext": "\n".join(n for n in notes if n)}})
+                else:
+                    drop_unpushed_evidence_commit(pushed)  # KAN-647: no stray empty commit after a failed push
                 return
 
 
@@ -1690,7 +1696,7 @@ def evidence_verdict(root, commit):
         scope = lanes + " only"
     else:
         scope = "all lanes"
-    description = "{} · tree {} · {} · cloud evidence commit".format(
+    description = "{} · tree {} · {} · from an evidence commit (status write refused)".format(
         scope, tree[:12], fields.get("counts") or "no test counts recorded")
     if len(description) > CHECK_STATUS_MAX:
         description = description[:CHECK_STATUS_MAX - 1] + "…"
@@ -1740,10 +1746,24 @@ def add_evidence_commit(root):
     return new
 
 
-def types_evidence_commit(words, where):
+def _option_value(args, i, short, long):
+    """The value of `args[i]` when it is `short`/`long` (value in the next word, attached, or after
+    `=`), else None."""
+    a = args[i]
+    if a in (short, long) and i + 1 < len(args):
+        return args[i + 1]
+    if a.startswith(long + "="):
+        return a[len(long) + 1:]
+    if a.startswith(short) and len(a) > len(short) and not a.startswith("--"):
+        return a[len(short):]
+    return None
+
+
+def types_evidence_commit(words, where, redirects=()):
     """True for a typed command that would make a commit carrying the evidence marker: `git commit`
-    or `git commit-tree` (the message inline or in a file), or an interpreter one-liner naming the
-    marker. Only the push hook makes evidence commits (KAN-647). A rail, not a boundary."""
+    or `git commit-tree` with the message inline, in a file (`-F`, a template, a `<` redirect) or
+    reused from a commit that carries it (`--amend`, `-C`/`-c`), or an interpreter one-liner naming
+    the marker. Only the push hook makes evidence commits (KAN-647). A rail, not a boundary."""
     if not words:
         return False
     if os.path.basename(words[0]).startswith(INTERPRETERS):
@@ -1753,22 +1773,49 @@ def types_evidence_commit(words, where):
         return False
     if any(EVIDENCE_MARKER in a for a in args):
         return True
-    for i, a in enumerate(args):
-        path = None
-        if a in ("-F", "--file") and i + 1 < len(args):
-            path = args[i + 1]
-        elif a.startswith("--file="):
-            path = a[len("--file="):]
-        elif a.startswith("-F") and len(a) > 2:
-            path = a[2:]
-        if path and path != "-":
-            try:
-                with open(os.path.join(where, os.path.expanduser(path)), encoding="utf-8", errors="replace") as fh:
-                    if EVIDENCE_MARKER in fh.read():
-                        return True
-            except OSError:
-                pass
+    root = toplevel(where) or where
+    files = [t for op, t in redirects if op == "<"]
+    reused = ["HEAD"] if verb == "commit" and "--amend" in args else []
+    for i in range(len(args)):
+        for short, long in (("-F", "--file"), ("-t", "--template")):
+            value = _option_value(args, i, short, long)
+            if value and value != "-":
+                files.append(value)
+        if verb == "commit":
+            for short, long in (("-C", "--reuse-message"), ("-c", "--reedit-message")):
+                value = _option_value(args, i, short, long)
+                if value:
+                    reused.append(value)
+    for path in files:
+        try:
+            with open(os.path.join(where, os.path.expanduser(path)), encoding="utf-8", errors="replace") as fh:
+                if EVIDENCE_MARKER in fh.read():
+                    return True
+        except OSError:
+            pass
+    for commit in reused:
+        rc, message = git(root, "show", "-s", "--format=%B", commit)
+        if rc == 0 and EVIDENCE_MARKER in message:
+            return True
     return False
+
+
+def drop_unpushed_evidence_commit(root):
+    """After a push that did not land: when HEAD is still the evidence commit the hook made and no
+    remote branch holds it, move the branch back to its parent (same tree, nothing lost), so no
+    stray empty commit stays behind. Returns True when it did."""
+    made = latest(events(load_state(root), "evidence-commit"))
+    head, branch = head_commit(root), current_branch(root)
+    if not made or not head or made.get("commit") != head or made.get("branch") != branch:
+        return False
+    rc, holders = git(root, "branch", "-r", "--contains", head)
+    if rc != 0 or holders.strip():
+        return False
+    if git(root, "update-ref", "-m", "nexotec: push did not land, evidence commit dropped (KAN-647)",
+           "refs/heads/" + branch, made["parent"], head)[0] != 0:
+        return False
+    append_event(root, "evidence-dropped", commit=head, parent=made["parent"], branch=branch)
+    return True
 
 
 # --------------------------------------------------------------------------
@@ -2826,6 +2873,29 @@ def selftest():
         assert pre_bash("git push --force origin HEAD") and head_commit(repo) == base, "made for a refused push"
         assert pre_bash("git push -u origin HEAD") == "" and head_commit(repo) != base
         assert parse_evidence(commit_facts(repo, "HEAD")[3])["tree"] == tree
+        evidence = head_commit(repo)
+        # its message reused, or fed from a file another way, is refused too
+        with open(marker_file, "w") as fh:
+            fh.write("x\n\n{} 1\n".format(EVIDENCE_MARKER))
+        assert types_evidence_commit(["git", "commit", "--amend", "--no-edit"], repo)
+        assert types_evidence_commit(["git", "commit", "--allow-empty", "-C", evidence], repo)
+        assert types_evidence_commit(["git", "commit", "--reedit-message=HEAD"], repo)
+        assert types_evidence_commit(["git", "commit", "-F-"], repo, [("<", "msg.txt")])
+        assert types_evidence_commit(["git", "commit-tree", tree], repo, [("<", "msg.txt")])
+        assert types_evidence_commit(["git", "commit", "-t", "msg.txt"], repo)
+        assert not types_evidence_commit(["git", "commit", "-C", base], repo)
+        assert "deny" in pre_bash("git commit --amend --no-edit")
+        # a `--tags` push makes none; a push that did not land (no remote here) drops the commit again
+        os.remove(marker_file)  # an untracked file would stop the push at the gate
+        git(repo, "update-ref", "refs/heads/kan-1-x", base, evidence)
+        assert pre_bash("git push --tags") == "" and head_commit(repo) == base
+        git(repo, "update-ref", "refs/heads/kan-1-x", evidence, base)
+        with contextlib.redirect_stdout(io.StringIO()):
+            cmd_post_tool({"cwd": repo, "tool_name": "Bash", "tool_input": {"command": "git push -u origin HEAD"}})
+        assert head_commit(repo) == base and head_tree(repo) == tree, "a failed push left the evidence commit"
+        assert drop_unpushed_evidence_commit(repo) is False
+        ok = evidence_verdict(repo, evidence)
+        assert "evidence commit" in ok["description"] and len(ok["description"]) <= CHECK_STATUS_MAX, ok
     finally:
         if saved_remote is None:
             os.environ.pop("CLAUDE_CODE_REMOTE", None)
