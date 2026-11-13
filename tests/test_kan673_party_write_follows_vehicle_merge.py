@@ -298,19 +298,19 @@ def test_a_merge_committed_while_the_write_waited_for_its_lock_is_followed(db_se
     db_session.commit()
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     take_lock = vehicle_party_locks._lock_vehicle_role_in_group
-    locked: list[uuid.UUID] = []
+    locked: list[tuple[str, uuid.UUID]] = []
 
     def lock_while_a_merge_commits(db, *, vehicle_id, role, group_id):
         if not locked:
             with factory() as merge:
                 merge_vehicles(merge, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
-        locked.append(vehicle_id)
+        locked.append(("wait", vehicle_id))
         take_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
 
     try_lock = vehicle_party_locks._try_lock_vehicle_role_in_group
 
     def try_the_survivors(db, *, vehicle_id, role, group_id):
-        locked.append(vehicle_id)
+        locked.append(("try", vehicle_id))
         return try_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
 
     monkeypatch.setattr(vehicle_party_locks, "_lock_vehicle_role_in_group", lock_while_a_merge_commits)
@@ -322,7 +322,7 @@ def test_a_merge_committed_while_the_write_waited_for_its_lock_is_followed(db_se
             actor_id=uuid.uuid4(),
         )
         assert party.vehicle_id == survivor.id
-    assert locked == [duplicate.id, survivor.id]  # waited for the first, only tried the second
+    assert locked == [("wait", duplicate.id), ("try", survivor.id)]
     db_session.expire_all()
     assert db_session.get(VehicleMdm, duplicate.id).merged_into_vehicle_id == survivor.id
     assert find_rows_in_state(db_session, _MERGED_CHECK) == []

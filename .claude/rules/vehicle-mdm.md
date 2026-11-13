@@ -147,7 +147,8 @@ re-verified against the code. -->
   and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `merged_party_row`).
   An allocation or a customer-side link naming a merged record is carried out on its survivor
   (KAN-673: `_lock_live_vehicle_role_in_group` resolves it, takes the survivor's lock and re-reads
-  under it; the response names the survivor). Customer's reconciliation reports any other party
+  under it; a second lock, after a merge during the wait, is only tried — busy is 409
+  `vehicle_merge_in_progress`; the response names the survivor). Customer's reconciliation reports any other party
   row naming a merged vehicle.
 - **Vehicle never reads or writes `VehicleParty`** (KAN-634, ADR-131 (5)): the Vehicle 360's
   «Allocate to customer» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders
