@@ -109,25 +109,38 @@ def record_former_holder_on_purchase(
             )
             .with_for_update()
         ).first()
+        mine = (
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.customer_id == customer_id,
+            VehicleParty.role == role,
+            VehicleParty.merged_into_customer_id.is_(None),
+            VehicleParty.merged_into_vehicle_id.is_(None),
+        )
         if same_start is not None:
             # A merge's kept copy is never moved (KAN-177); it keeps standing
             # for the start, as before.
-            if same_start.merged_into_customer_id is None and same_start.merged_into_vehicle_id is None:
-                _extend_to_purchase(db, party=same_start, ended_at=ended_at, actor_id=actor_id, group_id=group_id)
-            continue
+            if same_start.merged_into_customer_id is not None or same_start.merged_into_vehicle_id is not None:
+                continue
+            # Extended only up to the next row of this customer that starts
+            # inside the period, never over it; the rest of the period is
+            # then case 2's (from the latest end inside it).
+            next_start = db.scalar(
+                select(func.min(VehicleParty.effective_from)).where(
+                    *mine, VehicleParty.effective_from > held_from, VehicleParty.effective_from < ended_at
+                )
+            )
+            _extend_to_purchase(
+                db, party=same_start, ended_at=next_start or ended_at, actor_id=actor_id, group_id=group_id
+            )
+            if next_start is None:
+                continue
         # Case 2: a row of this customer that ended between `held_from` and
         # the purchase — the new row starts where the latest such row ended,
         # so the periods meet without overlapping.
         start = held_from
         latest_end = db.scalar(
             select(func.max(VehicleParty.effective_to)).where(
-                VehicleParty.vehicle_id == vehicle_id,
-                VehicleParty.customer_id == customer_id,
-                VehicleParty.role == role,
-                VehicleParty.merged_into_customer_id.is_(None),
-                VehicleParty.merged_into_vehicle_id.is_(None),
-                VehicleParty.effective_to > held_from,
-                VehicleParty.effective_to < ended_at,
+                *mine, VehicleParty.effective_to > held_from, VehicleParty.effective_to < ended_at
             )
         )
         if latest_end is not None:
@@ -189,7 +202,9 @@ def _extend_to_purchase(
     db: Session, *, party: VehicleParty, ended_at: dt.datetime, actor_id: uuid.UUID | None, group_id: uuid.UUID
 ) -> None:
     """KAN-566 case 1: a history row of the trade-in's customer that starts at
-    the signature and ended before the purchase is ended at the purchase.
+    the signature and ended before the purchase is ended at the purchase — or
+    at the start of the customer's next own row inside the period, never over
+    it (`ended_at` is that end).
     It was history and stays history (it ended before it was moved, and ends
     in the past now), so it closes nobody and publishes nothing — as a PATCH
     moving a past end does not; audited `vehicle_party_update` with reason

@@ -137,3 +137,31 @@ def test_a_row_ended_before_the_signature_leaves_the_new_row_at_the_signature(db
 
     rows = _rows_of(db_session, clara.id, VehiclePartyRole.OWNER)
     assert [(row.effective_from, row.effective_to) for row in rows] == [(old_start, old_end), (signed_at, ended_at)]
+
+
+def test_the_same_start_row_is_extended_only_up_to_the_customers_next_row(db_session):
+    """Row A starts at the signature and ended early; the customer's own row B
+    lies inside the period. A is extended to B's start, never over B, and the
+    rest of the period continues after B — still no gap and no overlap."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW566004")
+    clara = _customer(db_session, group_id, "Clara")
+    signed_at, ended_at = _moments()
+    b_start, b_end = signed_at + dt.timedelta(days=5), signed_at + dt.timedelta(days=7)
+    _history_row(db_session, vehicle.id, clara, group_id, VehiclePartyRole.OWNER, start=signed_at, end=signed_at + dt.timedelta(days=3))
+    _history_row(db_session, vehicle.id, clara, group_id, VehiclePartyRole.OWNER, start=b_start, end=b_end)
+    db_session.commit()
+
+    record_former_holder_on_purchase(
+        db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
+        held_from=signed_at, ended_at=ended_at, actor_id=None,
+    )
+    db_session.commit()
+
+    rows = _rows_of(db_session, clara.id, VehiclePartyRole.OWNER)
+    assert [(row.effective_from, row.effective_to) for row in rows] == [
+        (signed_at, b_start),
+        (b_start, b_end),
+        (b_end, ended_at),
+    ]
