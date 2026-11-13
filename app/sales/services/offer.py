@@ -173,7 +173,7 @@ def update_offer(
     An edit publishes no event, except that an offer starting to hold a
     configuration id (Path B through deal_editing) publishes
     `sales.offer.configuration_attached` in this transaction, so Vehicle
-    keeps a configuration a host took (KAN-270, `.claude/rules/sales.md`).
+    keeps a configuration a host took (KAN-270, `.claude/rules/events-worker.md`).
     """
 
     changes = data.model_dump(exclude_unset=True)

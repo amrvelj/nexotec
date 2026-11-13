@@ -21,6 +21,7 @@ paths:
   - "tests/test_valuation_contract_carry.py"
   - "tests/test_inventory_valuation_ref.py"
   - "frontend/apps/dms/src/components/deal-workspace/DealWorkspaceContainers.tsx"
+  - "frontend/apps/dms/src/components/stock-detail/EvaluationTab*"
   - "frontend/apps/dms/src/pages/OfferWorkspace.tradeIn*"
 ---
 <!-- Maintainer note. ADR-047, ADR-066, ADR-070, ADR-074; FR-S-08. Moved out of valuation.md by

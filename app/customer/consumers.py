@@ -228,7 +228,7 @@ def handle_stock_item_storno_message(
     consumers judge by the bookings this context has learnt from Stock's
     events, so a storno consumed before its purchase (a failed delivery)
     finds nothing to reopen and the purchase consumed after it records
-    nothing — the residual customer.md states. The record is kept by
+    nothing — the residual customer-vehicle-party.md states. The record is kept by
     `customer.stock_item_bookings_on_*`, not here. Flushes only;
     consume_once commits."""
 

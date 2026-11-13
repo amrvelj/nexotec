@@ -4,7 +4,8 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { semantic } from '@nexotec/ui-kit'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { ALL_ENTITLEMENTS, installFakeBackend, type FakeRoute } from '../test/fakeBackend'
+import i18n from '../i18n'
+import { ALL_ENTITLEMENTS, installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { ReferenceDataPage } from './ReferenceDataPage'
 
 // jsdom has no layout, so TanStack Virtual would window the grid down to zero
@@ -152,6 +153,56 @@ describe('ReferenceDataPage — the kit grid (KAN-516)', () => {
     expect(patch.headers.get('If-Match')).toBe('4')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(within(table).getByText('Gasolio')).toBeInTheDocument()
+  })
+
+  it('a stale save reads the value again and keeps what was typed; the next Save goes through', async () => {
+    const user = userEvent.setup()
+    let patches = 0
+    const backend = install(
+      ['reference_lists'],
+      [
+        {
+          method: 'PATCH',
+          match: /\/reference-data\/fuel_type\/diesel$/,
+          handler: (req) => {
+            patches += 1
+            if (patches === 1) return status(409, { error: { code: 'conflict', message: 'stale', details: { currentVersion: 6 } } })
+            return { ...VALUES[1], ...(req.body as object), version: 7 }
+          },
+        },
+        {
+          // Someone else saved diesel meanwhile: the list now carries version 6.
+          method: 'GET',
+          match: /\/reference-data\/fuel_type$/,
+          handler: () => ({
+            items: patches === 0 ? VALUES : VALUES.map((v) => (v.valueCode === 'diesel' ? { ...v, version: 6 } : v)),
+            nextCursor: null,
+          }),
+        },
+      ],
+    )
+    renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
+
+    const table = await screen.findByRole('table', { name: 'Werte der Referenzliste' })
+    const line = (await within(table).findByText('diesel')).closest('[role="row"]') as HTMLElement
+    await user.click(within(line).getByRole('button', { name: 'Zeilenaktionen' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Bezeichnungen bearbeiten' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    const italian = dialog.getByLabelText('Italiano', { exact: false })
+    await user.clear(italian)
+    await user.type(italian, 'Gasolio')
+    await user.click(dialog.getByRole('button', { name: 'Speichern' }))
+
+    expect(await dialog.findByText(i18n.t('apiRefusal.staleVersion'))).toBeInTheDocument()
+    expect(dialog.getByLabelText('Italiano', { exact: false })).toHaveValue('Gasolio')
+    await waitFor(() => expect(backend.callsTo(/\/reference-data\/fuel_type$/, 'GET').length).toBeGreaterThan(1))
+    await user.click(dialog.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/reference-data\/fuel_type\/diesel$/, 'PATCH')).toHaveLength(2))
+    const [, retry] = backend.callsTo(/\/reference-data\/fuel_type\/diesel$/, 'PATCH')
+    expect(retry.headers.get('If-Match')).toBe('6')
+    expect(retry.body).toEqual({ labelIt: 'Gasolio' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('offers a reader no row menu: there is nothing a reader can do to a value', async () => {

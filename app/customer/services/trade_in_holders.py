@@ -308,7 +308,7 @@ def reopen_former_holder_after_storno(
     recorded after the storno and, as it stands now, is open or ends after
     it was recorded (a newer fact; a history row recorded later does not
     count), or a holder of it starts after the storno. Not caught (API only,
-    the accepted residual in customer.md): an older row reopened by a PATCH
+    the accepted residual in customer-vehicle-party.md): an older row reopened by a PATCH
     after the storno is closed by a late storno, and a row recorded after the
     storno whose end a PATCH moved back before its own recording reads as
     history, so a late storno reopens over it. Otherwise a reopen goes through the
