@@ -98,7 +98,8 @@ def allocate_offer_number(db: Session, tenant_id: uuid.UUID) -> str:
 
 
 def allocate_legacy_offer_number(db: Session, tenant_id: uuid.UUID) -> str:
-    """The legacy transaction import's offer number (`scripts/migrate_transaction_rows.py`):
+    """The legacy transaction import's offer number. No caller since KAN-79
+    deleted that import; KAN-540 removes it with the counter floor. It was
     this module's own counter, as before KAN-207 — history neither consumes
     nor freezes the Betrieb's offer range (KAN-207, settled (b)); the range
     continues after it, since it never goes below this counter."""

@@ -100,8 +100,7 @@ def _customer_label_payload(customer: Customer) -> dict[str, Any]:
 
 # KAN-32: `nationality` and every `address_country` are ISO 3166-1 alpha-2
 # codes drawn from the platform `country` reference list. A pydantic schema
-# cannot reach the DB, so membership is enforced here — the same place
-# `app.vehicle.services.vehicle` validates its reference fields.
+# cannot reach the DB, so membership is enforced here, in the service.
 _COUNTRY_LIST_CODE = "country"
 
 

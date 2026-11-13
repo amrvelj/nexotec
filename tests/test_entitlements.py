@@ -210,7 +210,7 @@ def test_routes_outside_the_sales_entitlement_are_not_gated(client):
     tid = uuid.UUID(body["id"])
     token = _bearer(_token(AccessRole.AFTERSALES, tenant_id=tid, entitlements=frozenset({"aftersales"})))
     assert client.get("/v1/customers", headers=token).status_code == 200
-    assert client.get("/v1/vehicles", headers=token).status_code == 200
+    assert client.get("/v1/vehicle-mdm/search", headers=token).status_code == 200
 
 
 # --- the session carries the set -------------------------------------------------------

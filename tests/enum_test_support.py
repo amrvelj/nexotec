@@ -130,3 +130,51 @@ def _to_name_form(db_session, customer_id: str) -> None:
         {"id": customer_id},
     )
     db_session.commit()
+
+
+# KAN-79 retired the legacy `vehicle` table and its `vehicle_custody_event`:
+# no model maps them, so the test schema lacks them, yet the frozen enum
+# migrations (KAN-86's e1b483faad5c, KAN-175's 0ba433107313) still read and
+# rewrite them. Their tests recreate both, with one row each, in the shape KAN-79's own
+# downgrade recreates them (that migration's DDL, run here), and drop them
+# again afterwards (`drop_retired_legacy_tables`): the schema rebuild after a
+# DDL test drops only the tables the models know.
+RETIRED_LEGACY_TABLES = frozenset({"vehicle", "vehicle_custody_event"})
+
+
+def create_retired_legacy_tables(conn) -> None:
+    import importlib.util
+    from pathlib import Path
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    versions = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "vehicle"
+    (path,) = sorted(versions.glob("8d03887f7876_*.py"))
+    spec = importlib.util.spec_from_file_location("kan79_retired_legacy_tables", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    drop_retired_legacy_tables(conn)
+    with Operations.context(MigrationContext.configure(conn)):
+        module.downgrade()
+    # One row each, as a database from before KAN-79 held them.
+    vehicle_id = uuid.uuid4()
+    conn.execute(
+        text(
+            "INSERT INTO vehicle (id, vin, make, model, model_year, condition, version, created_at, updated_at) "
+            "VALUES (:id, 'VINKAN79LEGACY001', 'x', 'x', 2020, 'used', 1, now(), now())"
+        ),
+        {"id": vehicle_id},
+    )
+    conn.execute(
+        text(
+            "INSERT INTO vehicle_custody_event (id, vehicle_id, partner_id, event_type, event_date, created_at) "
+            "VALUES (:id, :vehicle_id, :partner_id, 'acquired', now(), now())"
+        ),
+        {"id": uuid.uuid4(), "vehicle_id": vehicle_id, "partner_id": uuid.uuid4()},
+    )
+
+
+def drop_retired_legacy_tables(conn) -> None:
+    conn.execute(text("DROP TABLE IF EXISTS vehicle_custody_event, vehicle"))

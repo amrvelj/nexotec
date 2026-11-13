@@ -10,9 +10,9 @@ which finds no row, the storno having deleted it; keeping the fact keyed by stoc
 contract, is what lets a contract written AFTER the purchase start with
 `is_invoiceable = True` without asking Stock synchronously.
 
-Written by app.sales.services.stock_item_purchase (from the consumer, and
-from scripts/migrate_transaction_rows.py for legacy purchases, which publish
-no event) and by the KAN-100 migration's backfill from the outbox.
+Written by app.sales.services.stock_item_purchase (from the consumer; once
+also from the legacy transaction import, deleted by KAN-79) and by the
+KAN-100 migration's backfill from the outbox.
 SalesContract.is_invoiceable is derived from it on read; there is no
 per-contract copy to fall out of step.
 

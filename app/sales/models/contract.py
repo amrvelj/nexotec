@@ -227,8 +227,8 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
 
     cancelled_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # KAN-26 (ADR-050): provenance + idempotency key for
-    # scripts/migrate_transaction_rows.py, matching VehicleMdm.
+    # KAN-26 (ADR-050): provenance + idempotency key the legacy transaction
+    # import wrote (the script went with KAN-79, ADR-153), matching VehicleMdm.
     # migrated_from_legacy_vehicle_id's own precedent — never used for
     # lookups by the live application: an audit trail, a "already
     # migrated, do not re-migrate" guard, and (KAN-147) the mark that makes

@@ -3,12 +3,11 @@
 import datetime as dt
 import uuid
 
-from app.vehicle.models.vehicle_history import CustodyEventType, OdometerSource
+from app.vehicle.models.vehicle_history import OdometerSource
 from app.vehicle.services.vehicle_history import (
     add_accessory,
     current_mileage,
     list_odometer_readings,
-    record_custody_event,
     record_odometer_reading,
     remove_accessory,
 )
@@ -81,15 +80,3 @@ def test_removing_an_accessory_sets_valid_to_and_never_deletes(db_session):
     assert still_there is not None
     assert still_there.valid_to == dt.date(2026, 1, 1)
 
-
-def test_custody_event_is_recorded(db_session):
-    vehicle = _vehicle(db_session)
-    event = record_custody_event(
-        db_session,
-        vehicle_id=vehicle.id,
-        partner_id=uuid.uuid4(),
-        event_type=CustodyEventType.ACQUIRED,
-        event_date=dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
-    )
-    assert event.id is not None
-    assert event.event_type == CustodyEventType.ACQUIRED

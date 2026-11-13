@@ -12,6 +12,15 @@ condition under which a real downgrade would ever be run (immediately
 after the corresponding upgrade, before anything could have gone stale).
 It is not a reconciliation test; see tests/test_reconciliation.py for that.
 
+KAN-79 retired the legacy `vehicle` table, and with it this seed's legacy car,
+its `vehicle_party` row, its `transaction` row and its custody event. None can
+come back: the round trip's downgrade recreates `vehicle` empty and then
+re-adds PR-2's foreign keys onto it (`vehicle_party.vehicle_id`,
+`transaction.vehicle_id`), so any party or transaction row would break that
+step. The cost, said here so nobody reads more into a green run: the round
+trip no longer re-adds a foreign key over a `vehicle_party` or `transaction`
+row; the dealership, user, customer chain and catalogue rows still carry it.
+
 Inserts directly via the ORM, bypassing the service layer entirely — this
 only needs rows to exist with the right foreign keys, not the business
 validation those services also perform. The one exception is `user`, and
@@ -38,7 +47,6 @@ classes directly, since there schema and code genuinely agree.
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/seed_migration_smoke_test.py
 """
 
-import datetime as dt
 import uuid
 
 import sqlalchemy as sa
@@ -61,18 +69,8 @@ from app.customer.models.customer import (
     Language,
     PhoneType,
 )
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.db import SessionLocal
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
-from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
-from app.vehicle.models.vehicle import (
-    CustodyEventType,
-    RegistrationStatus,
-    Vehicle,
-    VehicleCondition,
-    VehicleCustodyEvent,
-    VehicleStatus,
-)
 
 _DEALER_ADDRESS = {
     "address_street": "Bahnhofstrasse",
@@ -105,14 +103,6 @@ _SCHEMA_SENTINELS: dict[str, tuple[str, str]] = {
     "customer_has_fr17_fields": ("customer", "gender"),
     # KAN-295 (vat_status_confirmed, NOT NULL with a Python-side default)
     "customer_has_vat_status_confirmed": ("customer", "vat_status_confirmed"),
-    # KAN-84 (the denormalised vehicle label columns)
-    "vehicle_party_has_vehicle_label": ("vehicle_party", "vehicle_vin"),
-    # KAN-177 (merged_into_customer_id)
-    "vehicle_party_has_merged_mark": ("vehicle_party", "merged_into_customer_id"),
-    # KAN-644 / KAN-583 (closed_for_party_id)
-    "vehicle_party_has_closed_for_link": ("vehicle_party", "closed_for_party_id"),
-    # KAN-672 (merged_into_vehicle_id)
-    "vehicle_party_has_merged_into_vehicle": ("vehicle_party", "merged_into_vehicle_id"),
     # KAN-52 / FR-23 §1 (consent_scope on the three contact-channel tables)
     "contact_channel_has_consent_scope": ("customer_phone", "consent_scope"),
 }
@@ -871,62 +861,10 @@ def main() -> None:
         else:
             customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
 
-        vehicle = Vehicle(
-            vin="1HGCM82633A004352",
-            make="Honda",
-            model="Accord",
-            model_year=2020,
-            condition=VehicleCondition.USED,
-            registration_status=RegistrationStatus.UNREGISTERED,
-            status=VehicleStatus.IN_STOCK,
-            current_custodian_partner_id=dealer_id,
-        )
-        db.add(vehicle)
-        db.flush()
-
-        if (
-            _has(db, "vehicle_party_has_vehicle_label")
-            and _has(db, "vehicle_party_has_merged_mark")
-            and _has(db, "vehicle_party_has_closed_for_link")
-            and _has(db, "vehicle_party_has_merged_into_vehicle")
-        ):
-            db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
-        else:
-            # KAN-84's label columns, KAN-177's merged mark, KAN-644's
-            # closed-for link or KAN-672's vehicle-merge mark aren't live yet —
-            # an insert with explicit values names only the columns given
-            # (plus Python-side defaults), so it fits the older shape.
-            db.execute(
-                sa.insert(VehicleParty).values(
-                    vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER
-                )
-            )
-
         seed_catalogue_type_approval(db)
 
-        transaction = Transaction(
-            tenant_id=dealer_id,
-            transaction_type=TransactionType.SALE,
-            status=TransactionStatus.DRAFT,
-            customer_id=customer_id,
-            vehicle_id=vehicle.id,
-            primary_user_id=user_id,
-        )
-        db.add(transaction)
-        db.flush()
-
-        db.add(
-            VehicleCustodyEvent(
-                vehicle_id=vehicle.id,
-                partner_id=dealer_id,
-                event_type=CustodyEventType.ACQUIRED,
-                event_date=dt.datetime.now(dt.UTC),
-                transaction_id=transaction.id,
-            )
-        )
-
         db.commit()
-        print(f"Seeded dealer={dealer_id} customer={customer_id} vehicle={vehicle.id} transaction={transaction.id}")
+        print(f"Seeded dealer={dealer_id} user={user_id} customer={customer_id}")
     finally:
         db.close()
 

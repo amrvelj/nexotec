@@ -78,7 +78,7 @@ def test_ddl_a_test_runs_is_undone_before_the_next(engine, _postgres_schema):
     with engine.begin() as conn:
         conn.execute(text("CREATE RULE swallow_inserts AS ON INSERT TO reference_value DO INSTEAD NOTHING"))
         conn.execute(text("ALTER TABLE customer DROP COLUMN last_name"))
-        conn.execute(text("DROP INDEX ix_vehicle_vin"))
+        conn.execute(text("DROP INDEX ix_vehicle_mdm_vin"))
 
     _postgres_schema.reset()
 
@@ -90,7 +90,7 @@ def test_ddl_a_test_runs_is_undone_before_the_next(engine, _postgres_schema):
                 "WHERE table_name = 'customer' AND column_name = 'last_name'"
             )
         ).scalar() == 1
-        assert conn.execute(text("SELECT to_regclass('ix_vehicle_vin')")).scalar() is not None
+        assert conn.execute(text("SELECT to_regclass('ix_vehicle_mdm_vin')")).scalar() is not None
     assert _oid(engine, "customer") != oid  # rebuilt
     assert set(_row_counts(engine).values()) == {0}
 

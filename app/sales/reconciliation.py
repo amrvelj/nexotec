@@ -71,7 +71,7 @@ from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
 from app.sales.services.ownership import offer_is_open
 from app.valuation.public import Valuation
-from app.vehicle.public import Vehicle, VehicleConfiguration, VehicleMdm
+from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "sales"
 
@@ -377,14 +377,6 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=Transaction.customer_id,
         target_model=Customer,
         target_id_column=Customer.id,
-    ),
-    ReferenceCheck(
-        label="transaction.vehicle_id -> vehicle.id",
-        source_model=Transaction,
-        source_row_id_column=Transaction.id,
-        source_fk_column=Transaction.vehicle_id,
-        target_model=Vehicle,
-        target_id_column=Vehicle.id,
     ),
     ReferenceCheck(
         label="transaction.primary_user_id -> user.id",

@@ -120,12 +120,12 @@ def _random_vin() -> str:
     return "".join(random.choices(alphabet, k=17))
 
 
-def _create_vehicle(client, dealer_id: str, headers: dict[str, str], **overrides) -> dict:
-    payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
-    payload.update(overrides)
-    response = client.post("/v1/vehicles", json=payload, headers=headers)
-    assert response.status_code == 201, response.text
-    return response.json()
+def _create_vehicle(client, dealer_id: str, headers: dict[str, str]) -> dict:
+    """A vehicle-mdm record (the legacy `POST /v1/vehicles` went with KAN-79)."""
+
+    response = client.post("/v1/vehicle-mdm", json={"vin": _random_vin()}, headers=headers)
+    assert response.status_code in (200, 201), response.text
+    return response.json()["vehicle"]
 
 
 def _seed_transaction(
@@ -197,8 +197,7 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     (not a manually-minted bearer token — proves the login system actually
     integrates with the rest of the API's auth boundary), creates a
     Customer with a contact method, and creates a Vehicle via manual VIN
-    entry (implicit custody event) — the single most important connected
-    scenario in the shell.
+    entry — the single most important connected scenario in the shell.
 
     AC4's own "sale Transaction, draft -> completed, Vehicle status +
     custodian update" step is RETIRED (WP-8 PR-7, ADR-050/S-D12): Sales'
@@ -231,17 +230,10 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     # AC2 also now covers the business key being issued at creation (D-02).
     assert customer["customerNumber"].startswith("K-")
 
-    # AC3: Vehicle via VIN entry, with an implicit custody event linking it
-    # to the creating Dealer (VIN-decode itself is stubbed per the Swiss
-    # addendum — no AUTO-i-DAT integration built — manual entry is the only
-    # path in the shell, so make/model/year are supplied directly here
-    # rather than "populated by decode").
+    # AC3: a vehicle by VIN entry. The legacy shell's vehicle (custodian,
+    # implicit custody event) went with KAN-79; vehicle-mdm's own creation
+    # and VIN rules are covered in test_vehicle_mdm_api.py.
     vehicle = _create_vehicle(client, dealer_id, headers)
-    assert vehicle["currentCustodianPartnerId"] == dealer_id
-    custody = client.get(f"/v1/vehicles/{vehicle['id']}/custody-events", headers=headers)
-    assert custody.status_code == 200
-    assert len(custody.json()["items"]) == 1
-    assert custody.json()["items"][0]["eventType"] == "acquired"
 
     # AC4 (retired path) — creating a sale Transaction is refused.
     transaction = client.post(
@@ -322,46 +314,6 @@ def test_ac8_cancel_never_mutates_vehicle(client, engine):
     )
     assert cancelled.status_code == 409, cancelled.text
 
-    vehicle_after = client.get(f"/v1/vehicles/{vehicle['id']}", headers=headers)
-    assert vehicle_after.json()["status"] == "in_transit"  # unchanged from creation
-    assert vehicle_after.json()["currentCustodianPartnerId"] == dealer_id  # unchanged
-
-
-# --- AC3 (malformed/duplicate VIN) ----------------------------------------------
-
-
-@pytest.mark.parametrize("bad_vin", ["1hgcm82633a004352", "1HGCM8263 A004352", "1HGCM82633A00435"])
-def test_ac3_malformed_vin_rejected_not_normalized(client, bad_vin):
-    dealer_id = _create_dealer(client)
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    response = client.post(
-        "/v1/vehicles",
-        json={"vin": bad_vin, "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"},
-        headers=_bearer(token),
-    )
-    assert response.status_code == 422
-
-
-def test_ac3_duplicate_vin_across_tenants_is_rejected(client):
-    dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client)
-    token_a = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a)))
-    vehicle = _create_vehicle(client, dealer_a, token_a)
-
-    token_b = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b)))
-    response = client.post(
-        "/v1/vehicles",
-        json={
-            "vin": vehicle["vin"],
-            "make": "Toyota",
-            "model": "Corolla",
-            "modelYear": 2021,
-            "condition": "new",
-        },
-        headers=token_b,
-    )
-    assert response.status_code == 409
-
 
 # --- AC7: cross-tenant isolation across all four entities -----------------------
 
@@ -406,20 +358,6 @@ def test_ac7_cross_tenant_isolation_across_all_entities(client, engine):
         == 404
     )
 
-    # Vehicle is tenant-agnostic by design (spec cross-cutting #9): Dealer B
-    # *can* see the static profile (VIN/specs), required for duplicate-VIN
-    # prevention and trade-in workflows, but status/custodian are redacted.
-    vehicle_seen_by_b = client.get(f"/v1/vehicles/{vehicle_a['id']}", headers=token_b)
-    assert vehicle_seen_by_b.status_code == 200
-    assert vehicle_seen_by_b.json()["vin"] == vehicle_a["vin"]
-    assert vehicle_seen_by_b.json()["status"] is None
-    assert vehicle_seen_by_b.json()["currentCustodianPartnerId"] is None
-    # ...and B's own custody-events view of A's vehicle is empty (row-filtered).
-    assert (
-        client.get(f"/v1/vehicles/{vehicle_a['id']}/custody-events", headers=token_b).json()["items"] == []
-    )
-
-
 # --- AC5: audit_event coverage across all four entities -------------------------
 
 
@@ -429,8 +367,9 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     write-path left to produce that audit-log entry, and `app.sales` has
     not (yet) grown its own `GET .../audit-log` endpoint the way
     dealership/customer/vehicle each have (no PR in this package added
-    one). The other three entities' write-audit proof is unaffected and
-    stays as-is below; a SalesOffer/SalesContract audit-log endpoint is a
+    one). The legacy vehicle's audit trail went with its table (KAN-79;
+    vehicle-mdm's identity PATCH audit is covered in its own tests). The
+    dealership and customer write-audit proof stays as-is below; a SalesOffer/SalesContract audit-log endpoint is a
     gap worth flagging for a future PR, not something to invent here just
     to keep this test's original "four" framing.
     """
@@ -440,7 +379,6 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     dealer_token = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id)))
     _create_user(client, dealer_id)
     customer = _create_customer(client, dealer_token)
-    vehicle = _create_vehicle(client, dealer_id, dealer_token)
 
     # Dealer: legal-identity change (KAN-197: legal name, UID, VAT are the audited
     # fields; KAN-203: saved only with the confirmation).
@@ -463,17 +401,6 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     customer_log = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=dealer_token).json()["items"]
     assert any(e["action"] == "update" and e["after"].get("last_name") == "Neuname" for e in customer_log)
 
-    # Vehicle: title/custody-adjacent field change (odometer) + the
-    # implicit "acquired" custody event from creation both land in the
-    # audit trail.
-    client.patch(
-        f"/v1/vehicles/{vehicle['id']}", json={"odometer": 15000}, headers={**dealer_token, "If-Match": "1"}
-    )
-    vehicle_log = client.get(f"/v1/vehicles/{vehicle['id']}/audit-log", headers=dealer_token).json()["items"]
-    assert any(e["action"] == "create" for e in vehicle_log)
-    assert any(e["action"] == "update" and e["after"].get("odometer") == 15000 for e in vehicle_log)
-
-
 # --- AC concurrency + idempotency, asserted across representative entities -----
 
 
@@ -482,9 +409,6 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     [
         lambda client, headers, ids: client.patch(
             f"/v1/customers/{ids['customer']}", json={"lastName": "X"}, headers={**headers, "If-Match": "1"}
-        ),
-        lambda client, headers, ids: client.patch(
-            f"/v1/vehicles/{ids['vehicle']}", json={"odometer": 1}, headers={**headers, "If-Match": "1"}
         ),
         # Transaction's own cancel is retired (WP-8 PR-7) and always 409s
         # regardless of If-Match, so it can no longer prove this property —
@@ -502,9 +426,8 @@ def test_optimistic_concurrency_409_on_stale_if_match(client, make_request):
     user = _create_user(client, dealer_id)
     headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
     customer = _create_customer(client, headers)
-    vehicle = _create_vehicle(client, dealer_id, headers)
     offer = client.post("/v1/sales/offers", headers=headers).json()
-    ids = {"customer": customer["id"], "vehicle": vehicle["id"], "offer": offer["id"]}
+    ids = {"customer": customer["id"], "offer": offer["id"]}
 
     first = make_request(client, headers, ids)
     assert first.status_code == 200, first.text
