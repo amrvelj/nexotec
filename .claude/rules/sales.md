@@ -357,6 +357,10 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   its valuation was judged on (Anto, 2026-10-28, option A). A trade-in captured through the
   valuation path carries `tradeInConfigurationId` and has no vehicle-mdm record. The offer
   document itemises the factory-option lines; the contract document does not.
+  **A stock car's option lines carry the four texts too** (KAN-665): `inventory.public.get_stock_item_pricing`'s
+  `options[].labels` are the identAPI texts of the stock item's configuration line with the same code (read through
+  `vehicle.public`, never from the client; `{}` with no configuration or no provider text), and Path A freezes them
+  into `label_de/fr/it/en` as Path B does.
 
 ## Visibility and numbers
 
