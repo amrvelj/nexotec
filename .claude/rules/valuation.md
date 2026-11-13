@@ -80,6 +80,13 @@ file in the same PR as any change to what it states. -->
   registration or mileage `provider_quote_stale`. Nothing asks the provider on opening a valuation. Run against the
   mock and a fake transport only; whether `vehicleExchangePrice` already includes the km correction is not verified
   against a real answer.
+- **A provider quote has no maximum age; it is kept ten years** (KAN-599; Anto, 2026-11-11): a quote backs a
+  valuation however old it is — nothing is refused for age; the create dialog's «Erneut holen» fetches a new one for
+  the same car when the seller wants it, and the quote card says when it was fetched («abgefragt am …»). The daily
+  job `valuation.provider_quotes.purge` (`app/valuation/daily_jobs.py`) deletes a quote fetched more than ten calendar
+  years ago that **no valuation references**, one audit row each (`provider_quote_purged`, reason `retention_10_years`,
+  never the figures). A referenced quote stays with its valuation (`provider_quote_id`, ADR-066: a valuation is never
+  edited) until the valuation's own retention (FR-V-17) is built.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.
