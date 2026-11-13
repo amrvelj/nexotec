@@ -30,6 +30,7 @@ paths:
   - "frontend/apps/dms/public/sw.js"
   - "frontend/apps/dms/src/**/TranslationsPage*"
   - "frontend/apps/dms/src/components/translations/**"
+  - "frontend/apps/dms/src/utils/seedDiff*"
   - "frontend/apps/dms/src/i18n/runtimeTranslations*"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Dealer Administration PRD's
@@ -88,4 +89,4 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
   the log capped at 5000 rows).
 - The screen is `/platform/translations`; its sources (`components/translations/translationSources.ts`)
   are `ui` and `standardTexts`, each a panel on the shared `FourLanguageEditor` (the AI-prompt seeds,
-  [P3-7], join there). The SPA side is `ui.md`, i18n.
+  [P3-7], join there). The SPA side is `ui-i18n.md`.

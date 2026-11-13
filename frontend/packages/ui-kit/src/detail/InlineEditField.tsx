@@ -35,7 +35,7 @@ interface InlineEditFieldBaseProps {
   /** KAN-473 — the sentence shown for whatever `onSave` threw, in the UI
    * language. The kit never shows a caught error's own `message` (an
    * ApiError's is the API's English text, for logs) and ships no wording of
-   * its own (`.claude/rules/ui.md`), so every caller says it — the app's
+   * its own (`.claude/rules/ui-i18n.md`), so every caller says it — the app's
    * `useInlineEditRefusal()`. */
   describeError: (err: unknown) => string;
   renderEditor?: (props: EditorRenderProps) => ReactNode;
