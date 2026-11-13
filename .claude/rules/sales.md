@@ -3,7 +3,6 @@ paths:
   - "app/sales/**"
   - "tests/test_sales_*.py"
   - "tests/architecture/test_margin_never_in_rendered_document.py"
-  - "tests/architecture/test_no_vat_treatment_field.py"
   - "tests/architecture/test_adr_047_no_shared_transaction.py"
   - "alembic/versions/sales/**"
 ---
@@ -70,19 +69,8 @@ sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
   stays unfilled (ruled).
 
 ## Price and VAT (ADR-057)
-- **One price: gross, CHF incl. MwSt**, after all discounts; no net line, no VAT breakdown on
-  screen or on the customer document. **There is no `vatTreatment`.**
-- VAT is **one line on the printed document only**, at `Dealership.vat_rate` (Notion's
-  `dealer_settings.vat_rate` does not exist), directly under «Verkaufspreis», before the trade-in
-  and «Zu bezahlen»; no `vat_rate`, no VAT line — never a guessed rate.
-- **The VAT line is computed on the full gross price, never on `payable`** (ADR-098): the trade-in
-  pays part of the price, it does not reduce it (CHF 36,000 with a CHF 10,000 trade-in at 8.1 %
-  prints CHF 2,697.50). Open: no tax advisor has confirmed it (KAN-436); if one disagrees, ADR-098
-  is reopened, never overridden in code. Generated documents keep their frozen figure.
-- Of ADR-033/ADR-053 only the **fiktiver Vorsteuerabzug** (Art. 28a MWSTG) survives; margin
-  taxation (Art. 24a) is out of v1. It is a purchase-side fact owned by Stock; Sales reads it
-  through the stock item's pricing and never writes it. Margin nets the notional credit whether
-  or not a landed cost was recorded.
+One gross price, the VAT line on the printed document only, ADR-098, the fiktiver Vorsteuerabzug,
+the pricing bounds and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
 
 ## Contract rules
 - **Purchase gate at invoicing, not at confirmation** (ADR-052, K-12): `request_invoice` refuses a
@@ -109,9 +97,6 @@ sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
   again (`vehicle_left_stock`).
 - An edit publishes no event — except a deal starting to hold a configuration id, which publishes
   `sales.{offer,contract}.configuration_attached` in its own transaction (`vehicle-configurator.md`).
-- **Pricing bounds:** `OfferUpdate` takes `ContractUpdate`'s bounds (no negatives;
-  `test_sales_offer_pricing_bounds.py`). **A discount never exceeds what it is taken off**
-  (`pricing.resolve_discount` caps it at its base; the typed value is stored as typed).
 - `TradeInRequest.customerId` is deprecated: ignored but for its 404 (Anto, KAN-562;
   `test_sales_trade_in.py`).
 - **ADR-065** — a credit block stops contract confirmation, not the offer; an address-less

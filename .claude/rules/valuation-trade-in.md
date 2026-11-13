@@ -62,10 +62,8 @@ main@73baf3f (2026-10-25). -->
   transaction — Sales never writes it (`inventory.public.set_valuation_ref` has no production
   caller). The event's `tradeIn` block names the valuation by id, never its figure; Stock takes the
   figure from the valuation (`pricingSnapshot.tradeInValue` is the deal's credit, ignored by Stock).
-- **Nightly reconciliation reports, never repairs:** a valuation stamped for over an hour that no
-  signed contract of its dealership carries (cleared by «Verwendung aufheben» once a pending
-  contract carrying it is cancelled); a signed contract whose trade-in valuation is not stamped
-  (`sales-reconciliation.md`); a `valuation_ref_id` naming no valuation or a `valuation_ref_amount`
-  differing from its `final_offer`; a valuation whose `vehicle_vin` differs from its vehicle's VIN;
-  carry rows disagreeing with Sales. A manual figure is marked manual wherever it renders
-  (`valuation.md`).
+- **Nightly reconciliation reports, never repairs:** a stamp over an hour old that no signed
+  contract of its dealership carries; a signed contract's unstamped trade-in valuation
+  (`sales-reconciliation.md`); a `valuation_ref` naming no valuation or differing from its
+  `final_offer`; a `vehicle_vin` differing from its vehicle's VIN; carry rows disagreeing with Sales.
+  A manual figure is marked manual wherever it renders (`valuation.md`).

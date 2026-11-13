@@ -40,18 +40,17 @@ the grids are listed by file. Last verified against main@73baf3f (2026-10-25). -
 - **ADR-058** — views and filters are **one control**, labelled with the current view. A
   user-defined filter is **one predicate** (field, operator, value), never a typed expression.
   Every filter is a chip (FR-UI-06).
-- **ADR-102 — a grid shows only the filters it applies.** Every filterable grid narrows what it
-  reads (URL, saved view) with the kit's `offeredPredicates`: an unoffered field or condition is
-  neither sent nor shown, quietly; a saved view so narrowed shows the unsaved-changes dot and no
-  tick (the grid passes `narrowPredicates`). **A field holds one filter**, ranges included: the
-  builder replaces a field's filter and offers no «duplicate»; a link or view with two keeps the
-  first. A field offers only the conditions its endpoint applies exactly — inclusive `…Min`/`…Max`
-  are «mindestens»/«höchstens», a select's «ist nicht» is its endpoint's exclusion (`…_not`,
-  `advisorUserIdNot`/`assigned`), the live catalogue offers «ist» only; a record without a value
-  is kept. An N-days count is a whole number from `MIN_FILTER_DAYS` to `MAX_FILTER_DAYS`: the
-  builder refuses another and holds Save back, `offeredPredicates` drops one from a link or view.
-  `src/architecture/grid-filters-are-applied.test.ts` checks each grid's mapper against the
-  endpoint's parameters; a new filterable grid adds its mapper there.
+- **ADR-102 — a grid shows only the filters it applies:** it narrows what it reads (URL, saved
+  view) with the kit's `offeredPredicates` — an unoffered field or condition is neither sent nor
+  shown, quietly; a view so narrowed shows the unsaved-changes dot and no tick (the grid passes
+  `narrowPredicates`). **A field holds one filter**, ranges included (the builder replaces it,
+  offers no «duplicate»; a link or view with two keeps the first). A field offers only the
+  conditions its endpoint applies exactly: inclusive `…Min`/`…Max` are «mindestens»/«höchstens», a
+  select's «ist nicht» is its endpoint's exclusion, the live catalogue offers «ist» only; a record
+  without a value is kept. An N-days count is a whole number within `MIN_FILTER_DAYS`…
+  `MAX_FILTER_DAYS` (the builder refuses another and holds Save back; a link or view drops it).
+  `src/architecture/grid-filters-are-applied.test.ts` checks each grid's mapper against its
+  endpoint; a new filterable grid adds its mapper there.
 - **ADR-060** — every persisted field is available as a column; a documented subset is visible by
   default; a stored field that cannot be put on screen is a defect. A grid with a Columns panel
   passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both `DataGrid` and the

@@ -1,6 +1,5 @@
 ---
 paths:
-  - "app/core/permissions.py"
   - "app/core/tenancy.py"
   - "app/core/ownership.py"
   - "app/ownership_registry.py"
@@ -100,25 +99,8 @@ platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; 
 - `LoginResponse.user.isDealerManager` is the **home** flag — never gate a screen on it; the
   session's own flag is `LoginResponse.isActiveDealershipManager`.
 
-## Access (D-A-03; Roles & Permissions)
-- `User.access_roles` plus the manager flag. `platform_admin` is Nexotec staff only: only a
-  `platform_admin` principal may grant or remove it or edit a user who holds it (403 otherwise). A
-  `platform_admin` gets no sister membership and a member cannot get the role (422);
-  `scripts/report_platform_admins_homed_in_dealerships.py` reports the ones homed in a Betrieb (exit
-  1), never fixes them.
-- Capabilities, not role checks: `Capability(read_roles, write_roles, manager_can_write,
-  manager_can_read)` in `app/core/permissions.py`; `require_read`/`require_write` check
-  platform_admin, then the roles, then the manager flag. `read_roles=None` = any role; an empty set
-  = manager only; an empty `write_roles` = staff or the manager, except the rows with
-  `manager_can_write=False` (the "Nobody", platform-only and self-only rows).
-  `tests/fixtures/permission_matrix.json` mirrors the PRD's matrix; `test_permission_matrix_mirrors_prd.py`
-  fails on any difference (a row may declare `enforced_write` + a `deviation` ticket; none today).
-- **The SPA learns what it may offer from the session** (Anto): `LoginResponse.writableCapabilities`
-  (login, `/auth/me`, switch) lists the rows the user may write in the active Betrieb; `useCanWrite`
-  **hides** an action outside it (disabled-with-reason stays for state, ADR-061) — the action only,
-  never what the role may read. The names a screen asks about are `src/auth/gatedCapabilities.ts`,
-  each a matrix row — never a role table in the frontend.
-- Policy limits are not in v1 (D-A-18): no `dealer_policy_limit`, no screen, no row.
+## Access (D-A-03)
+Roles, capabilities, the permission matrix and what the SPA may offer: `platform-permissions.md`.
 
 ## Deactivation and hand-over (D-A-35, ADR-094)
 - `OwnershipProvider` (`app/core/ownership.py`), one per context, registered in
