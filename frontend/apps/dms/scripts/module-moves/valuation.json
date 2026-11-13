@@ -1,7 +1,7 @@
 {
   "module": "valuation",
   "ticket": "KAN-636",
-  "adr": "ADR-158",
+  "adr": "ADR-161",
   "moves": [
     ["src/pages/ValuationsListPage.tsx", "src/modules/valuation/pages/ValuationsListPage.tsx"],
     ["src/pages/ValuationsListPage.createOffer.render.test.tsx", "src/modules/valuation/pages/ValuationsListPage.createOffer.render.test.tsx"],

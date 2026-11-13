@@ -65,7 +65,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.integration.public import (
-    IntegrationConnection,
+    ConnectionRef,
     ProviderAdapter,
     ProviderGatewayError,
     ProviderNotEntitledError,
@@ -697,7 +697,7 @@ def _lock_for_detail(db: Session, *, tenant_id: uuid.UUID, variant_id: uuid.UUID
 
 
 def _wanted(
-    db: Session, *, connection: IntegrationConnection, states: DetailStates, force: bool
+    db: Session, *, connection: ConnectionRef, states: DetailStates, force: bool
 ) -> list[CatalogueDetail]:
     wanted: list[CatalogueDetail] = []
     for detail in DETAILS:
@@ -765,7 +765,7 @@ def _load_one(
     db: Session,
     *,
     tenant_id: uuid.UUID,
-    connection: IntegrationConnection,
+    connection: ConnectionRef,
     provider_code: str,
     variant: ModelVariant,
     fz_key: str,

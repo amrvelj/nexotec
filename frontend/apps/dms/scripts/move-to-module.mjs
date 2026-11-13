@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Moves a module's files into src/modules/<module>/ from a mapping file and
-// rewrites every relative import that names them (KAN-636, ADR-158).
+// rewrites every relative import that names them (KAN-636, ADR-161).
 //
 //   node scripts/move-to-module.mjs scripts/module-moves/<module>.json [--dry-run]
 //

@@ -41,7 +41,7 @@ describe('route screens load on demand', () => {
     const app = read('App.tsx')
     expect(staticPageImports(app).filter((path) => !EAGER_PAGES.has(path))).toEqual([])
     // Not vacuous: the routes are there, through lazyPage — a module's pages
-    // included (src/modules/<module>/pages/, ADR-158).
+    // included (src/modules/<module>/pages/, ADR-161).
     expect((app.match(/lazyPage\(\(\) => import\('\.\/(?:modules\/[\w-]+\/)?pages\//g) ?? []).length).toBeGreaterThan(20)
   })
 

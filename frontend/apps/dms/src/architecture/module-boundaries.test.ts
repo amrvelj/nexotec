@@ -7,7 +7,7 @@ import { dirname, join, posix, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
-// KAN-636 (ADR-158): the frontend follows the modules a user knows. A module's
+// KAN-636 (ADR-161): the frontend follows the modules a user knows. A module's
 // pages, components, hooks, options and tests live in src/modules/<module>/,
 // and its index.ts is its one door. This guard holds three rules:
 //
@@ -147,7 +147,7 @@ function moveMappings(): MoveMapping[] {
 const realFiles = new Map(sourceFiles(SRC_ROOT).map((full) => [srcRelative(full), readFileSync(full, 'utf-8')]))
 const moduleFolders = readdirSync(join(SRC_ROOT, 'modules')).filter((name) => statSync(join(SRC_ROOT, 'modules', name)).isDirectory())
 
-describe('frontend modules keep their boundary (KAN-636, ADR-158)', () => {
+describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
   it('production code reaches a module only through its index.ts, the router\'s lazy pages aside', () => {
     expect(boundaryViolations(realFiles)).toEqual([])
     // Not vacuous: another module's screens do use valuation, through its door.

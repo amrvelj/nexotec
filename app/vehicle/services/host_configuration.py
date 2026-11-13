@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.core.errors import UnprocessableEntityError
-from app.integration.public import IntegrationConnection
+from app.integration.public import ConnectionRef
 
 # Literals, not `ConfigurationMode.X.value`: the ADR-047 guard
 # (tests/architecture/test_adr_047_no_shared_transaction.py) cannot follow a
@@ -94,7 +94,7 @@ class HostConfiguration:
 
 @dataclasses.dataclass(frozen=True)
 class ProviderValuationInput:
-    connection: IntegrationConnection
+    connection: ConnectionRef
     configuration_id: uuid.UUID
     configuration_label: str | None
     fz_key: str

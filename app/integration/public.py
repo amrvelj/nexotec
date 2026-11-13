@@ -18,10 +18,15 @@ no provider code in any field (the reading rule: "application code never
 sees a provider code"), so exporting them is not exporting anything
 provider-specific.
 
-`get_entitlement` (PR-5) returns the raw `IntegrationEntitlement` row or
-`None` — "never probed or declared" is a fact this registry reports, not
+`get_entitlement` (PR-5) returns an `EntitlementState` (granted, checked at)
+or `None` — "never probed or declared" is a fact this registry reports, not
 a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
+
+No mapped class leaves through this door (KAN-123): `get_enabled_connection`
+answers a `ConnectionRef` (the connection's id), which `call_capability` and
+`resolve_adapter` take back, and the registry's rows stay inside this context
+(`services/connection_refs.py`). `ConnectionStatus` is an enum, not a row.
 `resolve_adapter` (KAN-27) is `call_capability` without the call-log/
 circuit-breaker side effects — for a caller whose use of the adapter
 makes no provider I/O (validating data shape locally). A real provider
@@ -82,15 +87,15 @@ from app.integration.errors import (
     ProviderRequestError,
     ProviderTimeoutError,
 )
-from app.integration.models.connection import ConnectionStatus, IntegrationConnection
-from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.connection import ConnectionStatus
 from app.integration.services.captions import ProviderCaption, get_captions
-from app.integration.services.connections import (
+from app.integration.services.connection_refs import (
+    ConnectionRef,
+    EntitlementState,
     get_enabled_connection,
     get_entitlement,
-    valuation_granted,
-    vin_decode_granted,
 )
+from app.integration.services.connections import valuation_granted, vin_decode_granted
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     UnknownProviderError,
@@ -107,10 +112,10 @@ __all__ = [
     "CatalogueModelGroupData",
     "CircuitOpenError",
     "ConnectionDisabledError",
+    "ConnectionRef",
     "ConnectionStatus",
     "EnergyLabelData",
-    "IntegrationConnection",
-    "IntegrationEntitlement",
+    "EntitlementState",
     "MarketplaceAdapter",
     "MarketplaceListing",
     "MarketplaceListingError",

@@ -41,7 +41,7 @@ function files(dir: string, out: string[] = []): string[] {
 
 /**
  * A test (`*.test.*`, `*.spec.*`) or a test helper — anything under src/test or under a
- * module's own test/ folder (ADR-158, KAN-636) — by its src-relative path. The ui-kit's twin
+ * module's own test/ folder (ADR-161, KAN-636) — by its src-relative path. The ui-kit's twin
  * has no module folders, so this clause is the app's alone.
  */
 export function isScanned(path: string): boolean {
