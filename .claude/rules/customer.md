@@ -147,10 +147,8 @@ weekly. -->
   keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
   when that date is not after the signature or is still to come (never later than the booking: an
   end to come would make a current holder) — held since the signature. A row of the customer
-  already holding the role then is closed there instead; one of the customer's own rows starting at the
-  signature and ended before the purchase is ended at the purchase, and when one ended inside the period the new
-  row starts at its end — the periods join without gap or overlap (KAN-566; Anto, 2026-11-11, option B; audited
-  `vehicle_party_update`, reason `trade_in_purchased`, no event: it stays history); no other holder is touched (history closes nobody, KAN-370);
+  already holding the role then is closed there instead; the customer's own rows join the period
+  without gap or overlap (Anto, KAN-566 B; `test_kan566_former_holder_periods.py`); no other holder is touched (history closes nobody, KAN-370);
   a customer merged since is followed to its survivor. Same locks and `customer_merged` refusal
   as an allocation. The step lives in the customer context (Anto's ruling 1 A), so no write
   spans two contexts (rule 12).
@@ -177,8 +175,7 @@ weekly. -->
   returned storno consumed after a later booking's event reopens nobody, and
   two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
   is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
-  before its own recording reads as history, so a late returned storno reopens over it. *Anto ruled A on 2026-11-07 on the pre-KAN-632 (wider)
-  text; the narrowing is disclosed in PR #316.*
+  before its own recording reads as history, so a late returned storno reopens over it.
 - **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
   `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
   refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock,

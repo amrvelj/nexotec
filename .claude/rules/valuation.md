@@ -23,8 +23,7 @@ file in the same PR as any change to what it states. -->
 
 - **`valuation` is its own bounded context** — "a dated commercial opinion, not a vehicle
   fact"; the PRD gives it its own audit and retention rules, not implemented yet. Not under
-  `vehicle` (vehicle identity is global, valuations are tenant-private) and not under `sales`
-  (Sales owns the trade-in workflow, not the valuation record).
+  `vehicle` or `sales`.
 - **Single writer.** Sales holds `trade_in_valuation_id` (offer and contract) and Stock
   `valuation_ref_*`, both read-only references to the same record; there is never a second
   writer.
@@ -80,13 +79,8 @@ file in the same PR as any change to what it states. -->
   registration or mileage `provider_quote_stale`. Nothing asks the provider on opening a valuation. Run against the
   mock and a fake transport only; whether `vehicleExchangePrice` already includes the km correction is not verified
   against a real answer.
-- **A provider quote has no maximum age; it is kept ten years** (KAN-599; Anto, 2026-11-11): a quote backs a
-  valuation however old it is — nothing is refused for age; the create dialog's «Erneut holen» fetches a new one for
-  the same car when the seller wants it, and the quote card says when it was fetched («abgefragt am …»). The daily
-  job `valuation.provider_quotes.purge` (`app/valuation/daily_jobs.py`) deletes a quote fetched more than ten calendar
-  years ago that **no valuation references**, one audit row each (`provider_quote_purged`, reason `retention_10_years`,
-  never the figures). A referenced quote stays with its valuation (`provider_quote_id`, ADR-066: a valuation is never
-  edited) until the valuation's own retention (FR-V-17) is built.
+- **A provider quote has no maximum age; one no valuation references is deleted ten years after its fetch** (Anto,
+  KAN-599; `test_kan599_provider_quote_retention.py`).
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.
@@ -137,8 +131,7 @@ file in the same PR as any change to what it states. -->
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
   rule 10): a valuation stamped for over an hour that no signed contract of its dealership
-  carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both
-  failed, or a hand stamp from before KAN-115; the dealer manager clears either with
+  carries (`valuation/reconciliation.py` — the dealer manager clears either with
   «Verwendung aufheben», above — once a pending contract still carrying it is cancelled); a signed contract whose existing trade-in valuation of
   the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no

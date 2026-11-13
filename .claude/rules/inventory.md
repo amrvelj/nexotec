@@ -177,17 +177,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   differ). **One configuration, one stock item** (KAN-509, FR-C-11): create and attach refuse a
   configuration another stock item of the Betrieb holds — 409 `configuration_held_by_stock_item`
   with the holder's `stockItemId` and `stockNumber` — under a per-(tenant, configuration) advisory
-  lock, so two racing writers cannot both win; the partial unique index
-  `uq_stock_item_tenant_id_configuration_id` (inventory migration `04ab4cc24646`, KAN-513) refuses every other
-  writer — the ADR-091 import included — and an `IntegrityError` on it is the same 409. **The FR-I-02/02b consumers
-  settle a held configuration under the same lock** (KAN-513; Anto, 2026-11-03, option A;
-  `services/configuration_holding.py`): a second contract on the same offer **reuses the first pipeline car while it is
-  free on stock** (not left stock, no reservation) — reserved for the new contract, `inventory.stock_item.reassigned`
-  (`originContractId`, `originRole: manual_configuration`, `stockNumber`) published, which Sales consumes like `added`
-  (`sales.stock_item_reassigned`) — and gets **a copy of the configuration** (`vehicle.public.copy_configuration_for_host`
-  on its own session) once that car has gone elsewhere. A trade-in's item is never reused; its held configuration is
-  copied. A copy a failed consumer leaves untaken goes with Vehicle's 30-day purge (KAN-270). The reused car keeps its
-  first contract's `pipeline_ref` and origin.
+  lock; a partial unique index backs it for every writer. A second contract on the same offer
+  reuses the free pipeline car, else gets a configuration copy (Anto, KAN-513 A;
+  `test_kan513_one_configuration_one_stock_item.py`).
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
   `trade_in`; additive, KAN-144). A directly added item carries neither. It carries
