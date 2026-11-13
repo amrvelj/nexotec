@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, UnprocessableEntityError
-from app.integration.errors import ProviderGatewayError
+from app.integration.errors import ProviderConfigurationError, ProviderGatewayError, ProviderNotEntitledError
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.provider import IntegrationProvider
 from app.integration.services import captions as captions_service
@@ -45,11 +45,33 @@ def _vehicle_data_connection(db: Session, *, tenant_id: uuid.UUID) -> tuple[Inte
     return None
 
 
+def _refusal(failure: ProviderGatewayError, fetched: list[str]) -> ConflictError | UnprocessableEntityError:
+    """The provider's failure in the words KAN-552's quote uses: the
+    connection's set-up (the dealer's to fix) and the contract are said as
+    such; anything else is «not available right now»."""
+
+    if isinstance(failure, ProviderConfigurationError):
+        return ConflictError(
+            "The provider connection is not fully set up.",
+            details={"reason": "provider_not_configured", "languagesFetched": fetched},
+        )
+    if isinstance(failure, ProviderNotEntitledError):
+        return ConflictError(
+            "Captions are not in this Betrieb's provider contract.",
+            details={"reason": "not_entitled", "languagesFetched": fetched},
+        )
+    return UnprocessableEntityError(
+        "The provider could not be asked for its captions.",
+        details={"reason": "provider_unavailable", "languagesFetched": fetched},
+    )
+
+
 def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) -> list[captions_service.CaptionFetch]:
     """Fetches the four languages for the Betrieb's vehicle-data provider.
-    409 `no_provider_connection` without an enabled one; 422
-    `provider_unavailable` when the provider fails (the languages fetched
-    before stay stored, and the audit row names them)."""
+    409 `no_provider_connection` without an enabled one; when the provider
+    fails, 409 `provider_not_configured` / `not_entitled` or 422
+    `provider_unavailable` (the languages fetched before stay stored, and
+    the audit row names them)."""
 
     found = _vehicle_data_connection(db, tenant_id=tenant_id)
     if found is None:
@@ -87,8 +109,5 @@ def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) 
     )
     db.commit()
     if failure is not None:
-        raise UnprocessableEntityError(
-            "The provider could not be asked for its captions.",
-            details={"reason": "provider_unavailable", "languagesFetched": fetched},
-        ) from failure
+        raise _refusal(failure, fetched) from failure
     return captions_service.list_caption_fetches(db)

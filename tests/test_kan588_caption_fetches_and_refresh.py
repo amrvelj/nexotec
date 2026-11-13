@@ -124,3 +124,14 @@ def test_both_routes_are_platform_staffs_only(client, method, path):
     response = client.request(method, path, headers=_headers(user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), staff=False))
 
     assert response.status_code == 403, response.text
+
+
+def test_a_connection_without_its_secret_is_the_dealers_to_fix_not_unavailable(client, db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch, fake=_LanguageAwareFake())
+    s.secrets.values.clear()  # the client secret is gone: a configuration error, not an outage
+    staff = _staff_in(db_session, s.connection.tenant_id)
+
+    response = client.post("/v1/integrations/captions/refresh", headers=_headers(user_id=staff.id, tenant_id=s.connection.tenant_id))
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {"reason": "provider_not_configured", "languagesFetched": []}
