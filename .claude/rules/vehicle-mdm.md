@@ -145,8 +145,9 @@ re-verified against the code. -->
   survivor's row stays, 2026-11-13); a holder still to come ends the current one at its start, linked (KAN-644). A row
   whose (customer, role, start) the survivor already carries stays on the duplicate, closed at its start
   and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `merged_party_row`); where it
-  ends later than the survivor's row, or not at all, that row first takes its end (Anto, 2026-11-13:
-  `vehicle_party_update`, `linked` on a reopen), then the role is settled.
+  still holds and ends later than the survivor's row, or not at all, that row first takes its end and
+  its link to a planned holder (Anto, 2026-11-13: `vehicle_party_update`, `linked` on a reopen), then
+  the role is settled. A copy that ended in the past changes nothing on the survivor.
   An allocation or a customer-side link naming a merged record is carried out on its survivor
   (KAN-673: `_lock_live_vehicle_role_in_group` resolves it, takes the survivor's lock and re-reads
   under it; a second lock, after a merge during the wait, is only tried — busy is 409

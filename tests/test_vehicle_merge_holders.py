@@ -375,7 +375,11 @@ def test_a_customer_still_current_on_the_duplicate_remains_the_holder_on_the_sur
     assert len(_unlinked(db_session, copy)) == 1
 
 
-def test_a_copy_that_ended_later_gives_the_survivors_row_its_end(db_session, engine):
+def test_a_copy_that_ended_in_the_past_leaves_the_survivors_history_as_it_is(db_session, engine):
+    """Anto's ruling (2026-11-13) is for a customer still holding on the
+    duplicate. A copy that ended later, but in the past, rewrites nothing on
+    the surviving record."""
+
     group_id = uuid.uuid4()
     survivor, duplicate, ended, copy = _same_customer_on_both(
         db_session, group_id, survivor_ends=Y2022, duplicate_ends=Y2023
@@ -384,14 +388,55 @@ def test_a_copy_that_ended_later_gives_the_survivors_row_its_end(db_session, eng
 
     _merge(db_session, engine, survivor, duplicate)
 
-    assert _row(db_session, ended).effective_to == Y2023
+    assert _row(db_session, ended).effective_to == Y2022
     assert _current(db_session, survivor) == set()
-    [audit] = _period_audits(db_session, ended)
-    assert audit.after == {"effectiveFrom": Y2020.isoformat(), "effectiveTo": Y2023.isoformat()}
-    # History before and after: the row never held its role again.
+    assert _period_audits(db_session, ended) == []
     assert len(_linked(db_session, ended)) == linked_before
     kept = _row(db_session, copy)
     assert (kept.merged_into_vehicle_id, kept.effective_to) == (survivor.id, Y2023)
+
+
+def test_a_planned_successor_on_the_duplicate_keeps_its_link_to_the_row_that_took_the_later_end(db_session, engine):
+    """The duplicate's row ends where its planned holder starts and is linked
+    to it (KAN-644). The survivor's row takes that end *and* that link, so
+    cancelling the planned holder or moving its start still reaches it —
+    without the link, moving the start earlier left two current holders."""
+
+    group_id = uuid.uuid4()
+    starts = dt.datetime.now(dt.UTC).replace(microsecond=0) + dt.timedelta(days=30)
+    survivor, duplicate = _cars(db_session)
+    customer = _customer(db_session, group_id)
+    ended = _holder(db_session, survivor, group_id, customer=customer, effective_from=Y2020, effective_to=Y2022)
+    copy = _holder(db_session, duplicate, group_id, customer=customer, effective_from=Y2020)
+    planned = _holder(db_session, duplicate, group_id, effective_from=starts)
+    assert (_row(db_session, copy).effective_to, _row(db_session, copy).closed_for_party_id) == (starts, planned.id)
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    row = _row(db_session, ended)
+    assert (row.effective_to, row.closed_for_party_id) == (starts, planned.id)
+    assert _row(db_session, planned).vehicle_id == survivor.id
+    assert _row(db_session, planned).effective_to is None
+    assert _current(db_session, survivor) == {ended.id}
+    assert _row(db_session, copy).merged_into_vehicle_id == survivor.id
+
+
+def test_the_row_that_took_the_later_end_does_not_hold_beside_another_holder_the_duplicate_brought(db_session, engine):
+    """The duplicate carried two open holders of the role (written past the
+    close rule). The survivor's reopened row is both cars' at once, so the
+    role is settled: the later start stays, one current holder."""
+
+    group_id = uuid.uuid4()
+    survivor, duplicate = _cars(db_session)
+    customer = _customer(db_session, group_id)
+    ended = _holder(db_session, survivor, group_id, customer=customer, effective_from=Y2020, effective_to=Y2022)
+    _holder(db_session, duplicate, group_id, customer=customer, effective_from=Y2020)
+    other = _raw(db_session, duplicate, group_id, effective_from=Y2023)
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    assert _current(db_session, survivor) == {other.id}
+    assert _row(db_session, ended).effective_to == Y2023
 
 
 def test_a_copy_ending_at_a_date_to_come_gives_the_survivors_row_that_end(db_session, engine):

@@ -147,8 +147,19 @@ def repoint_vehicle_parties_on_vehicle_merge(
         key = (party.customer_id, party.role, party.effective_from)
         if key in on_target:
             group_id = groups.get(party.customer_id)
-            if group_id is not None and _take_later_end(
-                db, on_target[key], until=party.effective_to, group_id=group_id, now=now
+            # Anto's ruling is for a customer *still* holding on the duplicate:
+            # a copy that ended in the past leaves the survivor's history as it is.
+            if (
+                group_id is not None
+                and _holds(party, now)
+                and _take_later_end(
+                    db,
+                    on_target[key],
+                    until=party.effective_to,
+                    link=party.closed_for_party_id,
+                    group_id=group_id,
+                    now=now,
+                )
             ):
                 extended.append(on_target[key])
             _keep_copy(db, party, target=target, group_id=group_id, now=now)
@@ -171,6 +182,7 @@ def repoint_vehicle_parties_on_vehicle_merge(
                 if party.vehicle_id == target and party.role == role and groups.get(party.customer_id) == group_id
             ],
             moved_ids=moved_ids,
+            extended_ids={party.id for party in extended},
             group_id=group_id,
             now=now,
         )
@@ -235,14 +247,22 @@ def _holds(party: VehicleParty, now: dt.datetime) -> bool:
 
 
 def _take_later_end(
-    db: Session, kept: VehicleParty, *, until: dt.datetime | None, group_id: uuid.UUID, now: dt.datetime
+    db: Session,
+    kept: VehicleParty,
+    *,
+    until: dt.datetime | None,
+    link: uuid.UUID | None,
+    group_id: uuid.UUID,
+    now: dt.datetime,
 ) -> bool:
     """KAN-672 (Anto, 2026-11-13) — the same customer holds the role on both
     cars from the same start, and the duplicate's row ends later than the
     survivor's (`kept`), or not at all: the customer remains the holder. The
-    survivor's row takes the duplicate's end (`until`; open when that is) —
-    as a PATCH of its `effectiveTo` would write it: any link to a planned
-    handover dropped, audited `vehicle_party_update` (reason `vehicle_merged`,
+    survivor's row takes the duplicate's end (`until`; open when that is) and,
+    with it, the duplicate row's link to the planned holder that end waits
+    for (`link`, KAN-644: that holder moves to the survivor under its own id,
+    so cancelling it or moving its start still reaches this row) — audited
+    `vehicle_party_update` (reason `vehicle_merged`,
     no actor) and, when the row did not hold its role and now does, published
     `linked`. An end that is not later changes nothing, and a copy an earlier
     customer merge kept (KAN-177) is never given a period. Returns whether
@@ -261,7 +281,7 @@ def _take_later_end(
         "effectiveTo": kept.effective_to.isoformat(),
     }
     kept.effective_to = until
-    kept.closed_for_party_id = None
+    kept.closed_for_party_id = link
     record_audit_event(
         db,
         entity_type="customer",
@@ -343,13 +363,22 @@ def _keep_copy(
 
 
 def _settle_role(
-    db: Session, parties: list[VehicleParty], *, moved_ids: set[uuid.UUID], group_id: uuid.UUID, now: dt.datetime
+    db: Session,
+    parties: list[VehicleParty],
+    *,
+    moved_ids: set[uuid.UUID],
+    extended_ids: set[uuid.UUID],
+    group_id: uuid.UUID,
+    now: dt.datetime,
 ) -> None:
     """KAN-672 (Anto, 2026-11-12, option C) — one role of the survivor in one
     dealer group, after the move. Nothing is done unless both cars brought a
     row that holds the role now or later: a role only one of them held is as
     it was, and what was already wrong on one car is not this consumer's to
-    repair. Never another group's row (KAN-99): `parties` is one group's.
+    repair. A survivor's row that took its copy's later end (`extended_ids`)
+    is both cars' at once, so its role is always settled — it must not hold
+    beside another holder the duplicate brought. Never another group's row
+    (KAN-99): `parties` is one group's.
 
     Of the holders current now, the one with the later start stays; every
     other is closed **at that start**, the instant it was replaced — through
@@ -370,7 +399,9 @@ def _settle_role(
 
     holding = [party for party in parties if _holds(party, now)]
     brought = [party for party in holding if party.id in moved_ids]
-    if not brought or len(brought) == len(holding):
+    if not brought:
+        return
+    if len(brought) == len(holding) and not any(party.id in extended_ids for party in holding):
         return
 
     def rank(party: VehicleParty) -> tuple[dt.datetime, bool, uuid.UUID]:
