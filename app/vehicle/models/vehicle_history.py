@@ -106,9 +106,5 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
     )
     event_type: Mapped[CustodyEventType] = mapped_column(StoredEnum(CustodyEventType, length=16), nullable=False)
     event_date: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
-    transaction_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True,
-        comment="Owned by the sales context (Transaction). No DB-level FK — reconciled nightly.",
-    )
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)

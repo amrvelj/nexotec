@@ -116,10 +116,6 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # Wagenbuch: append-only via recordCost, never a user write (ADR-029 read scope).
     "wagenbuch": Capability(read_roles=_ANY, write_roles=_MANAGER_ONLY, manager_can_write=False),
     "marketplace_publishing": Capability(read_roles=_ANY, write_roles=frozenset({_I})),
-    # Retired alongside `transaction` itself (ADR-050, WP-8 PR-7) —
-    # sales_offers/sales_contracts are its replacement. Kept only because
-    # the endpoints still serve GETs.
-    "transactions": Capability(read_roles=_ANY, write_roles=frozenset({_S})),
     "sales_offers": Capability(read_roles=_ANY, write_roles=frozenset({_S})),
     "sales_contracts": Capability(read_roles=_ANY, write_roles=frozenset({_S})),
     "contract_lifecycle": Capability(read_roles=_ANY, write_roles=frozenset({_S})),

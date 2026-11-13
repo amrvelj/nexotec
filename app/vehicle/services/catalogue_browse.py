@@ -41,7 +41,7 @@ from app.core.errors import UnprocessableEntityError
 from app.integration.public import (
     CatalogueBrandData,
     CatalogueModelGroupData,
-    IntegrationConnection,
+    ConnectionRef,
     ProviderGatewayError,
     ProviderNotEntitledError,
     VariantSearchPage,
@@ -150,7 +150,7 @@ class _Provider:
     """The Betrieb's connection, or the state that says why there is none to ask."""
 
     state: CatalogueBrowseState
-    connection: IntegrationConnection | None
+    connection: ConnectionRef | None
     provider_code: str | None
 
 

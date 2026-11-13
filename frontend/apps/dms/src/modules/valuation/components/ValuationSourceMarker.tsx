@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ValuationSourceBadge } from '@nexotec/ui-kit'
-import type { ValuationSourceValue } from '../api/types'
+import type { ValuationSourceValue } from '../../../api/types'
 
 const SOURCES: readonly ValuationSourceValue[] = ['auto_i_dat', 'manual']
 

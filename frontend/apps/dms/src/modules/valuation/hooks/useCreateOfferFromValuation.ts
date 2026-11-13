@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { api } from '../api/client'
-import type { SalesOfferRead, ValuationRead } from '../api/types'
-import { apiRefusalText } from '../utils/apiRefusal'
-import { useIdempotencyKey } from './useIdempotencyKey'
+import { api } from '../../../api/client'
+import type { SalesOfferRead, ValuationRead } from '../../../api/types'
+import { apiRefusalText } from '../../../utils/apiRefusal'
+import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 
 export interface CreateOfferFromValuationError {
   /** Built from `t(...)` in the UI language — never an API's `message`. */

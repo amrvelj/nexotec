@@ -18,7 +18,6 @@ from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.inventory.public import StockItem
 from app.platform.public import DealerGroup, Dealership, actor_reference_checks
-from app.sales.public import Transaction
 from app.vehicle.models.catalogue import (
     Brand,
     ModelGroup,
@@ -227,15 +226,6 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=VehicleMdmCustodyEvent.partner_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
-    ),
-    ReferenceCheck(
-        label="vehicle_mdm_custody_event.transaction_id -> transaction.id",
-        source_model=VehicleMdmCustodyEvent,
-        source_row_id_column=VehicleMdmCustodyEvent.id,
-        source_fk_column=VehicleMdmCustodyEvent.transaction_id,
-        target_model=Transaction,
-        target_id_column=Transaction.id,
-        nullable=True,
     ),
     ReferenceCheck(
         label="vehicle_dealer_plate.tenant_id -> dealership.id",

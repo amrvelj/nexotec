@@ -3,6 +3,7 @@ paths:
   - "frontend/**/*.test.ts"
   - "frontend/**/*.test.tsx"
   - "frontend/apps/dms/src/test/**"
+  - "frontend/apps/dms/src/modules/*/test/**"
   - "frontend/packages/ui-kit/src/test/**"
   - "frontend/apps/dms/vite*.config.*"
   - "frontend/packages/ui-kit/vite*.config.*"

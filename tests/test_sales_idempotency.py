@@ -10,9 +10,6 @@ The If-Match transitions (trade-in, trade-in valuation, finalize, the two
 cancels, confirm, request-invoice) are retried with the If-Match they were
 first sent with: after the first success it is stale, so a retry without the
 route class is a 409 version conflict instead of the original success.
-
-The legacy /transactions writes are retired (WP-8 PR-7): they refuse every
-call, so under a key they refuse again and leave no record behind.
 """
 
 import uuid
@@ -22,7 +19,6 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.auth import AccessRole, create_access_token
-from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.db import SessionLocal
 from app.inventory.models.stock_item import ReservationState, StockItem
@@ -37,7 +33,6 @@ from app.valuation.services.valuation import create_valuation
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from tests.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
 from tests.test_sales_offer_refinements import _offer_with_vehicle, _stock_item
-from tests.test_transaction import _seed_transaction_directly, _setup, _transaction_payload
 from tests.token_support import dealer_group_of
 
 
@@ -559,48 +554,3 @@ def test_generate_contract_document_with_a_reused_key_on_another_contract_is_a_4
 
     _assert_key_conflict(response, key)
     assert _count(db_session, SalesDocument, SalesDocument.owner_id == other.id) == 0
-
-
-# --- the retired /v1/transactions writes ---------------------------------------------
-
-
-def _refused_twice_under_one_key(client, db_session, path: str, token: str, body: dict | None, **extra: str) -> None:
-    """Both calls get the retirement 409, not a 409 for the key: a refused
-    request releases its claim, and no record is left for the key."""
-
-    key = str(uuid.uuid4())
-    for _ in range(2):
-        response = client.post(path, json=body, headers=_headers(token, key, **extra))
-        assert response.status_code == 409, response.text
-        assert "successor" in response.json()["error"]["details"]
-    assert _count(db_session, IdempotencyRecord, IdempotencyRecord.idempotency_key == key) == 0
-
-
-def test_a_transaction_create_under_a_key_is_still_refused_and_leaves_no_record(client, db_session):
-    dealer_id, user, customer, vehicle = _setup(client)
-    token = _token(uuid.UUID(dealer_id), is_dealer_manager=True)
-
-    _refused_twice_under_one_key(
-        client, db_session, "/v1/transactions", token, _transaction_payload(user, customer, vehicle)
-    )
-
-
-def test_a_transaction_complete_under_a_key_is_still_refused_and_leaves_no_record(client, db_session, engine):
-    dealer_id, user, customer, vehicle = _setup(client)
-    transaction = _seed_transaction_directly(engine, dealer_id=dealer_id, user=user, customer=customer, vehicle=vehicle)
-    token = _token(uuid.UUID(dealer_id), is_dealer_manager=True)
-
-    _refused_twice_under_one_key(
-        client, db_session, f"/v1/transactions/{transaction.id}/complete", token, None, **{"If-Match": "1"}
-    )
-
-
-def test_a_transaction_cancel_under_a_key_is_still_refused_and_leaves_no_record(client, db_session, engine):
-    dealer_id, user, customer, vehicle = _setup(client)
-    transaction = _seed_transaction_directly(engine, dealer_id=dealer_id, user=user, customer=customer, vehicle=vehicle)
-    token = _token(uuid.UUID(dealer_id), is_dealer_manager=True)
-
-    _refused_twice_under_one_key(
-        client, db_session, f"/v1/transactions/{transaction.id}/cancel", token, {"reason": "irrelevant now"},
-        **{"If-Match": "1"},
-    )

@@ -2,11 +2,13 @@
 paths:
   - "frontend/packages/ui-kit/src/datagrid/**"
   - "frontend/apps/dms/src/pages/*ListPage*"
+  - "frontend/apps/dms/src/modules/*/pages/*ListPage*"
   - "frontend/apps/dms/src/pages/listGrids*"
   - "frontend/apps/dms/src/pages/listRowActions*"
   - "frontend/apps/dms/src/pages/stock/GroupStockGrid*"
   - "frontend/apps/dms/src/**/*Grid*"
   - "frontend/apps/dms/src/*Options.ts"
+  - "frontend/apps/dms/src/modules/*/*Options.ts"
   - "frontend/apps/dms/src/hooks/useDataGridLabels.ts"
   - "frontend/apps/dms/src/hooks/useColumnPanelLabels.ts"
   - "frontend/apps/dms/src/hooks/useViewsAndFiltersLabels*"

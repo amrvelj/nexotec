@@ -38,7 +38,6 @@ from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
-from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.valuation import reconciliation as valuation_reconciliation
 from app.valuation.models.valuation import Valuation, ValuationSource
 from app.valuation.public import consume_valuation_for_contract
@@ -186,33 +185,13 @@ def _create_vehicle(client, dealer_id: str) -> dict:
     return response.json()["vehicle"]
 
 
-def _create_transaction(db_session, dealer_id: str, user: dict, customer: dict, vehicle: dict) -> dict:
-    """WP-8 PR-7 (ADR-050/S-D12): `transaction` writes are retired at the
-    service layer — seeded directly via the ORM instead, on the SAME
-    db_session the reconciliation job itself runs against.
-    """
-
-    transaction = Transaction(
-        tenant_id=uuid.UUID(dealer_id),
-        transaction_type=TransactionType.SALE,
-        status=TransactionStatus.DRAFT,
-        customer_id=uuid.UUID(customer["id"]),
-        vehicle_id=uuid.UUID(vehicle["id"]),
-        primary_user_id=uuid.UUID(user["id"]),
-    )
-    db_session.add(transaction)
-    db_session.commit()
-    db_session.refresh(transaction)
-    return {"id": str(transaction.id)}
-
-
 # --- clean data: every job finds nothing ------------------------------------------
 
 
 def _create_vehicle_mdm(db_session) -> uuid.UUID:
     """WP-5 PR-2: a VehicleParty now references vehicle_mdm, not the legacy
     `vehicle` table — seeded via the service on the same db_session the
-    reconciliation job runs against, same pattern as _create_transaction."""
+    reconciliation job runs against."""
 
     from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm
 
@@ -255,8 +234,16 @@ def test_sales_reconciliation_clean_data_finds_zero_orphans(client, db_session):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
     customer = _create_customer(client, dealer_id)
-    vehicle = _create_vehicle(client, dealer_id)
-    _create_transaction(db_session, dealer_id, user, customer, vehicle)
+    _create_vehicle(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"]))
+    offer = client.post("/v1/sales/offers", headers=_bearer(token))
+    assert offer.status_code == 201, offer.text
+    patched = client.patch(
+        f"/v1/sales/offers/{offer.json()['id']}",
+        json={"customerId": customer["id"]},
+        headers={**_bearer(token), "If-Match": str(offer.json()["version"])},
+    )
+    assert patched.status_code == 200, patched.text
     db_session.expire_all()
 
     run = sales_reconciliation.run(db_session)
@@ -374,26 +361,6 @@ def test_vehicle_reconciliation_reports_a_plate_in_a_group_that_does_not_exist(c
         "vehicle_plate kept in a group that is not its recording Betrieb's",
         "vehicle_plate.group_id -> dealer_group.id",
     ]
-
-
-def test_sales_reconciliation_detects_orphaned_customer_id(client, db_session):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    customer = _create_customer(client, dealer_id)
-    vehicle = _create_vehicle(client, dealer_id)
-    txn = _create_transaction(db_session, dealer_id, user, customer, vehicle)
-    db_session.expire_all()
-
-    row = db_session.get(Transaction, uuid.UUID(txn["id"]))
-    row.customer_id = uuid.uuid4()
-    db_session.commit()
-    db_session.expire_all()
-
-    with pytest.raises(ReconciliationAlarm) as exc_info:
-        sales_reconciliation.run(db_session)
-
-    assert exc_info.value.run.orphans_found == 1
-    assert exc_info.value.orphans[0].check_label == "transaction.customer_id -> customer.id"
 
 
 def test_sales_reconciliation_detects_a_purchase_replica_for_a_stock_item_that_does_not_exist(client, db_session):
@@ -1006,18 +973,15 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
     user = _create_user(client, dealer_id)
-    vehicle = _create_vehicle(client, dealer_id)
-    txn = _create_transaction(db_session, dealer_id, user, customer, vehicle)
+    _create_vehicle(client, dealer_id)
     db_session.expire_all()
 
-    # Orphan customer (via vehicle_party) and sales (via transaction), leave
-    # vehicle clean — proves run_all doesn't stop at the first alarm. (The
-    # transaction's vehicle_id is no longer checked: the legacy vehicle table
-    # it named is gone, KAN-79 — its customer_id is.)
+    # Orphan customer (via vehicle_party) and sales (an offer naming no
+    # customer), leave vehicle clean — proves run_all doesn't stop at the
+    # first alarm.
     db_session.add(VehicleParty(vehicle_id=uuid.uuid4(), customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER))
-    txn_row = db_session.get(Transaction, uuid.UUID(txn["id"]))
-    txn_row.customer_id = uuid.uuid4()
     db_session.commit()
+    _offer(db_session, dealer_id, customer_id=uuid.uuid4())
     # Platform runs too (KAN-318) and must stay clean, like vehicle.
     _make_platform_actors_real(db_session, uuid.UUID(user["id"]))
     db_session.expire_all()
@@ -1033,11 +997,13 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
 
 
 def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
-    """Customer, Vehicle, Dealer, Transaction and User are the five tables
+    """Customer, Vehicle, Dealer, Transaction and User were the five tables
     the dropped FKs pointed at. The delete-path audit (PR-2) found no
     DELETE endpoint for any of them — status/lifecycle fields are the only
     way to retire one. If this ever changes, reconciliation and this
-    contract both need a conscious update, not a silent one.
+    contract both need a conscious update, not a silent one. Transaction
+    itself is gone, with its routes (KAN-555); the exact set below still
+    refuses any DELETE route it would come back with.
     """
 
     schema = client.app.openapi()
@@ -1048,7 +1014,6 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/dealerships/{dealer_id}/users/{user_id}",
         "/v1/customers/{customer_id}",
         "/v1/vehicles/{vehicle_id}",
-        "/v1/transactions/{transaction_id}",
     ):
         assert forbidden not in delete_paths, f"unexpected hard-delete endpoint: {forbidden}"
 
@@ -1147,11 +1112,7 @@ def _merge(client, dealer_id: str, duplicate: dict, survivor: dict) -> None:
 
 def _sales_rows_naming(client, db_session, dealer_id: str, customer: dict) -> dict[str, uuid.UUID]:
     customer_id = uuid.UUID(customer["id"])
-    transaction = _create_transaction(
-        db_session, dealer_id, _create_user(client, dealer_id), customer, _create_vehicle(client, dealer_id)
-    )
     return {
-        "transaction": uuid.UUID(transaction["id"]),
         "sales_offer": _offer(db_session, dealer_id, customer_id=customer_id).id,
         "sales_contract": _contract(db_session, dealer_id, customer_id=customer_id).id,
         "sales_deal": _deal(db_session, dealer_id, customer_id=customer_id).id,
@@ -1172,7 +1133,7 @@ def test_sales_reconciliation_reports_every_row_still_naming_a_merged_customer(c
     """KAN-581 — the merge reaches Sales only through `customer.merged`
     (KAN-185). Here no worker delivers it (as on staging, or after a dead
     letter): within outbox lag the rows are left alone, after it each of the
-    four tables' rows still naming the duplicate is reported."""
+    three tables' rows still naming the duplicate is reported."""
 
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id)

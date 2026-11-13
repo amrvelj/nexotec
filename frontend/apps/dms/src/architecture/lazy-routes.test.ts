@@ -40,8 +40,9 @@ describe('route screens load on demand', () => {
   it('App.tsx imports no page statically but the sign-in', () => {
     const app = read('App.tsx')
     expect(staticPageImports(app).filter((path) => !EAGER_PAGES.has(path))).toEqual([])
-    // Not vacuous: the routes are there, through lazyPage.
-    expect((app.match(/lazyPage\(\(\) => import\('\.\/pages\//g) ?? []).length).toBeGreaterThan(20)
+    // Not vacuous: the routes are there, through lazyPage — a module's pages
+    // included (src/modules/<module>/pages/, ADR-161).
+    expect((app.match(/lazyPage\(\(\) => import\('\.\/(?:modules\/[\w-]+\/)?pages\//g) ?? []).length).toBeGreaterThan(20)
   })
 
   it('no module the entry chunk always loads imports a page', () => {
@@ -61,6 +62,9 @@ describe('route screens load on demand', () => {
       './pages/account/AccountLayout',
     ])
     expect(staticPageImports("import { X } from '../../pages/CustomerDetailPage'")).toEqual(['../../pages/CustomerDetailPage'])
+    expect(staticPageImports("import { ValuationsListPage } from './modules/valuation/pages/ValuationsListPage'")).toEqual([
+      './modules/valuation/pages/ValuationsListPage',
+    ])
     expect(staticPageImports("const X = lazyPage(() => import('./pages/X'), 'X')")).toEqual([])
   })
 })

@@ -407,14 +407,6 @@
         "sales",
         "inventory"
       ]
-    },
-    {
-      "label": "Transactions (retired, ADR-050 — GET endpoints only until they go; noted under the Notion matrix 2026-10-17)",
-      "key": "transactions",
-      "read": null,
-      "write": [
-        "sales"
-      ]
     }
   ]
 }

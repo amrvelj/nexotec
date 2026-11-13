@@ -37,7 +37,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.integration.public import (
-    IntegrationConnection,
+    ConnectionRef,
     VariantMasterData,
     get_enabled_connection,
 )
@@ -129,7 +129,7 @@ def _slugify(name: str) -> str:
 
 def find_enabled_vehicle_data_connection(
     db: Session, *, tenant_id: uuid.UUID
-) -> tuple[IntegrationConnection, str] | None:
+) -> tuple[ConnectionRef, str] | None:
     """Tries each vehicle-data provider_code in turn — a tenant has at
     most one enabled connection among them in practice, but nothing here
     assumes that; the first enabled hit wins.

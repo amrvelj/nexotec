@@ -1,0 +1,30 @@
+{
+  "module": "valuation",
+  "ticket": "KAN-636",
+  "adr": "ADR-161",
+  "moves": [
+    ["src/pages/ValuationsListPage.tsx", "src/modules/valuation/pages/ValuationsListPage.tsx"],
+    ["src/pages/ValuationsListPage.createOffer.render.test.tsx", "src/modules/valuation/pages/ValuationsListPage.createOffer.render.test.tsx"],
+    ["src/pages/ValuationCreatePage.tsx", "src/modules/valuation/pages/ValuationCreatePage.tsx"],
+    ["src/pages/ValuationDetailPage.tsx", "src/modules/valuation/pages/ValuationDetailPage.tsx"],
+    ["src/pages/ValuationDetailPage.createOffer.render.test.tsx", "src/modules/valuation/pages/ValuationDetailPage.createOffer.render.test.tsx"],
+    ["src/pages/ValuationDetailPage.dateOnly.render.test.tsx", "src/modules/valuation/pages/ValuationDetailPage.dateOnly.render.test.tsx"],
+    ["src/pages/ValuationDetailPage.idempotency.render.test.tsx", "src/modules/valuation/pages/ValuationDetailPage.idempotency.render.test.tsx"],
+    ["src/pages/ValuationDetailPage.providerQuote.render.test.tsx", "src/modules/valuation/pages/ValuationDetailPage.providerQuote.render.test.tsx"],
+    ["src/pages/ValuationDetailPage.revertUse.render.test.tsx", "src/modules/valuation/pages/ValuationDetailPage.revertUse.render.test.tsx"],
+    ["src/pages/ValuationSource.i18n.render.test.tsx", "src/modules/valuation/pages/ValuationSource.i18n.render.test.tsx"],
+    ["src/components/CreateOfferFromValuationAlert.tsx", "src/modules/valuation/components/CreateOfferFromValuationAlert.tsx"],
+    ["src/components/NewValuationButton.tsx", "src/modules/valuation/components/NewValuationButton.tsx"],
+    ["src/components/ProviderQuoteCard.tsx", "src/modules/valuation/components/ProviderQuoteCard.tsx"],
+    ["src/components/ValuationCreateDialog.tsx", "src/modules/valuation/components/ValuationCreateDialog.tsx"],
+    ["src/components/ValuationCreateDialog.render.test.tsx", "src/modules/valuation/components/ValuationCreateDialog.render.test.tsx"],
+    ["src/components/ValuationProviderQuote.render.test.tsx", "src/modules/valuation/components/ValuationProviderQuote.render.test.tsx"],
+    ["src/components/ValuationRevertUseDialog.tsx", "src/modules/valuation/components/ValuationRevertUseDialog.tsx"],
+    ["src/components/ValuationSourceMarker.tsx", "src/modules/valuation/components/ValuationSourceMarker.tsx"],
+    ["src/components/valuationRowMenu.tsx", "src/modules/valuation/components/valuationRowMenu.tsx"],
+    ["src/components/valuationRowMenu.test.ts", "src/modules/valuation/components/valuationRowMenu.test.ts"],
+    ["src/hooks/useCreateOfferFromValuation.ts", "src/modules/valuation/hooks/useCreateOfferFromValuation.ts"],
+    ["src/valuationOptions.ts", "src/modules/valuation/valuationOptions.ts"],
+    ["src/test/nameValuationCar.ts", "src/modules/valuation/test/nameValuationCar.ts"]
+  ]
+}

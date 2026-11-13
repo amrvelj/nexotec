@@ -64,7 +64,6 @@ from app.sales.models.document import SalesDocument
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
-from app.sales.models.transaction import Transaction
 from app.valuation.models.contract_carry import ValuationContractCarry
 from app.valuation.models.valuation import (
     Valuation,
@@ -184,7 +183,6 @@ __all__ = [
     "StockItemOption",
     "StockItemPublishing",
     "StockNumberSequence",
-    "Transaction",
     "TypeApproval",
     "TyreSpecCache",
     "UiTranslation",

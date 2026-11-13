@@ -4,9 +4,7 @@ option A).
 The customer context merges and publishes `customer.merged` in its own
 transaction; it writes nothing of Sales'. Sales' consumer
 (`sales.customer_merged`, `app/sales/consumers.py`) moves everything Sales
-holds for the duplicate — the retired legacy `transaction` rows (ADR-050:
-retired for business writes, but a merge still moves them), offers,
-contracts and deals — to the survivor, in its own transaction with its
+holds for the duplicate — offers, contracts and deals — to the survivor, in its own transaction with its
 processed-event row. A failure is redelivered on the outbox's backoff and,
 after its last attempt, dead-lettered with an alert (`app/core/outbox_worker.py`);
 a replay re-runs it. No shared cross-context transaction remains (CLAUDE.md
@@ -29,9 +27,10 @@ without a signed contract of its own buyer, a pending contract) the nightly
 the survivor's language, as for any customer whose language changed (KAN-590's
 approved plan). A signed contract keeps the language it had.
 
-Before KAN-185 the legacy rows moved inside the merge's own transaction (the
-tracked ADR-047 debt) and offers/contracts/deals in an own-commit call after
-it, whose failure nothing reported.
+Before KAN-185 the legacy `transaction` rows moved inside the merge's own
+transaction (the tracked ADR-047 debt) and offers/contracts/deals in an
+own-commit call after it, whose failure nothing reported. That table is gone
+(KAN-555, ADR-117).
 """
 
 import uuid
@@ -44,7 +43,6 @@ from app.core.base import utcnow
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import SalesOffer
-from app.sales.models.transaction import Transaction
 
 
 @dataclass(frozen=True)
@@ -57,7 +55,6 @@ class SurvivorLabel:
 
 @dataclass(frozen=True)
 class MergeRepointCounts:
-    transactions: int
     offers: int
     contracts: int
     deals: int
@@ -83,11 +80,6 @@ def repoint_merged_customer_records(
             return
         row.customer_label = survivor.label
         row.customer_denorm_refreshed_at = refreshed_at
-
-    transactions = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id).with_for_update()).all())
-    for txn in transactions:
-        txn.customer_id = target_id
-    db.flush()
 
     # KAN-657: every row is read FOR UPDATE, so a row an attach holds is read
     # again once it commits (Postgres re-checks the WHERE): one moved off the
@@ -115,6 +107,4 @@ def repoint_merged_customer_records(
         relabel(deal)
     db.flush()
 
-    return MergeRepointCounts(
-        transactions=len(transactions), offers=len(offers), contracts=len(contracts), deals=len(deals)
-    )
+    return MergeRepointCounts(offers=len(offers), contracts=len(contracts), deals=len(deals))

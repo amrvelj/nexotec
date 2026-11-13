@@ -57,6 +57,7 @@ from app.integration.services import connections as connection_service
 from app.integration.services import entitlement_probes, metering, resilience
 from app.integration.services import providers as provider_service
 from app.integration.services import retention as retention_service
+from app.integration.services.connection_refs import ConnectionRef
 
 logger = logging.getLogger("app.integration.gateway")
 
@@ -170,8 +171,31 @@ def _resolve_adapter(
     return _adapter_factory(db, connection)(db, connection, actor_id, purpose)
 
 
+def _connection_row(db: Session, connection: IntegrationConnection | ConnectionRef) -> IntegrationConnection:
+    """The row behind what a caller handed in (KAN-123). Another context holds a
+    `ConnectionRef` from `public.get_enabled_connection`, whose lookup left the
+    row in that caller's own session, so `get` finds the same instance without
+    a query (or reloads it after the caller committed, as touching an expired
+    row did before). A connection deleted since is refused like a disabled one,
+    and so is a row of another Betrieb than the reference names: a reference
+    rebuilt from a stored id never calls, logs against or charges the breaker
+    of another Betrieb's connection, and the refusal does not say it exists
+    (rule 7)."""
+
+    if isinstance(connection, IntegrationConnection):
+        return connection
+    row = db.get(IntegrationConnection, connection.id)
+    if row is None or row.tenant_id != connection.tenant_id:
+        raise ConnectionDisabledError(connection.id)
+    return row
+
+
 def resolve_adapter(
-    db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None = None, purpose: str = ""
+    db: Session,
+    connection: IntegrationConnection | ConnectionRef,
+    *,
+    actor_id: uuid.UUID | None = None,
+    purpose: str = "",
 ) -> ProviderAdapter:
     """The same resolution `call_capability` does (enabled check, circuit
     check, factory lookup) but WITHOUT any call-log row or circuit-
@@ -184,9 +208,11 @@ def resolve_adapter(
     happen, precisely so every such call is logged and every provider
     failure counted toward that connection's circuit breaker. Resolving an
     adapter here to then quietly do I/O with it would defeat both.
+
+    Another context passes the `ConnectionRef` it was given (KAN-123).
     """
 
-    return _resolve_adapter(db, connection, actor_id=actor_id, purpose=purpose)
+    return _resolve_adapter(db, _connection_row(db, connection), actor_id=actor_id, purpose=purpose)
 
 
 def record_call(
@@ -221,7 +247,7 @@ def record_call(
 def call_capability(
     db: Session,
     *,
-    connection: IntegrationConnection,
+    connection: IntegrationConnection | ConnectionRef,
     capability: str,
     correlation_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
@@ -267,11 +293,16 @@ def call_capability(
     Any lock wait is still bounded by `_LOG_LOCK_TIMEOUT`, so a wait added
     later fails instead of hanging.
 
+    Another context passes the `ConnectionRef` it was given (KAN-123); the
+    gateway works on the row behind it, the same instance the caller's own
+    session loaded.
+
     Usage:
         with call_capability(db, connection=connection, capability="vehicle_data") as adapter:
             data = adapter.fetch_vehicle_master_data(fz_key)
     """
 
+    connection = _connection_row(db, connection)
     # One block, one correlation: every row it writes carries the same id.
     correlation_id = correlation_id or uuid.uuid4()
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as gateway_db:

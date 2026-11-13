@@ -360,7 +360,11 @@ describe('the create surface is a dialog (KAN-48, FR-05 / FR-20)', () => {
     const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8')
     // Sales mounts it in the deal's customer container, shared by the offer
     // workspace and a pending contract since KAN-307.
-    for (const rel of ['./deal-workspace/DealWorkspaceContainers.tsx', './ValuationCreateDialog.tsx', '../pages/CustomersListPage.tsx']) {
+    for (const rel of [
+      './deal-workspace/DealWorkspaceContainers.tsx',
+      '../modules/valuation/components/ValuationCreateDialog.tsx',
+      '../pages/CustomersListPage.tsx',
+    ]) {
       const src = read(rel)
       expect(src, `${rel} should mount CustomerCreateDialog`).toContain('CustomerCreateDialog')
       expect(src, `${rel} should not wrap CustomerCreateFlow itself`).not.toMatch(/<CustomerCreateFlow[\s/>]/)

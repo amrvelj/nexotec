@@ -7,7 +7,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import type { StockItemRead, ValuationRead } from '../api/types'
 import { StockListPage } from './StockListPage'
-import { ValuationsListPage } from './ValuationsListPage'
+import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 
 // KAN-190 item 1 (ADR-060: every persisted field is available as a grid
 // column) — KAN-10 persisted `configurationLabel` on the stock item and the

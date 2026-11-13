@@ -3,7 +3,7 @@ addendum Round 2 Q3) — value_code strings other entities point to instead of
 a DB enum, so a new taxonomy value doesn't require a deploy.
 
 Global, not TenantScopedMixin: this data isn't owned by a Dealership (it's the
-shared vocabulary the whole platform's Vehicle/Customer/Transaction records
+shared vocabulary the whole platform's Vehicle/Customer/Sales records
 draw from), same "tenant-agnostic" reasoning as the Vehicle profile (Swiss
 addendum decision #9). ReferenceList rows are seed-only for v1 (created by
 migration, not a POST endpoint) — the API only manages ReferenceValue rows

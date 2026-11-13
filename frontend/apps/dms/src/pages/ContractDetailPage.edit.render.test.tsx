@@ -10,7 +10,7 @@ import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../t
 import { pickOptionWithoutOpening } from '../test/pickOption'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
-import { nameValuationCar } from '../test/nameValuationCar'
+import { nameValuationCar } from '../modules/valuation/test/nameValuationCar'
 
 // KAN-67 (ADR-083) — a contract born from a customer (KAN-58) used to be a
 // dead end: no vehicle, no price, nothing to add them with. While pending it

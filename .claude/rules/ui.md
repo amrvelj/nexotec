@@ -3,6 +3,7 @@ paths:
   - "frontend/apps/dms/src/App.tsx"
   - "frontend/apps/dms/src/pages/**"
   - "frontend/apps/dms/src/components/**"
+  - "frontend/apps/dms/src/modules/**"
   - "frontend/apps/dms/src/layout/**"
   - "frontend/apps/dms/src/api/**"
   - "frontend/packages/ui-kit/src/**"
@@ -55,6 +56,12 @@ package; a need the kit cannot meet is a ui-kit change plus an ADR — never a l
 colour outside the tokens. A kit component ships no user-visible string of its own (`ui-i18n.md`).
 Money is `CHF 12'500.00` through the kit's `ChfInput`, a date-only value renders through
 `formatDateOnly` (`ui-formats.md`; architecture tests enforce both).
+
+## Where the code lives (ADR-161)
+
+A module with a folder, `src/modules/<module>/`, keeps every screen, component, hook and helper of
+its own there, never in `src/pages/`, `components/` or `hooks/`; other code reaches it only through
+its `index.ts` (the router's lazy pages and tests excepted; `architecture/module-boundaries.test.ts`).
 
 ## Evidence and API types
 

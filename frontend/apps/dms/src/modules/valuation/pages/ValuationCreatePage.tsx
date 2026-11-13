@@ -4,11 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Group, Loader, Stack } from '@mantine/core'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
-import { api } from '../api/client'
-import { apiRefusalText } from '../utils/apiRefusal'
+import { api } from '../../../api/client'
+import { apiRefusalText } from '../../../utils/apiRefusal'
 import { ValuationCreateDialog } from '../components/ValuationCreateDialog'
-import { ConfiguratorOverlay } from '../components/configurator/ConfiguratorOverlay'
-import type { CatalogueVariantRead, ConfigurationRead, ValuationRead, VehicleMdmRead } from '../api/types'
+import { ConfiguratorOverlay } from '../../../components/configurator/ConfiguratorOverlay'
+import type { CatalogueVariantRead, ConfigurationRead, ValuationRead, VehicleMdmRead } from '../../../api/types'
 
 /** `/valuations/new` (optionally `?supersedes=<id>` for "Neu bewerten", or
  * `?vehicle=<id>` for «Request valuation» on Vehicle 360, KAN-468) —

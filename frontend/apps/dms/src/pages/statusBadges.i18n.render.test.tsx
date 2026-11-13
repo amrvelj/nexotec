@@ -9,7 +9,7 @@ import { customer } from '../test/fixtures'
 import { CustomerDetailPage } from './CustomerDetailPage'
 import type { SalesContractRead, SalesDealRead, SalesOfferRead, ValuationRead } from '../api/types'
 import { SalesListPage } from './SalesListPage'
-import { ValuationsListPage } from './ValuationsListPage'
+import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 
 // KAN-334 — ValuationStatusBadge and SalesTypeBadge were rendered without a
 // label, so their German kit defaults (Gültig, Offerte, …) showed in every

@@ -270,7 +270,7 @@
     "survivorColumn": "Client conservé — restera",
     "survivorContactsFailed": "Le téléphone et l’e-mail du client conservé n’ont pas pu être chargés. Choisissez-le à nouveau ou un autre client.",
     "irreversibleTitle": "Cette action est irréversible",
-    "irreversibleBody": "Les véhicules, transactions, numéros de téléphone, e-mails et ID externes sont transférés au client conservé. Ce client passe en lecture seule et n'apparaît plus dans la recherche.",
+    "irreversibleBody": "Les véhicules, offres, contrats, numéros de téléphone, e-mails et ID externes sont transférés au client conservé. Ce client passe en lecture seule et n'apparaît plus dans la recherche.",
     "confirm": "Je comprends que cette action est définitive",
     "submitting": "Fusion en cours…",
     "submit": "Fusionner les clients",

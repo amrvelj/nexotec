@@ -5,10 +5,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
-import { ApiError, api } from '../api/client'
-import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
-import { CustomerCreateDialog } from './CustomerCreateDialog'
-import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
+import { ApiError, api } from '../../../api/client'
+import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
+import { CustomerCreateDialog } from '../../../components/CustomerCreateDialog'
+import { ConfigurationSummaryCard } from '../../../components/configurator/ConfigurationSummaryCard'
 import { ProviderQuoteCard } from './ProviderQuoteCard'
 import { ValuationSourceMarker } from './ValuationSourceMarker'
 import type {
@@ -20,11 +20,11 @@ import type {
   ProviderQuoteRequest,
   ValuationCreate,
   ValuationRead,
-} from '../api/types'
-import { formatCurrencyChf } from '../utils/format'
-import { vinRefusalKey } from '../utils/vin'
-import { useFieldHint } from '../hooks/useFieldHint'
-import { apiRefusalText } from '../utils/apiRefusal'
+} from '../../../api/types'
+import { formatCurrencyChf } from '../../../utils/format'
+import { vinRefusalKey } from '../../../utils/vin'
+import { useFieldHint } from '../../../hooks/useFieldHint'
+import { apiRefusalText } from '../../../utils/apiRefusal'
 
 export interface ValuationCreateDialogProps {
   opened: boolean

@@ -182,10 +182,6 @@ export type CustomerVehicleRead = Schemas['CustomerVehicleRead']
 export type CustomerVehiclePage = Schemas['CustomerVehiclePage']
 export type CustomerExternalIdRead = Schemas['CustomerExternalIdRead']
 export type CustomerExternalIdPage = Schemas['CustomerExternalIdPage']
-export type TransactionType = Schemas['TransactionType']
-export type TransactionStatus = Schemas['TransactionStatus']
-export type TransactionRead = Schemas['TransactionRead']
-export type TransactionPage = Schemas['TransactionPage']
 
 // WP-5 PR-8/PR-9 — master-data admin, reference-data admin
 export type MappingGapRead = Schemas['MappingGapRead']

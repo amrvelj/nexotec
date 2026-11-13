@@ -9,7 +9,7 @@ import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
-import { nameValuationCar } from '../test/nameValuationCar'
+import { nameValuationCar } from '../modules/valuation/test/nameValuationCar'
 
 // C-F (KAN-10) exit criteria 1, 2 and 4 in the real offer host:
 // - Path B opens the configurator as an overlay (ADR-059) and the half-built

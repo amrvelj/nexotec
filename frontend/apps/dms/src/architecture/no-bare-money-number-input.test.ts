@@ -103,7 +103,6 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
       [
         'components/OfferAccessoriesAndOptions.tsx',
         'components/PriceBuildUp.tsx',
-        'components/ValuationCreateDialog.tsx',
         'components/configurator/ColourWheelsTab.tsx',
         'components/configurator/ConfiguratorOverlay.tsx',
         'components/configurator/IdentificationPanel.tsx',
@@ -111,6 +110,7 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'components/stock-detail/DetailsTab.tsx',
         'components/stock-detail/RecordCostDialog.tsx',
         'components/stock-detail/RecordPurchaseDialog.tsx',
+        'modules/valuation/components/ValuationCreateDialog.tsx',
         'pages/OfferWorkspacePage.tsx',
       ].sort(),
     )

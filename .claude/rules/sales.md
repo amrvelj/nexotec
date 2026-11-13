@@ -32,8 +32,8 @@ sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
   copied once when the car is put on the deal, cleared with `stock_item_id`, taken by a contract
   from the offer and a copy, never refreshed. Every cross-context id on a Sales table is
   reconciled (`sales-reconciliation.md`).
-- **ADR-050 — `sales_contract` supersedes the legacy `transaction` table** (retired for writes;
-  removal KAN-555). A legacy contract stays `CONFIRMED`; `request_invoice` and `cancel_contract`
+- **ADR-050 — `sales_contract` superseded the legacy `transaction` table**, dropped with its rows by
+  KAN-555 (ADR-117). A legacy contract stays `CONFIRMED`; `request_invoice` and `cancel_contract`
   refuse it (`legacy_sale`: the old system invoiced it), so its offer never frees
   (`test_sales_contract_legacy_refusal.py`).
 - **A contract starts from exactly one of an offer, a customer or a stock car** — never empty.
