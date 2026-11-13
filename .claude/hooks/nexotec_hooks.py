@@ -46,6 +46,7 @@ to it, direct `stamp-checks` calls and direct `cli waive` calls are denied.
 import contextlib
 import datetime
 import glob
+import io
 import json
 import os
 import re
@@ -1308,6 +1309,7 @@ def cmd_pre_bash(data):
     reviewer = data.get("agent_type") == "reviewer"
     denies, asks = [], []
     moved = None  # the tree-changing git command seen earlier in this command line
+    evidence_roots = []  # checkouts whose push may need an evidence commit first (KAN-647)
     for words, redirects, where in located_commands(command, start):
         root = toplevel(where) or session_root
         for target in write_targets(words, redirects, where):
@@ -1327,6 +1329,10 @@ def cmd_pre_bash(data):
             denies.append("The `{}` commit status is posted by the push hook from the recorded check result, "
                           "never by a command typed here (KAN-625). Run `scripts/dev/check`, then push."
                           .format(CHECK_STATUS_CONTEXT))
+        if types_evidence_commit(words, where) or (
+                EVIDENCE_MARKER in command and git_verb(words)[0] in ("commit", "commit-tree")):  # `printf … | git commit-tree -F -`
+            denies.append("A commit carrying `{}` is made only by the push hook, from the recorded check result "
+                          "(KAN-647). Run `scripts/dev/check`, then push.".format(EVIDENCE_MARKER))
         if reviewer:
             problem = reviewer_problem(words, redirects, where, root)
             if problem:
@@ -1341,6 +1347,8 @@ def cmd_pre_bash(data):
                               "gate never saw. Run `git push` as its own command once `scripts/dev/check` has "
                               "passed for what you are pushing.".format(moved))
             denies.extend(push_problems(root, args))
+            if push_mode(args) == "push" and all(src == "HEAD" for src, _dst in push_pairs(args, current_branch(root))):
+                evidence_roots.append(root)
         elif verb == "commit":
             if "--no-verify" in args or "n" in option_letters(args, takes_value="mFcCt", takes_attached="Su"):
                 denies.append("`git commit --no-verify` is never allowed; fix what the hook reports instead.")
@@ -1377,6 +1385,10 @@ def cmd_pre_bash(data):
         pre_decision("deny", "Blocked by the Nexotec gates:\n- " + "\n- ".join(dict.fromkeys(denies)))
     elif asks:
         pre_decision("ask", "\n".join(dict.fromkeys(asks)))
+    else:
+        # KAN-647: only for a push that is going out, never one the gates stop or ask about.
+        for root in dict.fromkeys(evidence_roots):
+            add_evidence_commit(root)
 
 
 # --------------------------------------------------------------------------
@@ -1485,7 +1497,7 @@ def cmd_post_tool(data):
                     append_event(pushed, "push", session=data.get("session_id"), head=head_commit(pushed),
                                  tree=head_tree(pushed), branch=current_branch(pushed))
                     # KAN-625: the check result goes onto each pushed commit, from the recorded evidence.
-                    notes = [check_status_note(post_check_status(pushed, src))
+                    notes = [check_status_note(post_check_status(pushed, src), pushed)
                              for src, _dst in push_pairs(args, current_branch(pushed)) if src]
                     if any(notes):
                         emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
@@ -1561,10 +1573,15 @@ def post_check_status(root, commit):
     return event
 
 
-def check_status_note(event):
+def check_status_note(event, root=None):
     """What the session is told when the status did not reach GitHub; '' when it did."""
     if not event or event.get("result") == "posted":
         return ""
+    carried = evidence_verdict(root, event.get("commit") or "HEAD") if root and event.get("result") == "refused" else None
+    if carried and carried.get("state") == "success":
+        return ("The `{}` status could not be written from here ({}), so the push carried it as the evidence "
+                "commit {}: the check-evidence workflow posts it on the PR (KAN-647). Say so in the PR."
+                .format(CHECK_STATUS_CONTEXT, event.get("detail"), event["commit"][:10]))
     return ("The `{}` commit status was NOT posted on {} ({}): {} Say so in the PR and the hand-over; do not "
             "post it any other way (KAN-625).".format(CHECK_STATUS_CONTEXT, (event.get("commit") or "?")[:10],
                                                      event.get("result"), event.get("detail")))
@@ -1581,6 +1598,177 @@ def ensure_check_status(root, state, pushes):
     if prior and (prior.get("result") != "refused" or "(HTTP " in (prior.get("detail") or "")):
         return
     post_check_status(root, head)
+
+
+# --------------------------------------------------------------------------
+# The check result as an evidence commit, where the status write is refused (KAN-647, ADR-129 (2))
+# --------------------------------------------------------------------------
+
+# The trailer that marks a hook-made evidence commit. Only the push hook writes one; a typed
+# commit carrying it is refused (`types_evidence_commit`). `.github/workflows/check-evidence.yml`
+# turns a verified one into the `nexotec/check` status (`evidence_verdict`).
+EVIDENCE_MARKER = "Nexotec-Check-Evidence:"
+EVIDENCE_VERSION = "1"
+EVIDENCE_FIELD = re.compile(r"^(Nexotec-Check-Evidence|Tree|Lanes|Not-Run|Counts|Recorded): ?(.*)$", re.MULTILINE)
+
+
+def evidence_message(checks, tree):
+    """The message of the evidence commit for `tree`, from the recorded check - or None when that
+    record is not a pass for exactly this tree (the same rule as `check_status_payload`)."""
+    if check_status_payload(checks, tree) is None:
+        return None
+    not_run = checks.get("not_run")
+    lines = [
+        "nexotec/check evidence for tree {} (KAN-647)".format(tree[:12]),
+        "",
+        "Made by the push hook because this session cannot write the commit status.",
+        "Empty on purpose: the check-evidence workflow posts nexotec/check from it.",
+        "",
+        "{} {}".format(EVIDENCE_MARKER, EVIDENCE_VERSION),
+        "Tree: {}".format(tree),
+        "Lanes: {}".format(", ".join(str(lane) for lane in checks.get("lanes") or []) or "none"),
+        "Not-Run: {}".format("unknown" if not_run is None else (", ".join(str(n) for n in not_run) or "none")),
+        "Counts: {}".format(checks.get("counts") or "none recorded"),
+        "Recorded: {}".format(checks.get("at") or "unknown"),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def parse_evidence(message):
+    """The evidence fields of a commit message (lower-case keys), or None when it carries no marker."""
+    if EVIDENCE_MARKER not in (message or ""):
+        return None
+    return {key.lower(): value.strip() for key, value in EVIDENCE_FIELD.findall(message)}
+
+
+def commit_facts(root, commit):
+    """(sha, tree, [parent trees], message) of `commit`, or None when it is not a commit here."""
+    rc, sha = git(root, "rev-parse", "--verify", "--quiet", commit + "^{commit}")
+    if rc != 0:
+        return None
+    rc, out = git(root, "show", "-s", "--format=%T%n%P", sha)
+    if rc != 0:
+        return None
+    tree, _, parents = out.partition("\n")
+    parent_trees = []
+    for parent in parents.split():
+        rc, ptree = git(root, "rev-parse", parent + "^{tree}")
+        parent_trees.append(ptree if rc == 0 else None)
+    rc, message = git(root, "show", "-s", "--format=%B", sha)
+    return sha, tree, parent_trees, message if rc == 0 else ""
+
+
+def evidence_verdict(root, commit):
+    """What the check-evidence workflow posts for `commit`: None (no evidence marker: post nothing),
+    or the status payload, `success` or `error` with the reason. Success only for one parent, the
+    same tree as that parent (an empty commit) and the tree its message names."""
+    facts = commit_facts(root, commit)
+    if facts is None:
+        return None
+    _sha, tree, parent_trees, message = facts
+    fields = parse_evidence(message)
+    if fields is None:
+        return None
+
+    def error(why):
+        return {"state": "error", "context": CHECK_STATUS_CONTEXT,
+                "description": ("evidence commit refused: " + why)[:CHECK_STATUS_MAX]}
+    if fields.get("nexotec-check-evidence") != EVIDENCE_VERSION:
+        return error("unknown evidence version")
+    if len(parent_trees) != 1:
+        return error("it has {} parents, not one".format(len(parent_trees)))
+    if parent_trees[0] != tree:
+        return error("it changes files (not empty against its parent)")
+    if fields.get("tree") != tree:
+        return error("its tree is not the tree its message names")
+    lanes, not_run = fields.get("lanes") or "none", fields.get("not-run")
+    if lanes == "none":
+        scope = "no lane covers this change"
+    elif not_run == "unknown":
+        scope = lanes
+    elif not_run and not_run != "none":
+        scope = lanes + " only"
+    else:
+        scope = "all lanes"
+    description = "{} · tree {} · {} · cloud evidence commit".format(
+        scope, tree[:12], fields.get("counts") or "no test counts recorded")
+    if len(description) > CHECK_STATUS_MAX:
+        description = description[:CHECK_STATUS_MAX - 1] + "…"
+    return {"state": "success", "context": CHECK_STATUS_CONTEXT, "description": description}
+
+
+def status_write_refused(state):
+    """True where the status write is refused: a cloud session (every one today, ADR-129), or a
+    checkout whose last status write GitHub refused with HTTP 403."""
+    if os.environ.get("CLAUDE_CODE_REMOTE") == "true":
+        return True
+    last = latest(events(state, "check-status"))
+    return bool(last and last.get("result") == "refused" and "(HTTP 403" in (last.get("detail") or ""))
+
+
+def add_evidence_commit(root):
+    """Before a push from a checkout that cannot write the status: one empty commit on HEAD's tree
+    carrying the recorded evidence, on the current branch. Returns its sha, or None when none is
+    needed (the status can be written, no pass for HEAD's tree, or HEAD already is the evidence
+    commit for that tree) or it could not be made. The tree does not change, so the push gate,
+    the review and the screenshot, all bound to the tree, still hold."""
+    state = load_state(root)
+    branch = current_branch(root)
+    if not branch or not status_write_refused(state):
+        return None
+    facts = commit_facts(root, "HEAD")
+    if facts is None:
+        return None
+    head, tree, parent_trees, message = facts
+    message_out = evidence_message(state.get("checks"), tree)
+    if message_out is None:
+        return None
+    fields = parse_evidence(message)
+    if fields is not None and fields.get("tree") == tree and parent_trees == [tree]:
+        return None  # HEAD already carries it
+    try:
+        proc = subprocess.run(["git", "commit-tree", tree, "-p", head, "-F", "-"], cwd=root, input=message_out,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    new = proc.stdout.strip()
+    if proc.returncode != 0 or not new:
+        return None
+    if git(root, "update-ref", "-m", "nexotec: check evidence (KAN-647)", "refs/heads/" + branch, new, head)[0] != 0:
+        return None
+    append_event(root, "evidence-commit", commit=new, parent=head, tree=tree, branch=branch)
+    return new
+
+
+def types_evidence_commit(words, where):
+    """True for a typed command that would make a commit carrying the evidence marker: `git commit`
+    or `git commit-tree` (the message inline or in a file), or an interpreter one-liner naming the
+    marker. Only the push hook makes evidence commits (KAN-647). A rail, not a boundary."""
+    if not words:
+        return False
+    if os.path.basename(words[0]).startswith(INTERPRETERS):
+        return any(EVIDENCE_MARKER in w for w in words[1:])
+    verb, args = git_verb(words)
+    if verb not in ("commit", "commit-tree"):
+        return False
+    if any(EVIDENCE_MARKER in a for a in args):
+        return True
+    for i, a in enumerate(args):
+        path = None
+        if a in ("-F", "--file") and i + 1 < len(args):
+            path = args[i + 1]
+        elif a.startswith("--file="):
+            path = a[len("--file="):]
+        elif a.startswith("-F") and len(a) > 2:
+            path = a[2:]
+        if path and path != "-":
+            try:
+                with open(os.path.join(where, os.path.expanduser(path)), encoding="utf-8", errors="replace") as fh:
+                    if EVIDENCE_MARKER in fh.read():
+                        return True
+            except OSError:
+                pass
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -2227,6 +2415,13 @@ def cli(argv):
         else:
             print("Hand-over: nothing pushed from this checkout yet")
         return 0
+    if cmd == "evidence-verdict":
+        # Read-only: what .github/workflows/check-evidence.yml posts for a commit (KAN-647).
+        if len(rest) != 1:
+            print("usage: nexotec_hooks.py cli evidence-verdict <commit>", file=sys.stderr)
+            return 2
+        print(json.dumps(evidence_verdict(root, rest[0]) or {}))
+        return 0
     if cmd == "selftest":
         return selftest()
     print("unknown command: " + cmd, file=sys.stderr)
@@ -2559,6 +2754,84 @@ def selftest():
     assert DECISION_NEEDED.search("**DECISION NEEDED:** waive the screenshot?")
     assert not DECISION_NEEDED.search("Pushed and PR opened. Let me know if you'd like any changes.")
     assert not DECISION_NEEDED.search("Done. PR #7 is open.\n\nAnything else?")
+    # --- the evidence commit where the status write is refused (KAN-647)
+    repo = tempfile.mkdtemp(prefix="nexotec-selftest-evidence-")
+    saved_remote = os.environ.get("CLAUDE_CODE_REMOTE")
+    try:
+        git(repo, "init", "-q", "-b", "kan-1-x")
+        git(repo, "config", "user.name", "t")
+        git(repo, "config", "user.email", "t@example.invalid")
+        git(repo, "config", "commit.gpgsign", "false")
+        with open(os.path.join(repo, "a.py"), "w") as fh:
+            fh.write("a\n")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", "one")
+        base, tree = head_commit(repo), head_tree(repo)
+        checks = {"result": "pass", "tree": tree, "lanes": ["backend"], "not_run": ["frontend"],
+                  "counts": "pytest 3 passed", "at": "2026-11-13T00:00:00+00:00"}
+        update_state(repo, lambda st: st.update({"checks": checks}))
+        os.environ.pop("CLAUDE_CODE_REMOTE", None)
+        assert add_evidence_commit(repo) is None, "made where the status can be written"
+        os.environ["CLAUDE_CODE_REMOTE"] = "true"
+        made = add_evidence_commit(repo)
+        assert made and head_commit(repo) == made and head_tree(repo) == tree
+        assert commit_facts(repo, made)[2] == [tree] and current_branch(repo) == "kan-1-x"
+        assert add_evidence_commit(repo) is None and head_commit(repo) == made, "evidence commits stacked"
+        ok = evidence_verdict(repo, made)
+        assert ok["state"] == "success" and ok["context"] == CHECK_STATUS_CONTEXT, ok
+        assert "backend only" in ok["description"] and "evidence commit" in ok["description"], ok
+        assert len(ok["description"]) <= CHECK_STATUS_MAX
+        assert evidence_verdict(repo, base) is None, "a commit without the marker gets a status"
+        # a hand-made empty commit naming another tree, and one with the marker that changes files
+        forged = git(repo, "commit-tree", tree, "-p", made, "-m", evidence_message(dict(checks, tree="f" * 40), "f" * 40))[1]
+        assert "names" in evidence_verdict(repo, forged)["description"]
+        with open(os.path.join(repo, "b.py"), "w") as fh:
+            fh.write("b\n")
+        git(repo, "add", "-A")
+        changed_tree = git(repo, "write-tree")[1]
+        changed = git(repo, "commit-tree", changed_tree, "-p", made,
+                      "-m", evidence_message(dict(checks, tree=changed_tree), changed_tree))[1]
+        bad = evidence_verdict(repo, changed)
+        assert bad["state"] == "error" and "changes files" in bad["description"], bad
+        # no recorded pass for HEAD's tree: no evidence commit
+        git(repo, "reset", "-q", "--hard", base)
+        update_state(repo, lambda st: st.update({"checks": dict(checks, tree="0" * 40)}))
+        assert add_evidence_commit(repo) is None and head_commit(repo) == base
+        os.environ.pop("CLAUDE_CODE_REMOTE", None)
+        assert status_write_refused({"events": [{"kind": "check-status", "result": "refused",
+                                                 "detail": "GitHub refused `gh api x`: HTTP 403: no (HTTP 403)"}]})
+        assert not status_write_refused({"events": [{"kind": "check-status", "result": "posted"}]})
+        # only the hook makes one: a typed commit carrying the marker is refused
+        marker_file = os.path.join(repo, "msg.txt")
+        with open(marker_file, "w") as fh:
+            fh.write("x\n\n{} 1\n".format(EVIDENCE_MARKER))
+        assert types_evidence_commit(["git", "commit", "--allow-empty", "-m", "x\n\n{} 1".format(EVIDENCE_MARKER)], repo)
+        assert types_evidence_commit(["git", "-C", repo, "commit-tree", "t", "-m", EVIDENCE_MARKER + " 1"], repo)
+        assert types_evidence_commit(["git", "commit", "-F", "msg.txt"], repo)
+        assert types_evidence_commit(["git", "commit", "--file=msg.txt"], repo)
+        assert types_evidence_commit(["python3", "-c", "print('{} 1')".format(EVIDENCE_MARKER)], repo)
+        assert not types_evidence_commit(["git", "commit", "-m", "fix"], repo)
+        assert not types_evidence_commit(["git", "log", "--grep", EVIDENCE_MARKER], repo)
+
+        # the PreToolUse hook end to end: a piped marker is refused; a push that goes out gets the commit first
+        def pre_bash(command):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                cmd_pre_bash({"cwd": repo, "tool_input": {"command": command}})
+            return out.getvalue()
+        os.remove(marker_file)
+        assert "deny" in pre_bash("printf '{} 1' | git commit-tree {} -F -".format(EVIDENCE_MARKER, tree))
+        update_state(repo, lambda st: st.update({"checks": checks}))
+        os.environ["CLAUDE_CODE_REMOTE"] = "true"
+        assert pre_bash("git push --force origin HEAD") and head_commit(repo) == base, "made for a refused push"
+        assert pre_bash("git push -u origin HEAD") == "" and head_commit(repo) != base
+        assert parse_evidence(commit_facts(repo, "HEAD")[3])["tree"] == tree
+    finally:
+        if saved_remote is None:
+            os.environ.pop("CLAUDE_CODE_REMOTE", None)
+        else:
+            os.environ["CLAUDE_CODE_REMOTE"] = saved_remote
+        shutil.rmtree(repo, ignore_errors=True)
     print("hooks selftest: ok")
     return 0
 
