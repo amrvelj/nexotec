@@ -250,9 +250,8 @@ def test_merge_keeps_overlapping_vehicle_party_closed_and_marked_merged(client, 
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id)
     duplicate = _create_customer(client, dealer_id)
-    # A vehicle_mdm row (KAN-31), not the legacy `vehicle` the other tests
-    # here seed transactions against: the timeline read below labels the
-    # rows from vehicle_mdm (KAN-84) and 500s on an id it cannot find.
+    # A vehicle_mdm row (KAN-31): the timeline read below labels the rows
+    # from vehicle_mdm (KAN-84) and 500s on an id it cannot find.
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = client.post("/v1/vehicle-mdm", json={"vin": _random_vin()}, headers=_bearer(token))
     assert created.status_code == 200, created.text
@@ -367,9 +366,6 @@ def _sales_consumes_the_merge(engine, duplicate_id: str) -> None:
         )
     finally:
         session.close()
-
-
-# --- transactions ----------------------------------------------------------------
 
 
 # --- sales_offer / sales_contract (WP-8 PR-7) -------------------------------------

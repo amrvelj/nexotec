@@ -14,7 +14,7 @@ import pytest
 from app.integration import public
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
-from app.integration.models.connection import ConnectionEnvironment, IntegrationConnection
+from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
@@ -155,3 +155,31 @@ def test_a_reference_naming_another_betrieb_is_refused_like_a_deleted_one(db_ses
     own = public.get_enabled_connection(db_session, tenant_id=other_betrieb, provider_code="auto_i_dat_mock")
     assert own == public.ConnectionRef(id=foreign.id, tenant_id=other_betrieb)
     assert isinstance(public.resolve_adapter(db_session, own), MockAutoIDatAdapter)
+
+
+def test_a_reference_to_a_platform_wide_connection_is_refused_like_a_deleted_one(db_session):
+    """A platform-wide connection belongs to no Betrieb: `get_enabled_connection`
+    never answers one, and a reference built from its id for any Betrieb is
+    refused before the provider, with no call-log row."""
+
+    platform = connection_service.create_connection(
+        db_session,
+        tenant_id=None,
+        data=ConnectionCreate(
+            provider_id=_provider(db_session).id,
+            display_name="auto-i-dat (platform)",
+            environment=ConnectionEnvironment.SANDBOX,
+            scope=ConnectionScope.PLATFORM,
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    assert platform.tenant_id is None
+    forged = public.ConnectionRef(id=platform.id, tenant_id=uuid.uuid4())
+
+    with pytest.raises(public.ConnectionDisabledError):
+        public.resolve_adapter(db_session, forged)
+    with pytest.raises(public.ConnectionDisabledError), public.call_capability(
+        db_session, connection=forged, capability="vehicle_data"
+    ):
+        pass
+    assert db_session.query(IntegrationCallLog).count() == 0

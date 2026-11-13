@@ -478,9 +478,9 @@ def merge_customer(
             "vehiclePartyCopiesRepointedIds": [str(party_id) for party_id in party_copies_repointed],
         },
     )
-    # KAN-185 (ADR-047) — Sales moves its records of the duplicate (legacy
-    # transactions, offers, contracts, deals) from this event, in its own
-    # transaction (`sales.customer_merged`); the merge writes nothing of Sales'.
+    # KAN-185 (ADR-047) — Sales moves its records of the duplicate (offers,
+    # contracts, deals) from this event, in its own transaction
+    # (`sales.customer_merged`); the merge writes nothing of Sales'.
     publish_event(
         db,
         OutboxEvent(

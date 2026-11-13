@@ -57,6 +57,12 @@ colour outside the tokens. A kit component ships no user-visible string of its o
 Money is `CHF 12'500.00` through the kit's `ChfInput`, a date-only value renders through
 `formatDateOnly` (`ui-formats.md`; architecture tests enforce both).
 
+## Where the code lives (ADR-161)
+
+A module with a folder, `src/modules/<module>/`, keeps every screen, component, hook and helper of
+its own there, never in `src/pages/`, `components/` or `hooks/`; other code reaches it only through
+its `index.ts` (the router's lazy pages and tests excepted; `architecture/module-boundaries.test.ts`).
+
 ## Evidence and API types
 
 - Every visible change ends with a screenshot of the changed screen, taken after the last code
