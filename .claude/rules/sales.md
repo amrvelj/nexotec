@@ -315,6 +315,10 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   after the other, each with the version the previous one returned, a refused save said and
   never retried (KAN-314) — the server's offer/contract row lock refuses the second of two
   saves sent with the same version (KAN-311).
+- **The trade-in's `customerId` is deprecated** (Anto, 2026-11-11, KAN-562 option A): `TradeInRequest.customerId`
+  stays accepted (removing it would break the contract), is `deprecated` in the OpenAPI schema and is ignored apart
+  from its 404 outside the caller's group; the SPA no longer sends it. The former owner of a bought trade-in is the
+  contract's customer (KAN-189).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
   contract created straight from the customer, and every confirmation; a merged one every attach

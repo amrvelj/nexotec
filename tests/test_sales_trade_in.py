@@ -264,8 +264,8 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
 
 
 def test_trade_in_for_another_groups_customer_is_a_404(db_session):
-    """KAN-99: body.customerId is resolved in the caller's group by
-    allocate_vehicle_party — 404, never a cross-group VehicleParty."""
+    """KAN-99: body.customerId is resolved in the caller's group — 404, never
+    a cross-group read. Since KAN-562 that check is all the field still does."""
 
     from app.customer.models.customer import Customer, CustomerType, Language
 
@@ -285,3 +285,16 @@ def test_trade_in_for_another_groups_customer_is_a_404(db_session):
         )
     db_session.rollback()
     assert db_session.scalar(select(VehicleMdm).where(VehicleMdm.vin == "WVWZZZ1KZAW444444")) is None
+
+
+def test_trade_in_customer_id_is_deprecated_in_the_openapi_contract():
+    """KAN-562 (Anto, 2026-11-11, option A): customerId stays accepted — removing
+    it is a breaking change — but the contract says it is deprecated and ignored."""
+
+    from app.main import app
+
+    schema = app.openapi()["components"]["schemas"]["TradeInRequest"]
+    customer_id = schema["properties"]["customerId"]
+    assert customer_id.get("deprecated") is True
+    assert "ignored" in customer_id["description"]
+    assert "customerId" not in schema.get("required", [])

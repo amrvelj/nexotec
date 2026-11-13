@@ -5,7 +5,7 @@ import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, status } from '../test/fakeBackend'
+import { installFakeBackend, status, type FakeHandler } from '../test/fakeBackend'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -27,7 +27,7 @@ const VIN_REFUSED = status(422, {
   },
 })
 
-function install(answer: () => unknown) {
+function install(answer: FakeHandler) {
   return installFakeBackend([
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => OFFER },
     { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
@@ -82,5 +82,20 @@ describe('OfferWorkspace — a refused trade-in VIN is named at the VIN input (K
 
     expect(await screen.findByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeInTheDocument()
     expect(screen.queryByText(i18n.t('common.invalidVin'))).toBeNull()
+  })
+})
+
+describe('OfferWorkspace — the trade-in sends no customerId (KAN-562)', () => {
+  it('the POST body names the car only; the deprecated customerId is not sent', async () => {
+    let body: unknown
+    install((req) => {
+      body = req.body
+      return { ...OFFER, tradeInVin: 'WVWZZZ1KZAO331338', tradeInLabel: 'VW Golf', version: 5 }
+    })
+    await saveTradeIn('WVWZZZ1KZAO331338')
+
+    await waitFor(() => expect(body).toBeDefined())
+    expect(body).toEqual({ vin: 'WVWZZZ1KZAO331338', plate: null, canton: null, vehicleLabel: 'VW Golf' })
+    expect(body).not.toHaveProperty('customerId')
   })
 })

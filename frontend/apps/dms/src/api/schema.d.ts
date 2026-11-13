@@ -10808,7 +10808,11 @@ export interface components {
         TradeInRequest: {
             /** Canton */
             canton?: string | null;
-            /** Customerid */
+            /**
+             * Customerid
+             * @deprecated
+             * @description Deprecated: ignored apart from a 404 when the customer is outside the caller's group. The former owner of a bought trade-in is always the contract's customer.
+             */
             customerId?: string | null;
             /** Plate */
             plate?: string | null;
