@@ -1244,6 +1244,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/copy-configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy Configuration */
+        post: operations["copy_configuration_v1_dealerships__dealership_id__copy_configuration_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/copy-configuration/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Copy Sources */
+        get: operations["list_copy_sources_v1_dealerships__dealership_id__copy_configuration_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/document-template": {
         parameters: {
             query?: never;
@@ -5449,6 +5483,75 @@ export interface components {
             /** Startson */
             startsOn?: string | null;
         };
+        /** ConfigurationCopyCounts */
+        ConfigurationCopyCounts: {
+            /** Created */
+            created: number;
+            /** Overwritten */
+            overwritten: number;
+            /** Skipped */
+            skipped: number;
+            /** Unchanged */
+            unchanged: number;
+        };
+        /** ConfigurationCopyItem */
+        ConfigurationCopyItem: {
+            /** Key */
+            key: string;
+            /** Label */
+            label?: string | null;
+            /** Language */
+            language?: string | null;
+            outcome: components["schemas"]["CopyOutcome"];
+            /** Reason */
+            reason?: string | null;
+            subset: components["schemas"]["CopySubset"];
+        };
+        /** ConfigurationCopyRequest */
+        ConfigurationCopyRequest: {
+            /**
+             * Dryrun
+             * @default true
+             */
+            dryRun?: boolean;
+            /**
+             * Sourcedealershipid
+             * Format: uuid
+             */
+            sourceDealershipId: string;
+            /** Subsets */
+            subsets: components["schemas"]["CopySubset"][];
+        };
+        /** ConfigurationCopyResult */
+        ConfigurationCopyResult: {
+            counts: components["schemas"]["ConfigurationCopyCounts"];
+            /** Dryrun */
+            dryRun: boolean;
+            /** Items */
+            items: components["schemas"]["ConfigurationCopyItem"][];
+            /**
+             * Sourcedealershipid
+             * Format: uuid
+             */
+            sourceDealershipId: string;
+            /** Sourcelegalname */
+            sourceLegalName: string;
+        };
+        /** ConfigurationCopySource */
+        ConfigurationCopySource: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Legalname */
+            legalName: string;
+        };
+        /** ConfigurationCopySourceList */
+        ConfigurationCopySourceList: {
+            /** Items */
+            items: components["schemas"]["ConfigurationCopySource"][];
+        };
         /** ConfigurationCreate */
         ConfigurationCreate: {
             /**
@@ -6293,6 +6396,16 @@ export interface components {
             /** Ratio */
             ratio: number;
         };
+        /**
+         * CopyOutcome
+         * @enum {string}
+         */
+        CopyOutcome: "created" | "overwritten" | "unchanged" | "skipped";
+        /**
+         * CopySubset
+         * @enum {string}
+         */
+        CopySubset: "standard_texts" | "document_template" | "number_ranges";
         /**
          * CustodyEventCreate
          * @description `partner_id` defaults to the caller's own tenant and must equal it
@@ -15627,6 +15740,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_configuration_v1_dealerships__dealership_id__copy_configuration_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigurationCopyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationCopyResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_copy_sources_v1_dealerships__dealership_id__copy_configuration_sources_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationCopySourceList"];
                 };
             };
             /** @description Validation Error */

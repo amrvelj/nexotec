@@ -510,17 +510,30 @@ def create_dealer_text(
     category: StandardTextCategory,
     data: DealerTextInput,
     actor_id: uuid.UUID | None,
+    new_code: bool = False,
+    commit: bool = True,
 ) -> StandardText:
     """A Betrieb's own text, a further language or location variant of one,
     or an override of a seed (when `code` names a seed: the seed's target
-    and slot are taken, and the row points at the seed of that language)."""
+    and slot are taken, and the row points at the seed of that language).
+
+    `new_code` (KAN-220, the copy from a sister Betrieb only): `code` is a
+    Betrieb-own code this Betrieb does not hold yet — taken as given, so a
+    second copy finds and overwrites it instead of duplicating it. A seed's
+    code is never new. `commit=False` leaves the transaction to the caller
+    (the copy commits once, or rolls back its dry run)."""
 
     get_dealership_or_404(db, dealership_id)
     location = _location_of(db, dealership_id, data.location_id)
 
     seed: StandardText | None = None
     family: list[StandardText] = []
-    if data.code is not None:
+    if data.code is not None and new_code:
+        if _rows_of_code(db, code=data.code, dealership_id=None) or _rows_of_code(
+            db, code=data.code, dealership_id=dealership_id
+        ):
+            raise _refuse("standard_text_exists", f"{data.code} already exists — edit that one.")
+    elif data.code is not None:
         seeds = _rows_of_code(db, code=data.code, dealership_id=None)
         family = seeds or _rows_of_code(db, code=data.code, dealership_id=dealership_id)
         seed = next((row for row in seeds if row.language == data.language), None)
@@ -612,8 +625,9 @@ def create_dealer_text(
         before=None,
         after=_snapshot(row),
     )
-    db.commit()
-    db.refresh(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
     return row
 
 
@@ -624,6 +638,7 @@ def update_dealer_text(
     changes: Mapping[str, Any],
     if_match_version: int,
     actor_id: uuid.UUID | None,
+    commit: bool = True,
 ) -> StandardText:
     """PATCH of a Betrieb's own row. `seed_reviewed` (an override only)
     records that the current seed version was reviewed — it clears "the
@@ -666,8 +681,9 @@ def update_dealer_text(
         before={k: v for k, v in before.items() if after[k] != v},
         after={k: v for k, v in after.items() if before[k] != v},
     )
-    db.commit()
-    db.refresh(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
     return row
 
 

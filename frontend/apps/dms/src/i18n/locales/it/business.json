@@ -179,5 +179,50 @@
       "idleOutOfBounds": "La disconnessione per inattività deve essere tra 15 e 120 minuti.",
       "absoluteOutOfBounds": "La durata massima della sessione deve essere tra 1 e 12 ore."
     }
+  },
+  "copyConfiguration": {
+    "title": "Riprendi la configurazione da …",
+    "intro": "Riprenda una sola volta i testi standard, le intestazioni del modello di documento e i modelli degli intervalli di numerazione da un'altra azienda che gestisce anche lei. Le copie appartengono poi a questa azienda; le modifiche successive nell'altra azienda non hanno effetto qui.",
+    "source": "Azienda di origine",
+    "sourcePlaceholder": "Scegliere un'azienda",
+    "subsets": "Cosa viene ripreso",
+    "subset": {
+      "standard_texts": "Testi standard",
+      "document_template": "Modello di documento (intestazioni)",
+      "number_ranges": "Modelli degli intervalli di numerazione"
+    },
+    "subsetHint": {
+      "standard_texts": "I testi propri e adattati dell'azienda, senza le varianti per sede. Un testo che questa azienda ha già viene sovrascritto.",
+      "document_template": "L'intestazione dei documenti in tutte e quattro le lingue.",
+      "number_ranges": "Modello, valore iniziale e ripartenza annuale dei moduli che questa azienda usa. I contatori non vengono mai ripresi; un intervallo che ha già assegnato un numero resta invariato."
+    },
+    "preview": "Mostra anteprima",
+    "previewTitle": "Anteprima: ripresa da {{source}}",
+    "confirmNote": "Nulla viene salvato prima di «Riprendi». La ripresa viene registrata.",
+    "confirm_one": "Riprendi {{count, number}} modifica",
+    "confirm_other": "Riprendi {{count, number}} modifiche",
+    "done": "Ripreso da {{source}}: {{created, number}} nuovi, {{overwritten, number}} sovrascritti, {{skipped, number}} saltati.",
+    "nothing": "L'azienda scelta non ha nulla da riprendere per questo.",
+    "itemsLabel": "Cosa viene ripreso",
+    "headerNotes": "Intestazioni",
+    "columns": {
+      "area": "Ambito",
+      "item": "Voce",
+      "outcome": "Esito"
+    },
+    "outcome": {
+      "created": "Nuovo",
+      "overwritten": "Sarà sovrascritto",
+      "unchanged": "Invariato",
+      "skipped": "Saltato"
+    },
+    "reason": {
+      "number_range_frozen": "Questo intervallo ha già assegnato un numero ed è bloccato.",
+      "number_pattern_location_code_missing": "Nessuna sede di questa azienda ha un codice per {location_code}.",
+      "number_range_counter_too_short": "Il prossimo contatore non entra nel modello.",
+      "standard_text_placeholder_invalid": "Il testo contiene un segnaposto non più valido.",
+      "standard_text_seed_language_missing": "Il modello di questo testo non esiste più in questa lingua.",
+      "other": "Questa voce non può essere ripresa."
+    }
   }
 }
