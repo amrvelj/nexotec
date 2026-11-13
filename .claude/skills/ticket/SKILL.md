@@ -144,7 +144,8 @@ Any code change after this point invalidates 2–4: redo them.
    and results; what you did not verify; follow-up tickets.
 3. **Do not wait for CI** (Anto, 2026-11-10; KAN-619). Route B: your `scripts/dev/check` is the
    merge gate (the push hook writes it on the commit as the `nexotec/check` status, KAN-625 - a cloud
-   session's GitHub access refuses that write, and the hook then says so: repeat it in the PR); GitHub's
+   session's GitHub access refuses that write, so there the push carries it as an empty evidence commit
+   and the `check-evidence` workflow posts the status, KAN-647: say so in the PR); GitHub's
    `pr-light` runs on every push, drafts included (KAN-653), the full suite at night on `main`. Go on to step 7
    at once — never poll. The hand-over gate stops only on a check that has **already failed**:
    then fix, check → commit → review → push again.
