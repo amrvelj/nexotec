@@ -99,6 +99,7 @@ from app.sales.public import (
     refresh_owner_labels,
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
+from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
 from app.vehicle.consumers import handle_configuration_taken_message, handle_invoice_requested_message
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
@@ -430,7 +431,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Fifteen daily jobs, run in registration order once per day on this
+    """Sixteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -495,7 +496,12 @@ def register_daily_jobs() -> None:
        is ended at the provider again (an outage longer than the outbox's
        retries, a grant revoked before its revoker was registered). A repair,
        so after reconciliation: the night's report names the grant first.
-    15. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    15. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
+       2026-11-13, option A): a provider quote no valuation references is
+       deleted ten years after it was fetched, with an audit row; one a
+       valuation references stays as long as the valuation
+       (app.valuation.daily_jobs). Retention, not a repair.
+    16. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -520,9 +526,11 @@ def register_daily_jobs() -> None:
     #    with one push each; the inbox keeps 90 days.
     register_daily_job("platform.notifications.digest", run_daily_notification_digest)
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
-    # 15. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
     # 14. KAN-559: a revoked grant still holding a reference is ended at the provider.
     register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
+    # 15. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
+    register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
+    # 16. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 
