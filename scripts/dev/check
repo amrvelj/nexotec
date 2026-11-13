@@ -243,6 +243,8 @@ def lane_config():
         ok &= step("bash syntax: " + script, ["bash", "-n", script])
     # KAN-613: the usage report checks itself against a built transcript (no database, no network).
     ok &= step("usage-report selftest", [sys.executable, os.path.join(ROOT, "scripts", "dev", "usage-report"), "--selftest"])
+    # KAN-684: the overlap report against recorded GitHub answers (no network).
+    ok &= step("overlap selftest", [sys.executable, os.path.join(ROOT, "scripts", "dev", "overlap"), "--selftest"])
     print("\n--- frontmatter of rules, skills and agents")
     problems = []
     for folder, required in ((".claude/skills", ("description",)), (".claude/agents", ("name", "description"))):

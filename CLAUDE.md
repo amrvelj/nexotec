@@ -47,19 +47,18 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
 
 - Once per checkout (main checkout, worktree, every cloud session): `scripts/dev/bootstrap` — its own `.venv`,
   `npm ci`, its own test database (a worktree also gets a dev database copied from the main one; a cloud session first
-  starts its Postgres). PATH and `pytest` already point at this checkout's `.venv` and test database, so the tools work
-  once it finishes. Never call another checkout's `.venv`: its editable install runs that checkout's code.
+  starts its Postgres). PATH and `pytest` already point at this checkout's `.venv` and test database. Never call another checkout's `.venv`: its editable install runs that checkout's code.
 - The check the push gate trusts: `scripts/dev/check` (lanes chosen from the diff;
   `--full` runs all; `--fast` is the SQLite lane and records nothing)
-- Tests: `pytest` — Postgres, the lane of record. One test: `pytest tests/test_customer.py::test_name`
+- Tests: `pytest` — Postgres, the lane of record. One test: `pytest tests/test_x.py::test_name`
 - Migrations: `alembic upgrade heads` — plural: one chain per context (ADR-015); `head`
   fails or silently applies one context only
-- Backend: `ruff check app tests scripts` · `python -m mypy app scripts` (as a module — the bare `mypy`
-  binary resolves another interpreter) · `lint-imports`
+- Backend: `ruff check app tests scripts` · `python -m mypy app scripts` (as a module, not the bare
+  binary) · `lint-imports`
 - Frontend: `npm run lint --prefix frontend` · `npm run build --prefix frontend` ·
   `npx vitest run` in `frontend/apps/dms` or `frontend/packages/ui-kit`
 - API types: `make generate-frontend-types` — `schema.d.ts` is generated, never edited or read whole: `scripts/dev/api-type <Name|/v1/path>`
-- Run it: the desktop preview (`.claude/launch.json`; stop Docker's `app` first — both want port 8000), or `make up` in Docker
+- Run it: the desktop preview (`.claude/launch.json`; stop Docker's `app` first, both want :8000), or `make up`
 - Gates: `scripts/dev/gate status` shows what the push and the hand-over still need
 
 CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitHub runs `pr-light` (`pr.yml`) per PR, drafts too, and the full suite nightly on `main` (`test.yml`; a red night opens an issue).
@@ -74,16 +73,16 @@ CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitH
   nobody present (scheduled run, cloud session, a question already unanswered) → the question as a callout atop the ticket (options, recommendation, work so far, branch), Status **Anto Review**, stop that ticket once the work not depending on the answer is done.
 - Small PRs. A large change ships as a numbered sequence, each mergeable with green CI.
 - Never suppress the import-linter; raise the boundary question instead.
-- A decision taken while building is an ADR in the Target Architecture, not a PR comment. A defect or open question found while building gets its own Kanban ticket, in that session.
+- A decision taken while building is an ADR in the Target Architecture, not a PR comment. A defect or open question found while building gets its own Kanban ticket at once.
 - **Work is not done when the code merges:** the module PRD's status says what shipped and the
   Gap Analysis cites the new head — every time, whether or not the ticket names them; make those edits in the same session.
-- **Notion writes need no click from Anto** (his ruling, 2026-10-11): write directly, and say in one plain sentence which page changed and how.
+- **Notion writes need no click from Anto** (his ruling, 2026-10-11): write directly, and say in one plain sentence which page changed and how. Edit spec pages in place: if an `old_str` no longer matches, re-fetch and edit what is there, never replace the page (KAN-685).
 - Commit messages and PR descriptions are claims. Never round a partial up: say which exit criteria are met and which are **not**, and what you did not verify.
 - "Verified" means a check you ran, on this code — and a screenshot: the changed screen; for a
   fix, the reproduction that no longer reproduces; for work with no screen of its own, the
   nearest visible artefact. "None exists" is said in one line, never assumed. The hand-over
   gate enforces both.
-- Code work happens in a worktree or a cloud session, each on its own copy. The main checkout stays on `main`, clean.
+- Code work happens in a worktree or a cloud session. The main checkout stays on `main`, clean.
 - No secrets in the application database, only references into the secrets manager — except a user's
   own TOTP seed (`EncryptedString`, returned to that user once, at enrolment; ADR-099). Secrets are never logged (dev's mail log aside) and never returned otherwise.
 

@@ -95,7 +95,8 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
 - **VIN queries are not in the licence** (§8): the `vin` option is probed and its `granted = False`
   row — or no row — keeps the VIN rung from ever calling it. `integration.public.vin_decode_granted`
   reads that row strictly (no row = not granted, the opposite of every other option).
-- **No MCP for provider data** (§3): never exposed through an MCP server, tool manifest or
+- **No MCP for provider data** (§3, the application; sessions reading staging through Render's
+  connector are a tooling ruling, ADR-155): never exposed through an MCP server, tool manifest or
   agent-facing API (`test_no_mcp_server.py`, which also refuses an MCP dependency its
   `ALLOWED_MCP_DEPENDENCIES` does not name — empty: Anto's ruling by name). An AI prompt hook may use
   provider data only inside the tenant's own request and response, never as a tool the model can

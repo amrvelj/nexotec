@@ -1,7 +1,7 @@
 ---
 name: ticket
-description: Run one Nexotec Kanban ticket end to end - read it from Notion, plan, build, check, independent review, push, PR, Notion hand-over (CI confirmed at close). Use when Anto asks to work on, implement or fix a KAN ticket (`/ticket KAN-71`), and with `close` after he has merged its PR (`/ticket KAN-71 close`).
-argument-hint: "KAN-<n> [close]"
+description: Run one Nexotec Kanban ticket end to end - read it from Notion, plan, build, check, independent review, push, PR, Notion hand-over (CI confirmed at close). Use when Anto asks to work on, implement or fix a KAN ticket (`/ticket KAN-71`), with `land` when he is about to merge its PR (`/ticket KAN-71 land`), and with `close` after he has merged it (`/ticket KAN-71 close`).
+argument-hint: "KAN-<n> [land|close]"
 ---
 
 # /ticket $ARGUMENTS
@@ -22,7 +22,8 @@ Workspace when this skill was invoked:
 
 !`scripts/dev/gate status 2>&1 | head -14`
 
-If the argument ends in `close`, skip to **Close after merge** at the bottom.
+If the argument ends in `land`, skip to **Land before the merge**; if it ends in `close`, to
+**Close after merge** at the bottom.
 
 ## 1. Preconditions
 
@@ -63,6 +64,10 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 - The plan names: files to change; the test that fails without the change; migrations; API
   contract changes; the Notion updates (below); how you will verify; what the screenshot will
   show.
+- **Overlaps (KAN-684):** run `scripts/dev/overlap <the plan's paths or globs>` (a new migration as
+  `alembic/versions/<context>/*`). The plan says what overlaps with which open PR and which lands
+  first; a same-chain migration lands after the other PR and is re-parented onto its head. It never
+  blocks: two tickets may overlap, they must know.
 - **Effort (KAN-621):** sessions run at medium. When the change touches a context boundary, a migration with a backfill, a preserved
   file or a public API contract, or the ticket is Severity High and Type Bug, plan at high: delegate the plan to the `Plan` agent with `effort: high`.
 - **Business questions go to Anto; technical decisions are yours, as architect** (CLAUDE.md,
@@ -138,16 +143,27 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 
 Any code change after this point invalidates 2–4: redo them.
 
+**Staging** (KAN-686; Anto, 2026-11-13) is read through Render's connector, never changed: a
+deploy comes from a merge, a data correction goes through the API as a platform_admin. SQL only
+for a check an exit criterion names or to diagnose a failure; **a query result never enters the
+repository, a commit message, a PR, an issue or a rule file** — counts and yes/no go to the Notion
+ticket, rows only when the ticket asks and they hold no provider data. The rule in full, with the
+tables that are counted and never listed: `.claude/README.md`, «Staging».
+
 ## 6. Ship
 
 1. `git push -u origin HEAD`, as its own command — Anto approves the push; the gate blocks it
-   unless the check passed for exactly this commit.
+   unless the check passed for exactly this commit, and — after fetching `origin/main` — unless
+   HEAD contains `origin/main` (KAN-683: landing is one at a time). Behind: `git merge --no-edit
+   origin/main` (never a rebase), `scripts/dev/check`, commit, push. Run `scripts/dev/overlap` again
+   first: its answer is the **Overlaps** line of the PR body and of the In Review callout — `none`
+   is written, not left out.
 2. Open the PR over GitHub's **REST** API — `gh pr create`/`view`/`checks` use GraphQL, which
    cloud sessions refuse (KAN-155). Use the GitHub MCP tools where the session has them, else
    `gh api -X POST 'repos/{owner}/{repo}/pulls' -f title="KAN-<n>: <what changed>" -f head=<branch>
    -f base=main -F body=@<body file>`. The body: the ticket link; what changed; an
    exit-criteria table (met / **NOT met**, with the evidence for each); the verification commands
-   and results; what you did not verify; follow-up tickets.
+   and results; what you did not verify; the Overlaps line; follow-up tickets.
 3. **Do not wait for CI** (Anto, 2026-11-10; KAN-619). Route B: your `scripts/dev/check` is the
    merge gate (the push hook writes it on the commit as the `nexotec/check` status, KAN-625 - a cloud
    session's GitHub access refuses that write, so there the push carries it as an empty evidence commit
@@ -160,8 +176,8 @@ Any code change after this point invalidates 2–4: redo them.
 
 1. Ticket Status → **In Review**. At the top of the page, a callout: `In Review — PR #<n>
    (<branch>), head <sha>`; one line `CI was pending at hand-over — <PR link>` (or what had
-   already reported); each exit criterion **met** or **NOT met** with its evidence; the
-   verification run; the screenshot (attach the file when you have one).
+   already reported); the Overlaps line; each exit criterion **met** or **NOT met** with its
+   evidence; the verification run; the screenshot (attach the file when you have one).
 2. **Work is not done when the code merges.** Every time — whether or not the ticket names
    them — write the module PRD's status (what shipped) and the Gap Analysis (citing the new
    head), plus an ADR for any decision taken while building and whatever else the ticket
@@ -210,6 +226,27 @@ open until it is complete. Parking a ticket in **Anto Review** (step 3) uses thi
 reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's status yet
 (KAN-639). Never skip an update silently.
 
+## Land before the merge (`/ticket KAN-<n> land`)
+
+Run when Anto says he is about to merge (KAN-683; ADR-154, «landing is one at a time»). Once
+KAN-626's protection is set, `main` requires the branch to be up to date; Route B leaves the
+re-check to the session either way.
+
+1. `git fetch origin main`. HEAD already contains `origin/main` and the PR's head is HEAD → say so; done.
+2. `git merge --no-edit origin/main` — never a rebase (the gate refuses the force-push it needs).
+   A conflict: resolve it by hand, except in generated files, which are regenerated, not merged
+   (`schema.d.ts`: `make generate-frontend-types`); a second Alembic head on a chain: re-parent
+   this branch's revision onto the other one. Commit the merge.
+3. The hook judges the evidence (`scripts/dev/gate status`): a clean merge whose
+   `git diff origin/main...HEAD` is byte-identical to before carries the reviewer's PASS and the
+   screenshot over, recorded with both shas. A conflict, an edited merge or a different three-dot
+   diff carries nothing: review the resolution — a re-review when `scripts/dev/gate review-scope
+   <previously reviewed sha>` allows it (for a merge it measures the resolution only and prints the
+   `git diff` to give the reviewer as the range), else a full review.
+4. `scripts/dev/check` always (the tree is new), then `git push -u origin HEAD`.
+5. The ticket's In Review callout gets the new head: `Landed — head <sha> contains main <sha>,
+   check passed, evidence carried | re-reviewed`.
+
 ## Close after merge (`/ticket KAN-<n> close`)
 
 1. `gh api 'repos/{owner}/{repo}/pulls/<n>' --jq '{merged, merged_at, merge_commit_sha, html_url}'`
@@ -220,10 +257,21 @@ reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's s
    a Bug ticket on the board (Status Backlog, the board's format) naming the failing job and the
    run, tell Anto, and stop; the ticket stays In Review. A check still running, a cancelled nightly
    run, or a nightly run that started before the merge is printed and does not hold the close — the
-   Done callout then says the nightly run has not covered the merge yet.
-3. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`
+   Done callout then says the nightly run has not covered the merge yet. When `close` prints
+   «merged by admin override, <check> was <state>» (a required check of `main`'s protection that
+   was not green on the merged head, once KAN-626's protection is set), that line goes on the
+   ticket as it stands.
+3. **Confirm the deploy** (KAN-686), through Render's connector: `list_workspaces` (one workspace →
+   pass its id as `workspaceId`; `select_workspace` is denied), `list_services` → the service named
+   `dms-staging` (by name, never a stored id), `list_deploys` with `limit: 1`. Live and its commit is
+   the merge commit or a later one on `main` → the ticket gets «deployed live as <short sha> at
+   <finishedAt>». Failed (`build_failed`, `update_failed`, …) → name it with the last build and app
+   log lines (`list_logs`, `type` build / app, a small `limit`) and file a Bug ticket, as a red
+   check does. Still building, or an older commit live → say so; it does not hold the close. To
+   learn only whether a deploy ended, `list_events` with `eventTypes: ["deploy_ended"]` is cheaper.
+4. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`
    and the CI line to what `close` confirmed.
-4. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
+5. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
    ticket names — written directly, by the cheap path of step 7.2 (no page fetch): a new line
    under each anchor, `<date> · KAN-<n> · merged as <short sha>, PR #<n> · …` (the in-review
    line stays below it), and on each register row the ticket touched, `Cited head` → the merge

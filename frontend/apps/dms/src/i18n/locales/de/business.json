@@ -179,5 +179,55 @@
       "idleOutOfBounds": "Die Abmeldung bei Inaktivität muss zwischen 15 und 120 Minuten liegen.",
       "absoluteOutOfBounds": "Die längste Sitzungsdauer muss zwischen 1 und 12 Stunden liegen."
     }
+  },
+  "copyConfiguration": {
+    "title": "Konfiguration übernehmen von …",
+    "intro": "Übernehmen Sie Standardtexte, Kopfzeilen der Dokumentvorlage und Nummernkreis-Muster einmalig aus einem anderen Betrieb, den Sie ebenfalls verwalten. Die Kopien gehören danach diesem Betrieb; spätere Änderungen im anderen Betrieb wirken hier nicht.",
+    "source": "Betrieb, aus dem übernommen wird",
+    "sourcePlaceholder": "Betrieb wählen",
+    "subsets": "Was übernommen wird",
+    "subset": {
+      "standard_texts": "Standardtexte",
+      "document_template": "Dokumentvorlage (Kopfzeilen)",
+      "number_ranges": "Nummernkreis-Muster"
+    },
+    "subsetHint": {
+      "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Eine Freigabe von WhatsApp-Vorlagen wird nie übernommen; eine überschriebene Vorlage muss erneut eingereicht werden.",
+      "document_template": "Die Kopfzeile der Dokumente, je Sprache. Hat der andere Betrieb in einer Sprache keine, bleibt die hiesige unverändert.",
+      "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert."
+    },
+    "preview": "Vorschau anzeigen",
+    "previewTitle": "Vorschau: Übernahme aus {{source}}",
+    "confirmNote": "Erst mit der Bestätigung wird etwas gespeichert. Die Übernahme wird protokolliert.",
+    "confirm_one": "{{count, number}} Änderung übernehmen",
+    "confirm_other": "{{count, number}} Änderungen übernehmen",
+    "done": "Aus {{source}} übernommen: {{created, number}} neu, {{overwritten, number}} überschrieben, {{skipped, number}} übersprungen.",
+    "nothing": "Im gewählten Betrieb gibt es dazu nichts zu übernehmen.",
+    "itemsLabel": "Was übernommen wird",
+    "headerNotes": "Kopfzeilen",
+    "columns": {
+      "area": "Bereich",
+      "item": "Eintrag",
+      "outcome": "Ergebnis"
+    },
+    "outcome": {
+      "created": "Neu",
+      "overwritten": "Wird überschrieben",
+      "unchanged": "Unverändert",
+      "skipped": "Übersprungen"
+    },
+    "outcomeDone": {
+      "overwritten": "Überschrieben"
+    },
+    "reason": {
+      "default_replaced": "Ersetzt den bisherigen Standardtext dieser Stelle; dieser bleibt erhalten, ist aber nicht mehr voreingestellt.",
+      "number_range_frozen": "Dieser Nummernkreis hat schon eine Nummer vergeben und ist gesperrt.",
+      "number_pattern_location_code_missing": "Kein Standort dieses Betriebs hat einen Code für {location_code}.",
+      "number_range_counter_too_short": "Der nächste Zählerstand passt nicht in das Muster.",
+      "standard_text_placeholder_invalid": "Der Text enthält einen Platzhalter, der nicht mehr gültig ist.",
+      "standard_text_seed_language_missing": "Die Vorlage dieses Texts gibt es in dieser Sprache nicht mehr.",
+      "whatsapp_approval_reset": "Die WhatsApp-Vorlage muss erneut zur Freigabe eingereicht werden.",
+      "other": "Dieser Eintrag kann nicht übernommen werden."
+    }
   }
 }
