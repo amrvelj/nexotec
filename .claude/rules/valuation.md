@@ -23,8 +23,7 @@ file in the same PR as any change to what it states. -->
 
 - **`valuation` is its own bounded context** — "a dated commercial opinion, not a vehicle
   fact"; the PRD gives it its own audit and retention rules, not implemented yet. Not under
-  `vehicle` (vehicle identity is global, valuations are tenant-private) and not under `sales`
-  (Sales owns the trade-in workflow, not the valuation record).
+  `vehicle` or `sales`.
 - **Single writer.** Sales holds `trade_in_valuation_id` (offer and contract) and Stock
   `valuation_ref_*`, both read-only references to the same record; there is never a second
   writer.
@@ -130,8 +129,8 @@ file in the same PR as any change to what it states. -->
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
   rule 10): a valuation stamped for over an hour that no signed contract of its dealership
-  carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both
-  failed, or a hand stamp from before KAN-115; the dealer manager clears either with
+  carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both failed, or
+  a hand stamp from before KAN-115; the dealer manager clears either with
   «Verwendung aufheben», above — once a pending contract still carrying it is cancelled); a signed contract whose existing trade-in valuation of
   the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no

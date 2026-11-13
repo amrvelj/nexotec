@@ -42,10 +42,18 @@ class TradeInRequest(CamelModel):
     plate: str | None = None
     canton: str | None = None
     vehicle_label: str
-    # Since KAN-189 only checked (404 outside the caller's group) and
-    # otherwise unused: the former owner is the contract's customer. Whether
-    # to deprecate it is KAN-562 (a contract question for Anto).
-    customer_id: uuid.UUID | None = None
+    # Deprecated (KAN-562; Anto, 2026-11-11, option A): still accepted —
+    # removing it would break the contract — and checked (404 outside the
+    # caller's group), otherwise ignored: the former owner of a bought
+    # trade-in is the contract's customer (KAN-189). The SPA no longer sends it.
+    customer_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Deprecated: ignored apart from a 404 when the customer is outside the caller's group. "
+            "The former owner of a bought trade-in is always the contract's customer."
+        ),
+        json_schema_extra={"deprecated": True},
+    )
 
 
 class AttachValuationRequest(CamelModel):

@@ -19,7 +19,8 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.integration.adapters.base import CaptionData
-from app.integration.models.caption import IntegrationProviderCaption
+from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
+from app.integration.models.provider import IntegrationProvider
 
 CAPTION_LANGUAGES: tuple[str, ...] = ("de", "fr", "it", "en")
 _LABEL_COLUMN = {lang: f"label_{lang}" for lang in CAPTION_LANGUAGES}
@@ -87,8 +88,74 @@ def store_captions(
             row.label_short_de = (caption.label_short or "")[:_SHORT_WIDTH] or None
         row.fetched_at = fetched_at
         written += 1
+    _record_fetch(db, provider_code=provider_code, lang=lang, fetched_at=fetched_at, count=written)
     db.flush()
     return written
+
+
+def _record_fetch(db: Session, *, provider_code: str, lang: str, fetched_at: dt.datetime, count: int) -> None:
+    """KAN-588: this language of this provider was fetched now, with `count`
+    codes — upserted in a savepoint, as a caption row is, so two Betriebe
+    testing at once never 500."""
+
+    row = db.scalar(
+        select(IntegrationProviderCaptionFetch).where(
+            IntegrationProviderCaptionFetch.provider == provider_code, IntegrationProviderCaptionFetch.lang == lang
+        )
+    )
+    if row is None:
+        row = IntegrationProviderCaptionFetch(provider=provider_code, lang=lang, fetched_at=fetched_at, caption_count=count)
+        try:
+            with db.begin_nested():
+                db.add(row)
+                db.flush()
+            return
+        except IntegrityError:
+            db.expire_all()
+            row = db.scalar(
+                select(IntegrationProviderCaptionFetch).where(
+                    IntegrationProviderCaptionFetch.provider == provider_code,
+                    IntegrationProviderCaptionFetch.lang == lang,
+                )
+            )
+            if row is None:  # pragma: no cover - the constraint that just fired names this row
+                raise
+    row.fetched_at = fetched_at
+    row.caption_count = count
+
+
+@dataclasses.dataclass(frozen=True)
+class CaptionFetch:
+    """KAN-588 — when one language of one provider's captions was last
+    fetched, and how many codes came back."""
+
+    provider: str
+    provider_name: str
+    lang: str
+    fetched_at: dt.datetime
+    caption_count: int
+
+
+def list_caption_fetches(db: Session) -> list[CaptionFetch]:
+    """Every (provider, language) fetched so far, by provider then in the
+    order of CAPTION_LANGUAGES."""
+
+    order = {lang: index for index, lang in enumerate(CAPTION_LANGUAGES)}
+    rows = db.execute(
+        select(IntegrationProviderCaptionFetch, IntegrationProvider.display_name).outerjoin(
+            IntegrationProvider, IntegrationProvider.provider_code == IntegrationProviderCaptionFetch.provider
+        )
+    ).all()
+    return sorted(
+        (
+            CaptionFetch(
+                provider=r.provider, provider_name=name or r.provider, lang=r.lang, fetched_at=r.fetched_at,
+                caption_count=r.caption_count,
+            )
+            for r, name in rows
+        ),
+        key=lambda f: (f.provider, order.get(f.lang, len(order))),
+    )
 
 
 def _find(db: Session, provider_code: str, caption: CaptionData) -> IntegrationProviderCaption | None:

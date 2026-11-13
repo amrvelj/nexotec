@@ -4,7 +4,8 @@
   "tabs": {
     "browse": "Durchsuchen",
     "mappingGaps": "Zuordnungslücken",
-    "brands": "Marken"
+    "brands": "Marken",
+    "captions": "Anbieter-Vokabular"
   },
   "mode": {
     "label": "Modus",

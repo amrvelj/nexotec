@@ -6,12 +6,13 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, NotFoundError
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.schemas.pricing import OptionInput
 from app.inventory.services import commercial_change
 from app.inventory.services.stock_item import get_stock_item_or_404
+from app.vehicle.public import get_configuration_for_host
 
 # Itemised only where condition is new/tagesz/demo — never a used car
 # (avoids inviting per-line discount negotiation on a used-car deal).
@@ -78,6 +79,25 @@ def marketplace_equipment_codes(options: list[StockItemOption]) -> list[str]:
     return [o.equipment_code for o in options if o.equipment_code is not None]
 
 
+def _option_texts_by_code(db: Session, item: StockItem) -> dict[str, dict[str, str]]:
+    """KAN-665 — the identAPI's four texts of each option the stock item's
+    configuration names, by option code, read through `vehicle.public`
+    (never from the client, ADR-044: as delivered). Empty without a
+    configuration, and for a configuration line the provider gave no texts
+    (a hand-typed option, colour, wheels): the option's one `label` then
+    serves every language, as on a configured car (KAN-595)."""
+
+    if item.configuration_id is None:
+        return {}
+    try:
+        host = get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=item.configuration_id)
+    except NotFoundError:
+        # The reconciliation check reports a stock item naming no configuration;
+        # its price still reads, in one text.
+        return {}
+    return {line.code: dict(line.labels) for line in host.price_lines if line.kind == "option" and line.code and line.labels}
+
+
 def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> dict:
     """WP-8 PR-3 — the read surface `app.inventory.public.get_stock_item_pricing`
     exposes to Sales for its own offer pricing build-up (ADR-041's frozen
@@ -115,6 +135,7 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
     # reference once they diverge). Only applies with no options — when
     # options exist, base_price really is the foundational number they're
     # added on top of, and there's nothing honest to fall back to.
+    texts = _option_texts_by_code(db, item) if options else {}
     base_price = item.base_price
     if base_price is None and not options:
         base_price = item.effective_price if item.effective_price is not None else item.list_price
@@ -132,5 +153,9 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
         "notionalInputTaxRate": item.notional_input_tax_rate,
         "notionalInputTaxAmount": item.notional_input_tax_amount,
         "condition": item.condition.value,
-        "options": [{"code": o.code, "label": o.label, "price": o.price} for o in options],
+        # KAN-665: `labels` — the option's four texts from the configuration
+        # ({} when it has none); `label` stays the one text it was priced with.
+        "options": [
+            {"code": o.code, "label": o.label, "price": o.price, "labels": texts.get(o.code, {})} for o in options
+        ],
     }

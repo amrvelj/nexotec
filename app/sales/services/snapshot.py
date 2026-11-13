@@ -163,6 +163,8 @@ def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal, force: bool = Fals
                 quantity=1,
                 included=True,
                 position=position,
+                # KAN-665: the configuration's four texts, as Path B (KAN-595).
+                **_frozen_labels(option.get("labels") or {}),
             )
             # KAN-553: a forced re-freeze of the same car keeps the seller's
             # edits to its lines (empty otherwise).

@@ -1,0 +1,13 @@
+{
+  "title": "Vocabulaire du fournisseur",
+  "intro": "Les libellés des codes du fournisseur de données véhicules, par langue. Ils sont récupérés lors de «Tester la connexion» — et ici, à la main.",
+  "provider": "Fournisseur",
+  "notFetched": "Jamais récupéré",
+  "fetched": "{{at}} · {{count, number}} codes",
+  "refresh": "Actualiser le vocabulaire",
+  "refreshed": "Le vocabulaire a été récupéré à nouveau dans les quatre langues.",
+  "refreshFailed": "Le vocabulaire n’a pas pu être récupéré à nouveau.",
+  "partial": "Le fournisseur n’a pas répondu. Déjà récupéré : {{languages}}.",
+  "empty": "Aucun vocabulaire récupéré pour l’instant. «Tester la connexion» dans l’administration le récupère, ou «Actualiser le vocabulaire» ici.",
+  "loadError": "Le vocabulaire n’a pas pu être chargé."
+}

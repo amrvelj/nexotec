@@ -5,8 +5,13 @@ before anything noticed: every customer ticket read it whole. A file that
 size is a cost paid by every session that touches the area, and nothing
 stopped it growing.
 
-Every source file under `app/` and every `.ts`/`.tsx` file under a
-frontend `src/` folder stays at or under `LIMIT` lines. Tests and generated
+Every source file under `app/`, every `.py` file under `scripts/` (KAN-688:
+the migration smoke-test seed had reached 1,226 lines and grew with every
+nullable column) and every `.ts`/`.tsx` file under a frontend `src/` folder
+stays at or under `LIMIT` lines. Python scripts without the `.py` extension
+are not scanned yet: the one over the limit, `scripts/dev/usage-report`, sits
+in setup-guarded `scripts/dev/`, so scanning it and splitting it is KAN-691
+(an attended session). Tests and generated
 files are not counted (`schema.d.ts` is generated; a `*.test.*` / `*.spec.*`
 file, anything under `__tests__/` and a test helper under a frontend
 `src/test/` folder is a test).
@@ -69,6 +74,7 @@ def _is_frontend_test_helper(path: Path) -> bool:
 
 def _source_files() -> list[Path]:
     files = [p for p in (_REPO_ROOT / "app").rglob("*.py")]
+    files.extend((_REPO_ROOT / "scripts").rglob("*.py"))
     frontend = _REPO_ROOT / "frontend"
     for src in frontend.glob("**/src"):
         if "node_modules" in src.parts:
@@ -85,6 +91,7 @@ def _line_count(path: Path) -> int:
 def test_the_scan_sees_both_trees() -> None:
     files = {p.relative_to(_REPO_ROOT).as_posix() for p in _source_files()}
     assert "app/main.py" in files
+    assert "scripts/seed_migration_smoke_test.py" in files
     assert any(f.startswith("frontend/apps/dms/src/") and f.endswith(".tsx") for f in files)
     assert not any(f.endswith("schema.d.ts") or ".test." in f for f in files)
 

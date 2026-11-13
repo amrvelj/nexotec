@@ -183,6 +183,15 @@ describe('CatalogueBrowsePage — FR-C-01', () => {
     expect(await screen.findByPlaceholderText(i18n.t('mappingGaps.searchPlaceholder'))).toBeInTheDocument()
   })
 
+  it('tabs: ?tab=captions is platform staff\'s — anyone else lands on the browse tab, and no vocabulary is asked for', async () => {
+    const ctx = install()
+    renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue?tab=captions' })
+
+    expect(await screen.findByRole('tab', { name: i18n.t('catalogueBrowse.tabs.browse') })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tab', { name: i18n.t('catalogueBrowse.tabs.captions') })).toBeNull()
+    expect(ctx.backend.callsTo(/\/integrations\/captions/, 'GET')).toHaveLength(0)
+  })
+
   it('grid contracts: a hidden column persists to /me/preferences and restores on remount', async () => {
     const user = userEvent.setup()
     let stored: unknown = {}

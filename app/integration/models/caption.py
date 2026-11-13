@@ -23,7 +23,7 @@ is NULL. No daily refresh: a background job has no user to enrol
 
 import datetime as dt
 
-from sqlalchemy import String, UniqueConstraint
+from sqlalchemy import Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
@@ -49,3 +49,21 @@ class IntegrationProviderCaption(PrimaryKeyMixin, TimestampMixin, Base):
     label_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     label_short_de: Mapped[str | None] = mapped_column(String(80), nullable=True)
     fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class IntegrationProviderCaptionFetch(PrimaryKeyMixin, TimestampMixin, Base):
+    """KAN-588 — when one language of one provider's captions was last
+    fetched, and how many codes came back: one row per (provider, language),
+    written with the captions (`services/captions.py::store_captions`). A
+    caption row's own `fetched_at` is overwritten by each language in turn,
+    so it cannot say this. Global, like the captions; read by platform staff
+    on the catalogue administration."""
+
+    __tablename__ = "integration_provider_caption_fetch"
+    __table_args__ = (UniqueConstraint("provider", "lang", name="uq_integration_provider_caption_fetch_provider_lang"),)
+
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    lang: Mapped[str] = mapped_column(String(2), nullable=False)
+    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    caption_count: Mapped[int] = mapped_column(Integer, nullable=False)
+

@@ -5,12 +5,13 @@ import { useTranslation } from 'react-i18next'
 import { DetailTabs, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { MappingGapsQueue } from '../components/MappingGapsQueue'
 import { BrandsAdmin } from '../components/catalogue/BrandsAdmin'
+import { ProviderCaptionsPanel } from '../components/catalogue/ProviderCaptionsPanel'
 import { useAuth } from '../auth/AuthContext'
 import { CatalogueBrowseGrid } from '../components/catalogue/CatalogueBrowseGrid'
 import { catalogueModeOptions } from '../catalogueOptions'
 import type { CatalogueBrowseMode } from '../api/types'
 
-const TABS = ['browse', 'mapping-gaps', 'brands'] as const
+const TABS = ['browse', 'mapping-gaps', 'brands', 'captions'] as const
 type Tab = (typeof TABS)[number]
 
 /**
@@ -33,7 +34,9 @@ export function CatalogueBrowsePage() {
   const isPlatformStaff = user?.accessRoles.includes('platform_admin') ?? false
 
   const requested = searchParams.get('tab') as Tab
-  const tab: Tab = TABS.includes(requested) && (requested !== 'brands' || isPlatformStaff) ? requested : 'browse'
+  // KAN-588: the provider vocabulary is platform staff's, like the brands.
+  const staffOnly = requested === 'brands' || requested === 'captions'
+  const tab: Tab = TABS.includes(requested) && (!staffOnly || isPlatformStaff) ? requested : 'browse'
   const mode: CatalogueBrowseMode = searchParams.get('mode') === 'record' ? 'record' : 'build'
 
   const setParam = (key: string, value: string | null) => {
@@ -63,7 +66,12 @@ export function CatalogueBrowsePage() {
         tabs={[
           { id: 'browse', label: t('catalogueBrowse.tabs.browse') },
           { id: 'mapping-gaps', label: t('catalogueBrowse.tabs.mappingGaps') },
-          ...(isPlatformStaff ? [{ id: 'brands', label: t('catalogueBrowse.tabs.brands') }] : []),
+          ...(isPlatformStaff
+            ? [
+                { id: 'brands', label: t('catalogueBrowse.tabs.brands') },
+                { id: 'captions', label: t('catalogueBrowse.tabs.captions') },
+              ]
+            : []),
         ]}
         activeTab={tab}
         onTabChange={(id) => setParam('tab', id === 'browse' ? null : id)}
@@ -87,6 +95,8 @@ export function CatalogueBrowsePage() {
         </Stack>
       ) : tab === 'brands' ? (
         <BrandsAdmin />
+      ) : tab === 'captions' ? (
+        <ProviderCaptionsPanel />
       ) : (
         <MappingGapsQueue paramPrefix="gaps" />
       )}

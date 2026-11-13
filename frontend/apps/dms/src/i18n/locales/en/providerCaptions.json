@@ -1,0 +1,13 @@
+{
+  "title": "Provider vocabulary",
+  "intro": "The labels of the vehicle-data provider's codes, per language. They are fetched by «Test connection» — and here, by hand.",
+  "provider": "Provider",
+  "notFetched": "Never fetched",
+  "fetched": "{{at}} · {{count, number}} codes",
+  "refresh": "Refresh vocabulary",
+  "refreshed": "The vocabulary was fetched again in all four languages.",
+  "refreshFailed": "The vocabulary could not be fetched again.",
+  "partial": "The provider did not answer. Already fetched: {{languages}}.",
+  "empty": "No vocabulary fetched yet. «Test connection» in the administration fetches it, or «Refresh vocabulary» here.",
+  "loadError": "The vocabulary could not be loaded."
+}

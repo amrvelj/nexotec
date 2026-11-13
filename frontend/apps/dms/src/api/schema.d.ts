@@ -2016,6 +2016,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integrations/captions/fetches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Caption Fetches
+         * @description Per provider and language: when its captions were last fetched (by
+         *     «Test connection» or a refresh) and how many codes came back.
+         */
+        get: operations["list_caption_fetches_v1_integrations_captions_fetches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/captions/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Provider Captions
+         * @description «Captions aktualisieren»: the four languages fetched again through the
+         *     acting Betrieb's vehicle-data connection, under the staff user's own
+         *     token. 409 `no_provider_connection`, `provider_not_configured`,
+         *     `not_entitled` or `provider_has_no_captions`; 422 `provider_unavailable`
+         *     (each provider failure with `languagesFetched`).
+         */
+        post: operations["refresh_provider_captions_v1_integrations_captions_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/integrations/connections": {
         parameters: {
             query?: never;
@@ -4948,6 +4993,27 @@ export interface components {
             capabilityCode: string;
             /** Granted */
             granted: boolean;
+        };
+        /** CaptionFetchList */
+        CaptionFetchList: {
+            /** Items */
+            items: components["schemas"]["CaptionFetchRead"][];
+        };
+        /** CaptionFetchRead */
+        CaptionFetchRead: {
+            /** Captioncount */
+            captionCount: number;
+            /**
+             * Fetchedat
+             * Format: date-time
+             */
+            fetchedAt: string;
+            /** Language */
+            language: string;
+            /** Provider */
+            provider: string;
+            /** Providername */
+            providerName: string;
         };
         /** CatalogueBrandPage */
         CatalogueBrandPage: {
@@ -10808,7 +10874,11 @@ export interface components {
         TradeInRequest: {
             /** Canton */
             canton?: string | null;
-            /** Customerid */
+            /**
+             * Customerid
+             * @deprecated
+             * @description Deprecated: ignored apart from a 404 when the customer is outside the caller's group. The former owner of a bought trade-in is always the contract's customer.
+             */
             customerId?: string | null;
             /** Plate */
             plate?: string | null;
@@ -17698,6 +17768,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CapabilityCheckRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_caption_fetches_v1_integrations_captions_fetches_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptionFetchList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_provider_captions_v1_integrations_captions_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptionFetchList"];
                 };
             };
             /** @description Validation Error */

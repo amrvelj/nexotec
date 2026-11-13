@@ -4,7 +4,8 @@
   "tabs": {
     "browse": "Browse",
     "mappingGaps": "Mapping gaps",
-    "brands": "Brands"
+    "brands": "Brands",
+    "captions": "Provider vocabulary"
   },
   "mode": {
     "label": "Mode",
