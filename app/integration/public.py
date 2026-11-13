@@ -24,9 +24,11 @@ a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
 
 No mapped class leaves through this door (KAN-123): `get_enabled_connection`
-answers a `ConnectionRef` (the connection's id), which `call_capability` and
-`resolve_adapter` take back, and the registry's rows stay inside this context
+answers a `ConnectionRef` (the connection's id and its Betrieb), which
+`call_capability` and `resolve_adapter` take back, refusing a row of another
+Betrieb like a deleted one, and the registry's rows stay inside this context
 (`services/connection_refs.py`). `ConnectionStatus` is an enum, not a row.
+
 `resolve_adapter` (KAN-27) is `call_capability` without the call-log/
 circuit-breaker side effects — for a caller whose use of the adapter
 makes no provider I/O (validating data shape locally). A real provider

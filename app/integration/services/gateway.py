@@ -176,12 +176,16 @@ def _connection_row(db: Session, connection: IntegrationConnection | ConnectionR
     `ConnectionRef` from `public.get_enabled_connection`, whose lookup left the
     row in that caller's own session, so `get` finds the same instance without
     a query (or reloads it after the caller committed, as touching an expired
-    row did before). A connection deleted since is refused like a disabled one."""
+    row did before). A connection deleted since is refused like a disabled one,
+    and so is a row of another Betrieb than the reference names: a reference
+    rebuilt from a stored id never calls, logs against or charges the breaker
+    of another Betrieb's connection, and the refusal does not say it exists
+    (rule 7)."""
 
     if isinstance(connection, IntegrationConnection):
         return connection
     row = db.get(IntegrationConnection, connection.id)
-    if row is None:
+    if row is None or row.tenant_id != connection.tenant_id:
         raise ConnectionDisabledError(connection.id)
     return row
 

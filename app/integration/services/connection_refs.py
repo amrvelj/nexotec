@@ -8,9 +8,11 @@ contract a remote service would offer (ADR-015) is a value and the calls that
 take it back, not a table mapping.
 
 - `get_enabled_connection` answers a `ConnectionRef`: the connection's id, the
-  one thing a caller outside this context reads. `call_capability` and
-  `resolve_adapter` (`services/gateway.py`) take it back and work on the row
-  themselves.
+  one thing a caller outside this context reads, and the Betrieb it belongs
+  to. `call_capability` and `resolve_adapter` (`services/gateway.py`) take it
+  back and work on the row themselves, after checking that the row is that
+  Betrieb's: a reference built from a stored id for the caller's own Betrieb
+  cannot reach another Betrieb's provider account.
 - `get_entitlement` answers an `EntitlementState`: whether the licence option
   is granted and when that was last established — still `None` for "never
   probed or declared", a fact the registry reports and the caller interprets
@@ -31,9 +33,10 @@ from app.integration.services import connections as connection_service
 
 @dataclasses.dataclass(frozen=True)
 class ConnectionRef:
-    """An enabled connection as another context holds it: its id."""
+    """An enabled connection as another context holds it: its id and its Betrieb."""
 
     id: uuid.UUID
+    tenant_id: uuid.UUID
 
 
 @dataclasses.dataclass(frozen=True)
@@ -48,7 +51,9 @@ def get_enabled_connection(db: Session, *, tenant_id: uuid.UUID, provider_code: 
     """The tenant's enabled connection to `provider_code`, or `None` (none, or disabled)."""
 
     row = connection_service.get_enabled_connection(db, tenant_id=tenant_id, provider_code=provider_code)
-    return None if row is None else ConnectionRef(id=row.id)
+    # The lookup filtered on `tenant_id`, so the row is that Betrieb's (a platform-wide
+    # connection, which has none, is never found here and never reachable by a reference).
+    return None if row is None else ConnectionRef(id=row.id, tenant_id=tenant_id)
 
 
 def get_entitlement(db: Session, *, connection_id: uuid.UUID, capability_code: str) -> EntitlementState | None:

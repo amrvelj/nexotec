@@ -1,9 +1,11 @@
-"""Merge re-pointing (D-08): vehicle-party rows, transactions, phones,
-emails and external IDs must follow the duplicate into the survivor, per
+"""Merge re-pointing (D-08): vehicle-party rows, phones, emails and external
+IDs must follow the duplicate into the survivor, per
 FR-09 and the PRD's own Risks section ("merge without re-pointing is worse
 than no merge — treat as a correctness bug"). See test_customer.py for the
 basic flag-flip merge tests; this file is scoped to the re-pointing behavior
-specifically.
+specifically. Sales' offers and contracts follow through `customer.merged`
+(the legacy transaction rows this file once re-pointed went with their table,
+KAN-555).
 """
 
 import uuid

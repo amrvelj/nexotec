@@ -997,11 +997,13 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
 
 
 def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
-    """Customer, Vehicle, Dealer, Transaction and User are the five tables
+    """Customer, Vehicle, Dealer, Transaction and User were the five tables
     the dropped FKs pointed at. The delete-path audit (PR-2) found no
     DELETE endpoint for any of them — status/lifecycle fields are the only
     way to retire one. If this ever changes, reconciliation and this
-    contract both need a conscious update, not a silent one.
+    contract both need a conscious update, not a silent one. Transaction
+    itself is gone, with its routes (KAN-555); the exact set below still
+    refuses any DELETE route it would come back with.
     """
 
     schema = client.app.openapi()
@@ -1012,7 +1014,6 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/dealerships/{dealer_id}/users/{user_id}",
         "/v1/customers/{customer_id}",
         "/v1/vehicles/{vehicle_id}",
-        "/v1/transactions/{transaction_id}",
     ):
         assert forbidden not in delete_paths, f"unexpected hard-delete endpoint: {forbidden}"
 

@@ -1,8 +1,8 @@
 # dms-platform
 
 Backend for the Automotive DMS Master Data Management (MDM) shell —
-Dealership, User, Customer, Vehicle, and Transaction, built for the Swiss
-market.
+Dealership, User, Customer and Vehicle, built for the Swiss market (the
+shell's Transaction went with the legacy table, KAN-555).
 
 Spec of record: `PLANS/DMS_MDM_V1_SPEC.md` + `PLANS/DMS_MDM_V1_SWISS_ADDENDUM.md`
 in the CTO workspace.

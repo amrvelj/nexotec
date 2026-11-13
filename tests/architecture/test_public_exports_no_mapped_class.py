@@ -21,6 +21,7 @@ entries go, they take the class from where ADR-107 lets them.
 
 import importlib
 import types
+import uuid
 from pathlib import Path
 
 from sqlalchemy import inspect
@@ -116,7 +117,7 @@ def test_self_test_a_mapped_class_is_found_and_nothing_else_is() -> None:
     fake.Ref = ConnectionRef  # type: ignore[attr-defined]
     fake.Status = ConnectionStatus  # type: ignore[attr-defined]
     fake.lookup = get_enabled_connection  # type: ignore[attr-defined]
-    fake.instance = ConnectionRef(id=__import__("uuid").uuid4())  # type: ignore[attr-defined]
+    fake.instance = ConnectionRef(id=uuid.uuid4(), tenant_id=uuid.uuid4())  # type: ignore[attr-defined]
 
     assert _mapped_exports(fake) == {"app.fake.public.Row"}
 
