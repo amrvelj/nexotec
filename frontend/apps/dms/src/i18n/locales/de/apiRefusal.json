@@ -162,7 +162,8 @@
     "vin_correction_needs_vehicle": "Dieses Fahrzeug ist noch nicht eingekauft — die VIN wird in der Konfiguration korrigiert.",
     "vin_unchanged": "Das ist bereits die VIN dieses Fahrzeugs.",
     "vehicle_vin_changed": "Die VIN im Fahrzeugstamm wurde inzwischen geändert. Bitte neu laden und erneut versuchen.",
-    "vehicle_merged": "Das Fahrzeug wurde im Fahrzeugstamm mit einem anderen zusammengeführt. Bitte neu laden."
+    "vehicle_merged": "Das Fahrzeug wurde im Fahrzeugstamm mit einem anderen zusammengeführt. Bitte neu laden.",
+    "provider_has_no_captions": "Dieser Anbieter hat kein Vokabular, das geholt werden kann."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",

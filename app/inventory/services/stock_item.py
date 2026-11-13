@@ -219,6 +219,24 @@ def _lock_configuration(db: Session, *, tenant_id: uuid.UUID, configuration_id: 
     db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
 
+CONFIGURATION_INDEX = "uq_stock_item_tenant_id_configuration_id"
+
+
+def _raise_if_configuration_taken(
+    db: Session, exc: IntegrityError, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID | None
+) -> None:
+    """KAN-513: the partial unique index `uq_stock_item_tenant_id_configuration_id`
+    refused the write — the same 409 as the check under the lock."""
+
+    if configuration_id is None or CONFIGURATION_INDEX not in str(exc.orig):
+        return
+    holder = db.scalar(
+        select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.configuration_id == configuration_id).limit(1)
+    )
+    if holder is not None:
+        raise configuration_held_conflict(holder) from None
+
+
 def _check_configuration_not_held(db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID) -> None:
     """KAN-509 (FR-C-11): a configuration is one car's technical data, so
     two stock items never share one — editing it would change both cars.
@@ -233,14 +251,21 @@ def _check_configuration_not_held(db: Session, *, tenant_id: uuid.UUID, configur
         .limit(1)
     )
     if held_by is not None:
-        raise ConflictError(
-            f"This configuration already belongs to stock item {held_by.stock_number}.",
-            details={
-                "reason": "configuration_held_by_stock_item",
-                "stockItemId": str(held_by.id),
-                "stockNumber": held_by.stock_number,
-            },
-        )
+        raise configuration_held_conflict(held_by)
+
+
+def configuration_held_conflict(held_by: StockItem) -> ConflictError:
+    """KAN-509/KAN-513: the one 409 for a configuration another stock item
+    of the Betrieb holds — the check under the lock and the unique index."""
+
+    return ConflictError(
+        f"This configuration already belongs to stock item {held_by.stock_number}.",
+        details={
+            "reason": "configuration_held_by_stock_item",
+            "stockItemId": str(held_by.id),
+            "stockNumber": held_by.stock_number,
+        },
+    )
 
 
 def _check_vin_not_in_stock(
@@ -507,13 +532,15 @@ def create_stock_item(
             db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,
             configuration_label=configuration_label,
         )
-    except IntegrityError:
+    except IntegrityError as exc:
         # KAN-111: another writer took this VIN into stock after the check.
         db.rollback()
         held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=data.vin) if data.vin is not None else None
-        if held_by is None:
-            raise
-        raise _vin_already_in_stock(held_by) from None
+        if held_by is not None:
+            raise _vin_already_in_stock(held_by) from None
+        # KAN-513: a writer outside the lock took the configuration.
+        _raise_if_configuration_taken(db, exc, tenant_id=tenant_id, configuration_id=data.configuration_id)
+        raise
     db.commit()
     db.refresh(item)
     return item
@@ -590,7 +617,14 @@ def attach_configuration(
     item.vehicle_label = configuration.label
     item.updated_by = actor_id
     item.version += 1
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        # KAN-513: a writer outside the lock took the configuration. The
+        # request is refused, so its transaction is rolled back first.
+        db.rollback()
+        _raise_if_configuration_taken(db, exc, tenant_id=item.tenant_id, configuration_id=configuration.id)
+        raise
     record_audit_event(
         db,
         entity_type="stock_item",

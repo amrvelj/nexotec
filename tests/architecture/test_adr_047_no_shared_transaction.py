@@ -1028,7 +1028,6 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
             {
                 "app.customer.models.customer",
                 "app.platform.models.dealership",
-                "app.vehicle.models.catalogue",
             }
         ),
         commits=True,
@@ -1036,7 +1035,9 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
             "CI only: inserts one consistent row per table into customer, platform and vehicle in one "
             "commit, through the ORM and not the services on purpose (its docstring), so the migration round "
             "trip runs over data. A test fixture, never run against a real database. Excepted by ADR-140 "
-            "(KAN-342): named and bounded, a CI fixture only"
+            "(KAN-342): named and bounded, a CI fixture only. Its vehicle catalogue chain lives in "
+            "migration_smoke_test_catalogue.py (KAN-688), which imports vehicle only and never commits: the "
+            "seed's one commit writes it"
         ),
     ),
     "verify_migration_smoke_test_seed.py": _ScriptReach(

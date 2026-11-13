@@ -133,7 +133,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053 (ADR-091 expired, KAN-79). Verifie
   (`liveContractId`, `liveContractNumber`; computed in `api/offers.py::_offer_reads`, one query
   per page — KAN-492), so a sent offer's seller picker and «Übernehmen» are disabled before the
   click; «Übernehmen» names the contract in the menu (`dealOwner.takeOverDisabled.liveContract`),
-  the picker carries no reason line (Anto, 2026-10-29: «Disabled is disabled»). Generating an
+  the picker carries no reason line (Anto, 2026-10-29). Generating an
   offer document is refused too (Anto, 2026-10-29, KAN-495 option a:
   `document.generate_offer_document` asks `require_no_live_contract`), and the sent offer's
   «Dokument erzeugen» is disabled before the click and says why — an action, not a field
@@ -200,8 +200,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053 (ADR-091 expired, KAN-79). Verifie
 - VAT is **one line on the printed document only**, computed at the dealership's
   `Dealership.vat_rate` (Notion calls it `dealer_settings.vat_rate` — no such table exists) in
   `services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`),
-  directly under «Verkaufspreis», before the trade-in and «Zu bezahlen» (Anto, 2026-10-28,
-  KAN-434 option A — printed last it read as the VAT inside the payable);
+  directly under «Verkaufspreis», before the trade-in and «Zu bezahlen» (Anto, KAN-434 A);
   a dealership with no `vat_rate` gets no VAT line, never a guessed rate.
 - **The VAT line is always computed on the full gross price, never on `payable`** (ADR-098,
   Anto's ruling 2026-10-24, KAN-68). The sale and the trade-in are two supplies (Art. 24 Abs. 3
@@ -209,11 +208,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053 (ADR-091 expired, KAN-79). Verifie
   CHF 10,000 trade-in at 8.1 % prints CHF 2,697.50, not CHF 1,948.20. Open: no tax advisor
   has confirmed it yet (KAN-436); if one reads the trade-in as a price reduction, ADR-098 is
   reopened, never overridden in code. Documents generated earlier keep their frozen figure.
-- *Why:* Margenbesteuerung for used cars was abolished on 1 January 2010 and replaced by the
-  **fiktiver Vorsteuerabzug** (Art. 28a MWSTG). Margin taxation survives only as Art. 24a MWSTG
-  for Sammlerstücke (first registration more than 30 years before purchase) — out of scope for
-  v1. ADR-033 and ADR-053 are superseded in part by ADR-057; only the fiktiver Vorsteuerabzug
-  survives.
+- ADR-033 and ADR-053 are superseded in part by ADR-057: only the **fiktiver Vorsteuerabzug**
+  (Art. 28a MWSTG) survives; margin taxation (Art. 24a: Sammlerstücke, first registration > 30 years before
+  purchase) is out of scope for v1.
 - The fiktiver Vorsteuerabzug is a **purchase-side** fact owned by Stock. Sales reads it
   through the stock item's pricing (`landedCost`, `notionalInputTax*`) to compute margin and
   never writes it. Margin nets the notional credit whether or not a landed cost was recorded.
@@ -301,6 +298,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053 (ADR-091 expired, KAN-79). Verifie
   after the other, each with the version the previous one returned, a refused save said and
   never retried (KAN-314) — the server's offer/contract row lock refuses the second of two
   saves sent with the same version (KAN-311).
+- `TradeInRequest.customerId` is deprecated: ignored but for its 404 (Anto, KAN-562 A; `test_sales_trade_in.py`).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
   contract created straight from the customer, and every confirmation; a merged one every attach
@@ -339,6 +337,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053 (ADR-091 expired, KAN-79). Verifie
   its valuation was judged on (Anto, 2026-10-28, option A). A trade-in captured through the
   valuation path carries `tradeInConfigurationId` and has no vehicle-mdm record. The offer
   document itemises the factory-option lines; the contract document does not.
+  A stock car's option lines carry its configuration's four texts too (`test_kan665_stock_options_four_languages.py`).
 
 ## Visibility and numbers
 

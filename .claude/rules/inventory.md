@@ -63,8 +63,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   deleted by KAN-79):
   `services/invoicing_gate.py::apply_finance_invoice_issued` has no production caller until
   Finance issues invoices (WP-9, `.claude/rules/finance.md`), so `request_invoice` leaves the car
-  in stock. A single enum cannot express "in stock **and** reserved",
-  which is the ordinary case.
+  in stock.
 - **ADR-055 — group-readable stock is its own enumerated projection** (`StockItemGroupRead`),
   not the tenant grid with columns removed. `tests/test_inventory_group_listing.py` asserts by
   name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
@@ -176,10 +175,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   differ). **One configuration, one stock item** (KAN-509, FR-C-11): create and attach refuse a
   configuration another stock item of the Betrieb holds — 409 `configuration_held_by_stock_item`
   with the holder's `stockItemId` and `stockNumber` — under a per-(tenant, configuration) advisory
-  lock, so two racing writers cannot both win. The FR-I-02/02b consumers do not take it (they
-  key on the contract, so a second contract on the same offer would carry the offer's
-  configuration into a second pipeline item); no unique index backs it yet (a migration —
-  KAN-513).
+  lock; a partial unique index backs it for every writer. A second contract on the same offer
+  reuses the free ordered car, else gets a configuration copy (Anto, KAN-513 A;
+  `test_kan513_one_configuration_one_stock_item.py`). **Trap:** a reused car's `purchased`/`storno`
+  name its first contract (`pipeline_ref`); `inventory.stock_item.reassigned` names the new one.
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
   `trade_in`; additive, KAN-144). A directly added item carries neither. It carries

@@ -465,7 +465,6 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     plate: string | null
     canton: string | null
     vehicleLabel: string
-    customerId: string | null
   }) => {
     const path = `${basePath}/trade-in`
     const updated = await save((current) =>
@@ -549,7 +548,7 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
               onClick={() => {
                 setTradeInError(null)
                 setTradeInVinError(null)
-                submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel, customerId: null })
+                submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel })
                   .then(() => setTradeInMode(false))
                   .catch(async (err: unknown) =>
                     isVinRefusal(err)

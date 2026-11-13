@@ -4,7 +4,8 @@
   "tabs": {
     "browse": "Sfoglia",
     "mappingGaps": "Lacune di mappatura",
-    "brands": "Marche"
+    "brands": "Marche",
+    "captions": "Vocabolario del fornitore"
   },
   "mode": {
     "label": "Modalità",

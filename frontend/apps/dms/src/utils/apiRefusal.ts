@@ -217,6 +217,8 @@ const REASON_KEYS: Record<string, string> = {
       'provider_quote_stale',
       'provider_quote_inputs_missing',
       'provider_not_configured',
+      // KAN-588 — a staff caption refresh on a provider without a vocabulary.
+      'provider_has_no_captions',
       // KAN-604 — the secrets manager refused a connection secret write or delete.
       'secrets_backend_failed',
       // KAN-603 — this deployment has no secret store at all.

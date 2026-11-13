@@ -98,6 +98,18 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
         # checks first, so a duplicate is a 409 with a reason
         # (services/stock_item.py::_check_vin_not_in_stock); this index is
         # what holds when two writers race past that check.
+        # KAN-513: one configuration, one stock item (FR-C-11, KAN-509) — the
+        # writers check under an advisory lock first (409
+        # `configuration_held_by_stock_item`); this index holds for every
+        # writer, one that skips the lock included.
+        Index(
+            "uq_stock_item_tenant_id_configuration_id",
+            "tenant_id",
+            "configuration_id",
+            unique=True,
+            postgresql_where=text("configuration_id IS NOT NULL"),
+            sqlite_where=text("configuration_id IS NOT NULL"),
+        ),
         Index(
             "uq_stock_item_tenant_id_vin_in_stock",
             "tenant_id",

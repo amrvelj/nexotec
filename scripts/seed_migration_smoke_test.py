@@ -47,10 +47,10 @@ classes directly, since there schema and code genuinely agree.
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/seed_migration_smoke_test.py
 """
 
-import datetime as dt
 import uuid
 
 import sqlalchemy as sa
+from migration_smoke_test_catalogue import seed_catalogue_type_approval
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
@@ -71,7 +71,6 @@ from app.customer.models.customer import (
 )
 from app.db import SessionLocal
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
-from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
 
 _DEALER_ADDRESS = {
     "address_street": "Bahnhofstrasse",
@@ -81,6 +80,37 @@ _DEALER_ADDRESS = {
     "address_canton": "ZH",
     "address_country": "CH",
 }
+
+
+# Column sentinels (KAN-688: was one function each). The upgrade-from-previous
+# CI job seeds against main's schema before this branch's migrations apply,
+# while this branch's ORM classes already name every new column — the trap
+# described in the module docstring. A table that existed before the column
+# needs a column-level check: each entry is (table, the column whose presence
+# says the migration has run), with the change that added it.
+_SCHEMA_SENTINELS: dict[str, tuple[str, str]] = {
+    # WP-6b PR-1 (logo_url, brand_primary_color, default_correspondence_language)
+    "dealership_has_wp6b_columns": ("dealership", "logo_url"),
+    # WP-7 PR-3/PR-7 (vat_rate, ageing_alert_thresholds)
+    "dealership_has_wp7_columns": ("dealership", "vat_rate"),
+    # KAN-205 (the branding columns; nullable or server default since)
+    "dealership_has_kan205_columns": ("dealership", "brand_secondary_color"),
+    # KAN-197 / D-A-22 (plain uid replaced the encrypted tax_id)
+    "dealership_has_kan197_columns": ("dealership", "uid"),
+    # WP-8 PR-6 (credit_block, credit_block_reason, credit_blocked_at)
+    "customer_has_credit_block_column": ("customer", "credit_block"),
+    # KAN-50 (the FR-17 fields; gender/newsletter/vat_registered NOT NULL)
+    "customer_has_fr17_fields": ("customer", "gender"),
+    # KAN-295 (vat_status_confirmed, NOT NULL with a Python-side default)
+    "customer_has_vat_status_confirmed": ("customer", "vat_status_confirmed"),
+    # KAN-52 / FR-23 §1 (consent_scope on the three contact-channel tables)
+    "contact_channel_has_consent_scope": ("customer_phone", "consent_scope"),
+}
+
+
+def _has(db: Session, sentinel: str) -> bool:
+    table, column = _SCHEMA_SENTINELS[sentinel]
+    return column in {col["name"] for col in inspect(db.get_bind()).get_columns(table)}
 
 
 def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
@@ -139,54 +169,6 @@ def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
     return user_id
 
 
-def _dealership_has_wp6b_columns(db: Session) -> bool:
-    """WP-6b PR-1 added logo_url/brand_primary_color/
-    default_correspondence_language to dealership. The
-    migration-upgrade-from-previous CI job seeds against main's CURRENT
-    schema before this PR's own migrations apply, same "ORM classes only
-    know the newest shape" trap _seed_dealer_old_schema already exists to
-    avoid — the dealership TABLE has existed since WP-3, so the coarser
-    "dealership" in get_table_names() check that already gates the
-    dealer/dealership rename doesn't catch this; a column-level check does.
-    """
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
-    return "logo_url" in columns
-
-
-def _dealership_has_wp7_columns(db: Session) -> bool:
-    """WP-7 PR-3/PR-7 added vat_rate/ageing_alert_thresholds to
-    dealership. Same trap as WP-6b's own check above, one PR later — the
-    dealership table has existed since WP-3 and already has WP-6b's
-    columns on main, so only a column-level check catches this one too.
-    """
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
-    return "vat_rate" in columns
-
-
-def _dealership_has_kan205_columns(db: Session) -> bool:
-    """KAN-205 added the branding columns (brand_secondary_color, the
-    logo_on_* placements) to dealership. Same trap once more: the ORM class
-    names them before the upgrade-from-previous job has applied the
-    migration. Every column after KAN-197 is nullable or carries a server
-    default, so the KAN-197 raw insert below writes main's shape until then."""
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
-    return "brand_secondary_color" in columns
-
-
-def _dealership_has_kan197_columns(db: Session) -> bool:
-    """KAN-197 (D-A-22) replaced the encrypted `tax_id` with a plain `uid`
-    and dropped the US licence columns. Same trap, one PR later: the
-    upgrade-from-previous CI job seeds against main's schema before this
-    PR's migration applies, so a column-level check decides which shape to
-    write."""
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
-    return "uid" in columns
-
-
 # The two dealerships the KAN-197 migration is proven against: one whose old
 # tax_id is a valid UID (converted) and one whose old tax_id fails the check
 # digit (reported, uid left NULL). scripts/verify_migration_smoke_test_seed.py
@@ -199,16 +181,15 @@ SMOKE_TEST_INVALID_UID_LEGAL_NAME = "Migration Smoke Test Invalid UID GmbH"
 def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID]:
     """This PR's own heads already applied — dealer_group/dealership exist,
     so the current ORM classes address the real schema directly. Except
-    the dealership columns a later PR added — see _dealership_has_wp6b_columns
-    / _dealership_has_wp7_columns / _dealership_has_kan197_columns /
-    _dealership_has_kan205_columns.
+    the dealership columns a later PR added — see the `dealership_has_*`
+    entries of _SCHEMA_SENTINELS.
     """
 
     group = DealerGroup(name="Migration Smoke Test Group")
     db.add(group)
     db.flush()
 
-    if _dealership_has_kan197_columns(db) and not _dealership_has_kan205_columns(db):
+    if _has(db, "dealership_has_kan197_columns") and not _has(db, "dealership_has_kan205_columns"):
         # main's shape before KAN-205 (KAN-197 applied, with or without
         # KAN-203): a raw insert naming every column through KAN-198, and no
         # further — KAN-203's and KAN-205's columns are nullable or defaulted.
@@ -265,7 +246,7 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
         db.flush()
         return dealership_id, group.id
 
-    if _dealership_has_kan197_columns(db):
+    if _has(db, "dealership_has_kan197_columns"):
         dealership = Dealership(
             dealer_group_id=group.id,
             legal_name="Migration Smoke Test AG",
@@ -296,7 +277,7 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
         db.flush()
         return dealership.id, group.id
 
-    if _dealership_has_wp7_columns(db):
+    if _has(db, "dealership_has_wp7_columns"):
         # main's current shape (before KAN-197): encrypted tax_id, the US
         # licence columns, dba_name, postal code 4. The ORM class no longer
         # has these columns, so this is a raw insert naming them; enum
@@ -356,7 +337,7 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
         db.flush()
         return dealership_id, group.id
 
-    if _dealership_has_wp6b_columns(db):
+    if _has(db, "dealership_has_wp6b_columns"):
         # WP-6b's columns are live but WP-7's (vat_rate/
         # ageing_alert_thresholds) aren't yet — the ORM class above already
         # carries those two, so it can't be used here; a raw insert naming
@@ -506,38 +487,6 @@ def _seed_dealer_old_schema(db: Session) -> uuid.UUID:
     return dealer_id
 
 
-def _customer_has_credit_block_column(db: Session) -> bool:
-    """WP-8 PR-6 added credit_block/credit_block_reason/credit_blocked_at
-    to customer. Same trap as _dealership_has_wp6b_columns/
-    _dealership_has_wp7_columns above — the customer table has existed
-    since WP-3, so only a column-level check catches this one.
-    """
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer")}
-    return "credit_block" in columns
-
-
-def _customer_has_fr17_fields(db: Session) -> bool:
-    """KAN-50 (Phase B2) added the FR-17 stored fields to customer, three
-    of them NOT NULL (gender/newsletter/vat_registered). Same trap as
-    _customer_has_credit_block_column one PR later — the customer table has
-    existed since WP-3 and already has credit_block on main, so only a
-    column-level check catches this: `gender` is the sentinel.
-    """
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer")}
-    return "gender" in columns
-
-
-def _customer_has_vat_status_confirmed(db: Session) -> bool:
-    """KAN-295 added customer.vat_status_confirmed (NOT NULL, Python-side
-    default on the ORM class), so the ORM insert below breaks on main's
-    schema until this PR's customer migration has run."""
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer")}
-    return "vat_status_confirmed" in columns
-
-
 def _seed_fr17_customer_raw(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     """The FR-17 customer shape (KAN-50) without KAN-295's column, written
     through the reflected table so only the columns main's schema really has
@@ -556,31 +505,16 @@ def _seed_fr17_customer_raw(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     return customer_id
 
 
-def _contact_channel_has_consent_scope(db: Session) -> bool:
-    """KAN-52 (FR-23 §1) added `consent_scope` to all three contact-channel
-    tables and turned `consent_source` into an enum. Same trap as
-    _customer_has_fr17_fields one ticket later: customer_phone / customer_email
-    have carried the ADR-067 ContactChannelMixin columns since c7e2a91f4b06,
-    so only a column-level check catches this — `consent_scope` on
-    customer_phone is the sentinel. The CustomerPhone / CustomerEmail ORM
-    classes now always emit it, so the pre-KAN-52 schema needs a raw insert.
-    """
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer_phone")}
-    return "consent_scope" in columns
-
-
 def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     """This PR's own heads already applied — group_id exists everywhere
     tenant_id used to, so the current ORM classes address the real schema
     directly. Except WP-8 PR-6's and KAN-50's own new customer columns
-    specifically — see _customer_has_credit_block_column /
-    _customer_has_fr17_fields.
+    specifically — see the `customer_has_*` entries of _SCHEMA_SENTINELS.
     """
 
-    if _customer_has_fr17_fields(db) and not _customer_has_vat_status_confirmed(db):
+    if _has(db, "customer_has_fr17_fields") and not _has(db, "customer_has_vat_status_confirmed"):
         customer_id = _seed_fr17_customer_raw(db, group_id=group_id)
-    elif _customer_has_fr17_fields(db):
+    elif _has(db, "customer_has_fr17_fields"):
         customer = Customer(
             group_id=group_id,
             customer_number="K-000001",
@@ -593,7 +527,7 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
         db.add(customer)
         db.flush()
         customer_id = customer.id
-    elif _customer_has_credit_block_column(db):
+    elif _has(db, "customer_has_credit_block_column"):
         # credit_block is live but KAN-50's FR-17 columns are not — the ORM
         # Customer class above always sends gender/newsletter/vat_registered
         # (NOT NULL, Python-side defaults), so a raw insert naming every
@@ -675,7 +609,7 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
 
     db.add(CustomerNumberSequence(group_id=group_id, next_value=2))
 
-    if _contact_channel_has_consent_scope(db):
+    if _has(db, "contact_channel_has_consent_scope"):
         db.add(
             CustomerPhone(
                 group_id=group_id,
@@ -906,201 +840,6 @@ def _seed_customer_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uui
     return customer_id
 
 
-# Fixed, known values the companion verify script looks rows up by.
-_CATALOGUE_BRAND_CODE = "smoke-catalogue"
-_CATALOGUE_VARIANT_NAME = "Smoke Variant 1.4 TB"
-_CATALOGUE_TYPE_APPROVAL_NUMBER = "SMK001"
-_CATALOGUE_FIRST_REGISTRATION_FROM = dt.date(2015, 6, 1)
-
-
-def _seed_catalogue_type_approval(db: Session) -> None:
-    """A brand → model group → model variant → type approval chain, so the
-    type-approval-m2m migration (rev eb660a3213bd) exercises its backfill
-    against a populated `vehicle_type_approval` table.
-
-    Runs against three schema states, same reasoning as the dealer/customer
-    chains above (this PR's ORM classes only know the newest shape):
-      1. pre-m2m (`vehicle_type_approval.model_variant_id` present, UNIQUE
-         `type_approval_number`) — raw inserts, one-to-one type approval;
-      2. post-m2m, **pre-C-A** — the link table exists but
-         `vehicle_model_variant` does not yet have KAN-39's spec block, so
-         the `ModelVariant` ORM class (which now carries ~38 extra columns)
-         cannot insert here; raw-insert just the pre-C-A variant columns;
-         the same holds for any later column the class gains that main's
-         schema lacks (KAN-587's `homologation_class`), so the test is
-         "does the table hold every column the class maps";
-      3. post-C-A (this PR's own heads) — schema and code agree, full ORM.
-    `migration-upgrade-from-previous` hits state 2; `migration-smoke-test`
-    hits state 3.
-    """
-
-    now = utcnow()
-    brand_id, group_id, variant_id = uuid7(), uuid7(), uuid7()
-
-    old_shape = "model_variant_id" in {
-        col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_type_approval")
-    }
-
-    if old_shape:
-        db.execute(
-            sa.table(
-                "vehicle_brand",
-                sa.column("id", GUID()),
-                sa.column("code", sa.String()),
-                sa.column("display_name", sa.String()),
-                sa.column("version", sa.Integer()),
-                sa.column("created_at", sa.DateTime(timezone=True)),
-                sa.column("updated_at", sa.DateTime(timezone=True)),
-            )
-            .insert()
-            .values(
-                id=brand_id,
-                code=_CATALOGUE_BRAND_CODE,
-                display_name="Smoke Catalogue",
-                version=1,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-        db.execute(
-            sa.table(
-                "vehicle_model_group",
-                sa.column("id", GUID()),
-                sa.column("brand_id", GUID()),
-                sa.column("name", sa.String()),
-                sa.column("created_at", sa.DateTime(timezone=True)),
-                sa.column("updated_at", sa.DateTime(timezone=True)),
-            )
-            .insert()
-            .values(id=group_id, brand_id=brand_id, name="Smoke Group", created_at=now, updated_at=now)
-        )
-        db.execute(
-            sa.table(
-                "vehicle_model_variant",
-                sa.column("id", GUID()),
-                sa.column("model_group_id", GUID()),
-                sa.column("name", sa.String()),
-                sa.column("model_year_from", sa.Integer()),
-                sa.column("version", sa.Integer()),
-                sa.column("created_at", sa.DateTime(timezone=True)),
-                sa.column("updated_at", sa.DateTime(timezone=True)),
-            )
-            .insert()
-            .values(
-                id=variant_id,
-                model_group_id=group_id,
-                name=_CATALOGUE_VARIANT_NAME,
-                model_year_from=2015,
-                version=1,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-        db.execute(
-            sa.table(
-                "vehicle_type_approval",
-                sa.column("id", GUID()),
-                sa.column("model_variant_id", GUID()),
-                sa.column("type_approval_number", sa.String()),
-                sa.column("first_registration_from", sa.Date()),
-                sa.column("created_at", sa.DateTime(timezone=True)),
-                sa.column("updated_at", sa.DateTime(timezone=True)),
-            )
-            .insert()
-            .values(
-                id=uuid7(),
-                model_variant_id=variant_id,
-                type_approval_number=_CATALOGUE_TYPE_APPROVAL_NUMBER,
-                first_registration_from=_CATALOGUE_FIRST_REGISTRATION_FROM,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-        db.flush()
-        return
-
-    # State 2 vs 3: the m2m link table exists either way, but KAN-39's spec
-    # block on `vehicle_model_variant` may not — `migration-upgrade-from-
-    # previous` seeds against main's schema before this PR's columns land.
-    # Judged by every column the ORM class maps, not one marker: a later PR
-    # that adds a spec-block column (KAN-587's `homologation_class`) meets
-    # main's schema without it in exactly the same way.
-    variant_columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_model_variant")}
-    variant_has_spec_block = {column.name for column in ModelVariant.__table__.columns} <= variant_columns
-
-    if not variant_has_spec_block:
-        # State 2 — Brand/ModelGroup/TypeApproval ORM classes are unchanged
-        # and fine; only ModelVariant grew columns this schema lacks, so
-        # raw-insert its pre-C-A shape.
-        brand = Brand(id=brand_id, code=_CATALOGUE_BRAND_CODE, display_name="Smoke Catalogue")
-        db.add(brand)
-        db.flush()
-        group = ModelGroup(id=group_id, brand_id=brand_id, name="Smoke Group")
-        db.add(group)
-        db.flush()
-        db.execute(
-            sa.table(
-                "vehicle_model_variant",
-                sa.column("id", GUID()),
-                sa.column("model_group_id", GUID()),
-                sa.column("name", sa.String()),
-                sa.column("model_year_from", sa.Integer()),
-                sa.column("version", sa.Integer()),
-                sa.column("created_at", sa.DateTime(timezone=True)),
-                sa.column("updated_at", sa.DateTime(timezone=True)),
-            )
-            .insert()
-            .values(
-                id=variant_id,
-                model_group_id=group_id,
-                name=_CATALOGUE_VARIANT_NAME,
-                model_year_from=2015,
-                version=1,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-        db.flush()
-        db.add(
-            TypeApproval(
-                type_approval_number=_CATALOGUE_TYPE_APPROVAL_NUMBER,
-                variant_links=[
-                    VariantTypeApproval(
-                        model_variant_id=variant_id,
-                        first_registration_from=_CATALOGUE_FIRST_REGISTRATION_FROM,
-                    )
-                ],
-            )
-        )
-        db.flush()
-        return
-
-    # State 3 — schema and this PR's code agree.
-    brand = Brand(id=brand_id, code=_CATALOGUE_BRAND_CODE, display_name="Smoke Catalogue")
-    db.add(brand)
-    db.flush()
-    group = ModelGroup(id=group_id, brand_id=brand_id, name="Smoke Group")
-    db.add(group)
-    db.flush()
-    variant = ModelVariant(
-        id=variant_id, model_group_id=group_id, name=_CATALOGUE_VARIANT_NAME, model_year_from=2015
-    )
-    db.add(variant)
-    db.flush()
-    db.add(
-        TypeApproval(
-            type_approval_number=_CATALOGUE_TYPE_APPROVAL_NUMBER,
-            variant_links=[
-                VariantTypeApproval(
-                    model_variant_id=variant_id,
-                    first_registration_from=_CATALOGUE_FIRST_REGISTRATION_FROM,
-                )
-            ],
-        )
-    )
-    db.flush()
-
-
 def main() -> None:
     db = SessionLocal()
     try:
@@ -1122,7 +861,7 @@ def main() -> None:
         else:
             customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
 
-        _seed_catalogue_type_approval(db)
+        seed_catalogue_type_approval(db)
 
         db.commit()
         print(f"Seeded dealer={dealer_id} user={user_id} customer={customer_id}")

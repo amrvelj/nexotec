@@ -99,7 +99,9 @@ def test_recording_the_former_holder_never_deadlocks_against_the_label_refresh(e
         engine, older_id=owner.id, newer_id=keeper.id,
         write=lambda s: record_former_holder_on_purchase(
             s, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-            held_from=ended_at - dt.timedelta(days=30), ended_at=ended_at, actor_id=None,
+            # Signed when Clara's rows start, so the purchase only closes them
+            # (KAN-566 would fill a stretch before them otherwise).
+            held_from=max(owner.effective_from, keeper.effective_from), ended_at=ended_at, actor_id=None,
         ),
     )
 

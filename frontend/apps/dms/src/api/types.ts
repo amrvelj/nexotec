@@ -200,6 +200,8 @@ export type ReferenceValueCreate = Schemas['ReferenceValueCreate']
 export type ReferenceValueUpdate = Schemas['ReferenceValueUpdate']
 export type BrandRead = Schemas['BrandRead']
 export type BrandPage = Schemas['BrandPage']
+export type CaptionFetchList = Schemas['CaptionFetchList']
+export type CaptionFetchRead = Schemas['CaptionFetchRead']
 
 // Configurator C-B (KAN-40) — catalogue browse & facet search (FR-C-01)
 export type CatalogueBrowseMode = Schemas['CatalogueBrowseMode']

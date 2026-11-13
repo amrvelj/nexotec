@@ -192,6 +192,24 @@ def _stock_item_added(db_session, engine, monkeypatch):
     return message, link_bumps
 
 
+def _stock_item_reassigned(db_session, engine, monkeypatch):
+    """KAN-513: a second contract on the same offer reuses the free pipeline
+    car; Sales links it to that contract, bumping its version once."""
+
+    from tests.test_kan513_one_configuration_one_stock_item import _confirm, _first_contract_cancelled, _messages
+
+    _, _, group_id, offer, car = _first_contract_cancelled(db_session, engine)
+    second = _confirm(db_session, engine, offer, group_id)
+    db_session.commit()
+    (message,) = _messages(db_session, "inventory.stock_item.reassigned", car.id)
+    version_before = second.version
+
+    def link_bumps(db: Session) -> int:
+        return db.get(SalesContract, second.id).version - version_before
+
+    return message, link_bumps
+
+
 def _stock_item_purchased(db_session, engine, monkeypatch):
     """Stock books the purchase: Sales keeps its replica of the fact."""
 
@@ -688,6 +706,7 @@ _FIXTURES: dict[str, Fixture] = {
     "customer.trade_in_purchased": _trade_in_purchased,
     "customer.trade_in_storno": _trade_in_storno,
     "sales.customer_merged": _customer_merged,
+    "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,

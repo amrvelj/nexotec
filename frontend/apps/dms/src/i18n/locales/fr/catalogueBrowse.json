@@ -4,7 +4,8 @@
   "tabs": {
     "browse": "Parcourir",
     "mappingGaps": "Lacunes de correspondance",
-    "brands": "Marques"
+    "brands": "Marques",
+    "captions": "Vocabulaire du fournisseur"
   },
   "mode": {
     "label": "Mode",

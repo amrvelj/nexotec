@@ -1,0 +1,13 @@
+{
+  "title": "Anbieter-Vokabular",
+  "intro": "Die Bezeichnungen der Codes des Fahrzeugdaten-Anbieters, pro Sprache. Sie werden bei «Verbindung testen» geholt — und hier von Hand.",
+  "provider": "Anbieter",
+  "notFetched": "Noch nie geholt",
+  "fetched": "{{at}} · {{count, number}} Codes",
+  "refresh": "Vokabular aktualisieren",
+  "refreshed": "Das Vokabular wurde in allen vier Sprachen neu geholt.",
+  "refreshFailed": "Das Vokabular konnte nicht neu geholt werden.",
+  "partial": "Der Anbieter hat nicht geantwortet. Bereits geholt: {{languages}}.",
+  "empty": "Noch kein Vokabular geholt. «Verbindung testen» in der Administration holt es, oder «Vokabular aktualisieren» hier.",
+  "loadError": "Das Vokabular konnte nicht geladen werden."
+}

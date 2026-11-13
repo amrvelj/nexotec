@@ -5,7 +5,7 @@ storno (KAN-572); split from customer.py, KAN-617.
 import datetime as dt
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -44,9 +44,17 @@ def record_former_holder_on_purchase(
 
     Per role: a row of this customer that holds the role at `ended_at` (an
     earlier link, open or ending later) is closed at `ended_at`; one already
-    ending exactly then is left alone; otherwise a closed row
-    [`held_from`, `ended_at`) is written — history, so it closes nobody else
-    (KAN-148/KAN-370: a row ended in the past is not a holder). Taken under
+    ending exactly then is left alone. Then the customer's own rows and the
+    history join over [`held_from`, `ended_at`) without gap or overlap
+    (KAN-566, Anto's option B): an own row starting at `held_from` and ended
+    before is ended at the purchase, or at the start of the customer's next
+    own row inside the period (case 1); every stretch no own row covers gets
+    a closed history row (case 2) — or, where an empty own row («planned,
+    never started», KAN-664) already starts at the stretch, that row is
+    extended over it (the unique key allows no second row with that start).
+    A merge's kept copy is never moved. Written rows are history, so they
+    close nobody else (KAN-148/KAN-370: a row ended in the past is not a
+    holder). Taken under
     the allocation's locks, and refused for a merged customer the same way
     (409 `customer_merged`); the caller resolves the survivor first, so that
     refusal means a merge committed in between and a redelivery will find
@@ -85,65 +93,188 @@ def record_former_holder_on_purchase(
                 .with_for_update()
             ).all()
         )
-        if own_rows:
-            for row in own_rows:
-                if row.effective_to is None or row.effective_to > ended_at:
-                    _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
-            continue
-        # uq_vehicle_party_scope spans (vehicle, customer, role, effective_from):
-        # an earlier row of this customer starting at exactly `held_from` (and
-        # ended before the purchase) already records that start. Writing a
-        # second would fail the consumer on every redelivery until it is
-        # dead-lettered, so that row stands for the period.
-        same_start = db.scalar(
-            select(VehicleParty.id).where(
+        for row in own_rows:
+            if row.effective_to is None or row.effective_to > ended_at:
+                _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
+        # A holding row closed here may start after `held_from`: the stretch
+        # before it is filled below like any other (KAN-566).
+        # KAN-566 (Anto, 2026-11-11, option B): the customer's own rows and
+        # the history written here join without gap or overlap. Case 1: an own
+        # row starting exactly at `held_from` and ended before the purchase
+        # (typed by hand, say) is ended at the purchase — the same row, so
+        # uq_vehicle_party_scope (vehicle, customer, role, effective_from)
+        # never sees a second row with that start — or at the start of the
+        # customer's next own row inside the period, never over it. Case 2:
+        # every stretch of [held_from, ended_at) no own row covers gets a
+        # closed history row, so a row ending (or starting) inside the period
+        # is met, never overlapped and never left with a gap beside it.
+        mine = (
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.customer_id == customer_id,
+            VehicleParty.role == role,
+            VehicleParty.merged_into_customer_id.is_(None),
+            VehicleParty.merged_into_vehicle_id.is_(None),
+        )
+        same_start = db.scalars(
+            select(VehicleParty)
+            .where(
                 VehicleParty.vehicle_id == vehicle_id,
                 VehicleParty.customer_id == customer_id,
                 VehicleParty.role == role,
                 VehicleParty.effective_from == held_from,
             )
-        )
+            .with_for_update()
+        ).first()
         if same_start is not None:
-            continue
-
-        party = VehicleParty(
-            vehicle_id=vehicle_id,
-            customer_id=customer_id,
-            role=role,
-            effective_from=held_from,
-            effective_to=ended_at,
-        )
-        _write_vehicle_labels(db, [party])
-        db.add(party)
-        db.flush()
-        record_audit_event(
-            db,
-            entity_type="customer",
-            entity_id=customer_id,
-            tenant_id=group_id,
-            action="vehicle_party_add",
-            actor_id=actor_id,
-            after={
-                "vehicleId": str(vehicle_id),
-                "role": role.value,
-                "effectiveFrom": party.effective_from.isoformat(),
-                "effectiveTo": ended_at.isoformat(),
-            },
-        )
-        publish_event(
-            db,
-            OutboxEvent(
-                event_type="customer.vehicle_party.linked",
-                tenant_id=group_id,
-                producer=_EVENT_PRODUCER,
-                aggregate_type="vehicle_party",
-                aggregate_id=party.id,
-                payload=_vehicle_party_payload(party),
-            ),
-        )
-        written.append(party)
+            # A merge's kept copy is never moved (KAN-177); it keeps standing
+            # for the period, as before.
+            if same_start.merged_into_customer_id is not None or same_start.merged_into_vehicle_id is not None:
+                continue
+            next_start = db.scalar(
+                select(func.min(VehicleParty.effective_from)).where(
+                    *mine, VehicleParty.effective_from > held_from, VehicleParty.effective_from < ended_at
+                )
+            )
+            _extend_to_purchase(
+                db, party=same_start, ended_at=next_start or ended_at, actor_id=actor_id, group_id=group_id
+            )
+        for gap_from, gap_to in _uncovered(db, mine=mine, held_from=held_from, ended_at=ended_at):
+            taken = db.scalars(
+                select(VehicleParty)
+                .where(
+                    VehicleParty.vehicle_id == vehicle_id,
+                    VehicleParty.customer_id == customer_id,
+                    VehicleParty.role == role,
+                    VehicleParty.effective_from == gap_from,
+                )
+                .with_for_update()
+            ).first()
+            if taken is not None:
+                # uq_vehicle_party_scope allows no second row with this start.
+                # An own row starting there is an empty one (a plan closed at
+                # its own start, KAN-664): it is extended over the stretch, as
+                # case 1 extends its row. A merge's kept copy stands for it.
+                if taken.merged_into_customer_id is None and taken.merged_into_vehicle_id is None:
+                    _extend_to_purchase(db, party=taken, ended_at=gap_to, actor_id=actor_id, group_id=group_id)
+                continue
+            written.append(
+                _write_history_row(
+                    db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
+                    effective_from=gap_from, effective_to=gap_to, actor_id=actor_id,
+                )
+            )
     db.flush()
     return written
+
+
+def _uncovered(
+    db: Session, *, mine: tuple, held_from: dt.datetime, ended_at: dt.datetime
+) -> list[tuple[dt.datetime, dt.datetime]]:
+    """The stretches of [held_from, ended_at) no own row of the customer
+    covers (KAN-566). Rows holding at `ended_at` were closed before this is
+    asked, so every own row here has an end."""
+
+    rows = db.execute(
+        select(VehicleParty.effective_from, VehicleParty.effective_to)
+        .where(*mine, VehicleParty.effective_from < ended_at, VehicleParty.effective_to >= held_from)
+        .order_by(VehicleParty.effective_from)
+    ).all()
+    gaps: list[tuple[dt.datetime, dt.datetime]] = []
+    cursor = held_from
+    for row_from, row_to in rows:
+        if row_to <= row_from:
+            continue  # an empty row («planned, never started», KAN-664) covers nothing
+        if row_from > cursor:
+            gaps.append((cursor, row_from))
+        cursor = max(cursor, row_to)
+    if cursor < ended_at:
+        gaps.append((cursor, ended_at))
+    return gaps
+
+
+def _write_history_row(
+    db: Session,
+    *,
+    vehicle_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    role: VehiclePartyRole,
+    group_id: uuid.UUID,
+    effective_from: dt.datetime,
+    effective_to: dt.datetime,
+    actor_id: uuid.UUID | None,
+) -> VehicleParty:
+    """A closed row of the former holder (KAN-189): history, so it closes
+    nobody (KAN-370); audited `vehicle_party_add`, published `linked`."""
+
+    party = VehicleParty(
+        vehicle_id=vehicle_id, customer_id=customer_id, role=role,
+        effective_from=effective_from, effective_to=effective_to,
+    )
+    _write_vehicle_labels(db, [party])
+    db.add(party)
+    db.flush()
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=customer_id,
+        tenant_id=group_id,
+        action="vehicle_party_add",
+        actor_id=actor_id,
+        after={
+            "vehicleId": str(vehicle_id),
+            "role": role.value,
+            "effectiveFrom": effective_from.isoformat(),
+            "effectiveTo": effective_to.isoformat(),
+        },
+    )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.vehicle_party.linked",
+            tenant_id=group_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="vehicle_party",
+            aggregate_id=party.id,
+            payload=_vehicle_party_payload(party),
+        ),
+    )
+    return party
+
+
+def _extend_to_purchase(
+    db: Session, *, party: VehicleParty, ended_at: dt.datetime, actor_id: uuid.UUID | None, group_id: uuid.UUID
+) -> None:
+    """KAN-566: an own history row of the trade-in's customer is extended to
+    `ended_at` — case 1's row starting at the signature (to the purchase, or
+    to the start of the customer's next own row inside the period, never over
+    it), or an empty own row at the start of an uncovered stretch (to the
+    stretch's end).
+    It was history and stays history (it ended before it was moved, and ends
+    in the past now), so it closes nobody and publishes nothing — as a PATCH
+    moving a past end does not; audited `vehicle_party_update` with reason
+    `trade_in_purchased`."""
+
+    if party.effective_to is None or party.effective_to >= ended_at:
+        return
+    before = {
+        "vehicleId": str(party.vehicle_id),
+        "role": party.role.value,
+        "effectiveFrom": party.effective_from.isoformat(),
+        "effectiveTo": party.effective_to.isoformat(),
+    }
+    party.effective_to = ended_at
+    db.flush()
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=party.customer_id,
+        tenant_id=group_id,
+        action="vehicle_party_update",
+        actor_id=actor_id,
+        before=before,
+        after={"effectiveTo": ended_at.isoformat()},
+        reason="trade_in_purchased",
+    )
 
 
 def reopen_former_holder_after_storno(

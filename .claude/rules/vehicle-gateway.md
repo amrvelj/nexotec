@@ -63,10 +63,18 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   token request, one caption call. Everything else ran against the mock or a fake transport — say
   so in any claim about real provider behaviour.
 
-## Captions are vocabulary, global, fetched on «Test connection» only (ADR-111)
+## Captions are vocabulary, global, fetched on «Test connection» and by staff (ADR-111)
 `integration_provider_caption`, one row per (provider, group, list, code) with four labels; each
 language committed as it lands; a failure leaves the connection `connected`. No scheduled refresh (a
-background job has no user to enrol). Others read them through `integration.public.get_captions` —
+background job has no user to enrol). **Staff see and refresh them** (KAN-588): every store records
+`integration_provider_caption_fetch` (provider, language, `fetched_at`, code count; integration migration
+`b1f58e30a656`, seeded from the captions); the catalogue's staff-only «Anbieter-Vokabular» tab
+(`ProviderCaptionsPanel`) reads `GET /v1/integrations/captions/fetches` and «Vokabular aktualisieren»
+is `POST /v1/integrations/captions/refresh` (`services/caption_refresh.py`, `require_access_role()`): the
+four languages through the acting Betrieb's enabled vehicle-data connection, under the staff user's own
+token, each committed as it lands, audited `captions_refreshed` on the connection; 409
+`no_provider_connection` / `provider_not_configured` / `not_entitled` / `provider_has_no_captions`, 422
+`provider_unavailable`, the provider's failures with `languagesFetched`. No job calls it. Others read them through `integration.public.get_captions` —
 to show a provider's wording beside an unmapped code, **never to fill a reference list** (ADR-044).
 
 ## The licence (identAPI test agreement, confidential — Anto's Drive, never quoted)
@@ -92,7 +100,10 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   `ALLOWED_MCP_DEPENDENCIES` does not name — empty: Anto's ruling by name). An AI prompt hook may use
   provider data only inside the tenant's own request and response, never as a tool the model can
   call to fetch more. `.claude/` is not the application.
-- **Specification excerpts never leave this private repository** (§5, §12): never pasted into a
-  public issue, gist, other repo or chat. Fixtures and the mock use values that read as invented,
-  never an account value or a specification example (`test_no_real_provider_account_values.py`);
-  the probes' inputs are examples from auto-i's **publicly served** OpenAPI document.
+- **The repository is public for now** (Anto, 2026-11-13; it returns to private), so **nothing §5
+  or §12 covers enters it**: no specification excerpt, account value or specification example in a
+  file, a PR, an issue or a commit message, nor pasted into a gist, another repo or chat. Fixtures
+  and the mock use values that read as invented (`test_no_real_provider_account_values.py`, which
+  names them by hash only); the probes' inputs are examples from auto-i's **publicly served**
+  OpenAPI document. Code-to-meaning tables (the `auto_i_dat` code map) are vocabulary, not covered
+  (Anto, 2026-11-13).

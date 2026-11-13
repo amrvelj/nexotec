@@ -1,0 +1,57 @@
+name: check-evidence
+
+# KAN-647 (ADR-129, part 2): a cloud session cannot write the `nexotec/check` commit status (its
+# GitHub proxy answers 403), so its push hook carries the recorded check result as an empty
+# evidence commit on the PR's head. This job reads that commit and posts the status for it:
+#
+# - `success` only when the head carries the evidence marker, has one parent, is empty against
+#   it, and its tree is the tree its message names; the description says it came from an
+#   evidence commit (a session that cannot write the status);
+# - `error`, with the reason, for a head that carries the marker but fails one of those;
+# - nothing for any other head (a Mac session's push posts the status itself, KAN-625).
+#
+# The rules live in `evidence_verdict` in .claude/hooks/nexotec_hooks.py, beside the code that
+# writes the commit, and are pinned by its selftest. The status says what the session's hook
+# recorded - it is not an independent run (Route B, ADR-128); the evidence is not signed (ADR-129).
+# It runs the PR's own copy of the hooks file, as a pull_request workflow runs the PR's own copy of
+# this file: a guard against mistakes, not against a PR that means to cheat.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: check-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  check-evidence:
+    name: check-evidence
+    # A fork's PR gets a read-only token and was not pushed by a session: nothing to post.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+      - name: post nexotec/check from a cloud session's evidence commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          verdict="$(python3 .claude/hooks/nexotec_hooks.py cli evidence-verdict "$HEAD_SHA")"
+          state="$(jq -r '.state // empty' <<<"$verdict")"
+          if [ -z "$state" ]; then
+            echo "The head carries no evidence marker: nothing to post."
+            exit 0
+          fi
+          description="$(jq -r '.description' <<<"$verdict")"
+          echo "nexotec/check = $state: $description"
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$state" -f context="nexotec/check" -f description="$description" >/dev/null
