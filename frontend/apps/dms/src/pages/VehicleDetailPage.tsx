@@ -22,13 +22,19 @@ import type {
   CustomerPage,
   OdometerSource,
   VehicleAccessoryRead,
-  VehicleMdmRead,
   VehicleOdometerReadingRead,
   VehiclePartyAllocationRead,
   VehiclePartyRole,
   VehiclePlateRead,
 } from '../api/types'
+import type { components } from '../api/schema'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { stockOpenState } from '../components/stockRowMenu'
+
+// KAN-667 — the Vehicle 360's read of one record: the record and the session's
+// own Betrieb's stock car holding it. Derived from the generated schema like
+// every type in api/types.ts (move it there once that file is free to change).
+type VehicleMdmDetailRead = components['schemas']['VehicleMdmDetailRead']
 
 const DEFAULT_TAB = 'identity'
 
@@ -76,7 +82,7 @@ export function VehicleDetailPage() {
 
   const vehicleQuery = useQuery({
     queryKey: ['vehicle-mdm', id],
-    queryFn: () => api.get<VehicleMdmRead>(`/vehicle-mdm/${id}`),
+    queryFn: () => api.get<VehicleMdmDetailRead>(`/vehicle-mdm/${id}`),
     enabled: Boolean(id),
   })
   const platesQuery = useQuery({
@@ -146,7 +152,7 @@ export function VehicleDetailPage() {
 
   const saveField = async (patch: Record<string, unknown>) => {
     if (!vehicle || !id) return
-    const updated = await api.patch<VehicleMdmRead>(`/vehicle-mdm/${id}`, patch, { 'If-Match': String(vehicle.version) })
+    const updated = await api.patch<VehicleMdmDetailRead>(`/vehicle-mdm/${id}`, patch, { 'If-Match': String(vehicle.version) })
     queryClient.setQueryData(['vehicle-mdm', id], updated)
   }
 
@@ -293,6 +299,8 @@ export function VehicleDetailPage() {
     )
   }
 
+  const heldInStock = vehicle.stockItem
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
@@ -327,6 +335,14 @@ export function VehicleDetailPage() {
           onAllocate={allocate}
           canEndEntry={canEndPartyEntry}
           onEndEntry={endPartyEntry}
+          stockItem={vehicle.stockItem}
+          // KAN-667: the stock car opens at its «VIN korrigieren» (KAN-557), as
+          // the Stock list's row menu opens it (router state, never the URL).
+          onCorrectVinInStock={
+            salesEntitled && heldInStock
+              ? () => navigate(`/stock/${heldInStock.id}`, { state: stockOpenState('correctVin') })
+              : undefined
+          }
           allocating={allocating}
           onAllocatingChange={setAllocating}
           customerCandidates={customerCandidates}

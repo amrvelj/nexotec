@@ -69,6 +69,25 @@ class VehicleMdmRead(CamelModel):
     updated_at: dt.datetime
 
 
+class VehicleStockItemLink(CamelModel):
+    """KAN-667 — the stock car of the caller's Betrieb that holds this record
+    (Vehicle's projection, `services/stock_holding.py`): the Vehicle 360 shows
+    the VIN read-only and links to that car's «VIN korrigieren». Stock's id,
+    and its stock number as the label (null until a fact carried it)."""
+
+    id: uuid.UUID
+    stock_number: str | None
+
+
+class VehicleMdmDetailRead(VehicleMdmRead):
+    """The Vehicle 360's read of one record (`GET` and `PATCH
+    /v1/vehicle-mdm/{id}`): the record, and `stockItem` — the caller's own
+    Betrieb's stock car holding it, or null. Only the caller's Betrieb counts
+    (rule 7): another Betrieb's stock is never named, and leaves it null."""
+
+    stock_item: VehicleStockItemLink | None
+
+
 class VehicleMdmCreateResult(CamelModel):
     """FR-V-15: entering a VIN that already exists is NOT a validation
     error — it is the same car. `created=False` means the caller's VIN

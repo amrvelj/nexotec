@@ -9,10 +9,14 @@ as it does to the pre-existing ones below, and they had no coverage before
 this PR.
 """
 
+import datetime as dt
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
+from app.inventory.public import StockItem
 from app.platform.public import DealerGroup, Dealership, actor_reference_checks
 from app.sales.public import Transaction
 from app.vehicle.models.catalogue import (
@@ -41,6 +45,7 @@ from app.vehicle.models.provider import (
     VariantOptionProviderCode,
     VariantProviderCode,
 )
+from app.vehicle.models.stock_holding import VehicleStockHolding
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm
@@ -85,7 +90,85 @@ ACTOR_TABLES = (
     MappingGap,
 )
 
+# VehicleStockHolding (KAN-667) carries no actor column: consumers and a
+# backfill write it, never a user.
+
+# KAN-667: how long one of Stock's facts may be in flight before a projection
+# row that disagrees with its stock item is a finding (KAN-630's grace).
+_OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
+
+
+def _stock_holding_differs_from_its_stock_item() -> StateCheck:
+    """KAN-667 (rule 10): Vehicle's projection says something else than the
+    stock item it mirrors — another Betrieb, another record for an item still
+    in stock, or in stock where the item left (or the reverse) — although the
+    item last changed over an hour ago: one of Stock's facts was missed
+    (dead-lettered, or the consumer is stuck). The identity PATCH would then
+    refuse a VIN change it should allow, or allow one it should refuse. A
+    stock item that no longer exists is the reference check's finding."""
+
+    return StateCheck(
+        label="vehicle_stock_holding differs from its stock_item",
+        source_model=VehicleStockHolding,
+        source_row_id_column=VehicleStockHolding.id,
+        where=lambda: select(StockItem.id)
+        .where(
+            StockItem.id == VehicleStockHolding.stock_item_id,
+            StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
+            (StockItem.tenant_id != VehicleStockHolding.tenant_id)
+            | (StockItem.left_stock_at.is_(None) != VehicleStockHolding.left_stock_at.is_(None))
+            | (StockItem.left_stock_at.is_(None) & StockItem.vehicle_id.is_distinct_from(VehicleStockHolding.vehicle_id)),
+        )
+        .correlate(VehicleStockHolding)
+        .exists(),
+    )
+
+
+def _held_stock_item_missing_from_the_projection() -> StateCheck:
+    """KAN-667 (rule 10): a stock item that holds a vehicle-mdm record and
+    has not left stock, unchanged for an hour, that the projection does not
+    hold — its `vin_assigned` fact was missed, or the projection backfill has
+    not run since the deploy. Its VIN could be changed on the Vehicle 360
+    alone. The finding names the stock item."""
+
+    return StateCheck(
+        label="stock item holding a record missing from vehicle_stock_holding",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        where=lambda: StockItem.vehicle_id.is_not(None)
+        & StockItem.left_stock_at.is_(None)
+        & (StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE)
+        & ~select(VehicleStockHolding.id)
+        .where(
+            VehicleStockHolding.stock_item_id == StockItem.id,
+            VehicleStockHolding.tenant_id == StockItem.tenant_id,
+            VehicleStockHolding.vehicle_id.is_not(None),
+        )
+        .correlate(StockItem)
+        .exists(),
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
+    # --- KAN-667: Vehicle's projection of the records a Betrieb holds in stock.
+    _stock_holding_differs_from_its_stock_item(),
+    _held_stock_item_missing_from_the_projection(),
+    ReferenceCheck(
+        label="vehicle_stock_holding.stock_item_id -> stock_item.id",
+        source_model=VehicleStockHolding,
+        source_row_id_column=VehicleStockHolding.id,
+        source_fk_column=VehicleStockHolding.stock_item_id,
+        target_model=StockItem,
+        target_id_column=StockItem.id,
+    ),
+    ReferenceCheck(
+        label="vehicle_stock_holding.tenant_id -> dealership.id",
+        source_model=VehicleStockHolding,
+        source_row_id_column=VehicleStockHolding.id,
+        source_fk_column=VehicleStockHolding.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
     # --- PR-7 additions: every cross-context GUID column PR-1 through
     # PR-6 introduced, none of which had a check before this PR. ---
     ReferenceCheck(

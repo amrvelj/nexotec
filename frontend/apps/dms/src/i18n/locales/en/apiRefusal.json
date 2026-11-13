@@ -164,7 +164,8 @@
     "vin_unchanged": "That is already this vehicle's VIN.",
     "vehicle_vin_changed": "The VIN in the vehicle record has changed meanwhile. Please reload and try again.",
     "vehicle_merged": "The vehicle was merged with another in the vehicle records. Please reload.",
-    "provider_has_no_captions": "This provider has no vocabulary to fetch."
+    "provider_has_no_captions": "This provider has no vocabulary to fetch.",
+    "vin_change_needs_vin_correction": "This vehicle is in your business's stock as {{stockNumber}}. Its VIN is changed there with “Correct VIN”, so the stock vehicle, the vehicle record and the configuration carry the same VIN."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

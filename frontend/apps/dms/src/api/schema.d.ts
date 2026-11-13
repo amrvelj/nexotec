@@ -4187,7 +4187,12 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update Vehicle */
+        /**
+         * Update Vehicle
+         * @description The identity fields (ADR-045). A VIN change on a car the caller's
+         *     Betrieb holds in stock is 409 `vin_change_needs_vin_correction` (KAN-667):
+         *     it is corrected there with «VIN korrigieren».
+         */
         patch: operations["update_vehicle_v1_vehicle_mdm__vehicle_id__patch"];
         trace?: never;
     };
@@ -11623,6 +11628,49 @@ export interface components {
             created: boolean;
             vehicle: components["schemas"]["VehicleMdmRead"];
         };
+        /**
+         * VehicleMdmDetailRead
+         * @description The Vehicle 360's read of one record (`GET` and `PATCH
+         *     /v1/vehicle-mdm/{id}`): the record, and `stockItem` — the caller's own
+         *     Betrieb's stock car holding it, or null. Only the caller's Betrieb counts
+         *     (rule 7): another Betrieb's stock is never named, and leaves it null.
+         */
+        VehicleMdmDetailRead: {
+            catalogueMatchStatus: components["schemas"]["CatalogueMatchStatus"];
+            /** Cataloguevariantid */
+            catalogueVariantId: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Firstregistrationdate */
+            firstRegistrationDate: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mergedintovehicleid */
+            mergedIntoVehicleId: string | null;
+            /** Stammnummer */
+            stammnummer: string | null;
+            stockItem: components["schemas"]["VehicleStockItemLink"] | null;
+            /** Typeapprovalnumber */
+            typeApprovalNumber: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Vehiclenumber */
+            vehicleNumber: string;
+            vehicleStatus: components["schemas"]["VehicleStatus"];
+            /** Version */
+            version: number;
+            /** Vin */
+            vin: string;
+        };
         /** VehicleMdmPage */
         VehicleMdmPage: {
             /** Items */
@@ -12121,6 +12169,22 @@ export interface components {
          * @enum {string}
          */
         VehicleStatus: "active" | "exported" | "scrapped" | "stolen";
+        /**
+         * VehicleStockItemLink
+         * @description KAN-667 — the stock car of the caller's Betrieb that holds this record
+         *     (Vehicle's projection, `services/stock_holding.py`): the Vehicle 360 shows
+         *     the VIN read-only and links to that car's «VIN korrigieren». Stock's id,
+         *     and its stock number as the label (null until a fact carried it).
+         */
+        VehicleStockItemLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Stocknumber */
+            stockNumber: string | null;
+        };
         /**
          * VehicleStockLinkSummary
          * @description FR-19's 2026-09-07 amendment — a vehicle currently in the group's
@@ -22844,7 +22908,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VehicleMdmRead"];
+                    "application/json": components["schemas"]["VehicleMdmDetailRead"];
                 };
             };
             /** @description Validation Error */
@@ -22884,7 +22948,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VehicleMdmRead"];
+                    "application/json": components["schemas"]["VehicleMdmDetailRead"];
                 };
             };
             /** @description Validation Error */

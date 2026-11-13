@@ -160,7 +160,9 @@ def test_the_event_and_the_write_commit_together(client, db_session, engine, mon
     with factory() as db:
         row = db.get(VehicleMdm, uuid.UUID(vehicle["id"]))
         with pytest.raises(RuntimeError, match="outbox unavailable"):
-            vehicle_mdm_service.update_vehicle_mdm(db, vehicle=row, data=VehicleMdmUpdate(vin=_random_vin()), actor_id=None)
+            vehicle_mdm_service.update_vehicle_mdm(
+                db, vehicle=row, data=VehicleMdmUpdate(vin=_random_vin()), actor_id=None, tenant_id=None
+            )
         db.rollback()
 
     db_session.expire_all()

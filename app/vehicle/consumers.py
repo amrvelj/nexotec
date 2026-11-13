@@ -3,7 +3,9 @@
 Registered in app.worker.register_handlers: `sales.contract.invoice_requested`
 as "vehicle.plate_on_invoice_requested" (KAN-523); and the five facts of a
 host taking a configuration (KAN-270), each its own consumer of
-`handle_configuration_taken_message` — below.
+`handle_configuration_taken_message` — below; and Stock's two facts of which
+records a Betrieb holds in stock (KAN-667), each its own consumer of
+`handle_stock_holding_message` (`services/stock_holding.py::CONSUMERS`).
 
 The plate event's contract, as Sales publishes it (`app/sales/services/contract.py
 ::request_invoice`; the contract is the aggregate, the delivering Betrieb the
@@ -33,6 +35,7 @@ from app.core.outbox_model import OutboxMessage
 from app.vehicle.services.configuration_retention import mark_configuration_taken
 from app.vehicle.services.plate import PlateVersionRef
 from app.vehicle.services.plate_handover import record_plate_on_invoice_requested
+from app.vehicle.services.stock_holding import apply_stock_holding_message
 
 
 def handle_invoice_requested_message(db: Session, message: OutboxMessage) -> None:
@@ -79,3 +82,14 @@ def handle_configuration_taken_message(db: Session, message: OutboxMessage) -> N
     mark_configuration_taken(
         db, tenant_id=message.tenant_id, configuration_id=uuid.UUID(configuration_id), taken_at=message.occurred_at
     )
+
+
+def handle_stock_holding_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-667 — Stock's two facts that say which records a Betrieb holds in
+    stock: `inventory.pipeline_vehicle.vin_assigned` (the item got its record,
+    `vehicleId`; `stockNumber` since KAN-667) and `inventory.stock_item.sold`
+    (the item left stock). The stock item is the aggregate, its Betrieb the
+    `tenant_id`. Merged order-free into `vehicle_stock_holding`
+    (`services/stock_holding.py`), which the identity PATCH reads."""
+
+    apply_stock_holding_message(db, message)

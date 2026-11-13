@@ -164,7 +164,8 @@
     "vin_unchanged": "Das ist bereits die VIN dieses Fahrzeugs.",
     "vehicle_vin_changed": "Die VIN im Fahrzeugstamm wurde inzwischen geändert. Bitte neu laden und erneut versuchen.",
     "vehicle_merged": "Das Fahrzeug wurde im Fahrzeugstamm mit einem anderen zusammengeführt. Bitte neu laden.",
-    "provider_has_no_captions": "Dieser Anbieter hat kein Vokabular, das geholt werden kann."
+    "provider_has_no_captions": "Dieser Anbieter hat kein Vokabular, das geholt werden kann.",
+    "vin_change_needs_vin_correction": "Dieses Fahrzeug steht als {{stockNumber}} im Lager Ihres Betriebs. Seine VIN wird dort mit «VIN korrigieren» geändert, damit Lagerfahrzeug, Fahrzeugstamm und Konfiguration dieselbe VIN tragen."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",
