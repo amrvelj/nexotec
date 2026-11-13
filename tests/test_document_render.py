@@ -354,15 +354,14 @@ def test_render_document_refuses_another_betriebs_location(db_session):
     db_session.add(foreign)
     db_session.flush()
 
-    with patch("app.platform.services.document_render.write_pdf") as write_pdf:
-        with pytest.raises(NotFoundError):
-            render_document(
-                db_session,
-                dealership_id=ours.id,
-                correspondence_language=SwissLanguage.DE,
-                content=_sample_content(),
-                location_id=foreign.id,
-            )
+    with patch("app.platform.services.document_render.write_pdf") as write_pdf, pytest.raises(NotFoundError):
+        render_document(
+            db_session,
+            dealership_id=ours.id,
+            correspondence_language=SwissLanguage.DE,
+            content=_sample_content(),
+            location_id=foreign.id,
+        )
     write_pdf.assert_not_called()
 
 
