@@ -61,6 +61,7 @@
     "title": "Gemeldete fehlende Schlüssel",
     "subtitle": "Schlüssel, die ein Browser weder hier noch in den ausgelieferten Texten fand und als Warnmarke anzeigte.",
     "empty": "Keine fehlenden Schlüssel gemeldet.",
+    "latestOnly": "Gezeigt werden nur die {{limit}} zuletzt gemeldeten Schlüssel; eine Sortierung ordnet nur diese.",
     "columns": {
       "key": "Schlüssel",
       "language": "Sprache",

@@ -61,6 +61,7 @@
     "title": "Chiavi mancanti segnalate",
     "subtitle": "Chiavi che un browser non ha trovato né qui né nei testi forniti e che ha mostrato come segno di avviso.",
     "empty": "Nessuna chiave mancante segnalata.",
+    "latestOnly": "Sono mostrate solo le {{limit}} chiavi segnalate più di recente; un ordinamento ordina solo queste.",
     "columns": {
       "key": "Chiave",
       "language": "Lingua",
