@@ -1507,7 +1507,11 @@ def cmd_post_tool(data):
                         emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                                      "additionalContext": "\n".join(n for n in notes if n)}})
                 else:
-                    drop_unpushed_evidence_commit(pushed)  # KAN-647: no stray empty commit after a failed push
+                    # KAN-647: no stray empty commit after a failed push - only for a push to a named remote,
+                    # whose tracking ref says whether it landed (a push to a URL updates none).
+                    remote = (push_positionals(args) or ["origin"])[0]
+                    if git(pushed, "remote", "get-url", remote)[0] == 0 and "://" not in remote and ":" not in remote:
+                        drop_unpushed_evidence_commit(pushed)
                 return
 
 
@@ -1696,7 +1700,8 @@ def evidence_verdict(root, commit):
         scope = lanes + " only"
     else:
         scope = "all lanes"
-    description = "{} · tree {} · {} · from an evidence commit (status write refused)".format(
+    # The provenance comes first: a long count line is what the 140-character cut takes.
+    description = "evidence commit (status write refused) · {} · tree {} · {}".format(
         scope, tree[:12], fields.get("counts") or "no test counts recorded")
     if len(description) > CHECK_STATUS_MAX:
         description = description[:CHECK_STATUS_MAX - 1] + "…"
@@ -2890,12 +2895,31 @@ def selftest():
         git(repo, "update-ref", "refs/heads/kan-1-x", base, evidence)
         assert pre_bash("git push --tags") == "" and head_commit(repo) == base
         git(repo, "update-ref", "refs/heads/kan-1-x", evidence, base)
-        with contextlib.redirect_stdout(io.StringIO()):
-            cmd_post_tool({"cwd": repo, "tool_name": "Bash", "tool_input": {"command": "git push -u origin HEAD"}})
+
+        def post_push(command):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cmd_post_tool({"cwd": repo, "tool_name": "Bash", "tool_input": {"command": command}})
+        post_push("git push https://example.invalid/r.git HEAD")  # a URL: no tracking ref to tell, so kept
+        assert head_commit(repo) == evidence, "dropped after a push to a URL"
+        git(repo, "remote", "add", "origin", os.path.join(repo, "no-such-remote.git"))
+        post_push("git push -u origin HEAD")
         assert head_commit(repo) == base and head_tree(repo) == tree, "a failed push left the evidence commit"
         assert drop_unpushed_evidence_commit(repo) is False
+        # landed under another name (push_landed cannot see it): a remote branch holds it, so it stays
+        bare = os.path.join(repo, "remote.git")
+        git(repo, "init", "-q", "--bare", bare)
+        git(repo, "remote", "set-url", "origin", bare)
+        git(repo, "update-ref", "refs/heads/kan-1-x", evidence, base)
+        git(repo, "push", "-q", "origin", "HEAD:refs/heads/elsewhere")
+        git(repo, "fetch", "-q", "origin")
+        post_push("git push -u origin HEAD")
+        assert head_commit(repo) == evidence, "dropped an evidence commit a remote branch holds"
         ok = evidence_verdict(repo, evidence)
-        assert "evidence commit" in ok["description"] and len(ok["description"]) <= CHECK_STATUS_MAX, ok
+        assert ok["description"].startswith("evidence commit") and len(ok["description"]) <= CHECK_STATUS_MAX, ok
+        long = evidence_verdict(repo, git(repo, "commit-tree", tree, "-p", evidence, "-m", evidence_message(
+            dict(checks, counts="pytest 4710 passed, 3 skipped · vitest 1470 passed, 2 skipped · ui-kit 193 passed"),
+            tree))[1])
+        assert long["description"].startswith("evidence commit") and len(long["description"]) == CHECK_STATUS_MAX
     finally:
         if saved_remote is None:
             os.environ.pop("CLAUDE_CODE_REMOTE", None)
