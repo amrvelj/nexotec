@@ -165,3 +165,30 @@ def test_the_same_start_row_is_extended_only_up_to_the_customers_next_row(db_ses
         (b_start, b_end),
         (b_end, ended_at),
     ]
+
+
+def test_an_own_row_starting_inside_the_period_leaves_no_gap_before_it(db_session):
+    """Found by the re-review: only row B, starting after the signature and
+    ending before the purchase. The stretch before B and the one after it are
+    both recorded; nothing overlaps B."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW566005")
+    clara = _customer(db_session, group_id, "Clara")
+    signed_at, ended_at = _moments()
+    b_start, b_end = signed_at + dt.timedelta(days=5), signed_at + dt.timedelta(days=7)
+    _history_row(db_session, vehicle.id, clara, group_id, VehiclePartyRole.KEEPER, start=b_start, end=b_end)
+    db_session.commit()
+
+    record_former_holder_on_purchase(
+        db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
+        held_from=signed_at, ended_at=ended_at, actor_id=None,
+    )
+    db_session.commit()
+
+    rows = _rows_of(db_session, clara.id, VehiclePartyRole.KEEPER)
+    assert [(row.effective_from, row.effective_to) for row in rows] == [
+        (signed_at, b_start),
+        (b_start, b_end),
+        (b_end, ended_at),
+    ]
