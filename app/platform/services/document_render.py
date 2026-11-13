@@ -42,8 +42,9 @@ from app.platform.schemas.document_content import (
     SignatureBlock,
 )
 from app.platform.services.branding import document_header_logo
-from app.platform.services.dealership import get_dealership_or_404, get_location_or_404
+from app.platform.services.dealership import get_dealership_or_404
 from app.platform.services.document_template import get_document_template
+from app.platform.services.location import get_location_or_404
 
 # --- print tokens, copied from frontend/packages/ui-kit/src/tokens.ts ------
 
@@ -294,7 +295,13 @@ def render_document(
 
     dealership = get_dealership_or_404(db, dealership_id)
     template = get_document_template(db, dealership_id)
-    location = get_location_or_404(db, location_id) if location_id is not None else None
+    # KAN-666: the location is resolved inside the rendering Betrieb — another
+    # Betrieb's site is a 404 (rule 7), never a footer.
+    location = (
+        get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
+        if location_id is not None
+        else None
+    )
     # KAN-205: the header's logo comes from the object store — `store` is
     # the caller's (a route's dependency), else the application's.
     logo = document_header_logo(db, dealership, store=store)

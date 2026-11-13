@@ -305,16 +305,21 @@ def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id
     return party
 
 
-def _holds_now_or_later() -> ColumnElement[bool]:
+def _holds_now_or_later(now: dt.datetime | None = None) -> ColumnElement[bool]:
     """A row that holds its role now or will (open, or ending later), as
     every «current» read and the incumbent lookup filter it. A row with an
     empty period — closed at its own start: a planned holder cancelled before
     it began (KAN-583, ruling 1A) or the copy a merge kept (KAN-177) — never
-    holds the role, even while its start is still to come."""
+    holds the role, even while its start is still to come. `now` is the
+    caller's clock when one decision spans several reads (KAN-664's
+    Disconnect); without it, the current time."""
 
     return or_(
         VehicleParty.effective_to.is_(None),
-        and_(VehicleParty.effective_to > utcnow(), VehicleParty.effective_to > VehicleParty.effective_from),
+        and_(
+            VehicleParty.effective_to > (now if now is not None else utcnow()),
+            VehicleParty.effective_to > VehicleParty.effective_from,
+        ),
     )
 
 

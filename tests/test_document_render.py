@@ -8,7 +8,11 @@ Pango/GLib system libraries installed at all. Exactly one test
 """
 
 from decimal import Decimal
+from unittest.mock import patch
 
+import pytest
+
+from app.core.errors import NotFoundError
 from app.core.i18n import SwissLanguage
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.models.document_template import DocumentTemplate
@@ -331,3 +335,70 @@ def test_render_document_produces_a_real_pdf(db_session):
     )
     assert pdf_bytes.startswith(b"%PDF-")
     assert len(pdf_bytes) > 1000
+
+
+def test_render_document_refuses_another_betriebs_location(db_session):
+    """KAN-666, rule 7: a location of another Betrieb is a 404 — the render
+    never reaches the PDF writer, so its address is printed nowhere."""
+
+    ours = _make_dealership(db_session)
+    theirs = _make_dealership(db_session, legal_name="Autohaus Fremd AG", uid=valid_uid())
+    foreign = Location(
+        tenant_id=theirs.id,
+        name="Fremde Filiale",
+        address_street="Geheimweg",
+        address_house_number="9",
+        address_postal_code="3000",
+        address_locality="Bern",
+    )
+    db_session.add(foreign)
+    db_session.flush()
+
+    with patch("app.platform.services.document_render.write_pdf") as write_pdf, pytest.raises(NotFoundError):
+        render_document(
+            db_session,
+            dealership_id=ours.id,
+            correspondence_language=SwissLanguage.DE,
+            content=_sample_content(),
+            location_id=foreign.id,
+        )
+    write_pdf.assert_not_called()
+
+
+def test_render_document_prints_its_own_betriebs_location(db_session):
+    """KAN-666: the scoped lookup still finds the rendering Betrieb's own site."""
+
+    ours = _make_dealership(db_session)
+    own = Location(
+        tenant_id=ours.id,
+        name="Filiale Winterthur",
+        address_street="Industriestrasse",
+        address_house_number="24",
+        address_postal_code="8400",
+        address_locality="Winterthur",
+    )
+    db_session.add(own)
+    db_session.flush()
+
+    with patch("app.platform.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf:
+        render_document(
+            db_session,
+            dealership_id=ours.id,
+            correspondence_language=SwissLanguage.DE,
+            content=_sample_content(),
+            location_id=own.id,
+        )
+    (html_string,) = write_pdf.call_args.args
+    assert "Filiale Winterthur" in html_string
+
+
+def test_platform_public_exports_only_the_scoped_location_lookup():
+    """KAN-666: the one location lookup other contexts can reach takes the tenant."""
+
+    import inspect
+
+    from app.platform import public
+
+    params = inspect.signature(public.get_location_or_404).parameters
+    assert "dealership_id" in params
+    assert params["dealership_id"].kind is inspect.Parameter.KEYWORD_ONLY

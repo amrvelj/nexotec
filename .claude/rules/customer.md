@@ -179,11 +179,11 @@ weekly. -->
   text; the narrowing is disclosed in PR #316.*
 - **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
   `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
-  refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock and
-  closes the others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
-  `unlinked` (KAN-352).
-  Disconnect re-reads its locked row (one `unlinked` per race). Lock order: advisory, then rows by id.
-  A merge's kept copy (KAN-177) is never reopened (409 `merged_party_row`).
+  refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock,
+  closes others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
+  `unlinked` (KAN-352); a holding row's start-only PATCH is a reopen here and below, minus
+  its event (KAN-662). Disconnect re-reads its row; one `unlinked` per race. Lock order:
+  advisory, then rows by id.
 - **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
   overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes
   nothing. One from a later date closes the current holders at its start (sparing one ending
