@@ -71,10 +71,7 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
 def handle_stock_item_added_message(db: Session, message: OutboxMessage) -> None:
     """KAN-144 — only an item a contract's confirmation created for its
     manually configured vehicle is linked; every other stock item added
-    (a direct add, a trade-in) is ignored here. KAN-513: also the handler of
-    `inventory.stock_item.reassigned` (consumer `sales.stock_item_reassigned`),
-    whose payload names the contract that now holds a reused ordered car the
-    same way."""
+    (a direct add, a trade-in) is ignored here."""
 
     if message.tenant_id is None:
         raise ValueError(f"inventory.stock_item.added message {message.id} has no tenant_id.")
@@ -85,6 +82,26 @@ def handle_stock_item_added_message(db: Session, message: OutboxMessage) -> None
         db,
         tenant_id=message.tenant_id,
         contract_id=uuid.UUID(payload["originContractId"]),
+        stock_item_id=message.aggregate_id,
+        stock_item_label=payload.get("stockNumber"),
+        refreshed_at=message.occurred_at,
+    )
+
+
+def handle_stock_item_reassigned_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-513 — Stock reused an ordered car for a second contract on the
+    same configuration (`contractId`); that contract records it as it records
+    a car its confirmation created (KAN-144)."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"inventory.stock_item.reassigned message {message.id} has no tenant_id.")
+    payload = message.payload or {}
+    if payload.get("role") != "manual_configuration" or not payload.get("contractId"):
+        return
+    link_manual_configuration_to_pipeline_item(
+        db,
+        tenant_id=message.tenant_id,
+        contract_id=uuid.UUID(payload["contractId"]),
         stock_item_id=message.aggregate_id,
         stock_item_label=payload.get("stockNumber"),
         refreshed_at=message.occurred_at,

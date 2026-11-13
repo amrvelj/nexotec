@@ -58,20 +58,21 @@ from app.core.validators import NormalisedVin
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.configuration_holding import (
-    configuration_held_error,
     configuration_holder,
-    is_configuration_conflict,
+    discard_copies,
     publish_reassigned,
     settle_ordered_configuration,
 )
 from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
 from app.inventory.services.stock_item import (
+    CONFIGURATION_INDEX,
     _build_and_flush_stock_item,
     _check_vin_not_in_stock,
     _item_in_stock_with_vin,
     _vin_already_in_stock,
     apply_trade_in_seller,
     apply_trade_in_vin,
+    configuration_held_conflict,
     mark_purchased_if_ready,
 )
 from app.inventory.services.valuation import apply_valuation_ref
@@ -154,11 +155,11 @@ def _create_pipeline_item_idempotent(
             # configuration in between — the same 409 as create and attach.
             holder = (
                 configuration_holder(db, tenant_id=tenant_id, configuration_id=uuid.UUID(configuration_id))
-                if configuration_id and is_configuration_conflict(exc)
+                if configuration_id and CONFIGURATION_INDEX in str(exc.orig)
                 else None
             )
             if holder is not None:
-                raise configuration_held_error(holder) from None
+                raise configuration_held_conflict(holder) from None
             raise
         return existing, False
 
@@ -168,6 +169,22 @@ def _item_for_ref(db: Session, *, tenant_id: uuid.UUID, pipeline_ref: str) -> St
 
 
 def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payload: dict[str, Any]) -> None:
+    """FR-I-02/02b. KAN-513: a configuration copy made on the way (its own
+    session, ADR-047) is discarded again if the rest of the handler fails —
+    the compensating action; `configuration_holding`'s docstring says what
+    a failed commit after it leaves."""
+
+    copies: list[uuid.UUID] = []
+    try:
+        _handle_sales_contract_confirmed(db, tenant_id=tenant_id, payload=payload, copies=copies)
+    except Exception:
+        discard_copies(db, tenant_id=tenant_id, configuration_ids=copies)
+        raise
+
+
+def _handle_sales_contract_confirmed(
+    db: Session, *, tenant_id: uuid.UUID, payload: dict[str, Any], copies: list[uuid.UUID]
+) -> None:
     contract_id = payload["contractId"]
 
     manual_configuration = payload.get("manualConfiguration")
@@ -187,6 +204,8 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             )
             reused = settled.reuse
             configuration_id = str(settled.configuration_id)
+            if settled.copied:
+                copies.append(settled.configuration_id)
         if reused is not None:
             # The same reservation rule as a new item's (KAN-158), and the
             # fact Sales links the car by. A redelivery finds the car already
@@ -227,12 +246,13 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             # KAN-513: a trade-in's item is never reused for another contract;
             # a configuration another item holds (one valuation backing two
             # contracts) is copied for this one.
-            trade_in_configuration_id = str(
-                settle_ordered_configuration(
-                    db, tenant_id=tenant_id, configuration_id=uuid.UUID(trade_in_configuration_id),
-                    contract_id=uuid.UUID(contract_id), may_reuse=False,
-                ).configuration_id
+            settled_trade_in = settle_ordered_configuration(
+                db, tenant_id=tenant_id, configuration_id=uuid.UUID(trade_in_configuration_id),
+                contract_id=uuid.UUID(contract_id), may_reuse=False,
             )
+            trade_in_configuration_id = str(settled_trade_in.configuration_id)
+            if settled_trade_in.copied:
+                copies.append(settled_trade_in.configuration_id)
         item, created = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,
