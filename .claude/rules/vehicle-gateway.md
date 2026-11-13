@@ -97,4 +97,5 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   file, a PR, an issue or a commit message, nor pasted into a gist, another repo or chat. Fixtures
   and the mock use values that read as invented (`test_no_real_provider_account_values.py`, which
   names them by hash only); the probes' inputs are examples from auto-i's **publicly served**
-  OpenAPI document.
+  OpenAPI document. Code-to-meaning tables (the `auto_i_dat` code map) are vocabulary, not covered
+  (Anto, 2026-11-13).

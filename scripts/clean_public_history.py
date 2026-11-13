@@ -13,7 +13,7 @@ that test runs over the working tree, in every form it knows. Four kinds:
 - specification-derived sample XML — a result document of the retired SOAP «Webservice Fahrzeuge»
   service (KAN-550), recognised by its element names;
 - specification-derived file — a retired SOAP-era file (`REMOVED_PATHS`) that described the
-  specification's documents, codes or encryption, whatever its content matches.
+  specification's documents or encryption, whatever its content matches.
 
 `rewrite` is the dry run and, once Anto has read its report, the input to his force-push. In
 <workdir> (outside every checkout; refused otherwise) it clones a fresh mirror of `origin`, writes
@@ -56,15 +56,18 @@ ORIGIN = "https://github.com/amrvelj/nexotec.git"
 SAMPLE_XML = re.compile(r"<(FzKey|TypSchNr|OptKey|KontrollschildInfo|Resultat)\b|spec Resultat\sXML")
 
 # Retired SOAP-era files, none of them on `main`, removed from every commit: the adapter, the parser
-# and its tests (sample result documents, the specification's status codes and page references), the
-# verify script, the decryption helper (the specification's encryption scheme) and the coded-field
-# snapshot script (its tables). The WSDL and envelope stubs of the timeout, WSDL-cache and
-# failure-accounting tests were looked at and stay: invented (a `.invalid` namespace, minimal).
+# and its tests (sample result documents, an outline of the result document, the meaning of each
+# status code with the specification's page references), the verify script, and the decryption helper
+# (the specification's encryption scheme).
+# Kept, by Anto's ruling of 2026-11-13: code-to-meaning tables are vocabulary, not covered by §12 -
+# the code-map migration on `main`, the coded-field snapshot script, the code-map seed tests. Kept as
+# looked at: the WSDL and envelope stubs of the timeout, WSDL-cache and failure-accounting tests - an
+# invented `.invalid` namespace around the retired service's operation and parameter names, which
+# the service itself serves in its WSDL.
 REMOVED_PATHS = (
     "app/integration/adapters/aes_decrypt.py",
     "app/integration/adapters/auto_i_dat_parse.py",
     "app/integration/adapters/auto_i_dat_soap.py",
-    "scripts/auto_i_dat_code_snapshot.py",
     "scripts/verify_auto_i_dat.py",
     "tests/test_integration_auto_i_dat_parse.py",
     "tests/test_integration_soap_adapter.py",
@@ -209,6 +212,21 @@ def _replacements(values_from: str, out: Path) -> int:
     return len(values)
 
 
+def push_script(mirror: Path, origin: str, before_tips: dict[str, str]) -> str:
+    """Anto's force-push: every branch and tag, each leased on the tip the clone saw."""
+    leases = [
+        f"--force-with-lease={ref}:{sha}"
+        for ref, sha in sorted(before_tips.items())
+        if ref.startswith(("refs/heads/", "refs/tags/"))
+    ]
+    return (
+        "#!/bin/sh\n"
+        "# KAN-682: Anto's force-push, after the order on KAN-687. A branch or tag that moved since the clone\n"
+        "# is refused (its lease), never overwritten. Pushing over SSH: replace the URL by your remote's.\n"
+        f"exec git -C '{mirror}' push {' '.join(leases)} '{origin}' 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'\n"
+    )
+
+
 def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -> int:
     workdir = workdir.resolve()
     existing = next(p for p in (workdir, *workdir.parents) if p.exists())
@@ -284,7 +302,11 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
     renamed = sum(1 for old, new in pairs if old != new)
     print(f"commits with a new SHA: {renamed} of {len(pairs)}; old -> new in {commit_map} (SHAs only: keep it)")
 
-    clean = not findings and not messages and main_tree == main_tree_after
+    gone = [r for r in before_tips if r.startswith(("refs/heads/", "refs/tags/")) and r not in after_tips]
+    for ref in gone:
+        # filter-repo drops a branch it empties; a force-push would never delete it on GitHub.
+        print(f"  EMPTIED by the rewrite, would keep its old history on GitHub: {ref}")
+    clean = not findings and not messages and not gone and main_tree == main_tree_after
     print(
         "\nRESULT:",
         "clean — every finding gone from every ref, main's tree unchanged" if clean else "NOT CLEAN — do not push",
@@ -293,19 +315,9 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
         print("\nmain was simulated: no push script. The real run is made without --main-at, after the merge.")
     elif clean:
         push = workdir / "push.sh"
-        leases = [
-            f"--force-with-lease={ref}:{before_tips[ref]}"
-            for ref in sorted(before_tips)
-            if ref.startswith(("refs/heads/", "refs/tags/"))
-        ]
-        push.write_text(
-            "#!/bin/sh\n# KAN-682: Anto's force-push, after the order on KAN-687. A branch that moved since the clone\n"
-            "# is refused (the lease), never overwritten. Use your own remote URL if you push over SSH.\n"
-            f"exec git -C '{mirror}' push --no-verify {' '.join(leases)} '{origin}' 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'\n",
-            encoding="utf-8",
-        )
+        push.write_text(push_script(mirror, origin, before_tips), encoding="utf-8")
         os.chmod(push, 0o755)
-        print(f"\nAnto's force-push: {push} ({len(leases)} refs, each with its lease)")
+        print(f"\nAnto's force-push: {push} (one lease per branch and tag)")
     if clean:
         print(f"\nGitHub Support, after the push: drop the refs/pull/* and cached views of {len(pulls_before)} PRs:")
         print(f"  {_ranges(pulls_before)}")
