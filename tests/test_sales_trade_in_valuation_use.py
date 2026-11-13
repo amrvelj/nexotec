@@ -130,6 +130,7 @@ def test_the_confirmed_event_names_the_trade_in_valuation(db_session, engine):
     ).one()
     assert message.payload["tradeIn"] == {
         "vehicleLabel": "VW Golf 1.5 TSI", "condition": "used", "valuationId": str(valuation.id),
+        "vin": _TRADE_IN_VIN,  # KAN-536 (additive): the VIN the contract holds
     }
 
 

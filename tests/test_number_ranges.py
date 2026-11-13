@@ -267,6 +267,92 @@ def test_offers_draw_from_the_range_and_continue_the_existing_sequence(db_sessio
     assert db_session.get(SalesNumberSequence, (dealership.id, "offer")).next_value == 126  # kept in step
 
 
+def _offer_range_restarting_yearly(db_session, dealership) -> NumberRange:
+    row = service.get_or_seed(db_session, dealership_id=dealership.id, document_type=OFFER, lock=True)
+    service.update_range(
+        db_session, row=row, pattern="O-{year}-{counter:5}", start_value=1, yearly_reset=True, reason=None,
+        actor_id=uuid.uuid4(), actor_is_platform_admin=False,
+    )
+    db_session.commit()
+    return row
+
+
+def test_the_offer_ranges_example_counts_on_into_a_new_year_as_the_allocation_does(db_session, monkeypatch):
+    """KAN-540 (Anto, 2026-11-12, option A): while Sales' own counter still
+    floors the offer range, a yearly reset on it does nothing — and the
+    screen's example says what is really handed out, not the restart."""
+
+    dealership = _dealership(db_session)
+    monkeypatch.setattr(service, "swiss_year", lambda: 2026)
+    row = _offer_range_restarting_yearly(db_session, dealership)
+    numbers = [create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number for _ in range(2)]
+    assert numbers == ["O-2026-00001", "O-2026-00002"]
+
+    monkeypatch.setattr(service, "swiss_year", lambda: 2027)
+    db_session.refresh(row)
+    example = service.next_number_example(db_session, row)
+
+    assert example == "O-2027-00003"  # not O-2027-00001
+    assert create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()).offer_number == example
+
+
+def test_another_ranges_example_still_restarts_in_a_new_year(db_session, monkeypatch):
+    dealership = _dealership(db_session)
+    monkeypatch.setattr(service, "swiss_year", lambda: 2026)
+    service.allocate_number(db_session, dealership_id=dealership.id, document_type=INVOICE)
+    row = _range(db_session, dealership.id, INVOICE)
+
+    monkeypatch.setattr(service, "swiss_year", lambda: 2027)
+
+    assert service.next_number_example(db_session, row) == "R-2027-000001"
+
+
+def test_only_the_offer_ranges_yearly_reset_is_deferred():
+    assert service.yearly_reset_deferred(OFFER, yearly_reset=True) is True
+    assert service.yearly_reset_deferred(OFFER, yearly_reset=False) is False
+    for document_type in NumberRangeDocumentType:
+        if document_type is not OFFER:
+            assert service.yearly_reset_deferred(document_type, yearly_reset=True) is False
+
+
+def test_a_pattern_too_short_for_what_the_offer_range_really_hands_out_next_is_refused(db_session, monkeypatch):
+    """The fit check counts on too: in a new year a yearly offer range at 123
+    hands out 124, so a two-digit counter is refused at the save, not at the
+    first offer."""
+
+    dealership = _dealership(db_session)
+    monkeypatch.setattr(service, "swiss_year", lambda: 2026)
+    row = service.get_or_seed(db_session, dealership_id=dealership.id, document_type=OFFER, lock=True)
+    service.continue_sequence(db_session, dealership_id=dealership.id, document_type=OFFER, after=123)
+    db_session.commit()
+
+    monkeypatch.setattr(service, "swiss_year", lambda: 2027)
+    with pytest.raises(UnprocessableEntityError) as refused:
+        service.update_range(
+            db_session, row=row, pattern="O-{year}-{counter:2}", start_value=1, yearly_reset=True, reason=None,
+            actor_id=uuid.uuid4(), actor_is_platform_admin=False,
+        )
+    assert refused.value.details == {"reason": "number_range_counter_too_short", "nextCounter": 124}
+
+
+@SAVEPOINT_ROLLBACK
+def test_api_says_when_a_yearly_reset_is_deferred(client, db_session):
+    dealership = _dealership(db_session, modules=(ModuleCode.SALES, ModuleCode.FINANCE))
+    _offer_range_restarting_yearly(db_session, dealership)
+
+    listed = client.get(f"/v1/dealerships/{dealership.id}/number-ranges", headers=_headers(dealership))
+    assert listed.status_code == 200, listed.text
+    by_type = {item["documentType"]: item for item in listed.json()["items"]}
+    assert (by_type["offer"]["yearlyReset"], by_type["offer"]["yearlyResetDeferred"]) == (True, True)
+    assert (by_type["invoice"]["yearlyReset"], by_type["invoice"]["yearlyResetDeferred"]) == (True, False)
+
+    path = f"/v1/dealerships/{dealership.id}/number-range-previews"
+    body = {"documentType": "offer", "pattern": "O-{year}-{counter:5}", "startValue": 1}
+    ticked = client.post(path, json={**body, "yearlyReset": True}, headers=_headers(dealership))
+    cleared = client.post(path, json={**body, "pattern": "O-{counter:5}", "yearlyReset": False}, headers=_headers(dealership))
+    assert (ticked.json()["yearlyResetDeferred"], cleared.json()["yearlyResetDeferred"]) == (True, False)
+
+
 def test_an_old_instance_numbering_from_sales_counter_never_repeats_a_range_number(db_session):
     """A rolling deploy: an instance still running the old code numbers from
     Sales' counter alone. The new code keeps that counter in step and never
@@ -440,7 +526,7 @@ def test_api_preview_is_the_next_number_or_the_saves_refusal(client, db_session)
     path = f"/v1/dealerships/{dealership.id}/number-range-previews"
     ok = client.post(path, json={"documentType": "offer", "pattern": "OF-{counter:5}", "startValue": 40, "yearlyReset": False}, headers=_headers(dealership))
     assert ok.status_code == 200, ok.text
-    assert ok.json() == {"nextNumber": "OF-00040"}
+    assert ok.json() == {"nextNumber": "OF-00040", "yearlyResetDeferred": False}
     refused = client.post(
         path, json={"documentType": "offer", "pattern": "O-{location_code}{counter:5}", "startValue": 1, "yearlyReset": False},
         headers=_headers(dealership),

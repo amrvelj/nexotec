@@ -307,6 +307,6 @@ contact card offers `tel:` / `mailto:` links and marks the preferred channel.
   `.claude/rules/ui.md`'s, KAN-398): every refusal carries `details.reason` — a merge's
   `merge_into_self`, `merge_target_merged`, `customer_already_merged`,
   `merge_conflict_on_survivor`, `merge_vehicle_party_busy`, mapped in `MergeCustomerModal`; an
-  allocation's `customer_merged` and `vehicle_party_exists`, mapped in
-  `utils/vehiclePartyRefusal.ts` for `LinkVehicleModal` and the vehicle's Identity tab alike — to
-  DE/FR/IT/EN text; the API's English `message` is never shown. A new refusal adds its reason and its translations.
+  allocation's `customer_merged`, `vehicle_party_exists` and `vehicle_merge_in_progress`, in
+  `utils/vehiclePartyRefusal.ts` for `LinkVehicleModal` and the Identity tab — to
+  DE/FR/IT/EN text; the API's English `message` is never shown. A new refusal adds reason and translations.

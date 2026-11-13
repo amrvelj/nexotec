@@ -18,7 +18,7 @@ from app.core.auth import AccessRole
 from app.db import SessionLocal
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
-from app.platform.services.user import list_membership_dealership_ids
+from app.platform.services.user_reads import list_membership_dealership_ids
 
 
 def platform_admins_homed_in_dealerships(db: Session) -> list[tuple[User, Dealership | None, list[Dealership]]]:

@@ -12,13 +12,18 @@ reads its `sales.contract.confirmed` payload against an OPAQUE
         "manualConfiguration": {"vehicleLabel": str, "condition": str} | null,
         "customerId": "<uuid>" | null,
         "signedAt": "<iso datetime>",
-        "tradeIn": {"vehicleLabel": str, "condition": str, "valuationId"?: "<uuid>"} | null,
+        "tradeIn": {"vehicleLabel": str, "condition": str, "valuationId"?: "<uuid>", "vin"?: str} | null,
         "pricingSnapshot": {"currency": "CHF", "basePrice": str|null, ...},
     }
 
 `tradeIn.valuationId` (KAN-101) is present when the trade-in carries a
 valuation; the trade-in's pipeline item then gets Stock's valuation
 pointer, read from app.valuation.public in this same transaction.
+
+`tradeIn.vin` (KAN-536, additive) is the VIN the contract holds for the
+trade-in, when it holds one. The trade-in's pipeline item keeps it
+(`trade_in_vin`) to prefill and check its purchase booking; a confirmation
+published before KAN-536 has none, and the item is then bought as before.
 
 `customerId` and `signedAt` (KAN-632) are kept on a trade-in's pipeline
 item (`trade_in_customer_id`, `trade_in_signed_at`) and carried on by its
@@ -59,6 +64,7 @@ from app.inventory.services.stock_item import (
     _item_in_stock_with_vin,
     _vin_already_in_stock,
     apply_trade_in_seller,
+    apply_trade_in_vin,
     mark_purchased_if_ready,
 )
 from app.inventory.services.valuation import apply_valuation_ref
@@ -186,6 +192,11 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             # (`trade_in_origin`). A confirmation published before KAN-632
             # carries neither; the item then keeps none.
             apply_trade_in_seller(item, customer_id=payload.get("customerId"), signed_at=payload.get("signedAt"))
+            # KAN-536 — the VIN the contract holds for the car, kept as the
+            # item's known future VIN (`trade_in_vin`, never `vin`: no
+            # vehicle-mdm record and no stock VIN before the purchase,
+            # ADR-045). A confirmation published before KAN-536 carries none.
+            apply_trade_in_vin(item, vin=trade_in.get("vin"))
             db.flush()
         valuation_id = trade_in.get("valuationId")
         if valuation_id is not None:

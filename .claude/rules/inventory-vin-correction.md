@@ -7,6 +7,10 @@ paths:
   - "app/vehicle/services/configuration.py"
   - "app/valuation/reconciliation.py"
   - "tests/test_inventory_vin_correction.py"
+  - "app/inventory/services/purchase.py"
+  - "app/inventory/services/pipeline.py"
+  - "tests/test_inventory_trade_in_vin.py"
+  - "frontend/apps/dms/src/components/stock-detail/RecordPurchaseDialog*"
   - "frontend/apps/dms/src/components/stock-detail/VinCorrectionDialog*"
   - "frontend/apps/dms/src/components/stock-detail/useStockConfigurationEditor.tsx"
   - "frontend/apps/dms/src/components/stock-detail/StockConfiguratorContent.tsx"
@@ -14,7 +18,7 @@ paths:
   - "frontend/apps/dms/src/components/configurator/ConfiguratorOverlay.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises KAN-557 (ADR-116 (2)-(3); Anto's
-ruling on KAN-544, 2026-11-03). Its own file because inventory.md is over the KAN-614 budget. -->
+ruling on KAN-544, 2026-11-03) and KAN-536 (Anto, 2026-11-12). Its own file because inventory.md is over the KAN-614 budget. -->
 
 # «VIN korrigieren» on a bought car (KAN-557)
 
@@ -54,3 +58,19 @@ ruling on KAN-544, 2026-11-03). Its own file because inventory.md is over the KA
   dialog prefilled after the PATCH, an emptied one is refused in place, and without the row the field
   is read-only. The configuration PATCH has no server-side host check (Vehicle cannot ask Stock);
   reconciliation is the backstop.
+
+# A trade-in is bought under the VIN its contract holds (KAN-536; Anto, 2026-11-12, option A)
+
+- `sales.contract.confirmed`'s `tradeIn` carries the contract's `vin` (additive, left out when it holds
+  none). Stock's consumer keeps it once, on the item it creates, as `stock_item.trade_in_vin` (inventory
+  migration `2001f0c37ef5`) — never as `vin`, which stays empty until the booking (ADR-045), is unique among
+  live items and binds the booking — normalised, and only a valid VIN (a pre-1981 chassis number, a
+  confirmation without the key and an item created before keep none and are bought as before).
+- The item's read exposes it (`tradeInVin`; not in the group projection). `RecordPurchaseDialog` prefills it
+  when the configuration carries no VIN; the booking still needs `vin` sent, and another is 422
+  `trade_in_vin_differs` (`field: vin`), before vehicle-mdm or the item is touched. **A configuration's VIN
+  decides alone** when there is one (`configuration_vin_differs`): it is where a wrong VIN is corrected, the
+  signed contract's cannot be. The refusal offers no edit; its text names the way out (Anto, 2026-11-13):
+  «Konfiguration zuordnen» — or «Konfiguration bearbeiten» on an item that has one — with the right VIN.
+- It is never written again: kept as history through the purchase, a storno (the car's own `vin` then binds
+  the second booking) and «VIN korrigieren».

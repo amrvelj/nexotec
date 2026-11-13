@@ -587,6 +587,15 @@ def _vehicle_party_has_closed_for_link(db: Session) -> bool:
     return "closed_for_party_id" in columns
 
 
+def _vehicle_party_has_merged_into_vehicle(db: Session) -> bool:
+    """KAN-672 added the nullable `merged_into_vehicle_id` to vehicle_party.
+    The ORM class always emits it, so main's schema (one migration behind)
+    needs the explicit-values insert below."""
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
+    return "merged_into_vehicle_id" in columns
+
+
 def _contact_channel_has_consent_scope(db: Session) -> bool:
     """KAN-52 (FR-23 §1) added `consent_scope` to all three contact-channel
     tables and turned `consent_source` into an enum. Same trap as
@@ -1170,11 +1179,12 @@ def main() -> None:
             _vehicle_party_has_vehicle_label(db)
             and _vehicle_party_has_merged_mark(db)
             and _vehicle_party_has_closed_for_link(db)
+            and _vehicle_party_has_merged_into_vehicle(db)
         ):
             db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
         else:
-            # KAN-84's label columns, KAN-177's merged mark or KAN-644's
-            # closed-for link aren't live yet —
+            # KAN-84's label columns, KAN-177's merged mark, KAN-644's
+            # closed-for link or KAN-672's vehicle-merge mark aren't live yet —
             # an insert with explicit values names only the columns given
             # (plus Python-side defaults), so it fits the older shape.
             db.execute(

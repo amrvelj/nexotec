@@ -33,6 +33,8 @@ from app.inventory.services.stock_item import (
     mark_purchased_if_ready,
     pipeline_origin,
     trade_in_seller_fields,
+    trade_in_vin_differs,
+    trade_in_vin_differs_error,
 )
 from app.platform.public import get_dealership_or_404
 from app.vehicle.public import get_configuration_for_host
@@ -66,7 +68,9 @@ def record_purchase(
     are written, so `mark_purchased_if_ready` below publishes
     `inventory.stock_item.purchased` at once. A refused promotion (a VIN
     already in stock) writes neither, nor does a VIN that is not the item's
-    configuration's (422 `configuration_vin_differs`, KAN-510).
+    configuration's (422 `configuration_vin_differs`, KAN-510) or, for a
+    trade-in whose configuration carries none, not the one its contract
+    holds (422 `trade_in_vin_differs`, KAN-536).
     """
 
     # KAN-146 (Anto, 2026-11-05): a purchase is booked once; a second booking
@@ -136,6 +140,12 @@ def record_purchase(
         assert vin is not None  # one of the request's, the configuration's or the item's (refused above)
         if configuration_vin_differs(configuration_vin, vin):
             raise configuration_vin_differs_error(field="vin")
+        # KAN-536 (Anto, 2026-11-12, option A): a trade-in is bought under
+        # the VIN its contract holds — another is refused the same way,
+        # before vehicle-mdm or the item is touched. A configuration's VIN,
+        # checked above, decides alone when there is one.
+        if trade_in_vin_differs(item, configuration_vin=configuration_vin, vin=vin):
+            raise trade_in_vin_differs_error()
         vin_before = item.vin
         item = promote_and_flush(db, item=item, vin=vin, actor_id=actor_id, correct_vin=corrects_item_vin)
         if corrects_item_vin:

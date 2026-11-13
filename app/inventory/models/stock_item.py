@@ -219,6 +219,19 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
         GUID(), nullable=True, comment="Owned by the customer context (Customer). No DB-level FK."
     )
     trade_in_signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-536 (Anto, 2026-11-12, option A) — the VIN the trade-in's contract
+    # holds, as `sales.contract.confirmed` said (`tradeIn.vin`): the car's
+    # known future VIN. Not `vin`: that one is the car's own once Stock holds
+    # it, unique among the Betrieb's live items (KAN-111) and binding on the
+    # booking (`purchase_vin_mismatch`), while two contracts may carry one
+    # trade-in (KAN-101). «Einkauf buchen» prefills this one and refuses
+    # another (422 `trade_in_vin_differs`); it is never written again — what
+    # the contract said stays as history after the purchase, a storno or a
+    # VIN correction. Stock's own copy of a fact of a signed, frozen
+    # contract, not another context's id: no label. Null on every other
+    # item, on a trade-in created before KAN-536, and when the contract held
+    # a pre-1981 chassis number (never a VIN a purchase can be booked with).
+    trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True)
     order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     # C-F (KAN-10, FR-C-12/FR-C-13) — the configuration this pipeline item

@@ -7,7 +7,7 @@ kind the picker shows), plus the catalogue variant the answer named when it
 named one (KAN-592). Filled by a plate lookup only, and **whole or not
 at all**: an answer with a record the account may not see whole is not
 stored, since a part would later read as the whole truth about the plate
-(`identification._cache_plate_answer`). A Stammnummer (`vrn`) answer never
+(`identification_registered._cache_plate_answer`). A Stammnummer (`vrn`) answer never
 fills it.
 
 **TTL: 30 days** (`PLATE_LOOKUP_CACHE_TTL`). A plate's answer changes only

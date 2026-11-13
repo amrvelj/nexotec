@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.core.validators import normalise_vin
+from app.core.validators import is_valid_vin, normalise_vin
 from app.inventory.models.stock_item import (
     AgeingBucket,
     LifecycleStatus,
@@ -416,6 +416,42 @@ def apply_trade_in_seller(item: StockItem, *, customer_id: str | None, signed_at
         return
     item.trade_in_customer_id = uuid.UUID(customer_id)
     item.trade_in_signed_at = dt.datetime.fromisoformat(signed_at)
+
+
+def apply_trade_in_vin(item: StockItem, *, vin: object) -> None:
+    """KAN-536: a trade-in's pipeline item keeps the VIN its contract holds,
+    as `sales.contract.confirmed` named it (`tradeIn.vin`) — in the one
+    spelling, and only a VIN a purchase can be booked with. A confirmation
+    without one (published before KAN-536, or a contract that holds none)
+    and a pre-1981 chassis number (KAN-353: never a vehicle-mdm VIN) leave
+    the item without: it is then bought as before, the VIN typed and checked
+    against its configuration only."""
+
+    if not isinstance(vin, str):
+        return
+    normalised = normalise_vin(vin)
+    if is_valid_vin(normalised):
+        item.trade_in_vin = normalised
+
+
+def trade_in_vin_differs(item: StockItem, *, configuration_vin: str | None, vin: str) -> bool:
+    """KAN-536 (Anto, 2026-11-12, option A): the VIN typed at purchase booking
+    is not the one the trade-in's contract holds. Only while the item's
+    configuration carries no VIN: one that does is the car's technical data
+    and decides alone (`configuration_vin_differs`, KAN-510) — it is where a
+    wrong VIN is corrected («Konfiguration bearbeiten»), which the signed
+    contract's cannot be, so the two never have to agree."""
+
+    if item.trade_in_vin is None or configuration_vin is not None:
+        return False
+    return normalise_vin(item.trade_in_vin) != normalise_vin(vin)
+
+
+def trade_in_vin_differs_error() -> UnprocessableEntityError:
+    return UnprocessableEntityError(
+        "The VIN is not the one the trade-in's contract holds.",
+        details={"field": "vin", "reason": "trade_in_vin_differs"},
+    )
 
 
 def trade_in_seller_fields(item: StockItem) -> dict[str, str]:

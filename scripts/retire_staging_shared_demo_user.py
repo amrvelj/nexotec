@@ -53,6 +53,7 @@ from app.platform.models.user import User, UserStatus
 from app.platform.schemas.user import UserUpdate
 from app.platform.services import ownership
 from app.platform.services import user as user_service
+from app.platform.services import user_reads as user_reads_service
 
 # The seed's own values (scripts/seed_staging_demo.py), repeated because a
 # script run as `python scripts/<name>.py` cannot import its neighbour as
@@ -119,7 +120,7 @@ def run(db: Session, *, commit: bool, session_factory=SessionLocal) -> int:
         )
         return 0
 
-    user = user_service.get_user_for_update_or_404(db, dealership.id, shared.id)  # KAN-380's lock order
+    user = user_reads_service.get_user_for_update_or_404(db, dealership.id, shared.id)  # KAN-380's lock order
     if user.status == UserStatus.DEACTIVATED:
         # Deactivated by someone else between the read and the lock: theirs.
         db.rollback()

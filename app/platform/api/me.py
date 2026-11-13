@@ -22,14 +22,14 @@ from app.db import get_db
 from app.platform.schemas.me import ConnectedAccountListRead, ConnectedAccountRead, MeRead, MeUpdate
 from app.platform.services import connected_account, photo, signature
 from app.platform.services import me as me_service
-from app.platform.services import user as user_service
+from app.platform.services import user_reads as user_reads_service
 
 router = APIRouter(tags=["me"])
 
 
 @router.get("/me", response_model=MeRead)
 def get_me(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    return me_service.me_read(db, user_service.get_own_user_or_404(db, principal.user_id))
+    return me_service.me_read(db, user_reads_service.get_own_user_or_404(db, principal.user_id))
 
 
 @router.patch("/me", response_model=MeRead)
@@ -39,7 +39,7 @@ def update_me(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     check_version(user.version, if_match, entity_name="User")
     user = me_service.update_own_profile(db, user=user, data=body, actor_id=principal.user_id)
     return me_service.me_read(db, user)
@@ -57,7 +57,7 @@ def put_my_signature(
     """The caller's own signature image — the same store, key and rules as
     the manager's route on the Users screen (KAN-200)."""
 
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     check_version(user.version, if_match, entity_name="User")
     signature.set_signature(
         db,
@@ -76,7 +76,7 @@ def get_my_signature(
     db: Session = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
 ) -> Response:
-    stored = signature.get_signature(store, user=user_service.get_own_user_or_404(db, principal.user_id))
+    stored = signature.get_signature(store, user=user_reads_service.get_own_user_or_404(db, principal.user_id))
     return Response(content=stored.data, media_type=stored.content_type, headers={"Cache-Control": "private, no-store"})
 
 
@@ -87,7 +87,7 @@ def delete_my_signature(
     db: Session = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
 ):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     check_version(user.version, if_match, entity_name="User")
     signature.remove_signature(db, store, user=user, actor_id=principal.user_id)
     return me_service.me_read(db, user)
@@ -105,7 +105,7 @@ def put_my_photo(
     """The caller's own photo (KAN-401) — the same store, key and rules as
     the manager's route on the Users screen."""
 
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     check_version(user.version, if_match, entity_name="User")
     photo.set_photo(
         db,
@@ -124,7 +124,7 @@ def get_my_photo(
     db: Session = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
 ) -> Response:
-    stored = photo.get_photo(store, user=user_service.get_own_user_or_404(db, principal.user_id))
+    stored = photo.get_photo(store, user=user_reads_service.get_own_user_or_404(db, principal.user_id))
     return Response(content=stored.data, media_type=stored.content_type, headers={"Cache-Control": "private, no-store"})
 
 
@@ -135,7 +135,7 @@ def delete_my_photo(
     db: Session = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
 ):
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     check_version(user.version, if_match, entity_name="User")
     photo.remove_photo(db, store, user=user, actor_id=principal.user_id)
     return me_service.me_read(db, user)
@@ -163,7 +163,7 @@ def revoke_my_connected_account(
     """The user ends one of their own grants; another user's id is a 404.
     The row stays, revoked."""
 
-    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)  # user row first (KAN-380)
+    user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)  # user row first (KAN-380)
     account = connected_account.get_for_update_or_404(db, user_id=user.id, account_id=account_id)
     check_version(account.version, if_match, entity_name="ConnectedAccount")
     connected_account.revoke(

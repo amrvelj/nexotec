@@ -35,6 +35,7 @@ from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User
 from app.platform.schemas.membership import MembershipCreate, MembershipRead
 from app.platform.services import user as user_service
+from app.platform.services import user_common as user_common_service
 
 _ACTOR_HOLDS_NO_FLAG = "Dealership {dealership_id} was not found."
 
@@ -217,7 +218,7 @@ def end_membership(
     row = _active_row(db, user=user, dealership_id=dealership_id)
     if row is None:
         raise NotFoundError(f"User {user.id} holds no membership of dealership {dealership_id}.")
-    if row.is_dealer_manager and user_service.is_active_user(user):
+    if row.is_dealer_manager and user_common_service.is_active_user(user):
         user_service.assert_not_last_manager(
             db,
             dealership_id=dealership_id,
@@ -259,7 +260,7 @@ def set_membership_manager_flag(
     if row.is_dealer_manager == is_dealer_manager:
         return row
     user_service.assert_user_is_not_deactivated(user)
-    if not is_dealer_manager and user_service.is_active_user(user):
+    if not is_dealer_manager and user_common_service.is_active_user(user):
         user_service.assert_not_last_manager(db, dealership_id=dealership_id, excluding_user_id=user.id)
     row.is_dealer_manager = is_dealer_manager
     db.flush()
@@ -290,7 +291,7 @@ def set_home_manager_flag(
     if user.is_dealer_manager == is_dealer_manager:
         return user
     user_service.assert_user_is_not_deactivated(user)
-    if not is_dealer_manager and user_service.is_active_user(user):
+    if not is_dealer_manager and user_common_service.is_active_user(user):
         user_service.assert_not_last_manager(db, dealership_id=user.tenant_id, excluding_user_id=user.id)
     before = user.is_dealer_manager
     user.is_dealer_manager = is_dealer_manager

@@ -44,7 +44,8 @@ from app.platform.services.number_range import allocate_number, continue_sequenc
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
-from app.platform.services.user import (
+from app.platform.services.user_preference import ui_language_of
+from app.platform.services.user_reads import (
     UserDisplayLabel,
     get_active_user_acting_in,
     get_user_display_labels,
@@ -54,7 +55,6 @@ from app.platform.services.user import (
     list_user_dealer_group_ids,
     list_user_dealership_ids,
 )
-from app.platform.services.user_preference import ui_language_of
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that

@@ -190,6 +190,14 @@ describe('LinkVehicleModal — a refused link is translated (KAN-369)', () => {
       key: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
     },
     {
+      // KAN-673: a merge of this car is being settled; the user is told to try again.
+      name: 'vehicle_merge_in_progress',
+      httpStatus: 409,
+      message: 'This vehicle is being merged with another record right now; try again in a moment.',
+      details: { reason: 'vehicle_merge_in_progress' },
+      key: 'apiRefusal.reasons.vehicle_merge_in_progress',
+    },
+    {
       name: 'a vehicle that no longer exists',
       httpStatus: 404,
       message: 'VehicleMdm veh-target was not found.',
