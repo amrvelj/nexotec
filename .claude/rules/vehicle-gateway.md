@@ -63,10 +63,17 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   token request, one caption call. Everything else ran against the mock or a fake transport — say
   so in any claim about real provider behaviour.
 
-## Captions are vocabulary, global, fetched on «Test connection» only (ADR-111)
+## Captions are vocabulary, global, fetched on «Test connection» and by staff (ADR-111)
 `integration_provider_caption`, one row per (provider, group, list, code) with four labels; each
 language committed as it lands; a failure leaves the connection `connected`. No scheduled refresh (a
-background job has no user to enrol). Others read them through `integration.public.get_captions` —
+background job has no user to enrol). **Staff see and refresh them** (KAN-588): every store records
+`integration_provider_caption_fetch` (provider, language, `fetched_at`, code count; integration migration
+`b1f58e30a656`, seeded from the captions); the catalogue's staff-only «Anbieter-Vokabular» tab
+(`ProviderCaptionsPanel`) reads `GET /v1/integrations/captions/fetches` and «Vokabular aktualisieren»
+is `POST /v1/integrations/captions/refresh` (`services/caption_refresh.py`, `require_access_role()`): the
+four languages through the acting Betrieb's enabled vehicle-data connection, under the staff user's own
+token, each committed as it lands, audited `captions_refreshed` on the connection; 409
+`no_provider_connection`, 422 `provider_unavailable` with `languagesFetched`. No job calls it. Others read them through `integration.public.get_captions` —
 to show a provider's wording beside an unmapped code, **never to fill a reference list** (ADR-044).
 
 ## The licence (identAPI test agreement, confidential — Anto's Drive, never quoted)

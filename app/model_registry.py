@@ -16,7 +16,7 @@ from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
-from app.integration.models.caption import IntegrationProviderCaption
+from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
@@ -136,6 +136,7 @@ __all__ = [
     "IntegrationNotification",
     "IntegrationProvider",
     "IntegrationProviderCaption",
+    "IntegrationProviderCaptionFetch",
     "IntegrationSecretRef",
     "InventoryCancelledContract",
     "InventorySalesContract",

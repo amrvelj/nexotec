@@ -1,0 +1,13 @@
+{
+  "title": "Vocabolario del fornitore",
+  "intro": "Le denominazioni dei codici del fornitore di dati veicolo, per lingua. Vengono recuperate con «Verifica connessione» — e qui, a mano.",
+  "provider": "Fornitore",
+  "notFetched": "Mai recuperato",
+  "fetched": "{{at}} · {{count, number}} codici",
+  "refresh": "Aggiorna vocabolario",
+  "refreshed": "Il vocabolario è stato recuperato di nuovo in tutte e quattro le lingue.",
+  "refreshFailed": "Non è stato possibile recuperare di nuovo il vocabolario.",
+  "partial": "Il fornitore non ha risposto. Già recuperato: {{languages}}.",
+  "empty": "Nessun vocabolario ancora recuperato. «Verifica connessione» nell’amministrazione lo recupera, oppure «Aggiorna vocabolario» qui.",
+  "loadError": "Non è stato possibile caricare il vocabolario."
+}
