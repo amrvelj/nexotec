@@ -103,9 +103,8 @@ def _closure_read(closure) -> ClosureRead:
 
 
 def _location(db: Session, dealership_id: uuid.UUID, location_id: uuid.UUID, *, for_update: bool = False) -> Location:
-    return location_service.get_location_or_404(
-        db, dealership_id=dealership_id, location_id=location_id, for_update=for_update
-    )
+    lookup = location_service.get_location_for_update_or_404 if for_update else location_service.get_location_or_404
+    return lookup(db, dealership_id=dealership_id, location_id=location_id)
 
 
 # --- Locations ------------------------------------------------------------------------

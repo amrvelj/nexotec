@@ -32,7 +32,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -124,14 +124,25 @@ def list_locations(db: Session, *, dealership_id: uuid.UUID, active: bool | None
     return list(db.scalars(stmt.order_by(Location.name, Location.id)).all())
 
 
-def get_location_or_404(
-    db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID, for_update: bool = False
-) -> Location:
-    """By (dealership, id): another Betrieb's location is a 404 (rule 7)."""
+def get_location_or_404(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> Location:
+    """By (dealership, id): another Betrieb's location is a 404 (rule 7).
+    A plain read — `platform.public` exports it (KAN-666), so it takes no lock;
+    a write locks with `get_location_for_update_or_404`."""
 
-    stmt = select(Location).where(Location.tenant_id == dealership_id, Location.id == location_id)
-    if for_update:
-        stmt = stmt.with_for_update()
+    return _location_or_404(db, _location_stmt(dealership_id, location_id), location_id)
+
+
+def get_location_for_update_or_404(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> Location:
+    """The same row, locked for the rest of the transaction — for a write."""
+
+    return _location_or_404(db, _location_stmt(dealership_id, location_id).with_for_update(), location_id)
+
+
+def _location_stmt(dealership_id: uuid.UUID, location_id: uuid.UUID) -> Select[tuple[Location]]:
+    return select(Location).where(Location.tenant_id == dealership_id, Location.id == location_id)
+
+
+def _location_or_404(db: Session, stmt: Select[tuple[Location]], location_id: uuid.UUID) -> Location:
     location = db.scalar(stmt)
     if location is None:
         raise NotFoundError(f"Location {location_id} was not found.")
