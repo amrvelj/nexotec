@@ -79,8 +79,6 @@ file in the same PR as any change to what it states. -->
   registration or mileage `provider_quote_stale`. Nothing asks the provider on opening a valuation. Run against the
   mock and a fake transport only; whether `vehicleExchangePrice` already includes the km correction is not verified
   against a real answer.
-- **A provider quote has no maximum age; one no valuation references is deleted ten years after its fetch** (Anto,
-  KAN-599; `test_kan599_provider_quote_retention.py`).
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**. Its routes are licensed with the
   `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.
