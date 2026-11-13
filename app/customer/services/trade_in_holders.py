@@ -44,13 +44,17 @@ def record_former_holder_on_purchase(
 
     Per role: a row of this customer that holds the role at `ended_at` (an
     earlier link, open or ending later) is closed at `ended_at`; one already
-    ending exactly then is left alone; one starting at `held_from` and ended
-    before is ended at `ended_at` (KAN-566 case 1); otherwise a closed row
-    [`held_from`, `ended_at`) is written — or, when a row of this customer
-    ended inside that period, from that row's end (KAN-566 case 2, the
-    latest such end), so the periods never overlap. Written rows are history,
-    so they close nobody else (KAN-148/KAN-370: a row ended in the past is
-    not a holder). Taken under
+    ending exactly then is left alone. Then the customer's own rows and the
+    history join over [`held_from`, `ended_at`) without gap or overlap
+    (KAN-566, Anto's option B): an own row starting at `held_from` and ended
+    before is ended at the purchase, or at the start of the customer's next
+    own row inside the period (case 1); every stretch no own row covers gets
+    a closed history row (case 2) — or, where an empty own row («planned,
+    never started», KAN-664) already starts at the stretch, that row is
+    extended over it (the unique key allows no second row with that start).
+    A merge's kept copy is never moved. Written rows are history, so they
+    close nobody else (KAN-148/KAN-370: a row ended in the past is not a
+    holder). Taken under
     the allocation's locks, and refused for a merged customer the same way
     (409 `customer_merged`); the caller resolves the survivor first, so that
     refusal means a merge committed in between and a redelivery will find
@@ -240,10 +244,11 @@ def _write_history_row(
 def _extend_to_purchase(
     db: Session, *, party: VehicleParty, ended_at: dt.datetime, actor_id: uuid.UUID | None, group_id: uuid.UUID
 ) -> None:
-    """KAN-566 case 1: a history row of the trade-in's customer that starts at
-    the signature and ended before the purchase is ended at the purchase — or
-    at the start of the customer's next own row inside the period, never over
-    it (`ended_at` is that end).
+    """KAN-566: an own history row of the trade-in's customer is extended to
+    `ended_at` — case 1's row starting at the signature (to the purchase, or
+    to the start of the customer's next own row inside the period, never over
+    it), or an empty own row at the start of an uncovered stretch (to the
+    stretch's end).
     It was history and stays history (it ended before it was moved, and ends
     in the past now), so it closes nobody and publishes nothing — as a PATCH
     moving a past end does not; audited `vehicle_party_update` with reason
