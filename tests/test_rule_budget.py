@@ -36,9 +36,18 @@ def test_a_scenario_over_its_limit_fails():
     assert "one-file frontend fix" in problem
 
 
+def test_a_scenario_file_that_no_longer_exists_fails_instead_of_counting_zero(monkeypatch):
+    tree = rule_budget.Tree(None)
+    assert rule_budget.missing_scenario_files(tree) == []
+    monkeypatch.setitem(rule_budget.SCENARIOS, "one-file frontend fix", [("frontend/no/such/File.tsx",)])
+    [problem] = rule_budget.missing_scenario_files(tree)
+    assert "one-file frontend fix" in problem and "frontend/no/such/File.tsx" in problem
+
+
 def test_the_rule_files_in_this_tree_are_within_every_budget():
     tree = rule_budget.Tree(None)
     assert rule_budget.problems(rule_budget.sizes(tree)) == []
+    assert rule_budget.missing_scenario_files(tree) == []
     totals = {name: total for name, (total, _) in rule_budget.scenario_totals(tree).items()}
     assert rule_budget.scenario_problems(totals) == []
 
