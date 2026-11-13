@@ -50,6 +50,7 @@ def upsert_document_template(
     data: DocumentTemplateUpdate,
     if_match_version: int,
     actor_id: uuid.UUID,
+    commit: bool = True,
 ) -> DocumentTemplate:
     template = get_document_template(db, dealership_id)
     changes = data.model_dump(exclude_unset=True)
@@ -102,6 +103,9 @@ def upsert_document_template(
             after=after,
         )
 
-    db.commit()
-    db.refresh(template)
+    if commit:
+        db.commit()
+        db.refresh(template)
+    else:
+        db.flush()
     return template
