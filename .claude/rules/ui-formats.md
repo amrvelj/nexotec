@@ -7,7 +7,6 @@ paths:
   - "frontend/apps/dms/src/components/PriceBuildUp.tsx"
   - "frontend/apps/dms/src/i18n/swissNumberInterpolation*"
   - "frontend/apps/dms/src/**/*dateOnly*"
-  - "frontend/apps/dms/src/**/*DateOnly*"
   - "frontend/apps/dms/src/architecture/no-bare-money*"
   - "frontend/apps/dms/src/architecture/date-only*"
   - "frontend/apps/dms/src/architecture/no-utc-calendar-day*"

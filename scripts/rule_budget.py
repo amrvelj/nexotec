@@ -179,6 +179,15 @@ def scenario_totals(tree: Tree) -> dict[str, tuple[int, list[Rule]]]:
     return totals
 
 
+def missing_scenario_files(tree: Tree) -> list[str]:
+    """A scenario entry none of whose paths exists would count 0 bytes and pass its ceiling vacuously
+    (a file renamed or deleted): name it instead, so the scenario list follows the tree."""
+
+    pick = picker(tree)
+    return [f"the {scenario} names no existing file among {', '.join(entry)} - update SCENARIOS"
+            for scenario, entries in SCENARIOS.items() for entry in entries if pick(entry) is None]
+
+
 def scenario_problems(totals: dict[str, int]) -> list[str]:
     return [f"the {scenario} loads {totals[scenario]} bytes of rules, over its {limit} - narrow a glob or split "
             f"a file" for scenario, limit in SCENARIO_LIMITS.items() if totals.get(scenario, 0) > limit]
@@ -228,7 +237,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"rule budget: rule files <= {RULE_LIMIT} bytes, {CLAUDE_MD} <= {CLAUDE_LIMIT} "
               f"(base {base_ref[:10] if base_ref else 'none'}):")
         print_sizes(now, before)
-        found = problems(now) + scenario_problems(scenario_report(work, "scenarios (working tree)"))
+        found = (problems(now) + scenario_problems(scenario_report(work, "scenarios (working tree)"))
+                 + missing_scenario_files(work))
         for line in found:
             print(f"FAIL: {line}")
         return 1 if found else 0

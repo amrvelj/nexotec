@@ -1,9 +1,7 @@
 ---
 paths:
   - "scripts/migrate_*.py"
-  - "scripts/repoint_*.py"
   - "scripts/backfill_*.py"
-  - "scripts/continue_*.py"
   - "scripts/*migration_smoke_test*.py"
   - "tests/test_backfill_*.py"
 ---
