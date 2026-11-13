@@ -40,8 +40,9 @@ small; ADR-047 addendum, ADR-081, ADR-107. Last verified against main@73baf3f (2
   purpose; its age is the gauge `dms.label.age_seconds` (threshold in README's alarm table).
   Jobs: `customer.vehicle_party_labels`, `customer.advisor_labels`, `sales.owner_labels`,
   `sales.customer_labels`, `inventory.configuration_labels`. Shared rules: no `version` bump, a
-  current label only restamped, an id naming nothing left alone, batches `FOR NO KEY UPDATE SKIP
-  LOCKED` (the vehicle-party job locks in id order and waits — `customer.md`).
+  current label only restamped, a deactivated user's label kept, an id naming nothing left
+  alone, batches `FOR NO KEY UPDATE SKIP LOCKED` (the vehicle-party job locks in id order and
+  waits — `customer.md`).
 - **A label may also follow its owner's event** (`vehicle.vehicle_mdm.summary_changed` →
   `customer.vehicle_party_labels_on_summary_changed`): the consumer re-reads the label through
   the owner's `public`, never trusting the payload (delivery is unordered); the nightly job stays
