@@ -1,13 +1,11 @@
 """Odometer, accessories, custody (WP-5 PR-5) — the three append-only logs
 that make up a vehicle's history against VehicleMdm (PR-3). All three are
-global reads, tenant-attributed writes, same data class as the shipped
-table's own custody event — a mileage reading or an accessory fitting is a
-fact about the car, but who recorded it is a fact about the dealer.
+global reads, tenant-attributed writes — a mileage reading or an accessory
+fitting is a fact about the car, but who recorded it is a fact about the
+dealer.
 
-VehicleCustodyEvent here is a NEW table pointed at vehicle_mdm.id, not an
-edit to the shipped app.vehicle.models.vehicle.VehicleCustodyEvent (which
-points at the old, soon-to-retire vehicle.id and stays untouched until
-PR-7's cutover carries its rows across).
+VehicleCustodyEvent here is the table pointed at vehicle_mdm.id; the legacy
+table's custody log it superseded was retired with that table (KAN-79).
 """
 
 import datetime as dt

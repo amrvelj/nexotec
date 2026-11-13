@@ -5,7 +5,7 @@ paths:
   - "frontend/**/*.test.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011, ADR-086, ADR-089 and the
-recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-091, ADR-126. Verified
+recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-126 (ADR-091 expired, KAN-79). Verified
 against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code); the spec-disagreement
 sentence re-checked against main@e37e36f on 2026-11-10 for ADR-126 (KAN-638); the per-worker database
 lines added on 2026-11-11 with the code (KAN-627, ADR-130). Fix this file in the same PR
@@ -49,9 +49,8 @@ as any change to what it states. -->
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
   write committing its own transaction except number allocation (`platform.public.allocate_number`, ruled by ADR-109,
-  KAN-207); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
-  and the migration smoke test's two CI fixtures, which never run against a real database, are the
-  exceptions ruled by ADR, each by name (ADR-091, KAN-106; ADR-140, KAN-342), every POST an `IdempotentRoute` declaring an optional
+  KAN-207); `scripts/` is scanned separately — the migration smoke test's two CI fixtures, which
+  never run against a real database, are the exceptions ruled by ADR, each by name (ADR-140, KAN-342), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven
   unauthenticated front-door POSTs (KAN-196); a new one is Anto's ruling by name —
   every route of a sales, inventory, valuation or configurator router behind the `sales`
