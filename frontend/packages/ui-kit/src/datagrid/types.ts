@@ -21,8 +21,14 @@ export const ROW_HEIGHT: Record<Density, number> = {
 
 export interface GridColumnMeta<T> {
   /** API field name this column sorts by (must be in the entity's
-   * server-side sort allow-list). Omit for a non-sortable column. */
+   * server-side sort allow-list). Omit for a non-sortable column. A grid
+   * that sorts in the browser (`sortRowsInBrowser`, KAN-516) names the
+   * field here too and gives the row's value in `sortValue`. */
   sortField?: string;
+  /** For a grid sorted in the browser only (`sortRowsInBrowser`): the
+   * row's value for `sortField` — text, a number or a boolean, never the
+   * rendered cell. Ignored by a grid its server sorts. */
+  sortValue?: (row: T) => string | number | boolean | null | undefined;
   pinned?: "left" | "right";
   mono?: boolean;
   align?: "left" | "right";
