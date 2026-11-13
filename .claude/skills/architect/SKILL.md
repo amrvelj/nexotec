@@ -16,7 +16,8 @@ Module features belong in their PRDs, not here. No code in this session.
 
 ## Before the first question
 
-- Read the Target Architecture and its ADR log (binding), the Gap Analysis, the Build Sequence
+- Read the Target Architecture and its ADR log (binding), the Gap Analysis (its gap register is
+  a database since ADR-157: query the rows, do not fetch the page), the Build Sequence
   and the Risk Register (links in CLAUDE.md), the PRDs the question touches, and the code where
   the question concerns what exists.
 - Write down the inventory relevant to the question: each ADR by number, one line, its status.

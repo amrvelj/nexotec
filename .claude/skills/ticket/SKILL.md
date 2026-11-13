@@ -105,6 +105,12 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 3. **Independent review:** delegate to the `reviewer` agent with: the ticket URL, the exit
    criteria verbatim, the range `origin/main..HEAD`, and what you claim is met and not met. It
    ends with `REVIEWED: <sha>` and its verdict, and the verdict counts only for that commit.
+   For any Notion obligation (a ticket criterion that is a Notion write, an ADR, and the
+   step 7.2 lines once written), give it your one-sentence statement of each change — page,
+   row or anchor line, new text — and tell it to check each with a targeted search
+   (`notion-search` with `page_url`) or a row query on the Gap register, never a full fetch
+   of the PRD, the Gap Analysis or the Target Architecture; a full fetch only for a statement
+   the search cannot confirm (ADR-157).
    This first review is always a **full review**. Fix its findings (or explain in your reply why
    a finding is wrong), **commit, re-run `scripts/dev/check`, then run the reviewer again** - as
    a **re-review** when `scripts/dev/gate review-scope <previously reviewed sha>` allows it
@@ -157,11 +163,40 @@ Any code change after this point invalidates 2–4: redo them.
    already reported); each exit criterion **met** or **NOT met** with its evidence; the
    verification run; the screenshot (attach the file when you have one).
 2. **Work is not done when the code merges.** Every time — whether or not the ticket names
-   them — draft the module PRD's status (what shipped) and the Gap Analysis (citing the new
+   them — write the module PRD's status (what shipped) and the Gap Analysis (citing the new
    head), plus an ADR for any decision taken while building and whatever else the ticket
    names. Write them directly (no Notion write asks Anto, 2026-10-11), and list each spec-page
-   change in one plain sentence in the final reply — e.g. "Gap Analysis: add row G-104, manual
-   configuration accepts unchecked codes, severity S3."
+   change in one plain sentence in the final reply — e.g. "Gap register: add G-175, manual
+   configuration accepts unchecked codes, S3." These sentences are what the reviewer and
+   `/verify` check, so name the page, the row or line, and what it now says.
+   **Never fetch the PRD or the Gap Analysis for this (ADR-157, KAN-622)** — each is a
+   targeted write against a fixed anchor or a database row. The two anchors, each one line,
+   copied exactly as `old_str` (`new_str` = the anchor, a blank line, then `- <your line>`;
+   it lands at the top of the list, newest first):
+
+   ```text
+   PRD:  Delivery status — newest first, one line per ticket: date · ticket · what shipped · merged head. Add each line directly below this one; never fetch the page for it (ADR-157).
+   Gap:  Heads — newest first, one line per ticket: date · ticket · PR and head (in review) or merge commit · rows touched, or none. Add each line directly below this one; never fetch the page for it (ADR-157).
+   ```
+
+   (`PRD:` and `Gap:` are labels here, not part of the anchor.)
+   - **PRD status:** one `update_content` on the module's PRD (links in CLAUDE.md) with the PRD
+     anchor; your line: `<date> · KAN-<n> · <what shipped, one sentence> · PR #<n>, head <sha> (in review)`.
+   - **Gap Analysis, every ticket:** one `update_content` on the Gap Analysis page with the Gap
+     anchor; your line: `<date> · KAN-<n> · PR #<n>, head <sha> (in review) · <G-ids touched, or none>`.
+   - **Gap register rows** (data source `collection://0c8fe912-888b-40db-862f-9694a07dedae`):
+     find a row with `SELECT url, "Gap ID", "Status", "Summary" FROM "collection://0c8fe912-888b-40db-862f-9694a07dedae" WHERE "Gap ID" = 'G-<n>'`
+     (a few old ids return two rows; the `Summary` tells them apart). Closing or narrowing a
+     gap is one `update_properties` (`Status` Closed or Partly closed, `Cited head`, `Ticket`)
+     plus, when it needs words, one `insert_content` at the end of the row's body (what closed
+     it, the PR, the head). A new gap is one page created in that data source: `Gap ID` (the
+     highest number in use plus one: `SELECT MAX(CAST(SUBSTR("Gap ID", 3) AS INTEGER)) AS n FROM "collection://0c8fe912-888b-40db-862f-9694a07dedae"`),
+     `Summary`, `Status` Open, `Severity` S1–S3, `Context`, `Cited head`, `Ticket`; the body
+     holds the finding and its evidence.
+   - **Only when an anchor or row is not found:** search the page (`notion-search` with
+     `page_url`) for the line; fetch the page whole only when the search finds nothing too, and
+     say so in the reply. A PRD that lacks the block gets it at the top (`insert_content`,
+     position start: `## Status`, the anchor line, your line).
 3. Final reply to Anto: PR link, criteria met / not met, verification, screenshot, follow-up
    tickets, and anything waived with its reason.
 
@@ -189,5 +224,8 @@ reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's s
 3. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`
    and the CI line to what `close` confirmed.
 4. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
-   ticket names — written directly; say what each one changed, as in step 7. Then tell Anto the
+   ticket names — written directly, by the cheap path of step 7.2 (no page fetch): a new line
+   under each anchor, `<date> · KAN-<n> · merged as <short sha>, PR #<n> · …` (the in-review
+   line stays below it), and on each register row the ticket touched, `Cited head` → the merge
+   commit. Say what each one changed, as in step 7. Then tell Anto the
    worktree can be removed. A cloud session has no worktree: the session can simply be archived.
