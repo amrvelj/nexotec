@@ -21,9 +21,7 @@ const numberRangesKey = (dealershipId: string) => ['number-ranges', dealershipId
  * freeze is stated before the first number, not after (A-RULE-3): an open
  * range says it freezes with its first number; a frozen one says only
  * Nexotec support can change it. Any role reads; the manager edits an open
- * range, platform staff a frozen one, with a reason. A yearly restart the
- * server reports as deferred (KAN-540: the offer range, for now) carries a
- * note, and its next number already counts on.
+ * range, platform staff a frozen one, with a reason.
  */
 export function NumberRangesPage() {
   const { t, i18n } = useTranslation()
@@ -100,11 +98,6 @@ export function NumberRangesPage() {
                       {range.yearlyReset && (
                         <Text size="xs" c="dimmed">
                           {t('numberRanges.yearlyResetShort')}
-                        </Text>
-                      )}
-                      {range.yearlyResetDeferred && (
-                        <Text size="xs" c="orange.8" role="note">
-                          {t('numberRanges.yearlyResetDeferredNote')}
                         </Text>
                       )}
                     </Table.Td>

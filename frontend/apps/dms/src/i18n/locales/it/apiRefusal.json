@@ -27,6 +27,7 @@
     "last_usable_contact_point": "Un cliente mantiene almeno un numero di telefono o un indirizzo e-mail validi. Aggiungine prima un altro.",
     "legacy_sale": "Questo contratto è stato ripreso dal sistema precedente, che lo ha gestito: non può essere modificato qui.",
     "merged_party_row": "Questa riga è la copia conservata da un’unione di clienti; non può riassumere il suo ruolo.",
+    "vehicle_merged_party_row": "Questa voce appartiene a un veicolo unito e resta nella cronologia. Modifichi la voce sul veicolo {{vin}}.",
     "missing_config_fields": "Per questa connessione mancano dati obbligatori: {{fields}}.",
     "missing_containers": "L’offerta non è ancora completa. Manca: {{containers}}.",
     "missing_price": "Questo contratto non ha ancora un prezzo. Completa prima la composizione del prezzo.",
@@ -163,7 +164,8 @@
     "vin_unchanged": "È già il VIN di questo veicolo.",
     "vehicle_vin_changed": "Il VIN nell'anagrafica veicolo è stato modificato nel frattempo. Ricaricate e riprovate.",
     "vehicle_merged": "Il veicolo è stato unito a un altro nell'anagrafica veicolo. Ricaricate.",
-    "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare."
+    "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare.",
+    "vin_change_needs_vin_correction": "Questo veicolo è in stock nella sua azienda come {{stockNumber}}. Il suo VIN si modifica lì con «Correggere il VIN», affinché veicolo in stock, anagrafica veicolo e configurazione portino lo stesso VIN."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

@@ -1,11 +1,34 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { TranslationsPage } from './TranslationsPage'
+
+// jsdom has no layout, so TanStack Virtual windows the KAN-516 grids down to
+// zero rows; render every row instead (as BrandsAdmin's test does) — or, for
+// a test that sets `virtualWindow.rows`, only that many, as a short screen
+// would, so the grid does not ask for the next page by itself.
+const virtualWindow = vi.hoisted(() => ({ rows: Number.POSITIVE_INFINITY }))
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () =>
+        Array.from({ length: Math.min(count, virtualWindow.rows) }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
+
+/** KAN-516 — a row opens from its row menu (ADR-061). */
+async function openFromRowMenu(user: ReturnType<typeof userEvent.setup>, item: 'Bearbeiten' | 'Ansehen') {
+  await user.click((await screen.findAllByRole('button', { name: 'Zeilenaktionen' }))[0])
+  await user.click(await screen.findByRole('menuitem', { name: item }))
+}
 
 // KAN-209 — Platform Administration › Translations: search, the four-column
 // editor, the diff against the shipped text, publish and revert; the writes
@@ -100,7 +123,10 @@ function renderPage(route = '/platform/translations') {
   )
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  virtualWindow.rows = Number.POSITIVE_INFINITY
+})
 
 describe('TranslationsPage (KAN-209)', () => {
   it('lists keys with their four languages, one tab per source, and the missing-key log', async () => {
@@ -114,6 +140,12 @@ describe('TranslationsPage (KAN-209)', () => {
     expect(screen.getByText('1 Schlüssel')).toBeInTheDocument()
     expect(await screen.findByText('kan209.gone')).toBeInTheDocument()
     expect(screen.getByText("1'234")).toBeInTheDocument()
+    // KAN-516: both lists are the kit's grid, each with its Columns panel;
+    // the area and the last change are columns, hidden by default (ADR-060).
+    expect(screen.getAllByRole('button', { name: 'Spalten' })).toHaveLength(2)
+    const keys = screen.getByRole('table', { name: 'UI-Texte' })
+    expect(within(keys).queryByRole('columnheader', { name: 'Bereich' })).toBeNull()
+    expect(within(screen.getByRole('table', { name: 'Fehlende Schlüssel' })).queryByRole('columnheader', { name: 'Zuerst gemeldet' })).toBeNull()
   })
 
   it('keeps the search in the URL and sends it to the API', async () => {
@@ -138,7 +170,7 @@ describe('TranslationsPage (KAN-209)', () => {
       },
     ])
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }))
+    await openFromRowMenu(user, 'Bearbeiten')
     const editor = await screen.findByRole('region', { name: 'Schlüssel: shell.nav.business' })
     const fr = within(editor).getByRole('textbox', { name: 'Französisch' })
     await user.clear(fr)
@@ -210,9 +242,73 @@ describe('TranslationsPage (KAN-209)', () => {
     const user = userEvent.setup()
     install([], ['configurations', 'stock_items'])
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Ansehen' }))
+    await openFromRowMenu(user, 'Ansehen')
     expect(await screen.findByText('Nur Plattformadministratoren von Nexotec können diese Texte ändern.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Deutsch' })).toHaveAttribute('readonly')
+  })
+
+  it('sorts the keys in the browser over the whole result: a sort loads the pages not yet loaded (KAN-516)', async () => {
+    const user = userEvent.setup()
+    // A first page of twelve keys and a screen showing one row: the grid
+    // itself would not ask for the second page yet.
+    virtualWindow.rows = 1
+    const key = (index: number) => {
+      const name = `filler${String(index).padStart(2, '0')}`
+      const value = (language: Lang) => ({ ...row(language, `Text ${index}`), namespace: 'common', key: name })
+      return { namespace: 'common', key: name, de: value('de'), fr: value('fr'), it: value('it'), en: value('en') }
+    }
+    const backend = install([
+      {
+        method: 'GET',
+        match: /^\/platform\/ui-translations$/,
+        handler: (req) =>
+          req.params.get('cursor') === 'page-2'
+            ? { items: [businessKey()], nextCursor: null, total: 13, totalIsEstimate: false }
+            : { items: Array.from({ length: 12 }, (_, index) => key(index)), nextCursor: 'page-2', total: 13, totalIsEstimate: false },
+      },
+    ])
+    renderPage()
+    const secondPageAsked = () => backend.callsTo(/^\/platform\/ui-translations$/).some((c) => c.params.get('cursor') === 'page-2')
+
+    const table = await screen.findByRole('table', { name: 'UI-Texte' })
+    expect(within(table).getByText('common.filler00')).toBeInTheDocument()
+    expect(secondPageAsked()).toBe(false)
+
+    // German, ascending: «Betrieb» (second page) before «Text 0» — so the
+    // second page is loaded before the rows are ordered.
+    const german = within(table).getByRole('columnheader', { name: 'Deutsch' })
+    await user.click(german)
+    expect(german).toHaveAttribute('aria-sort', 'ascending')
+    await waitFor(() => expect(secondPageAsked()).toBe(true))
+    expect(await within(table).findByText('shell.nav.business')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('sort=de%3Aasc'))
+  })
+
+  it('sorts the missing-key log in the browser by its own URL sort, beside the keys', async () => {
+    install([
+      {
+        method: 'GET',
+        match: /^\/platform\/ui-translations\/missing$/,
+        handler: () => ({
+          items: [
+            { key: 'kan209.gone', language: 'fr', reportCount: 3, firstReportedAt: '2026-10-30T08:00:00Z', lastReportedAt: '2026-10-31T09:00:00Z' },
+            { key: 'kan209.often', language: 'de', reportCount: 1234, firstReportedAt: '2026-10-29T08:00:00Z', lastReportedAt: '2026-10-30T09:00:00Z' },
+          ],
+        }),
+      },
+    ])
+    renderPage('/platform/translations?missingSort=count:desc')
+
+    const log = await screen.findByRole('table', { name: 'Fehlende Schlüssel' })
+    await within(log).findByText('kan209.often')
+    const keys = within(log)
+      .getAllByRole('row')
+      .slice(1)
+      .map((line) => within(line).getAllByRole('cell')[0].textContent)
+    expect(keys).toEqual(['kan209.often', 'kan209.gone'])
+    expect(within(log).getByRole('columnheader', { name: 'Meldungen' })).toHaveAttribute('aria-sort', 'descending')
+    // The keys' own grid is not sorted by the log's parameter.
+    expect(within(screen.getByRole('table', { name: 'UI-Texte' })).getByRole('columnheader', { name: 'Deutsch' })).toHaveAttribute('aria-sort', 'none')
   })
 })

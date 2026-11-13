@@ -1,11 +1,30 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { TranslationsPage } from './TranslationsPage'
+
+// jsdom has no layout, so TanStack Virtual windows the KAN-516 grids down to
+// zero rows; render every row instead (as BrandsAdmin's test does).
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () => Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
+
+/** KAN-516 — a row opens from its row menu (ADR-061). */
+async function openFromRowMenu(user: ReturnType<typeof userEvent.setup>, item: 'Bearbeiten' | 'Ansehen') {
+  await user.click((await screen.findAllByRole('button', { name: 'Zeilenaktionen' }))[0])
+  await user.click(await screen.findByRole('menuitem', { name: item }))
+}
 
 // KAN-209 on KAN-208's library — the standard-text seeds tab of Platform
 // Administration › Translations: one row per code, title and body each in the
@@ -126,7 +145,7 @@ describe('TranslationsPage › standard-text seeds (KAN-209)', () => {
       },
     ])
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }))
+    await openFromRowMenu(user, 'Bearbeiten')
     const bodyEditor = await screen.findByRole('region', { name: 'Text: offer.footer.validity' })
     expect(screen.getByRole('region', { name: 'Titel: offer.footer.validity' })).toBeInTheDocument()
 
@@ -189,8 +208,36 @@ describe('TranslationsPage › standard-text seeds (KAN-209)', () => {
     const user = userEvent.setup()
     install([], ['configurations'])
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Ansehen' }))
+    await openFromRowMenu(user, 'Ansehen')
     expect(await screen.findAllByText('Nur Plattformadministratoren von Nexotec können diese Texte ändern.')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument()
+  })
+
+  it('sorts the seeds in the browser, the sort in the URL, without asking the API again (KAN-516)', async () => {
+    const user = userEvent.setup()
+    const intro = {
+      ...group({ de: seedRow('de', { title: 'Einleitung der Offerte' }) }),
+      code: 'offer.intro.standard',
+      slot: 'intro',
+    }
+    const backend = install([], ALL_GATED_CAPABILITIES, () => [group(), intro])
+    renderPage()
+
+    const table = await screen.findByRole('table', { name: 'Standardtext-Vorlagen' })
+    const codes = () =>
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map((line) => within(line).getAllByRole('cell')[0].textContent)
+    // No sort: the endpoint's order.
+    expect(codes()).toEqual(['offer.footer.validity', 'offer.intro.standard'])
+    const reads = backend.callsTo(/^\/platform\/standard-text-seeds$/).length
+
+    await user.click(within(table).getByRole('columnheader', { name: 'Deutsch' }))
+    expect(codes()).toEqual(['offer.intro.standard', 'offer.footer.validity'])
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('sort=de%3Aasc'))
+    await user.click(within(table).getByRole('columnheader', { name: 'Deutsch' }))
+    expect(codes()).toEqual(['offer.footer.validity', 'offer.intro.standard'])
+    expect(backend.callsTo(/^\/platform\/standard-text-seeds$/)).toHaveLength(reads)
   })
 })

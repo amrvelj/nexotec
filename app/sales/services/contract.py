@@ -322,7 +322,7 @@ def update_contract(
     offer's autosave — except that a contract starting to hold a
     configuration id (Path B through deal_editing) publishes
     `sales.contract.configuration_attached` in this transaction, so Vehicle
-    keeps a configuration a host took (KAN-270, `.claude/rules/sales.md`).
+    keeps a configuration a host took (KAN-270, `.claude/rules/events-worker.md`).
     The deal grid is re-projected in the same transaction.
 
     KAN-315 (Anto, 2026-10-12): a contract priced without inputs (KAN-67)

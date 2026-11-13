@@ -1,23 +1,45 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Alert, Badge, Button, Card, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Alert, Badge, Card, Group, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Eye, Pencil, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { slate } from '@nexotec/ui-kit'
+import {
+  ColumnConfigPanel,
+  DataGrid,
+  defaultColumnLayout,
+  slate,
+  sortRowsInBrowser,
+  type GridColumnDef,
+  type RowMenuGroups,
+} from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import type { StandardTextCategory, StandardTextSeedGroup, StandardTextSeedList, StandardTextSeedRead } from '../../api/types'
 import { useCanWrite } from '../../auth/useCanWrite'
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../../i18n'
+import { SUPPORTED_LANGUAGES, toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
+import { useGridPreferences } from '../../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { useSortInUrl } from '../../hooks/useSortInUrl'
+import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { apiRefusalText } from '../../utils/apiRefusal'
+import { columnRegistryOf } from '../../utils/columnRegistry'
+import { formatDateTime } from '../../utils/format'
 import { FourLanguageEditor, type EditorLanguageRow, type PublishOutcome } from './FourLanguageEditor'
 
 const BASE = '/platform/standard-text-seeds'
 const CATEGORIES: StandardTextCategory[] = ['document', 'email', 'sms', 'whatsapp', 'internal_note', 'workshop']
+const GRID_KEY = 'platform.translations.standardTextSeeds'
 
 type Field = 'title' | 'body'
+
+/** The latest change to any language of the seed. */
+function lastChanged(group: StandardTextSeedGroup): string | null {
+  const stamps = SUPPORTED_LANGUAGES.map((language) => group[language]?.updatedAt).filter((stamp): stamp is string => Boolean(stamp))
+  return stamps.length > 0 ? stamps.reduce((latest, stamp) => (stamp > latest ? stamp : latest)) : null
+}
 
 function editorRows(group: StandardTextSeedGroup, field: Field): Partial<Record<SupportedLanguage, EditorLanguageRow>> {
   const rows: Partial<Record<SupportedLanguage, EditorLanguageRow>> = {}
@@ -41,10 +63,22 @@ function editorRows(group: StandardTextSeedGroup, field: Field): Partial<Record<
  * never touches a Betrieb's adaptation; the Betrieb's row is flagged "the
  * standard text has changed". Platform staff write at the API
  * (`ui_translations`, the matrix row "UI translations and seed library");
- * anyone else reads. Search, category and the open code are in the URL.
+ * anyone else reads. Search, category, the sort and the open code are in
+ * the URL.
+ *
+ * KAN-516 (Anto, 2026-11-13, option C): the library is the kit's grid — the
+ * row menu opens a seed (ADR-061), the Columns panel is the user's (ADR-060)
+ * — and, a short fixed list the endpoint does not sort, it sorts in the
+ * browser. No sort keeps the endpoint's order.
  */
 export function StandardTextSeedsPanel() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale((SUPPORTED_LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as SupportedLanguage) : 'de')
+  const { density } = useUiPreferencesContext()
+  const labels = useDataGridLabels()
+  const columnPanelLabels = useColumnPanelLabels()
+  const gridPrefs = useGridPreferences(GRID_KEY, { sort: [] })
+  const [sort, setSort] = useSortInUrl(gridPrefs)
   const canWrite = useCanWrite('ui_translations')
   const queryClient = useQueryClient()
   const revertKey = useIdempotencyKey()
@@ -88,6 +122,90 @@ export function StandardTextSeedsPanel() {
   const selected = useMemo(() => items.find((group) => group.code === openCode) ?? null, [items, openCode])
   const titleRows = useMemo(() => (selected ? editorRows(selected, 'title') : {}), [selected])
   const bodyRows = useMemo(() => (selected ? editorRows(selected, 'body') : {}), [selected])
+
+  const columns: GridColumnDef<StandardTextSeedGroup>[] = useMemo(() => {
+    const target = (group: StandardTextSeedGroup) =>
+      `${t(`standardTexts.category.${group.category}`)} · ${t(`standardTexts.appliesTo.${group.appliesTo}`)} · ${t(`standardTexts.slot.${group.slot}`)}`
+    return [
+      {
+        id: 'code',
+        header: t('translations.seeds.columns.code'),
+        cell: ({ row }) => row.original.code,
+        meta: { locked: true, mono: true, sortField: 'code', sortValue: (group) => group.code },
+      },
+      {
+        id: 'target',
+        header: t('translations.seeds.columns.target'),
+        cell: ({ row }) => target(row.original),
+        meta: { sortField: 'target', sortValue: target },
+      },
+      {
+        id: 'category',
+        header: t('translations.seeds.columns.category'),
+        cell: ({ row }) => t(`standardTexts.category.${row.original.category}`),
+        meta: { defaultVisible: false, sortField: 'category', sortValue: (group) => t(`standardTexts.category.${group.category}`) },
+      },
+      {
+        id: 'appliesTo',
+        header: t('translations.seeds.columns.appliesTo'),
+        cell: ({ row }) => t(`standardTexts.appliesTo.${row.original.appliesTo}`),
+        meta: { defaultVisible: false, sortField: 'appliesTo', sortValue: (group) => t(`standardTexts.appliesTo.${group.appliesTo}`) },
+      },
+      {
+        id: 'slot',
+        header: t('translations.seeds.columns.slot'),
+        cell: ({ row }) => t(`standardTexts.slot.${row.original.slot}`),
+        meta: { defaultVisible: false, sortField: 'slot', sortValue: (group) => t(`standardTexts.slot.${group.slot}`) },
+      },
+      ...SUPPORTED_LANGUAGES.map(
+        (language): GridColumnDef<StandardTextSeedGroup> => ({
+          id: language,
+          header: t(`translations.languages.${language}`),
+          cell: ({ row }) => {
+            const seed = row.original[language]
+            return seed ? (
+              <Group gap={6} wrap="nowrap">
+                <Text span size="sm" truncate>
+                  {seed.title}
+                </Text>
+                {seed.edited && (
+                  <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                    {t('translations.status.platform')}
+                  </Badge>
+                )}
+              </Group>
+            ) : (
+              <Text span size="sm" c={slate[4]} fs="italic">
+                {t('translations.status.absent')}
+              </Text>
+            )
+          },
+          meta: { sortField: language, sortValue: (group) => group[language]?.title },
+        }),
+      ),
+      {
+        id: 'updatedAt',
+        header: t('translations.columns.updatedAt'),
+        cell: ({ row }) => {
+          const stamp = lastChanged(row.original)
+          return stamp ? formatDateTime(stamp, locale) : '—'
+        },
+        meta: { align: 'right', defaultVisible: false, sortField: 'updatedAt', sortValue: lastChanged },
+      },
+    ]
+  }, [t, locale])
+  const columnRegistry = useMemo(() => columnRegistryOf(columns), [columns])
+  const columnLayout = useMemo(() => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry), [gridPrefs.columnLayout, columnRegistry])
+  const gridRows = useMemo(() => sortRowsInBrowser(items, sort, columns, locale), [items, sort, columns, locale])
+
+  // ADR-061: the one definition of what can be done to a seed from the list.
+  const rowMenu = (group: StandardTextSeedGroup): RowMenuGroups => ({
+    edit: [
+      canWrite
+        ? { label: t('translations.open'), icon: <Pencil size={16} />, onClick: () => updateUrl({ code: group.code }) }
+        : { label: t('translations.view'), icon: <Eye size={16} />, onClick: () => updateUrl({ code: group.code }) },
+    ],
+  })
 
   // A written seed row replaces its copy in every cached listing.
   const replaceRow = (code: string, updated: StandardTextSeedRead) => {
@@ -198,6 +316,9 @@ export function StandardTextSeedsPanel() {
               allowDeselect={false}
               style={{ flex: '0 1 240px' }}
             />
+            <Group ml="auto">
+              <ColumnConfigPanel registry={columnRegistry} layout={columnLayout} onLayoutChange={gridPrefs.setColumnLayout} labels={columnPanelLabels} />
+            </Group>
           </Group>
 
           {list.data && (
@@ -217,61 +338,27 @@ export function StandardTextSeedsPanel() {
           )}
 
           {items.length > 0 && (
-            <Table.ScrollContainer minWidth={900}>
-              <Table striped highlightOnHover verticalSpacing="xs" fz="sm">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{t('translations.seeds.columns.code')}</Table.Th>
-                    <Table.Th>{t('translations.seeds.columns.target')}</Table.Th>
-                    {SUPPORTED_LANGUAGES.map((language) => (
-                      <Table.Th key={language}>{t(`translations.languages.${language}`)}</Table.Th>
-                    ))}
-                    <Table.Th>{t('translations.columns.actions')}</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {items.map((group) => (
-                    <Table.Tr key={group.code} aria-selected={group.code === openCode}>
-                      <Table.Td style={{ fontFamily: 'monospace', wordBreak: 'break-all', maxWidth: 220 }}>{group.code}</Table.Td>
-                      <Table.Td>
-                        <Text size="sm">
-                          {t(`standardTexts.category.${group.category}`)} · {t(`standardTexts.appliesTo.${group.appliesTo}`)} ·{' '}
-                          {t(`standardTexts.slot.${group.slot}`)}
-                        </Text>
-                      </Table.Td>
-                      {SUPPORTED_LANGUAGES.map((language) => {
-                        const row = group[language]
-                        return (
-                          <Table.Td key={language} style={{ maxWidth: 220 }}>
-                            {row ? (
-                              <Group gap={6} wrap="nowrap" align="flex-start">
-                                <Text size="sm" lineClamp={2} style={{ wordBreak: 'break-word' }}>
-                                  {row.title}
-                                </Text>
-                                {row.edited && (
-                                  <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                                    {t('translations.status.platform')}
-                                  </Badge>
-                                )}
-                              </Group>
-                            ) : (
-                              <Text size="sm" c={slate[4]} fs="italic">
-                                {t('translations.status.absent')}
-                              </Text>
-                            )}
-                          </Table.Td>
-                        )
-                      })}
-                      <Table.Td>
-                        <Button size="compact-sm" variant="light" onClick={() => updateUrl({ code: group.code })}>
-                          {canWrite ? t('translations.open') : t('translations.view')}
-                        </Button>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
+            <DataGrid<StandardTextSeedGroup>
+              ariaLabel={t('translations.seeds.gridLabel')}
+              columns={columns}
+              rows={gridRows}
+              getRowId={(group) => group.code}
+              sort={sort}
+              onSortChange={setSort}
+              density={density}
+              loading={false}
+              fetchingNextPage={false}
+              hasNextPage={false}
+              onLoadMore={() => {}}
+              total={gridRows.length}
+              totalIsEstimate={false}
+              isFiltered={Boolean(debouncedQuery || category)}
+              labels={labels}
+              emptyState={{ icon: null, title: t('translations.seeds.empty'), description: '' }}
+              rowActions={rowMenu}
+              columnLayout={columnLayout}
+              onColumnLayoutChange={gridPrefs.setColumnLayout}
+            />
           )}
         </Stack>
       </Card>

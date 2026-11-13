@@ -14,6 +14,7 @@ from app.core.outbox import OutboxEvent, publish
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleNumberSequence
 from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
+from app.vehicle.services.stock_holding import VIN_CHANGE_NEEDS_VIN_CORRECTION, held_stock_item
 
 # KAN-186 — the fact another context's copy of a vehicle's label follows
 # (customer's VehicleParty, KAN-84). Published in the same transaction as
@@ -140,7 +141,12 @@ def create_or_get_vehicle_mdm(
 
 
 def update_vehicle_mdm(
-    db: Session, *, vehicle: VehicleMdm, data: VehicleMdmUpdate, actor_id: uuid.UUID | None
+    db: Session,
+    *,
+    vehicle: VehicleMdm,
+    data: VehicleMdmUpdate,
+    actor_id: uuid.UUID | None,
+    tenant_id: uuid.UUID | None,
 ) -> VehicleMdm:
     """The only PATCH path for vin/stammnummer/first_registration_date —
     nothing else in the codebase may write them (ADR-045). A mistyped VIN
@@ -157,11 +163,34 @@ def update_vehicle_mdm(
     registration in another year, the summary's model year) publishes
     `vehicle.vehicle_mdm.summary_changed` in this same transaction
     (KAN-186); a refused write publishes nothing.
+
+    **A car the caller's Betrieb holds in stock keeps its VIN here** (KAN-667;
+    Anto, 2026-11-13, option A): its VIN is corrected on the stock car with
+    «VIN korrigieren» (KAN-557), which rewrites the stock item, this record and
+    the configuration together — a change here alone would leave the stock
+    item on the old VIN. `tenant_id` is the caller's Betrieb, from the token;
+    only its own stock counts (`services/stock_holding.py`, rule 7), so
+    another Betrieb's stock never refuses the change nor shows in the
+    refusal. Refused 409 `vin_change_needs_vin_correction` with the stock
+    item's `stockItemId` and `stockNumber`, before anything is written; a
+    PATCH that leaves the VIN as it is is not refused.
     """
 
     summary_before = summary_fields(vehicle)
     changes = data.model_dump(exclude_unset=True)
     changed = {field: value for field, value in changes.items() if getattr(vehicle, field) != value}
+    if "vin" in changed:
+        held = held_stock_item(db, tenant_id=tenant_id, vehicle_id=vehicle.id)
+        if held is not None:
+            raise ConflictError(
+                "This car is in your stock: correct its VIN on the stock car («VIN korrigieren»).",
+                details={
+                    "reason": VIN_CHANGE_NEEDS_VIN_CORRECTION,
+                    "field": "vin",
+                    "stockItemId": str(held.stock_item_id),
+                    "stockNumber": held.stock_number,
+                },
+            )
     before = {_AUDIT_NAMES[field]: _audit_value(getattr(vehicle, field)) for field in changed}
     for field, value in changes.items():
         setattr(vehicle, field, value)

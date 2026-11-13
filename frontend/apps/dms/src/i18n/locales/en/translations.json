@@ -21,7 +21,8 @@
   "countEstimate": "More than {{count, number}} keys",
   "columns": {
     "key": "Key",
-    "actions": "Actions"
+    "namespace": "Area",
+    "updatedAt": "Last changed"
   },
   "languages": {
     "de": "German",
@@ -39,7 +40,6 @@
   "empty": "No keys found.",
   "noSeed": "No UI strings have been imported yet. The import runs with scripts/import_ui_translation_bundles.py --commit.",
   "loadError": "The translations could not be loaded.",
-  "loadMore": "Load more",
   "editor": {
     "keyLabel": "Key",
     "seedLabel": "Shipped",
@@ -65,8 +65,10 @@
       "key": "Key",
       "language": "Language",
       "count": "Reports",
-      "last": "Last reported"
-    }
+      "last": "Last reported",
+      "first": "First reported"
+    },
+    "gridLabel": "Missing keys"
   },
   "seeds": {
     "subtitle": "The templates Nexotec ships to every business. An edit never overwrites a business's own adaptation; the business sees that the template has changed.",
@@ -82,11 +84,16 @@
     "count_other": "{{count, number}} seeds",
     "columns": {
       "code": "Code",
-      "target": "Used on"
+      "target": "Used on",
+      "category": "Category",
+      "appliesTo": "Used on",
+      "slot": "Position"
     },
     "fieldTitle": "Title",
     "fieldBody": "Text",
     "empty": "No seeds found.",
-    "loadError": "The seeds could not be loaded."
-  }
+    "loadError": "The seeds could not be loaded.",
+    "gridLabel": "Standard-text templates"
+  },
+  "gridLabel": "UI strings"
 }

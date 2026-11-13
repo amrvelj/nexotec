@@ -74,10 +74,9 @@ class Seed:
 
 
 # Neutral seeds, one per document type. The offer, contract and stock-number
-# seeds print what Nexotec prints today (`O-000123`, `C-000045`, `S-000067`):
-# the offer range continues each Betrieb's existing sequence (Anto,
-# 2026-11-01, option 1); the contract and stock ranges are not drawn from yet
-# and keep today's shape for when their modules switch.
+# seeds print what Nexotec prints today (`O-000123`, `C-000045`, `S-000067`);
+# the contract and stock ranges are not drawn from yet and keep today's shape
+# for when their modules switch.
 SEEDS: dict[NumberRangeDocumentType, Seed] = {
     DocumentType.OFFER: Seed("O-{counter:6}", False),
     DocumentType.ORDER_CONFIRMATION: Seed("AB-{year}-{counter:5}", True),
@@ -225,44 +224,10 @@ def validate(
     return parsed
 
 
-def _next_counter(row: NumberRange, *, year: int, continue_after: int | None) -> int:
+def _next_counter(row: NumberRange, *, year: int) -> int:
     if row.last_value is None or (row.yearly_reset and row.last_year != year):
-        counter = row.start_value
-    else:
-        counter = row.last_value + 1
-    if continue_after is not None:
-        # The range continues the sequence the module numbered with before
-        # (KAN-207, Anto 2026-11-01, option 1) and never goes below it: while
-        # an instance running the module's old numbering may still serve (a
-        # rolling deploy), the module keeps its own counter in step and passes
-        # it every time, so neither side can hand out the other's number.
-        counter = max(counter, continue_after + 1)
-    return counter
-
-
-# KAN-540 (Anto, 2026-11-12, option A): the document types whose module still
-# passes `continue_after` on every allocation. Sales keeps its own offer
-# counter in step with the offer range until the legacy import is retired
-# (KAN-555), so the range never restarts below it: a yearly reset saved on it
-# does nothing yet. The screen says so and its example counts on, as the
-# allocation does. Emptied by the ticket that drops `continue_after`.
-_CONTINUES_A_MODULE_COUNTER: frozenset[NumberRangeDocumentType] = frozenset({NumberRangeDocumentType.OFFER})
-
-
-def yearly_reset_deferred(document_type: NumberRangeDocumentType, *, yearly_reset: bool) -> bool:
-    """Whether a yearly reset on this range does not take effect yet."""
-
-    return yearly_reset and document_type in _CONTINUES_A_MODULE_COUNTER
-
-
-def _example_floor(row: NumberRange) -> int | None:
-    """What the module will pass as `continue_after`, as far as Platform can
-    know it: the module keeps its counter in step with the range, so it
-    stands where the range does. (A legacy import numbers from Sales' counter
-    alone and can lift the real next number above the example until the next
-    offer brings the two in step.)"""
-
-    return row.last_value if row.document_type in _CONTINUES_A_MODULE_COUNTER else None
+        return row.start_value
+    return row.last_value + 1
 
 
 def next_number_example(db: Session, row: NumberRange, *, year: int | None = None) -> str:
@@ -272,7 +237,7 @@ def next_number_example(db: Session, row: NumberRange, *, year: int | None = Non
     parsed = parse_pattern(row.pattern)
     year = year or swiss_year()
     codes = _location_codes(db, row.tenant_id) if parsed.has_location_code else []
-    counter = _next_counter(row, year=year, continue_after=_example_floor(row))
+    counter = _next_counter(row, year=year)
     return parsed.render(counter=counter, year=year, location_code=codes[0] if codes else "")
 
 
@@ -387,7 +352,7 @@ def _require_next_counter_fits(row: NumberRange, parsed: ParsedPattern, *, start
         document_type=row.document_type, pattern=parsed.pattern, start_value=start_value, yearly_reset=yearly_reset,
         last_value=row.last_value, last_year=row.last_year, frozen_at=row.frozen_at,
     )
-    counter = _next_counter(probe, year=swiss_year(), continue_after=_example_floor(probe))
+    counter = _next_counter(probe, year=swiss_year())
     if counter >= 10**parsed.counter_digits:
         raise UnprocessableEntityError(
             f"The range's next counter {counter} does not fit {parsed.counter_digits} digits.",
@@ -456,21 +421,17 @@ def allocate_number(
     dealership_id: uuid.UUID,
     document_type: NumberRangeDocumentType,
     location_id: uuid.UUID | None = None,
-    continue_after: int | None = None,
 ) -> AllocatedNumber:
     """The next number of the Betrieb's range, inside the caller's transaction
     (ADR-109): the range row is locked until the caller commits or rolls
     back, so concurrent callers are served one after the other and a rolled
-    back document gives its number back. Never commits.
-
-    `continue_after` is the last number a module handed out on its own (Sales'
-    offer counter, kept in step during the switch): the range never hands out
-    a counter at or below it. The first number freezes the range (A-RULE-3)."""
+    back document gives its number back. Never commits. The first number
+    freezes the range (A-RULE-3)."""
 
     row = get_or_seed(db, dealership_id=dealership_id, document_type=document_type, lock=True)
     parsed = parse_pattern(row.pattern)
     year = swiss_year()
-    counter = _next_counter(row, year=year, continue_after=continue_after)
+    counter = _next_counter(row, year=year)
     if counter >= 10**parsed.counter_digits:
         raise ConflictError(
             "The number range has no number left for its counter's digits.",
@@ -509,33 +470,3 @@ def allocate_number(
         )
     db.flush()
     return AllocatedNumber(number=number, counter=counter)
-
-
-def continue_sequence(
-    db: Session, *, dealership_id: uuid.UUID, document_type: NumberRangeDocumentType, after: int
-) -> bool:
-    """A range that has handed out nothing takes over the sequence a module
-    numbered with before: its current value becomes `after` (never lowered),
-    and it stays unfrozen (KAN-207: Betriebe already active are seeded
-    unfrozen). False when there was nothing to do. Audited."""
-
-    row = get_or_seed(db, dealership_id=dealership_id, document_type=document_type, lock=True)
-    if row.frozen_at is not None or (row.last_value is not None and row.last_value >= after) or after < 1:
-        return False
-    before = _audit_state(row)
-    row.last_value = after
-    row.last_year = swiss_year()
-    row.version += 1
-    record_audit_event(
-        db,
-        entity_type=ENTITY_TYPE,
-        entity_id=row.id,
-        tenant_id=dealership_id,
-        action="number_range_continued",
-        actor_id=None,
-        before=before,
-        after=_audit_state(row),
-        reason="continues the module's existing sequence",
-    )
-    db.flush()
-    return True

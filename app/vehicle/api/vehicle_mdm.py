@@ -21,16 +21,19 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import (
     VehicleMdmCreate,
     VehicleMdmCreateResult,
+    VehicleMdmDetailRead,
     VehicleMdmPage,
     VehicleMdmRead,
     VehicleMdmUpdate,
     VehicleSearchHit,
     VehicleSearchResult,
+    VehicleStockItemLink,
 )
 from app.vehicle.services import plate as plate_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.plate_read_guard import read_plate_history
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
+from app.vehicle.services.stock_holding import held_stock_item
 
 router = APIRouter(tags=["vehicle-mdm"], route_class=IdempotentRoute)
 settings = get_settings()
@@ -153,15 +156,30 @@ def create_vehicle(
     return VehicleMdmCreateResult(created=created, vehicle=VehicleMdmRead.model_validate(vehicle, from_attributes=True))
 
 
-@router.get("/vehicle-mdm/{vehicle_id}", response_model=VehicleMdmRead)
+def _detail(db: Session, vehicle: VehicleMdm, principal: Principal) -> VehicleMdmDetailRead:
+    """KAN-667: the record, and the stock car of the caller's own Betrieb
+    (the token's tenant, never a parameter) that holds it — another
+    Betrieb's stock is never named (rule 7)."""
+
+    held = held_stock_item(db, tenant_id=principal.tenant_id, vehicle_id=vehicle.id)
+    read = VehicleMdmRead.model_validate(vehicle, from_attributes=True)
+    return VehicleMdmDetailRead(
+        **read.model_dump(),
+        stock_item=(
+            VehicleStockItemLink(id=held.stock_item_id, stock_number=held.stock_number) if held is not None else None
+        ),
+    )
+
+
+@router.get("/vehicle-mdm/{vehicle_id}", response_model=VehicleMdmDetailRead)
 def get_vehicle(
     vehicle_id: uuid.UUID, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
 ):
     vehicle = vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
-    return VehicleMdmRead.model_validate(vehicle, from_attributes=True)
+    return _detail(db, vehicle, principal)
 
 
-@router.patch("/vehicle-mdm/{vehicle_id}", response_model=VehicleMdmRead)
+@router.patch("/vehicle-mdm/{vehicle_id}", response_model=VehicleMdmDetailRead)
 def update_vehicle(
     vehicle_id: uuid.UUID,
     body: VehicleMdmUpdate,
@@ -169,7 +187,13 @@ def update_vehicle(
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
+    """The identity fields (ADR-045). A VIN change on a car the caller's
+    Betrieb holds in stock is 409 `vin_change_needs_vin_correction` (KAN-667):
+    it is corrected there with «VIN korrigieren»."""
+
     vehicle = vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     check_version(vehicle.version, if_match, entity_name="VehicleMdm")
-    vehicle = vehicle_mdm_service.update_vehicle_mdm(db, vehicle=vehicle, data=body, actor_id=principal.user_id)
-    return VehicleMdmRead.model_validate(vehicle, from_attributes=True)
+    vehicle = vehicle_mdm_service.update_vehicle_mdm(
+        db, vehicle=vehicle, data=body, actor_id=principal.user_id, tenant_id=principal.tenant_id
+    )
+    return _detail(db, vehicle, principal)

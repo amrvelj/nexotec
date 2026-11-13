@@ -23,8 +23,14 @@ paths:
   - "tests/test_kan240_configuration_heal.py"
   - "tests/architecture/test_spec_block_carriers_do_not_drift.py"
   - "tests/architecture/test_configuration_never_writes_vehicle_mdm.py"
-  - "frontend/apps/dms/src/**/*onfigurat*"
-  - "frontend/apps/dms/src/**/*onfigurat*/**"
+  - "frontend/apps/dms/src/components/configurator/**"
+  - "frontend/apps/dms/src/configurationOptions*"
+  - "frontend/apps/dms/src/pages/configurationLabelColumns*"
+  - "frontend/apps/dms/src/pages/ConfiguratorHosts*"
+  - "frontend/apps/dms/src/test/configuratorFixtures.ts"
+  - "frontend/apps/dms/src/i18n/locales/*/configurator.json"
+  - "frontend/apps/dms/src/components/stock-detail/*onfigurat*"
+  - "frontend/apps/dms/src/pages/StockDetailPage.attachConfiguration*"
   - "frontend/apps/dms/src/pages/stock/AddToPipelineButton.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Configurator v1.4 (ADR-068…ADR-072,
@@ -65,25 +71,8 @@ log's one sanctioned rewrite (ADR-121); discarding a host's failed copy does the
 past 30 days that a host attaches while the job runs is deleted under it, and the host's
 reconciliation reports the dangling reference.
 
-## Hosts and modes (PRD v1.4, + the pending contract of ADR-083)
-- Stock → add to pipeline: both (`build` factory order, `record` bought in) · Stock → «Konfiguration
-  zuordnen» (no configuration yet): both, `record` first, VIN prefilled · Stock → «Konfiguration
-  bearbeiten» on every item with one that no contract reserves: its own mode only, its PATCH the only
-  write (a reserved item shows «Vertrag bearbeiten» disabled: a signed contract is frozen) · Offer
-  and pending contract → new configuration: `build` only; → trade-in: `record`, via the valuation
-  path · Valuation → `record` only.
-- The entity supports both modes; **the host decides** — never bake a mode switch into the offer
-  overlay. Each host enforces it at its API (422 `configuration_mode_not_allowed`) and the overlay
-  takes `allowedModes`.
-- Hosts read only through `vehicle.public.get_configuration_for_host` (Stock's label refresh through
-  `get_configuration_labels`, labels only, in the stock item's Betrieb); a host copying itself gets
-  `copy_configuration_for_host`, undone by `discard_configuration_copy`.
-- The configuration PATCH does not check its host on the server. On a bought stock car (it has a
-  vehicle-mdm record) the overlay leaves `vin` out of its PATCH and hands a changed VIN to the host,
-  which corrects it through Stock's «VIN korrigieren» (KAN-557; the stock item, the record and the
-  configuration together, `inventory-vin-correction.md`); a pipeline car's VIN is still written by the PATCH (it wins at
-  booking, KAN-575). A VIN edited away from the car by any other path is reported by Stock's nightly
-  reconciliation.
+## Hosts and modes
+Which host offers which mode, and how a host reads and copies a configuration: `vehicle-configurator-hosts.md`.
 
 ## Identification (FR-C-02; `services/identification*.py`, `GET /v1/vehicle-identification`)
 - One input, rungs by kind: **VIN** → vehicle-mdm, then `identify_by_vin` only where the

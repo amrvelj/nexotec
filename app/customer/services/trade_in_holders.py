@@ -20,8 +20,8 @@ from app.customer.services.customer_common import _EVENT_PRODUCER
 from app.customer.services.vehicle_party import _close_vehicle_party, _open_holders_in_group, _vehicle_party_payload
 from app.customer.services.vehicle_party_labels import _write_vehicle_labels
 from app.customer.services.vehicle_party_locks import (
+    _lock_live_vehicle_roles_in_group,
     _lock_rows_of_roles,
-    _lock_vehicle_role_in_group,
     _refuse_merged_customer,
 )
 
@@ -52,7 +52,9 @@ def record_former_holder_on_purchase(
     a closed history row (case 2) — or, where an empty own row («planned,
     never started», KAN-664) already starts at the stretch, that row is
     extended over it (the unique key allows no second row with that start).
-    A merge's kept copy is never moved. Written rows are history, so they
+    A merge's kept copy (a customer merge's or a vehicle merge's) is never
+    moved. A vehicle record merged since the booking is followed to the one
+    it lives on, under that record's locks (KAN-680). Written rows are history, so they
     close nobody else (KAN-148/KAN-370: a row ended in the past is not a
     holder). Taken under
     the allocation's locks, and refused for a merged customer the same way
@@ -70,8 +72,10 @@ def record_former_holder_on_purchase(
     # FOR SHARE, then party rows: the allocation's lock order, so this never
     # deadlocks against a merge of this customer.
     roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
-    for role in roles:
-        _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    # KAN-680: the event names the car as Stock booked it; a record merged
+    # since is followed to the one it lives on, under that record's locks
+    # (KAN-673), so the rows never land on the duplicate.
+    vehicle_id = _lock_live_vehicle_roles_in_group(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
     # KAN-663: both roles' rows in id order, in one statement, before any is
     # written — never the keeper rows and then the owner rows.
@@ -86,6 +90,7 @@ def record_former_holder_on_purchase(
                     VehicleParty.customer_id == customer_id,
                     VehicleParty.role == role,
                     VehicleParty.merged_into_customer_id.is_(None),
+                    VehicleParty.merged_into_vehicle_id.is_(None),
                     VehicleParty.effective_from < ended_at,
                     or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to >= ended_at),
                 )
@@ -303,14 +308,17 @@ def reopen_former_holder_after_storno(
     recorded after the storno and, as it stands now, is open or ends after
     it was recorded (a newer fact; a history row recorded later does not
     count), or a holder of it starts after the storno. Not caught (API only,
-    the accepted residual in customer.md): an older row reopened by a PATCH
+    the accepted residual in customer-vehicle-party.md): an older row reopened by a PATCH
     after the storno is closed by a late storno, and a row recorded after the
     storno whose end a PATCH moved back before its own recording reads as
     history, so a late storno reopens over it. Otherwise a reopen goes through the
     close rule like every other (KAN-148): every other open holder of the role
     in the group is closed, under the allocation's locks and order — advisory, then the
     customer row (`customer_merged` refused, KAN-365), then party rows. The
-    copy a merge kept (`merged_into_customer_id`) is never reopened.
+    copy a merge kept (`merged_into_customer_id`, or a vehicle merge's
+    `merged_into_vehicle_id`) is never reopened, and a vehicle record merged
+    since is followed to the one it lives on, where the merge moved the row
+    the purchase closed (KAN-680).
 
     Audited as `vehicle_party_update` with reason `trade_in_returned_to_customer`
     and published as `customer.vehicle_party.linked`, as a reopen by PATCH is
@@ -318,8 +326,10 @@ def reopen_former_holder_after_storno(
     row."""
 
     roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
-    for role in roles:
-        _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    # KAN-680: the event names the car as Stock booked it; a record merged
+    # since is followed to the one it lives on, under that record's locks
+    # (KAN-673), so the rows never land on the duplicate.
+    vehicle_id = _lock_live_vehicle_roles_in_group(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
     # KAN-663: both roles' rows in id order, in one statement — never this
     # customer's row and then the role's older holders.
@@ -332,6 +342,7 @@ def reopen_former_holder_after_storno(
             VehicleParty.customer_id == customer_id,
             VehicleParty.role == role,
             VehicleParty.merged_into_customer_id.is_(None),
+            VehicleParty.merged_into_vehicle_id.is_(None),
         )
         holds_now = db.scalar(
             select(VehicleParty.id).where(

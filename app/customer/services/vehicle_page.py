@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.customer.schemas.customer import CustomerVehiclePage, CustomerVehicleRead, VehicleStockLinkSummary
 from app.customer.services.customer_common import get_customer_or_404
 from app.customer.services.vehicle_party_reads import list_customer_vehicles, list_other_vehicle_parties_batch
+from app.vehicle.public import get_vehicle_summaries
 
 StockItemsFor = Callable[[list[uuid.UUID]], Mapping[uuid.UUID, Mapping[str, Any]]]
 """Given the page's vehicle ids, the stock item (`id`, `stockNumber`) each one
@@ -33,7 +34,9 @@ def customer_vehicle_page(
 ) -> CustomerVehiclePage:
     """The customer's party rows (404 outside the caller's group), each with
     the other open parties of its car and, when `stock_items_for` names one,
-    the car's stock item. `stock_items_for` is asked once per page."""
+    the car's stock item; a vehicle merge's kept copy with the VIN of the
+    record it was merged into (KAN-680). `stock_items_for` is asked once per
+    page."""
 
     get_customer_or_404(db, group_id, customer_id)
     rows = list_customer_vehicles(db, customer_id=customer_id, include_closed=include_closed)
@@ -42,12 +45,19 @@ def customer_vehicle_page(
         db, vehicle_ids=vehicle_ids, exclude_customer_id=customer_id, group_id=group_id
     )
     stock_by_vehicle = stock_items_for(vehicle_ids) if vehicle_ids else {}
+    # KAN-680: the VIN of the record each vehicle-merge copy was merged into,
+    # one query for the page.
+    merged_into = {r.merged_into_vehicle_id for r in rows if r.merged_into_vehicle_id is not None}
+    survivors = get_vehicle_summaries(db, merged_into) if merged_into else {}
     items = [
         CustomerVehicleRead.model_validate(r, from_attributes=True).model_copy(
             update={
                 "other_parties": other_parties_by_vehicle.get(r.vehicle_id, []),
                 "stock_item": (
                     VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id]) if r.vehicle_id in stock_by_vehicle else None
+                ),
+                "merged_into_vehicle_vin": (
+                    survivors[r.merged_into_vehicle_id].vin if r.merged_into_vehicle_id in survivors else None
                 ),
             }
         )

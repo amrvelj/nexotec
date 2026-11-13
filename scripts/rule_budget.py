@@ -1,19 +1,19 @@
-"""What the rule files cost a session, and the budget that keeps them small (KAN-614).
+"""What the rule files cost a session, and the budget that keeps them small (KAN-614, KAN-615).
 
 Claude Code loads `CLAUDE.md` in every session and a `.claude/rules/*.md` file whenever the
 session reads a file matching one of the rule's `paths` globs (a rule without `paths` loads
 always). Every byte of them is paid again by each reviewer pass. The budget (.claude/README.md,
 «What a rule file may contain»): a rule file at most `RULE_LIMIT` bytes, `CLAUDE.md` at most
-`CLAUDE_LIMIT`.
+`CLAUDE_LIMIT`, the two rule files that load almost everywhere at most their `OWN_LIMITS`, and two
+of the scenarios below at most their `SCENARIO_LIMITS` in total.
 
     python3 scripts/rule_budget.py sizes             # every file's size against its limit
     python3 scripts/rule_budget.py check             # the config lane of scripts/dev/check: exit 1 when over budget
     python3 scripts/rule_budget.py scenarios         # which rule files three typical tickets load, origin/main vs now
 
-`check` is a ratchet against the base (`--base`, default the merge-base with origin/main), with no
-allowlist: a file over its limit fails unless it was already over on the base and has not grown.
-Once every file is under its limit (KAN-615 cuts the rest), that is exactly the plain limit - a
-file that crosses it fails, whatever it was before.
+`check` applies the plain limits, with no allowlist and no exception: a file over its limit fails,
+whatever it was on the base. The base (`--base`, default the merge-base with origin/main) only
+prints each file's change. Until KAN-615 cut the last files it was a ratchet; it no longer is.
 """
 
 import argparse
@@ -29,6 +29,10 @@ RULES_DIR = ".claude/rules"
 CLAUDE_MD = "CLAUDE.md"
 RULE_LIMIT = 12_000
 CLAUDE_LIMIT = 16_000
+# These two load for nearly every service file and every test (KAN-615, criterion 3).
+OWN_LIMITS = {".claude/rules/events.md": 4_000, ".claude/rules/tests.md": 4_000}
+# What a ticket of that shape may load in total (KAN-615, criterion 4).
+SCENARIO_LIMITS = {"full-stack sales ticket": 60_000, "one-file frontend fix": 15_000}
 
 # Three ticket shapes (epic KAN-609): the files such a session reads. Each entry lists alternatives;
 # the first that exists at the ref counts, so a scenario survives a file moving (KAN-616's locales).
@@ -139,7 +143,7 @@ class Tree:
 
 
 def limit_for(path: str) -> int:
-    return CLAUDE_LIMIT if path == CLAUDE_MD else RULE_LIMIT
+    return CLAUDE_LIMIT if path == CLAUDE_MD else OWN_LIMITS.get(path, RULE_LIMIT)
 
 
 def budgeted_files(tree: Tree) -> list[str]:
@@ -156,19 +160,37 @@ def default_base() -> str | None:
     return rc.stdout.strip() or None
 
 
-def problems(now: dict[str, int], before: dict[str, int]) -> list[str]:
-    found = []
-    for path, size in now.items():
-        limit = limit_for(path)
-        if size <= limit:
-            continue
-        was = before.get(path)
-        if was is None or was <= limit:
-            found.append(f"{path} is {size} bytes, over its {limit}-byte budget")
-        elif size > was:
-            found.append(f"{path} is {size} bytes, over its {limit}-byte budget and {size - was} bytes larger "
-                         f"than on the base ({was}) - a file over budget may only shrink (KAN-615 cuts it)")
-    return found
+def problems(now: dict[str, int]) -> list[str]:
+    return [f"{path} is {size} bytes, over its {limit_for(path)}-byte budget - split it by sub-area"
+            for path, size in now.items() if size > limit_for(path)]
+
+
+def picker(tree: Tree) -> Callable[[tuple[str, ...]], str | None]:
+    return lambda entry: next((p for p in entry if tree.exists(p)), None)
+
+
+def scenario_totals(tree: Tree) -> dict[str, tuple[int, list[Rule]]]:
+    rules, pick = tree.rules(), picker(tree)
+    totals = {}
+    for scenario, entries in SCENARIOS.items():
+        read = [p for p in (pick(e) for e in entries) if p]
+        loaded = [r for r in rules if any(r.loads_for(p) for p in read)]
+        totals[scenario] = (sum(r.size for r in loaded), loaded)
+    return totals
+
+
+def missing_scenario_files(tree: Tree) -> list[str]:
+    """A scenario entry none of whose paths exists would count 0 bytes and pass its ceiling vacuously
+    (a file renamed or deleted): name it instead, so the scenario list follows the tree."""
+
+    pick = picker(tree)
+    return [f"the {scenario} names no existing file among {', '.join(entry)} - update SCENARIOS"
+            for scenario, entries in SCENARIOS.items() for entry in entries if pick(entry) is None]
+
+
+def scenario_problems(totals: dict[str, int]) -> list[str]:
+    return [f"the {scenario} loads {totals[scenario]} bytes of rules, over its {limit} - narrow a glob or split "
+            f"a file" for scenario, limit in SCENARIO_LIMITS.items() if totals.get(scenario, 0) > limit]
 
 
 def print_sizes(now: dict[str, int], before: dict[str, int] | None = None) -> None:
@@ -181,18 +203,16 @@ def print_sizes(now: dict[str, int], before: dict[str, int] | None = None) -> No
         print(f"  {mark} {size:>7} / {limit:>6}  {path}{delta}")
 
 
-def scenario_report(tree: Tree, label: str, pick: Callable[[tuple[str, ...]], str | None]) -> dict[str, int]:
-    rules = tree.rules()
+def scenario_report(tree: Tree, label: str) -> dict[str, int]:
+    count = len(tree.rule_names())
     print(f"{label}:")
     totals = {}
-    for scenario, entries in SCENARIOS.items():
-        read = [p for p in (pick(e) for e in entries) if p]
-        loaded = [r for r in rules if any(r.loads_for(p) for p in read)]
-        total = sum(r.size for r in loaded)
+    for scenario, (total, loaded) in scenario_totals(tree).items():
         totals[scenario] = total
         names = ", ".join(Path(r.name).name for r in loaded) or "none"
-        print(f"  {scenario}: {len(loaded)} of {len(rules)} rule files, {total:,} bytes "
-              f"(~{total // 4:,} tokens) - {names}")
+        limit = f", limit {SCENARIO_LIMITS[scenario]:,}" if scenario in SCENARIO_LIMITS else ""
+        print(f"  {scenario}: {len(loaded)} of {count} rule files, {total:,} bytes "
+              f"(~{total // 4:,} tokens{limit}) - {names}")
     return totals
 
 
@@ -201,7 +221,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("sizes")
     check = sub.add_parser("check")
-    check.add_argument("--base", help="the ref a file over budget is compared with (default: merge-base with origin/main)")
+    check.add_argument("--base", help="the ref each size is compared with in the printout (default: merge-base with origin/main)")
     scen = sub.add_parser("scenarios")
     scen.add_argument("--ref", default="origin/main", help="the 'before' ref (default origin/main)")
     args = parser.parse_args(argv)
@@ -217,17 +237,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"rule budget: rule files <= {RULE_LIMIT} bytes, {CLAUDE_MD} <= {CLAUDE_LIMIT} "
               f"(base {base_ref[:10] if base_ref else 'none'}):")
         print_sizes(now, before)
-        found = problems(now, before)
+        found = (problems(now) + scenario_problems(scenario_report(work, "scenarios (working tree)"))
+                 + missing_scenario_files(work))
         for line in found:
             print(f"FAIL: {line}")
         return 1 if found else 0
 
-    def picker(tree: Tree) -> Callable[[tuple[str, ...]], str | None]:
-        return lambda entry: next((p for p in entry if tree.exists(p)), None)
-
-    old_tree = Tree(args.ref)
-    before = scenario_report(old_tree, f"before ({args.ref})", picker(old_tree))
-    after = scenario_report(work, "after (working tree)", picker(work))
+    before = scenario_report(Tree(args.ref), f"before ({args.ref})")
+    after = scenario_report(work, "after (working tree)")
     print("change:")
     for scenario in SCENARIOS:
         print(f"  {scenario}: {before[scenario]:,} -> {after[scenario]:,} bytes ({after[scenario] - before[scenario]:+,})")
