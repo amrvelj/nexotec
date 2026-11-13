@@ -67,7 +67,7 @@ export function userStatusTone(status: DisplayUserStatus): 'success' | 'warning'
 
 /** The deactivation dialog's group labels (module + group, from the registry). */
 // A group a module reports that has no label in the bundles renders the loud
-// missing-key marker (ui.md): a new provider group ships with its four labels.
+// missing-key marker (ui-i18n.md): a new provider group ships with its four labels.
 export function ownedGroupLabel(t: T, module: string, group: string): string {
   return t(`usersAdmin.ownedGroup.${module}.${group}`)
 }

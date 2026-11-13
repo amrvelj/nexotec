@@ -10,6 +10,9 @@ paths:
   - "app/inventory/services/purchase.py"
   - "app/inventory/services/pipeline.py"
   - "tests/test_inventory_trade_in_vin.py"
+  - "tests/test_inventory_vin*.py"
+  - "tests/test_inventory_purchase_configuration_vin.py"
+  - "tests/test_inventory_create_with_vin_is_pipeline.py"
   - "frontend/apps/dms/src/components/stock-detail/RecordPurchaseDialog*"
   - "frontend/apps/dms/src/components/stock-detail/VinCorrectionDialog*"
   - "frontend/apps/dms/src/components/stock-detail/useStockConfigurationEditor.tsx"
@@ -17,8 +20,37 @@ paths:
   - "frontend/apps/dms/src/components/stockRowMenu.tsx"
   - "frontend/apps/dms/src/components/configurator/ConfiguratorOverlay.tsx"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises KAN-557 (ADR-116 (2)-(3); Anto's
-ruling on KAN-544, 2026-11-03) and KAN-536 (Anto, 2026-11-12). Its own file because inventory.md is over the KAN-614 budget. -->
+<!-- Maintainer note. KAN-557 (ADR-116 (2)-(3); Anto's ruling on KAN-544, 2026-11-03), KAN-536
+(Anto, 2026-11-12); the VINs-in-stock section moved here from inventory.md by KAN-615 (2026-11-13).
+Last verified against main@73baf3f (2026-10-25). -->
+
+# VINs in stock
+
+- **A VIN is in a dealership's stock at most once:** unique among items that have not left stock
+  (`uq_stock_item_tenant_id_vin_in_stock`); a second one, created or promoted, is 409
+  `vin_already_in_stock` with the holder, checked before vehicle-mdm is touched, and the index
+  refuses a racing writer with the same 409. A VIN sent with a create is upper-cased, stripped and
+  validated as vehicle-mdm does; a client `vehicleId` is ignored (the item's `vehicle_id` is resolved
+  from the VIN at purchase booking) and without a VIN refused (`vehicle_id_requires_vin`).
+  Promotion normalises its VIN first and resolves it through
+  `vehicle.public.resolve_vehicle_mdm_by_vin` (Vehicle's own session, so its commit never touches
+  the caller's work); the loser of an insert race takes the winner's record and carries on.
+  Promotion leaves the item itself out of its uniqueness check, and the record it creates names the
+  booking user.
+- A car that left stock comes back as a new item, its sold row kept as history; a stornoed car is
+  back in pipeline with its VIN and still blocks it. The same car may be in pipeline twice (an item
+  a confirmation creates carries no VIN until promotion).
+- **A pipeline item is bought with its configuration's VIN** (Anto, KAN-510): when the
+  configuration carries one, another `vin` is 422 `configuration_vin_differs`, compared in the one
+  spelling (`services/stock_item.py::configuration_vin_differs`, also the create's and «Konfiguration
+  zuordnen»'s rule), before vehicle-mdm or the item is touched; a configuration without one (a
+  factory order) takes the typed VIN; without a configuration, the trade-in rule below. On an item
+  in stock, a `vin` not the item's is 422 `purchase_vin_mismatch`; the booking may leave `vin` out.
+- **While never bought, its configuration's VIN wins** (Anto, KAN-575): once the configuration's VIN
+  is corrected, or a factory order's configuration gets one, the booking (no `vin`, or the
+  configuration's) books the car under it, corrects the item's in promotion's savepoint
+  (`correct_vin`; a VIN another item holds is 409) and audits `vin_corrected_at_purchase`; a third
+  VIN is 422 `configuration_vin_differs`. A stornoed car (it kept its record) is not corrected so.
 
 # «VIN korrigieren» on a bought car (KAN-557)
 
@@ -57,7 +89,11 @@ ruling on KAN-544, 2026-11-03) and KAN-536 (Anto, 2026-11-12). Its own file beca
   overlay `hostOwnsVin` (`useStockConfigurationEditor`): no `vin` in its PATCH, a changed VIN opens the
   dialog prefilled after the PATCH, an emptied one is refused in place, and without the row the field
   is read-only. The configuration PATCH has no server-side host check (Vehicle cannot ask Stock);
-  reconciliation is the backstop.
+  reconciliation is the backstop. **The vehicle-mdm identity PATCH does check it** (Anto, KAN-667 A;
+  ADR-160): a VIN change on a record the caller's Betrieb holds in stock is 409
+  `vin_change_needs_vin_correction` (`stockItemId`, `stockNumber`), read from Vehicle's projection
+  `vehicle_stock_holding` (`events-stock-sales.md`); Vehicle 360 shows that VIN read-only, linking the stock
+  car's «VIN korrigieren» (`stockOpenState('correctVin')`). Another Betrieb's stock never refuses nor shows.
 
 # A trade-in is bought under the VIN its contract holds (KAN-536; Anto, 2026-11-12, option A)
 

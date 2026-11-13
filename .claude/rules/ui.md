@@ -1,289 +1,68 @@
 ---
 paths:
-  - "frontend/**"
+  - "frontend/apps/dms/src/App.tsx"
+  - "frontend/apps/dms/src/pages/**"
+  - "frontend/apps/dms/src/components/**"
+  - "frontend/apps/dms/src/layout/**"
+  - "frontend/apps/dms/src/api/**"
+  - "frontend/packages/ui-kit/src/**"
+  - "frontend/*"
+  - "frontend/apps/dms/*"
+  - "frontend/packages/ui-kit/*"
+  - "frontend/apps/dms/public/favicon.svg"
+  - "frontend/apps/dms/src/*.css"
+  - "frontend/apps/dms/src/*.d.ts"
+  - "frontend/apps/dms/src/assets/**"
+  - "frontend/apps/dms/src/hooks/useIdempotencyKey*"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises Notion "UI/UX Specification —
-the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-076, ADR-084, ADR-092 and
-KAN-35. Verified against main@73baf3f on 2026-10-25; ADR-084 and i18n bullets re-checked 2026-10-30 (KAN-316, KAN-438). Fix this file in the same PR as any change to what
-it states; /drift-audit re-checks it weekly. -->
+<!-- Maintainer note. UI/UX Specification (the one UI page), UI/UX Core Principles, ADR-076, KAN-35.
+Split by KAN-615 (2026-11-13) into this file (what binds every screen) and ui-grid, ui-forms,
+ui-detail, ui-i18n, ui-formats, ui-shell, each with narrow globs. Last verified against main@73baf3f
+(2026-10-25); /drift-audit re-checks it weekly. -->
 
 # Anything a user can see
 
-The failure these rules prevent is silent: a screen that works, passes review, and looks like
-it came from a different product.
+The failure these rules prevent is silent: a screen that works, passes review, and looks like it
+came from a different product. The concern files: `ui-grid.md` · `ui-forms.md` · `ui-detail.md` ·
+`ui-i18n.md` · `ui-formats.md` · `ui-shell.md`.
 
 ## Two binding references, in this order
 
-1. **UI/UX Specification — the one UI page** (Notion, linked in CLAUDE.md): design tokens, the
-   shell, the action bar, the data grid, detail screens, forms, component contracts and the
-   screen inventory. It **wins over a module PRD on presentation** — a PRD says *what* a
-   screen does, the spec says *how*.
+1. **UI/UX Specification — the one UI page** (Notion, linked in CLAUDE.md): tokens, shell, action
+   bar, data grid, detail screens, forms, component contracts, screen inventory. It **wins over a
+   module PRD on presentation** — a PRD says *what* a screen does, the spec says *how*.
 2. **The interactive prototype** — the reference implementation, normative for presentation.
    Drive folder (path in CLAUDE.md) → `dms-platform/ui-prototype/nexotec-prototype.html`.
 
-Where the spec page and the prototype disagree, one of them has a defect. **Stop and ask.** Do
-not pick whichever is closer to hand. Where the prototype and a PRD disagree on a *rule* (not
-on presentation), that is a conflict to surface, not a preference to pick.
+Where the spec page and the prototype disagree, one of them has a defect: **stop and ask**, never
+pick whichever is closer to hand. Where the prototype and a PRD disagree on a *rule* (not on
+presentation), that is a conflict to surface, not a preference to pick.
 
-## Using the prototype
-
-- Open it in the desktop preview (`.claude/launch.json` → `nexotec-prototype`) and click
-  through the screens you are about to build.
-- **Never read the built HTML** — about 860 KB of concatenated output. Grep `src/` beside it:
-  a route (`#/valuations`), a component (`NX.rowGroup`), an i18n key (`val.st.expired`).
-  `HOW-TO-USE.md` in that folder is the short version.
-- **A build session does not change the prototype.** It is maintained from the spec side; if
-  it looks wrong, that is a spec question for Anto. Only when Anto asks: edit `src/` and run
-  `python3 build.py` in the prototype folder — never the built file (a hook blocks it).
+- Open the prototype in the desktop preview (`.claude/launch.json` → `nexotec-prototype`) and click
+  through the screens you are about to build. **Never read the built HTML** (~860 KB): grep `src/`
+  beside it — a route (`#/valuations`), a component (`NX.rowGroup`), an i18n key. `HOW-TO-USE.md`
+  in that folder is the short version.
+- **A build session does not change the prototype.** It is maintained from the spec side; if it
+  looks wrong, that is a spec question for Anto. Only when Anto asks: edit `src/` and run
+  `python3 build.py` there — never the built file (a hook blocks it).
 
 ## Components come from the UI kit
 
-Grids, filter controls, detail-screen headers, pickers, form dialogs and document renderers
-come from WP-6c, `frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `wizard/`,
-`components/`, `format/` — `ChfInput`, the Swiss number format —, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
-package you are in the wrong package. If the kit cannot do what you need, that is a ui-kit
-change plus an ADR — never a local component. No colour outside the tokens.
-A kit component never ships a user-visible string of its own, accessible names included: it
-takes required labels, so `tsc` refuses a caller without translations. True today for the
-badges (a required `label`), `ColumnConfigPanel` (the app passes `useColumnPanelLabels()`),
-`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`), the condition names
-and a saved filter's text included — one translated template per condition, never field +
-condition + value glued together in the kit (KAN-415) — `RepeatableRowGroup`
-(a customer's contact rows pass `contactPointRowLabels(t)`), `OverlayProvider`'s
-`closeLabel`, `ActionBar` (`useActionBarLabels()`), `SelectionBar` and `FilterChips` (KAN-110,
-KAN-181, KAN-334, KAN-362, KAN-364, KAN-416), and since KAN-422 the rest of the kit: `DataGrid`
-(`useDataGridLabels()`; a grid with a selection names its checkboxes on the `selection` prop),
-`Wizard`, `GlobalSearch`, `Picker` (`common.noMatches`; a create path comes with its label),
-`InlineEditField`, `DocumentPreview` (its loading line too; a download comes with its label) and
-`PresentMode`. `kitLabels*.render.test.tsx` renders each with French labels and refuses any former
-English default.
+Grids, filter controls, detail headers, pickers, form dialogs and document renderers come from
+`frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `wizard/`, `components/`, `format/`;
+tokens in `tokens.css`/`tokens.ts`). Writing one inside a module package means you are in the wrong
+package; a need the kit cannot meet is a ui-kit change plus an ADR — never a local component. No
+colour outside the tokens. A kit component ships no user-visible string of its own (`ui-i18n.md`).
+Money is `CHF 12'500.00` through the kit's `ChfInput`, a date-only value renders through
+`formatDateOnly` (`ui-formats.md`; architecture tests enforce both).
 
-**The kit's `Picker` is the entity-selection gesture** ("which customer?", "which vehicle?": a ranked
-list in a panel, a create path, autofocus). A type-ahead that fills a form's own fields from an
-external service and selects no record — the address search field, `components/AddressSearchField.tsx`
-(KAN-37, ADR-101), on Mantine's `Combobox` — is a form input like `PhoneInput` and lives in the app;
-it takes every string from the bundles like any input. A second such field reuses that one, never a
-second local combobox.
+## Evidence and API types
 
-## The rulings that bite most often
-
-- **A field's hint is an info icon beside the label** (KAN-443; Anto, 2026-10-25: "we want less
-  text"): in the app `const hint = useFieldHint()` then `{...hint(t('label'), t('labelHint'))}` on
-  any Mantine input (the kit's `fieldHint` underneath), never a `description` line between label
-  and input or under it. The hint shows in a tooltip on hover and keyboard focus and still
-  reaches assistive technology as a visually hidden span: a wrapper input is linked by Mantine
-  (`aria-describedby`); a Checkbox or Switch is not, so it passes `{ descriptionId: useId() }`
-  as the third argument and the hint is linked that way (a Switch also reads it inside its
-  label). The icon is named `common.fieldHintIcon` ("Hinweis") and joins the field's accessible
-  name, so a role query matches the label as a prefix — `{ name: (n) => n.startsWith(label) }`,
-  never an unescaped `RegExp` (labels contain parentheses). Choice cards (the customer-type
-  tiles) are not fields and keep their text.
-- **ADR-056** — grid state (search, filter, sort, tab, scope) lives in the URL; the URL is the
-  shareable unit. Layout and density stay out of it: they belong on the user preference record.
-- **ADR-058** — views and filters are **one control**, labelled with the current view. A
-  user-defined filter is **one predicate** (field, operator, value), never a typed expression.
-  Every filter is a chip (FR-UI-06).
-- **ADR-102 (Anto, 2026-10-26; KAN-458) — a grid shows only the filters it applies.** Every
-  filterable grid narrows the predicates it reads (URL, saved view) with the kit's
-  `offeredPredicates`: an unoffered field or condition is neither sent nor shown (quietly — Anto's
-  choice; a saved view the grid narrows that way carries the view selector's unsaved-changes dot and
-  no tick — the grid passes its own narrowing as `narrowPredicates`, KAN-475), and **a field holds one filter**, ranges included (no «mindestens 150
-  und höchstens 250» band): the builder replaces a field's filter when one is added on it and
-  offers no «duplicate»; a link or saved view with two keeps the first. A field offers only the
-  conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are «mindestens»/«höchstens»
-  (`atLeast`/`atMost`), and a select field offers «ist nicht» as its endpoint's exclusion —
-  `…_not` on Stock and Customers, `advisorUserIdNot`/`assigned` for the advisor — not on the
-  catalogue since KAN-548 (the identAPI has no «not equal», so the live catalogue offers «ist» only); a record without a value is kept (KAN-476). An N-days count is a whole
-  number from `MIN_FILTER_DAYS` to `MAX_FILTER_DAYS` (0–36500, the endpoints' `ge`/`le`): the builder
-  refuses another in place and holds Save back, and `offeredPredicates` drops one from a link or
-  view (KAN-475).
-  `src/architecture/grid-filters-are-applied.test.ts` runs each grid's mapper over every offered
-  field × condition against the endpoint's parameters in `schema.d.ts`; a new filterable grid
-  adds its mapper there.
-- **ADR-059** — opening a record from inside a process renders it as an **overlay**, not a
-  navigation. Losing a half-built offer is a defect. The naive version (set the hash, set it
-  back) fires the router and destroys the screen underneath — the bug the component prevents.
-- **ADR-060** — every persisted field is available as a grid column; a documented subset is
-  visible by default. A stored field that cannot be put on screen is a defect. A grid with a
-  Columns panel passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both
-  `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361).
-  `src/architecture/grid-default-column-layout.test.ts` parses every file that renders the panel
-  with the TypeScript compiler and requires the panel's `layout` and each `DataGrid`'s
-  `columnLayout` to be an identifier bound (by scope) to a `const` whose value is
-  `… ?? defaultColumnLayout(…)`, directly or as `useMemo(() => …)`'s body — comments are not
-  code, and a `let`, destructured or parameter binding never passes (KAN-367). `DataGrid` itself stays layout-agnostic: a
-  grid without a panel shows every column (ADR-092).
-- **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
-  carrying the entity's full row menu** — same items, same order, same
-  disabled-with-explanation entries. The row menu is the single definition of what can be done
-  to an entity; list and detail both render from it.
-- **ADR-063** — generating an offer is **two steps**: build, then review the rendered document
-  in the customer's correspondence language with the seller-only margin panel *beside* it,
-  never on it.
-- Grids (UI/UX Core Principles): every column sortable server-side — the live catalogue grid excepted
-  (KAN-548): it sorts on the fields the identAPI sorts (kW, displacement, CO₂, doors, seats), and a stored
-  sort on another field is narrowed away like an unoffered predicate, never sent; column order, visibility,
-  width and pinning configurable and persisted per user; a three-dots row menu on every row;
-  cursor-based lazy loading; maximum information density; Shift + wheel scrolls horizontally.
-- **The dashboard is the landing page and the breadcrumb's root** (FR-UI-07; KAN-104): the shell
-  passes `topbar.breadcrumbRoot` (`shell.nav.dashboard`, `/`) and its router `Link`, and the kit's
-  `Topbar` puts it first on every screen as a link — drawn as the dashboard icon alone, the label its
-  accessible name and tooltip, so the page's own segments keep their room (KAN-301's narrow
-  column) — and names the dashboard once on the dashboard itself. A page's
-  segment that names a screen is a `{ label, href }` (`BreadcrumbSegment`) and renders as a link —
-  the list segment on the customer, vehicle, stock, valuation, offer and contract details, the
-  customer and valuation create screens, the offer workspace and a location's detail; a nav
-  group or a section without a screen of its own (Stammdaten, Verwaltung, Mein Konto) and the
-  current screen stay text. Account chrome lives only in the
-  sidebar footer; the top bar carries the breadcrumb.
-- **ADR-076 — every CHF amount reads `CHF 12'500.00`, inputs included** (KAN-168): a CHF input
-  is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare
-  `NumberInput` or `<input type="number">`; `no-bare-money-number-input.test.ts` names every
-  NumberInput that is not money (quantity, months, km, days, a percentage, spec figures). A
-  number filter's saved text formats its value too (KAN-421): a `FilterFieldDef` declares
-  `numberFormat` — `grouped` (the default, `formatNumber`), `chf`, or `ungrouped` for a year;
-  never guessed from the label. The FilterBuilder takes a `chf` field's value through
-  `ChfInput` too (KAN-454); the predicate still stores a plain number.
-- **ADR-084 — one environment-notice slot in the shell.** `AppShell`'s optional `notice` strip
-  (ui-kit `shell/EnvironmentNotice.tsx`, between the top bar and the content region,
-  `role="status"`, no dismiss control) is the only place for a persistent deployment-level
-  notice — D-A-05's support-access banner uses it when built, never a second banner. A
-  build-time setting switches it on (`VITE_OUTBOX_WORKER_ABSENT=true` in `render.yaml`,
-  `src/config/deployment.ts`), never the environment's name; its text is an i18n key in all
-  four bundles. The top bar stays breadcrumb + search only. The UI/UX Specification's
-  Application Shell section shows it (§ Environment notice, KAN-316).
-- **Every screen but the sign-in loads on demand** (KAN-233): a new route's page goes into
-  `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
-  `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider`, `DmsShell` and `RouteSuspense`
-  stay eager (beside `App.tsx` and `lazyPage` itself), and `src/architecture/lazy-routes.test.ts`
-  checks that none of those six, nor `App.tsx` beyond `LoginPage`, imports a page statically (it
-  reads import lines only; `lazyPage.ts` is not in its list). `RouteSuspense`
-  (`src/layout/`) shows the loading state on a hard load and, if a chunk cannot be fetched (a tab
-  older than the last deploy), a translated reload screen. On in-app navigation the router's
-  transition keeps the previous screen up until the next chunk arrives — never blank, but no
-  loader either (React Router 7's default `startTransition` navigation; no render test pins it).
-
-- **Public legal pages** (KAN-452, ADR-108): `/legal/terms` and `/legal/privacy` are the only
-  routes besides the sign-in screens reachable without a session — lazy routes outside the
-  signed-in layout, text from `legal.*` in all four bundles, `?lang=` picks the language. The
-  sign-in screens link them below the card; signed in, they sit at the foot of the sidebar's
-  account menu (the kit's `Sidebar.footerLinks`, labels from the app, new tab). Every section is a
-  marked draft until counsel reviews it (A-5) — never remove the draft banner by hand.
-
-## i18n
-
-- Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}/<namespace>.json`, one file per
-  top-level namespace (KAN-616). A new key goes into its screen's namespace file in all four
-  languages at once; a new namespace is four new files plus
-  `python3 scripts/split_locale_bundles.py index`, which writes the generated
-  `locales/<language>.ts`. `localeKeyParity.test.ts` fails on a key or file a language lacks, a stale
-  `<language>.ts`, or a file above 25'000 bytes (split it: `<namespace>.<key>.json`).
-- **Only `en` (the fallback) ships with the app** (KAN-438): `de`, `fr` and `it` are their own
-  chunks (`i18n/index.ts`, `onDemandBundleLoaders`), fetched when first needed. i18next starts in
-  the `ui` preference mirror's language (`storedUiLanguage`, else `de`; on a shared browser, the
-  last user's) and `main.tsx` paints only once `i18nReady` resolves, so nobody sees another
-  language first (`architecture/main-waits-for-i18n.test.ts`); a switch waits for its bundle, so
-  it never shows keys. `src/test/setup.ts` waits for `i18nReady` too, so every test starts in
-  German. A bundle that cannot be fetched is asked for twice more (350 ms, 700 ms), then the
-  language shows in English (the fallback) and the next switch fetches again — no reload screen.
-  A test that reads `fr`/`it` text through `getFixedT` or `getResource` before anything switched
-  to it calls `await i18n.loadLanguages(lng)` first; no app code reads a non-active bundle.
-- A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`; one missing only from
-  the active locale falls back to English (`fallbackLng: 'en'`), never German —
-  `localeKeyParity.test.ts` keeps that from shipping. Ruled so by Anto (2026-11-03, KAN-104
-  decision 2 A): no marker when English has the text. No hardcoded user-visible string,
-  including labels in dialogs and wizards.
-- **The one exception: the four language endonyms** (Anto, 2026-11-03, KAN-343 option A). The
-  reference-data screen's language columns and fields and a customer's correspondence language
-  (create, detail, list filter and export, History tab) name each language in itself for every
-  user — «Deutsch», «Français», «Italiano», «English» — from the one list
-  `i18n/languageEndonyms.ts`; `architecture/language-endonyms-one-list.test.ts` refuses the
-  literals anywhere else in `apps/dms/src`. The UI-language picker (Mein Konto, Users) and the
-  per-language editors (Übersetzungen, Standardtexte) still translate the names.
-- **The platform's published UI strings override the bundles at runtime** (KAN-209, FR-A-30…32):
-  `i18n/runtimeTranslations.ts`, started by `main.tsx`, fetches `GET /v1/i18n/{language}` for the
-  start language (and English) beside its bundle; the first paint waits for both, at most
-  `FIRST_PAINT_BUDGET_MS` for the map. A switch to de/fr/it waits for that language's map with
-  its bundle (`runtimeTranslationHooks.afterBundleRead` in `i18n/index.ts`); every switch asks
-  again (ETag, so a 304). Resources are rebuilt as bundle + published values, never patched, and
-  react-i18next re-renders on `added`. A key that renders the marker is reported (once per key and
-  language, batched) to `POST /v1/i18n/missing-translations`. Tests never start it (no network);
-  `runtimeTranslations.render.test.tsx` does, and resets it.
-- **An API refusal is shown in the UI language** (Anto, 2026-10-23, KAN-398): map
-  `details.reason` (and a stale `If-Match` 409) to a key in all four bundles, anything else to
-  a translated generic message — never `err.message`, which is the API's English text, for logs
-  only. The one helper is `utils/apiRefusal.ts::apiRefusalText(t, err, fallbackKey)` (KAN-437):
-  a body-less response (`unknown_error`, KAN-271) is `common.requestFailed`; then a stale
-  If-Match 409; a known `details.reason` (its table; `apiRefusal.test.ts` fails on a literal
-  `"reason": "…"` in `app/` it does not translate); a 403, a 404 and a schema 422
-  (`details.errors`) by status; anything else — a business rule refused **without** a reason
-  included — is the screen's own key. Such a refusal loses its meaning on screen: give it a
-  `details.reason` (KAN-472 gave the frequent ones theirs; a sentence naming a value the details
-  carry takes it through `REASON_PARAMS`, translated or locale-formatted there). A screen with its own wording for a reason (merge,
-  contract confirmation, business data) keeps its helper.
-  `src/architecture/no-api-error-message-render.test.ts` refuses a new `.message` render in the
-  app and in `packages/ui-kit/src` (KAN-473); its allow-list holds `ConfiguratorOverlay`'s
-  `HostCommitError` and `FormDialog`'s existing-record notice, both built from `t(...)`. The kit's
-  `InlineEditField` takes a required `describeError` and, beside an `onReload`, a `reloadLabel` —
-  the app's `useInlineEditRefusal()`; only a stale If-Match 409 (`isStaleVersion`) offers the
-  reload. `RepeatableRowGroup` without a `describeError` shows its `genericError` label.
-- **DE, FR and IT person nouns use the generic masculine** (Anto, 2026-10-12, KAN-171; the
-  UI/UX Specification's i18n row): "Verkaufsberater", "Conseiller de vente", "Amministratore" —
-  no slash, pair, parenthesis or point-médian form in the bundles.
-- Canonical reference data is translated by us; provider option text is stored and rendered
-  **as delivered**, never translated (ADR-044).
-- **A new user starts in the home Betrieb's correspondence language** (Anto, 2026-11-03, KAN-104
-  decision 1 B): `GET /v1/me/preferences/ui` for a user who never saved the scope answers
-  `{"uiLanguage": <the Betrieb's default_correspondence_language>}` with `updatedAt: null` (and a
-  stored `ui` row without `uiLanguage` gets it added on read) — a starting value the server does
-  not store; the browser's mirror keeps it for the next first frame, and the first save of any
-  `ui` field (a language switch, the sidebar, density) stores it with the rest, as the user's own
-  from then on. This applies to every user who never saved the `ui` scope, existing ones
-  included. The platform mail texts and the push title follow the same rule
-  (`user_preference.ui_language_of`). Only the starting value is shared (CLAUDE.md, i18n).
-  `useUiPreferences.ts` keeps `'de'` as the offline fallback.
-
-## Tests and evidence
-
-- Render-level tests use jsdom + @testing-library. The default Vitest environment is `node`;
-  a file opts in with `// @vitest-environment jsdom`. Find a component's render tests with
-  `git grep -l <Component> -- '*.render.test.tsx'` (they are not always siblings) before
-  assuming it can only be checked by eye; a change to a component that has one updates it in
-  the same PR.
 - Every visible change ends with a screenshot of the changed screen, taken after the last code
   change — in the desktop preview, or in a cloud session a Playwright capture of localhost; any
-  other capture is registered with `scripts/dev/gate evidence screenshot <file>`. The hand-over
-  gate checks for one of this exact tree.
-
-## Dates
-
-A date-only value (a backend `dt.date`: birth date, purchase date, first registration, a
-plate's validity, …) names a calendar day and renders through `formatDateOnly`; `formatDate`
-and `formatDateTime` are for timestamps, which they render in the browser's zone (KAN-180,
-KAN-333). `src/architecture/date-only-fields-format.test.ts` judges a field by its name
-(`…Date`, `…Since`, `…FollowUp`, `expectedDelivery`, `vehicleFirstRegistration`) and refuses
-it in four places: inside `formatDate`/`formatDateTime`, in CustomersListPage's `date('…', …)`
-column helper without `formatDateOnly`, as a raw JSX child (`>{r.purchaseDate}`, with or
-without a `?? '—'` / `?? t(…)` fallback), and as a grid column's `cell:` renderer that returns
-the bare field (KAN-358). It is a source scan with known misses (its KAN-358 comment
-lists them: a field joined into a string or passed to a row helper, an `InlineEditField` whose
-`value=` is also its display, a JSX child sharing its element with text, a `?? null` or
-`?? CONST` fallback), and it cannot judge a name at all for `validFrom`/`validTo` (a date on a
-plate, an accessory, a user's access window and a valuation — the last rendered by no screen yet;
-a timestamp on a contact channel; KAN-363) — the ones a screen renders,
-and every screen that renders a date-only field, are checked by that screen's render test under
-`TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `AuthScreens` for the
-invitation's access window, KAN-472). Today's date as a pre-fill is
-`todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
-`toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00
-Swiss time (KAN-358; `src/architecture/no-utc-calendar-day.test.ts` refuses it).
-
-## API types (KAN-35)
-
-`src/api/schema.d.ts` is generated from the backend's own `app.openapi()` and diffed in CI
-(`frontend-openapi-drift`); editing it is blocked. `src/api/types.ts` derives every
-request/response type from it, except the documented FRONTEND-ONLY `ApiErrorBody` (the error
-envelope has no OpenAPI schema). A shape the backend under-types (a `str` whose real values are
-a literal union) is a `NARROWED` override in `types.ts`, commented as such — never a
-hand-written interface. After a backend schema change: `make generate-frontend-types`, then
-commit the result.
+  other capture is registered with `scripts/dev/gate evidence screenshot <file>`. The hand-over gate
+  checks for one of this exact tree. Render tests: `tests-frontend.md`.
+- `src/api/schema.d.ts` is generated from `app.openapi()` and diffed in CI; editing it is blocked.
+  `src/api/types.ts` derives every type from it, except the FRONTEND-ONLY `ApiErrorBody`. A shape
+  the backend under-types is a commented `NARROWED` override in `types.ts`, never a hand-written
+  interface. After a backend schema change: `make generate-frontend-types`, then commit the result.

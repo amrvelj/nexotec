@@ -93,4 +93,4 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   `number_range_frozen` for everyone but a `platform_admin`, who must give a reason.
 - The screen shows the ranges of the modules the Betrieb holds, the next number as an example and
   the current value read-only, and states the freeze before the first number. **Only the offer draws
-  from it today**; contracts, stock numbers and the rest switch in their own tickets.
+  from it today** (no `continue_after` since KAN-540, ADR-159); contracts, stock numbers and the rest switch in their own tickets.
