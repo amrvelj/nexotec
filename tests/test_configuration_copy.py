@@ -175,12 +175,14 @@ def test_the_sources_are_the_betriebe_the_caller_manages_besides_the_target(clie
     assert client.get(f"/v1/dealerships/{target}/copy-configuration/sources", headers=seller).status_code == 404
 
 
-def test_platform_staff_may_copy_between_any_two_betriebe(client, engine, standard_text_seeds):
+def test_platform_staff_hold_no_manager_flag_and_get_404(client, engine, standard_text_seeds):
+    """FR-A-01 is the manager-on-both action: no staff exception."""
+
     source, target, _, _, in_source = _pair(client, engine)
     _configure_source(client, source, in_source)
-    response = _copy(client, target, platform_admin(), source, dry_run=False, subsets=("document_template",))
-    assert response.status_code == 200, response.text
-    assert response.json()["counts"]["created"] == 1
+    assert _copy(client, target, platform_admin(), source, dry_run=True).status_code == 404
+    staff_in_target = bearer(token(AccessRole.PLATFORM_ADMIN, tenant_id=target))
+    assert _copy(client, target, staff_in_target, source, dry_run=True).status_code == 404
 
 
 # --- what is copied ----------------------------------------------------------------------------
@@ -554,39 +556,80 @@ def test_a_refused_pattern_leaves_no_seeded_range_row(client, engine, standard_t
 
 
 @ROW_LOCKS
-def test_the_copy_waits_for_a_colleagues_edit_of_a_target_text(client, engine, standard_text_seeds):
-    """The target's texts are locked as the PATCH route locks its row: a copy
-    meeting a colleague's open edit waits for it (here: times out), never
-    overwrites around it."""
+def test_the_target_text_is_locked_while_the_copy_writes_it(client, engine, standard_text_seeds, monkeypatch):
+    """The target's texts are locked from the copy's read to its commit, as the
+    PATCH route locks its row: a colleague cannot slip an edit in between the
+    read and the write (a lost update), they wait and then meet the moved
+    version. Probed from a second session while the copy writes the row."""
 
-    import pytest
-    from sqlalchemy import text as sql_text
     from sqlalchemy.exc import OperationalError
-
-    from app.core.auth import get_current_principal
 
     source, target, _, in_target, in_source = _pair(client, engine)
     _configure_source(client, source, in_source)
-    own = _create_text(
+    _create_text(
         client, target, in_target, {"code": "offer.intro.standard", "language": "de", "title": "Ziel", "body": "Ziel."}
     )
-    principal = get_current_principal(in_target["Authorization"].split(" ", 1)[1])
-    colleague = sessionmaker(bind=engine)()
-    copier = sessionmaker(bind=engine)()
+    probes: list[bool] = []
+    original = copy_service._write_text
+
+    def probing_write(db, *, row, existing, **kwargs):
+        if existing is not None:
+            colleague = sessionmaker(bind=engine)()
+            try:
+                colleague.execute(
+                    select(StandardText).where(StandardText.id == existing.id).with_for_update(nowait=True)
+                )
+                probes.append(False)  # the colleague got the row: not locked
+            except OperationalError:
+                probes.append(True)
+            finally:
+                colleague.rollback()
+                colleague.close()
+        return original(db, row=row, existing=existing, **kwargs)
+
+    monkeypatch.setattr(copy_service, "_write_text", probing_write)
+    assert _copy(client, target, in_target, source, dry_run=False, subsets=("standard_texts",)).status_code == 200
+    assert probes == [True]
+
+
+def test_an_overwritten_whatsapp_text_loses_the_targets_approval(client, engine, standard_text_seeds):
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.standard_text import (
+        StandardTextAppliesTo,
+        StandardTextScope,
+        StandardTextSlot,
+        StandardTextSource,
+    )
+    from app.platform.models.standard_text_delegation import StandardTextCategory
+
+    source, target, _, in_target, _ = _pair(client, engine)
+    session = sessionmaker(bind=engine)()
     try:
-        colleague.execute(select(StandardText).where(StandardText.id == uuid.UUID(own["id"])).with_for_update())
-        copier.execute(sql_text("SET lock_timeout = '300ms'"))
-        with pytest.raises(OperationalError):
-            copy_service.copy_configuration(
-                copier,
-                principal,
-                target_id=uuid.UUID(target),
-                source_id=uuid.UUID(source),
-                subsets={copy_service.CopySubset.STANDARD_TEXTS},
-                dry_run=False,
+        for owner, body, approved in ((source, "Quelle.", False), (target, "Ziel.", True)):
+            session.add(
+                StandardText(
+                    dealership_id=uuid.UUID(owner),
+                    scope=StandardTextScope.DEALERSHIP,
+                    code="vehicle_ready.body.wa",
+                    category=StandardTextCategory.WHATSAPP,
+                    applies_to=StandardTextAppliesTo.VEHICLE_READY,
+                    slot=StandardTextSlot.BODY,
+                    language=SwissLanguage.DE,
+                    title="Abholbereit",
+                    body=body,
+                    source=StandardTextSource.DEALER,
+                    template_approved=approved,
+                    provider_template_id="target-template" if approved else None,
+                    version=1,
+                )
             )
+        session.commit()
     finally:
-        copier.rollback()
-        copier.close()
-        colleague.rollback()
-        colleague.close()
+        session.close()
+    report = _copy(client, target, in_target, source, dry_run=False, subsets=("standard_texts",)).json()
+    item = next(i for i in report["items"] if i["key"] == "vehicle_ready.body.wa")
+    assert (item["outcome"], item["reason"]) == ("overwritten", "whatsapp_approval_reset")
+    row = next(
+        r for r in _rows(engine, StandardText, dealership_id=uuid.UUID(target)) if r.code == "vehicle_ready.body.wa"
+    )
+    assert (row.body, row.template_approved, row.provider_template_id) == ("Quelle.", False, None)

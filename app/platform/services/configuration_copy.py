@@ -52,10 +52,10 @@ from app.core.audit import record_audit_event
 from app.core.auth import Principal
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.core.i18n import SwissLanguage
-from app.core.permissions import AccessRole, ModuleCode
-from app.core.tenancy import require_tenant_match
+from app.core.permissions import ModuleCode
 from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
+from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
 from app.platform.models.standard_text import StandardText, StandardTextSource
 from app.platform.models.user import User
@@ -71,7 +71,8 @@ SUMMARY_ACTION = "configuration_copied"
 _HEADER_FIELDS = ("header_note_de", "header_note_fr", "header_note_it", "header_note_en")
 # A WhatsApp template's approval and id are the provider's, for the source's
 # own account (FR-A-54): never copied — a copied WhatsApp text arrives not
-# approved and without an id, and an overwrite leaves the target's as they are.
+# approved and without an id, and an overwrite that changes the body resets
+# the target's approval (`whatsapp_approval_reset`).
 _TEXT_FIELDS = ("title", "body", "is_default", "active", "sort_order")
 
 
@@ -127,8 +128,11 @@ def _not_found(dealership_id: uuid.UUID) -> NotFoundError:
 
 
 def _manages(db: Session, principal: Principal, dealership_id: uuid.UUID) -> bool:
-    if AccessRole.PLATFORM_ADMIN in principal.roles:
-        return True
+    """The manager flag in that Betrieb, as the database holds it. Platform
+    staff hold none (a `platform_admin` gets no membership), so they get 404
+    like anyone else: FR-A-01 is the manager-on-both action, with no staff
+    exception."""
+
     user = db.get(User, principal.user_id)
     return user is not None and is_dealer_manager_in(db, user=user, dealership_id=dealership_id)
 
@@ -137,12 +141,12 @@ def require_target(db: Session, principal: Principal, target_id: uuid.UUID) -> D
     """The target is the active dealership (writes need the switch) and the
     caller holds its manager flag — else 404, never a hint (rule 7)."""
 
-    require_tenant_match(target_id, principal)
+    if principal.tenant_id != target_id:
+        raise _not_found(target_id)
     target = db.get(Dealership, target_id)
     # The session's own flag (minted for the active dealership) and the
     # database's: a session minted before the flag was taken away holds none.
-    session_flag = AccessRole.PLATFORM_ADMIN in principal.roles or principal.is_dealer_manager
-    if target is None or not session_flag or not _manages(db, principal, target_id):
+    if target is None or not principal.is_dealer_manager or not _manages(db, principal, target_id):
         raise _not_found(target_id)
     return target
 
@@ -162,8 +166,7 @@ def require_source(db: Session, principal: Principal, *, target: Dealership, sou
 def list_sources(db: Session, principal: Principal, *, target: Dealership) -> list[SourceOption]:
     """The sister Betriebe the caller may copy from: those where the caller
     holds the manager flag (home dealership or an active membership), the
-    target left out. Platform staff hold no flag of their
-    own and pick nothing here; the API still takes a source from them."""
+    target left out."""
 
     user = db.get(User, principal.user_id)
     if user is None:
@@ -295,6 +298,12 @@ def _write_text(
         if not changes:
             item.outcome = CopyOutcome.UNCHANGED
             return None
+        if existing.template_approved and "body" in changes:
+            # The provider approved the target's own wording, not the source's
+            # (FR-A-54): a changed body is a template to submit again.
+            changes["template_approved"] = False
+            changes["provider_template_id"] = None
+            item.reason = "whatsapp_approval_reset"
         standard_text_service.update_dealer_text(
             db, row=existing, changes=changes, if_match_version=existing.version, actor_id=actor_id, commit=False
         )
@@ -325,7 +334,9 @@ def _copy_document_template(
     db: Session, *, source: Dealership, target: Dealership, actor_id: uuid.UUID, report: CopyReport
 ) -> None:
     source_template = document_template_service.get_document_template(db, source.id)
-    target_template = document_template_service.get_document_template(db, target.id)
+    target_template = db.scalars(
+        select(DocumentTemplate).where(DocumentTemplate.dealership_id == target.id).with_for_update()
+    ).one_or_none()
     current = {name: getattr(target_template, name) if target_template else None for name in _HEADER_FIELDS}
     # A language the source has no note in is not copied: an empty note never
     # clears the target's — the rule texts follow too (absent = kept).

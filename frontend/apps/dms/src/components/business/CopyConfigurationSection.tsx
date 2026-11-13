@@ -31,6 +31,7 @@ const KNOWN_REASONS = new Set([
   'number_range_counter_too_short',
   'standard_text_placeholder_invalid',
   'standard_text_seed_language_missing',
+  'whatsapp_approval_reset',
 ])
 
 /**

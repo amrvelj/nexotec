@@ -192,7 +192,7 @@
       "number_ranges": "Number-range patterns"
     },
     "subsetHint": {
-      "standard_texts": "The business's own and adapted texts, without site variants. A text this business already has is overwritten. The approval of WhatsApp templates is not copied.",
+      "standard_texts": "The business's own and adapted texts, without site variants. A text this business already has is overwritten. The approval of WhatsApp templates is never copied; an overwritten template must be submitted again.",
       "document_template": "The documents' header note, per language. Where the other business has none in a language, this one's stays as it is.",
       "number_ranges": "Pattern, start value and yearly reset of the modules this business uses. Counters are never copied; a range that has already issued a number stays as it is."
     },
@@ -226,6 +226,7 @@
       "number_range_counter_too_short": "The next counter does not fit the pattern.",
       "standard_text_placeholder_invalid": "The text contains a placeholder that is no longer valid.",
       "standard_text_seed_language_missing": "This text's template no longer exists in this language.",
+      "whatsapp_approval_reset": "The WhatsApp template must be submitted for approval again.",
       "other": "This item cannot be copied."
     }
   }

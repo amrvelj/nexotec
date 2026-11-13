@@ -192,7 +192,7 @@
       "number_ranges": "Nummernkreis-Muster"
     },
     "subsetHint": {
-      "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Die Freigabe von WhatsApp-Vorlagen wird nicht übernommen.",
+      "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Eine Freigabe von WhatsApp-Vorlagen wird nie übernommen; eine überschriebene Vorlage muss erneut eingereicht werden.",
       "document_template": "Die Kopfzeile der Dokumente, je Sprache. Hat der andere Betrieb in einer Sprache keine, bleibt die hiesige unverändert.",
       "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert."
     },
@@ -226,6 +226,7 @@
       "number_range_counter_too_short": "Der nächste Zählerstand passt nicht in das Muster.",
       "standard_text_placeholder_invalid": "Der Text enthält einen Platzhalter, der nicht mehr gültig ist.",
       "standard_text_seed_language_missing": "Die Vorlage dieses Texts gibt es in dieser Sprache nicht mehr.",
+      "whatsapp_approval_reset": "Die WhatsApp-Vorlage muss erneut zur Freigabe eingereicht werden.",
       "other": "Dieser Eintrag kann nicht übernommen werden."
     }
   }

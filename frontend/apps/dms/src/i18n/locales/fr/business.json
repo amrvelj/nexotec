@@ -192,7 +192,7 @@
       "number_ranges": "Modèles des plages de numéros"
     },
     "subsetHint": {
-      "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé. L'approbation des modèles WhatsApp n'est pas reprise.",
+      "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé. L'approbation des modèles WhatsApp n'est jamais reprise ; un modèle écrasé doit être soumis à nouveau.",
       "document_template": "L'en-tête des documents, par langue. Si l'autre entreprise n'en a pas dans une langue, celui d'ici reste inchangé.",
       "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée."
     },
@@ -226,6 +226,7 @@
       "number_range_counter_too_short": "Le prochain compteur ne tient pas dans le modèle.",
       "standard_text_placeholder_invalid": "Le texte contient un espace réservé qui n'est plus valable.",
       "standard_text_seed_language_missing": "Le modèle de ce texte n'existe plus dans cette langue.",
+      "whatsapp_approval_reset": "Le modèle WhatsApp doit être soumis à nouveau pour approbation.",
       "other": "Cet élément ne peut pas être repris."
     }
   }
