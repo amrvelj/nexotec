@@ -216,6 +216,9 @@
       "unchanged": "Invariato",
       "skipped": "Saltato"
     },
+    "outcomeDone": {
+      "overwritten": "Sovrascritto"
+    },
     "reason": {
       "number_range_frozen": "Questo intervallo ha già assegnato un numero ed è bloccato.",
       "number_pattern_location_code_missing": "Nessuna sede di questa azienda ha un codice per {location_code}.",

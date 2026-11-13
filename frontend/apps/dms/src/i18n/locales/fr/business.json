@@ -216,6 +216,9 @@
       "unchanged": "Inchangé",
       "skipped": "Ignoré"
     },
+    "outcomeDone": {
+      "overwritten": "Écrasé"
+    },
     "reason": {
       "number_range_frozen": "Cette plage a déjà attribué un numéro et est verrouillée.",
       "number_pattern_location_code_missing": "Aucun site de cette entreprise n'a de code pour {location_code}.",

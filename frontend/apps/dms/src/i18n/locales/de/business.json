@@ -216,6 +216,9 @@
       "unchanged": "Unverändert",
       "skipped": "Übersprungen"
     },
+    "outcomeDone": {
+      "overwritten": "Überschrieben"
+    },
     "reason": {
       "number_range_frozen": "Dieser Nummernkreis hat schon eine Nummer vergeben und ist gesperrt.",
       "number_pattern_location_code_missing": "Kein Standort dieses Betriebs hat einen Code für {location_code}.",

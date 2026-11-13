@@ -82,6 +82,9 @@ describe('CopyConfigurationSection (KAN-220)', () => {
     expect(await section.findByText(/übernommen: 1 neu/)).toHaveTextContent(
       'Aus Garage Quelle AG übernommen: 1 neu, 1 überschrieben, 1 übersprungen.',
     )
+      const done = within(await section.findByRole('table', { name: 'Was übernommen wird' }))
+    expect(done.getByText('Überschrieben')).toBeInTheDocument()
+    expect(done.queryByText('Wird überschrieben')).toBeNull()
   })
 
   it('is absent for a user who is not the active Betrieb’s manager', async () => {

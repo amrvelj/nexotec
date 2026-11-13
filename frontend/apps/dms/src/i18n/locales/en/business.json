@@ -216,6 +216,9 @@
       "unchanged": "Unchanged",
       "skipped": "Skipped"
     },
+    "outcomeDone": {
+      "overwritten": "Overwritten"
+    },
     "reason": {
       "number_range_frozen": "This range has already issued a number and is frozen.",
       "number_pattern_location_code_missing": "No site of this business has a code for {location_code}.",

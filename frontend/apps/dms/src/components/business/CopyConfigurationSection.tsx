@@ -217,7 +217,9 @@ function CopyItems({ result }: { result: ConfigurationCopyResult }) {
             <Table.Td>
               <Stack gap={2}>
                 <Badge color={OUTCOME_COLOR[item.outcome]} variant="light">
-                  {t(`business.copyConfiguration.outcome.${item.outcome}`)}
+                  {result.dryRun || item.outcome !== 'overwritten'
+                    ? t(`business.copyConfiguration.outcome.${item.outcome}`)
+                    : t('business.copyConfiguration.outcomeDone.overwritten')}
                 </Badge>
                 {item.reason && (
                   <Text fz="xs" c="dimmed">
