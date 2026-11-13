@@ -8,7 +8,10 @@ stopped it growing.
 Every source file under `app/`, every `.py` file under `scripts/` (KAN-688:
 the migration smoke-test seed had reached 1,226 lines and grew with every
 nullable column) and every `.ts`/`.tsx` file under a frontend `src/` folder
-stays at or under `LIMIT` lines. Tests and generated
+stays at or under `LIMIT` lines. Python scripts without the `.py` extension
+are not scanned yet: the one over the limit, `scripts/dev/usage-report`, sits
+in setup-guarded `scripts/dev/`, so scanning it and splitting it is KAN-691
+(an attended session). Tests and generated
 files are not counted (`schema.d.ts` is generated; a `*.test.*` / `*.spec.*`
 file, anything under `__tests__/` and a test helper under a frontend
 `src/test/` folder is a test).

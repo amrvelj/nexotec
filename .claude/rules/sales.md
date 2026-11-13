@@ -147,7 +147,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   (`liveContractId`, `liveContractNumber`; computed in `api/offers.py::_offer_reads`, one query
   per page — KAN-492), so a sent offer's seller picker and «Übernehmen» are disabled before the
   click; «Übernehmen» names the contract in the menu (`dealOwner.takeOverDisabled.liveContract`),
-  the picker carries no reason line. Generating an
+  the picker carries no reason line (Anto, 2026-10-29). Generating an
   offer document is refused too (Anto, 2026-10-29, KAN-495 option a:
   `document.generate_offer_document` asks `require_no_live_contract`), and the sent offer's
   «Dokument erzeugen» is disabled before the click and says why — an action, not a field
@@ -223,7 +223,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   has confirmed it yet (KAN-436); if one reads the trade-in as a price reduction, ADR-098 is
   reopened, never overridden in code. Documents generated earlier keep their frozen figure.
 - ADR-033 and ADR-053 are superseded in part by ADR-057: only the **fiktiver Vorsteuerabzug**
-  (Art. 28a MWSTG) survives; margin taxation (Art. 24a, Sammlerstücke) is out of scope for v1.
+  (Art. 28a MWSTG) survives; margin taxation (Art. 24a: Sammlerstücke, first registration > 30 years before
+  purchase) is out of scope for v1.
 - The fiktiver Vorsteuerabzug is a **purchase-side** fact owned by Stock. Sales reads it
   through the stock item's pricing (`landedCost`, `notionalInputTax*`) to compute margin and
   never writes it. Margin nets the notional credit whether or not a landed cost was recorded.

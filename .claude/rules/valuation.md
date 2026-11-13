@@ -129,7 +129,8 @@ file in the same PR as any change to what it states. -->
   `valuation.valuation.use_reverted`, like the compensation.
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
   rule 10): a valuation stamped for over an hour that no signed contract of its dealership
-  carries (`valuation/reconciliation.py` — the dealer manager clears either with
+  carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both failed, or
+  a hand stamp from before KAN-115; the dealer manager clears either with
   «Verwendung aufheben», above — once a pending contract still carrying it is cancelled); a signed contract whose existing trade-in valuation of
   the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no
