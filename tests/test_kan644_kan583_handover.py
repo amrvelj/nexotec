@@ -576,6 +576,17 @@ def test_the_nightly_label_refresh_takes_a_batchs_rows_in_id_order_before_it_wri
 # --- KAN-664: a restored owner holds only until the next holder to come ----------------------
 
 
+def _restore_audit_ends(db, customer_id) -> list:
+    """The `after.effectiveTo` of each restore audited on `customer_id`."""
+
+    rows = db.scalars(
+        select(AuditEvent)
+        .where(AuditEvent.entity_id == customer_id, AuditEvent.reason == "planned_handover_cancelled")
+        .order_by(AuditEvent.id)
+    ).all()
+    return [row.after["effectiveTo"] for row in rows]
+
+
 def test_cancelling_a_planned_entry_restores_the_owner_only_until_a_later_planned_holder(db_session):
     """Route 1: A owns; P is planned for [T+10, T+15) and closes A at T+10;
     Q is planned from T+20 (A is spared: it already ends first). Cancelling
@@ -598,6 +609,7 @@ def test_cancelling_a_planned_entry_restores_the_owner_only_until_a_later_planne
     assert restored.effective_to == _row(db_session, q_party.id).effective_from
     assert restored.closed_for_party_id == q_party.id
     assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({a.id}, {q.id})
+    assert _restore_audit_ends(db_session, a.id) == [restored.effective_to.isoformat()]  # KAN-662 review note
 
 
 def test_cancelling_an_interim_entry_restores_the_owner_until_the_planned_holder_after_it(db_session):
@@ -622,6 +634,7 @@ def test_cancelling_an_interim_entry_restores_the_owner_until_the_planned_holder
     assert restored.effective_to == _row(db_session, p_party.id).effective_from
     assert restored.closed_for_party_id == p_party.id
     assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({a.id}, {p.id})
+    assert _restore_audit_ends(db_session, a.id) == [restored.effective_to.isoformat()]  # KAN-662 review note
 
     _end(db_session, p_party, group_id)  # and cancelling P too leaves A the owner, open-ended
 
