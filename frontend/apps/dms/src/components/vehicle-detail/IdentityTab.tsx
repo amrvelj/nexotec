@@ -10,12 +10,12 @@ import { formatDate, formatDateOnly } from '../../utils/format'
 import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
 import { isPlannedNeverStarted, isUpcoming } from '../../utils/vehicleParty'
 import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
-import type { VehicleMdmRead, VehiclePartyAllocationRead, VehiclePartyRole } from '../../api/types'
-import type { components } from '../../api/schema'
-
-// KAN-667 — derived from the generated schema like every type in api/types.ts
-// (move it there once that file is free to change).
-type VehicleStockItemLink = components['schemas']['VehicleStockItemLink']
+import type {
+  VehicleMdmRead,
+  VehiclePartyAllocationRead,
+  VehiclePartyRole,
+  VehicleStockItemLink,
+} from '../../api/types'
 
 interface IdentityTabProps {
   vehicle: VehicleMdmRead
