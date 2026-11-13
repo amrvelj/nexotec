@@ -33,10 +33,10 @@ describe('one configuration summary card', () => {
   it('only the known wrappers import the card directly', () => {
     const importers = FILES.filter((f) => importsCard(f.text)).map((f) => f.path).sort()
     expect(importers).toEqual([
-      'components/ValuationCreateDialog.tsx',
       'components/configurator/ConfiguratorOverlay.tsx',
       'components/configurator/HostConfigurationCard.tsx',
       'components/vehicle-detail/SpecificationTab.tsx',
+      'modules/valuation/components/ValuationCreateDialog.tsx',
     ])
   })
 
@@ -49,7 +49,7 @@ describe('one configuration summary card', () => {
     expect(host('pages/OfferWorkspacePage.tsx')).toMatch(usesDealContainers)
     expect(host('pages/ContractDetailPage.tsx')).toMatch(usesDealContainers)
     expect(importsHostCard(host('components/stock-detail/DetailsTab.tsx'))).toBe(true)
-    expect(importsHostCard(host('pages/ValuationDetailPage.tsx'))).toBe(true)
+    expect(importsHostCard(host('modules/valuation/pages/ValuationDetailPage.tsx'))).toBe(true)
     // Vehicle 360
     expect(host('pages/VehicleDetailPage.tsx')).toMatch(/from ['"]\.\.\/components\/vehicle-detail\/SpecificationTab['"]/)
   })

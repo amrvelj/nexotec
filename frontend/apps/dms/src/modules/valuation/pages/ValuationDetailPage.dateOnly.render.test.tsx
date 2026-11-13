@@ -2,9 +2,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { screen } from '@testing-library/react'
-import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
-import type { ValuationRead } from '../api/types'
+import { renderWithProviders } from '../../../test/renderWithProviders'
+import { installFakeBackend } from '../../../test/fakeBackend'
+import type { ValuationRead } from '../../../api/types'
 import { ValuationDetailPage } from './ValuationDetailPage'
 
 // KAN-333 — the valued car's first registration is a date-only value;

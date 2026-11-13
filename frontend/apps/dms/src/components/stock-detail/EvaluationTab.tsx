@@ -5,7 +5,7 @@ import { KeyValueRow, OverviewCard, slate } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import type { StockValuationRefRead } from '../../api/types'
 import { formatCurrencyChf, formatDateTime } from '../../utils/format'
-import { ValuationSourceMarker } from '../ValuationSourceMarker'
+import { ValuationSourceMarker } from '../../modules/valuation'
 
 interface EvaluationTabProps {
   stockItemId: string

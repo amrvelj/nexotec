@@ -7,9 +7,9 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import { RecordCostDialog } from './stock-detail/RecordCostDialog'
 import { PriceBuildUp } from './PriceBuildUp'
-import { ValuationCreateDialog } from './ValuationCreateDialog'
+import { ValuationCreateDialog } from '../modules/valuation/components/ValuationCreateDialog'
 import type { SalesPricedDealRead } from '../api/types'
-import { nameValuationCar } from '../test/nameValuationCar'
+import { nameValuationCar } from '../modules/valuation/test/nameValuationCar'
 
 // KAN-168 / ADR-076: a CHF input reads `CHF 12'500.00` on every screen, in
 // every UI language — under the French UI too, whose own CLDR number format

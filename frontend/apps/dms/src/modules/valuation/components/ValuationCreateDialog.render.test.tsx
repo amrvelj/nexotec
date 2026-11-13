@@ -3,12 +3,12 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import i18n from '../i18n'
-import { renderWithProviders } from '../test/renderWithProviders'
+import i18n from '../../../i18n'
+import { renderWithProviders } from '../../../test/renderWithProviders'
 import { nameValuationCar } from '../test/nameValuationCar'
-import { installFakeBackend, status } from '../test/fakeBackend'
+import { installFakeBackend, status } from '../../../test/fakeBackend'
 import { ValuationCreateDialog } from './ValuationCreateDialog'
-import type { ConfigurationRead } from '../api/types'
+import type { ConfigurationRead } from '../../../api/types'
 
 // KAN-266 — the valuation create carries one Idempotency-Key per submission:
 // a retry after a failure keeps it, a corrected valuation or another opening

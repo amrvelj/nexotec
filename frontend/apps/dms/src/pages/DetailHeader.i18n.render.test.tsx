@@ -7,7 +7,7 @@ import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import type { ValuationRead } from '../api/types'
-import { ValuationDetailPage } from './ValuationDetailPage'
+import { ValuationDetailPage } from '../modules/valuation/pages/ValuationDetailPage'
 
 // KAN-232 — the detail header's overflow `⋯` takes its accessible name from
 // the caller's translation, never the kit's hardcoded English.

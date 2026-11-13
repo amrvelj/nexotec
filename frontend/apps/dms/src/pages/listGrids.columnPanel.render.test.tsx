@@ -8,7 +8,7 @@ import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import type { SalesDealRead, StockItemPage, StockItemRead, ValuationRead } from '../api/types'
 import { StockListPage } from './StockListPage'
 import { SalesListPage } from './SalesListPage'
-import { ValuationsListPage } from './ValuationsListPage'
+import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 import { CatalogueBrowsePage } from './CatalogueBrowsePage'
 
 // KAN-361 — Stock, Sales, Valuations and Catalogue passed

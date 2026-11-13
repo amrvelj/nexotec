@@ -2,7 +2,7 @@ import { Button } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@nexotec/ui-kit'
-import { ConfiguratorOverlay } from './configurator/ConfiguratorOverlay'
+import { ConfiguratorOverlay } from '../../../components/configurator/ConfiguratorOverlay'
 
 /**
  * C-F (KAN-10, FR-C-14) — "From the Valuation list, New valuation": the

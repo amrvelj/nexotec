@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Stack, Text, Textarea } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
-import { api } from '../api/client'
-import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
-import type { ValuationRead } from '../api/types'
-import { apiRefusalText } from '../utils/apiRefusal'
+import { api } from '../../../api/client'
+import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
+import type { ValuationRead } from '../../../api/types'
+import { apiRefusalText } from '../../../utils/apiRefusal'
 
 interface ValuationRevertUseDialogProps {
   opened: boolean

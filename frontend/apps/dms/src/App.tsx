@@ -48,9 +48,9 @@ const SalesListPage = lazyPage(() => import('./pages/SalesListPage'), 'SalesList
 const OfferCreateRedirectPage = lazyPage(() => import('./pages/OfferDetailPage'), 'OfferCreateRedirectPage')
 const OfferDetailPage = lazyPage(() => import('./pages/OfferDetailPage'), 'OfferDetailPage')
 const ContractDetailPage = lazyPage(() => import('./pages/ContractDetailPage'), 'ContractDetailPage')
-const ValuationsListPage = lazyPage(() => import('./pages/ValuationsListPage'), 'ValuationsListPage')
-const ValuationCreatePage = lazyPage(() => import('./pages/ValuationCreatePage'), 'ValuationCreatePage')
-const ValuationDetailPage = lazyPage(() => import('./pages/ValuationDetailPage'), 'ValuationDetailPage')
+const ValuationsListPage = lazyPage(() => import('./modules/valuation/pages/ValuationsListPage'), 'ValuationsListPage')
+const ValuationCreatePage = lazyPage(() => import('./modules/valuation/pages/ValuationCreatePage'), 'ValuationCreatePage')
+const ValuationDetailPage = lazyPage(() => import('./modules/valuation/pages/ValuationDetailPage'), 'ValuationDetailPage')
 
 function ProtectedLayout() {
   return (

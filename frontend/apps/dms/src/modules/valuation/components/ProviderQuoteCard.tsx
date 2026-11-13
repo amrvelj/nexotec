@@ -1,8 +1,8 @@
 import { Alert, Group, Stack, Table, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import type { ProviderQuoteRead } from '../api/types'
-import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatCurrencyChf, formatDateOnly, formatDateTime, formatNumber } from '../utils/format'
+import type { ProviderQuoteRead } from '../../../api/types'
+import { toSwissLocale, type SupportedLanguage } from '../../../i18n'
+import { formatCurrencyChf, formatDateOnly, formatDateTime, formatNumber } from '../../../utils/format'
 
 type MessageLanguage = 'de' | 'fr' | 'it' | 'en'
 

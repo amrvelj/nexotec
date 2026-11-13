@@ -1,7 +1,7 @@
 import { Car, CheckCircle, Handshake, RefreshCw, Undo2, User } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuAction, RowMenuGroups } from '@nexotec/ui-kit'
-import type { ValuationRead } from '../api/types'
-import { normalisedVin } from '../utils/vin'
+import type { ValuationRead } from '../../../api/types'
+import { normalisedVin } from '../../../utils/vin'
 
 /** KAN-253 — the server's `CONFIRMATION_GRACE`: a stamp younger than this may
  * be a confirmation still signing its contract, so it is not cleared (409

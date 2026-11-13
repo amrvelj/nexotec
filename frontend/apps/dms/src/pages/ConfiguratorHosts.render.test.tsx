@@ -8,11 +8,11 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { CustomerVehicleRead } from '../api/types'
-import { ValuationCreatePage } from './ValuationCreatePage'
-import { ValuationsListPage } from './ValuationsListPage'
+import { ValuationCreatePage } from '../modules/valuation/pages/ValuationCreatePage'
+import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
-import { nameValuationCar } from '../test/nameValuationCar'
+import { nameValuationCar } from '../modules/valuation/test/nameValuationCar'
 
 // C-F (KAN-10) — the valuation host (FR-C-14, record only), Vehicle 360's
 // read-only Specification tab (FR-C-15), and Customer 360 reaching it only

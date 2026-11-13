@@ -8,7 +8,7 @@ import { installFakeBackend, status } from '../test/fakeBackend'
 import { customer, customerPage } from '../test/fixtures'
 import type { ValuationRead } from '../api/types'
 import { CustomersListPage } from './CustomersListPage'
-import { ValuationsListPage } from './ValuationsListPage'
+import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 
 // KAN-273 — a write started from a list's row menu says so when it fails,
 // above the grid, and its retry from the same row carries the same key.

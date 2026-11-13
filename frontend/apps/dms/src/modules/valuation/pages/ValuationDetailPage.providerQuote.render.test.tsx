@@ -2,11 +2,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { screen, within } from '@testing-library/react'
-import i18n from '../i18n'
-import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
-import { formatCurrencyChf } from '../utils/format'
-import type { ValuationRead } from '../api/types'
+import i18n from '../../../i18n'
+import { renderWithProviders } from '../../../test/renderWithProviders'
+import { installFakeBackend } from '../../../test/fakeBackend'
+import { formatCurrencyChf } from '../../../utils/format'
+import type { ValuationRead } from '../../../api/types'
 import { ValuationDetailPage } from './ValuationDetailPage'
 
 // KAN-552 — a valuation built on an auto-i-dat quote shows the quote (the

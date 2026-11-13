@@ -39,9 +39,13 @@ function files(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** A test (`*.test.*`, `*.spec.*`) or anything under src/test, by its src-relative path. */
+/**
+ * A test (`*.test.*`, `*.spec.*`) or a test helper — anything under src/test or under a
+ * module's own test/ folder (ADR-158, KAN-636) — by its src-relative path. The ui-kit's twin
+ * has no module folders, so this clause is the app's alone.
+ */
 export function isScanned(path: string): boolean {
-  return /\.(test|spec)\.tsx?$/.test(path) || path.startsWith('test/')
+  return /\.(test|spec)\.tsx?$/.test(path) || path.startsWith('test/') || /^modules\/[^/]+\/test\//.test(path)
 }
 
 /** `a/b/../c/./d` → `a/c/d`, on `/`-separated paths. */
@@ -151,9 +155,17 @@ describe('render tests mount Mantine with the test theme (KAN-526, KAN-543)', ()
     expect(providersWithoutTestTheme(`${imports}// wrapper: MantineProvider\nit('mounts a MantineProvider', () => {})`)).toEqual([])
   })
 
-  it('scans tests, specs and src/test, nothing else', () => {
-    expect(['pages/X.test.tsx', 'pages/X.spec.tsx', 'utils/y.spec.ts', 'test/renderWithProviders.tsx'].every(isScanned)).toBe(true)
-    expect(['pages/X.tsx', 'utils/specials.ts'].some(isScanned)).toBe(false)
+  it('scans tests, specs, src/test and a module\'s test/ folder, nothing else', () => {
+    expect(
+      [
+        'pages/X.test.tsx',
+        'pages/X.spec.tsx',
+        'utils/y.spec.ts',
+        'test/renderWithProviders.tsx',
+        'modules/valuation/test/nameValuationCar.ts',
+      ].every(isScanned),
+    ).toBe(true)
+    expect(['pages/X.tsx', 'utils/specials.ts', 'modules/valuation/pages/X.tsx', 'modules/test/X.tsx'].some(isScanned)).toBe(false)
   })
 
   it('goes red for a tag with another theme or none', () => {

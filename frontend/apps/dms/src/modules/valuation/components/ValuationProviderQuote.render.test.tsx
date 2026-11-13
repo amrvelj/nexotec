@@ -2,14 +2,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import i18n from '../i18n'
-import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, status } from '../test/fakeBackend'
-import { configurationRead } from '../test/configuratorFixtures'
+import i18n from '../../../i18n'
+import { renderWithProviders } from '../../../test/renderWithProviders'
+import { installFakeBackend, status } from '../../../test/fakeBackend'
+import { configurationRead } from '../../../test/configuratorFixtures'
 import { ValuationCreateDialog } from './ValuationCreateDialog'
 import { ProviderQuoteCard } from './ProviderQuoteCard'
-import { formatCurrencyChf } from '../utils/format'
-import type { ProviderQuoteRead } from '../api/types'
+import { formatCurrencyChf } from '../../../utils/format'
+import type { ProviderQuoteRead } from '../../../api/types'
 
 // KAN-552 — «Bewertung von auto-i-dat holen»: the advisor's click asks the
 // provider (never the dialog's opening), the stored quote's trade-in price
