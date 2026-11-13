@@ -315,6 +315,24 @@ there's more than one head (one step back from *which* head?). Target an
 explicit revision instead, e.g. `alembic downgrade <revision-id>`, or
 scope to one context's own chain.
 
+### One-time backfills after a deploy
+
+Each is dry-run unless `--commit`, idempotent, and run once per environment after the deploy that
+ships it (moved here from the rule files by KAN-615; the script's docstring is the detail):
+
+- `scripts/backfill_vehicle_changed_flags.py` — flags deals frozen before a stock car changed (ADR-115).
+- `scripts/backfill_inventory_sales_contract_projection.py` — fills Stock's contract projection
+  (ADR-145); run it once the old worker has stopped.
+- `scripts/backfill_sales_stock_item_labels.py` — the stock number on deals written before it.
+- `scripts/backfill_sales_deal_projection.py` — re-projects deal rows (live entity, stock number).
+- `scripts/continue_offer_number_ranges.py` — shows each Betrieb's current offer number on the
+  Number ranges screen before its next offer (ADR-109).
+- `scripts/backfill_manual_configuration_reservations.py` — reserves a signed manual
+  configuration's pipeline item and records cancellations (re-runnable).
+- `scripts/backfill_customer_stock_item_booking.py` — re-seeds the customer context's stock-item
+  bookings from the outbox.
+- `scripts/backfill_valuation_contract_carry.py` — the valuation's carry rows for older contracts.
+
 ## Conventions for entities built on this foundation (issues #2+)
 
 - JSON request/response bodies: camelCase. DB columns: snake_case. FastAPI/

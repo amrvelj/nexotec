@@ -4,108 +4,39 @@ paths:
   - "frontend/**/*.test.ts"
   - "frontend/**/*.test.tsx"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011, ADR-086, ADR-089 and the
-recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-126 (ADR-091 expired, KAN-79). Verified
-against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code); the spec-disagreement
-sentence re-checked against main@e37e36f on 2026-11-10 for ADR-126 (KAN-638); the per-worker database
-lines added on 2026-11-11 with the code (KAN-627, ADR-130). Fix this file in the same PR
-as any change to what it states. -->
+<!-- Maintainer note. ADR-011, ADR-126, ADR-130 and the WP audits' failure modes. Loads for every
+test, so it holds the invariants only: tests-harness.md, tests-architecture.md and
+tests-frontend.md carry the detail (KAN-615). Last verified against main@73baf3f (2026-10-25). -->
 
 # Tests
 
-- **Postgres is the lane of record** (ADR-011). SQLite's weaker constraint and isolation
-  enforcement hides real bugs; "tested" means Postgres. Every session points `pytest` at this
-  checkout's own test database (`dms_test_<checkout>`), so parallel worktrees never share one.
-- **On Postgres the schema is built once per session** (`tests/conftest.py`), not per test.
-  Every test starts with every table empty (`TRUNCATE`) and without planner statistics, except
-  the `country` reference list the autouse `_seed_country_reference_list` fixture seeds. Any DDL
-  a test runs (an event trigger counts it), or an `ANALYZE`/`VACUUM` of a test table, has the
-  schema rebuilt before the next test. A session from the `engine` fixture that a test leaves
-  open in a transaction, holding a lock on a test table, fails that test at its teardown and is
-  terminated so the run goes on; a connection opened any other way is not ended and can block
-  the next test until `lock timeout`. Close every session a test opens. The test role must be a
-  superuser, as CI, docker compose and `scripts/dev/cloud-postgres` make it.
-  `tests/test_postgres_test_isolation.py` pins the reset, the rebuild and the session check.
-  A test-only model sits on `DemoBase` (`tests/demo_models.py`), never on `app.db.Base`, so
-  `Base.metadata` holds production tables only; conftest builds and resets both
-  (`TEST_METADATA`; KAN-332, pinned by `tests/test_demo_models_off_production_base.py`).
-- **`pytest -n auto` gives every worker its own database** (`<name>_gw0`, `_gw1` …; KAN-627): conftest creates it, builds
-  the schema as for the single one and drops it at the end. A test takes its database from the `engine` fixture or `DMS_TEST_DATABASE_URL`, never from a fixed name, port or file path.
-- **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
-  skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
-  is wrong — raise it. They guard: gateway-only auto-i-dat calls, no bulk catalogue retrieval
-  and no daily job reaching an integration provider through the gateway (KAN-485; a
-  connected-account revoker, KAN-559, is not one), the capability vocabulary,
-  catalogue browse as a bounded live query (one provider request per page and per facet field,
-  `page[number]` only in the adapter, no catalogue query in a loop — ADR-112, KAN-548), configurations never writing vehicle-mdm, margin
-  never in a rendered document, no ambient group reads, layout code only in the document
-  renderer, password-shaped columns in `credential` and nowhere else and no second credential
-  table outside the allow-list (inverted by KAN-196 as D-A-07 ruled; a third realm is an ADR),
-  no `vatTreatment`, a non-enumerable plate lookup, the
-  shared identity response shape, spec-block carriers that do not drift, enum columns only
-  as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84), no context putting another's
-  ORM class into its own query outside its reconciliation module's reads (KAN-121, ADR-107), and
-  `platform.public.list_group_read_dealerships` called only by Stock's group listing (KAN-121),
-  an import-linter contract that forbids every module of a context but `public`,
-  no shared cross-context transaction: every cross-context call classified, every cross-context
-  write committing its own transaction except number allocation (`platform.public.allocate_number`, ruled by ADR-109,
-  KAN-207); `scripts/` is scanned separately — the migration smoke test's two CI fixtures, which
-  never run against a real database, are the exceptions ruled by ADR, each by name (ADR-140, KAN-342), every POST an `IdempotentRoute` declaring an optional
-  `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven
-  unauthenticated front-door POSTs (KAN-196); a new one is Anto's ruling by name —
-  every route of a sales, inventory, valuation or configurator router behind the `sales`
-  entitlement gate and no other route (KAN-198), every production token minted with an explicit
-  entitlement set (KAN-198),
-  no standard-text write behind the plain `require_write` gate instead of the delegation-aware one,
-  and that gate only on a route whose path carries `{category}` (KAN-199),
-  every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
-  refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
-  (KAN-243), the create services' system path (`actor_id=None` + `system_reason`) taken from
-  `scripts/` only, never from `app/` (KAN-345), the customer-group and merged-customer predicates used only by reconciliation (KAN-259, KAN-581),
-  the seed sources shipped migrations read frozen by digest and no migration importing a bounded
-  context (KAN-517), and a
-  connected account never read by the identity and session layer, its model named only by its
-  service (KAN-201, FR-AU-23), and platform staff's recovery never naming a password write or
-  read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10), and every PATCH/PUT/DELETE and every POST on an existing entity taking If-Match unless listed
-  with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428), and
-  every mapped model registered by `app/model_registry.py` alone (KAN-187), and no tracked file
-  carrying a real provider account value or a specification example, the guard naming them by hash only (KAN-491, KAN-682),
-  and the audit log's one rewrite, `redact_audit_values`, called only by its allow-listed
-  modules and no raw UPDATE/DELETE of `audit_event` (ADR-121, KAN-564), and no MCP SDK import, server or tool declaration, manifest or dependency at all (KAN-490, identAPI §3), and every query parameter camelCase but the frozen list of legacy snake_case names, each
-  tied to its endpoint (KAN-477), and no context importing a context at or above its layer outside the
-  shrink-only debt list (ADR-131, KAN-628).
-- **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
-  Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
-  as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.
-  No other environment-based skip on a gating test.
-- **The identity front door in tests (KAN-196):** a user created through the API is `invited`
-  and holds no password; `tests/identity_support.py` reads the invitation out of the `mailbox`
-  fixture (the recording platform sender), accepts it and signs in with `POST /v1/auth/login`
-  — `PasswordLogin` for a user signed in more than once. A token from `create_access_token`
-  without `session_id` bypasses the session guard; one with a `sid` must name a live row. The
-  suite never asks Have I Been Pwned (autouse fixture); a test about the breach check turns
+- **Postgres is the lane of record** (ADR-011); SQLite hides constraint and isolation bugs, so
+  "tested" means Postgres. `pytest` uses this checkout's own `dms_test_<checkout>` (each `-n`
+  worker its own copy): take the database from the `engine` fixture or `DMS_TEST_DATABASE_URL`,
+  never a fixed name, port or path.
+- Every test starts with empty tables. **Close every session a test opens** — one left open
+  holding a lock fails the test or blocks the next. A test-only model sits on `DemoBase`
+  (`tests/demo_models.py`), never `app.db.Base`. Harness detail: `tests-harness.md`.
+- **Signing in:** a user created through the API is `invited` and holds no password;
+  `tests/identity_support.py` reads the invitation out of the `mailbox` fixture (the recording
+  platform sender), accepts it and signs in with `POST /v1/auth/login` — `PasswordLogin` for a
+  user signed in more than once. A token from `create_access_token` without `session_id`
+  bypasses the session guard; one with a `sid` must name a live row.
+- The suite never asks Have I Been Pwned (autouse fixture); a test about the breach check turns
   `hibp_enabled` on and patches `password_policy.hibp_breach_count`.
+- **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
+  skip or loosen one to make a change pass; if one blocks you, the change or the ruling is
+  wrong — raise it (`tests-architecture.md`).
+- **A gating test never skips silently.** The one accepted skip is a Postgres-only test on the
+  SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`, or a reasoned marker
+  of `tests/postgres_only.py`) — CI's gating lane always runs Postgres. No other
+  environment-based skip on a gating test.
 - **Know what your fixture sets.** A fixture that quietly satisfies a precondition (a
   VAT-registered supplier, a primary contact already present) means the test never exercises
   the case it is named after.
-- A new behaviour gets a test that fails without the change. For a new CI guard, prove it goes
-  red before it goes green.
+- A new behaviour gets a test that fails without the change; a new CI guard is proved red before
+  it goes green.
 - Never change a test to match broken behaviour. A test that disagrees with the spec is never
   edited to pass: a business point (what a user sees, money, legal, a ruling of Anto's) is a
   question for Anto; a technical one is decided and recorded as an ADR (ADR-126).
-- Frontend: render tests opt into jsdom per file (`// @vitest-environment jsdom`) and are named
-  `*.render.test.tsx` — not always beside the component: find them with
-  `git grep -l <Component> -- '*.render.test.tsx'`. In `frontend/apps/dms` a jsdom test never
-  reaches the network: its default `fetch` is a stand-in that never settles, and the test fails
-  naming the request unless it calls `installFakeBackend` (`src/test/fakeBackend.ts`; KAN-172).
-  Mantine is mounted with `testTheme` (`src/test/testTheme.ts`: reduced motion respected, so a
-  transition starts no animation frame or timer that could land after the file's jsdom is gone),
-  through `renderWithProviders` or a test's own `<MantineProvider theme={testTheme}>`
-  (`render-tests-mount-mantine-with-test-theme.test.ts`, which parses each test with the TypeScript
-  compiler and refuses any other use of the provider — `wrapper:`, `createElement`, an aliased
-  import's tag without the theme — and a `testTheme` not imported from `src/test/testTheme`; KAN-543); the shared teardown drains React's queued
-  Scheduler work before jsdom goes (`src/test/setup.ts`; KAN-526). The ui-kit's suite does the
-  same (KAN-533): `packages/ui-kit/src/test/testTheme.ts`, its setup's `matchMedia` reporting
-  reduced motion, and `renderTestsMountMantineWithTestTheme.test.ts`, the same parser and rules (KAN-543); it has no
-  teardown drain.
-  i18n keys are checked by `localeKeyParity.test.ts`.
+- Frontend tests (jsdom, the fake backend, the test theme): `tests-frontend.md`.
