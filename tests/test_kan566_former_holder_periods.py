@@ -241,3 +241,27 @@ def test_an_empty_own_row_inside_the_period_does_not_cut_the_history_short(db_se
 
     rows = _rows_of(db_session, clara.id, VehiclePartyRole.KEEPER)
     assert [(row.effective_from, row.effective_to) for row in rows] == [(signed_at, ended_at), (planned, planned)]
+
+
+def test_an_empty_own_row_where_another_own_row_ends_is_extended_over_the_rest(db_session):
+    """Found by the re-review of 7c4b7c8: an own row ending at T and an empty
+    one starting at T. A new row cannot start at T (the unique key), so the
+    empty row itself is extended to the purchase."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW566008")
+    clara = _customer(db_session, group_id, "Clara")
+    signed_at, ended_at = _moments()
+    early, t = signed_at - dt.timedelta(days=50), signed_at + dt.timedelta(days=3)
+    _history_row(db_session, vehicle.id, clara, group_id, VehiclePartyRole.OWNER, start=early, end=t)
+    _history_row(db_session, vehicle.id, clara, group_id, VehiclePartyRole.OWNER, start=t, end=t)
+    db_session.commit()
+
+    record_former_holder_on_purchase(
+        db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
+        held_from=signed_at, ended_at=ended_at, actor_id=None,
+    )
+    db_session.commit()
+
+    rows = _rows_of(db_session, clara.id, VehiclePartyRole.OWNER)
+    assert [(row.effective_from, row.effective_to) for row in rows] == [(early, t), (t, ended_at)]

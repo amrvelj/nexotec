@@ -135,17 +135,23 @@ def record_former_holder_on_purchase(
                 db, party=same_start, ended_at=next_start or ended_at, actor_id=actor_id, group_id=group_id
             )
         for gap_from, gap_to in _uncovered(db, mine=mine, held_from=held_from, ended_at=ended_at):
-            taken = db.scalar(
-                select(VehicleParty.id).where(
+            taken = db.scalars(
+                select(VehicleParty)
+                .where(
                     VehicleParty.vehicle_id == vehicle_id,
                     VehicleParty.customer_id == customer_id,
                     VehicleParty.role == role,
                     VehicleParty.effective_from == gap_from,
                 )
-            )
+                .with_for_update()
+            ).first()
             if taken is not None:
-                # Only a merge's kept copy can start there (an own row would
-                # cover the stretch): it stands for it.
+                # uq_vehicle_party_scope allows no second row with this start.
+                # An own row starting there is an empty one (a plan closed at
+                # its own start, KAN-664): it is extended over the stretch, as
+                # case 1 extends its row. A merge's kept copy stands for it.
+                if taken.merged_into_customer_id is None and taken.merged_into_vehicle_id is None:
+                    _extend_to_purchase(db, party=taken, ended_at=gap_to, actor_id=actor_id, group_id=group_id)
                 continue
             written.append(
                 _write_history_row(
