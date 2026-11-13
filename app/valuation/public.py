@@ -28,6 +28,15 @@ valuation.
 `referenced_configuration_ids` (KAN-270) is vehicle's read for its daily purge of
 configurations no host ever took: which of the ids it names a valuation
 holds. A SELECT only.
+
+No mapped class leaves through this door (KAN-123 step 2, ADR-162): the reads
+answer a frozen `ValuationSummary` (`services/valuation_refs.py`), and what
+Sales' and Stock's nightly reconciliation check against valuation's table —
+an orphan reference, another dealership's valuation, an unstamped one, a
+copied figure that differs — is built here by `valuation_reference_check`,
+`valuation_exists`, `valuation_not_used` and `valuation_final_offer_differs`
+(`services/reconciliation_targets.py`), confined to the reconciliation
+modules. `ValuationSource` is an enum, not a row.
 """
 
 import datetime as dt
@@ -35,19 +44,28 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.valuation.models.valuation import Valuation, ValuationSource
+from app.valuation.models.valuation import ValuationSource
 from app.valuation.services.configuration_reference import referenced_configuration_ids
 from app.valuation.services.contract_carry import record_pending as _record_pending
 from app.valuation.services.contract_carry import record_released as _record_released
 from app.valuation.services.contract_carry import record_signed as _record_signed
+from app.valuation.services.reconciliation_targets import (
+    valuation_exists,
+    valuation_final_offer_differs,
+    valuation_not_used,
+    valuation_reference_check,
+)
 from app.valuation.services.valuation import consume_for_contract as _consume_for_contract
-from app.valuation.services.valuation import (
-    derive_status,
+from app.valuation.services.valuation import derive_status
+from app.valuation.services.valuation import get_valuation_or_404 as _get_valuation_row_or_404
+from app.valuation.services.valuation import revert_use as _revert_use
+from app.valuation.services.valuation_refs import (
+    ValuationSummary,
     get_valuation_or_404,
     list_valid_valuations_for_vehicle,
     list_valid_valuations_for_vin,
+    summarise,
 )
-from app.valuation.services.valuation import revert_use as _revert_use
 
 
 def consume_valuation_for_contract(
@@ -64,7 +82,7 @@ def consume_valuation_for_contract(
     for a valuation past its validity. Records `contract_id` as carrying it
     (pending, KAN-631) in the same commit. Own commit."""
 
-    valuation = get_valuation_or_404(db, tenant_id, valuation_id)
+    valuation = _get_valuation_row_or_404(db, tenant_id, valuation_id)
     return _consume_for_contract(
         db, valuation=valuation, contract_id=contract_id, contract_label=contract_label, actor_id=actor_id
     )
@@ -122,14 +140,14 @@ def release_contract_carry(
 
 def revert_valuation_use(
     db: Session, *, tenant_id: uuid.UUID, valuation_id: uuid.UUID, actor_id: uuid.UUID | None
-) -> Valuation:
-    valuation = get_valuation_or_404(db, tenant_id, valuation_id)
-    return _revert_use(db, valuation=valuation, actor_id=actor_id)
+) -> ValuationSummary:
+    valuation = _get_valuation_row_or_404(db, tenant_id, valuation_id)
+    return summarise(_revert_use(db, valuation=valuation, actor_id=actor_id))
 
 
 __all__ = [
-    "Valuation",
     "ValuationSource",
+    "ValuationSummary",
     "consume_valuation_for_contract",
     "derive_status",
     "get_valuation_or_404",
@@ -140,4 +158,8 @@ __all__ = [
     "referenced_configuration_ids",
     "release_contract_carry",
     "revert_valuation_use",
+    "valuation_exists",
+    "valuation_final_offer_differs",
+    "valuation_not_used",
+    "valuation_reference_check",
 ]

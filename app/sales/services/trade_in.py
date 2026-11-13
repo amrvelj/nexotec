@@ -32,7 +32,7 @@ from app.sales.models.contract import SalesContract
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
 from app.sales.services.valuation_carry import SessionFactory, commit_carrying
-from app.valuation.public import Valuation, list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
+from app.valuation.public import ValuationSummary, list_valid_valuations_for_vehicle, list_valid_valuations_for_vin
 from app.vehicle.public import match_vehicle
 
 
@@ -114,7 +114,7 @@ def set_trade_in(
     # valuations have no VIN still falls through to the VIN lookup, so a
     # valuation carrying the car's VIN but linking no record (KAN-449 A) is
     # found.
-    def _offerable(valuations: list[Valuation]) -> list[Valuation]:
+    def _offerable(valuations: list[ValuationSummary]) -> list[ValuationSummary]:
         return [valuation for valuation in valuations if is_valid_vin(_normalised(valuation.vehicle_vin))]
 
     existing = (
@@ -204,7 +204,7 @@ def _commit(
         db.commit()
 
 
-def _attach(db: Session, deal: PricedDeal, valuation) -> None:
+def _attach(db: Session, deal: PricedDeal, valuation: ValuationSummary) -> None:
     deal.trade_in_valuation_id = valuation.id
     if valuation.configuration_id is not None:
         if deal.trade_in_configuration_id != valuation.configuration_id:
@@ -254,7 +254,7 @@ def _normalised(vin: str | None) -> str | None:
     return normalise_vin(vin) if vin else None
 
 
-def _valuation_vehicle_label(valuation) -> str | None:
+def _valuation_vehicle_label(valuation: ValuationSummary) -> str | None:
     """«Make Model Trim» as the valuation recorded them, or None."""
 
     parts = [part.strip() for part in (valuation.vehicle_make, valuation.vehicle_model, valuation.vehicle_trim) if part]

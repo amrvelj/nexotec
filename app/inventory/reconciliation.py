@@ -26,7 +26,7 @@ from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemPublishing
 from app.platform.public import Dealership, Location, actor_reference_checks
 from app.sales.public import SalesContract
-from app.valuation.public import Valuation
+from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "inventory"
@@ -251,13 +251,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     # KAN-115 — the pointer a trade-in's pipeline item copies from its
     # valuation when Stock creates it (KAN-101, services/pipeline.py).
-    ReferenceCheck(
+    valuation_reference_check(
         label="stock_item.valuation_ref_id -> valuation.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.valuation_ref_id,
-        target_model=Valuation,
-        target_id_column=Valuation.id,
         nullable=True,  # set only on a trade-in item whose contract carried a valuation
     ),
     # KAN-632 — who traded the car in, kept from Sales' confirmation for the
@@ -277,12 +275,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         label="stock_item.valuation_ref_amount differs from valuation.final_offer",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: select(Valuation.id)
-        .where(
-            Valuation.id == StockItem.valuation_ref_id,
-            Valuation.final_offer.is_distinct_from(StockItem.valuation_ref_amount),
-        )
-        .exists(),
+        where=lambda: valuation_final_offer_differs(StockItem.valuation_ref_id, amount=StockItem.valuation_ref_amount),
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

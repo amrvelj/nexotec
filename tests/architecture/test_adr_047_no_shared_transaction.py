@@ -320,6 +320,13 @@ _READS = {
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
     "app.valuation.public.list_valid_valuations_for_vin",
+    # KAN-123 step 2: what Sales' and Stock's nightly reconciliation checks against
+    # valuation's table, built by valuation so its mapped class never leaves it —
+    # builds a ReferenceCheck or an EXISTS; reads nothing itself.
+    "app.valuation.public.valuation_exists",
+    "app.valuation.public.valuation_final_offer_differs",
+    "app.valuation.public.valuation_not_used",
+    "app.valuation.public.valuation_reference_check",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
     # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.

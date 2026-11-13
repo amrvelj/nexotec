@@ -69,7 +69,11 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.services.ownership import offer_is_open
-from app.valuation.public import Valuation
+from app.valuation.public import (
+    valuation_exists,
+    valuation_not_used,
+    valuation_reference_check,
+)
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "sales"
@@ -109,6 +113,24 @@ def _in_another_dealership(
         return condition if only_where is None else only_where() & condition
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _valuation_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
+    """KAN-259 — `_in_another_dealership` for the trade-in valuation, built from
+    valuation's own EXISTS builders (KAN-123 step 2: `valuation.public` hands out
+    no mapped class). A valuation that does not exist at all is the id-only
+    ReferenceCheck's finding, not this one's."""
+
+    def where() -> ColumnElement[bool]:
+        column = deal.trade_in_valuation_id
+        return valuation_exists(column) & ~valuation_exists(column, tenant_id=deal.tenant_id)
+
+    return StateCheck(
+        label=f"{table}.trade_in_valuation_id names another dealership's valuation",
+        source_model=deal,
+        source_row_id_column=deal.id,
+        where=where,
+    )
 
 
 def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
@@ -277,10 +299,7 @@ def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
             f"{table}.trade_in_configuration_id names another dealership's configuration",
             deal, deal.trade_in_configuration_id, VehicleConfiguration.id, VehicleConfiguration.tenant_id,
         ),
-        _in_another_dealership(
-            f"{table}.trade_in_valuation_id names another dealership's valuation",
-            deal, deal.trade_in_valuation_id, Valuation.id, Valuation.tenant_id,
-        ),
+        _valuation_in_another_dealership(deal, table),
     ]
 
 
@@ -416,13 +435,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    valuation_reference_check(
         label="sales_offer.trade_in_valuation_id -> valuation.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.trade_in_valuation_id,
-        target_model=Valuation,
-        target_id_column=Valuation.id,
         nullable=True,
     ),
     # --- sales_contract (KAN-145) ---
@@ -481,13 +498,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    valuation_reference_check(
         label="sales_contract.trade_in_valuation_id -> valuation.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.trade_in_valuation_id,
-        target_model=Valuation,
-        target_id_column=Valuation.id,
         nullable=True,
     ),
     ReferenceCheck(
@@ -683,13 +698,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         where=lambda: SalesContract.signed_at.is_not(None)
-        & select(Valuation.id)
-        .where(
-            Valuation.tenant_id == SalesContract.tenant_id,
-            Valuation.id == SalesContract.trade_in_valuation_id,
-            Valuation.used_at.is_(None),
-        )
-        .exists(),
+        & valuation_not_used(SalesContract.trade_in_valuation_id, tenant_id=SalesContract.tenant_id),
     ),
     # --- each reference in the deal's own dealership or group (KAN-259) ---
     *_same_dealership_checks(SalesOffer),
