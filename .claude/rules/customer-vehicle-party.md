@@ -119,8 +119,9 @@ customer.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10
 - **A merge re-points the earlier merges into its duplicate** (Anto, KAN-383): merging D into T
   sets every customer merged into D, and the copies naming D, to T in the same transaction, after
   holding D's row — "merged into" always names a live customer. The copies are only tried: one
-  another writer holds refuses the merge. No event is published. Chains written before are not
-  repaired.
+  another writer holds refuses the merge. No event is published. Each re-pointed copy is audited on
+  its customer (`vehicle_party_update`, reason `customer_merged`) and listed by the merge's audit
+  (`vehiclePartyCopiesRepointedIds`; Anto, KAN-392 B). Chains written before are not repaired.
 - A tag PATCH on the survivor racing a merge's moved tag is 409 `customer_tag_exists`, never a 500.
 - **A vehicle merge moves party rows in a consumer** (`vehicle-mdm.md`).
 

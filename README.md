@@ -325,13 +325,13 @@ ships it (moved here from the rule files by KAN-615; the script's docstring is t
   (ADR-145); run it once the old worker has stopped.
 - `scripts/backfill_sales_stock_item_labels.py` — the stock number on deals written before it.
 - `scripts/backfill_sales_deal_projection.py` — re-projects deal rows (live entity, stock number).
-- `scripts/continue_offer_number_ranges.py` — shows each Betrieb's current offer number on the
-  Number ranges screen before its next offer (ADR-109).
 - `scripts/backfill_manual_configuration_reservations.py` — reserves a signed manual
   configuration's pipeline item and records cancellations (re-runnable).
 - `scripts/backfill_customer_stock_item_booking.py` — re-seeds the customer context's stock-item
   bookings from the outbox.
 - `scripts/backfill_valuation_contract_carry.py` — the valuation's carry rows for older contracts.
+- `scripts/backfill_trade_in_seller_on_stock_items.py` — the trade-in seller on stock items created
+  before KAN-632, so their events carry it (KAN-674; then the worker's fallback can go).
 
 ## Conventions for entities built on this foundation (issues #2+)
 

@@ -57,6 +57,9 @@ valuation is valuation-trade-in.md. Last verified against main@73baf3f (2026-10-
   provider worded them (ADR-044). Nothing asks the provider on opening a valuation. **Not
   verified against a real answer:** whether `vehicleExchangePrice` already includes the km
   correction (mock and fake transport only).
+- **Provider quotes: no maximum age; unused ones go after ten years** (Anto, KAN-599 A): a quote a
+  valuation references stays with it; an unreferenced one is deleted 10 years after `fetchedAt` by the
+  daily `valuation.provider_quotes.purge_unused`, one audit row each (`provider_quote_retention.py`).
 - **«Als verwendet markieren»** (`mark_used_by_hand`) repairs a missed stamp: only when a signed
   contract of the same dealership (cancelled included) carries the valuation, **whatever its
   status, expired included**; else `no_signed_contract`. `mark_used` is the one place that sets

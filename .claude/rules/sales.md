@@ -127,6 +127,5 @@ the pricing bounds and the discount cap: `sales-pricing.md`. **There is no `vatT
 - Offer and contract numbers are working business keys; the gapless legal number is the
   invoice's (ADR-032, `finance.md`). The contract's comes from Sales' own counter inside the
   caller's transaction. **The offer's comes from the Betrieb's `offer` range** (ADR-109,
-  `platform.public.allocate_number`, inside the offer's transaction), continuing Sales' old
-  counter: until KAN-540 retires it that counter is locked first, passed as `continue_after` and
-  kept in step (lock order: Sales' counter → Platform's range).
+  `platform.public.allocate_number`, inside the offer's transaction) alone: Sales' old `offer`
+  counter is retired (KAN-540, ADR-159), so a yearly offer reset restarts at its start value.

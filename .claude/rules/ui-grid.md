@@ -30,7 +30,7 @@ the grids are listed by file. Last verified against main@73baf3f (2026-10-25). -
 
 # Data grids
 
-- **Every grid** (UI/UX Core Principles): every column sortable server-side; column order,
+- **Every grid** (UI/UX Core Principles): every column sortable server-side (the short administration lists sort in the browser: kit `sortRowsInBrowser`, sort in the URL via `useSortInUrl`; ADR-158, KAN-516); column order,
   visibility, width and pinning configurable and persisted per user; a three-dots row menu on every
   row; cursor-based lazy loading; maximum density; Shift + wheel scrolls horizontally. The live
   catalogue grid sorts only on the fields the identAPI sorts; a stored sort on another field is
