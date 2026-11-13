@@ -148,8 +148,6 @@ def test_a_trade_ins_configuration_held_by_another_item_is_copied_never_reused(d
 
 
 def test_the_index_refuses_a_second_item_with_the_configuration(db_session, engine):
-    if engine.dialect.name != "postgresql":
-        pytest.skip("the partial index is the Postgres lane's; SQLite builds it too but the case is about Postgres")
     dealership = _dealership(db_session)
     config = _build_configuration(db_session, dealership.id)
     for number in ("S-513101", "S-513102"):
@@ -159,6 +157,9 @@ def test_the_index_refuses_a_second_item_with_the_configuration(db_session, engi
                 lifecycle_status=LifecycleStatus.PIPELINE, configuration_id=config.id,
             )
         )
-    with pytest.raises(IntegrityError, match="uq_stock_item_tenant_id_configuration_id"):
+    # Postgres names the index (the services map an IntegrityError to the 409
+    # by that name); SQLite, the fast lane, names the columns.
+    named = "uq_stock_item_tenant_id_configuration_id" if engine.dialect.name == "postgresql" else "configuration_id"
+    with pytest.raises(IntegrityError, match=named):
         db_session.commit()
     db_session.rollback()
