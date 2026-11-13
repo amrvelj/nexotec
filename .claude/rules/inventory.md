@@ -9,7 +9,7 @@ paths:
   - "tests/test_kan513_one_configuration_one_stock_item.py"
   - "tests/stock_support.py"
 ---
-<!-- Maintainer note. PRD-Stock; ADR-045/049/052/054/055/057/062/070/074/103/116/117. KAN-615
+<!-- Maintainer note. PRD-Stock; ADR-045/049/052/054/055/057/062/070/074/087/103/116/117. KAN-615
 (2026-11-13) cut it to the invariants: purchase and storno are inventory-purchase.md, reservations
 inventory-reservation.md, VINs inventory-vin-correction.md, screens inventory-screens.md. Last
 verified against main@73baf3f (2026-10-25). -->
@@ -29,7 +29,7 @@ verified against main@73baf3f (2026-10-25). -->
 - **ADR-116 — a create never puts a car on stock:** every create lands as `pipeline`, a VIN sent
   with it included — stored, checked, and **nothing written to vehicle-mdm** (a car not yet bought
   has no record). Tests needing a car in stock without a purchase use `tests/stock_support.py`.
-- **Every stock vehicle a user adds enters through the configurator** (Anto, KAN-463): the create
+- **Every stock vehicle a user adds enters through the configurator** (Anto, KAN-463; FR-C-13): the create
   endpoint requires `configurationId` (the FR-I-02/02b consumers build their own create);
   `src/architecture/stock-intake-is-the-configurator.test.ts` lets only the configurator intake name
   the create path. An older item without one is repaired with «Konfiguration zuordnen» (no list
@@ -48,7 +48,7 @@ verified against main@73baf3f (2026-10-25). -->
 ## Two axes, two views
 - **ADR-054 — lifecycle and reservation are two independent axes**: `lifecycleStatus` (`pipeline` |
   `in_stock` | `storno_pending`) and `reservationState` (`none` | `reserved`). `sold` is not a value
-  — an invoiced car has left stock (`left_stock_at`). Nothing sets it today:
+  — an invoiced car has left stock (`left_stock_at`, FR-I-12). Nothing sets it today:
   `invoicing_gate.py::apply_finance_invoice_issued` has no caller until Finance issues invoices
   (WP-9), so `request_invoice` leaves the car in stock. `storno_pending` is set by nothing.
 - **ADR-055 — group-readable stock is its own enumerated projection** (`StockItemGroupRead`), never

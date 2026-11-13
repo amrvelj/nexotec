@@ -6,7 +6,7 @@ paths:
   - "tests/architecture/test_adr_047_no_shared_transaction.py"
   - "alembic/versions/sales/**"
 ---
-<!-- Maintainer note. PRD-Sales v2 (S-D10); ADR-041/046/047/049/050/051/052/057/063/065/083/098/109.
+<!-- Maintainer note. PRD-Sales v2 (S-D10); ADR-041/046/047/049/050/051/052/057/063/065/083/086/088/098/109.
 KAN-615 (2026-11-13) cut it to the invariants: screens in sales-screens.md, reconciliation in
 sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
 
@@ -73,7 +73,7 @@ One gross price, the VAT line on the printed document only, ADR-098, the fiktive
 the pricing bounds and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
 
 ## Contract rules
-- **Purchase gate at invoicing, not at confirmation** (ADR-052, K-12): `request_invoice` refuses a
+- **Purchase gate at invoicing, not at confirmation** (ADR-052, K-12, FR-I-12): `request_invoice` refuses a
   car the replica shows as not bought. A contract may be confirmed — and the car reserved — first.
   Confirming a manual configuration makes a pipeline item, created reserved by Stock and released
   on `sales.contract.cancelled`; Sales records it on the contract from `inventory.stock_item.added`
@@ -113,7 +113,7 @@ the pricing bounds and the discount cap: `sales-pricing.md`. **There is no `vatT
   generation before anything is written. Sales holds no text column (ADR-051,
   `platform-documents.md`).
 - **ADR-041** — an offer, and a pending contract through the same function, freeze a
-  `vehicle_snapshot`. **Path B** is the configurator, `build` only: `configurationId` prefills the
+  `vehicle_snapshot`. **Path B** (FR-C-12) is the configurator, `build` only: `configurationId` prefills the
   base price, freezes the spec block and turns its price lines into factory-option lines,
   re-frozen on a new configuration version while editable; it travels to the contract and onto the
   pipeline item. **A copied offer gets a configuration of its own** (FR-C-11, copied on its own

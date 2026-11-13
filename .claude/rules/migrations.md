@@ -10,7 +10,7 @@ paths:
   - "tests/test_migrated_*.py"
   - "scripts/check_concurrent_alembic_upgrade.py"
 ---
-<!-- Maintainer note. ADR-015 (PR-3 chains), ADR-011, ADR-021, ADR-133, ADR-134, rule 2. KAN-615
+<!-- Maintainer note. ADR-015 (PR-3 chains), ADR-011, ADR-021, ADR-088, ADR-133, ADR-134, rule 2. KAN-615
 (2026-11-13) cut it to the invariants; data-migration scripts are migrations-scripts.md. Last
 verified against main@73baf3f (2026-10-25). -->
 

@@ -4,7 +4,7 @@ paths:
   - "frontend/**/*.test.ts"
   - "frontend/**/*.test.tsx"
 ---
-<!-- Maintainer note. ADR-011, ADR-126, ADR-130 and the WP audits' failure modes. Loads for every
+<!-- Maintainer note. ADR-011, ADR-086, ADR-089, ADR-126, ADR-130 and the WP audits' failure modes. Loads for every
 test, so it holds the invariants only: tests-harness.md, tests-architecture.md and
 tests-frontend.md carry the detail (KAN-615). Last verified against main@73baf3f (2026-10-25). -->
 

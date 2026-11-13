@@ -58,10 +58,10 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   primary stays — a type change never silently demotes another row; a group with none elects it. A
   row the same PATCH closes or flags `doNotUse` never takes the flag.
 - A create elects its row when the group has no **usable** primary; an existing usable primary is
-  never demoted by a create that does not ask. **Reopening** a row settles its group the same way —
-  the existing usable primary keeps the flag unless the PATCH says `isPrimary: true` (Anto,
-  KAN-349). Usability is judged after the PATCH: `isPrimary: true` on a closed or `doNotUse` row
-  never unsets the group's usable primary.
+  never demoted by a create that does not ask. **Reopening** a row (`validTo: null`, `doNotUse:
+  false`) settles its group the same way — the existing usable primary keeps the flag unless the
+  PATCH says `isPrimary: true` (Anto, KAN-349). Usability is judged after the PATCH:
+  `isPrimary: true` on a closed or `doNotUse` row never unsets the group's usable primary.
 - **A customer keeps at least one usable phone or email** (FR-03): closing, flagging or deleting
   the last usable one is refused; a row already unusable is never refused.
 - The six contact projections (`phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
