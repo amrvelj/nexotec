@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, Badge, Button, Card, Group, Select, Stack, Text, TextInput, Title, Tooltip } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleAlert, Check, Languages, Pencil, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ColumnConfigPanel,
   DataGrid,
   FormDialog,
-  InlineEditField,
   defaultColumnLayout,
   semantic,
   slate,
@@ -26,8 +25,7 @@ import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSortInUrl } from '../hooks/useSortInUrl'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
-import { apiRefusalText, isStaleVersion, refusedField } from '../utils/apiRefusal'
-import { useInlineEditRefusal } from '../hooks/useInlineEditRefusal'
+import { apiRefusalText, refusedField } from '../utils/apiRefusal'
 import type { ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
 import { LANGUAGE_ENDONYMS, LANGUAGE_ORDER } from '../i18n/languageEndonyms'
@@ -40,7 +38,6 @@ import {
   deriveReferenceView,
   referenceRowLanguageErrors,
   referenceRowMatchesQuery,
-  type LanguageField,
 } from '../utils/referenceData'
 
 // KAN-59: the endpoint caps a page at 100 (Settings.pagination_max_limit) —
@@ -54,7 +51,6 @@ const GRID_KEY = 'platform.referenceData.values'
 
 export function ReferenceDataPage() {
   const { t, i18n } = useTranslation()
-  const { describeError, reloadLabel } = useInlineEditRefusal()
   // KAN-471, KAN-514: the reference lists are the PRD's "Reference lists"
   // row (Platform Administration › Reference data; split from the canonical
   // taxonomy's row) — any role reads, platform staff alone write. Everyone else reads
@@ -118,19 +114,6 @@ export function ReferenceDataPage() {
     [rows, debouncedQuery],
   )
 
-  const { mutateAsync: patchLabelAsync } = useMutation({
-    mutationFn: (args: { row: ReferenceValueRead; field: LanguageField; value: string }) =>
-      api.patch<ReferenceValueRead>(
-        `/reference-data/${list}/${args.row.valueCode}`,
-        { [args.field]: args.value },
-        { 'If-Match': String(args.row.version) },
-      ),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<ReferenceValueRead[]>(queryKey, (prev) =>
-        prev ? prev.map((it) => (it.valueCode === updated.valueCode ? updated : it)) : prev,
-      )
-    },
-  })
 
   // `null` creates a value; a value edits its labels; `undefined` is closed.
   const [dialogValue, setDialogValue] = useState<ReferenceValueRead | null | undefined>(undefined)
@@ -153,21 +136,10 @@ export function ReferenceDataPage() {
           cell: ({ row }) => {
             const value = row.original
             const empty = referenceRowLanguageErrors(value).has(field)
-            return canWrite ? (
-              <InlineEditField
-                value={value[field]}
-                isEmpty={empty}
-                emptyLabel={t('referenceData.required')}
-                describeError={describeError}
-                isConflict={isStaleVersion}
-                onReload={() => void refetch()}
-                reloadLabel={reloadLabel}
-                onSave={async (raw) => {
-                  await patchLabelAsync({ row: value, field, value: raw })
-                }}
-              />
-            ) : (
-              // The kit's InlineEditField display, without its edit affordance.
+            // KAN-516: a grid row has a fixed height, so a cell edits nothing — an inline
+            // refusal and its «Neu laden» would be clipped. Labels are edited in the row
+            // menu's «Bezeichnungen bearbeiten» dialog (staff), which shows the refusal.
+            return (
               <Text span size="sm" fs={empty ? 'italic' : undefined} c={empty ? slate[3] : undefined}>
                 {empty ? t('referenceData.required') : value[field]}
               </Text>
@@ -219,7 +191,7 @@ export function ReferenceDataPage() {
         meta: { align: 'right', defaultVisible: false, sortField: 'updatedAt', sortValue: (value) => value.updatedAt },
       },
     ],
-    [t, canWrite, describeError, reloadLabel, refetch, patchLabelAsync, missingTip, locale],
+    [t, missingTip, locale],
   )
   const columnRegistry = useMemo(() => columnRegistryOf(columns), [columns])
   const columnLayout = useMemo(() => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry), [gridPrefs.columnLayout, columnRegistry])

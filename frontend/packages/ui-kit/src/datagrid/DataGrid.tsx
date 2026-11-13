@@ -326,6 +326,9 @@ export function DataGrid<T>({
   };
   const onGridKeyDown = (event: React.KeyboardEvent) => {
     if (!scrollRef.current) return;
+    // Home/End inside a field in a cell (an inline edit) move its caret, never the grid.
+    const target = event.target as HTMLElement;
+    if (target.closest("input, textarea, select, [contenteditable='true']")) return;
     if (event.key === "Home") {
       event.preventDefault();
       scrollRef.current.scrollLeft = 0;

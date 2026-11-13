@@ -26,7 +26,7 @@ const base = {
   firstRegistrationDate: null, version: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
 }
 
-const session = (entitlements: string[]): FakeRoute => ({
+const session = (entitlements: string[], writableCapabilities: string[]): FakeRoute => ({
   method: 'GET',
   match: /\/auth\/me$/,
   handler: () => ({
@@ -34,12 +34,17 @@ const session = (entitlements: string[]): FakeRoute => ({
     activeDealership: { id: 'd-1', legalName: 'Garage Nord AG' },
     memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }],
     entitlements,
+    writableCapabilities,
   }),
 })
 
-function install(stockItem: { id: string; stockNumber: string | null } | null, entitlements = ['sales']) {
+function install(
+  stockItem: { id: string; stockNumber: string | null } | null,
+  entitlements = ['sales'],
+  writableCapabilities = ['vehicle_mdm', 'stock_vin_correction'],
+) {
   return installFakeBackend([
-    session(entitlements),
+    session(entitlements, writableCapabilities),
     { match: new RegExp(`^/vehicle-mdm/${ID}$`), handler: () => ({ ...base, stockItem }) },
     { match: new RegExp(`^/vehicle-mdm/${ID}/plates$`), handler: () => [] },
     { match: new RegExp(`^/vehicle-mdm/${ID}/party-roles`), handler: () => [] },
@@ -98,6 +103,15 @@ describe('Vehicle 360 VIN of a car in the Betrieb’s stock (KAN-667)', () => {
   it('offers no link without the Stock module, the VIN still read-only', async () => {
     await i18n.changeLanguage('de')
     install({ id: STOCK_ID, stockNumber: 'L-000042' }, [])
+    render()
+
+    expect(await screen.findByTestId('vin-read-only')).toHaveTextContent(base.vin)
+    expect(screen.queryByRole('button', { name: /Lagerfahrzeug/ })).toBeNull()
+  })
+
+  it('offers no link to a user who may not correct a VIN (dealer manager only), the VIN still read-only', async () => {
+    await i18n.changeLanguage('de')
+    install({ id: STOCK_ID, stockNumber: 'L-000042' }, ['sales'], ['vehicle_mdm'])
     render()
 
     expect(await screen.findByTestId('vin-read-only')).toHaveTextContent(base.vin)

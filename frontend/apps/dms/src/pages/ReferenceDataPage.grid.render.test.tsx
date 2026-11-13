@@ -104,7 +104,7 @@ describe('ReferenceDataPage — the kit grid (KAN-516)', () => {
     expect(rowOf('diesel').style.backgroundColor).toBe('')
   })
 
-  it('offers every stored field in the Columns panel, the bookkeeping ones hidden by default (ADR-060)', async () => {
+  it('offers its stored fields as columns in the Columns panel, the bookkeeping ones hidden by default (ADR-060)', async () => {
     const user = userEvent.setup()
     install(['customers'])
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })

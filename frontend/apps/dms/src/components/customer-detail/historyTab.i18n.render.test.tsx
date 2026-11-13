@@ -295,18 +295,22 @@ describe('HistoryTab — the vehicle-link copies a merge re-pointed (KAN-392)', 
     const COPY = '01a1487e-0000-7000-8000-000000000021'
     const EARLIER = '01a1487e-0000-7000-8000-000000000022'
     const LATER = '01a1487e-0000-7000-8000-000000000023'
+    const CAR = '01a1487e-0000-7000-8000-000000000024'
     renderHistory(
       [
         event({ action: 'merge', after: { vehiclePartyCopiesRepointedIds: [COPY] } }),
+        // The shape customer_merge.py writes for a re-pointed copy (KAN-392).
         event({
           action: 'vehicle_party_update',
           entityType: 'customer',
-          before: { mergedIntoCustomerId: EARLIER },
+          reason: 'customer_merged',
+          before: { vehicleId: CAR, role: 'owner', mergedIntoCustomerId: EARLIER },
           after: { mergedIntoCustomerId: LATER },
         }),
       ],
       {
         [COPY]: 'VW Golf (1975)',
+        [CAR]: 'VW Golf (1975)',
         [EARLIER]: 'Dora Muster (K-000021)',
         [LATER]: 'Tina Treu (K-000022)',
       },
@@ -317,7 +321,9 @@ describe('HistoryTab — the vehicle-link copies a merge re-pointed (KAN-392)', 
     ).toBeInTheDocument()
     expect(screen.getByText(/— → VW Golf \(1975\)/)).toBeInTheDocument()
     expect(screen.getByText(/Dora Muster \(K-000021\) → Tina Treu \(K-000022\)/)).toBeInTheDocument()
-    for (const id of [COPY, EARLIER, LATER]) {
+    // The copy's car and role, as every vehicle_party_* entry names them.
+    expect(screen.getByText(/VW Golf \(1975\) → —/)).toBeInTheDocument()
+    for (const id of [COPY, EARLIER, LATER, CAR]) {
       expect(screen.queryByText(new RegExp(id))).not.toBeInTheDocument()
     }
   })

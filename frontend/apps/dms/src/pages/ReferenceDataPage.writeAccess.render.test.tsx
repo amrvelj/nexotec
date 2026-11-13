@@ -102,7 +102,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
     expect(screen.getByText(i18n.t('referenceData.required'))).toBeInTheDocument()
   })
 
-  it('keeps «Neuer Wert» and the inline edits for platform staff', async () => {
+  it('keeps «Neuer Wert» and the row menu for platform staff; a cell edits nothing (KAN-516)', async () => {
     const user = userEvent.setup()
     install(session(['platform_admin'], false, ['reference_lists', 'configurations', 'customers']))
 
@@ -113,6 +113,8 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
 
     await user.click(await screen.findByText('Gazole'))
 
-    expect(await screen.findByDisplayValue('Gazole')).toBeInTheDocument()
+    // A grid row has a fixed height: labels are edited in the row menu's dialog, never in the cell.
+    expect(screen.queryByDisplayValue('Gazole')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Zeilenaktionen' }).length).toBeGreaterThan(0)
   })
 })

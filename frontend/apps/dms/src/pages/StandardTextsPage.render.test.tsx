@@ -274,7 +274,7 @@ describe('StandardTextsPage (KAN-208)', () => {
     )
   })
 
-  it('offers every stored field in the Columns panel, the code and last change hidden by default (ADR-060)', async () => {
+  it('offers its stored fields as columns in the Columns panel, the code and last change hidden by default (ADR-060)', async () => {
     installFakeBackend(routes())
     const user = userEvent.setup()
     renderWithProviders(<StandardTextsPage />, { route: '/administration/texts' })

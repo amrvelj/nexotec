@@ -168,6 +168,9 @@ export function VehicleDetailPage() {
   // KAN-583 (ruling 2A): «Eintrag beenden» — the customer's Disconnect,
   // which ends a current entry now and cancels a planned one.
   const canEndPartyEntry = useCanWrite('customer_vehicle_links')
+  // KAN-667: «VIN korrigieren» is the dealer manager's (KAN-557); a link anyone else could
+  // only follow to a stock car that offers it nothing is not shown (KAN-430).
+  const canCorrectVin = useCanWrite('stock_vin_correction')
   const endPartyEntry = async (party: VehiclePartyAllocationRead) => {
     await api.delete(`/customers/${party.customerId}/vehicles/${party.id}`)
     invalidatePartyRoles()
@@ -339,7 +342,7 @@ export function VehicleDetailPage() {
           // KAN-667: the stock car opens at its «VIN korrigieren» (KAN-557), as
           // the Stock list's row menu opens it (router state, never the URL).
           onCorrectVinInStock={
-            salesEntitled && heldInStock
+            salesEntitled && heldInStock && canCorrectVin
               ? () => navigate(`/stock/${heldInStock.id}`, { state: stockOpenState('correctVin') })
               : undefined
           }
