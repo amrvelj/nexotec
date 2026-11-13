@@ -11,8 +11,10 @@ second fixture.
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -281,11 +283,16 @@ def test_the_opening_context_is_estimated_at_the_measured_characters_per_token(t
     assert _breakdown(result.stdout, "CLAUDE.md + MEMORY.md") == "6,000"
 
 
-def test_no_word_of_a_command_becomes_a_label(tmp_path, monkeypatch):
+def test_no_word_of_a_command_becomes_a_label(tmp_path, monkeypatch, request):
     result = _run_b(tmp_path)
     assert MARKER not in result.stdout + result.stderr
     module = _module()
-    repo = _repo(tmp_path / "labels")
+    # A short base: the tool reads no word longer than 200 characters as a path (PATHLIKE), and
+    # the commands below name {repo} plus ~65 characters. Under `pytest -n auto` tmp_path gains a
+    # `popen-gw<n>/` segment, which on a Mac's /private/var/folders/... crossed that cap.
+    labels = Path(tempfile.mkdtemp(prefix="ur-", dir="/tmp"))
+    request.addfinalizer(lambda: shutil.rmtree(labels, ignore_errors=True))
+    repo = _repo(labels)
     paths = module.Paths(str(repo))
     outside = tmp_path / "outside" / "x.log"
     outside.parent.mkdir()

@@ -272,6 +272,12 @@ def rewrite(workdir: Path, values_from: str, origin: str, main_at: str | None) -
     print(f"branch tips rewritten: {len(moved)}; unchanged: {len(kept)}")
     for ref in moved:
         print(f"  {ref}\t{before_tips[ref][:9]} -> {after_tips.get(ref, 'gone')[:9]}")
+    # Every commit SHA changes, not only those after the first finding: `git fast-export` drops the
+    # signatures of GitHub's signed merge commits, so even the untouched ones are rewritten.
+    commit_map = mirror / "filter-repo" / "commit-map"
+    pairs = [line.split() for line in commit_map.read_text().splitlines()[1:]]
+    renamed = sum(1 for old, new in pairs if old != new)
+    print(f"commits with a new SHA: {renamed} of {len(pairs)}; old -> new in {commit_map} (SHAs only: keep it)")
 
     clean = not findings and not messages and main_tree == main_tree_after
     print(
