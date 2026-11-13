@@ -8,10 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.vehicle.models.vehicle_history import (
-    CustodyEventType,
     OdometerSource,
     VehicleAccessory,
-    VehicleCustodyEvent,
     VehicleOdometerReading,
 )
 
@@ -156,26 +154,3 @@ def remove_accessory(
     db.refresh(accessory)
     return accessory
 
-
-def record_custody_event(
-    db: Session,
-    *,
-    vehicle_id: uuid.UUID,
-    partner_id: uuid.UUID,
-    event_type: CustodyEventType,
-    event_date: dt.datetime,
-    transaction_id: uuid.UUID | None = None,
-    actor_id: uuid.UUID | None = None,
-) -> VehicleCustodyEvent:
-    event = VehicleCustodyEvent(
-        vehicle_id=vehicle_id,
-        partner_id=partner_id,
-        event_type=event_type,
-        event_date=event_date,
-        transaction_id=transaction_id,
-        created_by=actor_id,
-    )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event

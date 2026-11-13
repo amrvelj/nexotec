@@ -125,8 +125,7 @@ weekly. -->
   published as `unlinked`; a copy already closed in the past keeps its `effective_to` and takes
   only the mark, listed by the merge's own audit event. **Not built:** the transfer on
   `finance.invoice.issued` (WP-9, KAN-74).
-- Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
-  legacy `vehicle` table — its callers resolve it first (the allocate routes 404 an unknown one;
+- Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022) — its callers resolve it first (the allocate routes 404 an unknown one;
   since KAN-189 a trade-in on an offer or pending contract allocates no party: the car is linked
   once bought, below) — and the customer in the caller's group (404, never a cross-group link).
 - **Holders are per dealer group** (Anto, KAN-99, 2026-10-04): the VIN is global, each group keeps

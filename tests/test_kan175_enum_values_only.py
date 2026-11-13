@@ -28,7 +28,10 @@ from app.core.enum_type import StoredEnum, enum_check_name
 from app.db import Base
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleStatus
 from tests.enum_test_support import (
+    RETIRED_LEGACY_TABLES,
+    create_retired_legacy_tables,
     drop_enum_checks,
+    drop_retired_legacy_tables,
     enum_checks,
     scope_check_definition,
     widen_connection_scope_check,
@@ -128,6 +131,18 @@ def test_the_database_refuses_a_name_and_an_unknown_string(db_session):
 # --- the real upgrade() / downgrade(), as alembic runs them -----------------------
 
 
+
+@pytest.fixture()
+def retired_legacy_tables(engine):
+    """KAN-79: the legacy tables the frozen vehicle migration rewrites, for a
+    test that runs it without the seeding fixture."""
+
+    with engine.begin() as conn:
+        create_retired_legacy_tables(conn)
+    yield
+    with engine.begin() as conn:
+        drop_retired_legacy_tables(conn)
+
 @pytest.fixture()
 def seeded_in_name_form(engine):
     """One row in every table with an enum column, every enum column in the
@@ -135,15 +150,21 @@ def seeded_in_name_form(engine):
     connection CHECK as step 2 left it."""
 
     frozen = _frozen()
-    tables = [Base.metadata.tables[name] for name in sorted({table for table, _ in frozen})]
+    tables = [
+        Base.metadata.tables[name]
+        for name in sorted({table for table, _ in frozen} - RETIRED_LEGACY_TABLES)  # KAN-79: created empty below
+    ]
     with engine.begin() as conn:
+        create_retired_legacy_tables(conn)
         drop_enum_checks(conn)
         widen_connection_scope_check(conn)
         _rebuild_outbox_index(conn, "status IN ('PENDING', 'pending')")
         _seed_one_row_each(conn, tables)
         for (table, column), pairs in frozen.items():
             _set_raw(conn, table, column, pairs[-1][0])
-    return frozen
+    yield frozen
+    with engine.begin() as conn:
+        drop_retired_legacy_tables(conn)
 
 
 def _rebuild_outbox_index(conn, predicate: str) -> None:
@@ -208,7 +229,9 @@ _FLEET = [
 
 @pytest.mark.parametrize("field", ["vehicleStatus", "catalogueMatchStatus"])
 @pytest.mark.parametrize("direction", ["asc", "desc"])
-def test_a_status_sorted_walk_returns_every_vehicle_once_after_the_sweep(client, db_session, engine, field, direction):
+def test_a_status_sorted_walk_returns_every_vehicle_once_after_the_sweep(
+    client, db_session, engine, field, direction, retired_legacy_tables
+):
     """KAN-183: with names beside values a status-sorted cursor walk looped
     forever (the reviewer's reproduction). KAN-175's sweep leaves one form
     and its CHECK keeps it that way, so the walk returns every row exactly

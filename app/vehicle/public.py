@@ -17,7 +17,6 @@ from app.vehicle.models.spec_block import (
     spec_block_as_dict,
     spec_block_field_names,
 )
-from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleStatus
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
 from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
@@ -33,7 +32,6 @@ from app.vehicle.services.merge import MERGED_EVENT as VEHICLE_MERGED_EVENT
 from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
-from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
 from app.vehicle.services.vin_correction import VIN_CORRECTED_EVENT, CorrectedVehicleVin
 from app.vehicle.services.vin_correction import correct_vehicle_vin as _correct_vehicle_vin
 from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
@@ -43,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 # WP-7 PR-1: inventory's StockItem.vehicle_id references VehicleMdm (WP-5's
-# three-layer model), not the legacy Vehicle above — the first consumer of
+# three-layer model) — the first consumer of
 # this half of the surface.
 #
 # get_vehicle_mdm_or_404 is wrapped, not re-exported directly from
@@ -413,22 +411,18 @@ __all__ = [
     "ConfigurationModeNotAllowedError",
     "ConfigurationPriceLine",
     "CorrectedVehicleVin",
-    "CustodyEventType",
     "HostConfiguration",
     "NoCatalogueVariantError",
     "PlateRecordingCheck",
     "PlateVersionRef",
     "ProviderValuationInput",
     "ResolvedVehicleMdm",
-    "Vehicle",
     "VehicleConfiguration",
     "VehicleMdm",
-    "VehicleStatus",
     "VehicleSummary",
     "check_plate_handover",
     "copy_configuration_for_host",
     "correct_vehicle_vin",
-    "create_custody_event",
     "create_or_get_vehicle_mdm",
     "discard_configuration_copy",
     "get_configuration_for_host",
@@ -436,7 +430,6 @@ __all__ = [
     "get_provider_valuation_input",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
-    "get_vehicle_or_404",
     "get_vehicle_summaries",
     "has_current_energy_rating",
     "match_vehicle",

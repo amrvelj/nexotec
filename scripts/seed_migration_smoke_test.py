@@ -12,6 +12,15 @@ condition under which a real downgrade would ever be run (immediately
 after the corresponding upgrade, before anything could have gone stale).
 It is not a reconciliation test; see tests/test_reconciliation.py for that.
 
+KAN-79 retired the legacy `vehicle` table, and with it this seed's legacy car,
+its `vehicle_party` row, its `transaction` row and its custody event. None can
+come back: the round trip's downgrade recreates `vehicle` empty and then
+re-adds PR-2's foreign keys onto it (`vehicle_party.vehicle_id`,
+`transaction.vehicle_id`), so any party or transaction row would break that
+step. The cost, said here so nobody reads more into a green run: the round
+trip no longer re-adds a foreign key over a `vehicle_party` or `transaction`
+row; the dealership, user, customer chain and catalogue rows still carry it.
+
 Inserts directly via the ORM, bypassing the service layer entirely — this
 only needs rows to exist with the right foreign keys, not the business
 validation those services also perform. The one exception is `user`, and
@@ -60,19 +69,9 @@ from app.customer.models.customer import (
     Language,
     PhoneType,
 )
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.db import SessionLocal
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
-from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
-from app.vehicle.models.vehicle import (
-    CustodyEventType,
-    RegistrationStatus,
-    Vehicle,
-    VehicleCondition,
-    VehicleCustodyEvent,
-    VehicleStatus,
-)
 
 _DEALER_ADDRESS = {
     "address_street": "Bahnhofstrasse",
@@ -555,45 +554,6 @@ def _seed_fr17_customer_raw(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     }
     db.execute(customer_table.insert().values({k: v for k, v in values.items() if k in customer_table.c}))
     return customer_id
-
-
-def _vehicle_party_has_vehicle_label(db: Session) -> bool:
-    """KAN-84 added the denormalised vehicle label columns to vehicle_party
-    (all nullable). The VehicleParty ORM class now always emits them, so the
-    pre-KAN-84 schema needs an insert that leaves them out — `vehicle_vin`
-    is the sentinel.
-    """
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
-    return "vehicle_vin" in columns
-
-
-def _vehicle_party_has_merged_mark(db: Session) -> bool:
-    """KAN-177 added the nullable `merged_into_customer_id` to vehicle_party.
-    The ORM class always emits it, so main's schema (one migration behind)
-    needs the explicit-values insert below, which names only the columns it
-    is given."""
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
-    return "merged_into_customer_id" in columns
-
-
-def _vehicle_party_has_closed_for_link(db: Session) -> bool:
-    """KAN-644/KAN-583 added the nullable `closed_for_party_id` to
-    vehicle_party. The ORM class always emits it, so main's schema (one
-    migration behind) needs the explicit-values insert below."""
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
-    return "closed_for_party_id" in columns
-
-
-def _vehicle_party_has_merged_into_vehicle(db: Session) -> bool:
-    """KAN-672 added the nullable `merged_into_vehicle_id` to vehicle_party.
-    The ORM class always emits it, so main's schema (one migration behind)
-    needs the explicit-values insert below."""
-
-    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
-    return "merged_into_vehicle_id" in columns
 
 
 def _contact_channel_has_consent_scope(db: Session) -> bool:
@@ -1162,62 +1122,10 @@ def main() -> None:
         else:
             customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
 
-        vehicle = Vehicle(
-            vin="1HGCM82633A004352",
-            make="Honda",
-            model="Accord",
-            model_year=2020,
-            condition=VehicleCondition.USED,
-            registration_status=RegistrationStatus.UNREGISTERED,
-            status=VehicleStatus.IN_STOCK,
-            current_custodian_partner_id=dealer_id,
-        )
-        db.add(vehicle)
-        db.flush()
-
-        if (
-            _vehicle_party_has_vehicle_label(db)
-            and _vehicle_party_has_merged_mark(db)
-            and _vehicle_party_has_closed_for_link(db)
-            and _vehicle_party_has_merged_into_vehicle(db)
-        ):
-            db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
-        else:
-            # KAN-84's label columns, KAN-177's merged mark, KAN-644's
-            # closed-for link or KAN-672's vehicle-merge mark aren't live yet —
-            # an insert with explicit values names only the columns given
-            # (plus Python-side defaults), so it fits the older shape.
-            db.execute(
-                sa.insert(VehicleParty).values(
-                    vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER
-                )
-            )
-
         _seed_catalogue_type_approval(db)
 
-        transaction = Transaction(
-            tenant_id=dealer_id,
-            transaction_type=TransactionType.SALE,
-            status=TransactionStatus.DRAFT,
-            customer_id=customer_id,
-            vehicle_id=vehicle.id,
-            primary_user_id=user_id,
-        )
-        db.add(transaction)
-        db.flush()
-
-        db.add(
-            VehicleCustodyEvent(
-                vehicle_id=vehicle.id,
-                partner_id=dealer_id,
-                event_type=CustodyEventType.ACQUIRED,
-                event_date=dt.datetime.now(dt.UTC),
-                transaction_id=transaction.id,
-            )
-        )
-
         db.commit()
-        print(f"Seeded dealer={dealer_id} customer={customer_id} vehicle={vehicle.id} transaction={transaction.id}")
+        print(f"Seeded dealer={dealer_id} user={user_id} customer={customer_id}")
     finally:
         db.close()
 

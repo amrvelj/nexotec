@@ -40,7 +40,9 @@ from tests.enum_test_support import (
     _create_dealership,
     _to_name_form,
     _token,
+    create_retired_legacy_tables,
     drop_enum_checks,
+    drop_retired_legacy_tables,
     scope_check_definition,
     widen_connection_scope_check,
 )
@@ -223,16 +225,31 @@ def _rewrite_all(conn, *, up: bool) -> None:
         module._rewrite(conn, up=up)
 
 
+
+@pytest.fixture()
+def retired_legacy_tables(engine):
+    """KAN-79: the legacy tables the frozen vehicle migration rewrites, for a
+    test that runs it without the seeding fixture."""
+
+    with engine.begin() as conn:
+        create_retired_legacy_tables(conn)
+    yield
+    with engine.begin() as conn:
+        drop_retired_legacy_tables(conn)
+
 @pytest.fixture()
 def seeded(engine):
     columns = _frozen_columns_still_mapped()
     tables = [Base.metadata.tables[name] for name in sorted({table for table, _ in columns})]
     with engine.begin() as conn:
+        create_retired_legacy_tables(conn)  # KAN-79: empty, so the frozen rewrite finds them
         drop_enum_checks(conn)
         widen_connection_scope_check(conn)
         rows = _seed_one_row_each(conn, tables)
     assert {table for table, _ in columns} <= set(rows)
-    return columns
+    yield columns
+    with engine.begin() as conn:
+        drop_retired_legacy_tables(conn)
 
 
 def test_every_member_of_every_column_is_rewritten_to_its_value_and_back(engine, seeded):
@@ -370,7 +387,7 @@ def test_rewriting_before_widening_the_check_would_fail(engine, seeded):
 # --- after the migration, through the endpoints ------------------------------
 
 
-def test_name_form_rows_serve_from_the_endpoints_after_the_upgrade(client, db_session, engine):
+def test_name_form_rows_serve_from_the_endpoints_after_the_upgrade(client, db_session, engine, retired_legacy_tables):
     """Criterion 4, post-migration: a customer (with its email projection)
     and a stock item written in the name form, as step-1 code wrote them,
     are values after the real upgrade() and are listed and filtered."""

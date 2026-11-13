@@ -98,7 +98,6 @@ from app.vehicle.models.provider import (
     VariantOptionProviderCode,
     VariantProviderCode,
 )
-from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
@@ -205,12 +204,10 @@ __all__ = [
     "VariantPrice",
     "VariantProviderCode",
     "VariantTypeApproval",
-    "Vehicle",
     "VehicleAccessory",
     "VehicleConfiguration",
     "VehicleConfigurationOption",
     "VehicleConfigurationOptionFeature",
-    "VehicleCustodyEvent",
     "VehicleMdm",
     "VehicleMdmCustodyEvent",
     "VehicleNumberSequence",

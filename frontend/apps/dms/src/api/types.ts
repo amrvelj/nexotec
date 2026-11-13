@@ -365,16 +365,10 @@ export type IntegrationConnectionRead = Schemas['ConnectionRead']
 export type IntegrationConnectionPage = Schemas['ConnectionPage']
 export type IntegrationUsageRead = Schemas['UsageRead']
 
-// A genuine backend naming COLLISION, not a frontend choice: two different
-// Python classes are both named `VehicleStatus` — the legacy `vehicle`
-// table's status (in_transit/in_stock/sold/in_service/totaled/scrapped,
-// CLAUDE.md's "legacy vehicle table was never migrated off" gap) and
-// vehicle-mdm's (active/exported/scrapped/stolen, which is what this frontend
-// type has always meant). FastAPI disambiguates same-named schemas with a
-// module-path-qualified key; there is no unqualified `VehicleStatus` in the
-// published schema at all. Worth its own backend ticket — out of scope here
-// ("do not change any backend schema").
-export type VehicleStatus = Schemas['app__vehicle__models__vehicle_mdm__VehicleStatus']
+// vehicle-mdm's status (active/exported/scrapped/stolen). Until KAN-79 retired
+// the legacy `vehicle` table its own VehicleStatus collided with this one and
+// FastAPI published a module-qualified key instead.
+export type VehicleStatus = Schemas['VehicleStatus']
 
 // ============================================================================
 // NARROWED — the backend field is a computed Python property typed `str`

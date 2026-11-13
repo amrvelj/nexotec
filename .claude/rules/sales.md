@@ -1,7 +1,6 @@
 ---
 paths:
   - "app/sales/**"
-  - "scripts/migrate_transaction_rows.py"
   - "frontend/apps/dms/src/**/*ffer*"
   - "frontend/apps/dms/src/**/*ontract*"
   - "frontend/apps/dms/src/**/*ales*"
@@ -18,7 +17,7 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Sales v2 (S-D10),
 ADR-041, ADR-046, ADR-047, ADR-049, ADR-050 (addendum 2026-10-11), ADR-051, ADR-052,
 ADR-057, ADR-063, ADR-065, ADR-083 (as amended 2026-10-12), ADR-086, ADR-088, ADR-098 and KAN-66/68/71;
-also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73baf3f on
+also cites ADR-029, ADR-032, ADR-033, ADR-053 (ADR-091 expired, KAN-79). Verified against main@73baf3f on
 2026-10-25 (every present-tense claim checked against the code). "Open" lines cite a ticket;
 /drift-audit re-checks them weekly. -->
 
@@ -47,14 +46,9 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   purged), so a contract requested before it — before KAN-523 too — is refused as well (Anto confirmed
   this backfill, 2026-11-04, option A).
 - **ADR-047** — a write spanning two contexts is a call with a compensating action, never a
-  shared transaction (CLAUDE.md rule 12). The one bounded exception is
-  `scripts/migrate_transaction_rows.py` (ADR-091, Anto 2026-10-12, KAN-106): it writes Sales and
-  Inventory in one transaction, imports Inventory's `models`/`services` directly, reads the frozen
-  legacy `vehicle` row directly and reads the customer, dealership and `vehicle_mdm` rows it resolves
-  against through their models, all four named in its docstring and pinned by
-  `test_adr_047_no_shared_transaction.py`; it expires when the script is deleted
-  after its production run, and nothing else may cite it. Number allocation is the second ruled
-  exception, permanent and Platform's (ADR-109, KAN-207): the offer's number is handed out inside the
+  shared transaction (CLAUDE.md rule 12). ADR-091's bounded exception for the legacy transaction
+  import expired when KAN-79 deleted the script (Anto, 2026-11-02: no old-system sales are imported).
+  Number allocation is the ruled exception, permanent and Platform's (ADR-109, KAN-207): the offer's number is handed out inside the
   offer's own transaction (below, "Visibility and numbers").
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
   Stock synchronously. Stock publishes `inventory.stock_item.purchased` once per booking, so the replica is
@@ -77,8 +71,7 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   `scripts/backfill_sales_deal_projection.py` (`--commit` **once per
   environment after deploy**) — the Sales grid's optional «Lagernummer» column, hidden by
   default, sortable (`sort=stockItemLabel`).
-  `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
-  legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back", KAN-146) is
+  `inventory.stock_item.storno` ("sets it back", KAN-146) is
   consumed as `sales.stock_item_storno`: it deletes the replica row (locked first, as the purchase
   consumer locks it), so every contract
   on the car derives «nicht fakturierbar» until the next purchase — unless Stock holds the car as
@@ -103,21 +96,14 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   hour ago is a `customer.merged` `sales.customer_merged` missed (KAN-581; an attach waits on it, KAN-657). `created_by`/`updated_by` name a `user.id` or are null in every reconciled
   context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
   `test_actor_columns_reconciled.py`).
-- **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
-  `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
-  through the ORM and **publishing no outbox events** (a years-old sale must not look like
-  today's business to live consumers). Its dry run runs the real path and rolls it back (any
-  commit on the way is refused), so it reports exactly what `--commit` writes, same-pass VIN
-  reuse and `vehicle_already_in_stock` included (KAN-263); a sale or trade-in whose dealership
-  does not exist is `dealership_unresolved`, never written (KAN-265).
-  A migrated sale stays `CONFIRMED` and `request_invoice` refuses any contract with
+- **ADR-050** — `sales_contract` supersedes the legacy `transaction` table (retired for writes).
+  Its import (`scripts/migrate_transaction_rows.py`, ADR-091) was deleted by KAN-79 — no old-system
+  sales are imported (Anto, 2026-11-02); the table itself goes with KAN-555.
+  A contract the import wrote stays `CONFIRMED` and `request_invoice` refuses any contract with
   `legacy_transaction_id` set (409, reason `legacy_sale`) — the old system invoiced it (Anto,
   2026-10-10, option 2 of KAN-147). `cancel_contract` refuses it too (same reason; `isLegacy`
   on the read model), so its offer never frees for a second contract (ADR-050 addendum,
-  2026-10-11; KAN-147, KAN-277 folded in).
-  A legacy trade-in whose customer is not VAT-registered and not `vatStatusConfirmed` is held
-  (`supplier_vat_status_unconfirmed`, nothing written), and so is every later row for the same
-  car (`held_behind_unconfirmed_trade_in`) — Anto, 2026-10-11, KAN-295.
+  2026-10-11; KAN-147, KAN-277 folded in; `tests/test_sales_contract_legacy_refusal.py`).
 - **No empty contracts** (Anto, 2026-10-11, KAN-276): `POST /sales/contracts` needs exactly one
   of `offerId`, `customerId` or `stockItemId` (`ContractCreate` refuses none or two, 422).
 - **No contract is signed without a buyer** (Anto, 2026-10-12, KAN-307): `confirm_contract`
@@ -367,8 +353,8 @@ also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73
   own `offer` counter reached (Anto, 2026-11-01, option 1). During the switch that counter is locked
   first, passed as `continue_after` (the range never numbers at or below it) and kept in step, so an
   instance still on the old code during a rolling deploy never repeats a number; lock order Sales'
-  counter → Platform's range; retired by KAN-540. The legacy transaction import keeps Sales' counter
-  (`allocate_legacy_offer_number`) and never consumes or freezes the range.
+  counter → Platform's range; retired by KAN-540. (`allocate_legacy_offer_number`, the deleted legacy
+  import's own counter path, has no caller since KAN-79.)
   `scripts/continue_offer_number_ranges.py` (`--commit` **once per environment
   after deploy**) shows each Betrieb's current value on the Number ranges screen before its next
   offer.
