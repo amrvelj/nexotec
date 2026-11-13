@@ -174,7 +174,9 @@ def test_a_reference_to_a_platform_wide_connection_is_refused_like_a_deleted_one
         actor_id=uuid.uuid4(),
     )
     assert platform.tenant_id is None
-    forged = public.ConnectionRef(id=platform.id, tenant_id=uuid.uuid4())
+    betrieb = uuid.uuid4()
+    assert public.get_enabled_connection(db_session, tenant_id=betrieb, provider_code="auto_i_dat_mock") is None
+    forged = public.ConnectionRef(id=platform.id, tenant_id=betrieb)
 
     with pytest.raises(public.ConnectionDisabledError):
         public.resolve_adapter(db_session, forged)

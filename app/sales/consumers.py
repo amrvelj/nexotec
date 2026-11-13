@@ -133,8 +133,9 @@ def handle_stock_item_commercial_changed_message(db: Session, message: OutboxMes
 def handle_customer_merged_message(db: Session, message: OutboxMessage) -> None:
     """KAN-185 (ADR-047; Anto, 2026-10-31, option A) — a customer merge
     moves everything Sales holds for the duplicate (offers, contracts,
-    deals) to the survivor, here, in Sales' own transaction; the merge writes nothing of Sales'. Flushes only;
-    consume_once commits it together with the processed_event row.
+    deals) to the survivor, here, in Sales' own transaction; the merge
+    writes nothing of Sales'. Flushes only; consume_once commits it
+    together with the processed_event row.
 
     Delivery is unordered: when X→D is delivered after D→T, the payload's
     survivor D is itself merged by then. The survivor is therefore re-read

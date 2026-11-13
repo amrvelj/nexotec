@@ -53,8 +53,7 @@ exit criterion 1) — is paid (KAN-185; Anto, 2026-10-31, option A):
 `app.sales.public.repoint_customer_transactions`, called inside the
 customer merge's own transaction, is gone. The merge publishes
 `customer.merged` and Sales' consumer `sales.customer_merged` moves the
-duplicate's legacy transactions, offers, contracts and deals in its own
-transaction. `_SHARED_TRANSACTION_EXCEPTIONS` is empty, and
+duplicate's offers, contracts and deals in its own transaction. `_SHARED_TRANSACTION_EXCEPTIONS` is empty, and
 `test_no_shared_transaction_debt_remains` keeps it so: a new entry is a new
 debt, Anto's call by name.
 
