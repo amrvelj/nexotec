@@ -2,7 +2,10 @@
 the holders of a role when both cars bring one: the later start stays, the
 others are closed at its start; and the row the survivor already carries for
 the same customer, role and start is kept on the duplicate, marked, instead
-of colliding with `uq_vehicle_party_scope`.
+of colliding with `uq_vehicle_party_scope`. Anto's rulings of 2026-11-13: at
+equal starts the holder on the surviving record stays, and a customer whose
+row is still current on the duplicate but ended on the survivor remains the
+holder — the survivor's row takes the later end.
 """
 
 import datetime as dt
@@ -79,6 +82,16 @@ def _unlinked(db, party) -> list[OutboxMessage]:
     )
 
 
+def _linked(db, party) -> list[OutboxMessage]:
+    return list(
+        db.scalars(
+            select(OutboxMessage).where(
+                OutboxMessage.event_type == "customer.vehicle_party.linked", OutboxMessage.aggregate_id == party.id
+            )
+        )
+    )
+
+
 def _merge_audits(db, party) -> list[AuditEvent]:
     rows = db.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == party.customer_id, AuditEvent.reason == "vehicle_merged")
@@ -139,6 +152,9 @@ def test_the_survivors_own_holder_is_closed_when_the_duplicates_started_later(db
 
 
 def test_equal_starts_keep_the_survivors_holder_and_end_the_other_where_it_began(db_session, engine):
+    """Anto, 2026-11-13 (ruling 1): two different customers hold the role from
+    the same start — the holder on the surviving record stays."""
+
     survivor, duplicate = _cars(db_session)
     group_id = uuid.uuid4()
     brought = _holder(db_session, duplicate, group_id, effective_from=Y2022)
@@ -150,6 +166,9 @@ def test_equal_starts_keep_the_survivors_holder_and_end_the_other_where_it_began
     ended = _row(db_session, brought)
     assert (ended.vehicle_id, ended.effective_to) == (survivor.id, Y2022)
     assert len(_unlinked(db_session, brought)) == 1
+    assert _row(db_session, kept).effective_to is None
+    assert _unlinked(db_session, kept) == []
+    assert _merge_audits(db_session, kept) == []
 
 
 def test_every_other_current_holder_is_closed_at_the_latest_start(db_session, engine):
@@ -300,6 +319,193 @@ def test_a_copy_that_already_ended_keeps_its_end_and_takes_the_mark(db_session, 
     [audit] = _merge_audits(db_session, former)
     assert audit.action == "vehicle_party_update"
     assert audit.after["mergedIntoVehicleId"] == str(survivor.id)
+
+
+def _same_customer_on_both(db, group_id, *, survivor_ends, duplicate_ends):
+    """One customer, owner of both cars since 2020: the survivor's row ended,
+    the duplicate's ends at `duplicate_ends` (None: open)."""
+
+    survivor, duplicate = _cars(db)
+    customer = _customer(db, group_id)
+    ended = _holder(db, survivor, group_id, customer=customer, effective_from=Y2020, effective_to=survivor_ends)
+    copy = _holder(db, duplicate, group_id, customer=customer, effective_from=Y2020, effective_to=duplicate_ends)
+    return survivor, duplicate, ended, copy
+
+
+def _period_audits(db, party) -> list[AuditEvent]:
+    """The merge's `vehicle_party_update` rows that changed a period (the
+    mark an ended copy takes is one too, and changes none)."""
+
+    return [
+        audit
+        for audit in _merge_audits(db, party)
+        if audit.action == "vehicle_party_update" and "mergedIntoVehicleId" not in audit.after
+    ]
+
+
+def test_a_customer_still_current_on_the_duplicate_remains_the_holder_on_the_survivor(db_session, engine):
+    """Anto, 2026-11-13 (ruling 2): the same customer, role and start on both
+    cars — ended on the surviving record, open on the duplicate. The
+    survivor's row is open again; the duplicate's is still the marked copy."""
+
+    group_id = uuid.uuid4()
+    survivor, duplicate, ended, copy = _same_customer_on_both(
+        db_session, group_id, survivor_ends=Y2022, duplicate_ends=None
+    )
+    linked_before = len(_linked(db_session, ended))
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    reopened = _row(db_session, ended)
+    assert (reopened.vehicle_id, reopened.effective_to, reopened.closed_for_party_id) == (survivor.id, None, None)
+    assert _current(db_session, survivor) == {ended.id}
+    [audit] = _period_audits(db_session, ended)
+    assert (audit.actor_id, audit.tenant_id) == (None, group_id)
+    assert audit.before == {"effectiveFrom": Y2020.isoformat(), "effectiveTo": Y2022.isoformat()}
+    assert audit.after == {"effectiveFrom": Y2020.isoformat(), "effectiveTo": None}
+    events = _linked(db_session, ended)
+    assert len(events) == linked_before + 1
+    published = max(events, key=lambda event: event.id)
+    assert published.tenant_id == group_id
+    assert published.payload["vehicleId"] == str(survivor.id)
+    assert published.payload["effectiveTo"] is None
+    assert _unlinked(db_session, ended) == []
+    kept = _row(db_session, copy)
+    assert (kept.vehicle_id, kept.merged_into_vehicle_id, kept.effective_to) == (duplicate.id, survivor.id, Y2020)
+    assert len(_unlinked(db_session, copy)) == 1
+
+
+def test_a_copy_that_ended_later_gives_the_survivors_row_its_end(db_session, engine):
+    group_id = uuid.uuid4()
+    survivor, duplicate, ended, copy = _same_customer_on_both(
+        db_session, group_id, survivor_ends=Y2022, duplicate_ends=Y2023
+    )
+    linked_before = len(_linked(db_session, ended))
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    assert _row(db_session, ended).effective_to == Y2023
+    assert _current(db_session, survivor) == set()
+    [audit] = _period_audits(db_session, ended)
+    assert audit.after == {"effectiveFrom": Y2020.isoformat(), "effectiveTo": Y2023.isoformat()}
+    # History before and after: the row never held its role again.
+    assert len(_linked(db_session, ended)) == linked_before
+    kept = _row(db_session, copy)
+    assert (kept.merged_into_vehicle_id, kept.effective_to) == (survivor.id, Y2023)
+
+
+def test_a_copy_ending_at_a_date_to_come_gives_the_survivors_row_that_end(db_session, engine):
+    group_id = uuid.uuid4()
+    ends = dt.datetime.now(dt.UTC).replace(microsecond=0) + dt.timedelta(days=30)
+    survivor, duplicate, ended, copy = _same_customer_on_both(
+        db_session, group_id, survivor_ends=Y2022, duplicate_ends=ends
+    )
+    linked_before = len(_linked(db_session, ended))
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    assert _row(db_session, ended).effective_to == ends
+    assert _current(db_session, survivor) == {ended.id}
+    assert len(_linked(db_session, ended)) == linked_before + 1
+    assert _row(db_session, copy).effective_to == Y2020  # the copy holds nothing
+
+
+@pytest.mark.parametrize("duplicate_ends", [Y2022, Y2023])
+def test_a_copy_that_ended_no_later_than_the_survivors_row_changes_nothing_on_it(db_session, engine, duplicate_ends):
+    group_id = uuid.uuid4()
+    survivor, duplicate, ended, copy = _same_customer_on_both(
+        db_session, group_id, survivor_ends=Y2023, duplicate_ends=duplicate_ends
+    )
+    linked_before = len(_linked(db_session, ended))
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    assert _row(db_session, ended).effective_to == Y2023
+    assert _period_audits(db_session, ended) == []
+    assert len(_linked(db_session, ended)) == linked_before
+    assert _row(db_session, copy).merged_into_vehicle_id == survivor.id
+
+
+def test_a_later_holder_on_the_survivor_still_ends_the_row_that_took_the_later_end(db_session, engine):
+    """The survivor's row ended because a successor took the role there. The
+    duplicate says the customer is still the holder; option C says the later
+    start stays — so the row is opened and closed again at the successor's
+    start, and the role has one current holder: the successor."""
+
+    group_id = uuid.uuid4()
+    survivor, duplicate, ended, copy = _same_customer_on_both(
+        db_session, group_id, survivor_ends=Y2022, duplicate_ends=None
+    )
+    successor = _holder(db_session, survivor, group_id, effective_from=Y2023)
+    assert _row(db_session, ended).effective_to == Y2022
+    linked_before = len(_linked(db_session, ended))
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    assert _current(db_session, survivor) == {successor.id}
+    assert _row(db_session, successor).effective_to is None
+    assert _merge_audits(db_session, successor) == []
+    row = _row(db_session, ended)
+    assert (row.effective_to, row.closed_for_party_id) == (Y2023, None)
+    [opened] = _period_audits(db_session, ended)
+    assert opened.after == {"effectiveFrom": Y2020.isoformat(), "effectiveTo": None}
+    closes = [
+        audit.after
+        for audit in _merge_audits(db_session, ended)
+        if audit.action == "vehicle_party_remove" and "mergedIntoVehicleId" not in audit.after
+    ]
+    assert closes == [{"effectiveTo": Y2023.isoformat()}]
+    assert len(_linked(db_session, ended)) == linked_before + 1
+    [unlinked] = _unlinked(db_session, ended)
+    assert unlinked.payload["effectiveTo"] == Y2023.isoformat()
+    assert _row(db_session, copy).merged_into_vehicle_id == survivor.id
+
+
+def test_a_planned_successor_on_the_survivor_keeps_its_link_to_the_row_that_took_the_later_end(db_session, engine):
+    group_id = uuid.uuid4()
+    starts = dt.datetime.now(dt.UTC).replace(microsecond=0) + dt.timedelta(days=30)
+    survivor, duplicate = _cars(db_session)
+    customer = _customer(db_session, group_id)
+    held = _holder(db_session, survivor, group_id, customer=customer, effective_from=Y2020)
+    planned = _holder(db_session, survivor, group_id, effective_from=starts)
+    copy = _holder(db_session, duplicate, group_id, customer=customer, effective_from=Y2020)
+    assert (_row(db_session, held).effective_to, _row(db_session, held).closed_for_party_id) == (starts, planned.id)
+    linked_before = len(_linked(db_session, held))
+
+    _merge(db_session, engine, survivor, duplicate)
+
+    row = _row(db_session, held)
+    assert (row.effective_to, row.closed_for_party_id) == (starts, planned.id)
+    assert _current(db_session, survivor) == {held.id}
+    assert _row(db_session, planned).effective_to is None
+    # It held its role throughout: nothing to announce.
+    assert len(_linked(db_session, held)) == linked_before
+    assert _unlinked(db_session, held) == []
+    assert _row(db_session, copy).merged_into_vehicle_id == survivor.id
+
+
+def test_a_redelivered_merge_gives_the_later_end_once(db_session, engine):
+    group_id = uuid.uuid4()
+    survivor, duplicate, ended, copy = _same_customer_on_both(
+        db_session, group_id, survivor_ends=Y2022, duplicate_ends=None
+    )
+    linked_before = len(_linked(db_session, ended))
+    merge_vehicles(db_session, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
+    message = _merged_message(db_session, duplicate.id)
+
+    _deliver_merged(engine, message)
+    _deliver_merged(engine, message)
+    # And with the processed-events row gone, the move itself repeats nothing.
+    db_session.query(ProcessedEvent).filter(ProcessedEvent.event_id == message.id).delete()
+    db_session.commit()
+    _deliver_merged(engine, message)
+
+    db_session.expire_all()
+    assert _row(db_session, ended).effective_to is None
+    assert len(_period_audits(db_session, ended)) == 1
+    assert len(_linked(db_session, ended)) == linked_before + 1
+    assert len(_unlinked(db_session, copy)) == 1
+    assert len(_merge_audits(db_session, ended)) == 2  # the later end, and the copy's close
 
 
 def test_a_kept_copy_follows_its_survivor_into_a_later_merge(db_session, engine):

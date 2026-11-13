@@ -133,7 +133,7 @@
     "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
     "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
     "storno_return_not_trade_in": "Solo un veicolo in permuta può tornare al cliente.",
-    "trade_in_vin_differs": "Questo VIN non è quello che il contratto indica per il veicolo in permuta.",
+    "trade_in_vin_differs": "Questo VIN non è quello che il contratto indica per il veicolo in permuta. Se il VIN nel contratto è errato, assegnare al veicolo, tramite «Assegna configurazione», una configurazione con il VIN corretto – se ne ha già una, inserirvi il VIN tramite «Modifica configurazione». Da quel momento vale il VIN della configurazione.",
     "vehicle_merge_in_progress": "Questo veicolo è in fase di unione con un'altra scheda. Riprovi tra un momento.",
     "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
     "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta.",

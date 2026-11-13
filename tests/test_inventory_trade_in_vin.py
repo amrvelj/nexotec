@@ -299,6 +299,64 @@ def test_a_configurations_vin_decides_alone(client, db_session, engine):
     assert booked.json()["vin"] == CONFIGURED_VIN
 
 
+def test_a_wrong_contract_vin_is_left_behind_by_attaching_a_configuration_with_the_right_one(
+    client, db_session, engine
+):
+    """The way out the refusal names (Anto, 2026-11-13): the contract holds
+    a wrong VIN and is frozen. «Konfiguration zuordnen» gives the never-bought
+    item a configuration carrying the right one, whose VIN then decides — the
+    contract's is refused as any other VIN is."""
+
+    dealership, contract, item = _pipeline_trade_in(db_session, engine)
+    assert item.configuration_id is None
+    refused = _purchase(client, dealership, item, vin=CONFIGURED_VIN)
+    assert refused.json()["error"]["details"]["reason"] == "trade_in_vin_differs"
+
+    configuration = _record_configuration(db_session, dealership.id, vin=CONFIGURED_VIN)
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=dealership.id, group_id=dealership.dealer_group_id,
+        roles=frozenset({AccessRole.INVENTORY, AccessRole.SALES}),
+    )
+    attached = client.post(
+        f"/v1/inventory/stock-items/{item.id}/configuration",
+        json={"configurationId": str(configuration.id)},
+        headers={"Authorization": f"Bearer {token}", "If-Match": str(item.version)},
+    )
+    assert attached.status_code == 200, attached.text
+    item = _trade_in_item(db_session, contract)
+    assert (item.configuration_id, item.vin, item.trade_in_vin) == (configuration.id, None, CONTRACT_VIN)
+
+    refused = _purchase(client, dealership, item, vin=CONTRACT_VIN)
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"] == {"field": "vin", "reason": "configuration_vin_differs"}
+
+    booked = _purchase(client, dealership, item, vin=CONFIGURED_VIN)
+    assert booked.status_code == 200, booked.text
+    assert booked.json()["vin"] == CONFIGURED_VIN
+    assert booked.json()["lifecycleStatus"] == LifecycleStatus.IN_STOCK.value
+
+
+def test_a_trade_in_whose_configuration_carries_no_vin_takes_the_right_one_there(client, db_session, engine):
+    """The same way out when the trade-in came with a configuration that
+    carries no VIN (a valuation's, its VIN typed beside it): nothing can be
+    attached to it (409 `configuration_already_linked`), so the right VIN is
+    given to that configuration («Konfiguration bearbeiten») and decides."""
+
+    dealership, _contract, item = _pipeline_trade_in(db_session, engine)
+    configuration = _record_configuration(db_session, dealership.id, vin=None)
+    item.configuration_id = configuration.id
+    db_session.commit()
+    refused = _purchase(client, dealership, item, vin=CONFIGURED_VIN)
+    assert refused.json()["error"]["details"]["reason"] == "trade_in_vin_differs"
+
+    configuration.vin = CONFIGURED_VIN
+    db_session.commit()
+
+    booked = _purchase(client, dealership, item, vin=CONFIGURED_VIN)
+    assert booked.status_code == 200, booked.text
+    assert booked.json()["vin"] == CONFIGURED_VIN
+
+
 def test_a_storno_keeps_what_the_contract_said_and_the_car_is_booked_again_under_its_vin(client, db_session, engine):
     dealership, contract, item = _pipeline_trade_in(db_session, engine)
     bought = _purchase(client, dealership, item, vin=CONTRACT_VIN).json()

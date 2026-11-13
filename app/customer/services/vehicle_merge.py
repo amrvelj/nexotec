@@ -27,7 +27,10 @@ transaction (KAN-672; Anto's ruling 2026-11-12, option C):
 - **The same customer, role and start on both cars** cannot move
   (`uq_vehicle_party_scope`). Like the copy a customer merge keeps (KAN-177),
   that row stays on the duplicate, closed at its own start and marked
-  `merged_into_vehicle_id` — see `_keep_copy`.
+  `merged_into_vehicle_id` — see `_keep_copy`. Where the duplicate's row ends
+  later than the survivor's (or not at all), the survivor's row takes that
+  end first, so the customer remains the holder (Anto, 2026-11-13) — see
+  `_take_later_end`.
 """
 
 import datetime as dt
@@ -40,10 +43,13 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.services.vehicle_party import _close_vehicle_party
+from app.customer.services.customer_common import _EVENT_PRODUCER
+from app.customer.services.vehicle_party import _close_vehicle_party, _vehicle_party_payload
 from app.customer.services.vehicle_party_labels import relabel_vehicle_parties_for_vehicle
 from app.customer.services.vehicle_party_locks import _lock_vehicle_role_in_group, _try_lock_vehicle_role_in_group
 from app.vehicle.public import resolve_merged_vehicle_id
@@ -131,22 +137,30 @@ def repoint_vehicle_parties_on_vehicle_merge(
 
     now = utcnow()
     on_target = {
-        (party.customer_id, party.role, party.effective_from) for party in rows if party.vehicle_id == target
+        (party.customer_id, party.role, party.effective_from): party for party in rows if party.vehicle_id == target
     }
     moved: list[VehicleParty] = []
+    # The survivor's rows that took their copy's later end: what the duplicate
+    # brought, as a moved row is, when the role is settled.
+    extended: list[VehicleParty] = []
     for party in leaving:
         key = (party.customer_id, party.role, party.effective_from)
         if key in on_target:
-            _keep_copy(db, party, target=target, group_id=groups.get(party.customer_id), now=now)
+            group_id = groups.get(party.customer_id)
+            if group_id is not None and _take_later_end(
+                db, on_target[key], until=party.effective_to, group_id=group_id, now=now
+            ):
+                extended.append(on_target[key])
+            _keep_copy(db, party, target=target, group_id=group_id, now=now)
             continue
         party.vehicle_id = target
-        on_target.add(key)
+        on_target[key] = party
         moved.append(party)
     db.flush()
 
-    moved_ids = {party.id for party in moved}
+    moved_ids = {party.id for party in moved + extended}
     for role, group_id in sorted(
-        {(party.role, groups[party.customer_id]) for party in moved if party.customer_id in groups},
+        {(party.role, groups[party.customer_id]) for party in moved + extended if party.customer_id in groups},
         key=lambda pair: (pair[0].value, str(pair[1])),
     ):
         _settle_role(
@@ -220,6 +234,63 @@ def _holds(party: VehicleParty, now: dt.datetime) -> bool:
     return party.effective_to is None or (party.effective_to > now and party.effective_to > party.effective_from)
 
 
+def _take_later_end(
+    db: Session, kept: VehicleParty, *, until: dt.datetime | None, group_id: uuid.UUID, now: dt.datetime
+) -> bool:
+    """KAN-672 (Anto, 2026-11-13) — the same customer holds the role on both
+    cars from the same start, and the duplicate's row ends later than the
+    survivor's (`kept`), or not at all: the customer remains the holder. The
+    survivor's row takes the duplicate's end (`until`; open when that is) —
+    as a PATCH of its `effectiveTo` would write it: any link to a planned
+    handover dropped, audited `vehicle_party_update` (reason `vehicle_merged`,
+    no actor) and, when the row did not hold its role and now does, published
+    `linked`. An end that is not later changes nothing, and a copy an earlier
+    customer merge kept (KAN-177) is never given a period. Returns whether
+    the row changed; the caller then settles its role, counting it among the
+    rows the duplicate brought — so a holder with a later start on the
+    survivor still ends it at that start (`_settle_role`). The caller holds
+    the role's lock and the row's."""
+
+    if kept.effective_to is None or (until is not None and until <= kept.effective_to):
+        return False
+    if kept.merged_into_customer_id is not None or kept.merged_into_vehicle_id is not None:
+        return False
+    held_before = _holds(kept, now)
+    before = {
+        "effectiveFrom": kept.effective_from.isoformat(),
+        "effectiveTo": kept.effective_to.isoformat(),
+    }
+    kept.effective_to = until
+    kept.closed_for_party_id = None
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=kept.customer_id,
+        tenant_id=group_id,
+        action="vehicle_party_update",
+        actor_id=None,
+        before=before,
+        after={
+            "effectiveFrom": kept.effective_from.isoformat(),
+            "effectiveTo": until.isoformat() if until else None,
+        },
+        reason=VEHICLE_MERGED_REASON,
+    )
+    if _holds(kept, now) and not held_before:
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.vehicle_party.linked",
+                tenant_id=group_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="vehicle_party",
+                aggregate_id=kept.id,
+                payload=_vehicle_party_payload(kept),
+            ),
+        )
+    return True
+
+
 def _keep_copy(
     db: Session, party: VehicleParty, *, target: uuid.UUID, group_id: uuid.UUID | None, now: dt.datetime
 ) -> None:
@@ -231,7 +302,8 @@ def _keep_copy(
     (`vehicle_party_remove`, `unlinked`, both carrying `mergedIntoVehicleId`),
     so it never reads as a current party again; one that already ended keeps
     its end, takes the mark and is audited as a `vehicle_party_update`. The
-    survivor's row is not touched."""
+    survivor's row has taken the copy's end before, where that is later
+    (`_take_later_end`)."""
 
     if group_id is not None and _holds(party, now):
         _close_vehicle_party(
@@ -283,9 +355,9 @@ def _settle_role(
     other is closed **at that start**, the instant it was replaced — through
     `_close_vehicle_party`, as a new holder closes the previous one: audited
     `vehicle_party_remove` (reason `vehicle_merged`, no actor) and published
-    `unlinked`, losing any link to a planned handover. Equal starts: the
-    survivor vehicle's own row stays (then the row recorded later), and the
-    other is closed at its own start — an empty period, it never held the
+    `unlinked`, losing any link to a planned handover. Equal starts (Anto,
+    2026-11-13): the holder on the surviving record stays (then the row
+    recorded later), and the other is closed at its own start — an empty period, it never held the
     role on the merged car.
 
     A holder whose start is still to come («ab …», KAN-583/KAN-644) is what

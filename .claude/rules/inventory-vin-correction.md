@@ -70,6 +70,7 @@ ruling on KAN-544, 2026-11-03) and KAN-536 (Anto, 2026-11-12). Its own file beca
   when the configuration carries no VIN; the booking still needs `vin` sent, and another is 422
   `trade_in_vin_differs` (`field: vin`), before vehicle-mdm or the item is touched. **A configuration's VIN
   decides alone** when there is one (`configuration_vin_differs`): it is where a wrong VIN is corrected, the
-  signed contract's cannot be. The refusal offers no edit.
+  signed contract's cannot be. The refusal offers no edit; its text names the way out (Anto, 2026-11-13):
+  «Konfiguration zuordnen» — or «Konfiguration bearbeiten» on an item that has one — with the right VIN.
 - It is never written again: kept as history through the purchase, a storno (the car's own `vin` then binds
   the second booking) and «VIN korrigieren».

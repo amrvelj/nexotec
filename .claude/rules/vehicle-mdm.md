@@ -142,9 +142,11 @@ re-verified against the code. -->
   `FOR NO KEY UPDATE`, and relabels them. Where both cars bring a holder of a role in one dealer group
   (KAN-672; Anto, 2026-11-12, option C) the later start stays and the others are closed at its start
   (`_close_vehicle_party`: `vehicle_party_remove`, reason `vehicle_merged`, `unlinked`; equal starts: the
-  survivor's row stays); a holder still to come ends the current one at its start, linked (KAN-644). A row
+  survivor's row stays, 2026-11-13); a holder still to come ends the current one at its start, linked (KAN-644). A row
   whose (customer, role, start) the survivor already carries stays on the duplicate, closed at its start
-  and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `merged_party_row`).
+  and marked `merged_into_vehicle_id`, as KAN-177's copy is (never reopened: 409 `merged_party_row`); where it
+  ends later than the survivor's row, or not at all, that row first takes its end (Anto, 2026-11-13:
+  `vehicle_party_update`, `linked` on a reopen), then the role is settled.
   An allocation or a customer-side link naming a merged record is carried out on its survivor
   (KAN-673: `_lock_live_vehicle_role_in_group` resolves it, takes the survivor's lock and re-reads
   under it; a second lock, after a merge during the wait, is only tried — busy is 409
