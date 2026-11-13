@@ -100,9 +100,13 @@ from app.sales.public import (
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
 from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
-from app.vehicle.consumers import handle_configuration_taken_message, handle_invoice_requested_message
+from app.vehicle.consumers import (
+    handle_configuration_taken_message,
+    handle_invoice_requested_message,
+    handle_stock_holding_message,
+)
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
-from app.vehicle.public import run_daily_plate_lookup_purge
+from app.vehicle.public import STOCK_HOLDING_CONSUMERS, run_daily_plate_lookup_purge
 
 logger = logging.getLogger("app.worker")
 
@@ -297,6 +301,12 @@ def register_handlers(transport: InProcessTransport) -> None:
         ("valuation.created", "vehicle.configuration_taken_by_valuation"),
     ):
         transport.register(event_type, consumer_name=consumer_name, handler=handle_configuration_taken_message)
+    # KAN-667 (ADR-131) — Vehicle's projection of the records a Betrieb holds
+    # in stock, fed by Stock's own facts (the item got its record; the item
+    # left stock): the identity PATCH refuses a VIN change on such a car
+    # without asking Stock, and the Vehicle 360 links to «VIN korrigieren».
+    for event_type, consumer_name in STOCK_HOLDING_CONSUMERS.items():
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_stock_holding_message)
     # KAN-216 (D-A-40, FR-A-49/50) — Web Push is a pointer to the inbox: the
     # title and link of a delivered notification, and one pointer per digest.
     transport.register(

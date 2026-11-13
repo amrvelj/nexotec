@@ -33,12 +33,15 @@ from app.core.processed_event_model import ProcessedEvent
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.sales_contract import InventorySalesContract, ProjectedContractStatus
-from app.inventory.models.stock_item import StockItem
+from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
+from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services.invoicing_gate import apply_finance_invoice_issued
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.publishing import publish, unpublish
 from app.inventory.services.purchase import record_purchase, storno_purchase
+from app.inventory.services.stock_item import create_stock_item
 from app.sales.models.contract import SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
@@ -46,7 +49,9 @@ from app.sales.services.contract import cancel_contract, request_invoice
 from app.sales.services.invoice_handover import HandoverPlate
 from app.sales.services.stock_item_purchase import record_stock_item_purchased
 from app.vehicle.models.plate import VehiclePlate
+from app.vehicle.models.stock_holding import VehicleStockHolding
 from app.worker import register_handlers
+from tests.test_inventory_invoicing_gate import _make_dealership
 from tests.test_inventory_marketplace_transmission import (
     FakeMarketplaceAdapter,
     _make_connection,
@@ -421,7 +426,7 @@ def _vehicle_summary_changed(db_session, engine, monkeypatch):
         role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
     )
     corrected = "WVWZZZ1KZAW000187"
-    update_vehicle_mdm(db_session, vehicle=vehicle, data=VehicleMdmUpdate(vin=corrected), actor_id=None)
+    update_vehicle_mdm(db_session, vehicle=vehicle, data=VehicleMdmUpdate(vin=corrected), actor_id=None, tenant_id=None)
     message = _message(db_session, SUMMARY_CHANGED_EVENT, vehicle.id)
 
     def relabelled(db: Session) -> int:
@@ -681,6 +686,59 @@ def _valuation_takes(db_session, dealership):
     return config.id, _valuation(db_session, dealership.id, config.id).id
 
 
+def _stock_holding_item(db_session) -> StockItem:
+    """KAN-667 — a car bought into stock through the production path (the
+    booking promotes it: `vin_assigned`)."""
+
+    dealership = _make_dealership(db_session)
+    item = create_stock_item(
+        db_session,
+        tenant_id=dealership.id,
+        data=StockItemCreate(vehicle_label="VW Golf", condition=StockItemCondition.USED, vin="WVWZZZ1KZAW667101"),
+        actor_id=uuid.uuid4(),
+    )
+    item = record_purchase(
+        db_session, item=item,
+        data=RecordPurchaseRequest(
+            supplier_name="Hans Muster", supplier_is_vat_registered=False,
+            purchase_price=Decimal("20000.00"), purchase_date=dt.date(2026, 11, 1),
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    db_session.commit()
+    return item
+
+
+def _stock_holding_rows(item_id: uuid.UUID, column) -> Measure:
+    def rows(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(VehicleStockHolding)
+            .where(VehicleStockHolding.stock_item_id == item_id, column.is_not(None))
+        )
+
+    return rows
+
+
+def _stock_holding_on_vin_assigned(db_session, engine, monkeypatch):
+    """KAN-667 — promotion gives the stock item its record: Vehicle's
+    projection holds it once (one row naming the record)."""
+
+    item = _stock_holding_item(db_session)
+    message = _message(db_session, "inventory.pipeline_vehicle.vin_assigned", item.id)
+    return message, _stock_holding_rows(item.id, VehicleStockHolding.vehicle_id)
+
+
+def _stock_holding_on_sold(db_session, engine, monkeypatch):
+    """KAN-667 — the car is sold (Finance's invoice): the projection records
+    once that it left stock."""
+
+    item = _stock_holding_item(db_session)
+    apply_finance_invoice_issued(db_session, tenant_id=item.tenant_id, stock_item_id=item.id, invoice_ref="INV-667")
+    message = _message(db_session, "inventory.stock_item.sold", item.id)
+    return message, _stock_holding_rows(item.id, VehicleStockHolding.left_stock_at)
+
+
 _FIXTURES: dict[str, Fixture] = {
     "platform.connected_account_provider_revocation": _connected_account_revoked,
     "inventory.sales_contract_confirmed": _contract_confirmed,
@@ -725,6 +783,8 @@ _FIXTURES: dict[str, Fixture] = {
         "inventory.stock_item.configuration_attached", _stock_item_attach_takes
     ),
     "vehicle.configuration_taken_by_valuation": _configuration_taken("valuation.created", _valuation_takes),
+    "vehicle.stock_holding_on_vin_assigned": _stock_holding_on_vin_assigned,
+    "vehicle.stock_holding_on_sold": _stock_holding_on_sold,
 }
 
 

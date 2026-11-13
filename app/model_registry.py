@@ -98,6 +98,7 @@ from app.vehicle.models.provider import (
     VariantOptionProviderCode,
     VariantProviderCode,
 )
+from app.vehicle.models.stock_holding import VehicleStockHolding
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
@@ -215,4 +216,5 @@ __all__ = [
     "VehicleOdometerReading",
     "VehicleParty",
     "VehiclePlate",
+    "VehicleStockHolding",
 ]

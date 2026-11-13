@@ -1,6 +1,11 @@
 """The only surface other contexts may import from vehicle. Import-linter's
 contract allows `app.<other-context>` to import `app.vehicle.public`, never
 `app.vehicle.models` / `app.vehicle.services` / `app.vehicle.api` directly.
+
+`STOCK_HOLDING_CONSUMERS` (KAN-667) is the worker's list of Vehicle's
+consumers of Stock's facts of which records a Betrieb holds in stock;
+`apply_backfilled_holding` is that projection's backfill write
+(scripts/backfill_vehicle_stock_holding.py), commit-free.
 """
 
 import dataclasses
@@ -32,6 +37,8 @@ from app.vehicle.services.merge import MERGED_EVENT as VEHICLE_MERGED_EVENT
 from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
+from app.vehicle.services.stock_holding import CONSUMERS as STOCK_HOLDING_CONSUMERS
+from app.vehicle.services.stock_holding import apply_backfilled_holding
 from app.vehicle.services.vin_correction import VIN_CORRECTED_EVENT, CorrectedVehicleVin
 from app.vehicle.services.vin_correction import correct_vehicle_vin as _correct_vehicle_vin
 from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
@@ -376,6 +383,7 @@ __all__ = [
     "CONFIGURATION_MODE_BUILD",
     "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "STOCK_HOLDING_CONSUMERS",
     "VEHICLE_MERGED_EVENT",
     "VIN_CORRECTED_EVENT",
     "ConfigurationLabel",
@@ -391,6 +399,7 @@ __all__ = [
     "VehicleConfiguration",
     "VehicleMdm",
     "VehicleSummary",
+    "apply_backfilled_holding",
     "check_plate_handover",
     "copy_configuration_for_host",
     "correct_vehicle_vin",
