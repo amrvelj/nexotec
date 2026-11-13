@@ -1,309 +1,127 @@
 ---
 paths:
   - "app/customer/**"
-  - "frontend/apps/dms/src/**/*ustomer*"
-  - "frontend/apps/dms/src/**/*ustomer*/**"
-  - "frontend/apps/dms/src/components/DuplicateWarningPanel.tsx"
-  - "frontend/apps/dms/src/components/PhoneInput.tsx"
   - "app/core/postal_codes.py"
-  - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
-  - "frontend/apps/dms/src/utils/vehiclePartyRefusal.ts"
+  - "alembic/versions/customer/**"
   - "tests/test_customer*.py"
-  - "scripts/*vehicle_party*.py"
-  - "tests/test_*vehicle_party*.py"
   - "tests/test_legal_basis.py"
   - "tests/test_*preferred_channel*.py"
-  - "alembic/versions/customer/**"
+  - "frontend/apps/dms/src/pages/Customer*"
+  - "frontend/apps/dms/src/pages/customerScreens*"
+  - "frontend/apps/dms/src/components/Customer*"
+  - "frontend/apps/dms/src/components/customerRowMenu*"
+  - "frontend/apps/dms/src/components/DuplicateWarningPanel.tsx"
+  - "frontend/apps/dms/src/components/PhoneInput.tsx"
+  - "frontend/apps/dms/src/components/customer-detail/Blocking*"
+  - "frontend/apps/dms/src/components/customer-detail/blocking*"
+  - "frontend/apps/dms/src/components/customer-detail/Contact*"
+  - "frontend/apps/dms/src/components/customer-detail/contact*"
+  - "frontend/apps/dms/src/components/customer-detail/CreditBlock*"
+  - "frontend/apps/dms/src/components/customer-detail/creditBlock*"
+  - "frontend/apps/dms/src/components/customer-detail/ExternalIds*"
+  - "frontend/apps/dms/src/components/customer-detail/History*"
+  - "frontend/apps/dms/src/components/customer-detail/history*"
+  - "frontend/apps/dms/src/components/customer-detail/MergeCustomer*"
+  - "frontend/apps/dms/src/components/customer-detail/Overview*"
+  - "frontend/apps/dms/src/components/customer-detail/address*"
+  - "frontend/apps/dms/src/components/customer-detail/commercial*"
+  - "frontend/apps/dms/src/components/customer-detail/country*"
+  - "frontend/apps/dms/src/customerOptions*"
+  - "frontend/apps/dms/src/utils/customer.ts"
+  - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
+  - "frontend/packages/ui-kit/src/components/CustomerTypeBadge.tsx"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
-§Conformance review, rulings D-03…D-26), ADR-014, ADR-030, ADR-064 (as amended 2026-10-13),
-ADR-065, ADR-067, ADR-093; also cites ADR-022, ADR-061. Verified against main@73baf3f on
-2026-10-25 (every present-tense claim checked against the code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
-weekly. -->
+<!-- Maintainer note. PRD-Customers v2.2 (its §Conformance review, D-03…D-26); ADR-014, ADR-030,
+ADR-065, ADR-067, ADR-093, ADR-101. KAN-615 (2026-11-13) cut it to the invariants; vehicle parties,
+trade-in holders and merges are customer-vehicle-party.md. Frontend listed by file until it has
+module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
 
 # Customers
 
 ## Ownership
-
-- **Customers are owned by the dealer group** (ADR-014): exactly one customer record per
-  group, opened and deduplicated group-wide. A standalone dealership is a group of one — one
-  dedupe path, not two. The scope column is `group_id`, never `tenant_id`. Numbers come from a
-  per-group sequence, allocated inside the caller's transaction (a rollback re-issues).
-- Sharing a customer between sister dealerships shares it between separate legal entities
-  (data controllers). The evidence record exists (`LegalBasis`, ADR-030, append-only;
-  `enable_group_read` refuses without one); whether a real group may share data is the open
-  legal question — raise it, do not decide it.
+- **Customers are owned by the dealer group** (ADR-014): one record per group, opened and
+  deduplicated group-wide; a standalone dealership is a group of one — one dedupe path. The scope
+  column is `group_id`, never `tenant_id`. Numbers come from a per-group sequence inside the
+  caller's transaction.
+- Sharing a customer between sister dealerships shares it between separate legal entities. The
+  evidence record exists (`LegalBasis`, ADR-030, append-only; `enable_group_read` refuses without
+  one); whether a real group may share data is the open legal question — raise it, never decide it.
 
 ## Contact channels (ADR-067) — child records, not columns
-
-- `customer_phone`, `customer_email`, `customer_address`: one row per value, each with a type,
-  an optional free-text label, `isPrimary` with **exactly one primary per type-group**
-  (enforced transactionally, on create and on every update/delete — re-elect when a primary
-  goes), `validFrom`/`validTo`, a `doNotUse` flag with a reason and **consent per channel**
-  with source and timestamp. All three update paths share one helper,
+- `customer_phone`, `customer_email`, `customer_address`: one row per value, with a type, a label,
+  `isPrimary` with **exactly one primary per type-group** (kept transactionally on every create,
+  update and delete — re-elect when a primary goes), `validFrom`/`validTo`, `doNotUse` with a
+  reason, and **consent per channel** with source and timestamp. One helper for all three,
   `_prepare_primary_change` (`services/contact_channels.py`).
-- **Changing a row's type settles both type-groups** (KAN-102, Anto's ruling). The group it
-  leaves re-elects. In the group it joins, `isPrimary: true` in the same PATCH makes the moved
-  row primary; otherwise that group's existing primary stays and the moved row is demoted — a
-  type change never silently demotes another row. Joining a group with no primary elects it.
-  A row the same PATCH closes or flags `doNotUse` never takes the flag, `isPrimary: true` or not.
-- A create elects its new row when the group has no **usable** primary (KAN-151), so a row
-  added beside closed or `doNotUse` rows becomes primary without `isPrimary: true`; an existing
-  usable primary is never demoted by a create that does not ask for it.
-- Reopening a row (`validTo: null`, `doNotUse: false`) settles its type-group too (KAN-113): a
-  group with no usable primary elects the reopened row; an existing usable primary keeps the
-  flag unless the same PATCH says `isPrimary: true` (Anto, 2026-11-11, KAN-349). Usability
-  is judged after the PATCH: `isPrimary: true` on a row closed or `doNotUse` — by this PATCH or
-  an earlier one — never unsets the group's usable primary.
-- **A customer keeps at least one usable phone or email** (FR-03, ADR-067):
-  `_assert_not_last_contact_point` refuses closing, flagging `doNotUse` or deleting a usable row
-  when no other usable phone or email remains; a row already closed or `doNotUse` changes no
-  usable count and is never refused (KAN-330).
-- The six contact projections — `phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
-  `emailSecondary`, `address` (primary domicile) — are **read-model projections**, computed and
-  never stored. Per type: the flagged primary among usable rows, else the oldest usable row,
-  else null; `email` is personal, else work; `emailSecondary` is work when distinct. **Never
-  add a flat column** — the cheap implementation is exactly what this decision removed.
+- **Changing a row's type settles both type-groups** (Anto): the group it leaves re-elects; in the
+  group it joins, `isPrimary: true` in the same PATCH makes it primary, otherwise the existing
+  primary stays — a type change never silently demotes another row; a group with none elects it. A
+  row the same PATCH closes or flags `doNotUse` never takes the flag.
+- A create elects its row when the group has no **usable** primary; an existing usable primary is
+  never demoted by a create that does not ask. **Reopening** a row settles its group the same way —
+  the existing usable primary keeps the flag unless the PATCH says `isPrimary: true` (Anto,
+  KAN-349). Usability is judged after the PATCH: `isPrimary: true` on a closed or `doNotUse` row
+  never unsets the group's usable primary.
+- **A customer keeps at least one usable phone or email** (FR-03): closing, flagging or deleting
+  the last usable one is refused; a row already unusable is never refused.
+- The six contact projections (`phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
+  `emailSecondary`, `address`) are **read-model projections, never stored**: the flagged primary
+  among usable rows, else the oldest usable, else null; `email` personal else work;
+  `emailSecondary` work when distinct. **Never add a flat column.**
 - `consentScope` (marketing / invoicing / service; required on a new grant, NULL on a legacy row
-  reads as marketing) and `consentSource` as an enum (form / counter / web / phone) — see FR-23.
+  reads as marketing) and `consentSource` (form / counter / web / phone) — FR-23.
 
 ## Rulings (all closed — do not re-open)
-
-- **D-17 — a marketing send requires three gates:** `marketingConsent` (the legal basis under
-  revDSG) · per-channel `consentGranted` with `consentScope = marketing` (read through
-  `channel_authorises_marketing`; no caller yet — Marketing is not built) · `newsletter` (the
-  subscription, one boolean, permanently).
-- **D-20 — the address is optional at creation**; an address-less customer is gated at contract
-  **confirmation**, not at the offer or at contract creation.
-- **D-21 — `preferredChannel`** ∈ `email` / `phone` / `post` / `whatsapp`. The retired
-  `message` value is still an enum member (old rows load) and the API still accepts it on write
-  — only the UI omits it. Report such rows, never map them to `whatsapp`.
-- **D-22** — salutation `herr` / `frau` / `firma` / `neutral`, for persons and businesses.
-  Gender is independent (`female` / `male` / `other` / `unspecified`) — **never inferred from
-  the salutation**.
-- **D-23** — `website` is not business-only. **D-24** — `advisorId` defaults to the acting user
-  on create only; nullable and clearable. **The advisor follows Sales' rule for a responsible
-  seller** (KAN-410; Anto, 2026-10-23, option B): someone who acts in the acting Betrieb — homed
-  there or an active member of it — and is active or invited (`platform.public.get_active_user_acting_in`,
-  one predicate for both); anyone else is 422 `advisorId`. So a sister-Betrieb member who works
-  here advises the customers they create here by default, may be picked, and is listed by the
-  advisor picker (`list_active_users_acting_in`); their deactivation then decides those customers
-  too, and a hand-over refuses a colleague who works in no Betrieb of a customer's dealer group
-  (KAN-423, Sales' `colleague_cannot_act_there`; `customer/ownership.py`). The check runs only when the advisor changes, so a customer still advised by a leaver
-  stays editable. **D-25** — the list offers Export and Print; there
-  is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
-- **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
-  `weitere`). Labels are localised (`customerEnums.legalForm.*`, `translatedLegalFormOptions` /
-  `translatedLegalFormLabel` in `customerOptions.ts`; KAN-104). SA, Sàrl and Sagl are the
-  French/Italian *names* of AG and GmbH, not separate forms; the registered name keeps its own suffix.
-- **Canton is derived server-side from the postal code (D-13)** and never accepted from the
-  client. It is not a removable field: the list filter, a grid column and the audit trail
-  depend on it.
+- **D-17 — a marketing send needs three gates:** `marketingConsent` (the revDSG legal basis) ·
+  per-channel `consentGranted` with `consentScope = marketing` (`channel_authorises_marketing`; no
+  caller — Marketing is not built) · `newsletter`.
+- **D-20** — the address is optional at creation; an address-less customer is gated at contract
+  **confirmation**.
+- **D-21** — `preferredChannel` ∈ `email` / `phone` / `post` / `whatsapp`; the retired `message`
+  is still an enum member and accepted on write — only the UI omits it. Report such rows, never
+  map them to `whatsapp`.
+- **D-22** — salutation `herr` / `frau` / `firma` / `neutral`; gender is independent and **never
+  inferred from the salutation**. **D-23** — `website` is not business-only.
+- **D-24** — `advisorId` defaults to the acting user on create only; nullable, clearable. **The
+  advisor follows Sales' rule for a responsible seller** (Anto, KAN-410): someone who acts in the
+  acting Betrieb (homed or an active member) and is active or invited
+  (`platform.public.get_active_user_acting_in`), anyone else 422; a hand-over refuses a colleague
+  who works in no Betrieb of the customer's group (`customer/ownership.py`). Checked only when the
+  advisor changes, so a customer advised by a leaver stays editable.
+- **D-25** — the list offers Export and Print; **no bulk anonymise**. **D-26** — `creditBlock`,
+  with `creditBlockedAt`.
+- **Legal form** is one of `ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`, `weitere`,
+  labels localised; SA, Sàrl and Sagl are the French/Italian *names* of AG and GmbH, not separate
+  forms; the registered name keeps its own suffix.
+- **Canton is derived server-side from the postal code (D-13)**, never accepted from the client,
+  and not removable (the list filter, a grid column and the audit trail depend on it).
 
 ## Blocks and flags
+- **ADR-065 — a credit block stops contract confirmation, not the offer.** **Do-not-contact** is
+  the `lifecycleStatus` value `do_not_contact`, not a flag, and stops the offer and the contract. A
+  credit block is visible on the customer's own screens, not only inside the offer.
+- **`vatStatusConfirmed`**: `vatRegistered = false` is also the default, so a second checkbox says
+  someone checked it; every row started unconfirmed; live business does not read it yet.
 
-- **ADR-065 — a credit block stops contract confirmation, not the offer** (quoting a blocked
-  customer is often how the block gets resolved). **Do-not-contact is a different fact** — the
-  `lifecycleStatus` value `do_not_contact`, not a flag — and stops the offer and the contract.
-- A credit block must be visible on the customer's own screens, not only inside the offer.
-- **`vatStatusConfirmed`** (Anto, 2026-10-11, KAN-295): `vatRegistered = false` is also the
-  default, so a second checkbox on the customer says someone checked it. Every row started
-  unconfirmed. Live business does not read it yet.
-
-## Vehicles and parties
-
-- **ADR-064 — vehicle–customer links carry a role and are time-bounded.** Owner, keeper
-  (Halter) and driver are different parties often enough that collapsing them loses what a
-  seller needs. A new holder **closes** the previous row instead of overwriting it
-  (`allocate_vehicle_party`). A customer merge re-points the duplicate's rows at the survivor;
-  a row whose (vehicle, role, effective_from) the survivor already holds cannot be (the unique
-  key spans `customer_id`) and is **kept** on the duplicate with `merged_into_customer_id`
-  naming the survivor — never deleted (KAN-177, Anto's ruling 2026-10-12, option A): an open or
-  future-closed copy is closed at its own start, audited as a `vehicle_party_remove` and
-  published as `unlinked`; a copy already closed in the past keeps its `effective_to` and takes
-  only the mark, listed by the merge's own audit event. **Not built:** the transfer on
-  `finance.invoice.issued` (WP-9, KAN-74).
-- Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022) — its callers resolve it first (the allocate routes 404 an unknown one;
-  since KAN-189 a trade-in on an offer or pending contract allocates no party: the car is linked
-  once bought, below) — and the customer in the caller's group (404, never a cross-group link).
-- **Holders are per dealer group** (Anto, KAN-99, 2026-10-04): the VIN is global, each group keeps
-  its own owner/keeper/driver history. `allocate_vehicle_party` closes **every** current holder of
-  the (vehicle, role) in the caller's group (through `Customer.group_id`) in the **same
-  transaction** as the insert — never another group's row — serialised by a Postgres advisory lock
-  on (vehicle, role, group): a row lock cannot do it, a concurrent request never sees the row
-  being inserted. Reads (`list_vehicle_parties`; `list_vehicle_party_holders`, with each holder's
-  name for the Identity tab, KAN-140) share one group-filtered statement, so a name only comes
-  from a holder the filter admits.
-- **A bought trade-in names its former owner** (KAN-189; Anto, 2026-11-02, option A; the four
-  rulings below, 2026-11-03, all A): the
-  customer context consumes `inventory.stock_item.purchased` (`customer.trade_in_purchased`,
-  `consumers.py`). For a trade-in's pipeline item (`originRole: trade_in`) it takes
-  the contract's customer and signature from the event (`tradeInCustomerId`/`tradeInSignedAt`, KAN-632;
-  an older event's from the worker's `seller_of_old_event`, which asks Sales; none given raises) and, in its own
-  consumer transaction, `record_former_holder_on_purchase` writes that customer as **owner and
-  keeper, closed at the purchase** — the start of the purchase date in Switzerland, or the booking
-  when that date is not after the signature or is still to come (never later than the booking)
-  — held since the signature. A row of the customer
-  already holding the role then is closed there instead; the customer's own rows join the period
-  without gap or overlap (Anto, KAN-566 B; `test_kan566_former_holder_periods.py`); no other holder is touched (history closes nobody, KAN-370);
-  a customer merged since is followed to its survivor. Same locks and `customer_merged` refusal
-  as an allocation. The step lives in the customer context (Anto's ruling 1 A), so no write
-  spans two contexts (rule 12).
-- **A stornoed trade-in that went back to its customer reopens them** (KAN-572; Anto, 2026-11-07,
-  option C): `customer.trade_in_storno` consumes `inventory.stock_item.storno` and, only when it says
-  `returnedToCustomer`, `reopen_former_holder_after_storno` reopens the owner and keeper rows the
-  purchase closed — the same rows (`effectiveTo` back to open), this customer's latest of the role
-  closed between the contract's signature and the storno — audited `vehicle_party_update` with reason
-  `trade_in_returned_to_customer`, published `linked`, under the allocation's locks, closing any other
-  open holder of the role in the group (KAN-148). A role the customer holds now is left alone. Without
-  the flag the history stays (the customer did hand the car over). Because delivery is unordered after a
-  failed delivery, `customer.stock_item_bookings_on_{purchased,storno}` (registered first, nothing else to fail)
-  record every purchase/storno event in `customer_stock_item_booking` (KAN-632; seeded from the outbox, re-seeded
-  by `scripts/backfill_customer_stock_item_booking.py`; nightly check; per-item lock); the trade-in consumers judge by `occurredAt`: a purchase is recorded only
-  while no later booking of the item is known, and a returned storno a later purchase overtook (standing
-  or stornoed in turn) reopens nobody. The reopen also leaves a role alone when a row of it was
-  recorded after the storno and, as it stands now, is open or ends after it was recorded (a history row
-  recorded later does not count), or a holder of it starts after the storno — then, even in order, the returned customer does not get that role back and the role has no current
-  holder until the future holder starts (never ended before it began; KAN-583).
-  **Accepted residual**
-  (Anto, 2026-11-07, KAN-572 option A; narrowed by KAN-632 to out-of-order delivery and to a purchase and
-  storno both still pending at the deploy, which the seed takes as out of order): a purchase event consumed after its storno's records no
-  handover — after a *returned* storno the customer who got the car back is recorded nowhere —, a
-  returned storno consumed after a later booking's event reopens nobody, and
-  two API-only cases (the SPA sends no party PATCH): an older row reopened by a PATCH after the storno
-  is closed by a late returned storno, and a row recorded after the storno whose end a PATCH moved back
-  before its own recording reads as history, so a late returned storno reopens over it. *Ruled on the pre-KAN-632
-  (wider) text; the narrowing is disclosed in PR #316.*
-- **No path bypasses the close rule** (KAN-148, A): a create ending later goes through
-  `allocate_vehicle_party`; one already ended is history, closes nobody, takes the same locks and
-  refuses a merged customer (KAN-370). A PATCH leaving a row holding takes the advisory lock,
-  closes others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
-  `unlinked` (KAN-352); a holding row's start-only PATCH is a reopen here and below, minus
-  its event (KAN-662). Disconnect re-reads its row; one `unlinked` per race. Lock order:
-  advisory, then rows by id.
-- **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
-  overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes
-  nothing. One from a later date closes the current holders at its start (sparing one ending
-  first; no `unlinked`) and links them (`closed_for_party_id`): one current holder, the new one
-  upcoming («ab …» on both tabs); moving its start moves their end. «Eintrag beenden» (Disconnect)
-  on a planned row closes it at its own start («planned, never started»); rows it still links
-  hold until the next holder (KAN-664). An empty period never holds (KAN-572 too).
-- **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
-  `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
-  duplicate has a row in, in sorted order — so it never interleaves with an allocation or a
-  reopen of a pair it has seen. Then it locks the duplicate's customer row (`FOR NO KEY UPDATE`),
-  reads the pairs again, and only then locks the party rows it writes. **Allocation and a reopen refuse a merged
-  customer** (KAN-365): they read the customer row `FOR SHARE` under their advisory lock and answer
-  409 `customer_merged` (with `mergedIntoCustomerId`) — after KAN-177's row-level
-  `merged_party_row` check, which the kept copy still answers — so an allocation to the duplicate
-  on a pair new to it either commits before that re-read (and is re-pointed) or waits for the
-  merge and is refused. A pair that appears while it waits is only tried, never waited for (out of
-  order, it could deadlock another merge): if it is held, the merge is refused, 409
-  `merge_vehicle_party_busy`, and can be sent again.
-- **A merge locks its survivor too** (KAN-372, `_lock_merge_customers`): after its advisory locks
-  it locks both customer rows **in id order** — the duplicate `FOR NO KEY UPDATE`, the survivor
-  `FOR SHARE` — and re-reads both statuses under them: a survivor that is merged (or whose own
-  merge was in flight and committed) is refused, 409 `merge_target_merged`; a duplicate a
-  concurrent merge already merged, 409 `customer_already_merged`. Lock order for a merge and an allocation: advisory
-  (sorted) → customer rows (id order) → party rows. Two exceptions: a reopen
-  (`update_customer_vehicle`) locks its party row before it reads its customer row `FOR SHARE`
-  (still after its advisory lock, which keeps a merge of that pair out), and KAN-383's re-point of
-  earlier merges (next bullet), which locks merged customers' rows and their kept copies after. Two merges in opposite directions ask for the
-  two rows in the same order, so the second waits and is refused; allocation and a reopen take
-  one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
-  blocks. A merge X→D racing D→T is refused only when D→T locked D first; when X→D locks D
-  first, D→T waits and commits after it. A tag PATCH on the survivor waits for that lock and
-  then collides with a tag the merge moved onto it: `update_customer` flushes inside its guard,
-  so that is 409 `customer_tag_exists`, never a 500 (KAN-390).
-- **A merge re-points the earlier merges into its duplicate** (KAN-383, Anto 2026-10-18,
-  option A, `_repoint_earlier_merges`): merging D into T sets every customer whose
-  `duplicateOfCustomerId` names D to T, in the same transaction, bumps its version and audits
-  it on that customer (`merge_survivor_repointed`); the merge's own audit lists them
-  (`earlierMergesRepointedIds`). The KAN-177 copies whose `merged_into_customer_id` names D are
-  re-pointed to T too. It reads them after holding D's row, so a merge X→D that held D first has
-  committed and X is found — "merged into" always names a live customer, after sequential
-  merges and after the race alike. It locks those merged rows after its own party rows; no writer
-  holding one waits on the merge (allocation, a reopen and a merge into or of X refuse a merged
-  customer; a credit-block change takes only X's row; the nightly advisor-label refresh skips a
-  customer it cannot lock, KAN-403). The copies are only tried, never waited
-  for — the nightly vehicle-party label refresh locks each batch's rows in id order (no SKIP
-  LOCKED) and waits for a held one, so it could hold one while it waits for D's; the summary-changed consumer (KAN-186) locks one vehicle's party rows
-  `FOR NO KEY UPDATE` in id order and can hold one the same way — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
-  D's. Chains written before KAN-383 are not repaired.
-- **A vehicle merge moves party rows in a consumer** (KAN-634): `vehicle-mdm.md`.
-- **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
-  `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
-  `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
-  `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
-  re-read when vehicle-mdm publishes `vehicle.vehicle_mdm.summary_changed` (consumer
-  `customer.vehicle_party_labels_on_summary_changed`, `consumers.py`, KAN-186) —
-  every party row naming the vehicle, in every dealer group, locked in id order and relabelled
-  from `get_vehicle_summaries`, never from the payload — and re-read nightly by
-  `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`, the same helper), the backstop
-  for what publishes nothing (a brand rename) and the backfill (Anto's ruling, option A). A row
-  without a label yet is filled for a read in memory only, and labelled by its next PATCH,
-  re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
-  already-closed row returns before committing and drops it).
-  A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
-  `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
-- **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
-  `GET /v1/customers/{id}/vehicles` (composed in `app/api/v1/customer_vehicles.py`, KAN-632) fills `stockItem` from
-  `app.inventory.public.get_stock_items_for_vehicles` (which takes the caller's `Principal` and reads
-  only its token's group, KAN-538) only when
-  `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a
-  token minted before it was taken away, gets `stockItem: null`. The customer router carries no
-  entitlement gate, so any other inventory or sales data a customer route embeds needs the same check.
-- **Cross-group closes and links written before KAN-99 are detected, not repaired** (KAN-139,
-  KAN-176): `app.customer.reconciliation.find_cross_group_vehicle_party_closes` classifies every
-  `vehicle_party_remove` audit row and `unlinked` outbox event, and
-  `find_cross_group_vehicle_party_links` every `vehicle_party_add` row and `linked` event (the
-  trade-in path passed a body `customerId` through unresolved), against the named customer's
-  group; `scripts/detect_cross_group_vehicle_party_closes.py` runs both. A stamp of a
-  dealership in that group is same-group: before WP-3 PR-2 (2026-08-25) customers were
-  dealership-scoped, and the close was the D-12 hard-delete. Close-then-open dates from WP-5
-  PR-9 (2026-08-28), so a genuine close finding falls between then and KAN-99. Read-only (a
-  `READ ONLY` transaction) and not a nightly check (the audit log is append-only, so a finding
-  never clears); a repair is Anto's decision.
-- Group-wide customer history must be served from an event-built projection keyed by
-  `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
-  **Not built:** `app/reporting` is a stub, and the History tab shows the audit log. Its ids
-  are named on read (KAN-371, ADR-093): `GET …/audit-log` returns `labels` from
-  `customer_service.history_labels` — customers and vehicles from this context, a Betrieb's and
-  a user's name from `platform.public.get_group_display_labels` (the caller's own Betrieb
-  always; a sister Betrieb and its users only while the group's read is enabled, ADR-030). An
-  id nothing names renders as a translated marker, never a bare UUID.
-
-- **The advisor label follows a rename within a day** (KAN-403, rule 2): `advisor_label` and
-  `advisor_label_refreshed_at` are written when the advisor is set and re-read nightly by
-  `refresh_advisor_labels` (`customer.advisor_labels`, after the vehicle-party labels) through
-  `platform.public.get_user_display_labels` — never a join. A changed label moves `updated_at`, not
-  `version`; a deactivated user's label is kept as it was (only restamped); an advisor id that names
-  no user is left alone, and its stale stamp shows in `dms.label.age_seconds{label="customer.advisor"}`.
-  The job reads each batch `FOR NO KEY UPDATE SKIP LOCKED`: a customer another writer holds waits for
-  the next night, never for the writer — waiting could deadlock against a merge re-pointing earlier
-  merges (KAN-383), which locks X after D. Sales' responsible-seller label (`owner_label`) has the
-  same refresh, `sales.owner_labels` (KAN-404).
+## History and labels
+- Group-wide customer history must be served from an event-built projection keyed by `group_id`
+  (reporting), never by fan-out across dealerships (rule 11). **Not built:** the History tab shows
+  the audit log, its ids named on read (ADR-093) — a sister Betrieb and its users only while the
+  group's read is enabled (ADR-030); an id nothing names renders as a translated marker, never a
+  bare UUID.
+- `advisor_label` follows a rename within a day (`customer.advisor_labels`, `events-worker.md`);
+  its batches skip a customer another writer holds, which could otherwise deadlock against a merge.
 
 ## Screens
-
-List and detail render their actions from the one shared `customerRowMenu` (ADR-061). A
-contact card offers `tel:` / `mailto:` links and marks the preferred channel.
-
-- **Address autocomplete (KAN-37, ADR-101; Anto, 2026-10-25):** the create wizard's address block
-  and the detail screen's address editor carry one search field (`AddressSearchField`) above the
-  address fields while the Betrieb's switch is on (Dealer Administration › Business › Address
-  entry) and the platform holds a Google key. A Google Places pick fills street, house number,
-  postal code, locality and country; every field stays editable, line 2 is never touched, and the
-  canton stays derived server-side (D-13) — Google's `administrative_area_level_1` is discarded.
-  Suggestions are restricted to the form's country and never persisted or logged; only the picked
-  address is written, through the same POST/PATCH as a typed one. Off, the forms are exactly what
-  they were. The PRD's "external address-lookup APIs" out-of-scope line and D-09 are resolved by
-  this ruling.
-
-- **Merge and link refusals are said in the user's language** (KAN-366, KAN-369; the rule is
-  `.claude/rules/ui.md`'s, KAN-398): every refusal carries `details.reason` — a merge's
-  `merge_into_self`, `merge_target_merged`, `customer_already_merged`,
-  `merge_conflict_on_survivor`, `merge_vehicle_party_busy`, mapped in `MergeCustomerModal`; an
-  allocation's `customer_merged`, `vehicle_party_exists` and `vehicle_merge_in_progress`, in
-  `utils/vehiclePartyRefusal.ts` for `LinkVehicleModal` and the Identity tab — to
-  DE/FR/IT/EN text; the API's English `message` is never shown. A new refusal adds reason and translations.
+- List and detail render their actions from the one `customerRowMenu` (ADR-061). A contact card
+  offers `tel:` / `mailto:` links and marks the preferred channel.
+- **Address autocomplete** (ADR-101): the create wizard's address block and the detail's address
+  editor carry one `AddressSearchField` while the Betrieb's switch is on and the platform holds a
+  Google key. A pick fills street, house number, postal code, locality and country; every field
+  stays editable, line 2 is never touched, the canton stays derived (Google's
+  `administrative_area_level_1` is discarded). Suggestions are restricted to the form's country,
+  never persisted or logged; the picked address is written through the same POST/PATCH as a typed
+  one. Off, the forms are unchanged.
+- **Merge and link refusals are said in the user's language** (`ui-i18n.md`): every one carries a
+  `details.reason`, mapped in `MergeCustomerModal` and `utils/vehiclePartyRefusal.ts`; a new
+  refusal adds its reason and translations.
