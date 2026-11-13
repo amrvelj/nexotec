@@ -21,7 +21,8 @@
   "countEstimate": "Mehr als {{count, number}} Schlüssel",
   "columns": {
     "key": "Schlüssel",
-    "actions": "Aktionen"
+    "namespace": "Bereich",
+    "updatedAt": "Zuletzt geändert"
   },
   "languages": {
     "de": "Deutsch",
@@ -39,7 +40,6 @@
   "empty": "Keine Schlüssel gefunden.",
   "noSeed": "Es sind noch keine UI-Texte importiert. Der Import läuft mit scripts/import_ui_translation_bundles.py --commit.",
   "loadError": "Die Übersetzungen konnten nicht geladen werden.",
-  "loadMore": "Weitere laden",
   "editor": {
     "keyLabel": "Schlüssel",
     "seedLabel": "Ausgeliefert",
@@ -65,8 +65,10 @@
       "key": "Schlüssel",
       "language": "Sprache",
       "count": "Meldungen",
-      "last": "Zuletzt gemeldet"
-    }
+      "last": "Zuletzt gemeldet",
+      "first": "Zuerst gemeldet"
+    },
+    "gridLabel": "Fehlende Schlüssel"
   },
   "seeds": {
     "subtitle": "Die Vorlagen, die Nexotec jedem Betrieb mitliefert. Eine Änderung überschreibt nie die Anpassung eines Betriebs; der Betrieb sieht, dass sich die Vorlage geändert hat.",
@@ -82,11 +84,16 @@
     "count_other": "{{count, number}} Vorlagen",
     "columns": {
       "code": "Code",
-      "target": "Verwendung"
+      "target": "Verwendung",
+      "category": "Kategorie",
+      "appliesTo": "Verwendet für",
+      "slot": "Position"
     },
     "fieldTitle": "Titel",
     "fieldBody": "Text",
     "empty": "Keine Vorlagen gefunden.",
-    "loadError": "Die Vorlagen konnten nicht geladen werden."
-  }
+    "loadError": "Die Vorlagen konnten nicht geladen werden.",
+    "gridLabel": "Standardtext-Vorlagen"
+  },
+  "gridLabel": "UI-Texte"
 }

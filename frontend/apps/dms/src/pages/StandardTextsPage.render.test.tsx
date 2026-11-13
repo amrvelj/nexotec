@@ -1,10 +1,23 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { StandardTextsPage } from './StandardTextsPage'
+
+// jsdom has no layout, so TanStack Virtual windows the library's grid down
+// to zero rows; render every row instead (as BrandsAdmin's test does).
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () => Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
 
 // KAN-208 — Dealer Administration › Standard texts: the library by category
 // (seeds labelled «Vorlage — bitte prüfen»), the editor with language tabs,
@@ -74,11 +87,24 @@ function routes({ items = SEEDS, writable = ALL, extra = [] }: { items?: unknown
   ]
 }
 
-async function openEditor(user: ReturnType<typeof userEvent.setup>, title: string) {
+/** KAN-516 — a text opens from its row menu (ADR-061): «Bearbeiten», or
+ * «Ansehen» in a category the user may not write. */
+async function openFromRowMenu(user: ReturnType<typeof userEvent.setup>, title: string, item: 'Bearbeiten' | 'Ansehen' = 'Bearbeiten') {
   const table = await screen.findByRole('table', { name: 'Dokumente' })
-  const line = within(table).getByText(title).closest('tr') as HTMLElement
-  await user.click(within(line).getByRole('button', { name: 'Bearbeiten' }))
+  const line = within(table).getByText(title).closest('[role="row"]') as HTMLElement
+  await user.click(within(line).getByRole('button', { name: 'Zeilenaktionen' }))
+  await user.click(await screen.findByRole('menuitem', { name: item }))
   return within(await screen.findByRole('dialog'))
+}
+
+const openEditor = (user: ReturnType<typeof userEvent.setup>, title: string) => openFromRowMenu(user, title)
+
+/** The titles down the grid, in the order shown. */
+function titlesShown(table: HTMLElement): string[] {
+  return within(table)
+    .getAllByRole('row')
+    .slice(1)
+    .map((line) => within(line).getAllByRole('cell')[0].textContent ?? '')
 }
 
 describe('StandardTextsPage (KAN-208)', () => {
@@ -203,9 +229,8 @@ describe('StandardTextsPage (KAN-208)', () => {
     const table = await screen.findByRole('table', { name: 'Dokumente' })
     expect(screen.getByText('Sie können die Texte dieser Kategorie lesen, aber nicht ändern.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Neuer Text' })).toBeNull()
-    const line = within(table).getByText('Einleitung der Offerte').closest('tr') as HTMLElement
-    await user.click(within(line).getByRole('button', { name: 'Ansehen' }))
-    const dialog = within(await screen.findByRole('dialog'))
+    expect(within(table).getByText('Einleitung der Offerte')).toBeInTheDocument()
+    const dialog = await openFromRowMenu(user, 'Einleitung der Offerte', 'Ansehen')
     expect(dialog.queryByRole('button', { name: 'Als eigenen Text übernehmen' })).toBeNull()
     expect(dialog.queryByRole('group', { name: 'Platzhalter einfügen' })).toBeNull()
     expect(dialog.getByRole('textbox', { name: 'Text' })).toHaveAttribute('readonly')
@@ -213,5 +238,55 @@ describe('StandardTextsPage (KAN-208)', () => {
 
     await user.click(screen.getByRole('tab', { name: 'E-Mail (1)' }))
     expect(await screen.findByRole('button', { name: 'Neuer Text' })).toBeInTheDocument()
+  })
+
+  it('sorts the library in the browser, the sort in the URL, without asking the API again (KAN-516)', async () => {
+    const backend = installFakeBackend(routes())
+    const user = userEvent.setup()
+    renderWithProviders(<StandardTextsPage />, { route: '/administration/texts?category=document' })
+
+    const table = await screen.findByRole('table', { name: 'Dokumente' })
+    // No sort: the library's own order (use, then position: footer before intro).
+    expect(titlesShown(table)).toEqual(['Gültigkeit der Offerte', 'Einleitung der Offerte'])
+    const reads = backend.callsTo(/\/standard-texts$/, 'GET').length
+
+    const heading = within(table).getByRole('columnheader', { name: 'Bezeichnung' })
+    await user.click(heading)
+    expect(heading).toHaveAttribute('aria-sort', 'ascending')
+    expect(titlesShown(table)).toEqual(['Einleitung der Offerte', 'Gültigkeit der Offerte'])
+    await user.click(heading)
+    expect(heading).toHaveAttribute('aria-sort', 'descending')
+    expect(titlesShown(table)).toEqual(['Gültigkeit der Offerte', 'Einleitung der Offerte'])
+    expect(backend.callsTo(/\/standard-texts$/, 'GET')).toHaveLength(reads)
+  })
+
+  it('reads a pasted sort from the URL and keeps it across the category tabs', async () => {
+    installFakeBackend(routes())
+    const user = userEvent.setup()
+    renderWithProviders(<StandardTextsPage />, { route: '/administration/texts?sort=title:asc' })
+
+    const table = await screen.findByRole('table', { name: 'Dokumente' })
+    expect(titlesShown(table)).toEqual(['Einleitung der Offerte', 'Gültigkeit der Offerte'])
+    await user.click(screen.getByRole('tab', { name: 'E-Mail (1)' }))
+    expect(within(await screen.findByRole('table', { name: 'E-Mail' })).getByRole('columnheader', { name: 'Bezeichnung' })).toHaveAttribute(
+      'aria-sort',
+      'ascending',
+    )
+  })
+
+  it('offers every stored field in the Columns panel, the code and last change hidden by default (ADR-060)', async () => {
+    installFakeBackend(routes())
+    const user = userEvent.setup()
+    renderWithProviders(<StandardTextsPage />, { route: '/administration/texts' })
+
+    const table = await screen.findByRole('table', { name: 'Dokumente' })
+    const headings = within(table).getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headings).toEqual(expect.arrayContaining(['Bezeichnung', 'Verwendet für', 'Position', 'Herkunft', 'Sprachen', 'Standard']))
+    expect(headings).not.toContain('Code')
+    expect(within(table).queryByText('offer.intro.standard')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Spalten' }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Code' }))
+    expect(await within(table).findByText('offer.intro.standard')).toBeInTheDocument()
   })
 })

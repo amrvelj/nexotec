@@ -1,23 +1,47 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Alert, Badge, Button, Card, Checkbox, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Alert, Badge, Card, Checkbox, Group, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Eye, Pencil, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { slate } from '@nexotec/ui-kit'
+import {
+  ColumnConfigPanel,
+  DataGrid,
+  defaultColumnLayout,
+  slate,
+  sortRowsInBrowser,
+  type GridColumnDef,
+  type RowMenuGroups,
+} from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import type { UiTranslationKeyPage, UiTranslationKeyRead, UiTranslationNamespaces, UiTranslationRead } from '../../api/types'
 import { useCanWrite } from '../../auth/useCanWrite'
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../../i18n'
+import { SUPPORTED_LANGUAGES, toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { reloadPublishedTranslations } from '../../i18n/runtimeTranslations'
+import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
+import { useDataGridLabels } from '../../hooks/useDataGridLabels'
+import { useGridPreferences } from '../../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { useSortInUrl } from '../../hooks/useSortInUrl'
+import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { apiRefusalText } from '../../utils/apiRefusal'
+import { columnRegistryOf } from '../../utils/columnRegistry'
+import { formatDateTime } from '../../utils/format'
 import { FourLanguageEditor, type EditorLanguageRow, type PublishOutcome } from './FourLanguageEditor'
 import { MissingTranslationsCard } from './MissingTranslationsCard'
 
-const PAGE_SIZE = 50
+// The endpoint's largest page (`pagination_max_limit`): the grid loads the
+// next one as the reader scrolls near the end, and a sort loads them all.
+const PAGE_SIZE = 100
 const BASE = '/platform/ui-translations'
+const GRID_KEY = 'platform.translations.uiStrings'
+
+/** The latest change to any language of the key. */
+function lastChanged(item: UiTranslationKeyRead): string | null {
+  const stamps = SUPPORTED_LANGUAGES.map((language) => item[language]?.updatedAt).filter((stamp): stamp is string => Boolean(stamp))
+  return stamps.length > 0 ? stamps.reduce((latest, stamp) => (stamp > latest ? stamp : latest)) : null
+}
 
 function keyPath(item: { namespace: string; key: string }): string {
   return `${item.namespace}.${item.key}`
@@ -41,11 +65,25 @@ function rowPath(row: { namespace: string; key: string; language: string }): str
  * namespace/key search over every key the bundles shipped, the four-column
  * editor, the diff against the shipped text, publish and revert. Every write
  * is platform staff's at the API; anyone else reads (KAN-430: the actions
- * are hidden, never the data). Search, area, «edited only» and the open key
- * live in the URL (ADR-056).
+ * are hidden, never the data). Search, area, «edited only», the sort and the
+ * open key live in the URL (ADR-056).
+ *
+ * KAN-516 (Anto, 2026-11-13, option C): the keys are the kit's grid — the row
+ * menu opens a key (ADR-061), the Columns panel is the user's (ADR-060), the
+ * next page loads as the reader scrolls. The endpoint takes no sort, so the
+ * grid sorts in the browser — and a sort orders the whole result, never the
+ * part loaded so far: while one is set, the remaining pages are loaded too
+ * (the search narrows them; the whole catalogue is some 3'000 keys). No sort
+ * keeps the endpoint's order (area, then key).
  */
 export function UiStringsPanel() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale((SUPPORTED_LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as SupportedLanguage) : 'de')
+  const { density } = useUiPreferencesContext()
+  const labels = useDataGridLabels()
+  const columnPanelLabels = useColumnPanelLabels()
+  const gridPrefs = useGridPreferences(GRID_KEY, { sort: [] })
+  const [sort, setSort] = useSortInUrl(gridPrefs)
   const canWrite = useCanWrite('ui_translations')
   const queryClient = useQueryClient()
   const revertKey = useIdempotencyKey()
@@ -98,6 +136,78 @@ export function UiStringsPanel() {
   const firstPage = list.data?.pages[0]
   const selected = useMemo(() => items.find((item) => keyPath(item) === openKey) ?? null, [items, openKey])
   const rows = useMemo(() => (selected ? editorRows(selected) : {}), [selected])
+
+  const columns: GridColumnDef<UiTranslationKeyRead>[] = useMemo(
+    () => [
+      {
+        id: 'key',
+        header: t('translations.columns.key'),
+        cell: ({ row }) => keyPath(row.original),
+        meta: { locked: true, mono: true, sortField: 'key', sortValue: keyPath },
+      },
+      {
+        id: 'namespace',
+        header: t('translations.columns.namespace'),
+        cell: ({ row }) => row.original.namespace,
+        meta: { mono: true, defaultVisible: false, sortField: 'namespace', sortValue: (item) => item.namespace },
+      },
+      ...SUPPORTED_LANGUAGES.map(
+        (language): GridColumnDef<UiTranslationKeyRead> => ({
+          id: language,
+          header: t(`translations.languages.${language}`),
+          cell: ({ row }) => {
+            const value = row.original[language]
+            return value ? (
+              <Group gap={6} wrap="nowrap">
+                <Text span size="sm" truncate>
+                  {value.value}
+                </Text>
+                {value.source === 'platform' && (
+                  <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                    {t('translations.status.platform')}
+                  </Badge>
+                )}
+              </Group>
+            ) : (
+              <Text span size="sm" c={slate[4]} fs="italic">
+                {t('translations.status.absent')}
+              </Text>
+            )
+          },
+          meta: { sortField: language, sortValue: (item) => item[language]?.value },
+        }),
+      ),
+      {
+        id: 'updatedAt',
+        header: t('translations.columns.updatedAt'),
+        cell: ({ row }) => {
+          const stamp = lastChanged(row.original)
+          return stamp ? formatDateTime(stamp, locale) : '—'
+        },
+        meta: { align: 'right', defaultVisible: false, sortField: 'updatedAt', sortValue: lastChanged },
+      },
+    ],
+    [t, locale],
+  )
+  const columnRegistry = useMemo(() => columnRegistryOf(columns), [columns])
+  const columnLayout = useMemo(() => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry), [gridPrefs.columnLayout, columnRegistry])
+  const gridRows = useMemo(() => sortRowsInBrowser(items, sort, columns, locale), [items, sort, columns, locale])
+
+  // A sort orders the whole result: while one is set, load what is left.
+  const sorting = sort.length > 0
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list
+  useEffect(() => {
+    if (sorting && hasNextPage && !isFetchingNextPage) void fetchNextPage()
+  }, [sorting, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  // ADR-061: the one definition of what can be done to a key from the list.
+  const rowMenu = (item: UiTranslationKeyRead): RowMenuGroups => ({
+    edit: [
+      canWrite
+        ? { label: t('translations.open'), icon: <Pencil size={16} />, onClick: () => updateUrl({ key: keyPath(item) }) }
+        : { label: t('translations.view'), icon: <Eye size={16} />, onClick: () => updateUrl({ key: keyPath(item) }) },
+    ],
+  })
 
   // A published or reverted row replaces its copy in every cached page.
   const replaceRow = (updated: UiTranslationRead) => {
@@ -204,6 +314,9 @@ export function UiStringsPanel() {
               onChange={(event) => updateUrl({ edited: event.currentTarget.checked ? '1' : null })}
               mb={8}
             />
+            <Group ml="auto">
+              <ColumnConfigPanel registry={columnRegistry} layout={columnLayout} onLayoutChange={gridPrefs.setColumnLayout} labels={columnPanelLabels} />
+            </Group>
           </Group>
 
           {firstPage && (
@@ -231,65 +344,28 @@ export function UiStringsPanel() {
           )}
 
           {items.length > 0 && (
-            <Table.ScrollContainer minWidth={900}>
-              <Table striped highlightOnHover verticalSpacing="xs" fz="sm">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{t('translations.columns.key')}</Table.Th>
-                    {SUPPORTED_LANGUAGES.map((language) => (
-                      <Table.Th key={language}>{t(`translations.languages.${language}`)}</Table.Th>
-                    ))}
-                    <Table.Th>{t('translations.columns.actions')}</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {items.map((item) => {
-                    const path = keyPath(item)
-                    return (
-                      <Table.Tr key={path} aria-selected={path === openKey}>
-                        <Table.Td style={{ fontFamily: 'monospace', wordBreak: 'break-all', maxWidth: 260 }}>{path}</Table.Td>
-                        {SUPPORTED_LANGUAGES.map((language) => {
-                          const row = item[language]
-                          return (
-                            <Table.Td key={language} style={{ maxWidth: 240 }}>
-                              {row ? (
-                                <Group gap={6} wrap="nowrap" align="flex-start">
-                                  <Text size="sm" lineClamp={2} style={{ wordBreak: 'break-word' }}>
-                                    {row.value}
-                                  </Text>
-                                  {row.source === 'platform' && (
-                                    <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                                      {t('translations.status.platform')}
-                                    </Badge>
-                                  )}
-                                </Group>
-                              ) : (
-                                <Text size="sm" c={slate[4]} fs="italic">
-                                  {t('translations.status.absent')}
-                                </Text>
-                              )}
-                            </Table.Td>
-                          )
-                        })}
-                        <Table.Td>
-                          <Button size="compact-sm" variant="light" onClick={() => updateUrl({ key: path })}>
-                            {canWrite ? t('translations.open') : t('translations.view')}
-                          </Button>
-                        </Table.Td>
-                      </Table.Tr>
-                    )
-                  })}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          )}
-
-          {list.hasNextPage && (
-            <Group justify="center">
-              <Button variant="default" onClick={() => void list.fetchNextPage()} loading={list.isFetchingNextPage}>
-                {t('translations.loadMore')}
-              </Button>
-            </Group>
+            <DataGrid<UiTranslationKeyRead>
+              ariaLabel={t('translations.gridLabel')}
+              columns={columns}
+              rows={gridRows}
+              getRowId={keyPath}
+              sort={sort}
+              onSortChange={setSort}
+              density={density}
+              loading={false}
+              refetching={sorting && hasNextPage}
+              fetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              onLoadMore={() => void fetchNextPage()}
+              total={firstPage?.total ?? null}
+              totalIsEstimate={firstPage?.totalIsEstimate ?? false}
+              isFiltered={Boolean(debouncedQuery || namespace || editedOnly)}
+              labels={labels}
+              emptyState={{ icon: null, title: t('translations.empty'), description: '' }}
+              rowActions={rowMenu}
+              columnLayout={columnLayout}
+              onColumnLayoutChange={gridPrefs.setColumnLayout}
+            />
           )}
         </Stack>
       </Card>

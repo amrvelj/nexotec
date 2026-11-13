@@ -46,7 +46,9 @@
     "slot": "Position",
     "source": "Origin",
     "languages": "Languages",
-    "default": "Default"
+    "default": "Default",
+    "code": "Code",
+    "updatedAt": "Last changed"
   },
   "badge": {
     "template": "Template — please review",

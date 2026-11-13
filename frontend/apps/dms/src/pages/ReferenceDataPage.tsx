@@ -1,38 +1,46 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Group,
-  Select,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-  Title,
-  Tooltip,
-} from '@mantine/core'
+import { Alert, Badge, Button, Card, Group, Select, Stack, Text, TextInput, Title, Tooltip } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CircleAlert, Check, Languages, Plus, ShieldCheck } from 'lucide-react'
+import { CircleAlert, Check, Languages, Pencil, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { FormDialog, InlineEditField, semantic, slate, useSetBreadcrumb } from '@nexotec/ui-kit'
+import {
+  ColumnConfigPanel,
+  DataGrid,
+  FormDialog,
+  InlineEditField,
+  defaultColumnLayout,
+  semantic,
+  slate,
+  sortRowsInBrowser,
+  useSetBreadcrumb,
+  type GridColumnDef,
+  type RowMenuGroups,
+} from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { useCanWrite } from '../auth/useCanWrite'
+import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
+import { useDataGridLabels } from '../hooks/useDataGridLabels'
+import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
+import { useSortInUrl } from '../hooks/useSortInUrl'
+import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { apiRefusalText, isStaleVersion, refusedField } from '../utils/apiRefusal'
 import { useInlineEditRefusal } from '../hooks/useInlineEditRefusal'
 import type { ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
 import { LANGUAGE_ENDONYMS, LANGUAGE_ORDER } from '../i18n/languageEndonyms'
+import { SUPPORTED_LANGUAGES, toSwissLocale, type SupportedLanguage } from '../i18n'
 import { fetchAllReferenceValues } from '../hooks/useReferenceValueOptions'
+import { columnRegistryOf } from '../utils/columnRegistry'
+import { formatDateTime } from '../utils/format'
 import {
   LANGUAGE_FIELDS,
   deriveReferenceView,
   referenceRowLanguageErrors,
   referenceRowMatchesQuery,
+  type LanguageField,
 } from '../utils/referenceData'
 
 // KAN-59: the endpoint caps a page at 100 (Settings.pagination_max_limit) —
@@ -42,8 +50,10 @@ import {
 // passes `active` — it manages inactive values too, not just what a
 // dropdown would offer.
 
+const GRID_KEY = 'platform.referenceData.values'
+
 export function ReferenceDataPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal()
   // KAN-471, KAN-514: the reference lists are the PRD's "Reference lists"
   // row (Platform Administration › Reference data; split from the canonical
@@ -57,9 +67,19 @@ export function ReferenceDataPage() {
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  const locale = toSwissLocale((SUPPORTED_LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as SupportedLanguage) : 'de')
+  const { density } = useUiPreferencesContext()
+  const labels = useDataGridLabels()
+  const columnPanelLabels = useColumnPanelLabels()
+  const gridPrefs = useGridPreferences(GRID_KEY, { sort: [] })
+  // KAN-516 (Anto, 2026-11-13, option C): a reference list is short and the
+  // endpoint takes no sort, so the grid sorts in the browser; the sort is in
+  // the URL (ADR-056). No sort keeps the list's own order.
+  const [sort, setSort] = useSortInUrl(gridPrefs)
 
-  // ADR-056 — the shareable grid state (which list, the filter) lives in
-  // the URL; density / layout are the reader's own ergonomics and stay out.
+  // ADR-056 — the shareable grid state (which list, the filter, the sort)
+  // lives in the URL; density / layout are the reader's own ergonomics and
+  // stay out.
   const { list } = deriveReferenceView(searchParams)
 
   const [query, setQuery] = useState(() => deriveReferenceView(searchParams).query)
@@ -84,7 +104,7 @@ export function ReferenceDataPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-  const queryKey = ['reference-data', list] as const
+  const queryKey = useMemo(() => ['reference-data', list] as const, [list])
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey,
     queryFn: () => fetchAllReferenceValues(list),
@@ -98,8 +118,8 @@ export function ReferenceDataPage() {
     [rows, debouncedQuery],
   )
 
-  const patchLabel = useMutation({
-    mutationFn: (args: { row: ReferenceValueRead; field: (typeof LANGUAGE_FIELDS)[number]; value: string }) =>
+  const { mutateAsync: patchLabelAsync } = useMutation({
+    mutationFn: (args: { row: ReferenceValueRead; field: LanguageField; value: string }) =>
       api.patch<ReferenceValueRead>(
         `/reference-data/${list}/${args.row.valueCode}`,
         { [args.field]: args.value },
@@ -112,9 +132,104 @@ export function ReferenceDataPage() {
     },
   })
 
-  const [createOpen, setCreateOpen] = useState(false)
+  // `null` creates a value; a value edits its labels; `undefined` is closed.
+  const [dialogValue, setDialogValue] = useState<ReferenceValueRead | null | undefined>(undefined)
 
   const listOptions = useMemo(() => REFERENCE_LIST_CODES.map((code) => ({ value: code, label: code })), [])
+
+  const columns: GridColumnDef<ReferenceValueRead>[] = useMemo(
+    () => [
+      {
+        id: 'code',
+        header: t('referenceData.columns.code'),
+        cell: ({ row }) => row.original.valueCode,
+        meta: { locked: true, mono: true, width: 160, sortField: 'code', sortValue: (value) => value.valueCode },
+      },
+      ...LANGUAGE_FIELDS.map(
+        (field, index): GridColumnDef<ReferenceValueRead> => ({
+          id: field,
+          // KAN-343: each language named in itself, whatever the UI language.
+          header: LANGUAGE_ENDONYMS[LANGUAGE_ORDER[index]],
+          cell: ({ row }) => {
+            const value = row.original
+            const empty = referenceRowLanguageErrors(value).has(field)
+            return canWrite ? (
+              <InlineEditField
+                value={value[field]}
+                isEmpty={empty}
+                emptyLabel={t('referenceData.required')}
+                describeError={describeError}
+                isConflict={isStaleVersion}
+                onReload={() => void refetch()}
+                reloadLabel={reloadLabel}
+                onSave={async (raw) => {
+                  await patchLabelAsync({ row: value, field, value: raw })
+                }}
+              />
+            ) : (
+              // The kit's InlineEditField display, without its edit affordance.
+              <Text span size="sm" fs={empty ? 'italic' : undefined} c={empty ? slate[3] : undefined}>
+                {empty ? t('referenceData.required') : value[field]}
+              </Text>
+            )
+          },
+          meta: { sortField: field, sortValue: (value) => value[field] },
+        }),
+      ),
+      {
+        id: 'status',
+        header: '',
+        cell: ({ row }) =>
+          referenceRowLanguageErrors(row.original).size > 0 ? (
+            <Tooltip label={missingTip} position="left" withArrow>
+              <CircleAlert size={16} color={semantic.destructive.text} aria-label={missingTip} />
+            </Tooltip>
+          ) : (
+            <Check size={16} color={semantic.success.text} aria-hidden="true" />
+          ),
+        meta: {
+          width: 64,
+          columnLabel: t('referenceData.columns.status'),
+          sortField: 'status',
+          sortValue: (value) => referenceRowLanguageErrors(value).size,
+        },
+      },
+      {
+        id: 'active',
+        header: t('referenceData.columns.active'),
+        cell: ({ row }) => (row.original.active ? t('common.yes') : t('common.no')),
+        meta: { defaultVisible: false, sortField: 'active', sortValue: (value) => value.active },
+      },
+      {
+        id: 'sortOrder',
+        header: t('referenceData.columns.sortOrder'),
+        cell: ({ row }) => row.original.sortOrder,
+        meta: { align: 'right', defaultVisible: false, sortField: 'sortOrder', sortValue: (value) => value.sortOrder },
+      },
+      {
+        id: 'createdAt',
+        header: t('referenceData.columns.createdAt'),
+        cell: ({ row }) => formatDateTime(row.original.createdAt, locale),
+        meta: { align: 'right', defaultVisible: false, sortField: 'createdAt', sortValue: (value) => value.createdAt },
+      },
+      {
+        id: 'updatedAt',
+        header: t('referenceData.columns.updatedAt'),
+        cell: ({ row }) => formatDateTime(row.original.updatedAt, locale),
+        meta: { align: 'right', defaultVisible: false, sortField: 'updatedAt', sortValue: (value) => value.updatedAt },
+      },
+    ],
+    [t, canWrite, describeError, reloadLabel, refetch, patchLabelAsync, missingTip, locale],
+  )
+  const columnRegistry = useMemo(() => columnRegistryOf(columns), [columns])
+  const columnLayout = useMemo(() => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry), [gridPrefs.columnLayout, columnRegistry])
+  const gridRows = useMemo(() => sortRowsInBrowser(visibleRows, sort, columns, locale), [visibleRows, sort, columns, locale])
+
+  // ADR-061: the one definition of what can be done to a value — its labels,
+  // for platform staff (KAN-430: a reader is offered no action, so no menu).
+  const rowMenu = (value: ReferenceValueRead): RowMenuGroups => ({
+    edit: [{ label: t('referenceData.edit.action'), icon: <Pencil size={16} />, onClick: () => setDialogValue(value) }],
+  })
 
   return (
     <Stack gap="lg">
@@ -166,15 +281,19 @@ export function ReferenceDataPage() {
               onChange={(e) => setQuery(e.currentTarget.value)}
               w={260}
             />
-            {canWrite ? (
-              <Button variant="light" leftSection={<Plus size={16} />} onClick={() => setCreateOpen(true)} ml="auto">
-                {t('referenceData.create.trigger')}
-              </Button>
-            ) : (
-              <Text c="dimmed" size="sm" ml="auto">
-                {t('referenceData.readOnly')}
-              </Text>
-            )}
+            <Group gap="sm" ml="auto">
+              {!canWrite && (
+                <Text c="dimmed" size="sm">
+                  {t('referenceData.readOnly')}
+                </Text>
+              )}
+              <ColumnConfigPanel registry={columnRegistry} layout={columnLayout} onLayoutChange={gridPrefs.setColumnLayout} labels={columnPanelLabels} />
+              {canWrite && (
+                <Button variant="light" leftSection={<Plus size={16} />} onClick={() => setDialogValue(null)}>
+                  {t('referenceData.create.trigger')}
+                </Button>
+              )}
+            </Group>
           </Group>
 
           {isError && !forbidden && (
@@ -185,87 +304,29 @@ export function ReferenceDataPage() {
             </Alert>
           )}
 
-          <Table.ScrollContainer minWidth={720}>
-            <Table verticalSpacing="xs" horizontalSpacing="md" highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th w={140}>{t('referenceData.columns.code')}</Table.Th>
-                  {LANGUAGE_ORDER.map((language) => (
-                    <Table.Th key={language}>{LANGUAGE_ENDONYMS[language]}</Table.Th>
-                  ))}
-                  <Table.Th w={44} aria-label={t('referenceData.columns.status')} />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {isLoading && (
-                  <Table.Tr>
-                    <Table.Td colSpan={6}>
-                      <Text c="dimmed" size="sm">
-                        {t('common.loading')}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-
-                {!isLoading && visibleRows.length === 0 && (
-                  <Table.Tr>
-                    <Table.Td colSpan={6}>
-                      <Text c="dimmed" size="sm">
-                        {debouncedQuery ? t('referenceData.emptyFiltered') : t('referenceData.empty')}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-
-                {visibleRows.map((row) => {
-                  const missing = referenceRowLanguageErrors(row)
-                  return (
-                    <Table.Tr
-                      key={row.valueCode}
-                      style={missing.size > 0 ? { background: semantic.destructive.surface } : undefined}
-                    >
-                      <Table.Td style={{ fontFamily: 'monospace' }}>{row.valueCode}</Table.Td>
-                      {LANGUAGE_FIELDS.map((field) => {
-                        const empty = missing.has(field)
-                        return (
-                          <Table.Td key={field}>
-                            {canWrite ? (
-                              <InlineEditField
-                                value={row[field]}
-                                isEmpty={empty}
-                                emptyLabel={t('referenceData.required')}
-                                describeError={describeError}
-                                isConflict={isStaleVersion}
-                                onReload={() => void refetch()}
-                                reloadLabel={reloadLabel}
-                                onSave={async (raw) => {
-                                  await patchLabel.mutateAsync({ row, field, value: raw })
-                                }}
-                              />
-                            ) : (
-                              // The kit's InlineEditField display, without its edit affordance.
-                              <Text span size="sm" fs={empty ? 'italic' : undefined} c={empty ? slate[3] : undefined}>
-                                {empty ? t('referenceData.required') : row[field]}
-                              </Text>
-                            )}
-                          </Table.Td>
-                        )
-                      })}
-                      <Table.Td>
-                        {missing.size > 0 ? (
-                          <Tooltip label={missingTip} position="left" withArrow>
-                            <CircleAlert size={16} color={semantic.destructive.text} aria-label={missingTip} />
-                          </Tooltip>
-                        ) : (
-                          <Check size={16} color={semantic.success.text} aria-hidden="true" />
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  )
-                })}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+          <DataGrid<ReferenceValueRead>
+            ariaLabel={t('referenceData.gridLabel')}
+            columns={columns}
+            rows={gridRows}
+            getRowId={(value) => value.valueCode}
+            sort={sort}
+            onSortChange={setSort}
+            density={density}
+            loading={isLoading}
+            fetchingNextPage={false}
+            hasNextPage={false}
+            onLoadMore={() => {}}
+            total={gridRows.length}
+            totalIsEstimate={false}
+            isFiltered={Boolean(debouncedQuery)}
+            labels={labels}
+            emptyState={{ icon: <Languages size={24} />, title: t('referenceData.empty'), description: '' }}
+            emptyFilteredState={{ icon: <Languages size={24} />, title: t('referenceData.emptyFiltered'), description: '' }}
+            rowActions={canWrite ? rowMenu : undefined}
+            rowTone={(value) => (referenceRowLanguageErrors(value).size > 0 ? 'destructive' : undefined)}
+            columnLayout={columnLayout}
+            onColumnLayoutChange={gridPrefs.setColumnLayout}
+          />
         </Stack>
       </Card>
 
@@ -274,13 +335,18 @@ export function ReferenceDataPage() {
           canonical-vocabulary editing. */}
 
       {canWrite && (
-        <CreateValueDialog
-          opened={createOpen}
+        <ValueDialog
+          opened={dialogValue !== undefined}
+          editing={dialogValue ?? null}
           listCode={list}
-          onClose={() => setCreateOpen(false)}
-          onCreated={() => {
-            setCreateOpen(false)
-            void queryClient.invalidateQueries({ queryKey })
+          onClose={() => setDialogValue(undefined)}
+          onSaved={(updated) => {
+            setDialogValue(undefined)
+            if (updated) {
+              queryClient.setQueryData<ReferenceValueRead[]>(queryKey, (prev) =>
+                prev ? prev.map((it) => (it.valueCode === updated.valueCode ? updated : it)) : prev,
+              )
+            } else void queryClient.invalidateQueries({ queryKey })
           }}
         />
       )}
@@ -288,19 +354,24 @@ export function ReferenceDataPage() {
   )
 }
 
-/* Create is a DIALOG (UI spec — Forms). Submit is disabled ONLY while the
-   request is in flight — never for incompleteness; the server's 422 comes
-   back and is shown field by field. */
-function CreateValueDialog({
+/* Create and edit are a DIALOG (UI spec — Forms). Submit is disabled ONLY
+   while the request is in flight — never for incompleteness; the server's
+   422 comes back and is shown field by field. Editing (KAN-516, the row
+   menu's «Bezeichnungen bearbeiten») shows the value code read-only and
+   sends only the labels that changed, with If-Match on the value's version. */
+function ValueDialog({
   opened,
+  editing,
   listCode,
   onClose,
-  onCreated,
+  onSaved,
 }: {
   opened: boolean
+  editing: ReferenceValueRead | null
   listCode: ReferenceListCode
   onClose: () => void
-  onCreated: () => void
+  /** The edited value, or `null` after a create (the list is read again). */
+  onSaved: (updated: ReferenceValueRead | null) => void
 }) {
   const { t } = useTranslation()
   const empty = { valueCode: '', labelDe: '', labelFr: '', labelIt: '', labelEn: '' }
@@ -314,7 +385,11 @@ function CreateValueDialog({
 
   useEffect(() => {
     if (opened) {
-      setForm(empty)
+      setForm(
+        editing
+          ? { valueCode: editing.valueCode, labelDe: editing.labelDe, labelFr: editing.labelFr, labelIt: editing.labelIt, labelEn: editing.labelEn }
+          : empty,
+      )
       setFieldErrors({})
       setFormError(null)
       idempotency.renew()
@@ -327,17 +402,30 @@ function CreateValueDialog({
     setFieldErrors({})
     setFormError(null)
     try {
-      await api.post(`/reference-data/${listCode}`, { ...form }, idempotency.headers())
-      idempotency.renew()
-      onCreated()
+      if (editing) {
+        const changed = Object.fromEntries(LANGUAGE_FIELDS.filter((field) => form[field] !== editing[field]).map((field) => [field, form[field]]))
+        if (Object.keys(changed).length === 0) {
+          onClose()
+          return
+        }
+        const updated = await api.patch<ReferenceValueRead>(`/reference-data/${listCode}/${editing.valueCode}`, changed, {
+          'If-Match': String(editing.version),
+        })
+        onSaved(updated)
+      } else {
+        await api.post(`/reference-data/${listCode}`, { ...form }, idempotency.headers())
+        idempotency.renew()
+        onSaved(null)
+      }
     } catch (err) {
       // KAN-437: said in the UI language — a schema 422 marks the field it
-      // names, a value code the list already holds is a 409 naming it.
+      // names, a value code the list already holds is a 409 naming it, a
+      // stale If-Match is said as such.
       const field = err instanceof ApiError && err.status === 422 ? refusedField(err) : null
       if (field && field in empty) setFieldErrors({ [field]: t('referenceData.create.invalidField') })
-      else if (err instanceof ApiError && err.status === 409 && typeof err.details?.valueCode === 'string') {
+      else if (!editing && err instanceof ApiError && err.status === 409 && typeof err.details?.valueCode === 'string') {
         setFormError(t('referenceData.create.duplicate', { valueCode: err.details.valueCode }))
-      } else setFormError(apiRefusalText(t, err, 'referenceData.create.error'))
+      } else setFormError(apiRefusalText(t, err, editing ? 'referenceData.edit.error' : 'referenceData.create.error'))
     } finally {
       setSubmitting(false)
     }
@@ -354,8 +442,8 @@ function CreateValueDialog({
     <FormDialog
       opened={opened}
       onClose={onClose}
-      title={t('referenceData.create.title', { code: listCode })}
-      submitLabel={t('referenceData.create.submit')}
+      title={editing ? t('referenceData.edit.title', { valueCode: editing.valueCode, code: listCode }) : t('referenceData.create.title', { code: listCode })}
+      submitLabel={editing ? t('referenceData.edit.submit') : t('referenceData.create.submit')}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
       onSubmit={() => void submit()}
@@ -372,10 +460,18 @@ function CreateValueDialog({
           value={form.valueCode}
           onChange={set('valueCode')}
           error={fieldErrors.valueCode}
-          data-autofocus
+          data-autofocus={editing ? undefined : true}
+          readOnly={editing !== null}
           required
         />
-        <TextInput label={LANGUAGE_ENDONYMS.de} value={form.labelDe} onChange={set('labelDe')} error={fieldErrors.labelDe} required />
+        <TextInput
+          label={LANGUAGE_ENDONYMS.de}
+          value={form.labelDe}
+          onChange={set('labelDe')}
+          error={fieldErrors.labelDe}
+          data-autofocus={editing ? true : undefined}
+          required
+        />
         <TextInput label={LANGUAGE_ENDONYMS.fr} value={form.labelFr} onChange={set('labelFr')} error={fieldErrors.labelFr} required />
         <TextInput label={LANGUAGE_ENDONYMS.it} value={form.labelIt} onChange={set('labelIt')} error={fieldErrors.labelIt} required />
         <TextInput label={LANGUAGE_ENDONYMS.en} value={form.labelEn} onChange={set('labelEn')} error={fieldErrors.labelEn} required />
