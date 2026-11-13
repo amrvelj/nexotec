@@ -2050,7 +2050,9 @@ export interface paths {
          * Refresh Provider Captions
          * @description «Captions aktualisieren»: the four languages fetched again through the
          *     acting Betrieb's vehicle-data connection, under the staff user's own
-         *     token. 409 `no_provider_connection`; 422 `provider_unavailable`.
+         *     token. 409 `no_provider_connection`, `provider_not_configured`,
+         *     `not_entitled` or `provider_has_no_captions`; 422 `provider_unavailable`
+         *     (each provider failure with `languagesFetched`).
          */
         post: operations["refresh_provider_captions_v1_integrations_captions_refresh_post"];
         delete?: never;
@@ -5010,6 +5012,8 @@ export interface components {
             language: string;
             /** Provider */
             provider: string;
+            /** Providername */
+            providerName: string;
         };
         /** CatalogueBrandPage */
         CatalogueBrandPage: {

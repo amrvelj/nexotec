@@ -71,6 +71,7 @@ def test_staff_see_per_provider_and_language_when_the_captions_were_fetched(clie
 
     assert response.status_code == 200, response.text
     items = response.json()["items"]
+    assert {i["providerName"] for i in items} == {"auto-i-dat (identAPI)"}
     assert [(i["provider"], i["language"]) for i in items] == [("auto_i_dat", lang) for lang in ("de", "fr", "it", "en")]
     assert all(i["captionCount"] == 5 and i["fetchedAt"] for i in items)
 
@@ -135,3 +136,18 @@ def test_a_connection_without_its_secret_is_the_dealers_to_fix_not_unavailable(c
 
     assert response.status_code == 409, response.text
     assert response.json()["error"]["details"] == {"reason": "provider_not_configured", "languagesFetched": []}
+
+
+def test_a_provider_without_a_vocabulary_is_refused_and_still_audited(client, db_session, monkeypatch):
+    s = fx.connected(db_session, monkeypatch, fake=_LanguageAwareFake())
+    staff = _staff_in(db_session, s.connection.tenant_id)
+    from app.integration.adapters.auto_i_dat_ident import AutoIDatIdentAdapter
+
+    monkeypatch.delattr(AutoIDatIdentAdapter, "fetch_captions")
+
+    response = client.post("/v1/integrations/captions/refresh", headers=_headers(user_id=staff.id, tenant_id=s.connection.tenant_id))
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["reason"] == "provider_has_no_captions"
+    (audit,) = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "captions_refreshed")).all()
+    assert audit.after == {"provider": "auto_i_dat", "languages": [], "complete": False}

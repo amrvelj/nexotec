@@ -7,6 +7,7 @@ from app.core.schemas import CamelModel
 
 class CaptionFetchRead(CamelModel):
     provider: str
+    provider_name: str
     language: str
     fetched_at: dt.datetime
     caption_count: int

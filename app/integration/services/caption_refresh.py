@@ -45,11 +45,15 @@ def _vehicle_data_connection(db: Session, *, tenant_id: uuid.UUID) -> tuple[Inte
     return None
 
 
-def _refusal(failure: ProviderGatewayError, fetched: list[str]) -> ConflictError | UnprocessableEntityError:
+def _refusal(
+    failure: ProviderGatewayError | ConflictError, fetched: list[str]
+) -> ConflictError | UnprocessableEntityError:
     """The provider's failure in the words KAN-552's quote uses: the
     connection's set-up (the dealer's to fix) and the contract are said as
     such; anything else is «not available right now»."""
 
+    if isinstance(failure, ConflictError):
+        return failure  # provider_has_no_captions: the provider speaks no vocabulary
     if isinstance(failure, ProviderConfigurationError):
         return ConflictError(
             "The provider connection is not fully set up.",
@@ -69,9 +73,9 @@ def _refusal(failure: ProviderGatewayError, fetched: list[str]) -> ConflictError
 def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) -> list[captions_service.CaptionFetch]:
     """Fetches the four languages for the Betrieb's vehicle-data provider.
     409 `no_provider_connection` without an enabled one; when the provider
-    fails, 409 `provider_not_configured` / `not_entitled` or 422
-    `provider_unavailable` (the languages fetched before stay stored, and
-    the audit row names them)."""
+    fails, 409 `provider_not_configured` / `not_entitled` /
+    `provider_has_no_captions` or 422 `provider_unavailable` (the languages
+    fetched before stay stored; every attempt is audited and names them)."""
 
     found = _vehicle_data_connection(db, tenant_id=tenant_id)
     if found is None:
@@ -81,7 +85,7 @@ def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) 
     connection, provider_code = found
     connection_id = connection.id
     fetched: list[str] = []
-    failure: ProviderGatewayError | None = None
+    failure: ProviderGatewayError | ConflictError | None = None
     try:
         with call_capability(
             db, connection=connection, capability="caption_code", actor_id=actor_id, purpose="captions_refresh"
@@ -95,7 +99,7 @@ def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) 
                 captions_service.store_captions(db, provider_code=provider_code, lang=lang, captions=fetch(lang))
                 db.commit()  # each language kept as it lands
                 fetched.append(lang)
-    except ProviderGatewayError as exc:
+    except (ProviderGatewayError, ConflictError) as exc:
         db.rollback()
         failure = exc
     record_audit_event(

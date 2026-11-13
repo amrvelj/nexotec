@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.integration.adapters.base import CaptionData
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
+from app.integration.models.provider import IntegrationProvider
 
 CAPTION_LANGUAGES: tuple[str, ...] = ("de", "fr", "it", "en")
 _LABEL_COLUMN = {lang: f"label_{lang}" for lang in CAPTION_LANGUAGES}
@@ -129,6 +130,7 @@ class CaptionFetch:
     fetched, and how many codes came back."""
 
     provider: str
+    provider_name: str
     lang: str
     fetched_at: dt.datetime
     caption_count: int
@@ -139,9 +141,19 @@ def list_caption_fetches(db: Session) -> list[CaptionFetch]:
     order of CAPTION_LANGUAGES."""
 
     order = {lang: index for index, lang in enumerate(CAPTION_LANGUAGES)}
-    rows = db.scalars(select(IntegrationProviderCaptionFetch)).all()
+    rows = db.execute(
+        select(IntegrationProviderCaptionFetch, IntegrationProvider.display_name).outerjoin(
+            IntegrationProvider, IntegrationProvider.provider_code == IntegrationProviderCaptionFetch.provider
+        )
+    ).all()
     return sorted(
-        (CaptionFetch(provider=r.provider, lang=r.lang, fetched_at=r.fetched_at, caption_count=r.caption_count) for r in rows),
+        (
+            CaptionFetch(
+                provider=r.provider, provider_name=name or r.provider, lang=r.lang, fetched_at=r.fetched_at,
+                caption_count=r.caption_count,
+            )
+            for r, name in rows
+        ),
         key=lambda f: (f.provider, order.get(f.lang, len(order))),
     )
 

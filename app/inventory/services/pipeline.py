@@ -151,8 +151,9 @@ def _create_pipeline_item_idempotent(
             select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.pipeline_ref == pipeline_ref)
         )
         if existing is None:
-            # KAN-513: a writer outside the lock (the ADR-091 import) took the
-            # configuration in between — the same 409 as create and attach.
+            # KAN-513: a writer that skipped the lock took the configuration in
+            # between (none is known; defence in depth) — the same 409 as create
+            # and attach.
             holder = (
                 configuration_holder(db, tenant_id=tenant_id, configuration_id=uuid.UUID(configuration_id))
                 if configuration_id and CONFIGURATION_INDEX in str(exc.orig)

@@ -45,7 +45,10 @@ export function ProviderCaptionsPanel() {
       setMessage({ color: 'green', text: t('providerCaptions.refreshed') })
     } catch (err: unknown) {
       refreshKey.renew()
-      const fetched = err instanceof ApiError ? err.details?.languagesFetched : undefined
+      // Only a provider that stopped answering gets the «already fetched»
+      // wording; a set-up or contract refusal keeps its own (KAN-552's).
+      const unavailable = err instanceof ApiError && err.details?.reason === 'provider_unavailable'
+      const fetched = unavailable ? err.details?.languagesFetched : undefined
       const text =
         Array.isArray(fetched) && fetched.length > 0
           ? t('providerCaptions.partial', { languages: fetched.map((l) => String(l).toUpperCase()).join(', ') })
@@ -59,6 +62,7 @@ export function ProviderCaptionsPanel() {
 
   const items = fetches.data?.items ?? []
   const providers = [...new Set(items.map((i) => i.provider))].sort()
+  const providerName = (provider: string) => items.find((i) => i.provider === provider)?.providerName ?? provider
   const cell = (provider: string, language: string) => items.find((i) => i.provider === provider && i.language === language)
 
   return (
@@ -90,7 +94,7 @@ export function ProviderCaptionsPanel() {
           <Table.Tbody>
             {providers.map((provider) => (
               <Table.Tr key={provider}>
-                <Table.Td>{provider}</Table.Td>
+                <Table.Td>{providerName(provider)}</Table.Td>
                 {LANGUAGES.map((language) => {
                   const fetch = cell(provider, language)
                   return (

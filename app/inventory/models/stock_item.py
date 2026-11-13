@@ -101,7 +101,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
         # KAN-513: one configuration, one stock item (FR-C-11, KAN-509) — the
         # writers check under an advisory lock first (409
         # `configuration_held_by_stock_item`); this index holds for every
-        # writer, the ADR-091 import included.
+        # writer, one that skips the lock included.
         Index(
             "uq_stock_item_tenant_id_configuration_id",
             "tenant_id",

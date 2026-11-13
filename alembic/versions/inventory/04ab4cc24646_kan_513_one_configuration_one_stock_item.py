@@ -6,7 +6,7 @@ car's technical data (FR-C-11, KAN-509), so the database itself refuses a
 second stock item of the Betrieb that holds it, whichever writer tries —
 create and «Konfiguration zuordnen» (which already check under an advisory
 lock), the FR-I-02/02b consumers (which now take the same lock, KAN-513) and
-the ADR-091 import.
+any writer that skips the lock (none is known; defence in depth).
 
 Checked before: staging (the only environment, Anto 2026-11-12) holds no
 duplicate (KAN-513, 2026-11-13: no stock item carries a configuration

@@ -73,7 +73,8 @@ background job has no user to enrol). **Staff see and refresh them** (KAN-588): 
 is `POST /v1/integrations/captions/refresh` (`services/caption_refresh.py`, `require_access_role()`): the
 four languages through the acting Betrieb's enabled vehicle-data connection, under the staff user's own
 token, each committed as it lands, audited `captions_refreshed` on the connection; 409
-`no_provider_connection`, 422 `provider_unavailable` with `languagesFetched`. No job calls it. Others read them through `integration.public.get_captions` —
+`no_provider_connection` / `provider_not_configured` / `not_entitled` / `provider_has_no_captions`, 422
+`provider_unavailable`, the provider's failures with `languagesFetched`. No job calls it. Others read them through `integration.public.get_captions` —
 to show a provider's wording beside an unmapped code, **never to fill a reference list** (ADR-044).
 
 ## The licence (identAPI test agreement, confidential — Anto's Drive, never quoted)

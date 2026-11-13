@@ -20,7 +20,7 @@ router = APIRouter(tags=["integrations"], route_class=IdempotentRoute)
 def _list(fetches: list[captions_service.CaptionFetch]) -> CaptionFetchList:
     return CaptionFetchList(
         items=[
-            CaptionFetchRead(provider=f.provider, language=f.lang, fetched_at=f.fetched_at, caption_count=f.caption_count)
+            CaptionFetchRead(provider=f.provider, provider_name=f.provider_name, language=f.lang, fetched_at=f.fetched_at, caption_count=f.caption_count)
             for f in fetches
         ]
     )
@@ -44,7 +44,9 @@ def refresh_provider_captions(
 ):
     """«Captions aktualisieren»: the four languages fetched again through the
     acting Betrieb's vehicle-data connection, under the staff user's own
-    token. 409 `no_provider_connection`; 422 `provider_unavailable`."""
+    token. 409 `no_provider_connection`, `provider_not_configured`,
+    `not_entitled` or `provider_has_no_captions`; 422 `provider_unavailable`
+    (each provider failure with `languagesFetched`)."""
 
     if principal.tenant_id is None or principal.user_id is None:
         raise ConflictError("Act in a Betrieb to refresh its provider's captions.", details={"reason": "no_provider_connection"})
