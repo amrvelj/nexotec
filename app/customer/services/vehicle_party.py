@@ -157,7 +157,9 @@ def update_customer_vehicle(
     merge kept (KAN-177, `merged_into_customer_id`) is never reopened: 409
     `merged_party_row`. KAN-352: a PATCH that ends a holding row (an
     `effectiveTo` now or past) publishes `customer.vehicle_party.unlinked`,
-    as Disconnect does."""
+    as Disconnect does. KAN-662: a PATCH changing only `effectiveFrom` of a
+    row that holds its role counts as a reopen - same lock, refusals and
+    close rule; it publishes nothing new (the row held before and after)."""
 
     changes = data.model_dump(exclude_unset=True)
     reopens = "effective_to" in changes and _is_open(changes["effective_to"])
