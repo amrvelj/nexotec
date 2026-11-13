@@ -183,4 +183,42 @@ describe('VehiclesTab (KAN-49 / FR-19)', () => {
       expect(screen.queryByText(i18n.t('customerDetail.vehicles.mergedInto'))).not.toBeInTheDocument()
     })
   })
+
+  // KAN-680 (Anto, 2026-11-13, option A) — a row a vehicle merge kept as
+  // history (KAN-672) says which record the car lives on now, with its VIN,
+  // links that record and offers no «Eintrag beenden».
+  describe('a row a vehicle merge kept as history', () => {
+    afterEach(async () => {
+      cleanup()
+      await i18n.changeLanguage('de')
+    })
+
+    it.each(['de', 'fr', 'it', 'en'] as const)('names the surviving VIN and links the record (%s)', async (language) => {
+      await i18n.changeLanguage(language)
+      install([
+        vehicleParty({
+          effectiveFrom: '2026-01-01T00:00:00Z',
+          effectiveTo: '2026-01-01T00:00:00Z',
+          mergedIntoVehicleId: 'survivor-car',
+          mergedIntoVehicleVin: 'WVWZZZ1JZXW000099',
+        }),
+      ])
+      renderDetail()
+
+      await screen.findByText('WVWZZZ1JZXW000001')
+      const marker = screen.getByText(i18n.t('customerDetail.vehicles.mergedIntoVehicle', { vin: 'WVWZZZ1JZXW000099' }))
+      expect(marker.textContent).toContain('WVWZZZ1JZXW000099')
+      expect(marker.closest('a')).toHaveAttribute('href', '/vehicles/survivor-car')
+      expect(marker.closest('a')).toHaveAttribute('title', i18n.t('customerDetail.vehicles.mergedIntoVehicleTitle'))
+      expect(screen.queryByText(i18n.t('customerDetail.vehicles.mergedInto'))).not.toBeInTheDocument()
+    })
+
+    it('an ordinary ended role carries no vehicle-merge mark', async () => {
+      install([vehicleParty({ effectiveTo: '2026-06-01T00:00:00Z', mergedIntoVehicleId: null, mergedIntoVehicleVin: null })])
+      renderDetail()
+
+      await screen.findByText('WVWZZZ1JZXW000001')
+      expect(screen.queryByText(/WVWZZZ1JZXW000099/)).not.toBeInTheDocument()
+    })
+  })
 })

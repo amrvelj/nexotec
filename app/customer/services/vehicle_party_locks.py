@@ -135,8 +135,23 @@ def _lock_live_vehicle_role_in_group(
     id naming no record comes back unchanged — the caller has answered its
     404 before."""
 
+    return _lock_live_vehicle_roles_in_group(db, vehicle_id=vehicle_id, roles=(role,), group_id=group_id)
+
+
+def _lock_live_vehicle_roles_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, roles: Iterable[VehiclePartyRole], group_id: uuid.UUID
+) -> uuid.UUID:
+    """`_lock_live_vehicle_role_in_group` for a writer of several roles at
+    once (KAN-680: the trade-in purchase and its storno write owner and
+    keeper): the roles' locks of the live record, waited for in the order
+    given (callers pass them sorted by value, as a merge takes them); after a
+    merge committed during the wait, the new record's locks are only tried —
+    busy is 409 `vehicle_merge_in_progress`."""
+
+    roles = tuple(roles)
     live = resolve_merged_vehicle_id(db, vehicle_id)
-    _lock_vehicle_role_in_group(db, vehicle_id=live, role=role, group_id=group_id)
+    for role in roles:
+        _lock_vehicle_role_in_group(db, vehicle_id=live, role=role, group_id=group_id)
     while True:
         now_live = resolve_merged_vehicle_id(db, live)
         if now_live == live:
@@ -148,11 +163,41 @@ def _lock_live_vehicle_role_in_group(
         # the request Postgres aborts would answer 500. Busy means a merge of
         # this car is being settled right now: refuse, nothing written, and
         # the same request succeeds a moment later.
-        if not _try_lock_vehicle_role_in_group(db, vehicle_id=live, role=role, group_id=group_id):
-            raise ConflictError(
-                "This vehicle is being merged with another record right now; try again in a moment.",
-                details={"reason": "vehicle_merge_in_progress"},
-            )
+        for role in roles:
+            if not _try_lock_vehicle_role_in_group(db, vehicle_id=live, role=role, group_id=group_id):
+                raise _vehicle_merge_in_progress()
+
+
+def _lock_party_vehicle_role(db: Session, *, party: VehicleParty, group_id: uuid.UUID) -> uuid.UUID:
+    """KAN-680 (item 5): the (vehicle, role, group) lock of the record a
+    party row names *now*, then that role's rows in id order — taken by a
+    PATCH and a Disconnect of an existing row. The row was read before the
+    lock: if a vehicle merge's consumer moved it onto the survivor while this
+    waited for the duplicate's lock (the consumer holds both cars' locks,
+    `customer/services/vehicle_merge.py`), the row now names the survivor,
+    whose lock is taken too — tried only, as `_lock_live_vehicle_role_in_group`
+    does; busy is 409 `vehicle_merge_in_progress`. Once this holds the lock of
+    the record the row names, no merge can move the row. Returns that
+    record's id."""
+
+    vehicle_id = party.vehicle_id
+    _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=party.role, group_id=group_id)
+    while True:
+        names_now = db.scalar(select(VehicleParty.vehicle_id).where(VehicleParty.id == party.id))
+        if names_now is None or names_now == vehicle_id:
+            break
+        vehicle_id = names_now
+        if not _try_lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=party.role, group_id=group_id):
+            raise _vehicle_merge_in_progress()
+    _lock_role_rows(db, vehicle_id=vehicle_id, role=party.role, group_id=group_id)
+    return vehicle_id
+
+
+def _vehicle_merge_in_progress() -> ConflictError:
+    return ConflictError(
+        "This vehicle is being merged with another record right now; try again in a moment.",
+        details={"reason": "vehicle_merge_in_progress"},
+    )
 
 
 def _try_lock_vehicle_role_in_group(

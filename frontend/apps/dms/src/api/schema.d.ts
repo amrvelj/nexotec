@@ -6993,6 +6993,10 @@ export interface components {
             id: string;
             /** Mergedintocustomerid */
             mergedIntoCustomerId?: string | null;
+            /** Mergedintovehicleid */
+            mergedIntoVehicleId?: string | null;
+            /** Mergedintovehiclevin */
+            mergedIntoVehicleVin?: string | null;
             /** Otherparties */
             otherParties?: components["schemas"]["OtherVehiclePartySummary"][];
             role: components["schemas"]["VehiclePartyRole"];

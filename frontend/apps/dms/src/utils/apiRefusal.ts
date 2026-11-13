@@ -201,6 +201,8 @@ const REASON_KEYS: Record<string, string> = {
       // KAN-536 — a trade-in is bought under the VIN its contract holds.
       'trade_in_vin_differs',
       'vehicle_merge_in_progress',
+      // KAN-680 — a vehicle merge's kept copy stays as history.
+      'vehicle_merged_party_row',
       // KAN-557 — «VIN korrigieren».
       'vehicle_merged',
       'vehicle_vin_changed',
@@ -243,6 +245,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
         : '—',
   }),
   customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
+  // KAN-680: the surviving record's VIN, where the entry is edited instead.
+  vehicle_merged_party_row: (d) => ({ vin: String(d.mergedIntoVehicleVin ?? '—') }),
   // KAN-552: the provider's own reason, as delivered (ADR-044).
   provider_cannot_value: (d) => ({ message: typeof d.providerMessage === 'string' ? d.providerMessage : '—' }),
   // KAN-146: the contract whose invoice request keeps the purchase booked.

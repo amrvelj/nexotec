@@ -109,8 +109,27 @@ export function VehiclesTab({
         // start (KAN-177) is not an ordinary ended role — it says so beside
         // the role, and links to the customer it was merged into.
         cell: ({ row }) => {
-          const { role, mergedIntoCustomerId } = row.original
+          const { role, mergedIntoCustomerId, mergedIntoVehicleId, mergedIntoVehicleVin } = row.original
           const label = translatedVehiclePartyRoleLabel(t, role)
+          // KAN-680 (Anto, 2026-11-13, A): a row a vehicle merge kept as
+          // history (KAN-672) says which record the car lives on now, and
+          // links it.
+          if (mergedIntoVehicleId) {
+            return (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {label}
+                <Link
+                  to={`/vehicles/${mergedIntoVehicleId}`}
+                  title={t('customerDetail.vehicles.mergedIntoVehicleTitle')}
+                  style={{ display: 'inline-flex', textDecoration: 'none' }}
+                >
+                  <Badge tone="slate">
+                    {t('customerDetail.vehicles.mergedIntoVehicle', { vin: mergedIntoVehicleVin ?? '—' })}
+                  </Badge>
+                </Link>
+              </span>
+            )
+          }
           // KAN-644 (Anto, 2026-11-12, A): a holder whose start is still to
           // come is upcoming, not current — «ab <date>» beside the role.
           // KAN-583 (1A): a planned entry cancelled before it began says so.
@@ -211,7 +230,7 @@ export function VehiclesTab({
         rowActions={
           canEndEntry && onEndEntry
             ? (row) =>
-                !row.mergedIntoCustomerId && holdsNowOrLater(row)
+                !row.mergedIntoCustomerId && !row.mergedIntoVehicleId && holdsNowOrLater(row)
                   ? {
                       destructive: [
                         {

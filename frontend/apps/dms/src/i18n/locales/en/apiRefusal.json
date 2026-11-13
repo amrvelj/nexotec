@@ -27,6 +27,7 @@
     "last_usable_contact_point": "A customer keeps at least one usable phone number or email address. Add another one first.",
     "legacy_sale": "This contract was migrated from the legacy system, which handled it there — it cannot be changed here.",
     "merged_party_row": "This row is the copy a customer merge kept; it cannot hold its role again.",
+    "vehicle_merged_party_row": "This entry belongs to a merged vehicle and stays as history. Edit the entry on vehicle {{vin}}.",
     "missing_config_fields": "This connection is missing required settings: {{fields}}.",
     "missing_containers": "The offer is not complete yet. Missing: {{containers}}.",
     "missing_price": "This contract has no price yet. Complete the price build-up first.",

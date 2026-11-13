@@ -625,7 +625,8 @@ _HISTORY_USER_KEYS = frozenset({"advisorId"})
 _HISTORY_CUSTOMER_KEYS = frozenset(
     {"mergedIntoCustomerId", "duplicateOfCustomerId", "customerId", "earlierMergesRepointedIds"}
 )
-_HISTORY_VEHICLE_KEYS = frozenset({"vehicleId"})
+# KAN-680: a vehicle merge's kept copy names the record it was merged into.
+_HISTORY_VEHICLE_KEYS = frozenset({"vehicleId", "mergedIntoVehicleId"})
 _HISTORY_PARTY_KEYS = frozenset({"vehiclePartiesKeptClosedIds", "vehiclePartyCopiesRepointedIds"})
 
 
