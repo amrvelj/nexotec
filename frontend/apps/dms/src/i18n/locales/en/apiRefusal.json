@@ -162,7 +162,8 @@
     "vin_correction_needs_vehicle": "This vehicle has not been bought yet — its VIN is corrected in the configuration.",
     "vin_unchanged": "That is already this vehicle's VIN.",
     "vehicle_vin_changed": "The VIN in the vehicle record has changed meanwhile. Please reload and try again.",
-    "vehicle_merged": "The vehicle was merged with another in the vehicle records. Please reload."
+    "vehicle_merged": "The vehicle was merged with another in the vehicle records. Please reload.",
+    "provider_has_no_captions": "This provider has no vocabulary to fetch."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

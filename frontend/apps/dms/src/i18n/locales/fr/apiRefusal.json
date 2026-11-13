@@ -162,7 +162,8 @@
     "vin_correction_needs_vehicle": "Ce véhicule n'est pas encore acheté — le VIN se corrige dans la configuration.",
     "vin_unchanged": "C'est déjà le VIN de ce véhicule.",
     "vehicle_vin_changed": "Le VIN de la fiche véhicule a changé entre-temps. Veuillez recharger et réessayer.",
-    "vehicle_merged": "Le véhicule a été fusionné avec un autre dans la fiche véhicule. Veuillez recharger."
+    "vehicle_merged": "Le véhicule a été fusionné avec un autre dans la fiche véhicule. Veuillez recharger.",
+    "provider_has_no_captions": "Ce fournisseur n’a pas de vocabulaire à récupérer."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

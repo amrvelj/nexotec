@@ -162,7 +162,8 @@
     "vin_correction_needs_vehicle": "Questo veicolo non è ancora acquistato — il VIN si corregge nella configurazione.",
     "vin_unchanged": "È già il VIN di questo veicolo.",
     "vehicle_vin_changed": "Il VIN nell'anagrafica veicolo è stato modificato nel frattempo. Ricaricate e riprovate.",
-    "vehicle_merged": "Il veicolo è stato unito a un altro nell'anagrafica veicolo. Ricaricate."
+    "vehicle_merged": "Il veicolo è stato unito a un altro nell'anagrafica veicolo. Ricaricate.",
+    "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",
