@@ -19,7 +19,10 @@ groups with KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   overwrites it instead of duplicating it. A text the target already has of
   the same code and language is overwritten (settled (a)); a copied default
   that takes a slot from the target's own default is reported
-  (`default_replaced`); the source's reviewed seed version travels with an
+  (`default_replaced`); a WhatsApp template's provider approval and id
+  (FR-A-54, the source's provider account) are never copied; the target's
+  rows are locked as the PATCH route locks one; the source's reviewed seed
+  version travels with an
   adaptation, so "the standard text has changed" survives; a location variant
   is not copied — sites differ per Betrieb (settled (b)).
 - **the document template's header notes** (the four languages); a
@@ -47,7 +50,8 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.auth import Principal
-from app.core.errors import AppError, NotFoundError
+from app.core.errors import AppError, ConflictError, NotFoundError
+from app.core.i18n import SwissLanguage
 from app.core.permissions import AccessRole, ModuleCode
 from app.core.tenancy import require_tenant_match
 from app.platform.models.dealership import Dealership
@@ -65,7 +69,10 @@ from app.platform.services.user_common import membership_is_active
 
 SUMMARY_ACTION = "configuration_copied"
 _HEADER_FIELDS = ("header_note_de", "header_note_fr", "header_note_it", "header_note_en")
-_TEXT_FIELDS = ("title", "body", "is_default", "active", "sort_order", "template_approved", "provider_template_id")
+# A WhatsApp template's approval and id are the provider's, for the source's
+# own account (FR-A-54): never copied — a copied WhatsApp text arrives not
+# approved and without an id, and an overwrite leaves the target's as they are.
+_TEXT_FIELDS = ("title", "body", "is_default", "active", "sort_order")
 
 
 class CopySubset(str, enum.Enum):
@@ -89,7 +96,7 @@ class CopyItem:
     key: str
     outcome: CopyOutcome
     label: str | None = None
-    language: str | None = None
+    language: SwissLanguage | None = None
     # Why an item was skipped: `number_range_frozen` or the 422 reason the
     # entity's own validation gave (`number_pattern_location_code_missing`, …).
     reason: str | None = None
@@ -181,18 +188,23 @@ def list_sources(db: Session, principal: Principal, *, target: Dealership) -> li
 # --- standard texts ------------------------------------------------------------------
 
 
-def _dealer_rows(db: Session, dealership_id: uuid.UUID) -> list[StandardText]:
-    return list(
-        db.scalars(
-            select(StandardText)
-            .where(
-                StandardText.dealership_id == dealership_id,
-                StandardText.location_id.is_(None),
-                StandardText.source == StandardTextSource.DEALER,
-            )
-            .order_by(StandardText.code, StandardText.language)
-        ).all()
+def _dealer_rows(db: Session, dealership_id: uuid.UUID, *, lock: bool = False) -> list[StandardText]:
+    """The Betrieb's own rows at Betrieb scope. The target's are locked (as
+    the PATCH route locks the one it edits): a colleague's edit waits for the
+    copy and then meets the moved version (409), never a lost update."""
+
+    query = (
+        select(StandardText)
+        .where(
+            StandardText.dealership_id == dealership_id,
+            StandardText.location_id.is_(None),
+            StandardText.source == StandardTextSource.DEALER,
+        )
+        .order_by(StandardText.code, StandardText.language)
     )
+    if lock:
+        query = query.with_for_update()
+    return list(db.scalars(query).all())
 
 
 def _text_input(row: StandardText) -> standard_text_service.DealerTextInput:
@@ -207,22 +219,22 @@ def _text_input(row: StandardText) -> standard_text_service.DealerTextInput:
         is_default=row.is_default,
         active=row.active,
         sort_order=row.sort_order,
-        template_approved=row.template_approved,
-        provider_template_id=row.provider_template_id,
+        template_approved=False,
+        provider_template_id=None,
     )
 
 
 def _copy_standard_texts(
     db: Session, *, source: Dealership, target: Dealership, actor_id: uuid.UUID, report: CopyReport
 ) -> None:
-    target_rows = {(row.code, row.language): row for row in _dealer_rows(db, target.id)}
+    target_rows = {(row.code, row.language): row for row in _dealer_rows(db, target.id, lock=True)}
     target_codes = {code for code, _ in target_rows}
     for row in _dealer_rows(db, source.id):
         item = CopyItem(
             subset=CopySubset.STANDARD_TEXTS,
             key=row.code,
             label=row.title,
-            language=row.language.value,
+            language=row.language,
             outcome=CopyOutcome.CREATED,
         )
         existing = target_rows.get((row.code, row.language))
@@ -251,7 +263,7 @@ def _copy_standard_texts(
                             subset=CopySubset.STANDARD_TEXTS,
                             key=demoted.code,
                             label=demoted.title,
-                            language=demoted.language.value,
+                            language=demoted.language,
                             outcome=CopyOutcome.OVERWRITTEN,
                             reason="default_replaced",
                         )
@@ -383,14 +395,18 @@ def _copy_number_ranges(
             item.reason = "number_range_frozen"
             report.items.append(item)
             continue
-        row = number_range_service.get_or_seed(db, dealership_id=target.id, document_type=document_type, lock=True)
-        if row.frozen_at is not None:
-            item.outcome = CopyOutcome.SKIPPED
-            item.reason = "number_range_frozen"
-            report.items.append(item)
-            continue
         try:
             with db.begin_nested():
+                # Seeded and locked inside the savepoint: a refused pattern
+                # leaves no seeded row behind either.
+                row = number_range_service.get_or_seed(
+                    db, dealership_id=target.id, document_type=document_type, lock=True
+                )
+                if row.frozen_at is not None:
+                    raise ConflictError(
+                        "This number range has handed out its first number and is frozen.",
+                        details={"reason": "number_range_frozen"},
+                    )
                 number_range_service.update_range(
                     db,
                     row=row,

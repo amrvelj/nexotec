@@ -192,8 +192,8 @@
       "number_ranges": "Modèles des plages de numéros"
     },
     "subsetHint": {
-      "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé.",
-      "document_template": "L'en-tête des documents dans les quatre langues.",
+      "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé. L'approbation des modèles WhatsApp n'est pas reprise.",
+      "document_template": "L'en-tête des documents, par langue. Si l'autre entreprise n'en a pas dans une langue, celui d'ici reste inchangé.",
       "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée."
     },
     "preview": "Afficher l'aperçu",

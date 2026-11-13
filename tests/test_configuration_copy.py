@@ -18,6 +18,7 @@ from app.platform.models.number_range import NumberRange, NumberRangeDocumentTyp
 from app.platform.models.standard_text import StandardText
 from app.platform.services import configuration_copy as copy_service
 from tests.membership_support import bearer, create_dealership, create_user, grant, platform_admin, token
+from tests.postgres_only import ROW_LOCKS
 
 OFFER = NumberRangeDocumentType.OFFER
 
@@ -474,3 +475,118 @@ def test_a_copy_that_changes_no_range_writes_no_range_row(client, engine, standa
     report = _copy(client, target, in_target, source, dry_run=False, subsets=("number_ranges",)).json()
     assert {i["outcome"] for i in report["items"]} == {"unchanged"}
     assert _rows(engine, NumberRange, tenant_id=uuid.UUID(target)) == []
+
+
+def test_a_whatsapp_templates_provider_approval_and_id_stay_with_the_source(client, engine, standard_text_seeds):
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.standard_text import (
+        StandardTextAppliesTo,
+        StandardTextScope,
+        StandardTextSlot,
+        StandardTextSource,
+    )
+    from app.platform.models.standard_text_delegation import StandardTextCategory
+
+    source, target, _, in_target, _ = _pair(client, engine)
+    session = sessionmaker(bind=engine)()
+    try:
+        session.add(
+            StandardText(
+                dealership_id=uuid.UUID(source),
+                scope=StandardTextScope.DEALERSHIP,
+                code="vehicle_ready.body.wa",
+                category=StandardTextCategory.WHATSAPP,
+                applies_to=StandardTextAppliesTo.VEHICLE_READY,
+                slot=StandardTextSlot.BODY,
+                language=SwissLanguage.DE,
+                title="Abholbereit",
+                body="Ihr Fahrzeug ist bereit.",
+                source=StandardTextSource.DEALER,
+                template_approved=True,
+                provider_template_id="source-account-template-1",
+                version=1,
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+    report = _copy(client, target, in_target, source, dry_run=False, subsets=("standard_texts",))
+    assert report.status_code == 200, report.text
+    copied = next(
+        r for r in _rows(engine, StandardText, dealership_id=uuid.UUID(target)) if r.code == "vehicle_ready.body.wa"
+    )
+    assert copied.body == "Ihr Fahrzeug ist bereit."
+    assert (copied.template_approved, copied.provider_template_id) == (False, None)
+
+
+def test_a_refused_pattern_leaves_no_seeded_range_row(client, engine, standard_text_seeds):
+    source, target, _, in_target, in_source = _pair(client, engine)
+    session = sessionmaker(bind=engine)()
+    try:
+        for row in session.scalars(select(NumberRange).where(NumberRange.tenant_id == uuid.UUID(target))).all():
+            session.delete(row)
+        session.commit()
+    finally:
+        session.close()
+    # The source's sites have a code; the target's have none, so the target
+    # cannot take a pattern printing {location_code}.
+    from app.platform.models.dealership import Location
+
+    session = sessionmaker(bind=engine)()
+    try:
+        for location in session.scalars(select(Location)).all():
+            location.code = "ZH" if location.tenant_id == uuid.UUID(source) else None
+        session.commit()
+    finally:
+        session.close()
+    ranges = client.get(f"/v1/dealerships/{source}/number-ranges", headers=in_source).json()["items"]
+    contract = next(r for r in ranges if r["documentType"] == "sales_contract")
+    patched = client.patch(
+        f"/v1/dealerships/{source}/number-ranges/sales_contract",
+        json={"pattern": "{location_code}-{counter:4}"},
+        headers={**in_source, "If-Match": str(contract["version"])},
+    )
+    assert patched.status_code == 200, patched.text
+    report = _copy(client, target, in_target, source, dry_run=False, subsets=("number_ranges",)).json()
+    item = next(i for i in report["items"] if i["key"] == "sales_contract")
+    assert (item["outcome"], item["reason"]) == ("skipped", "number_pattern_location_code_missing")
+    assert _rows(engine, NumberRange, tenant_id=uuid.UUID(target)) == []
+
+
+@ROW_LOCKS
+def test_the_copy_waits_for_a_colleagues_edit_of_a_target_text(client, engine, standard_text_seeds):
+    """The target's texts are locked as the PATCH route locks its row: a copy
+    meeting a colleague's open edit waits for it (here: times out), never
+    overwrites around it."""
+
+    import pytest
+    from sqlalchemy import text as sql_text
+    from sqlalchemy.exc import OperationalError
+
+    from app.core.auth import get_current_principal
+
+    source, target, _, in_target, in_source = _pair(client, engine)
+    _configure_source(client, source, in_source)
+    own = _create_text(
+        client, target, in_target, {"code": "offer.intro.standard", "language": "de", "title": "Ziel", "body": "Ziel."}
+    )
+    principal = get_current_principal(in_target["Authorization"].split(" ", 1)[1])
+    colleague = sessionmaker(bind=engine)()
+    copier = sessionmaker(bind=engine)()
+    try:
+        colleague.execute(select(StandardText).where(StandardText.id == uuid.UUID(own["id"])).with_for_update())
+        copier.execute(sql_text("SET lock_timeout = '300ms'"))
+        with pytest.raises(OperationalError):
+            copy_service.copy_configuration(
+                copier,
+                principal,
+                target_id=uuid.UUID(target),
+                source_id=uuid.UUID(source),
+                subsets={copy_service.CopySubset.STANDARD_TEXTS},
+                dry_run=False,
+            )
+    finally:
+        copier.rollback()
+        copier.close()
+        colleague.rollback()
+        colleague.close()

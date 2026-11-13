@@ -192,8 +192,8 @@
       "number_ranges": "Number-range patterns"
     },
     "subsetHint": {
-      "standard_texts": "The business's own and adapted texts, without site variants. A text this business already has is overwritten.",
-      "document_template": "The documents' header note in all four languages.",
+      "standard_texts": "The business's own and adapted texts, without site variants. A text this business already has is overwritten. The approval of WhatsApp templates is not copied.",
+      "document_template": "The documents' header note, per language. Where the other business has none in a language, this one's stays as it is.",
       "number_ranges": "Pattern, start value and yearly reset of the modules this business uses. Counters are never copied; a range that has already issued a number stays as it is."
     },
     "preview": "Show preview",

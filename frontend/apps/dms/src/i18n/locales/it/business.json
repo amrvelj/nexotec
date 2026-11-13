@@ -192,8 +192,8 @@
       "number_ranges": "Modelli degli intervalli di numerazione"
     },
     "subsetHint": {
-      "standard_texts": "I testi propri e adattati dell'azienda, senza le varianti per sede. Un testo che questa azienda ha già viene sovrascritto.",
-      "document_template": "L'intestazione dei documenti in tutte e quattro le lingue.",
+      "standard_texts": "I testi propri e adattati dell'azienda, senza le varianti per sede. Un testo che questa azienda ha già viene sovrascritto. L'approvazione dei modelli WhatsApp non viene ripresa.",
+      "document_template": "L'intestazione dei documenti, per lingua. Se l'altra azienda non ne ha una in una lingua, quella di qui resta invariata.",
       "number_ranges": "Modello, valore iniziale e ripartenza annuale dei moduli che questa azienda usa. I contatori non vengono mai ripresi; un intervallo che ha già assegnato un numero resta invariato."
     },
     "preview": "Mostra anteprima",

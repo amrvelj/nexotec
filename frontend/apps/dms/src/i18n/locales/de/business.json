@@ -192,8 +192,8 @@
       "number_ranges": "Nummernkreis-Muster"
     },
     "subsetHint": {
-      "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben.",
-      "document_template": "Die Kopfzeile der Dokumente in allen vier Sprachen.",
+      "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Die Freigabe von WhatsApp-Vorlagen wird nicht übernommen.",
+      "document_template": "Die Kopfzeile der Dokumente, je Sprache. Hat der andere Betrieb in einer Sprache keine, bleibt die hiesige unverändert.",
       "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert."
     },
     "preview": "Vorschau anzeigen",
