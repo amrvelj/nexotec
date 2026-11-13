@@ -183,11 +183,7 @@ weekly. -->
   closes the others; a reopen publishes `linked`, a PATCH ending a holding row now or earlier
   `unlinked` (KAN-352).
   Disconnect re-reads its locked row (one `unlinked` per race). Lock order: advisory, then rows by id.
-  **A start-only PATCH of a holding row counts as a reopen** (KAN-662): same lock, future-holder
-  refusal, merged-customer refusal and close rule, wherever this file says «a reopen». The trade-in
-  purchase and its returned storno lock owner and keeper rows in one statement, in id order across
-  both roles (KAN-663, `_lock_rows_of_roles`).
-  A merge's kept copy (KAN-177) is never reopened (409 `merged_party_row`).
+  A start-only PATCH of a holding row is a reopen here and below (KAN-662).
 - **A future holder** (Anto: KAN-583 A, 1A, 2A; KAN-644 A): an allocation or reopen
   overlapping a holder whose start is still to come is 409 `vehicle_party_future_holder` and changes
   nothing. One from a later date closes the current holders at its start (sparing one ending
