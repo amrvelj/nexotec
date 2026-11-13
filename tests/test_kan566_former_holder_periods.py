@@ -192,3 +192,52 @@ def test_an_own_row_starting_inside_the_period_leaves_no_gap_before_it(db_sessio
         (b_start, b_end),
         (b_end, ended_at),
     ]
+
+
+def test_an_own_row_still_holding_at_the_purchase_and_starting_inside_the_period_leaves_no_gap(db_session):
+    """Found by the third review: the customer was linked as owner a few
+    days after signing and still holds at the purchase. That row is closed at
+    the purchase, and the stretch from the signature to its start is
+    recorded too."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW566006")
+    clara = _customer(db_session, group_id, "Clara")
+    signed_at, ended_at = _moments()
+    linked = signed_at + dt.timedelta(days=5)
+    allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=clara.id, role=VehiclePartyRole.OWNER, group_id=group_id,
+        actor_id=uuid.uuid4(), effective_from=linked,
+    )
+    db_session.commit()
+
+    record_former_holder_on_purchase(
+        db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
+        held_from=signed_at, ended_at=ended_at, actor_id=None,
+    )
+    db_session.commit()
+
+    rows = _rows_of(db_session, clara.id, VehiclePartyRole.OWNER)
+    assert [(row.effective_from, row.effective_to) for row in rows] == [(signed_at, linked), (linked, ended_at)]
+
+
+def test_an_empty_own_row_inside_the_period_does_not_cut_the_history_short(db_session):
+    """An own row closed at its own start (KAN-664: planned, never started)
+    covers nothing; the history runs through it to the purchase."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW566007")
+    clara = _customer(db_session, group_id, "Clara")
+    signed_at, ended_at = _moments()
+    planned = signed_at + dt.timedelta(days=4)
+    _history_row(db_session, vehicle.id, clara, group_id, VehiclePartyRole.KEEPER, start=planned, end=planned)
+    db_session.commit()
+
+    record_former_holder_on_purchase(
+        db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
+        held_from=signed_at, ended_at=ended_at, actor_id=None,
+    )
+    db_session.commit()
+
+    rows = _rows_of(db_session, clara.id, VehiclePartyRole.KEEPER)
+    assert [(row.effective_from, row.effective_to) for row in rows] == [(signed_at, ended_at), (planned, planned)]

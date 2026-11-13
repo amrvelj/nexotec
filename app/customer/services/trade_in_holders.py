@@ -89,11 +89,11 @@ def record_former_holder_on_purchase(
                 .with_for_update()
             ).all()
         )
-        if own_rows:
-            for row in own_rows:
-                if row.effective_to is None or row.effective_to > ended_at:
-                    _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
-            continue
+        for row in own_rows:
+            if row.effective_to is None or row.effective_to > ended_at:
+                _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
+        # A holding row closed here may start after `held_from`: the stretch
+        # before it is filled below like any other (KAN-566).
         # KAN-566 (Anto, 2026-11-11, option B): the customer's own rows and
         # the history written here join without gap or overlap. Case 1: an own
         # row starting exactly at `held_from` and ended before the purchase
@@ -166,12 +166,14 @@ def _uncovered(
 
     rows = db.execute(
         select(VehicleParty.effective_from, VehicleParty.effective_to)
-        .where(*mine, VehicleParty.effective_from < ended_at, VehicleParty.effective_to > held_from)
+        .where(*mine, VehicleParty.effective_from < ended_at, VehicleParty.effective_to >= held_from)
         .order_by(VehicleParty.effective_from)
     ).all()
     gaps: list[tuple[dt.datetime, dt.datetime]] = []
     cursor = held_from
     for row_from, row_to in rows:
+        if row_to <= row_from:
+            continue  # an empty row («planned, never started», KAN-664) covers nothing
         if row_from > cursor:
             gaps.append((cursor, row_from))
         cursor = max(cursor, row_to)
