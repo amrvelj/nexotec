@@ -8,7 +8,6 @@ paths:
   - "app/integration/adapters/autoscout24.py"
   - "app/integration/adapters/marketplace_base.py"
   - "scripts/backfill_manual_configuration_reservations.py"
-  - "scripts/migrate_transaction_rows.py"
   - "alembic/versions/inventory/**"
   - "tests/test_inventory_*.py"
 ---
@@ -60,7 +59,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
-  (`left_stock_at` set, FR-I-12). Today only the legacy transaction import sets it:
+  (`left_stock_at` set, FR-I-12). Today nothing sets it (the legacy transaction import that did was
+  deleted by KAN-79):
   `services/invoicing_gate.py::apply_finance_invoice_issued` has no production caller until
   Finance issues invoices (WP-9, `.claude/rules/finance.md`), so `request_invoice` leaves the car
   in stock.
@@ -92,8 +92,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   row opens no other write. Details: `platform-users.md`.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
   `inventory.stock_item.purchased` (published once per booking, by `mark_purchased_if_ready` —
-  twice for a car bought, stornoed and bought again (KAN-146); the legacy
-  transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
+  twice for a car bought, stornoed and bought again (KAN-146)); Sales keeps it
   per stock item and never queries Stock synchronously for it on the invoicing path (ADR-052
   addendum 2026-11-06, KAN-146: Sales' storno consumer re-reads it asynchronously, `sales.md`). Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
@@ -166,7 +165,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   form and `/stock/new` are gone. `POST /v1/inventory/stock-items` takes
   `StockItemCreateRequest`, whose `configurationId` is required (422
   `configuration_required`) — at the endpoint only (decision 1a): the FR-I-02/02b consumers
-  build their own `StockItemCreate` and the ADR-091 import writes its rows directly. A
+  build their own `StockItemCreate`. A
   configuration whose VIN contradicts the body's is 422 `configuration_vin_differs`.
   `src/architecture/stock-intake-is-the-configurator.test.ts` lets only the configurator
   intake name the create path (the server's 422 is the real guard). An item created before without a configuration is repaired on its detail with
@@ -257,11 +256,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   history; a stornoed car (KAN-146, below) is back in pipeline with its VIN and still blocks it
   (`storno_pending` is still set by nothing). The same car may be in pipeline twice (a pipeline
   item a contract's confirmation creates carries no VIN until promotion; one created with its VIN
-  (KAN-554) or stornoed keeps its own and blocks it, as above). The legacy transaction import follows the same rule: a car
-  the old system shows sold and later traded back in gets a second item, the sold one is never
-  reopened, and a row for a car live Stock holds or has sold is reported
-  (`vehicle_known_to_live_stock`), never applied — history is imported before a dealership starts
-  to work (Anto, 2026-10-08; KAN-256).
+  (KAN-554) or stornoed keeps its own and blocks it, as above).
 - **One stock row menu** (KAN-571, ADR-061; PRD-Stock FR-I-07): `components/stockRowMenu.tsx::buildStockRowMenu`
   is the one definition the Stock list's ⋯ menu and the stock detail's header (primary «Vertrag
   erstellen», alternative «Offerte erstellen», overflow) render from — Einkauf erfassen · Zustand ändern

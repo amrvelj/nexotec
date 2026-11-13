@@ -65,4 +65,4 @@ def test_same_key_different_path_raises_conflict(db_session):
     db_session.commit()
 
     with pytest.raises(ConflictError):
-        find_cached_response(db_session, tenant_id=tenant_id, key="key-1", path="/v1/vehicles", body=body)
+        find_cached_response(db_session, tenant_id=tenant_id, key="key-1", path="/v1/vehicle-mdm", body=body)

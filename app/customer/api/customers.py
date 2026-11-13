@@ -589,11 +589,10 @@ def delete_customer_external_id(
 
 
 # --- Customer<->Vehicle relationships (D-12, FR-10): owner/keeper/driver,
-# backing the 360 view's Vehicles tab. Vehicle itself is tenant-agnostic
-# (see app/models/vehicle.py), so the tenant boundary is enforced entirely
-# by resolving `customer` through get_customer_or_404 — the vehicle_id a
-# caller supplies is looked up with no tenant filter, same as GET
-# /v1/vehicles/{id}. The list read (GET) is composed at the root,
+# backing the 360 view's Vehicles tab. A vehicle-mdm record is global
+# (ADR-022), so the tenant boundary is enforced entirely by resolving
+# `customer` through get_customer_or_404 — the vehicle_id a caller supplies
+# is looked up with no tenant filter. The list read (GET) is composed at the root,
 # app/api/v1/customer_vehicles.py (KAN-632): it embeds Stock's answer.
 
 

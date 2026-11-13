@@ -5,7 +5,7 @@ value of their reference list.
 `POST` / `PATCH /v1/configurations` are canonical `reference_value.value_code`
 strings. A value that is not an active value of its list is a 422 naming
 every offending field, the value and the list — the shape KAN-57 gave the
-legacy `/v1/vehicles` (`tests/test_vehicle.py`), from the same function. A
+legacy `/v1/vehicles` (retired by KAN-79), from the same function. A
 list that does not exist at all is a deployment fault (500).
 
 Anto's ruling (2026-10-07): a PATCH validates every coded value it carries,

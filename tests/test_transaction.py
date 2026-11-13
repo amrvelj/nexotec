@@ -97,13 +97,13 @@ def _random_vin() -> str:
     return "".join(random.choices(alphabet, k=17))
 
 
-def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
+def _create_vehicle(client, dealer_id: str) -> dict:
+    """A vehicle-mdm record (the legacy `POST /v1/vehicles` went with KAN-79)."""
+
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
-    payload.update(overrides)
-    response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
-    assert response.status_code == 201, response.text
-    return response.json()
+    response = client.post("/v1/vehicle-mdm", json={"vin": _random_vin()}, headers=_bearer(token))
+    assert response.status_code in (200, 201), response.text
+    return response.json()["vehicle"]
 
 
 def _setup(client, dealer_id: str | None = None):

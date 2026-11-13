@@ -179,5 +179,55 @@
       "idleOutOfBounds": "La déconnexion après inactivité doit être comprise entre 15 et 120 minutes.",
       "absoluteOutOfBounds": "La durée maximale de session doit être comprise entre 1 et 12 heures."
     }
+  },
+  "copyConfiguration": {
+    "title": "Reprendre la configuration de …",
+    "intro": "Reprenez une seule fois les textes standard, les en-têtes du modèle de document et les modèles des plages de numéros d'une autre entreprise que vous gérez également. Les copies appartiennent ensuite à cette entreprise ; les modifications ultérieures dans l'autre entreprise n'ont pas d'effet ici.",
+    "source": "Entreprise d'origine",
+    "sourcePlaceholder": "Choisir une entreprise",
+    "subsets": "Éléments repris",
+    "subset": {
+      "standard_texts": "Textes standard",
+      "document_template": "Modèle de document (en-têtes)",
+      "number_ranges": "Modèles des plages de numéros"
+    },
+    "subsetHint": {
+      "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé. L'approbation des modèles WhatsApp n'est jamais reprise ; un modèle écrasé doit être soumis à nouveau.",
+      "document_template": "L'en-tête des documents, par langue. Si l'autre entreprise n'en a pas dans une langue, celui d'ici reste inchangé.",
+      "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée."
+    },
+    "preview": "Afficher l'aperçu",
+    "previewTitle": "Aperçu : reprise depuis {{source}}",
+    "confirmNote": "Rien n'est enregistré avant votre confirmation. La reprise est journalisée.",
+    "confirm_one": "Reprendre {{count, number}} modification",
+    "confirm_other": "Reprendre {{count, number}} modifications",
+    "done": "Repris depuis {{source}} : {{created, number}} nouveaux, {{overwritten, number}} écrasés, {{skipped, number}} ignorés.",
+    "nothing": "L'entreprise choisie n'a rien à reprendre pour cela.",
+    "itemsLabel": "Éléments repris",
+    "headerNotes": "En-têtes",
+    "columns": {
+      "area": "Domaine",
+      "item": "Élément",
+      "outcome": "Résultat"
+    },
+    "outcome": {
+      "created": "Nouveau",
+      "overwritten": "Sera écrasé",
+      "unchanged": "Inchangé",
+      "skipped": "Ignoré"
+    },
+    "outcomeDone": {
+      "overwritten": "Écrasé"
+    },
+    "reason": {
+      "default_replaced": "Remplace le texte par défaut actuel de cet emplacement ; celui-ci est conservé, mais n'est plus présélectionné.",
+      "number_range_frozen": "Cette plage a déjà attribué un numéro et est verrouillée.",
+      "number_pattern_location_code_missing": "Aucun site de cette entreprise n'a de code pour {location_code}.",
+      "number_range_counter_too_short": "Le prochain compteur ne tient pas dans le modèle.",
+      "standard_text_placeholder_invalid": "Le texte contient un espace réservé qui n'est plus valable.",
+      "standard_text_seed_language_missing": "Le modèle de ce texte n'existe plus dans cette langue.",
+      "whatsapp_approval_reset": "Le modèle WhatsApp doit être soumis à nouveau pour approbation.",
+      "other": "Cet élément ne peut pas être repris."
+    }
   }
 }

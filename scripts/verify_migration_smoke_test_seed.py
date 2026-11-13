@@ -3,7 +3,7 @@ confirms the seeded rows survived an alembic upgrade untouched — same
 values, same relationships, no duplicates, nothing silently dropped.
 
 Looks everything up by the seed's fixed, known values (dealer legal name,
-vehicle VIN, customer number) rather than by ID passed between CI steps —
+customer number, Typenschein number) rather than by ID passed between CI steps —
 keeps this script self-contained, no state to thread through the workflow.
 
 Always runs AFTER `alembic upgrade heads` (this PR's own migrations) — see
@@ -11,6 +11,9 @@ seed_migration_smoke_test.py's own docstring for why *that* script has to
 juggle two schema states and this one doesn't: by the time this runs, the
 schema always matches this PR's current ORM classes (Dealership, not
 Dealer; Customer.group_id, not tenant_id).
+
+Since KAN-79 the seed carries no legacy vehicle, vehicle_party, transaction
+or custody row (its docstring says why), so none is checked here.
 
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/verify_migration_smoke_test_seed.py
 """
@@ -30,14 +33,11 @@ from app.customer.models.customer import (
     CustomerNumberSequence,
     CustomerPhone,
 )
-from app.customer.models.vehicle_party import VehicleParty
 from app.db import SessionLocal
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
-from app.sales.models.transaction import Transaction
 from app.vehicle.models.catalogue import ModelVariant, TypeApproval, VariantTypeApproval
 from app.vehicle.models.provider import ProviderCodeMap
-from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 
 _EXPECTED_ROW_COUNTS = {
     Dealership: 2,
@@ -47,10 +47,6 @@ _EXPECTED_ROW_COUNTS = {
     CustomerPhone: 1,
     CustomerEmail: 1,
     CustomerExternalId: 1,
-    Vehicle: 1,
-    VehicleParty: 1,
-    VehicleCustodyEvent: 1,
-    Transaction: 1,
     ModelVariant: 1,
     TypeApproval: 1,
     # The m2m migration's backfill (or the new-schema seed) makes exactly
@@ -156,18 +152,6 @@ def main() -> None:
             fail("seeded customer not found")
         if customer.group_id != dealership.dealer_group_id:
             fail("customer.group_id no longer points at the seeded dealership's group")
-
-        vehicle = db.scalar(select(Vehicle).where(Vehicle.vin == "1HGCM82633A004352"))
-        if vehicle is None:
-            fail("seeded vehicle not found")
-        if vehicle.current_custodian_partner_id != dealership.id:
-            fail("vehicle.current_custodian_partner_id no longer points at the seeded dealership")
-
-        transaction = db.scalar(select(Transaction).where(Transaction.tenant_id == dealership.id))
-        if transaction is None:
-            fail("seeded transaction not found")
-        if transaction.customer_id != customer.id or transaction.vehicle_id != vehicle.id:
-            fail("transaction's customer_id/vehicle_id no longer match the seeded rows")
 
         approval = db.scalar(
             select(TypeApproval).where(TypeApproval.type_approval_number == _CATALOGUE_TYPE_APPROVAL_NUMBER)

@@ -1,13 +1,11 @@
 """Odometer, accessories, custody (WP-5 PR-5) — the three append-only logs
 that make up a vehicle's history against VehicleMdm (PR-3). All three are
-global reads, tenant-attributed writes, same data class as the shipped
-table's own custody event — a mileage reading or an accessory fitting is a
-fact about the car, but who recorded it is a fact about the dealer.
+global reads, tenant-attributed writes — a mileage reading or an accessory
+fitting is a fact about the car, but who recorded it is a fact about the
+dealer.
 
-VehicleCustodyEvent here is a NEW table pointed at vehicle_mdm.id, not an
-edit to the shipped app.vehicle.models.vehicle.VehicleCustodyEvent (which
-points at the old, soon-to-retire vehicle.id and stays untouched until
-PR-7's cutover carries its rows across).
+VehicleCustodyEvent here is the table pointed at vehicle_mdm.id; the legacy
+table's custody log it superseded was retired with that table (KAN-79).
 """
 
 import datetime as dt
@@ -93,13 +91,12 @@ class CustodyEventType(str, enum.Enum):
 class VehicleCustodyEvent(PrimaryKeyMixin, Base):
     """Append-only custody chain against VehicleMdm — rows are never
     updated or deleted after insert, same convention as AuditEvent and as
-    the shipped table's own custody log (app.vehicle.models.vehicle),
-    which this one supersedes for new vehicles going forward.
+    the legacy table's custody log it superseded (retired with the legacy
+    `vehicle` table, KAN-79).
     """
 
     __tablename__ = "vehicle_mdm_custody_event"
-    # One composite index, as the migration created it (903b69527f0b), like
-    # the shipped table's ix_vehicle_custody_event_vehicle_id_partner_id.
+    # One composite index, as the migration created it (903b69527f0b).
     __table_args__ = (Index("ix_vehicle_mdm_custody_event_vehicle_id_partner_id", "vehicle_id", "partner_id"),)
 
     vehicle_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vehicle_mdm.id"), nullable=False)

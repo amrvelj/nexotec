@@ -6,7 +6,7 @@ configurator produced — the retired hand-typed intake created a label with no
 vehicle and no technical data. An item that intake already created is repaired
 with «Konfiguration zuordnen»: `POST …/stock-items/{id}/configuration`,
 If-Match, audited, refused when one is already linked. The server-side paths
-(FR-I-02/02b consumers, the ADR-091 legacy import) build their own
+(the FR-I-02/02b consumers) build their own
 `StockItemCreate` and are not this door."""
 
 import threading
@@ -135,7 +135,7 @@ def test_the_openapi_says_the_configuration_is_required(client):
 
 def test_the_server_side_create_still_takes_an_item_without_a_configuration(db_session):
     """Decision 1a: enforced at the endpoint only — the FR-I-02/02b consumers
-    and the ADR-091 legacy import create their own items."""
+    create their own items."""
 
     item = _hand_typed_item(db_session, uuid.uuid4())
 

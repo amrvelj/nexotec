@@ -1,11 +1,9 @@
-"""KAN-121 (rule 2): the two plain-data reads that replaced another
-context's SQL — platform's group Betriebe for Stock's group listing, and
-customer's party count for vehicle's legacy-reference check."""
+"""KAN-121 (rule 2): the plain-data read that replaced another context's
+SQL — platform's group Betriebe for Stock's group listing. (Customer's party
+count for vehicle's legacy-reference check went with the legacy table, KAN-79.)"""
 
 import uuid
 
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.public import count_vehicle_parties_for_vehicles
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.public import DealershipRef, list_group_read_dealerships
 from tests.dealership_support import valid_uid
@@ -64,19 +62,3 @@ def test_an_enabled_group_without_a_betrieb_is_an_empty_list_not_none(db_session
 
     assert list_group_read_dealerships(db_session, group_id=group.id) == []
 
-
-def test_vehicle_party_count_covers_every_row_for_the_given_vehicles(db_session):
-    named, also_named, unrelated = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    db_session.add_all(
-        [
-            VehicleParty(vehicle_id=named, customer_id=uuid.uuid4(), role=VehiclePartyRole.OWNER),
-            VehicleParty(vehicle_id=named, customer_id=uuid.uuid4(), role=VehiclePartyRole.KEEPER),
-            VehicleParty(vehicle_id=also_named, customer_id=uuid.uuid4(), role=VehiclePartyRole.DRIVER),
-            VehicleParty(vehicle_id=unrelated, customer_id=uuid.uuid4(), role=VehiclePartyRole.OWNER),
-        ]
-    )
-    db_session.commit()
-
-    assert count_vehicle_parties_for_vehicles(db_session, vehicle_ids=[named, also_named]) == 3
-    assert count_vehicle_parties_for_vehicles(db_session, vehicle_ids=[uuid.uuid4()]) == 0
-    assert count_vehicle_parties_for_vehicles(db_session, vehicle_ids=[]) == 0

@@ -26,7 +26,6 @@ from app.customer.public import get_customer_or_404
 from app.platform.public import get_user_or_404
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.sales.schemas.transaction import TransactionCreate, TransactionUpdate
-from app.vehicle.public import get_vehicle_or_404
 
 _RETIRED_MESSAGE = (
     "The `transaction` table is retired (WP-8 PR-7, ADR-050/S-D12) — superseded by "
@@ -107,8 +106,10 @@ def _validate_references(
     # dealership-scoped. group_id is resolved from the token's claim by the
     # caller, same as everywhere else in this codebase — never re-derived
     # from a fresh Dealership lookup, and never from the request body.
+    # vehicle_id names a row of the legacy `vehicle` table, retired by
+    # KAN-79 — nothing left to check it against (and every write is refused
+    # first by _refuse_retired_write).
     get_customer_or_404(db, group_id, customer_id)
-    get_vehicle_or_404(db, vehicle_id)
     get_user_or_404(db, tenant_id, primary_user_id)
 
 
@@ -211,7 +212,7 @@ def update_transaction(
 def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uuid.UUID) -> Transaction:
     """RETIRED (WP-8 PR-7) — refuses immediately, see _refuse_retired_write.
     Its old body set the vehicle's status and wrote a custody event through
-    `app.vehicle.public.create_custody_event(..., commit=False)` inside
+    the legacy `create_custody_event(..., commit=False)` (gone with KAN-79) inside
     Sales' own transaction — a shared cross-context transaction (ADR-047).
     Unreachable since the retirement, and deleted by KAN-90 (Anto,
     2026-10-07) so it cannot be revived; git history keeps it.

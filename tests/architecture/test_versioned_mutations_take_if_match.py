@@ -14,12 +14,13 @@ a child row, a copy, …) must take `require_if_match` too, unless it is listed
 in POST_WITHOUT_IF_MATCH with why. A POST that creates a top-level record has
 no version to match and is not walked. The POST list is declared by hand —
 which rows a route writes cannot be read off the route — so each entry says
-what it writes. Ten change a versioned row without If-Match, each by design and
+what it writes. Nine change a versioned row without If-Match, each by design and
 each saying why: the hand-over, the system's catalogue fill, a connection
-test's health stamp, a new bank account that takes the default, and the six
-state transitions KAN-428 named — publish, unpublish, reserve, release,
-enable group read and the legacy custody event — which Anto ruled stay
-without If-Match (2026-11-03, KAN-428 option C). An entry states a reason,
+test's health stamp, a new bank account that takes the default, and the five
+state transitions KAN-428 named — publish, unpublish, reserve, release and
+enable group read — which Anto ruled stay without If-Match (2026-11-03,
+KAN-428 option C; its sixth, the legacy custody event, went with the legacy
+vehicle table, KAN-79). An entry states a reason,
 never an open question: `test_every_exemption_states_a_ruled_reason` refuses
 one that says a decision is pending.
 """
@@ -42,7 +43,7 @@ MUTATING = {"PATCH", "PUT", "DELETE"}
 
 _NEW_ROW = "creates a new row; no existing versioned row changes"
 _CHILD_ROW = "creates an unversioned child row; the parent's version does not move"
-# KAN-428 (Anto, 2026-11-03, option C): six transitions that bump a version
+# KAN-428 (Anto, 2026-11-03, option C): five transitions (six until KAN-79) that bump a version
 # stay without If-Match, each guarded by its own state rule instead.
 _KAN_428 = "no If-Match by Anto's ruling (2026-11-03, KAN-428 option C): "
 
@@ -77,10 +78,12 @@ POST_WITHOUT_IF_MATCH = {
     "the caller did not name, its version bumped and audited as its own update (the bank account's precedent)",
     "/v1/dealerships/{dealership_id}/standard-text-previews": "the editor's preview (KAN-208): renders a body on "
     "sample data and writes nothing",
+    "/v1/dealerships/{dealership_id}/copy-configuration": "the one-shot copy from a sister Betrieb (KAN-220, "
+    "FR-A-01): it writes the target's texts, template and ranges through each entity's own write path, which checks "
+    "the version of the row it read or locked in the same transaction — rows the caller did not name, each audited; "
+    "the dealership's own version does not move, and the dry run is the preview the caller confirms",
     "/v1/dealerships/{dealership_id}/number-range-previews": "the edit dialog's live example (KAN-207): renders "
     "the next number of an unsaved pattern and writes nothing",
-    "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428 + "a custody event row and the legacy "
-    "vehicle row's custodian; refused outright while legacy_vehicle_write_frozen is on, the default (ADR-021)",
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
     "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "
     "configurations' versions — only NULL fields, never a value a user set",

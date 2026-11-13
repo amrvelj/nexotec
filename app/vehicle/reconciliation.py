@@ -13,7 +13,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import count_vehicle_parties_for_vehicles
 from app.platform.public import DealerGroup, Dealership, actor_reference_checks
 from app.sales.public import Transaction
 from app.vehicle.models.catalogue import (
@@ -42,7 +41,6 @@ from app.vehicle.models.provider import (
     VariantOptionProviderCode,
     VariantProviderCode,
 )
-from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm
@@ -51,12 +49,10 @@ CONTEXT = "vehicle"
 
 # Every Vehicle table with created_by / updated_by: each must name a platform
 # user, or be null — the catalogue sync and the provider mirror write null
-# (KAN-243; see app.platform.public.actor_reference_checks). The two custody
-# logs have created_by only. vehicle_model_variant_type_approval has a
+# (KAN-243; see app.platform.public.actor_reference_checks). The custody
+# log has created_by only. vehicle_model_variant_type_approval has a
 # composite key; its findings name the row by model_variant_id.
 ACTOR_TABLES = (
-    Vehicle,
-    VehicleCustodyEvent,
     VehicleMdm,
     VehicleMdmCustodyEvent,
     VehicleOdometerReading,
@@ -90,32 +86,6 @@ ACTOR_TABLES = (
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
-    ReferenceCheck(
-        label="vehicle.current_custodian_partner_id -> dealership.id",
-        source_model=Vehicle,
-        source_row_id_column=Vehicle.id,
-        source_fk_column=Vehicle.current_custodian_partner_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
-        nullable=True,
-    ),
-    ReferenceCheck(
-        label="vehicle_custody_event.partner_id -> dealership.id",
-        source_model=VehicleCustodyEvent,
-        source_row_id_column=VehicleCustodyEvent.id,
-        source_fk_column=VehicleCustodyEvent.partner_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
-    ),
-    ReferenceCheck(
-        label="vehicle_custody_event.transaction_id -> transaction.id",
-        source_model=VehicleCustodyEvent,
-        source_row_id_column=VehicleCustodyEvent.id,
-        source_fk_column=VehicleCustodyEvent.transaction_id,
-        target_model=Transaction,
-        target_id_column=Transaction.id,
-        nullable=True,
-    ),
     # --- PR-7 additions: every cross-context GUID column PR-1 through
     # PR-6 introduced, none of which had a check before this PR. ---
     ReferenceCheck(
@@ -258,32 +228,3 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
 def run(db: Session) -> ReconciliationRun:
     return run_reconciliation(db, context=CONTEXT, checks=CHECKS)
 
-
-def count_unrepointed_legacy_vehicle_party_references(db: Session) -> int:
-    """WP-5 PR-7's own health check, separate from the generic
-    ReferenceCheck framework above (which asks "does this FK resolve to
-    any row", not "is this FK still using an id that has a known
-    newer replacement"). Every VehicleMdm with migrated_from_legacy_
-    vehicle_id set has a corresponding old vehicle.id; a VehicleParty row
-    still pointing at that OLD id (rather than the new VehicleMdm.id) is
-    exactly the kind of reference the exit criterion's "zero unresolved
-    references for seven consecutive nights" is checking for before the
-    old table can ever be retired — the old table itself stays perfectly
-    readable in the meantime (it is never dropped by this check), so
-    nothing is actually broken by a nonzero count; it's the retirement
-    gate, not an alarm on its own.
-    """
-
-    legacy_ids = [
-        legacy_id
-        for legacy_id in db.scalars(
-            select(VehicleMdm.migrated_from_legacy_vehicle_id).where(
-                VehicleMdm.migrated_from_legacy_vehicle_id.is_not(None)
-            )
-        ).all()
-        if legacy_id is not None
-    ]
-    # KAN-121: customer counts its own rows (rule 2), even though this
-    # reconciliation module may read across contexts (ADR-107) — the count
-    # is also KAN-79's retirement clock, not only a nightly finding.
-    return count_vehicle_parties_for_vehicles(db, vehicle_ids=legacy_ids)

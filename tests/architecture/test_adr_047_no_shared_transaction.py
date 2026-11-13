@@ -78,12 +78,12 @@ the two KAN-90 tests on the caller's own rows). It does not follow a
 write made by assigning to another context's ORM object (rule 1's
 territory), and it scans the twelve contexts only: the composition roots
 directly under app/ (main, worker, reconciliation_runner) wire contexts
-together. scripts/ is scanned separately, at the end of this file:
-`scripts/migrate_transaction_rows.py`'s shared Sales+Inventory
-transaction is the one bounded exception (ADR-091, KAN-106). The migration
-smoke test's two CI fixtures reach several contexts' internals too, excepted
-by name in `_SCRIPTS_REACHING_SEVERAL_CONTEXTS` (ADR-140, KAN-342); any
-script beyond those fails by name.
+together. scripts/ is scanned separately, at the end of this file: the
+migration smoke test's two CI fixtures reach several contexts' internals,
+excepted by name in `_SCRIPTS_REACHING_SEVERAL_CONTEXTS` (ADR-140, KAN-342);
+any script beyond those fails by name. ADR-091's exception, the legacy
+transaction import's shared Sales+Inventory transaction, expired when KAN-79
+deleted the script.
 
 Same discipline as test_no_ambient_group_read.py: explicit names with a
 reason each, never a whole-module or whole-directory exemption.
@@ -271,8 +271,6 @@ _RULED_SHARED_TRANSACTIONS = {
 
 # Reviewed: read only, no commit reachable.
 _READS = {
-    # KAN-121: vehicle's legacy-reference check counts party rows through customer; a SELECT only.
-    "app.customer.public.count_vehicle_parties_for_vehicles",
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
     "app.customer.public.customer_in_group",
     "app.customer.public.customer_is_merged",  # KAN-581: the same, for a row naming a merged customer
@@ -332,7 +330,6 @@ _READS = {
     "app.vehicle.public.get_provider_valuation_input",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
-    "app.vehicle.public.get_vehicle_or_404",
     # KAN-84: vehicle labels for customer's VehicleParty, batched.
     "app.vehicle.public.get_vehicle_summaries",
     # KAN-634: customer's vehicle-merged consumer follows the merge chain; a SELECT only.
@@ -990,30 +987,19 @@ def test_self_test_a_partial_export_is_reported(tmp_path: Path) -> None:
     assert len(problems) == 1 and "app.stock.public.hidden" in problems[0] and "by assignment" in problems[0]
 
 
-# --- scripts/ (KAN-106, ADR-091) ----------------------------------------
+# --- scripts/ (KAN-106; ADR-140) ----------------------------------------
 #
 # The import-linter's root package is `app` and the scan above walks the
 # twelve contexts, so a script under scripts/ that reaches into two
-# contexts' internals is seen by neither. One does, by ruling (Anto,
-# 2026-10-12, option A of KAN-106; ADR-091 in the Target Architecture):
-# scripts/migrate_transaction_rows.py — the one-time, no-outbox historical
-# backfill of the legacy `transaction` table — may write Sales (sales_offer,
-# sales_contract, sales_stock_item_purchase) and Inventory (stock_item) in
-# one transaction, import `app.inventory.models.stock_item` and
-# `app.inventory.services.stock_item.allocate_stock_number` directly, read
-# the frozen legacy `vehicle` row directly, and read the customer, dealership
-# and vehicle_mdm rows it resolves against through their models, because its
-# dry run is the real run rolled back (KAN-263) and a half-written history would have to
-# be undone by hand. The exception names exactly that script, publishes no
-# events, and expires once the script has run in production, when the
-# script is deleted. Nothing else may cite it. These tests are the
-# exception in executable form — the same discipline as above: exact
-# names, a reason each, never a whole-directory exemption.
+# contexts' internals is seen by neither. This scan does. KAN-106 found the
+# legacy transaction import (scripts/migrate_transaction_rows.py), excepted by
+# ADR-091 until it was deleted (KAN-79, Anto 2026-11-02: the old system's
+# sales are not imported, so ADR-091 expired). What is left excepted is the
+# migration smoke test's two CI fixtures (ADR-140), named here with exactly
+# what they import — the same discipline as above: exact names, a reason
+# each, never a whole-directory exemption.
 
 _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
-_ADR_091_SCRIPT = "migrate_transaction_rows.py"
-# Either marker in a script's module docstring is a citation of the exception.
-_ADR_091_CITATIONS = ("ADR-091", "ADR-047 EXCEPTION")
 # The internals a script would reach for to write a context's rows: its
 # models and services (a script has no `api` to call). Narrower than the
 # import-linter's contracts, which forbid every module but public (KAN-120)
@@ -1031,91 +1017,43 @@ class _ScriptReach:
     reason: str
 
 
-# The exact internal modules the excepted script imports: the Inventory
-# internals, the legacy vehicle and the three resolution reads are what
-# ADR-091 names (its second, third and fourth items); the Sales imports are
-# recorded too, so the pinned shape is the whole shape, not a selection of
-# it.
-_ADR_091_IMPORTS = frozenset(
-    {
-        # ADR-091: Inventory's internals, used instead of inventory.public —
-        # LifecycleStatus, StockItem, StockItemCondition and allocate_stock_number.
-        "app.inventory.models.stock_item",
-        "app.inventory.services.stock_item",
-        # ADR-091: the frozen legacy `vehicle` row (LegacyVehicle, its condition),
-        # read with db.get rather than through vehicle.public.
-        "app.vehicle.models.vehicle",
-        # Sales' own rows and computations: the table the script migrates and the
-        # production code it reuses (ADR-050; the migrations rule asks for that).
-        "app.sales.models.contract",
-        "app.sales.models.offer",
-        "app.sales.models.transaction",
-        "app.sales.services.numbering",
-        "app.sales.services.pricing",
-        "app.sales.services.snapshot",
-        "app.sales.services.stock_item_purchase",
-        # Resolution reads made through the models rather than through
-        # `<context>.public` (the customer, the dealership and its vat_rate, the
-        # vehicle_mdm row a legacy vehicle migrated to): ADR-091's fourth item,
-        # named there and in the script's docstring since the KAN-106 review.
-        "app.customer.models.customer",
-        "app.platform.models.dealership",
-        "app.vehicle.models.vehicle_mdm",
-    }
-)
-
 # Every script that imports the internals of two or more contexts, with
-# exactly what it imports and what it does with it. Only the first is under
-# ADR-091. The other two are the migration smoke test's CI fixtures, which
-# never run against a real database: excepted by ADR-140 (KAN-342), named
-# and bounded like ADR-091. KAN-106's scan found a third, the KAN-31 repoint
-# pass; KAN-342 moved its vehicle read onto vehicle.public, so it reaches one
-# context's internals and is not listed. A new script that reaches two
+# exactly what it imports and what it does with it: the migration smoke
+# test's CI fixtures, which never run against a real database, excepted by
+# ADR-140 (KAN-342). A new script that reaches two
 # contexts fails by name, and so does a recorded one whose imports change.
 _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
-    _ADR_091_SCRIPT: _ScriptReach(
-        _ADR_091_IMPORTS,
-        commits=True,
-        reason="ADR-091 (KAN-106): the one bounded exception — see the section comment and the script's docstring",
-    ),
     "seed_migration_smoke_test.py": _ScriptReach(
         frozenset(
             {
                 "app.customer.models.customer",
-                "app.customer.models.vehicle_party",
                 "app.platform.models.dealership",
-                "app.sales.models.transaction",
-                "app.vehicle.models.vehicle",
             }
         ),
         commits=True,
         reason=(
-            "CI only: inserts one consistent row per table into customer, platform, sales and vehicle in one "
+            "CI only: inserts one consistent row per table into customer, platform and vehicle in one "
             "commit, through the ORM and not the services on purpose (its docstring), so the migration round "
             "trip runs over data. A test fixture, never run against a real database. Excepted by ADR-140 "
-            "(KAN-342): named and bounded, a CI fixture only; not under ADR-091. Its vehicle catalogue chain "
-            "lives in migration_smoke_test_catalogue.py (KAN-688), which imports vehicle only and never commits: "
-            "the seed's one commit writes it"
+            "(KAN-342): named and bounded, a CI fixture only. Its vehicle catalogue chain lives in "
+            "migration_smoke_test_catalogue.py (KAN-688), which imports vehicle only and never commits: the "
+            "seed's one commit writes it"
         ),
     ),
     "verify_migration_smoke_test_seed.py": _ScriptReach(
         frozenset(
             {
                 "app.customer.models.customer",
-                "app.customer.models.vehicle_party",
                 "app.platform.models.dealership",
                 "app.platform.models.user",
-                "app.sales.models.transaction",
                 "app.vehicle.models.catalogue",
                 "app.vehicle.models.provider",
-                "app.vehicle.models.vehicle",
             }
         ),
         commits=False,
         reason=(
             "CI only, reads only (no commit): checks the rows seed_migration_smoke_test.py wrote survived the "
-            "upgrade, by their fixed values. Excepted by ADR-140 (KAN-342): named and bounded, a CI fixture only; "
-            "not under ADR-091"
+            "upgrade, by their fixed values. Excepted by ADR-140 (KAN-342): named and bounded, a CI fixture only"
         ),
     ),
 }
@@ -1127,14 +1065,6 @@ def _script_files(root: Path) -> list[Path]:
 
 def _script_docstring(path: Path) -> str:
     return ast.get_docstring(_parse(path)) or ""
-
-
-def _scripts_citing_adr_091(root: Path) -> list[str]:
-    return [
-        str(path.relative_to(root))
-        for path in _script_files(root)
-        if any(marker in _script_docstring(path) for marker in _ADR_091_CITATIONS)
-    ]
 
 
 def _context_internal_imports(path: Path, contexts: frozenset[str]) -> frozenset[str]:
@@ -1207,14 +1137,13 @@ def _script_reach_problems(root: Path, recorded: dict[str, _ScriptReach], contex
         problems.append(
             f"scripts/{script} imports the internals of several contexts ({', '.join(sorted(modules))}) and is "
             "not recorded in _SCRIPTS_REACHING_SEVERAL_CONTEXTS. A script writes one context and reaches the "
-            "others through `<context>.public` (ADR-047, CLAUDE.md rules 3 and 12); only "
-            f"scripts/{_ADR_091_SCRIPT} is excepted (ADR-091), and nothing else may cite it."
+            "others through `<context>.public` (ADR-047, CLAUDE.md rules 3 and 12); only the "
+            "migration smoke test's two CI fixtures are excepted (ADR-140)."
         )
     for script in sorted(set(recorded) - set(found)):
         problems.append(
             f"scripts/{script} is recorded in _SCRIPTS_REACHING_SEVERAL_CONTEXTS but no longer imports the "
-            "internals of several contexts — remove the entry"
-            + (" (and ADR-091 with it, once the script has run in production)." if script == _ADR_091_SCRIPT else ".")
+            "internals of several contexts — remove the entry."
         )
     for script in sorted(set(recorded) & set(found)):
         modules, commits = found[script]
@@ -1224,8 +1153,7 @@ def _script_reach_problems(root: Path, recorded: dict[str, _ScriptReach], contex
             gone = ", ".join(sorted(entry.modules - modules)) or "none"
             problems.append(
                 f"scripts/{script} no longer imports exactly what _SCRIPTS_REACHING_SEVERAL_CONTEXTS records "
-                f"(added: {added}; gone: {gone}). A changed reach is a visible edit here, with its reason"
-                + (" — and ADR-091 names the imports it excepts." if script == _ADR_091_SCRIPT else ".")
+                f"(added: {added}; gone: {gone}). A changed reach is a visible edit here, with its reason."
             )
         if commits != entry.commits:
             problems.append(
@@ -1236,42 +1164,12 @@ def _script_reach_problems(root: Path, recorded: dict[str, _ScriptReach], contex
     return problems
 
 
-def test_adr_091_is_cited_by_the_transaction_migration_and_by_nothing_else() -> None:
-    """KAN-106, exit criterion 4: the exception is bounded to one script.
-    The script's docstring carries the paragraph "ADR-047 EXCEPTION
-    (ADR-091, KAN-106)"; no other script under scripts/ cites either."""
-
-    assert _scripts_citing_adr_091(_SCRIPTS_ROOT) == [_ADR_091_SCRIPT]
-
-
-def test_the_transaction_migration_commits_once_in_run_rows() -> None:
-    """ADR-091's shape: every row's Sales and Inventory rows in ONE
-    transaction, committed once at the end of `_run_rows` (a dry run rolls
-    it back, KAN-263). A second commit, or one elsewhere, is a different
-    shape from the one the ADR excepts."""
-
-    tree = _parse(_SCRIPTS_ROOT / _ADR_091_SCRIPT)
-    commits = [
-        (function.name, node.lineno)
-        for function in tree.body
-        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
-        for node in ast.walk(function)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "commit"
-        and not isinstance(node.func.value, ast.Call)
-        and not (isinstance(node.func.value, ast.Name) and node.func.value.id in _savepoint_names(function))
-    ]
-    assert [name for name, _ in commits] == ["_run_rows"], commits
-
-
 def test_no_other_script_reaches_the_internals_of_several_contexts() -> None:
     """KAN-106: every script importing two or more contexts' `models` or
-    `services` is named here with exactly what it imports; the excepted one
-    imports exactly what ADR-091 (and this test) names."""
+    `services` is named here with exactly what it imports (ADR-140)."""
 
     problems = _script_reach_problems(_SCRIPTS_ROOT, _SCRIPTS_REACHING_SEVERAL_CONTEXTS, _CONTEXTS)
-    assert not problems, "ADR-047 / ADR-091 in scripts/:\n" + "\n".join(problems)
+    assert not problems, "ADR-047 / ADR-140 in scripts/:\n" + "\n".join(problems)
 
 
 # --- self-tests for the scripts/ guard -----------------------------------
@@ -1279,7 +1177,7 @@ def test_no_other_script_reaches_the_internals_of_several_contexts() -> None:
 _SCRIPT_FIXTURE_CONTEXTS = frozenset({"stock", "sales"})
 _SCRIPT_FIXTURE = {
     "one.py": (
-        '"""A backfill. ADR-047 EXCEPTION (ADR-091, KAN-106): the one."""\n'
+        '"""A CI fixture, recorded by name."""\n'
         "from app.stock.models.item import Item\n"
         "from app.sales.services import numbering\n\n"
         "def run(db):\n    db.add(Item())\n    db.commit()\n"
@@ -1303,25 +1201,7 @@ def _write_scripts(root: Path, files: dict[str, str]) -> Path:
 
 def test_self_test_a_well_formed_scripts_tree_passes(tmp_path: Path) -> None:
     scripts = _write_scripts(tmp_path, _SCRIPT_FIXTURE)
-    assert _scripts_citing_adr_091(scripts) == ["one.py"]
     assert _script_reach_problems(scripts, _SCRIPT_FIXTURE_RECORDED, _SCRIPT_FIXTURE_CONTEXTS) == []
-
-
-def test_self_test_a_second_script_citing_the_exception_is_seen(tmp_path: Path) -> None:
-    files = dict(_SCRIPT_FIXTURE)
-    files["two.py"] = _replace(files["two.py"], '"""Reads only."""', '"""Reads only, under ADR-091 too."""')
-    scripts = _write_scripts(tmp_path, files)
-    assert _scripts_citing_adr_091(scripts) == ["one.py", "two.py"]
-
-
-def test_self_test_a_citation_outside_the_docstring_is_not_a_citation(tmp_path: Path) -> None:
-    """A comment or a string in the body is not the module docstring; the
-    exception is cited where a reader starts, or not at all."""
-
-    files = dict(_SCRIPT_FIXTURE)
-    files["two.py"] += "# ADR-091\nNOTE = 'ADR-047 EXCEPTION'\n"
-    scripts = _write_scripts(tmp_path, files)
-    assert _scripts_citing_adr_091(scripts) == ["one.py"]
 
 
 def test_self_test_an_unrecorded_script_reaching_two_contexts_fails(tmp_path: Path) -> None:

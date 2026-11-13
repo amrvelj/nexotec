@@ -91,9 +91,8 @@ class StockItemCreateRequest(StockItemCreate):
     the configuration it produced — the hand-typed intake, which created a
     label with no vehicle and no technical data, is gone. Enforced here, at
     the endpoint only (Anto, decision 1a): the contract-confirmation
-    consumers (FR-I-02/02b) build a `StockItemCreate` of their own and the
-    ADR-091 legacy import writes its rows directly — neither passes this
-    door."""
+    consumers (FR-I-02/02b) build a `StockItemCreate` of their own and do
+    not pass this door."""
 
     configuration_id: uuid.UUID = Field(
         description=(

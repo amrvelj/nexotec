@@ -17,7 +17,6 @@ from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.provider import MappingGap
-from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.provider import resolve_provider_code
@@ -316,78 +315,6 @@ def test_copy_with_a_reused_key_on_another_configuration_is_a_409(client, db_ses
 
     _assert_key_conflict(response, key)
     assert _count(db_session, VehicleConfiguration) == 3
-
-
-# --- legacy POST /v1/vehicles and its custody events ---------------------------------
-
-
-def _legacy_body(**overrides) -> dict:
-    body = {"vin": _vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
-    body.update(overrides)
-    return body
-
-
-def test_create_legacy_vehicle_twice_under_one_key_makes_one_vehicle(client, db_session):
-    token = _setup(client)
-    body = _legacy_body()
-
-    _twice(client, "/v1/vehicles", token, body)
-
-    assert _count(db_session, Vehicle, Vehicle.vin == body["vin"]) == 1
-
-
-def test_create_legacy_vehicle_with_a_reused_key_and_another_body_is_a_409(client, db_session):
-    token = _setup(client)
-    key, _ = _twice(client, "/v1/vehicles", token, _legacy_body())
-    other = _legacy_body()
-
-    response = client.post("/v1/vehicles", json=other, headers=_headers(token, key))
-
-    _assert_key_conflict(response, key)
-    assert _count(db_session, Vehicle, Vehicle.vin == other["vin"]) == 0
-
-
-def _legacy_vehicle(client, token: str) -> dict:
-    response = client.post("/v1/vehicles", json=_legacy_body(), headers=_headers(token))
-    assert response.status_code == 201, response.text
-    return response.json()
-
-
-def test_record_custody_event_twice_under_one_key_makes_one_event(client, db_session):
-    token = _setup(client)
-    vehicle = _legacy_vehicle(client, token)
-    before = _count(db_session, VehicleCustodyEvent, VehicleCustodyEvent.vehicle_id == uuid.UUID(vehicle["id"]))
-
-    _twice(client, f"/v1/vehicles/{vehicle['id']}/custody-events", token, {"eventType": "repossessed"})
-
-    after = _count(db_session, VehicleCustodyEvent, VehicleCustodyEvent.vehicle_id == uuid.UUID(vehicle["id"]))
-    assert after == before + 1
-
-
-def test_a_retried_sale_out_of_custody_replays_its_success_instead_of_a_403(client, db_session):
-    """After the sale the dealer is no longer the custodian, so running the
-    retry again would refuse it ("only the current custodian may record a
-    sale"); the replay answers with the sale that went through."""
-
-    token = _setup(client)
-    vehicle = _legacy_vehicle(client, token)
-
-    _, event = _twice(client, f"/v1/vehicles/{vehicle['id']}/custody-events", token, {"eventType": "sold"})
-
-    assert event["eventType"] == "sold"
-
-
-def test_custody_event_with_a_reused_key_and_another_event_is_a_409(client, db_session):
-    token = _setup(client)
-    vehicle = _legacy_vehicle(client, token)
-    path = f"/v1/vehicles/{vehicle['id']}/custody-events"
-    key, _ = _twice(client, path, token, {"eventType": "repossessed"})
-    before = _count(db_session, VehicleCustodyEvent, VehicleCustodyEvent.vehicle_id == uuid.UUID(vehicle["id"]))
-
-    response = client.post(path, json={"eventType": "acquired"}, headers=_headers(token, key))
-
-    _assert_key_conflict(response, key)
-    assert _count(db_session, VehicleCustodyEvent, VehicleCustodyEvent.vehicle_id == uuid.UUID(vehicle["id"])) == before
 
 
 # --- catalogue administration: brands and mapping gaps (platform_admin) --------------
