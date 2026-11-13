@@ -358,6 +358,7 @@ export function DetailsTab({
         // bought again under it — the dialog asks for none.
         requiresVin={item.lifecycleStatus === 'pipeline' && item.vin == null}
         configurationId={item.configurationId ?? null}
+        tradeInVin={item.tradeInVin ?? null}
         onEditConfiguration={mayEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}
       />

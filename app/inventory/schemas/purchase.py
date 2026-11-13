@@ -25,7 +25,8 @@ class RecordPurchaseRequest(CamelModel):
             "never bought is the exception: when its configuration's VIN has changed since, the configuration's "
             "wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's "
             "configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the "
-            "VIN is corrected on the configuration). On an item already in stock it may be sent and must be "
+            "VIN is corrected on the configuration). A trade-in whose configuration carries none is bought under "
+            "the VIN its contract holds (the item's `tradeInVin`; 422 `trade_in_vin_differs`, KAN-536). On an item already in stock it may be sent and must be "
             "the item's own (422 `purchase_vin_mismatch`)."
         ),
     )

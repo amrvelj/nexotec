@@ -75,9 +75,11 @@ def test_no_module_in_app_takes_the_system_path():
 
 
 def test_the_create_routes_pass_the_principals_id():
-    source = (_APP_ROOT / "platform" / "api" / "dealerships.py").read_text()
+    # KAN-668: create_user's route moved to dealership_users.py; create_dealership's stayed.
+    api = _APP_ROOT / "platform" / "api"
     actors = [
         ast.unparse(kw.value)
+        for source in ((api / "dealerships.py").read_text(), (api / "dealership_users.py").read_text())
         for name, call in _calls(ast.parse(source))
         if name in _SYSTEM_PATH_SERVICES
         for kw in call.keywords

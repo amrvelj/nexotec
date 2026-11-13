@@ -177,6 +177,15 @@ class StockItemRead(CamelModel):
     pipeline_ref: str | None
     configuration_id: uuid.UUID | None = None
     configuration_label: str | None = None
+    trade_in_vin: str | None = Field(
+        default=None,
+        description=(
+            "KAN-536: the VIN the contract holds for a trade-in, kept on its pipeline item. «Einkauf buchen» "
+            "prefills it, and the booking refuses another (422 `trade_in_vin_differs`) unless the item's "
+            "configuration carries a VIN, which then decides (`configuration_vin_differs`). Null on every "
+            "other item. It is not the item's `vin`, which stays empty until the purchase is booked."
+        ),
+    )
     order_date: dt.date | None
     expected_delivery: dt.date | None
     in_stock_at: dt.datetime | None

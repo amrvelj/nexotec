@@ -457,6 +457,13 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
             # KAN-101 — inventory copies this valuation's pointer onto the
             # trade-in's pipeline stock item when it creates it.
             trade_in["valuationId"] = str(contract.trade_in_valuation_id)
+        if contract.trade_in_vin:
+            # KAN-536 (additive; Anto, 2026-11-12, option A): the VIN the
+            # contract holds for the trade-in, as stored (one spelling). Stock
+            # keeps it on the pipeline item and prefills and checks the
+            # purchase booking with it — the car still has no vehicle-mdm
+            # record (ADR-045). Left out when the contract holds none.
+            trade_in["vin"] = contract.trade_in_vin
 
     return {
         "contractId": str(contract.id),

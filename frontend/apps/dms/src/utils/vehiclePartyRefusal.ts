@@ -22,6 +22,9 @@ export function vehiclePartyRefusalMessage(t: TFunction, err: unknown, fallbackK
     case 'vehicle_party_future_holder':
       // KAN-583: names the future holder and its start (apiRefusal's params).
       return apiRefusalText(t, err, fallbackKey)
+    case 'vehicle_merge_in_progress':
+      // KAN-673: the car is being merged right now; the same request works a moment later.
+      return apiRefusalText(t, err, fallbackKey)
     default:
       return t(fallbackKey)
   }

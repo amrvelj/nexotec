@@ -18,6 +18,10 @@ interface RecordPurchaseDialogProps {
   /** KAN-510: the item's configuration. Its VIN prefills the field, and the
    * booking refuses another (422 `configuration_vin_differs`). */
   configurationId?: string | null
+  /** KAN-536: the VIN the contract holds for a trade-in (the item's
+   * `tradeInVin`). It prefills the field when the configuration carries
+   * none, and the booking refuses another (422 `trade_in_vin_differs`). */
+  tradeInVin?: string | null
   /** KAN-510: offered beside that refusal — opens the configuration for
    * editing, where a wrong VIN is corrected. Omitted when the user's role
    * may not write configurations. */
@@ -53,12 +57,20 @@ interface RecordPurchaseDialogProps {
  * refused by the server; the refusal says so and offers «Konfiguration
  * bearbeiten». A configuration without a VIN (a factory order) leaves the
  * field to the user, as before.
+ *
+ * KAN-536 (Anto, 2026-11-12, option A): a trade-in's pipeline item knows the
+ * VIN its contract holds. It prefills the field when no configuration VIN
+ * does (the configuration's decides when there is one, as on the server); a
+ * different VIN is refused by the server and said in the UI language
+ * (`apiRefusal.reasons.trade_in_vin_differs`). The signed contract is
+ * frozen, so that refusal offers no edit.
  */
 export function RecordPurchaseDialog({
   opened,
   onClose,
   requiresVin = false,
   configurationId = null,
+  tradeInVin = null,
   onEditConfiguration,
   onSubmit,
 }: RecordPurchaseDialogProps) {
@@ -82,9 +94,11 @@ export function RecordPurchaseDialog({
   const configuration = configurationQuery.data ?? null
   const configurationVin = configuration?.vin ?? null
 
+  const knownVin = configurationVin ?? (requiresVin ? tradeInVin : null)
+
   useEffect(() => {
-    if (configurationVin) setVin(configurationVin)
-  }, [configurationVin])
+    if (knownVin) setVin(knownVin)
+  }, [knownVin])
 
   useEffect(() => {
     if (opened) {

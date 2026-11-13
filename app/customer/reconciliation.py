@@ -152,12 +152,15 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         # a commit of its own after the merge's. A row still naming a merged
         # record is a delivery that has not happened (worker down, a dead
         # letter) — the fact arrived nowhere. A read of vehicle's table,
-        # which only reconciliation may make (ADR-107).
+        # which only reconciliation may make (ADR-107). The copy the merge
+        # kept on the duplicate on purpose (KAN-672, `merged_into_vehicle_id`)
+        # is not a finding.
         label="vehicle_party.vehicle_id names a merged vehicle",
         source_model=VehicleParty,
         source_row_id_column=VehicleParty.id,
         where=lambda: (
-            select(VehicleMdm.id)
+            VehicleParty.merged_into_vehicle_id.is_(None)
+            & select(VehicleMdm.id)
             .where(VehicleMdm.id == VehicleParty.vehicle_id, VehicleMdm.merged_into_vehicle_id.is_not(None))
             .correlate(VehicleParty)
             .exists()

@@ -28,9 +28,8 @@ from app.integration.adapters.base import BuiltVehicleData
 from app.vehicle.models.catalogue import Brand, ModelVariant
 from app.vehicle.models.configuration import ConfigurationMatchMethod
 from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
-from app.vehicle.services import catalogue_sync
-from app.vehicle.services import identification as svc
-from app.vehicle.services.identification import IdentificationOutcome, IdentifierKind, ObservedIdentity
+from app.vehicle.services import catalogue_sync, identification_registered
+from app.vehicle.services.identification_types import IdentificationOutcome, IdentifierKind, ObservedIdentity
 
 _CONFLICT_EVENT = "vehicle.plate_lookup.conflicted"
 
@@ -45,7 +44,7 @@ def _car(*, stammnummer: str | None, type_approval_number: str | None, brand: st
 
 
 def _plate_answer(db_session, tenant_id: uuid.UUID, vehicles: list[BuiltVehicleData]):
-    return svc._built_vehicles_result(
+    return identification_registered._built_vehicles_result(
         db_session, tenant_id=tenant_id, actor_id=None, kind=IdentifierKind.KONTROLLSCHILD,
         match_method=ConfigurationMatchMethod.KONTROLLSCHILD, observed=ObservedIdentity(licence_plate="ZH424242"),
         vehicles=vehicles, provider_code="auto_i_dat_mock", plate="ZH424242",

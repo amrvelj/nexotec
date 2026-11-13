@@ -115,8 +115,14 @@ def resolve_merged_id(db: Session, vehicle_id: uuid.UUID) -> uuid.UUID:
     current_id = vehicle_id
     while current_id not in seen:
         seen |= {current_id}
-        vehicle = db.get(VehicleMdm, current_id)
-        if vehicle is None or vehicle.merged_into_vehicle_id is None:
+        # The column, read from the database — never `db.get`, which answers
+        # from the session's own copy of a row it loaded earlier: a party
+        # write re-reads this under its lock to see a merge that committed
+        # after the request first read the vehicle (KAN-673).
+        merged_into = db.execute(
+            select(VehicleMdm.merged_into_vehicle_id).where(VehicleMdm.id == current_id)
+        ).one_or_none()
+        if merged_into is None or merged_into[0] is None:
             return current_id
-        current_id = vehicle.merged_into_vehicle_id
+        current_id = merged_into[0]
     return current_id  # cycle guard — should be unreachable in practice

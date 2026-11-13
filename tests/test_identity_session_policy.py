@@ -154,7 +154,8 @@ def test_a_login_in_a_betrieb_without_a_policy_gets_the_platform_values(client, 
     anna = create_user(client, dealership)
     row = _row(db_session, login.session_cookie(anna))
     assert row.idle_minutes == 120
-    assert row.idle_expires_at - row.created_at == dt.timedelta(minutes=120)
+    # Capped at the absolute end, as the next test says: true after 22:00 Zurich time too.
+    assert row.idle_expires_at == min(row.created_at + dt.timedelta(minutes=120), row.absolute_expires_at)
     assert row.absolute_expires_at == auth_sessions.absolute_expiry(row.created_at)
 
 

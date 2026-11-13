@@ -27,7 +27,7 @@ from app.vehicle.models.configuration import ConfigurationMatchMethod
 from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import identification as svc
-from app.vehicle.services.identification import IdentificationNote, IdentificationOutcome, IdentifierKind
+from app.vehicle.services.identification_types import IdentificationNote, IdentificationOutcome, IdentifierKind
 from tests import identapi_fixtures as fix
 from tests import identapi_support as fx
 from tests.identapi_support import FakeAutoi

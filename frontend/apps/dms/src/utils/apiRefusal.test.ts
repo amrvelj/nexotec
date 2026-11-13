@@ -174,7 +174,9 @@ describe('the reason table', () => {
     'logout', // platform/api/auth.py: session_revoked event
     'mfa_removed', // platform/api/auth.py: session_revoked event
     'no_credential', // platform/services/identity.py: login_failed event
+    'not_this_tenants', // valuation/services/contract_carry.py: a log line's extra
     'password', // platform/services/identity.py: login_failed event
+    'signed', // valuation/services/contract_carry.py: a log line's extra
     'user', // platform/api/auth.py: session_revoked event
   ])
   it('translates every literal reason the API raises', () => {

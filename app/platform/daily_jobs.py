@@ -41,6 +41,7 @@ from app.platform.models.user import User, UserStatus
 from app.platform.schemas.user import UserUpdate
 from app.platform.services import connected_account, notifications, ownership, push_subscriptions
 from app.platform.services import user as user_service
+from app.platform.services import user_reads as user_reads_service
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
             # again: a PATCH that extended `validTo` or deactivated the user
             # after the list was read wins, and the version is bumped from the
             # row as it stands, never from the list's copy.
-            user = user_service.get_user_for_update_or_404(db, stale.tenant_id, stale.id)
+            user = user_reads_service.get_user_for_update_or_404(db, stale.tenant_id, stale.id)
             if not user_service.is_due_for_expiry(user, today=today):
                 db.rollback()
                 no_longer_due += 1
@@ -138,7 +139,7 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
         if str(listed.id) in just_done:
             continue
         try:
-            user = user_service.get_user_for_update_or_404(db, listed.tenant_id, listed.id)
+            user = user_reads_service.get_user_for_update_or_404(db, listed.tenant_id, listed.id)
         except Exception:
             db.rollback()
             handover_failed.append(str(listed.id))

@@ -4,7 +4,7 @@ paths:
   - "app/vehicle/api/identification.py"
   - "app/vehicle/services/configuration*.py"
   - "app/vehicle/services/host_configuration.py"
-  - "app/vehicle/services/identification.py"
+  - "app/vehicle/services/identification*.py"
   - "app/vehicle/services/matching.py"
   - "app/vehicle/services/plate_lookup_cache.py"
   - "app/vehicle/models/configuration.py"
@@ -85,7 +85,7 @@ reconciliation reports the dangling reference.
   booking, KAN-575). A VIN edited away from the car by any other path is reported by Stock's nightly
   reconciliation.
 
-## Identification (FR-C-02; `services/identification.py`, `GET /v1/vehicle-identification`)
+## Identification (FR-C-02; `services/identification*.py`, `GET /v1/vehicle-identification`)
 - One input, rungs by kind: **VIN** → vehicle-mdm, then `identify_by_vin` only where the
   connection's probed `vin` row is granted (no row is not granted; not in the test licence) — else
   the note `vin_decode_not_entitled` and no call. **Kontrollschild** → the provider first (ADR-114,

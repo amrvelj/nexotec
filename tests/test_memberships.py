@@ -6,7 +6,7 @@ import uuid
 
 from app.core.auth import AccessRole
 from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.services import user as user_service
+from app.platform.services import user_reads as user_reads_service
 from tests.membership_support import (
     audit_actions,
     bearer,
@@ -137,7 +137,7 @@ def test_ending_a_membership_keeps_the_row_with_an_end_date_and_the_access_stops
     )
     assert row is not None  # never deleted (Anto, 2026-10-17)
     # switch-dealership and the token's memberships read this set:
-    assert user_service.list_membership_dealership_ids(db_session, user_id=uuid.UUID(user["id"])) == frozenset()
+    assert user_reads_service.list_membership_dealership_ids(db_session, user_id=uuid.UUID(user["id"])) == frozenset()
     actions = [item["action"] for item in audit_actions(client, sister, user["id"])]
     assert "membership_end" in actions
 

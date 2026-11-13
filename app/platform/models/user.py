@@ -16,7 +16,7 @@ CustomerPhone/CustomerEmail — Roles & Permissions is explicit that there is
 "no per-dealership role editor in v1" and a dealership's whole user list is
 small (the "four-person-garage" case is the design target), so there is no
 need to query "every user holding role X" with an indexed join; the one
-place that filters by role (services/user.py::list_users) does it in
+place that filters by role (services/user_reads.py::list_users) does it in
 Python over an already-small, already-paginated result set.
 """
 

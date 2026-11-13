@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from app.core.schemas import CamelModel
 from app.vehicle.models.configuration import ConfigurationMatchMethod
-from app.vehicle.services.identification import (
+from app.vehicle.services.identification_types import (
     IdentificationNote,
     IdentificationOutcome,
     IdentifierKind,

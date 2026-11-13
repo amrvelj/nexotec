@@ -240,6 +240,31 @@ def _next_counter(row: NumberRange, *, year: int, continue_after: int | None) ->
     return counter
 
 
+# KAN-540 (Anto, 2026-11-12, option A): the document types whose module still
+# passes `continue_after` on every allocation. Sales keeps its own offer
+# counter in step with the offer range until the legacy import is retired
+# (KAN-555), so the range never restarts below it: a yearly reset saved on it
+# does nothing yet. The screen says so and its example counts on, as the
+# allocation does. Emptied by the ticket that drops `continue_after`.
+_CONTINUES_A_MODULE_COUNTER: frozenset[NumberRangeDocumentType] = frozenset({NumberRangeDocumentType.OFFER})
+
+
+def yearly_reset_deferred(document_type: NumberRangeDocumentType, *, yearly_reset: bool) -> bool:
+    """Whether a yearly reset on this range does not take effect yet."""
+
+    return yearly_reset and document_type in _CONTINUES_A_MODULE_COUNTER
+
+
+def _example_floor(row: NumberRange) -> int | None:
+    """What the module will pass as `continue_after`, as far as Platform can
+    know it: the module keeps its counter in step with the range, so it
+    stands where the range does. (A legacy import numbers from Sales' counter
+    alone and can lift the real next number above the example until the next
+    offer brings the two in step.)"""
+
+    return row.last_value if row.document_type in _CONTINUES_A_MODULE_COUNTER else None
+
+
 def next_number_example(db: Session, row: NumberRange, *, year: int | None = None) -> str:
     """The number the range would hand out next — the screen's example. A
     `{location_code}` shows the Betrieb's first location code."""
@@ -247,7 +272,8 @@ def next_number_example(db: Session, row: NumberRange, *, year: int | None = Non
     parsed = parse_pattern(row.pattern)
     year = year or swiss_year()
     codes = _location_codes(db, row.tenant_id) if parsed.has_location_code else []
-    return parsed.render(counter=_next_counter(row, year=year, continue_after=None), year=year, location_code=codes[0] if codes else "")
+    counter = _next_counter(row, year=year, continue_after=_example_floor(row))
+    return parsed.render(counter=counter, year=year, location_code=codes[0] if codes else "")
 
 
 def preview(
@@ -358,10 +384,10 @@ def _require_next_counter_fits(row: NumberRange, parsed: ParsedPattern, *, start
     digits — a range already at 123 cannot take `{counter:2}`."""
 
     probe = NumberRange(
-        pattern=parsed.pattern, start_value=start_value, yearly_reset=yearly_reset,
+        document_type=row.document_type, pattern=parsed.pattern, start_value=start_value, yearly_reset=yearly_reset,
         last_value=row.last_value, last_year=row.last_year, frozen_at=row.frozen_at,
     )
-    counter = _next_counter(probe, year=swiss_year(), continue_after=None)
+    counter = _next_counter(probe, year=swiss_year(), continue_after=_example_floor(probe))
     if counter >= 10**parsed.counter_digits:
         raise UnprocessableEntityError(
             f"The range's next counter {counter} does not fit {parsed.counter_digits} digits.",

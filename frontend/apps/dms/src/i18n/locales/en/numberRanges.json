@@ -18,6 +18,7 @@
   },
   "frozenSince": "Frozen since {{date}}",
   "yearlyResetShort": "Starts again every year",
+  "yearlyResetDeferredNote": "For offers, the yearly restart takes effect only once the switch to the new numbering is complete. Until then the numbering simply continues; the next number shows what will really be handed out.",
   "edit": "Edit",
   "editTitle": "Number range {{type}}",
   "pattern": "Pattern",
