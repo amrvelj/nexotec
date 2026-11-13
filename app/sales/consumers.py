@@ -71,7 +71,10 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
 def handle_stock_item_added_message(db: Session, message: OutboxMessage) -> None:
     """KAN-144 — only an item a contract's confirmation created for its
     manually configured vehicle is linked; every other stock item added
-    (a direct add, a trade-in) is ignored here."""
+    (a direct add, a trade-in) is ignored here. KAN-513: also the handler of
+    `inventory.stock_item.reassigned` (consumer `sales.stock_item_reassigned`),
+    whose payload names the contract that now holds a reused ordered car the
+    same way."""
 
     if message.tenant_id is None:
         raise ValueError(f"inventory.stock_item.added message {message.id} has no tenant_id.")

@@ -57,6 +57,13 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.validators import NormalisedVin
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services.configuration_holding import (
+    configuration_held_error,
+    configuration_holder,
+    is_configuration_conflict,
+    publish_reassigned,
+    settle_ordered_configuration,
+)
 from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
 from app.inventory.services.stock_item import (
     _build_and_flush_stock_item,
@@ -137,14 +144,27 @@ def _create_pipeline_item_idempotent(
             configuration_label=vehicle_label if configuration_id else None,
         )
         return item, True
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
         existing = db.scalar(
             select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.pipeline_ref == pipeline_ref)
         )
         if existing is None:
+            # KAN-513: a writer outside the lock (the ADR-091 import) took the
+            # configuration in between — the same 409 as create and attach.
+            holder = (
+                configuration_holder(db, tenant_id=tenant_id, configuration_id=uuid.UUID(configuration_id))
+                if configuration_id and is_configuration_conflict(exc)
+                else None
+            )
+            if holder is not None:
+                raise configuration_held_error(holder) from None
             raise
         return existing, False
+
+
+def _item_for_ref(db: Session, *, tenant_id: uuid.UUID, pipeline_ref: str) -> StockItem | None:
+    return db.scalar(select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.pipeline_ref == pipeline_ref))
 
 
 def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payload: dict[str, Any]) -> None:
@@ -154,37 +174,73 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
     if manual_configuration is not None:
         # KAN-158 — serialised with this contract's cancellation consumer.
         lock_contract(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id))
-        ordered, created = _create_pipeline_item_idempotent(
-            db,
-            tenant_id=tenant_id,
-            vehicle_label=manual_configuration["vehicleLabel"],
-            condition=StockItemCondition(manual_configuration.get("condition", "new")),
-            pipeline_ref=f"contract:{contract_id}:manual",
-            origin={"originContractId": str(contract_id), "originRole": "manual_configuration"},
-            # C-F (KAN-10, FR-C-12) — the pipeline item carries the
-            # configuration; no vehicle-mdm record is written (ADR-070).
-            configuration_id=manual_configuration.get("configurationId"),
-        )
-        # KAN-158 (PRD-Stock K-12, FR-I-11) — the ordered car is reserved for
-        # its contract from the moment it exists, in this same transaction.
-        # Only an item this call creates (a duplicate emission that finds the
-        # item already there leaves it as it is), and never for a contract
-        # Stock already knows is cancelled: the cancellation can be consumed
-        # before this confirmation, when the confirmation's first delivery
-        # failed and is retried after backoff.
-        if created and not contract_is_cancelled(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id)):
-            reserve_and_flush(db, item=ordered, contract_id=uuid.UUID(contract_id))
+        pipeline_ref = f"contract:{contract_id}:manual"
+        configuration_id = manual_configuration.get("configurationId")
+        reused: StockItem | None = None
+        if configuration_id and _item_for_ref(db, tenant_id=tenant_id, pipeline_ref=pipeline_ref) is None:
+            # KAN-513 (Anto, 2026-11-03, option A): a configuration a stock
+            # item already holds — a second contract on the same offer — reuses
+            # that car while it is free on stock, else the order gets a copy.
+            settled = settle_ordered_configuration(
+                db, tenant_id=tenant_id, configuration_id=uuid.UUID(configuration_id),
+                contract_id=uuid.UUID(contract_id), may_reuse=True,
+            )
+            reused = settled.reuse
+            configuration_id = str(settled.configuration_id)
+        if reused is not None:
+            # The same reservation rule as a new item's (KAN-158), and the
+            # fact Sales links the car by. A redelivery finds the car already
+            # reserved for this contract and does nothing more.
+            if reused.reserved_by_contract_id != uuid.UUID(contract_id) and not contract_is_cancelled(
+                db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id)
+            ):
+                reserve_and_flush(db, item=reused, contract_id=uuid.UUID(contract_id))
+                publish_reassigned(db, item=reused, contract_id=uuid.UUID(contract_id))
+        else:
+            ordered, created = _create_pipeline_item_idempotent(
+                db,
+                tenant_id=tenant_id,
+                vehicle_label=manual_configuration["vehicleLabel"],
+                condition=StockItemCondition(manual_configuration.get("condition", "new")),
+                pipeline_ref=pipeline_ref,
+                origin={"originContractId": str(contract_id), "originRole": "manual_configuration"},
+                # C-F (KAN-10, FR-C-12) — the pipeline item carries the
+                # configuration (or, KAN-513, its copy); no vehicle-mdm record
+                # is written (ADR-070).
+                configuration_id=configuration_id,
+            )
+            # KAN-158 (PRD-Stock K-12, FR-I-11) — the ordered car is reserved for
+            # its contract from the moment it exists, in this same transaction.
+            # Only an item this call creates (a duplicate emission that finds the
+            # item already there leaves it as it is), and never for a contract
+            # Stock already knows is cancelled: the cancellation can be consumed
+            # before this confirmation, when the confirmation's first delivery
+            # failed and is retried after backoff.
+            if created and not contract_is_cancelled(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id)):
+                reserve_and_flush(db, item=ordered, contract_id=uuid.UUID(contract_id))
 
     trade_in = payload.get("tradeIn")
     if trade_in is not None:
+        trade_in_ref = f"contract:{contract_id}:trade_in"
+        trade_in_configuration_id = trade_in.get("configurationId")
+        if trade_in_configuration_id and _item_for_ref(db, tenant_id=tenant_id, pipeline_ref=trade_in_ref) is None:
+            # KAN-513: a trade-in's item is never reused for another contract;
+            # a configuration another item holds (one valuation backing two
+            # contracts) is copied for this one.
+            trade_in_configuration_id = str(
+                settle_ordered_configuration(
+                    db, tenant_id=tenant_id, configuration_id=uuid.UUID(trade_in_configuration_id),
+                    contract_id=uuid.UUID(contract_id), may_reuse=False,
+                ).configuration_id
+            )
         item, created = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,
             vehicle_label=trade_in["vehicleLabel"],
             condition=StockItemCondition(trade_in.get("condition", "used")),
-            pipeline_ref=f"contract:{contract_id}:trade_in",
+            pipeline_ref=trade_in_ref,
             origin={"originContractId": str(contract_id), "originRole": "trade_in"},
-            configuration_id=trade_in.get("configurationId"),
+            configuration_id=trade_in_configuration_id,
         )
         if created:
             # KAN-632 — who traded the car in and when the contract was

@@ -242,6 +242,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="sales.stock_item_added",
         handler=handle_stock_item_added_message,
     )
+    # KAN-513 — a second contract on the same configuration reuses the
+    # ordered car while it is free on stock; Sales links it the same way.
+    transport.register(
+        "inventory.stock_item.reassigned",
+        consumer_name="sales.stock_item_reassigned",
+        handler=handle_stock_item_added_message,
+    )
     # KAN-27 (WP-7, ADR-062) — the first consumer to perform outbound I/O
     # to a third party. Both events funnel into the same full-feed
     # recompute (marketplace_transmission.assemble_and_transmit) — see
