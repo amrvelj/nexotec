@@ -61,7 +61,7 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 | Gate | Hook | Blocks when |
 |---|---|---|
 | Push | PreToolUse `Bash` | the working copy differs from HEAD, `scripts/dev/check` has not passed for HEAD's tree, the target is `main` (also `HEAD` while on `main`, `--all`, `--mirror`), the push is forced, or — after `git fetch origin main` — the pushed commit does not contain `origin/main` (KAN-683: landing is one at a time; the refusal names `git merge --no-edit origin/main` and `scripts/dev/check`). A failed fetch never blocks: the gate says so and judges by the last known `origin/main` |
-| Evidence across a merge of main (KAN-683) | PostToolUse `Bash` (`git merge`/`pull`/`commit`), Stop, `gate status` | never blocks. On a merge commit at HEAD: when git reproduces it without conflict (`git merge-tree --write-tree`), its tree is git's own result, and `git diff origin/main...HEAD` is byte-identical to the first parent's, the reviewer's PASS and the screenshot of the first parent's tree are recorded again for the merge's tree (`evidence-carried`, both shas). Otherwise nothing carries (`evidence-not-carried`, the reason) and the resolution is reviewed under `review-scope`'s rules. The check never carries: the tree is new. `/ticket KAN-n land` is the step that uses it |
+| Evidence across a merge of main (KAN-683) | PostToolUse `Bash` (`git merge`/`pull`/`commit`), Stop | never blocks. On a merge commit at HEAD (or under the hook's evidence commit): when git reproduces it without conflict (`git merge-tree --write-tree`), its tree is git's own result, and `git diff origin/main...HEAD` is byte-identical to the first parent's, the reviewer's PASS and the screenshot of the first parent's tree are recorded again for the merge's tree (`evidence-carried`, both shas). Otherwise nothing carries (`evidence-not-carried`, the reason) and the resolution is reviewed: for a merge whose first parent is the reviewed commit, `review-scope` and the re-review rule measure the **resolution** — git's own merge result, conflict markers included, against the merge commit — not every line main gained, and `review-scope` prints the `git diff` to brief. The check never carries: the tree is new. `/ticket KAN-n land` is the step that uses it. `gate status` stays read-only: no fetch, no carry |
 | Hand-over | Stop | after a push in this session: no open PR for HEAD, a CI check that has already **failed** (a pending one does not hold it — KAN-619), no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push. `gate close` then refuses while the merged PR's checks or the latest nightly run on `main` are red, and prints «merged by admin override, <check> was <state>» for a check `main`'s protection requires that was not green on the merged head — `/ticket … close` puts it on the ticket (KAN-626) |
 | Check status on the PR (KAN-625) | PostToolUse `Bash` (the push), Stop (again, while GitHub was not reached) | never blocks. After a push lands, the hook posts the commit status `nexotec/check` = `success` on each pushed commit whose tree equals the recorded pass, saying which lanes ran («frontend only» / «all lanes»), the tree and the test counts; no pass for that tree, no status. |
 | | | Only the hook writes it: a typed `gh`/`curl` call to a commit-status or check-run write path is refused, whatever its context (a rail against the plain mistake, not a boundary: a path hidden in a variable or script is not seen). A refusal by GitHub is recorded (`gate status`: `PR status`) and reported, never worked around. |
@@ -179,12 +179,19 @@ transaction) — and never change it.
 - **A query result never enters the repository, a commit message, a PR, an issue or a rule file**
   (the repository and its PRs are public for now). Counts and yes/no go to the Notion ticket; rows
   only when the ticket asks for them and they hold no provider data.
-- **Provider-derived tables are counted, never listed:** the per-tenant catalogue mirror
-  (`vehicle_colour_cache`, `vehicle_tyre_spec_cache`, `vehicle_image_ref`, `vehicle_variant_option`,
+- **Provider-derived tables are counted, never listed:** the seen-variant store, a cache of what
+  lookups returned (`store_seen_variants`, ADR-112: `vehicle_brand`, `vehicle_model_group`,
+  `vehicle_model_variant`, `vehicle_variant_provider_code`, `vehicle_provider_entity_ref`) and what is
+  stored with a variant (`vehicle_variant_price`, `vehicle_type_approval`,
+  `vehicle_model_variant_type_approval`, `vehicle_model_variant_energy_rating`,
+  `vehicle_model_variant_energy_label`); the per-tenant catalogue mirror (`vehicle_colour_cache`,
+  `vehicle_tyre_spec_cache`, `vehicle_image_ref`, `vehicle_variant_option`,
   `vehicle_variant_option_equipment_feature`, `vehicle_variant_option_relation`,
-  `vehicle_variant_option_provider_code`), the detail and lookup caches (`vehicle_variant_detail_state`,
-  `vehicle_plate_lookup_cache`), the call log (`integration_call_log`, `integration_call_payload`) and
-  the provider captions (`integration_provider_caption`, `integration_provider_caption_fetch`).
+  `vehicle_variant_option_provider_code`); the detail and lookup caches (`vehicle_variant_detail_state`,
+  `vehicle_plate_lookup_cache`); the call log (`integration_call_log`, `integration_call_payload`); the
+  provider captions (`integration_provider_caption`, `integration_provider_caption_fetch`); and the
+  valuation's provider quotes (`valuation_provider_quote`). A table not named here that holds what a
+  provider delivered is counted too: when in doubt, count.
 - **A session never changes staging:** a deploy is triggered by a merge; a data correction goes
   through the API as a platform_admin. No agent login on staging (§3, §8: personal logins).
 - **Resolve by name, at run time:** `list_workspaces` (one workspace → pass its id as `workspaceId`;

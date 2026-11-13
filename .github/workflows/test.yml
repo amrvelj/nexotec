@@ -6,7 +6,7 @@ name: test
 # A night whose main head already has a green run is skipped (`freshness`); a red night
 # opens a GitHub issue labelled `nightly-red`, or comments on the open one (`alert`).
 # There is no `push` trigger. The job names stay as they were (none is a required
-# check: main's protection, KAN-626, requires only `pr-light` and `nexotec/check`).
+# check: once KAN-626's protection on main is set, it requires only `pr-light` and `nexotec/check`).
 
 on:
   schedule:
@@ -84,8 +84,8 @@ jobs:
 
   ruff:
     # Covers scripts/ too since KAN-184. The name is kept from before Route B (KAN-624), when
-    # it was a PR check; nothing requires it by name now (main's protection requires only
-    # `pr-light` and `nexotec/check`, KAN-626).
+    # it was a PR check; nothing requires it by name now (KAN-626's protection, once set, requires
+    # only `pr-light` and `nexotec/check`).
     name: ruff (app/, tests/)
     needs: freshness
     if: ${{ needs.freshness.outputs.skip != 'true' }}
@@ -100,8 +100,8 @@ jobs:
 
   mypy:
     # Covers scripts/ too since KAN-142. The name is kept from before Route B (KAN-624), when
-    # it was a PR check; nothing requires it by name now (main's protection requires only
-    # `pr-light` and `nexotec/check`, KAN-626).
+    # it was a PR check; nothing requires it by name now (KAN-626's protection, once set, requires
+    # only `pr-light` and `nexotec/check`).
     name: mypy (app/)
     needs: freshness
     if: ${{ needs.freshness.outputs.skip != 'true' }}

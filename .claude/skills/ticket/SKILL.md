@@ -193,9 +193,9 @@ reply carries the `DECISION NEEDED:` line; the gate does not read the ticket's s
 
 ## Land before the merge (`/ticket KAN-<n> land`)
 
-Run when Anto says he is about to merge (KAN-683; ADR «landing is one at a time»). `main`'s
-protection requires the branch to be up to date (KAN-626), and Route B leaves the re-check to the
-session.
+Run when Anto says he is about to merge (KAN-683; ADR-154, «landing is one at a time»). Once
+KAN-626's protection is set, `main` requires the branch to be up to date; Route B leaves the
+re-check to the session either way.
 
 1. `git fetch origin main`. HEAD already contains `origin/main` and the PR's head is HEAD → say so; done.
 2. `git merge --no-edit origin/main` — never a rebase (the gate refuses the force-push it needs).
@@ -206,7 +206,8 @@ session.
    `git diff origin/main...HEAD` is byte-identical to before carries the reviewer's PASS and the
    screenshot over, recorded with both shas. A conflict, an edited merge or a different three-dot
    diff carries nothing: review the resolution — a re-review when `scripts/dev/gate review-scope
-   <previously reviewed sha>` allows it, else a full review.
+   <previously reviewed sha>` allows it (for a merge it measures the resolution only and prints the
+   `git diff` to give the reviewer as the range), else a full review.
 4. `scripts/dev/check` always (the tree is new), then `git push -u origin HEAD`.
 5. The ticket's In Review callout gets the new head: `Landed — head <sha> contains main <sha>,
    check passed, evidence carried | re-reviewed`.
@@ -223,7 +224,8 @@ session.
    run, or a nightly run that started before the merge is printed and does not hold the close — the
    Done callout then says the nightly run has not covered the merge yet. When `close` prints
    «merged by admin override, <check> was <state>» (a required check of `main`'s protection that
-   was not green on the merged head, KAN-626), that line goes on the ticket as it stands.
+   was not green on the merged head, once KAN-626's protection is set), that line goes on the
+   ticket as it stands.
 3. **Confirm the deploy** (KAN-686), through Render's connector: `list_workspaces` (one workspace →
    pass its id as `workspaceId`; `select_workspace` is denied), `list_services` → the service named
    `dms-staging` (by name, never a stored id), `list_deploys` with `limit: 1`. Live and its commit is

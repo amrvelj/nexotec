@@ -23,8 +23,10 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 MIGRATIONS = "alembic/versions/"
 TICKET = re.compile(r"\bKAN-(\d+)\b", re.IGNORECASE)
@@ -89,7 +91,7 @@ def branch_changes(root):
     for line in out.splitlines() if rc == 0 else []:
         status, path = line[:2], line[3:]
         changes.setdefault(path, "A" if status in ("??", "A ") else "M")
-    return sorted(changes.items(), key=lambda item: item[1])
+    return [(status, path) for path, status in sorted(changes.items())]
 
 
 def pull_label(pull):
@@ -233,6 +235,52 @@ def selftest():
     assert problem is None and len(items) == 101
     assert chain_of("alembic/versions/a1_x.py") == "legacy" and chain_of("alembic/versions/sales/b2.py") == "sales"
     assert chain_of("alembic/env.py") is None and chain_of("app/x.py") is None
+    # recorded from PR #320 on 2026-11-13 (the pulls listing's fields; two of its 69 files, names and status only)
+    real_pull = {"number": 320, "draft": True, "html_url": "https://github.com/amrvelj/nexotec/pull/320",
+                 "title": "Improvement batch: KAN-79 — the legacy vehicle table is retired (ADR-153); KAN-524, KAN-537, "
+                          "KAN-555, KAN-540 parked for Anto",
+                 "head": {"ref": "claude/youthful-keller-54e7u2", "sha": "2186a29f1a46812a4c953766bb35cddc653056ce",
+                          "repo": {"full_name": "amrvelj/nexotec"}}}
+    real_files = [{"filename": "CLAUDE.md", "status": "modified"},
+                  {"filename": "alembic/versions/vehicle/8d03887f7876_kan79_retire_legacy_vehicle_table.py",
+                   "status": "added"}]
+    real = {"repos/{owner}/{repo}/pulls?state=open&per_page=100&page=1": [real_pull],
+            "repos/{owner}/{repo}/pulls/320/files?per_page=100&page=1": real_files}
+    hit = overlap([("M", "CLAUDE.md"), ("A", "alembic/versions/vehicle/0a_next.py")], [], "mine",
+                  lambda p: (real.get(p, []), None))
+    assert hit["files"]["CLAUDE.md"][0]["tickets"] == ["KAN-79", "KAN-524", "KAN-537", "KAN-555", "KAN-540"], hit
+    assert list(hit["chains"]) == ["vehicle"] and hit["chains"]["vehicle"][0]["head"] == "2186a29f1a"
+    # the branch's own changes, read from git: (status, path), committed and uncommitted
+    repo = tempfile.mkdtemp(prefix="overlap-selftest-")
+    try:
+        def git(*args):
+            return run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+                       + list(args), repo)
+        git("init", "-q", "-b", "main")
+        for name in ("CLAUDE.md", "keep.py"):
+            with open(os.path.join(repo, name), "w") as fh:
+                fh.write("x\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        git("update-ref", "refs/remotes/origin/main", "HEAD")
+        git("switch", "-q", "-c", "kan-1-x")
+        os.makedirs(os.path.join(repo, "alembic", "versions", "vehicle"))
+        with open(os.path.join(repo, "alembic", "versions", "vehicle", "0a_next.py"), "w") as fh:
+            fh.write("rev\n")
+        with open(os.path.join(repo, "CLAUDE.md"), "a") as fh:
+            fh.write("y\n")
+        git("add", "alembic")
+        git("commit", "-q", "-m", "migration")
+        with open(os.path.join(repo, "new.txt"), "w") as fh:
+            fh.write("untracked\n")
+        assert branch_changes(repo) == [("M", "CLAUDE.md"), ("A", "alembic/versions/vehicle/0a_next.py"),
+                                        ("A", "new.txt")], branch_changes(repo)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            assert main(["--json"], fetch=lambda p: (real.get(p, []), None), root=repo) == 0
+        live = json.loads(out.getvalue())
+        assert "CLAUDE.md" in live["files"] and live["chains_added"] == ["vehicle"], live
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
     with contextlib.redirect_stdout(io.StringIO()) as out:
         assert main(["--json"], fetch=fetch) == 0  # against this checkout, recorded answers: never non-zero
     assert json.loads(out.getvalue())["problem"] is None

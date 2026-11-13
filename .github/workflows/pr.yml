@@ -9,8 +9,8 @@ name: pr
 # already has its run, and marking a draft ready would only repeat it. A newer push to
 # the same PR cancels the run still going.
 #
-# The job name `pr-light` is a check main's branch protection requires, with `nexotec/check`
-# (KAN-626) - do not rename it without changing the protection.
+# The job name `pr-light` is what main's branch protection is to require, with `nexotec/check`
+# (KAN-626, set by Anto) - do not rename it without changing the protection.
 
 on:
   pull_request:
