@@ -178,7 +178,7 @@ def _ask_provider(
     if found is None:
         return _ProviderAnswer(None, None, [IdentificationNote.NO_PROVIDER_CONNECTION])
     connection, provider_code = found
-    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=_IDENT_ENTITLEMENT)
+    entitlement = get_entitlement(db, connection=connection, capability_code=_IDENT_ENTITLEMENT)
     if entitlement is not None and not entitlement.granted:
         return _ProviderAnswer(None, provider_code, [not_entitled_note])
     try:

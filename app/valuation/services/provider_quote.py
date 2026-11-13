@@ -88,7 +88,7 @@ def request_provider_quote(
         raise ConflictError(
             "No vehicle-data provider is connected for this Betrieb.", details={"reason": "no_provider_connection"}
         )
-    if not valuation_granted(db, connection_id=car.connection.id):
+    if not valuation_granted(db, connection=car.connection):
         raise _not_entitled()
 
     first_registration = data.first_registration or car.first_registration_date

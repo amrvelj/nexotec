@@ -35,7 +35,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.integration.public import get_entitlement
+from app.integration.public import ConnectionRef, get_entitlement
 from app.vehicle.models.catalogue import ModelVariant, VariantOption, VariantOptionRelation
 from app.vehicle.models.catalogue_mirror import CatalogueDetail, ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.schemas.localised import ProviderTextsRead, provider_texts
@@ -177,8 +177,8 @@ class CatalogueSpecificationResult:
     details: DetailStatesSpec = DetailStatesSpec()
 
 
-def _is_granted(db: Session, *, connection_id: uuid.UUID, capability_code: str) -> bool:
-    entitlement = get_entitlement(db, connection_id=connection_id, capability_code=capability_code)
+def _is_granted(db: Session, *, connection: ConnectionRef, capability_code: str) -> bool:
+    entitlement = get_entitlement(db, connection=connection, capability_code=capability_code)
     return True if entitlement is None else entitlement.granted
 
 
@@ -191,8 +191,8 @@ def get_catalogue_entitlements(db: Session, *, tenant_id: uuid.UUID) -> Catalogu
         has_connection=True,
         # KAN-488: options, packages and images are one identAPI licence
         # option, `ausstattung`, probed on "Test connection" (403 = absent).
-        images=_is_granted(db, connection_id=connection.id, capability_code=_AUSSTATTUNG),
-        packages=_is_granted(db, connection_id=connection.id, capability_code=_AUSSTATTUNG),
+        images=_is_granted(db, connection=connection, capability_code=_AUSSTATTUNG),
+        packages=_is_granted(db, connection=connection, capability_code=_AUSSTATTUNG),
     )
 
 
