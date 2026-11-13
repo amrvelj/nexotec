@@ -111,6 +111,7 @@ re-verified against the code. -->
   shared lookup (ADR-043) answers `currentPlate: null` — its shape has no withheld flag.
 
 ## Changes and audits
+- A VIN change on a car the caller's Betrieb holds in stock is refused (KAN-667, `inventory-vin-correction.md`).
 - **A changed label is an event** (ADR-119): `update_vehicle_mdm` publishes
   `vehicle.vehicle_mdm.summary_changed` in its own transaction whenever a field
   `vehicle.public.VehicleSummary` carries changes — and only then (a Stammnummer, a status, a first

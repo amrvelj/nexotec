@@ -89,7 +89,11 @@ Last verified against main@73baf3f (2026-10-25). -->
   overlay `hostOwnsVin` (`useStockConfigurationEditor`): no `vin` in its PATCH, a changed VIN opens the
   dialog prefilled after the PATCH, an emptied one is refused in place, and without the row the field
   is read-only. The configuration PATCH has no server-side host check (Vehicle cannot ask Stock);
-  reconciliation is the backstop.
+  reconciliation is the backstop. **The vehicle-mdm identity PATCH does check it** (Anto, KAN-667 A;
+  ADR-160): a VIN change on a record the caller's Betrieb holds in stock is 409
+  `vin_change_needs_vin_correction` (`stockItemId`, `stockNumber`), read from Vehicle's projection
+  `vehicle_stock_holding` (`events-stock-sales.md`); Vehicle 360 shows that VIN read-only, linking the stock
+  car's «VIN korrigieren» (`stockOpenState('correctVin')`). Another Betrieb's stock never refuses nor shows.
 
 # A trade-in is bought under the VIN its contract holds (KAN-536; Anto, 2026-11-12, option A)
 
