@@ -5500,8 +5500,7 @@ export interface components {
             key: string;
             /** Label */
             label?: string | null;
-            /** Language */
-            language?: string | null;
+            language?: components["schemas"]["SwissLanguage"] | null;
             outcome: components["schemas"]["CopyOutcome"];
             /** Reason */
             reason?: string | null;

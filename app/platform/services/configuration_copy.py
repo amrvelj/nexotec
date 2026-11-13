@@ -17,9 +17,13 @@ groups with KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   the **seed** (`overridden_from_id` names the platform seed, never the
   source's row); a Betrieb-own text keeps its code, so a later copy finds and
   overwrites it instead of duplicating it. A text the target already has of
-  the same code and language is overwritten (settled (a)); a location variant
+  the same code and language is overwritten (settled (a)); a copied default
+  that takes a slot from the target's own default is reported
+  (`default_replaced`); the source's reviewed seed version travels with an
+  adaptation, so "the standard text has changed" survives; a location variant
   is not copied — sites differ per Betrieb (settled (b)).
-- **the document template's header notes** (the four languages).
+- **the document template's header notes** (the four languages); a
+  language the source has no note in leaves the target's note as it is.
 - **number-range patterns** — pattern, start value and yearly reset, for the
   modules the target holds. Never `last_value` or `last_year`, never the
   freeze: a range of the target that has handed out a number is frozen and
@@ -45,6 +49,7 @@ from app.core.audit import record_audit_event
 from app.core.auth import Principal
 from app.core.errors import AppError, NotFoundError
 from app.core.permissions import AccessRole, ModuleCode
+from app.core.tenancy import require_tenant_match
 from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
@@ -125,8 +130,7 @@ def require_target(db: Session, principal: Principal, target_id: uuid.UUID) -> D
     """The target is the active dealership (writes need the switch) and the
     caller holds its manager flag — else 404, never a hint (rule 7)."""
 
-    if AccessRole.PLATFORM_ADMIN not in principal.roles and principal.tenant_id != target_id:
-        raise _not_found(target_id)
+    require_tenant_match(target_id, principal)
     target = db.get(Dealership, target_id)
     # The session's own flag (minted for the active dealership) and the
     # database's: a session minted before the flag was taken away holds none.
@@ -222,6 +226,8 @@ def _copy_standard_texts(
             outcome=CopyOutcome.CREATED,
         )
         existing = target_rows.get((row.code, row.language))
+        # The overwritten row's own default flag is the overwrite, not a demotion.
+        defaults_before = [r for r in target_rows.values() if r.is_default and r is not existing]
         try:
             with db.begin_nested():
                 created = _write_text(
@@ -236,6 +242,20 @@ def _copy_standard_texts(
             if created is not None:
                 target_rows[(created.code, created.language)] = created
                 target_codes.add(created.code)
+            # A copied default takes its slot: the target's own default there
+            # stops printing. Said in the preview, never done silently.
+            for demoted in defaults_before:
+                if not demoted.is_default:
+                    report.items.append(
+                        CopyItem(
+                            subset=CopySubset.STANDARD_TEXTS,
+                            key=demoted.code,
+                            label=demoted.title,
+                            language=demoted.language.value,
+                            outcome=CopyOutcome.OVERWRITTEN,
+                            reason="default_replaced",
+                        )
+                    )
         except AppError as refused:
             # A seed the target cannot adapt (the language was withdrawn)
             # or a body the closed placeholder registry refuses: reported,
@@ -258,7 +278,8 @@ def _write_text(
     """One text through its own write path; the created row, if any."""
 
     if existing is not None:
-        changes = {name: getattr(row, name) for name in _TEXT_FIELDS if getattr(existing, name) != getattr(row, name)}
+        fields = _TEXT_FIELDS + (("overridden_seed_version",) if row.overridden_from_id is not None else ())
+        changes = {name: getattr(row, name) for name in fields if getattr(existing, name) != getattr(row, name)}
         if not changes:
             item.outcome = CopyOutcome.UNCHANGED
             return None
@@ -278,6 +299,9 @@ def _write_text(
         data=_text_input(row),
         actor_id=actor_id,
         new_code=is_own and row.code not in target_codes,
+        # The source's review state travels: an adaptation behind its seed
+        # still reads "the standard text has changed" in the target.
+        seed_version=row.overridden_seed_version,
         commit=False,
     )
 
@@ -290,11 +314,17 @@ def _copy_document_template(
 ) -> None:
     source_template = document_template_service.get_document_template(db, source.id)
     target_template = document_template_service.get_document_template(db, target.id)
-    wanted = {name: getattr(source_template, name) if source_template else None for name in _HEADER_FIELDS}
     current = {name: getattr(target_template, name) if target_template else None for name in _HEADER_FIELDS}
+    # A language the source has no note in is not copied: an empty note never
+    # clears the target's — the rule texts follow too (absent = kept).
+    wanted = {
+        name: value
+        for name in _HEADER_FIELDS
+        if (value := getattr(source_template, name) if source_template else None) not in (None, "")
+    }
     item = CopyItem(subset=CopySubset.DOCUMENT_TEMPLATE, key="header_notes", outcome=CopyOutcome.UNCHANGED)
-    if wanted != current:
-        changes = {name: value for name, value in wanted.items() if current[name] != value}
+    changes = {name: value for name, value in wanted.items() if current[name] != value}
+    if changes:
         document_template_service.upsert_document_template(
             db,
             dealership_id=target.id,
@@ -322,6 +352,10 @@ def _copy_number_ranges(
         row.document_type: row
         for row in db.scalars(select(NumberRange).where(NumberRange.tenant_id == source.id)).all()
     }
+    target_rows = {
+        row.document_type: row
+        for row in db.scalars(select(NumberRange).where(NumberRange.tenant_id == target.id)).all()
+    }
     for document_type in NumberRangeDocumentType:
         if number_range_service.MODULE_OF[document_type] not in held:
             continue
@@ -334,7 +368,9 @@ def _copy_number_ranges(
             label=wanted.pattern,
             outcome=CopyOutcome.UNCHANGED,
         )
-        row = number_range_service.get_or_seed(db, dealership_id=target.id, document_type=document_type, lock=True)
+        # Read first, write only for a change: a target range never written
+        # reads as its seed and is created only if the copy changes it.
+        row = target_rows.get(document_type) or number_range_service.new_range(target.id, document_type, None)
         if (row.pattern, row.start_value, row.yearly_reset) == (
             wanted.pattern,
             wanted.start_value,
@@ -342,6 +378,12 @@ def _copy_number_ranges(
         ):
             report.items.append(item)
             continue
+        if row.frozen_at is not None:
+            item.outcome = CopyOutcome.SKIPPED
+            item.reason = "number_range_frozen"
+            report.items.append(item)
+            continue
+        row = number_range_service.get_or_seed(db, dealership_id=target.id, document_type=document_type, lock=True)
         if row.frozen_at is not None:
             item.outcome = CopyOutcome.SKIPPED
             item.reason = "number_range_frozen"

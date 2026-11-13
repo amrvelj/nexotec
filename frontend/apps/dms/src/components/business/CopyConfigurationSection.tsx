@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
-import { Alert, Badge, Button, Checkbox, Group, Select, Stack, Table, Text } from '@mantine/core'
+import { Alert, Button, Checkbox, Group, Select, Stack, Table, Text } from '@mantine/core'
+import { Badge, LanguageBadge, type BadgeTone } from '@nexotec/ui-kit'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -17,13 +18,14 @@ import { useFieldHint } from '../../hooks/useFieldHint'
 import { SectionCard } from './SectionCard'
 
 const SUBSETS: ConfigurationCopySubset[] = ['standard_texts', 'document_template', 'number_ranges']
-const OUTCOME_COLOR: Record<ConfigurationCopyItem['outcome'], string> = {
-  created: 'green',
-  overwritten: 'orange',
-  unchanged: 'gray',
-  skipped: 'red',
+const OUTCOME_TONE: Record<ConfigurationCopyItem['outcome'], BadgeTone> = {
+  created: 'success',
+  overwritten: 'warning',
+  unchanged: 'slate',
+  skipped: 'destructive',
 }
 const KNOWN_REASONS = new Set([
+  'default_replaced',
   'number_range_frozen',
   'number_pattern_location_code_missing',
   'number_range_counter_too_short',
@@ -216,7 +218,7 @@ function CopyItems({ result }: { result: ConfigurationCopyResult }) {
             </Table.Td>
             <Table.Td>
               <Stack gap={2}>
-                <Badge color={OUTCOME_COLOR[item.outcome]} variant="light">
+                <Badge tone={OUTCOME_TONE[item.outcome]}>
                   {result.dryRun || item.outcome !== 'overwritten'
                     ? t(`business.copyConfiguration.outcome.${item.outcome}`)
                     : t('business.copyConfiguration.outcomeDone.overwritten')}
@@ -247,7 +249,7 @@ function ItemLabel({ item }: { item: ConfigurationCopyItem }) {
   if (item.subset === 'document_template') return <Text fz="sm">{t('business.copyConfiguration.headerNotes')}</Text>
   return (
     <Text fz="sm">
-      {item.label} {item.language && <Badge variant="outline" size="xs">{item.language.toUpperCase()}</Badge>}
+      {item.label} {item.language && <LanguageBadge language={item.language} />}
     </Text>
   )
 }

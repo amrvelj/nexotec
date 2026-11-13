@@ -198,7 +198,7 @@
     },
     "preview": "Vorschau anzeigen",
     "previewTitle": "Vorschau: Übernahme aus {{source}}",
-    "confirmNote": "Erst mit «Übernehmen» wird etwas gespeichert. Die Übernahme wird protokolliert.",
+    "confirmNote": "Erst mit der Bestätigung wird etwas gespeichert. Die Übernahme wird protokolliert.",
     "confirm_one": "{{count, number}} Änderung übernehmen",
     "confirm_other": "{{count, number}} Änderungen übernehmen",
     "done": "Aus {{source}} übernommen: {{created, number}} neu, {{overwritten, number}} überschrieben, {{skipped, number}} übersprungen.",
@@ -220,6 +220,7 @@
       "overwritten": "Überschrieben"
     },
     "reason": {
+      "default_replaced": "Ersetzt den bisherigen Standardtext dieser Stelle; dieser bleibt erhalten, ist aber nicht mehr voreingestellt.",
       "number_range_frozen": "Dieser Nummernkreis hat schon eine Nummer vergeben und ist gesperrt.",
       "number_pattern_location_code_missing": "Kein Standort dieses Betriebs hat einen Code für {location_code}.",
       "number_range_counter_too_short": "Der nächste Zählerstand passt nicht in das Muster.",

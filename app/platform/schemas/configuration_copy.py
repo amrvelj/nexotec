@@ -4,6 +4,7 @@ import uuid
 
 from pydantic import Field
 
+from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
 from app.platform.services.configuration_copy import CopyOutcome, CopySubset
 
@@ -20,7 +21,7 @@ class ConfigurationCopyItem(CamelModel):
     key: str
     outcome: CopyOutcome
     label: str | None = None
-    language: str | None = None
+    language: SwissLanguage | None = None
     reason: str | None = None
 
 

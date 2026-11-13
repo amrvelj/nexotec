@@ -511,6 +511,7 @@ def create_dealer_text(
     data: DealerTextInput,
     actor_id: uuid.UUID | None,
     new_code: bool = False,
+    seed_version: int | None = None,
     commit: bool = True,
 ) -> StandardText:
     """A Betrieb's own text, a further language or location variant of one,
@@ -520,7 +521,9 @@ def create_dealer_text(
     `new_code` (KAN-220, the copy from a sister Betrieb only): `code` is a
     Betrieb-own code this Betrieb does not hold yet — taken as given, so a
     second copy finds and overwrites it instead of duplicating it. A seed's
-    code is never new. `commit=False` leaves the transaction to the caller
+    code is never new. `seed_version` (the copy only) is the seed version the
+    copied adaptation was last reviewed against, so "the standard text has
+    changed, review yours" travels with it. `commit=False` leaves the transaction to the caller
     (the copy commits once, or rolls back its dry run)."""
 
     get_dealership_or_404(db, dealership_id)
@@ -601,7 +604,9 @@ def create_dealer_text(
         body=data.body,
         source=StandardTextSource.DEALER,
         overridden_from_id=seed.id if seed is not None else None,
-        overridden_seed_version=seed.version if seed is not None else None,
+        overridden_seed_version=(
+            (seed_version if seed_version is not None else seed.version) if seed is not None else None
+        ),
         is_default=data.is_default if data.is_default is not None else (seed.is_default if seed else False),
         active=data.active,
         sort_order=data.sort_order if data.sort_order is not None else (seed.sort_order if seed else 100),
@@ -657,6 +662,10 @@ def update_dealer_text(
             setattr(row, field, value)
     validate_body(row.body, target)
     _validate_whatsapp_fields(row.category, row.template_approved, row.provider_template_id)
+    if "overridden_seed_version" in changes and row.overridden_from_id is not None:
+        # The copy from a sister Betrieb (KAN-220): the overwritten adaptation
+        # carries the source's reviewed seed version. No API schema has it.
+        row.overridden_seed_version = changes["overridden_seed_version"]
     if changes.get("seed_reviewed"):
         if row.overridden_from_id is None:
             raise _refuse("standard_text_not_an_override", "Only an adapted standard text has a seed to review.")

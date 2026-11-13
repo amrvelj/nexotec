@@ -198,7 +198,7 @@
     },
     "preview": "Afficher l'aperçu",
     "previewTitle": "Aperçu : reprise depuis {{source}}",
-    "confirmNote": "Rien n'est enregistré avant « Reprendre ». La reprise est journalisée.",
+    "confirmNote": "Rien n'est enregistré avant votre confirmation. La reprise est journalisée.",
     "confirm_one": "Reprendre {{count, number}} modification",
     "confirm_other": "Reprendre {{count, number}} modifications",
     "done": "Repris depuis {{source}} : {{created, number}} nouveaux, {{overwritten, number}} écrasés, {{skipped, number}} ignorés.",
@@ -220,6 +220,7 @@
       "overwritten": "Écrasé"
     },
     "reason": {
+      "default_replaced": "Remplace le texte par défaut actuel de cet emplacement ; celui-ci est conservé, mais n'est plus présélectionné.",
       "number_range_frozen": "Cette plage a déjà attribué un numéro et est verrouillée.",
       "number_pattern_location_code_missing": "Aucun site de cette entreprise n'a de code pour {location_code}.",
       "number_range_counter_too_short": "Le prochain compteur ne tient pas dans le modèle.",

@@ -198,7 +198,7 @@
     },
     "preview": "Show preview",
     "previewTitle": "Preview: copy from {{source}}",
-    "confirmNote": "Nothing is saved until you choose «Copy». The copy is recorded in the audit log.",
+    "confirmNote": "Nothing is saved until you confirm. The copy is recorded in the audit log.",
     "confirm_one": "Copy {{count, number}} change",
     "confirm_other": "Copy {{count, number}} changes",
     "done": "Copied from {{source}}: {{created, number}} new, {{overwritten, number}} overwritten, {{skipped, number}} skipped.",
@@ -220,6 +220,7 @@
       "overwritten": "Overwritten"
     },
     "reason": {
+      "default_replaced": "Replaces the current default text for this place; that text is kept but is no longer preselected.",
       "number_range_frozen": "This range has already issued a number and is frozen.",
       "number_pattern_location_code_missing": "No site of this business has a code for {location_code}.",
       "number_range_counter_too_short": "The next counter does not fit the pattern.",

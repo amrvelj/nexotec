@@ -198,7 +198,7 @@
     },
     "preview": "Mostra anteprima",
     "previewTitle": "Anteprima: ripresa da {{source}}",
-    "confirmNote": "Nulla viene salvato prima di «Riprendi». La ripresa viene registrata.",
+    "confirmNote": "Nulla viene salvato prima della conferma. La ripresa viene registrata.",
     "confirm_one": "Riprendi {{count, number}} modifica",
     "confirm_other": "Riprendi {{count, number}} modifiche",
     "done": "Ripreso da {{source}}: {{created, number}} nuovi, {{overwritten, number}} sovrascritti, {{skipped, number}} saltati.",
@@ -220,6 +220,7 @@
       "overwritten": "Sovrascritto"
     },
     "reason": {
+      "default_replaced": "Sostituisce il testo predefinito attuale di questa posizione; questo resta, ma non è più preimpostato.",
       "number_range_frozen": "Questo intervallo ha già assegnato un numero ed è bloccato.",
       "number_pattern_location_code_missing": "Nessuna sede di questa azienda ha un codice per {location_code}.",
       "number_range_counter_too_short": "Il prossimo contatore non entra nel modello.",

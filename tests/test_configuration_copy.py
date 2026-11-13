@@ -54,7 +54,9 @@ def _pair(client, engine):
     return source, target, user, in_target, in_source
 
 
-def _copy(client, target, headers, source, *, dry_run, subsets=("standard_texts", "document_template", "number_ranges")):
+def _copy(
+    client, target, headers, source, *, dry_run, subsets=("standard_texts", "document_template", "number_ranges")
+):
     return client.post(
         f"/v1/dealerships/{target}/copy-configuration",
         json={"sourceDealershipId": source, "subsets": list(subsets), "dryRun": dry_run},
@@ -362,10 +364,17 @@ def test_a_text_the_target_cannot_take_is_skipped_and_the_rest_is_copied(client,
     try:
         session.add(
             StandardText(
-                dealership_id=uuid.UUID(source), scope=StandardTextScope.DEALERSHIP, code="offer.closing.legacy",
-                category=StandardTextCategory.DOCUMENT, applies_to=StandardTextAppliesTo.OFFER,
-                slot=StandardTextSlot.CLOSING, language=SwissLanguage.DE, title="Alt", body="Bis {{nicht.bekannt}}",
-                source=StandardTextSource.DEALER, version=1,
+                dealership_id=uuid.UUID(source),
+                scope=StandardTextScope.DEALERSHIP,
+                code="offer.closing.legacy",
+                category=StandardTextCategory.DOCUMENT,
+                applies_to=StandardTextAppliesTo.OFFER,
+                slot=StandardTextSlot.CLOSING,
+                language=SwissLanguage.DE,
+                title="Alt",
+                body="Bis {{nicht.bekannt}}",
+                source=StandardTextSource.DEALER,
+                version=1,
             )
         )
         session.commit()
@@ -379,3 +388,89 @@ def test_a_text_the_target_cannot_take_is_skipped_and_the_rest_is_copied(client,
     assert items["offer.closing.legacy"]["reason"] == "standard_text_placeholder_invalid"
     assert items["header_notes"]["outcome"] == "created"
     assert _rows(engine, StandardText, dealership_id=uuid.UUID(target)) == []
+
+
+def test_a_copied_default_that_replaces_the_targets_own_is_listed_in_the_preview(client, engine, standard_text_seeds):
+    source, target, _, in_target, in_source = _pair(client, engine)
+    in_target_own = _create_text(
+        client,
+        target,
+        in_target,
+        {
+            "language": "de",
+            "title": "Ziel-Schluss",
+            "body": "Ziel.",
+            "appliesTo": "offer",
+            "slot": "closing",
+            "isDefault": True,
+        },
+    )
+    _create_text(
+        client,
+        source,
+        in_source,
+        {
+            "language": "de",
+            "title": "Quelle-Schluss",
+            "body": "Quelle.",
+            "appliesTo": "offer",
+            "slot": "closing",
+            "isDefault": True,
+        },
+    )
+    preview = _copy(client, target, in_target, source, dry_run=True, subsets=("standard_texts",)).json()
+    replaced = [i for i in preview["items"] if i["reason"] == "default_replaced"]
+    assert [(i["key"], i["outcome"]) for i in replaced] == [(in_target_own["code"], "overwritten")]
+    committed = _copy(client, target, in_target, source, dry_run=False, subsets=("standard_texts",)).json()
+    assert committed["items"] == preview["items"]
+    own = next(
+        r for r in _rows(engine, StandardText, dealership_id=uuid.UUID(target)) if r.code == in_target_own["code"]
+    )
+    assert own.is_default is False
+
+
+def test_an_empty_source_note_never_clears_the_targets(client, engine, standard_text_seeds):
+    source, target, _, in_target, _ = _pair(client, engine)
+    _set_header_note(client, target, in_target, "Eigene Kopfzeile")
+    report = _copy(client, target, in_target, source, dry_run=False, subsets=("document_template",)).json()
+    assert [(i["key"], i["outcome"]) for i in report["items"]] == [("header_notes", "unchanged")]
+    kept = client.get(f"/v1/dealerships/{target}/document-template", headers=in_target).json()
+    assert kept["headerNoteDe"] == "Eigene Kopfzeile"
+
+
+def test_the_review_state_of_an_adaptation_travels_with_the_copy(client, engine, standard_text_seeds):
+    from app.platform.services import standard_text as text_service
+
+    source, target, _, in_target, in_source = _pair(client, engine)
+    adapted, _, _ = _configure_source(client, source, in_source)
+    # The platform edits the seed after the source adapted it: the source's text reads "changed".
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    try:
+        seed = text_service.get_platform_seed_or_404(session, uuid.UUID(adapted["overriddenFromId"]), for_update=True)
+        text_service.update_platform_seed(
+            session,
+            seed=seed,
+            changes={"body": "Neue Einleitung der Plattform."},
+            if_match_version=seed.version,
+            actor_id=None,
+        )
+    finally:
+        session.close()
+    assert _copy(client, target, in_target, source, dry_run=False, subsets=("standard_texts",)).status_code == 200
+    listed = client.get(f"/v1/dealerships/{target}/standard-texts", headers=in_target).json()["items"]
+    copied = next(i for i in listed if i["code"] == "offer.intro.standard" and i["source"] == "dealer")
+    assert copied["seedChanged"] is True
+
+
+def test_a_copy_that_changes_no_range_writes_no_range_row(client, engine, standard_text_seeds):
+    source, target, _, in_target, _ = _pair(client, engine)
+    session = sessionmaker(bind=engine)()
+    try:
+        for row in session.scalars(select(NumberRange).where(NumberRange.tenant_id == uuid.UUID(target))).all():
+            session.delete(row)
+        session.commit()
+    finally:
+        session.close()
+    report = _copy(client, target, in_target, source, dry_run=False, subsets=("number_ranges",)).json()
+    assert {i["outcome"] for i in report["items"]} == {"unchanged"}
+    assert _rows(engine, NumberRange, tenant_id=uuid.UUID(target)) == []
