@@ -163,7 +163,8 @@
     "vin_unchanged": "C'est déjà le VIN de ce véhicule.",
     "vehicle_vin_changed": "Le VIN de la fiche véhicule a changé entre-temps. Veuillez recharger et réessayer.",
     "vehicle_merged": "Le véhicule a été fusionné avec un autre dans la fiche véhicule. Veuillez recharger.",
-    "provider_has_no_captions": "Ce fournisseur n’a pas de vocabulaire à récupérer."
+    "provider_has_no_captions": "Ce fournisseur n’a pas de vocabulaire à récupérer.",
+    "vin_change_needs_vin_correction": "Ce véhicule est en stock dans votre entreprise sous {{stockNumber}}. Son VIN se modifie là-bas avec «Corriger le VIN», pour que le véhicule en stock, la fiche véhicule et la configuration portent le même VIN."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

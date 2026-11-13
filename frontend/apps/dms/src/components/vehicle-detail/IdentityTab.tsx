@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Badge, Button, Group, Select, Stack } from '@mantine/core'
 import { CalendarX, UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Badge as KitBadge, InlineEditField, KeyValueRow, OverviewCard, Picker, purple, RowMenu, useOverlay } from '@nexotec/ui-kit'
+import { Badge as KitBadge, FieldLabel, InlineEditField, KeyValueRow, OverviewCard, Picker, purple, RowMenu, useOverlay } from '@nexotec/ui-kit'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { isStaleVersion } from '../../utils/apiRefusal'
@@ -11,6 +11,11 @@ import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
 import { isPlannedNeverStarted, isUpcoming } from '../../utils/vehicleParty'
 import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
 import type { VehicleMdmRead, VehiclePartyAllocationRead, VehiclePartyRole } from '../../api/types'
+import type { components } from '../../api/schema'
+
+// KAN-667 — derived from the generated schema like every type in api/types.ts
+// (move it there once that file is free to change).
+type VehicleStockItemLink = components['schemas']['VehicleStockItemLink']
 
 interface IdentityTabProps {
   vehicle: VehicleMdmRead
@@ -33,6 +38,13 @@ interface IdentityTabProps {
    * may write vehicle links (KAN-430). */
   canEndEntry?: boolean
   onEndEntry?: (party: VehiclePartyAllocationRead) => Promise<void>
+  /** KAN-667 (Anto, 2026-11-13, option A): the stock car of the session's own
+   * Betrieb that holds this record, or null. While there is one, the VIN is
+   * read-only here: it is corrected on that car with «VIN korrigieren». */
+  stockItem?: VehicleStockItemLink | null
+  /** Opens that stock car at its «VIN korrigieren»; absent without the Stock
+   * module (the VIN is then read-only with its hint, and no link). */
+  onCorrectVinInStock?: () => void
 }
 
 const ROLES: VehiclePartyRole[] = ['owner', 'keeper', 'driver']
@@ -62,6 +74,8 @@ export function IdentityTab({
   onCustomerOverlayClose,
   canEndEntry = false,
   onEndEntry,
+  stockItem = null,
+  onCorrectVinInStock,
 }: IdentityTabProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
@@ -157,15 +171,35 @@ export function IdentityTab({
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
       <OverviewCard title={t('vehicleDetail.identity.title')}>
         <KeyValueRow label={t('vehicleDetail.identity.vin')}>
-          <InlineEditField
-            value={vehicle.vin}
-            emptyLabel={t('common.notSet')}
-            onSave={(v) => onSaveField({ vin: v.toUpperCase() })}
-            describeError={describeError}
-            isConflict={isStaleVersion}
-            onReload={onReload}
-            reloadLabel={reloadLabel}
-          />
+          {stockItem ? (
+            // KAN-667: a car the Betrieb holds in stock keeps its VIN here — a
+            // change here alone would leave the stock item on the old one.
+            // The server refuses it too (409 vin_change_needs_vin_correction).
+            <Stack gap={4} align="flex-start">
+              <FieldLabel
+                label={<span data-testid="vin-read-only" style={{ fontFamily: 'monospace' }}>{vehicle.vin}</span>}
+                hint={t('vehicleDetail.identity.vinHeldInStock')}
+                labels={{ icon: t('common.fieldHintIcon') }}
+              />
+              {onCorrectVinInStock && (
+                <button type="button" style={PARTY_LINK_STYLE} onClick={onCorrectVinInStock}>
+                  {stockItem.stockNumber
+                    ? t('vehicleDetail.identity.correctVinInStock', { stockNumber: stockItem.stockNumber })
+                    : t('vehicleDetail.identity.correctVinInStockUnnumbered')}
+                </button>
+              )}
+            </Stack>
+          ) : (
+            <InlineEditField
+              value={vehicle.vin}
+              emptyLabel={t('common.notSet')}
+              onSave={(v) => onSaveField({ vin: v.toUpperCase() })}
+              describeError={describeError}
+              isConflict={isStaleVersion}
+              onReload={onReload}
+              reloadLabel={reloadLabel}
+            />
+          )}
         </KeyValueRow>
         <KeyValueRow label={t('vehicleDetail.identity.vehicleNumber')}>
           <span style={{ fontFamily: 'monospace' }}>{vehicle.vehicleNumber}</span>

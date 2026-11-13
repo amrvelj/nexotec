@@ -30,7 +30,10 @@
     "stammnummer": "Numero base",
     "typeApprovalNumber": "N. omologazione",
     "firstRegistrationDate": "Prima immatricolazione",
-    "matchStatus": "Corrispondenza catalogo"
+    "matchStatus": "Corrispondenza catalogo",
+    "vinHeldInStock": "Questo veicolo è in stock nella sua azienda. Il suo VIN si modifica sul veicolo in stock con «Correggere il VIN», affinché veicolo in stock, anagrafica veicolo e configurazione portino lo stesso VIN.",
+    "correctVinInStock": "Correggere il VIN sul veicolo in stock {{stockNumber}}",
+    "correctVinInStockUnnumbered": "Correggere il VIN sul veicolo in stock"
   },
   "parties": {
     "title": "Parti coinvolte",

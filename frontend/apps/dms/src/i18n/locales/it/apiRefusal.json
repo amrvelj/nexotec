@@ -163,7 +163,8 @@
     "vin_unchanged": "È già il VIN di questo veicolo.",
     "vehicle_vin_changed": "Il VIN nell'anagrafica veicolo è stato modificato nel frattempo. Ricaricate e riprovate.",
     "vehicle_merged": "Il veicolo è stato unito a un altro nell'anagrafica veicolo. Ricaricate.",
-    "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare."
+    "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare.",
+    "vin_change_needs_vin_correction": "Questo veicolo è in stock nella sua azienda come {{stockNumber}}. Il suo VIN si modifica lì con «Correggere il VIN», affinché veicolo in stock, anagrafica veicolo e configurazione portino lo stesso VIN."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

@@ -30,7 +30,10 @@
     "stammnummer": "Stammnummer",
     "typeApprovalNumber": "Typengenehmigungsnr.",
     "firstRegistrationDate": "Erstzulassung",
-    "matchStatus": "Katalogabgleich"
+    "matchStatus": "Katalogabgleich",
+    "vinHeldInStock": "Dieses Fahrzeug steht im Lager Ihres Betriebs. Seine VIN wird am Lagerfahrzeug mit «VIN korrigieren» geändert, damit Lagerfahrzeug, Fahrzeugstamm und Konfiguration dieselbe VIN tragen.",
+    "correctVinInStock": "VIN am Lagerfahrzeug {{stockNumber}} korrigieren",
+    "correctVinInStockUnnumbered": "VIN am Lagerfahrzeug korrigieren"
   },
   "parties": {
     "title": "Beteiligte",
