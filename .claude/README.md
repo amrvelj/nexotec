@@ -46,10 +46,11 @@ tickets load, before and after a change.
 | `scripts/dev/check` | before every push | CI-equivalent lanes (pytest on one Postgres database per worker, KAN-627); records a pass for the exact tree, with the lanes left out and the test counts |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 | `scripts/dev/api-type` | any time | One schema or API path from the generated `schema.d.ts`, which is never read whole (KAN-618) |
+| `scripts/dev/overlap` | `/ticket` step 3 (the plan's paths or globs) and step 6 (the branch's changes) | Which open PRs change the same files, with their ticket and head, and which add a revision to the same Alembic chain; REST only, file names only (never another PR's diff), never blocks, exit 0; `--json` for callers, `--selftest` in the `config` lane (KAN-684) |
 | `scripts/dev/usage-report` | on a Mac with the sessions' transcripts (not in a cloud session) | Claude usage per session from the local transcripts: tokens per agent, where the input went, the largest tool results; counts and file names only, no network (KAN-613) |
 
 There is no `AGENTS.md` (only Claude Code works in this repository) and no `.mcp.json` (Notion
-comes from the claude.ai connector, GitHub goes through `gh api` (REST only — KAN-155), screenshots through the desktop
+and Render come from claude.ai connectors, GitHub goes through `gh api` (REST only — KAN-155), screenshots through the desktop
 preview). Add either only when a concrete need appears.
 
 ## The gates
@@ -59,8 +60,9 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 
 | Gate | Hook | Blocks when |
 |---|---|---|
-| Push | PreToolUse `Bash` | the working copy differs from HEAD, `scripts/dev/check` has not passed for HEAD's tree, the target is `main` (also `HEAD` while on `main`, `--all`, `--mirror`), or the push is forced |
-| Hand-over | Stop | after a push in this session: no open PR for HEAD, a CI check that has already **failed** (a pending one does not hold it — KAN-619), no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push. `gate close` then refuses while the merged PR's checks or the latest nightly run on `main` are red |
+| Push | PreToolUse `Bash` | the working copy differs from HEAD, `scripts/dev/check` has not passed for HEAD's tree, the target is `main` (also `HEAD` while on `main`, `--all`, `--mirror`), the push is forced, or — after `git fetch origin main` — the pushed commit does not contain `origin/main` (KAN-683: landing is one at a time; the refusal names `git merge --no-edit origin/main` and `scripts/dev/check`). A failed fetch never blocks: the gate says so and judges by the last known `origin/main` |
+| Evidence across a merge of main (KAN-683) | PostToolUse `Bash` (`git merge`/`pull`/`commit`), Stop | never blocks. On a merge commit at HEAD (or under the hook's evidence commit): when git reproduces it without conflict (`git merge-tree --write-tree`), its tree is git's own result, and `git diff origin/main...HEAD` is byte-identical to the first parent's, the reviewer's PASS and the screenshot of the first parent's tree are recorded again for the merge's tree (`evidence-carried`, both shas). Otherwise nothing carries (`evidence-not-carried`, the reason) and the resolution is reviewed: for a merge of main (second parent on `origin/main`) whose first parent is the reviewed commit, `review-scope` and the re-review rule measure the **resolution** — git's own merge result, conflict markers included, against the merge commit — not every line main gained, and `review-scope` prints the `git diff` to brief. The check never carries: the tree is new. `/ticket KAN-n land` is the step that uses it. `gate status` stays read-only: no fetch, no carry |
+| Hand-over | Stop | after a push in this session: no open PR for HEAD, a CI check that has already **failed** (a pending one does not hold it — KAN-619), no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push. `gate close` then refuses while the merged PR's checks or the latest nightly run on `main` are red, and prints «merged by admin override, <check> was <state>» for a check `main`'s protection requires that was not green on the merged head — `/ticket … close` puts it on the ticket (KAN-626) |
 | Check status on the PR (KAN-625) | PostToolUse `Bash` (the push), Stop (again, while GitHub was not reached) | never blocks. After a push lands, the hook posts the commit status `nexotec/check` = `success` on each pushed commit whose tree equals the recorded pass, saying which lanes ran («frontend only» / «all lanes»), the tree and the test counts; no pass for that tree, no status. |
 | | | Only the hook writes it: a typed `gh`/`curl` call to a commit-status or check-run write path is refused, whatever its context (a rail against the plain mistake, not a boundary: a path hidden in a variable or script is not seen). A refusal by GitHub is recorded (`gate status`: `PR status`) and reported, never worked around. |
 | Check evidence commit (KAN-647) | PreToolUse `Bash` (a push the gates let through) | where the status write is refused (a cloud session, or a checkout whose last write GitHub refused with 403), the hook first adds one empty commit on HEAD's tree whose message carries the recorded pass (tree, lanes, lanes not run, counts) under the `Nexotec-Check-Evidence:` trailer; only for a tree with a recorded pass and a push of the current branch the gates let through, never two in a row. The tree does not change, so the review, the screenshot and the push gate still hold. A push that does not land has the commit dropped again; a push whose permission prompt is declined leaves it, unpushed, for the next push. `.github/workflows/check-evidence.yml` (`statuses: write`; not for forks) posts `nexotec/check` = `success` on a head that has one parent, is empty against it and names its own tree, saying it came from an evidence commit; `error` with the reason for a marked head that fails that; nothing otherwise. A typed `git commit`/`commit-tree` carrying the trailer is refused: inline, in a file, a template, a `<` redirect, piped in with the marker written in the command, or reused (`--amend`, `-C`/`-c`). The squash merge folds the evidence commit's message into the squash commit's (the repository's setting), trailer included. Not signed, and judged by the PR's own copy of the rules (ADR-129). |
@@ -70,7 +72,8 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 | Preserved files and the setup | PreToolUse `Edit|Write`, `Bash` | a write to a CLAUDE.md preserve-verbatim file, `.claude/hooks/`, `.claude/agents/`, `.claude/settings.json` or `scripts/dev/`: asks Anto in an attended permission mode (`default`, `acceptEdits`, `plan`); **denied** in every other mode (`auto`, `bypassPermissions`, `dontAsk`, an unknown or missing mode), with a message to ask Anto in chat and stop — an unattended session never changes these files (KAN-255) |
 | Commit | PreToolUse `Bash` | committing on `main`, or `--no-verify` |
 | Wrong environment | PreToolUse `Bash` | executing another checkout's `.venv` |
-| Notion writes | PreToolUse `mcp__…Notion…` | allows every Notion write without a prompt (Anto, 2026-10-11), except from the read-only `reviewer`, which is denied; a write to the active ticket is recorded as hand-over evidence. Claude says in one plain sentence which page changed and how (CLAUDE.md). Reads need no prompt either: `settings.json` allows the whole Notion server under both names it appears as (`mcp__claude_ai_Notion` on the Mac, `mcp__Notion` in a cloud session) |
+| Notion writes | PreToolUse `mcp__…Notion…` | allows every Notion write without a prompt (Anto, 2026-10-11), except from the read-only `reviewer`, which is denied, and except `notion-update-page` with `replace_content` on a page that is neither the active ticket nor one this session created (the post-tool hook records what `notion-create-pages` returns): it rewrites the whole page from what the session fetched, so a parallel session's edit would silently disappear — the refusal names `update_content` and `insert_content` (KAN-685); a write to the active ticket is recorded as hand-over evidence. Claude says in one plain sentence which page changed and how (CLAUDE.md). Reads need no prompt either: `settings.json` allows the whole Notion server under both names it appears as (`mcp__claude_ai_Notion` on the Mac, `mcp__Notion` in a cloud session) |
+| Render (KAN-686) | `settings.json` permissions, PreToolUse `mcp__…Render…` | the twelve read tools (`list_workspaces`, `list_services`, `get_service`, `list_deploys`, `get_deploy`, `list_events`, `list_logs`, `list_log_label_values`, `get_metrics`, `list_postgres_instances`, `get_postgres`, `query_render_postgres`) are allowed and every other tool of the connector is denied by name, under `mcp__Render` (cloud) and `mcp__claude_ai_Render` (the Mac — by the Notion connector's pattern, not yet read off a Mac session); the hook denies every non-read under any server name. The recorded tool list is `RENDER_TOOLS` in the hook; the selftest fails when one is in neither list. Rules: «Staging» below |
 | Gate state | PreToolUse `Edit|Write`, `Bash` | writing `nexotec-gates/state.json`, recording a check result other than through `scripts/dev/check`, or waiving other than through `scripts/dev/gate waive` |
 | Protected files via the shell | PreToolUse `Bash` | `sed -i`, `cp`, `mv`, `rm`, `tee`, `git mv`/`rm`/`restore`, redirects onto an applied migration or a generated file (denied), or onto a preserved file or the setup itself (asks Anto in an attended mode, denied otherwise — the row above) |
 | Read-only reviewer | PreToolUse `Bash`, `Edit|Write`, `mcp__…Notion…` | the `reviewer` agent writing inside the checkout or to Notion, committing, fixing, updating snapshots or running `scripts/dev/check` |
@@ -163,6 +166,41 @@ session. Several can run at once, each on its own machine, with the Mac closed.
   through the cloud's GitHub proxy, which refuses GraphQL (`gh pr view`, `gh pr checks`,
   `gh pr create`): the gates and `/ticket` use `gh api` REST calls, which work here and on the
   Mac. The weekly `/drift-audit` routine is a cloud session too.
+- Staging is read through Render's connector (`mcp__Render` here), under the rules in «Staging»
+  below: the reads are allowed without a prompt, every tool that changes Render is denied.
+
+## Staging (KAN-686; Anto, 2026-11-13; ADR-155)
+
+Sessions may read staging — the service `dms-staging`, its deploys, events, logs and metrics, and
+the staging database through `query_render_postgres` (Render runs every query in a read-only
+transaction) — and never change it.
+
+- **What SQL is for:** a check a ticket's exit criterion names, or diagnosing a failure. Nothing else.
+- **A query result never enters the repository, a commit message, a PR, an issue or a rule file**
+  (the repository and its PRs are public for now). Counts and yes/no go to the Notion ticket; rows
+  only when the ticket asks for them and they hold no provider data.
+- **Provider-derived tables are counted, never listed:** the seen-variant store, a cache of what
+  lookups returned (`store_seen_variants`, ADR-112: `vehicle_brand`, `vehicle_model_group`,
+  `vehicle_model_variant`, `vehicle_variant_provider_code`, `vehicle_provider_entity_ref`) and what is
+  stored with a variant (`vehicle_variant_price`, `vehicle_type_approval`,
+  `vehicle_model_variant_type_approval`, `vehicle_model_variant_energy_rating`,
+  `vehicle_model_variant_energy_label`); the per-tenant catalogue mirror (`vehicle_colour_cache`,
+  `vehicle_tyre_spec_cache`, `vehicle_image_ref`, `vehicle_variant_option`,
+  `vehicle_variant_option_equipment_feature`, `vehicle_variant_option_relation`,
+  `vehicle_variant_option_provider_code`); the detail and lookup caches (`vehicle_variant_detail_state`,
+  `vehicle_plate_lookup_cache`); the call log (`integration_call_log`, `integration_call_payload`); the
+  provider captions (`integration_provider_caption`, `integration_provider_caption_fetch`); and the
+  valuation's provider quotes (`valuation_provider_quote`). A table not named here that holds what a
+  provider delivered is counted too: when in doubt, count.
+- **A session never changes staging:** a deploy is triggered by a merge; a data correction goes
+  through the API as a platform_admin. No agent login on staging (§3, §8: personal logins).
+- **Resolve by name, at run time:** `list_workspaces` (one workspace → pass its id as `workspaceId`;
+  `select_workspace` is denied), the service named `dms-staging`, the Postgres instance from
+  `list_postgres_instances`. No id goes into the repository.
+- **Cost:** `list_deploys` returns each commit's whole message (a squash merge runs to thousands of
+  words): ask for `limit: 1`; `list_events` with `deploy_ended` when the status alone is enough.
+- The application's rule is unchanged: provider data is never exposed through an MCP server
+  (`.claude/rules/vehicle-gateway.md`, `test_no_mcp_server.py`). This ruling is about the tooling.
 
 ## Changing the setup
 

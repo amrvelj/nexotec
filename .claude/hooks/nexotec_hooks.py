@@ -31,6 +31,7 @@ pre-bash       (PreToolUse)    | waive <gate> "<reason>"       (asks Anto)
 pre-edit       (PreToolUse)    | no-visual "<why>"             no screen exists
 pre-read       (PreToolUse)    |
 pre-notion     (PreToolUse)    | evidence screenshot <file>    register a file
+pre-render     (PreToolUse)    | review-scope <sha>            re-review allowed?
 post-tool      (PostToolUse)   | close [--abandon]             after the merge
 subagent-stop  (SubagentStop)  | fingerprint / stamp-checks    used by check
 stop           (Stop)          | selftest                      used by check
@@ -111,6 +112,27 @@ NOTION_READ_PREFIXES = (
     "notion-ai-search", "notion-read", "notion-download", "notion-check",
     "notion-show", "notion-wait",
 )
+# Render's connector (KAN-686; Anto, 2026-11-13: sessions may read staging, read-only SQL included).
+# Every tool the connector offers, recorded from a cloud session on 2026-11-13. settings.json allows
+# the reads and denies every other tool by name under each server name; the selftest fails when a
+# recorded tool is in neither list, and the pre-render hook denies any Render tool not a read, under
+# whatever name the server appears (a third name would otherwise reach the default permission flow).
+RENDER_READ_TOOLS = (
+    "list_workspaces", "list_services", "get_service", "list_deploys", "get_deploy", "list_events", "list_logs",
+    "list_log_label_values", "get_metrics", "list_postgres_instances", "get_postgres", "query_render_postgres",
+)
+RENDER_TOOLS = RENDER_READ_TOOLS + (
+    "approve_blueprint", "cancel_flow_run", "create_blueprint", "create_cron_job", "create_key_value",
+    "create_postgres", "create_static_site", "create_web_service", "create_workflow", "create_workflow_version",
+    "get_blueprint", "get_flow", "get_flow_run", "get_flow_run_results", "get_flow_run_step", "get_key_value",
+    "get_selected_workspace", "get_workflow", "get_workflow_run", "get_workflow_run_results", "get_workflow_task",
+    "get_workflow_version", "list_flow_run_steps", "list_flow_runs", "list_flows", "list_key_value",
+    "list_workflow_runs", "list_workflow_tasks", "list_workflow_versions", "list_workflows", "plan_blueprint",
+    "select_workspace", "start_flow_run", "trigger_deploy", "update_blueprint", "update_environment_variables",
+)
+# `mcp__Render` in a cloud session (seen 2026-11-13); `mcp__claude_ai_Render` on the Mac by the Notion
+# connector's pattern - not yet read off a Mac session (KAN-686).
+RENDER_SERVERS = ("mcp__Render", "mcp__claude_ai_Render")
 # Screenshots count as evidence only from the desktop preview / built-in browser.
 PREVIEW_TOOLS = ("claude_preview", "claude_browser")
 COMPLETION_CLAIM = re.compile(
@@ -798,7 +820,42 @@ def push_mode(args):
     return "push"
 
 
-def push_problems(root, args):
+def fetch_main(root):
+    """`git fetch origin main` for the push gate (KAN-683). (fetched, note): fetched is None when the
+    checkout has no `origin` remote (nothing to judge by, nothing to say); a failed fetch is a note,
+    never a refusal - the gate then judges by the last known origin/main."""
+    if git(root, "remote", "get-url", "origin")[0] != 0:
+        return None, None
+    if git(root, "fetch", "--quiet", "origin", "main", timeout=30)[0] == 0:
+        return True, None
+    return False, ("The push gate could not fetch origin/main, so it judged by the last known origin/main "
+                   "(KAN-683). If main has moved since, the merge gate will say so: run `git fetch origin main` "
+                   "once the network is back.")
+
+
+def behind_main_problem(root, src):
+    """KAN-683: why the commit `src` would be pushed without current main in it, or None. Landing is one
+    at a time: a head that does not contain origin/main was never checked together with it."""
+    rc, main = git(root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main^{commit}")
+    if rc != 0:
+        return None
+    rc, commit = git(root, "rev-parse", "--verify", "--quiet", src + "^{commit}")
+    if rc != 0 or git(root, "merge-base", "--is-ancestor", main, commit)[0] == 0:
+        return None
+    rc, count = git(root, "rev-list", "--count", "{}..{}".format(commit, main))
+    return ("`{}` does not contain origin/main ({}): {} commit(s) of main are not in it, so no check ever ran on "
+            "this change together with them (KAN-683: landing is one at a time). Merge main in - never a rebase, "
+            "the gate refuses a force-push - and check the result:\n"
+            "    git merge --no-edit origin/main\n"
+            "    scripts/dev/check\n"
+            "then push again. Conflicts in generated files are regenerated, not merged "
+            "(`make generate-frontend-types`).".format(src, main[:10], count if rc == 0 else "some"))
+
+
+def push_problems(root, args, notes=None, fetch=True):
+    """Why a `git push` with `args` is refused: [text]. `notes` (a list) collects what the gate says
+    without refusing - a failed fetch of origin/main (KAN-683). `fetch=False` (`gate status`, which
+    stays read-only) judges by the last fetched origin/main."""
     problems = []
     branch = current_branch(root)
     force = [a for a in args if a.startswith("--force") or (a.startswith("+") and len(a) > 1)]
@@ -818,7 +875,13 @@ def push_problems(root, args):
     checks = load_state(root).get("checks") or {}
     last = ("{} for tree {}".format(checks.get("result"), (checks.get("tree") or "?")[:12])
             if checks.get("at") else "none")
+    _fetched, note = fetch_main(root) if fetch else (None, None)
+    if note and notes is not None:
+        notes.append(note)
     for src, _dst in push_pairs(args, branch):
+        behind = behind_main_problem(root, src)
+        if behind:
+            problems.append(behind)
         if src == "HEAD":
             tree = head_tree(root)
             fp = fingerprint(root)
@@ -1307,7 +1370,7 @@ def cmd_pre_bash(data):
         return
     command = (data.get("tool_input") or {}).get("command", "")
     reviewer = data.get("agent_type") == "reviewer"
-    denies, asks = [], []
+    denies, asks, notes = [], [], []
     moved = None  # the tree-changing git command seen earlier in this command line
     evidence_roots = []  # checkouts whose push may need an evidence commit first (KAN-647)
     for words, redirects, where in located_commands(command, start):
@@ -1346,7 +1409,7 @@ def cmd_pre_bash(data):
                 denies.append("`git push` follows `git {}` in the same command, so it would push a tree the "
                               "gate never saw. Run `git push` as its own command once `scripts/dev/check` has "
                               "passed for what you are pushing.".format(moved))
-            denies.extend(push_problems(root, args))
+            denies.extend(push_problems(root, args, notes))
             if push_mode(args) == "push" and "--tags" not in args and \
                     all(src == "HEAD" for src, _dst in push_pairs(args, current_branch(root))):
                 evidence_roots.append(root)
@@ -1393,6 +1456,9 @@ def cmd_pre_bash(data):
         # runs no PostToolUse, and the commit then waits, unpushed, for the next push (never two).
         for root in dict.fromkeys(evidence_roots):
             add_evidence_commit(root)
+        if notes:
+            # Said, not decided: no permissionDecision, so the push's own permission prompt still asks.
+            emit({"systemMessage": "\n".join(dict.fromkeys(notes))})
 
 
 # --------------------------------------------------------------------------
@@ -1427,25 +1493,112 @@ def notion_tool(tool_name):
     return tool_name.split("__")[-1].lower()
 
 
-def notion_decision(data):
+NOTION_CREATED_MAX = 200  # pages a session created, kept for the replace_content rule (KAN-685)
+
+
+def notion_decision(data, state=None):
     """(decision, reason) for a Notion tool call, or None for a read.
 
     Every Notion write is allowed without Anto's click (Anto, 2026-10-11:
     "you are free to update Notion, I don't need to allow it every time").
     The reviewer stays read-only. What a write to a page other than the
-    active ticket changed is said in the reply and the PR, not in a prompt."""
+    active ticket changed is said in the reply and the PR, not in a prompt.
+
+    One write shape is refused (KAN-685): `notion-update-page` with `replace_content` writes the
+    whole page from what this session fetched, so on a page parallel sessions edit (the Gap
+    Analysis, a PRD, the Target Architecture) it silently removes an edit made since. It stays
+    allowed on the session's active ticket and on pages this session created."""
     tool = notion_tool(data.get("tool_name"))
     if not tool or tool.startswith(NOTION_READ_PREFIXES):
         return None
     if data.get("agent_type") == "reviewer":
         return "deny", "The reviewer is read-only - report the Notion change as a finding instead."
+    ti = data.get("tool_input") or {}
+    if tool == "notion-update-page" and str(ti.get("command", "")).lower() == "replace_content":
+        state = state or {}
+        page = notion_id(ti.get("page_id"))
+        own = {c.get("page") for c in state.get("notion_created") or [] if c.get("session") == data.get("session_id")}
+        if not page or (page != (state.get("ticket") or {}).get("page_id") and page not in own):
+            return "deny", (
+                "`replace_content` rewrites the whole page from what this session fetched, so an edit another "
+                "session made since would silently disappear (KAN-685). Edit the page in place instead: "
+                "`update_content` (search and replace) or `insert_content`. When an `old_str` no longer matches, "
+                "fetch the page again and apply the edit to what is there - never replace the page. "
+                "`replace_content` is allowed only on the active ticket (`scripts/dev/gate start`) and on pages "
+                "this session created.")
     return "allow", "Notion write ({}) - Anto allows every Notion write (2026-10-11)".format(tool)
 
 
 def cmd_pre_notion(data):
-    decision = notion_decision(data)
+    root = root_from(data)
+    decision = notion_decision(data, load_state(root) if root else {})
     if decision:
         pre_decision(*decision)
+
+
+# --------------------------------------------------------------------------
+# PreToolUse: Render's connector (KAN-686)
+# --------------------------------------------------------------------------
+
+
+def render_decision(tool_name):
+    """(decision, reason) for a Render connector tool, or None. Sessions read staging; nothing a session
+    does changes Render - a deploy is triggered by a merge (Anto, 2026-11-13). Reads are left to
+    settings.json's allow list; every other tool is denied, whatever the server is called."""
+    server, _, tool = (tool_name or "").rpartition("__")
+    if "render" not in server.lower() or tool in RENDER_READ_TOOLS:
+        return None
+    return "deny", ("`{}` is not one of Render's read tools. Sessions read staging through the connector - "
+                    "services, deploys, events, logs, metrics, Postgres and read-only SQL - and never change it: "
+                    "a deploy is triggered by a merge, a data correction goes through the API as a platform_admin "
+                    "(KAN-686, Anto 2026-11-13; `.claude/README.md`, «Staging»).".format(tool or tool_name))
+
+
+def cmd_pre_render(data):
+    decision = render_decision(data.get("tool_name"))
+    if decision:
+        pre_decision(*decision)
+
+
+def created_page_ids(response):
+    """The ids of the pages a `notion-create-pages` answer reports - `pages[].id` and `pages[].url` only,
+    read from its JSON (the answer is a JSON object, or text blocks holding one). Anything else in the
+    answer (a parent, an ancestor, a relation target) is not taken: an id taken wrongly would open a
+    shared page to `replace_content`, so an answer that cannot be read records nothing (KAN-685)."""
+    def objects(value):
+        if isinstance(value, dict):
+            if value.get("type") == "text" and isinstance(value.get("text"), str):
+                yield from objects(value["text"])
+            else:
+                yield value
+        elif isinstance(value, list):
+            for item in value:
+                yield from objects(item)
+        elif isinstance(value, str):
+            try:
+                yield from objects(json.loads(value))
+            except ValueError:
+                return
+    found = set()
+    for obj in objects(response):
+        pages = obj.get("pages")
+        for page in pages if isinstance(pages, list) else []:
+            if isinstance(page, dict):
+                found.update(filter(None, (notion_id(page.get("id")), notion_id(page.get("url")))))
+    return found
+
+
+def record_created_pages(root, data):
+    """After `notion-create-pages`: remember the pages it made, for this session (KAN-685)."""
+    made = created_page_ids(data.get("tool_response")) - KANBAN_IDS
+    if not made:
+        return
+
+    def remember(st):
+        created = st.setdefault("notion_created", [])
+        created.extend({"page": page, "session": data.get("session_id"), "at": now()} for page in sorted(made))
+        del created[:-NOTION_CREATED_MAX]
+    update_state(root, remember)
 
 
 # --------------------------------------------------------------------------
@@ -1487,13 +1640,23 @@ def cmd_post_tool(data):
         append_event(root, "screenshot", tool=name, tree=fingerprint(root))
         return
     tool = notion_tool(name)
+    if tool == "notion-create-pages":
+        record_created_pages(root, data)
+        return
     if tool in NOTION_TICKET_WRITES:
         ticket = load_state(root).get("ticket") or {}
         if ticket.get("page_id") and notion_id(ti.get("page_id")) == ticket.get("page_id"):
             append_event(root, "notion", tool=tool, ticket=ticket.get("id"))
         return
     if name == "Bash":
-        for words, _redirects, where in located_commands(ti.get("command", ""), data.get("cwd") or root):
+        located = list(located_commands(ti.get("command", ""), data.get("cwd") or root))
+        merged = [toplevel(where) or root for words, _r, where in located
+                  if git_verb(words)[0] in ("merge", "pull", "commit")]
+        # KAN-683: a merge of main (or the commit that concludes a conflicted one) - carry the evidence
+        # when the ticket's change is unchanged, or say that the resolution needs review. Said together
+        # with the push's notes below: a hook emits one answer.
+        context = [carry_note(carry_merge_evidence(merged[-1]))] if merged else []
+        for words, _redirects, where in located:
             verb, args = git_verb(words)
             if verb == "push" and push_mode(args) == "push":
                 pushed = toplevel(where) or root
@@ -1501,18 +1664,18 @@ def cmd_post_tool(data):
                     append_event(pushed, "push", session=data.get("session_id"), head=head_commit(pushed),
                                  tree=head_tree(pushed), branch=current_branch(pushed))
                     # KAN-625: the check result goes onto each pushed commit, from the recorded evidence.
-                    notes = [check_status_note(post_check_status(pushed, src), pushed)
-                             for src, _dst in push_pairs(args, current_branch(pushed)) if src]
-                    if any(notes):
-                        emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
-                                                     "additionalContext": "\n".join(n for n in notes if n)}})
+                    context += [check_status_note(post_check_status(pushed, src), pushed)
+                                for src, _dst in push_pairs(args, current_branch(pushed)) if src]
                 else:
                     # KAN-647: no stray empty commit after a failed push - only for a push to a named remote,
                     # whose tracking ref says whether it landed (a push to a URL updates none).
                     remote = (push_positionals(args) or ["origin"])[0]
                     if git(pushed, "remote", "get-url", remote)[0] == 0 and "://" not in remote and ":" not in remote:
                         drop_unpushed_evidence_commit(pushed)
-                return
+                break
+        if any(context):
+            emit({"hookSpecificOutput": {"hookEventName": "PostToolUse",
+                                         "additionalContext": "\n".join(n for n in context if n)}})
 
 
 # --------------------------------------------------------------------------
@@ -1864,11 +2027,144 @@ def rereview_refusal(root, state, previous, commit):
         return "the previous commit {} is not an ancestor of the reviewed commit {}".format(prev[:10], commit[:10])
     if not any(r.get("commit") == prev and r.get("verdict") in ("PASS", "FINDINGS") for r in events(state, "review")):
         return "no review of the previous commit {} is on record in this checkout".format(prev[:10])
-    rc, out = git(root, "diff", "--numstat", "--no-renames", prev + ".." + commit)
+    base, _merge = rereview_base(root, prev, commit)
+    rc, out = git(root, "diff", "--numstat", "--no-renames", base, commit)
     if rc != 0:
         return "the range {}..{} cannot be read".format(prev[:10], commit[:10])
     reason = rereview_full_reason(out.splitlines())
-    return "the range {}..{} needs a full review: {}".format(prev[:10], commit[:10], reason) if reason else None
+    what = "the range {}..{}".format(prev[:10], commit[:10]) if base == prev else \
+        "the resolution of the merge {}".format(commit[:10])
+    return "{} needs a full review: {}".format(what, reason) if reason else None
+
+
+def rereview_base(root, prev, commit):
+    """What a re-review of `prev`..`commit` covers (KAN-683): (base, merge facts or None). For a merge of
+    main whose first parent is the reviewed commit (or carries its tree), the base is git's own merge
+    result - conflict markers included - so the review covers the resolution, not every line main
+    gained; otherwise the base is `prev` itself."""
+    facts = merge_facts(root, commit)
+    rc, prev_tree = git(root, "rev-parse", prev + "^{tree}")
+    if not (facts and rc == 0 and facts["result_tree"] and facts["first_tree"] == prev_tree):
+        return prev, None
+    # Only a merge OF MAIN: what the second parent brings was reviewed and checked where it landed. Any
+    # other branch's lines are unreviewed, so they stay in the range (the resolution of a side merge is empty).
+    if git(root, "merge-base", "--is-ancestor", facts["second"], "refs/remotes/origin/main")[0] != 0:
+        return prev, None
+    return facts["result_tree"], facts
+
+
+# --------------------------------------------------------------------------
+# Evidence across a merge of main (KAN-683)
+# --------------------------------------------------------------------------
+
+
+def merge_facts(root, commit="HEAD"):
+    """The two-parent merge at `commit` - or, under a hook-made evidence commit, its parent - as a dict:
+    `merge`, `first`, `second` (shas), `first_tree`, `to_tree`, `result_tree` (git's own merge result,
+    conflict markers included; None when git cannot reproduce it) and `conflicted`. None for no merge."""
+    rc, line = git(root, "rev-list", "--parents", "-n", "1", commit)
+    shas = line.split() if rc == 0 else []
+    if len(shas) == 2:
+        facts = commit_facts(root, shas[0])
+        if facts and parse_evidence(facts[3]) is not None and facts[2] == [facts[1]]:
+            rc, line = git(root, "rev-list", "--parents", "-n", "1", shas[1])
+            shas = line.split() if rc == 0 else []
+    if len(shas) != 3:
+        return None
+    merge, first, second = shas
+    rc_t, to_tree = git(root, "rev-parse", merge + "^{tree}")
+    rc_f, first_tree = git(root, "rev-parse", first + "^{tree}")
+    if rc_t != 0 or rc_f != 0:
+        return None
+    rc, out = git(root, "merge-tree", "--write-tree", first, second, timeout=60)
+    result = out.splitlines()[0].strip() if rc in (0, 1) and out else None
+    return {"merge": merge, "first": first, "second": second, "first_tree": first_tree, "to_tree": to_tree,
+            "result_tree": result if result and re.match(r"^[0-9a-f]{40,64}$", result) else None,
+            "conflicted": rc == 1}
+
+
+def merge_carry_verdict(root, commit="HEAD"):
+    """Whether the review and the screenshot of a merge commit's first parent carry over to it (KAN-683).
+    Returns None when `commit` (or, under a hook-made evidence commit, its parent) is no two-parent merge,
+    else a dict: `from`/`to` shas and trees, `carry` True/False and the `reason` when False.
+
+    The ticket's own change must be unchanged: git reproduces the merge without conflict
+    (`git merge-tree --write-tree`) and its tree is the merge commit's tree (nothing edited in the merge),
+    and `git diff origin/main...<commit>` is byte-identical to `git diff origin/main...<first parent>`.
+    The check is never carried: the tree is new, so it always runs again."""
+    facts = merge_facts(root, commit)
+    if facts is None:
+        return None
+    merge, first, second, to_tree = facts["merge"], facts["first"], facts["second"], facts["to_tree"]
+    verdict = {"from": first, "to": merge, "from_tree": facts["first_tree"], "to_tree": to_tree, "carry": False}
+    if facts["conflicted"]:
+        return dict(verdict, reason="the merge had conflicts")
+    if facts["result_tree"] is None:
+        return dict(verdict, reason="git could not reproduce the merge (`git merge-tree --write-tree` needs git 2.38)")
+    if facts["result_tree"] != to_tree:
+        return dict(verdict, reason="the merge commit's tree is not git's own merge result (it was edited)")
+    rc_m, _ = git(root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main^{commit}")
+    base = "refs/remotes/origin/main" if rc_m == 0 else second
+    rc1, before = git(root, "diff", "--binary", "--no-ext-diff", "{}...{}".format(base, first), timeout=60)
+    rc2, after = git(root, "diff", "--binary", "--no-ext-diff", "{}...{}".format(base, merge), timeout=60)
+    if rc1 != 0 or rc2 != 0:
+        return dict(verdict, reason="the three-dot diffs could not be read")
+    if before != after:
+        return dict(verdict, reason="`git diff origin/main...HEAD` is not the same as before the merge")
+    return dict(verdict, carry=True)
+
+
+def carry_merge_evidence(root):
+    """Record the carry-over for HEAD's merge once (KAN-683): on a clean merge with the change unchanged,
+    the first parent's reviewer PASS and screenshot (or no-visual note) are recorded again for the merge
+    commit's tree, and an `evidence-carried` event names both shas. Otherwise an `evidence-not-carried`
+    event says why: the resolution needs a review under KAN-620's `review-scope` rules. Returns that event,
+    or None (no merge at HEAD, or already recorded)."""
+    verdict = merge_carry_verdict(root)
+    if verdict is None or not verdict.get("to_tree"):
+        return None
+    state = load_state(root)
+    if any(e.get("to") == verdict["to"] for e in state.get("events", [])
+           if e.get("kind") in ("evidence-carried", "evidence-not-carried")):
+        return None
+    if not verdict["carry"]:
+        event = {"kind": "evidence-not-carried", "at": now(), "from": verdict["from"], "to": verdict["to"],
+                 "reason": verdict["reason"]}
+        update_state(root, lambda st: st.setdefault("events", []).append(event))
+        return event
+    from_tree, to_tree = verdict["from_tree"], verdict["to_tree"]
+    review = latest([r for r in events(state, "review") if r.get("tree") == from_tree])
+    shot = latest([e for e in events(state, "screenshot") + events(state, "novisual") if e.get("tree") == from_tree])
+    event = {"kind": "evidence-carried", "at": now(), "from": verdict["from"], "to": verdict["to"],
+             "from_tree": from_tree, "to_tree": to_tree,
+             "review": bool(review and review.get("verdict") == "PASS"), "screenshot": bool(shot)}
+
+    def record(st):
+        new = st.setdefault("events", [])
+        if event["review"]:
+            new.append({"kind": "review", "at": now(), "verdict": "PASS", "tree": to_tree, "commit": verdict["to"],
+                        "mode": "carried", "carried_from": verdict["from"], "agent": review.get("agent"),
+                        "session": review.get("session")})
+        if event["screenshot"]:
+            new.append(dict(shot, at=now(), tree=to_tree, carried_from=verdict["from"]))
+        new.append(event)
+    update_state(root, record)
+    return event
+
+
+def carry_note(event):
+    """What the session is told about a carry-over (KAN-683), or ''."""
+    if not event:
+        return ""
+    if event["kind"] == "evidence-carried":
+        carried = [name for name, ok in (("the reviewer's PASS", event["review"]),
+                                         ("the screenshot", event["screenshot"])) if ok]
+        return ("Merge {} of main: the ticket's change is unchanged, so {} for {} carried over (KAN-683). "
+                "Run `scripts/dev/check` - the tree is new.".format(
+                    event["to"][:10], " and ".join(carried) or "nothing (none was recorded)", event["from"][:10]))
+    return ("Merge {} of main: {}, so no evidence carried over (KAN-683). The resolution needs a review: "
+            "`scripts/dev/gate review-scope {}` says whether a re-review may cover it; run "
+            "`scripts/dev/check` too.".format(event["to"][:10], event["reason"], event["from"][:10]))
 
 
 def handback_report(path):
@@ -2064,13 +2360,46 @@ def pr_status(root, branch):
     statuses, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/statuses".format(sha))
     if problem:
         return problem + " - so CI cannot be verified.", None
-    base = urllib.parse.quote((pull.get("base") or {}).get("ref") or "main", safe="")
-    protection, problem = gh_api(root, "repos/{{owner}}/{{repo}}/branches/{}/protection/required_status_checks".format(
-        base), missing_ok=True)
+    required, problem = required_checks(root, (pull.get("base") or {}).get("ref") or "main")
     if problem:
         return problem + " - so the required checks cannot be read.", None
-    required = (protection or {}).get("contexts") or []
     return None, pr_from_rest(pull, check_runs, latest_statuses(statuses), required)
+
+
+def required_checks(root, base):
+    """(names, problem): the status checks `base`'s branch protection requires (KAN-626). An unprotected
+    branch (404) requires none. Both of GitHub's lists are read: `contexts` and the newer `checks`."""
+    protection, problem = gh_api(root, "repos/{{owner}}/{{repo}}/branches/{}/protection/required_status_checks".format(
+        urllib.parse.quote(base, safe="")), missing_ok=True)
+    if problem:
+        return [], problem
+    names = list((protection or {}).get("contexts") or [])
+    names += [c.get("context") for c in (protection or {}).get("checks") or [] if c.get("context")]
+    return list(dict.fromkeys(names)), None
+
+
+def override_notes(check_runs, statuses, required):
+    """KAN-626: for each required check that was not green on the merged PR's head, the line `close` puts
+    on the ticket - «merged by admin override, <check> was <state>». Anto may merge on red (his ruling,
+    2026-11-10); the override is visible, never silent. `check_runs` and `statuses` are newest first."""
+    runs, latest = {}, {}
+    for c in check_runs:
+        runs.setdefault(c.get("name"), c)
+    for st in statuses:
+        latest.setdefault(st.get("context"), st)
+    notes = []
+    for name in required:
+        if name in latest:
+            state = (latest[name].get("state") or "unknown").lower()
+            green = state == "success"
+        elif name in runs:
+            state = (runs[name].get("conclusion") or runs[name].get("status") or "unknown").lower()
+            green = state in ("success", "neutral", "skipped")
+        else:
+            state, green = "not reported", False
+        if not green:
+            notes.append("merged by admin override, {} was {}".format(name, state))
+    return notes
 
 
 def latest_statuses(statuses):
@@ -2221,6 +2550,7 @@ def cmd_stop(data):
     root = root_from(data)
     if not root:
         return
+    carry_merge_evidence(root)  # KAN-683: a merge the post-tool hook did not see (made outside Bash)
     state = load_state(root)
     session = data.get("session_id")
     ensure_check_status(root, state, handover_pushes(state, session))
@@ -2281,24 +2611,36 @@ def merged_ci(root, branch):
     pull, problem = branch_pull(root, branch)
     if problem or pull is None:
         return (problem or "No pull request for `{}`.".format(branch)) + " - CI cannot be confirmed.", ""
-    runs, statuses = [], []
-    for sha in dict.fromkeys(filter(None, [(pull.get("head") or {}).get("sha"), pull.get("merge_commit_sha")])):
-        found, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/check-runs".format(sha),
-                                      key="check_runs")
+    runs, statuses, head_checks = [], [], None
+    head_sha = (pull.get("head") or {}).get("sha")
+    for sha in dict.fromkeys(filter(None, [head_sha, pull.get("merge_commit_sha")])):
+        found_runs, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/check-runs".format(sha),
+                                           key="check_runs")
         if problem:
             return problem + " - CI cannot be confirmed.", ""
-        runs += found
+        runs += found_runs
         found, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/statuses".format(sha))
         if problem:
             return problem + " - CI cannot be confirmed.", ""
         statuses += latest_statuses(found)
+        if sha == head_sha:
+            head_checks = (found_runs, found)
     nightly, problem = gh_api(root, "repos/{owner}/{repo}/actions/workflows/test.yml/runs"
                                     "?branch=main&status=completed&per_page=1")
     if problem:
         return problem + " - the nightly run cannot be read.", ""
     latest = ((nightly or {}).get("workflow_runs") or [None])[0]
     merged = pr_from_rest(pull, runs, latest_statuses(statuses))
-    return close_ci_problem(merged, latest), close_ci_note(merged, latest, pull.get("merged_at"))
+    note = close_ci_note(merged, latest, pull.get("merged_at"))
+    # KAN-626: what the required checks said on the head that merged - an admin override is put on the ticket
+    required, problem = required_checks(root, (pull.get("base") or {}).get("ref") or "main")
+    if problem:
+        note = (note + " " if note else "") + problem + " - whether the merge overrode a required check is unknown."
+    elif head_checks:
+        overrides = override_notes(head_checks[0], head_checks[1], required)
+        if overrides:
+            note = (note + " " if note else "") + "On the ticket: «{}».".format("»; «".join(overrides))
+    return close_ci_problem(merged, latest), note
 
 
 def close_ci_note(merged_pr, nightly_run, merged_at):
@@ -2429,6 +2771,15 @@ def cli(argv):
         if refusal:
             print("FULL REVIEW: {}.".format(refusal))
             return 1
+        base, merge = rereview_base(root, rest[0], head_commit(root) or "HEAD")
+        if merge:
+            # KAN-683: a merge of main - the re-review covers its resolution only
+            print("RE-REVIEW allowed for the resolution of the merge {} of main: the previous commit {} is its first "
+                  "parent and the resolution is small and touches no preserved file, migration or public.py. Brief "
+                  "the range as the resolution - `git diff {} {}` (git's own merge result, conflict markers "
+                  "included, against the merge) - not {}..HEAD, which holds every line main gained."
+                  .format(merge["merge"][:10], rest[0][:10], base, merge["merge"], rest[0][:10]))
+            return 0
         print("RE-REVIEW allowed for {}..HEAD: the previous commit is a reviewed ancestor and the range is small "
               "and touches no preserved file, migration or public.py.".format(rest[0][:10]))
         return 0
@@ -2446,7 +2797,9 @@ def cli(argv):
         review = latest([r for r in events(state, "review") if r.get("tree") == fp])
         print("Review   : {}".format(
             "{} for this code{}".format(review.get("verdict"), " ({}: {})".format(review.get("mode"), review["reason"])
-                                        if review.get("reason") else "") if review else "none for this code"))
+                                        if review.get("reason") else
+                                        " (carried over the merge from {})".format(review["carried_from"][:10])
+                                        if review.get("carried_from") else "") if review else "none for this code"))
         posted = latest(events(state, "check-status"))
         if posted:
             print("PR status: {} {} on {}: {}".format(CHECK_STATUS_CONTEXT, (posted.get("result") or "?").upper(),
@@ -2454,7 +2807,7 @@ def cli(argv):
         shots = [e for e in events(state, "screenshot") if e.get("tree") == fp]
         novisual = latest([e for e in events(state, "novisual") if e.get("tree") == fp])
         print("Screens  : {} for this code{}".format(len(shots), " (no-visual noted)" if novisual else ""))
-        push = push_problems(root, [])
+        push = push_problems(root, [], fetch=False)  # read-only: judged by the last fetched origin/main
         print("Push gate: " + ("would pass" if not push else "would BLOCK:\n  - " + "\n  - ".join(push)))
         pushes = events(state, "push")
         if pushes:
@@ -2602,6 +2955,20 @@ def selftest():
     early = dict(nightly_green, created_at="2026-10-06T02:17:00Z")
     assert "started before the merge" in close_ci_note(merged_green, early, "2026-10-06T05:51:51Z")
     assert close_ci_note(merged_green, dict(early, created_at="2026-10-07T02:17:00Z"), "2026-10-06T05:51:51Z") == ""
+    # KAN-626: a merge with a required check not green is put on the ticket as an admin override
+    required = ["nexotec/check", "pr-light"]
+    light_ok = [{"name": "pr-light", "status": "completed", "conclusion": "success"}]
+    check_ok = [{"context": "nexotec/check", "state": "success"}]
+    assert override_notes(light_ok, check_ok, required) == []
+    assert override_notes(light_ok, check_ok, []) == []  # unprotected: nothing is required
+    assert override_notes([{"name": "pr-light", "status": "completed", "conclusion": "failure"}], check_ok, required) \
+        == ["merged by admin override, pr-light was failure"]
+    assert override_notes([{"name": "pr-light", "status": "in_progress", "conclusion": None}], [], required) == \
+        ["merged by admin override, nexotec/check was not reported", "merged by admin override, pr-light was in_progress"]
+    # newest first: a later success over an earlier error is green, a later error over a success is not
+    assert override_notes(light_ok, [check_ok[0], {"context": "nexotec/check", "state": "error"}], required) == []
+    assert override_notes(light_ok, [{"context": "nexotec/check", "state": "error"}, check_ok[0]], required) == \
+        ["merged by admin override, nexotec/check was error"]
     # --- KAN-618: generated files are never printed whole; grep and a bounded range still work
     gen = "frontend/apps/dms/src/api/schema.d.ts"
 
@@ -2646,6 +3013,11 @@ def selftest():
         subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 1, "", "gh: Branch not found (HTTP 404)\n")
         assert gh_api("/", "repos/{owner}/{repo}/branches/x/protection", missing_ok=True) == (None, None)
         assert gh_api("/", "repos/{owner}/{repo}/branches/x/protection")[1].endswith("(HTTP 404)")
+        assert required_checks("/", "main") == ([], None)  # KAN-626: an unprotected branch requires nothing
+        subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 0, json.dumps(
+            {"strict": True, "contexts": ["nexotec/check", "pr-light"],
+             "checks": [{"context": "nexotec/check", "app_id": None}, {"context": "pr-light", "app_id": 15368}]}), "")
+        assert required_checks("/", "main") == (["nexotec/check", "pr-light"], None)
     finally:
         subprocess.run = real_run
     # --- KAN-625: the check result as a commit status, only ever for the tree that passed
@@ -2788,6 +3160,75 @@ def selftest():
     assert notion_decision({"tool_name": "mcp__claude_ai_Notion__notion-update-page"})[0] == "allow"
     assert notion_decision({"tool_name": "mcp__Notion__notion-move-pages"})[0] == "allow"
     assert notion_decision({"tool_name": "mcp__Notion__notion-update-page", "agent_type": "reviewer"})[0] == "deny"
+    # KAN-685: replace_content only on the active ticket and on pages this session created
+    gap, ticket_page, mine = "3b73e79334dd81cbb181f85d58471d52", "4173e79334dd818a889bf4ddf7a05669", "4" * 32
+    notion_state = {"ticket": {"id": "KAN-685", "page_id": ticket_page},
+                    "notion_created": [{"page": mine, "session": "s1"}]}
+
+    def notion_write(page, command, **extra):
+        return notion_decision(dict({"tool_name": "mcp__claude_ai_Notion__notion-update-page", "session_id": "s1",
+                                     "tool_input": {"page_id": page, "command": command}}, **extra), notion_state)
+    denied = notion_write("https://app.notion.com/p/" + gap, "replace_content")
+    assert denied[0] == "deny" and "update_content" in denied[1] and "insert_content" in denied[1], denied
+    assert notion_write(gap, "replace_content", tool_name="mcp__Notion__notion-update-page")[0] == "deny"
+    assert notion_write("4173e793-34dd-818a-889b-f4ddf7a05669", "replace_content")[0] == "allow"  # the active ticket
+    assert notion_write(mine, "replace_content")[0] == "allow"  # created in this session
+    assert notion_write(mine, "replace_content", session_id="s2")[0] == "deny"  # created in another session
+    assert notion_write(None, "replace_content")[0] == "deny"
+    for command in ("update_content", "insert_content", "update_properties"):
+        assert notion_write(gap, command)[0] == "allow", command
+    for command in ("replace_content", "update_content"):
+        assert notion_write(ticket_page, command, agent_type="reviewer")[0] == "deny", command
+    assert notion_decision({"tool_name": "mcp__Notion__notion-create-pages", "agent_type": "reviewer"})[0] == "deny"
+    # only pages[].id / url count as created; a parent, ancestor or relation in the answer never does
+    parent_echo = json.dumps({"pages": [{"id": "4173e793-34dd-81aa-bbbb-ccccdddd0002",
+                                         "properties": {"Parent": "https://app.notion.com/p/" + gap}}],
+                              "parent": {"page_id": ticket_page}})
+    assert created_page_ids([{"type": "text", "text": parent_echo}]) == {"4173e79334dd81aabbbbccccdddd0002"}
+    assert created_page_ids("not json " + gap) == set() and created_page_ids(None) == set()
+    assert created_page_ids({"pages": "x"}) == set() and created_page_ids({"pages": [{"url": "nothing"}]}) == set()
+    # the post-tool hook remembers what notion-create-pages made - the new page, not its parent
+    repo = tempfile.mkdtemp(prefix="nexotec-selftest-notion-")
+    try:
+        git(repo, "init", "-q")
+        new_page = "4173e793-34dd-81aa-bbbb-ccccdddd0001"
+        cmd_post_tool({"cwd": repo, "session_id": "s1", "tool_name": "mcp__Notion__notion-create-pages",
+                       "tool_input": {"parent": {"data_source_id": "3cf3e793-34dd-805c-9017-000b5a24915f"},
+                                      "pages": [{"content": "see https://app.notion.com/p/" + gap}]},
+                       "tool_response": [{"type": "text", "text": json.dumps({"pages": [
+                           {"id": new_page, "url": "https://app.notion.com/p/" + new_page.replace("-", "")}]})}]})
+        created = load_state(repo).get("notion_created")
+        assert [c["page"] for c in created] == [new_page.replace("-", "")] and created[0]["session"] == "s1", created
+        assert notion_decision({"tool_name": "mcp__Notion__notion-update-page", "session_id": "s1",
+                                "tool_input": {"page_id": new_page, "command": "replace_content"}},
+                               load_state(repo))[0] == "allow"
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+    # --- KAN-686: Render's connector - every recorded tool is allowed (a read) or denied by name, under
+    # each server name; nothing in settings.json names a Render tool the record does not; the hook denies
+    # a non-read under any name
+    assert len(set(RENDER_TOOLS)) == len(RENDER_TOOLS) and set(RENDER_READ_TOOLS) <= set(RENDER_TOOLS)
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "settings.json")) as fh:
+        settings = json.load(fh)
+    permissions = settings.get("permissions") or {}
+    allow, deny = set(permissions.get("allow") or []), set(permissions.get("deny") or [])
+    for server in RENDER_SERVERS:
+        for tool in RENDER_TOOLS:
+            name = "{}__{}".format(server, tool)
+            listed = (name in allow, name in deny)
+            assert listed == ((True, False) if tool in RENDER_READ_TOOLS else (False, True)), (name, listed)
+    recorded = {"{}__{}".format(s, t) for s in RENDER_SERVERS for t in RENDER_TOOLS}
+    unrecorded = [r for r in allow | deny | set(permissions.get("ask") or []) if r.startswith("mcp__")
+                  and "render" in r.split("__")[1].lower() and r not in recorded]
+    assert not unrecorded, "settings.json names Render tools the record does not: {}".format(unrecorded)
+    assert any(h.get("matcher") == "mcp__.*[Rr]ender.*" and "pre-render" in h["hooks"][0]["command"]
+               for h in settings["hooks"]["PreToolUse"]), "the pre-render hook is not registered"
+    for server in RENDER_SERVERS + ("mcp__some_future_Render",):
+        assert render_decision(server + "__query_render_postgres") is None
+        assert render_decision(server + "__list_deploys") is None
+        for tool in ("trigger_deploy", "update_environment_variables", "create_postgres", "select_workspace"):
+            assert render_decision("{}__{}".format(server, tool))[0] == "deny", (server, tool)
+    assert render_decision("mcp__Notion__notion-update-page") is None and render_decision("Bash") is None
     # --- evidence
     assert is_screenshot("mcp__Claude_Preview__preview_screenshot", {})
     assert is_screenshot("mcp__Claude_Browser__computer", {"action": "screenshot"})
@@ -2926,6 +3367,149 @@ def selftest():
         else:
             os.environ["CLAUDE_CODE_REMOTE"] = saved_remote
         shutil.rmtree(repo, ignore_errors=True)
+    # --- KAN-683: landing is one at a time - a push without current main is refused; a clean merge of
+    # main carries the review and the screenshot, a conflicted or edited one does not; no network, no block
+    repo = tempfile.mkdtemp(prefix="nexotec-selftest-land-")
+    saved_remote = os.environ.pop("CLAUDE_CODE_REMOTE", None)
+    try:
+        bare, work = os.path.join(repo, "origin.git"), os.path.join(repo, "w")
+        git(repo, "init", "-q", "--bare", bare)
+        git(repo, "init", "-q", "-b", "main", work)
+        for key, value in (("user.name", "t"), ("user.email", "t@example.invalid"), ("commit.gpgsign", "false")):
+            git(work, "config", key, value)
+        git(work, "remote", "add", "origin", bare)
+
+        def land_commit(name, text):
+            with open(os.path.join(work, name), "w") as fh:
+                fh.write(text)
+            git(work, "add", "-A")
+            git(work, "commit", "-q", "-m", name)
+            return head_commit(work)
+
+        def main_moves(name, text):
+            git(work, "switch", "-q", "main")
+            git(work, "reset", "-q", "--hard", "origin/main")
+            land_commit(name, text)
+            git(work, "push", "-q", "origin", "main")
+            git(work, "switch", "-q", "kan-1-x")
+
+        def checked():
+            update_state(work, lambda st: st.update({"checks": {"result": "pass", "tree": head_tree(work),
+                                                                "lanes": ["config"], "not_run": [], "at": "t"}}))
+
+        def pre_bash_at(command):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                cmd_pre_bash({"cwd": work, "tool_input": {"command": command}})
+            return out.getvalue()
+
+        def post_bash_at(command):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                cmd_post_tool({"cwd": work, "tool_name": "Bash", "tool_input": {"command": command}})
+            return out.getvalue()
+        land_commit("a.py", "a\n")
+        git(work, "push", "-q", "origin", "main")
+        git(work, "switch", "-q", "-c", "kan-1-x")
+        ticket = land_commit("t.py", "ticket\n")
+        checked()
+        assert pre_bash_at("git push -u origin HEAD") == "", "a branch that contains main was refused"
+        main_moves("m.py", "main moved\n")
+        refused = pre_bash_at("git push -u origin HEAD")
+        assert "deny" in refused and "does not contain origin/main" in refused, refused
+        assert "git merge --no-edit origin/main" in refused and "scripts/dev/check" in refused, refused
+        assert "does not contain origin/main" in "".join(push_problems(work, [])), "gate status does not say it"
+        # reviewed and shown before the merge; a clean merge keeps the ticket's change, so both carry over
+        update_state(work, lambda st: st.setdefault("events", []).extend([
+            {"kind": "review", "verdict": "PASS", "tree": head_tree(work), "commit": ticket, "mode": "full"},
+            {"kind": "screenshot", "tool": "file:x.png", "tree": head_tree(work)}]))
+        git(work, "merge", "-q", "--no-edit", "origin/main")
+        note = post_bash_at("git merge --no-edit origin/main")
+        assert "carried over" in note and "scripts/dev/check" in note, note
+        state = load_state(work)
+        carried = latest(events(state, "evidence-carried"))
+        assert (carried["from"], carried["to"]) == (ticket, head_commit(work)) and carried["review"] and \
+            carried["screenshot"], carried
+        review = latest([r for r in events(state, "review") if r.get("tree") == head_tree(work)])
+        assert (review["verdict"], review["mode"], review["carried_from"]) == ("PASS", "carried", ticket), review
+        assert latest([e for e in events(state, "screenshot") if e.get("tree") == head_tree(work)])
+        assert carry_merge_evidence(work) is None, "the carry-over was recorded twice"
+        assert "No passing local check" in pre_bash_at("git push -u origin HEAD"), "the check carried over the merge"
+        checked()
+        assert pre_bash_at("git push -u origin HEAD") == "", "a merged and checked branch was refused"
+        # a conflicted merge carries nothing: its resolution is reviewed - and only the resolution, not the
+        # 200 lines main gained (they would force a full review)
+        main_moves("big.py", "x\n" * 200)
+        main_moves("t.py", "main's own\n")
+        git(work, "merge", "-q", "--no-edit", "origin/main")
+        with open(os.path.join(work, "t.py"), "w") as fh:
+            fh.write("resolved\n")
+        git(work, "add", "-A")
+        git(work, "commit", "-q", "--no-edit")
+        assert "no evidence carried over" in post_bash_at("git commit --no-edit")
+        missed = latest(events(load_state(work), "evidence-not-carried"))
+        assert missed["to"] == head_commit(work) and "conflicts" in missed["reason"], missed
+        assert not [r for r in events(load_state(work), "review") if r.get("tree") == head_tree(work)]
+        first_parent = git(work, "rev-parse", "HEAD^1")[1]
+        # the plain range holds main's 200 new lines, so it alone would need a full review
+        assert "lines" in str(rereview_full_reason(git(work, "diff", "--numstat", first_parent, "HEAD")[1].splitlines()))
+        assert rereview_refusal(work, load_state(work), first_parent, head_commit(work)) is None, "resolution not scoped"
+        base, merge_info = rereview_base(work, first_parent, head_commit(work))
+        assert merge_info and base == merge_info["result_tree"] and merge_info["conflicted"]
+        assert rereview_base(work, ticket, head_commit(work))[1] is None  # not the first parent: the plain range
+        # a merge edited by hand (clean, but its tree is not git's own result) carries nothing either
+        main_moves("n.py", "n\n")
+        git(work, "merge", "-q", "--no-commit", "--no-ff", "origin/main")
+        with open(os.path.join(work, "extra.py"), "w") as fh:
+            fh.write("slipped in\n")
+        git(work, "add", "-A")
+        git(work, "commit", "-q", "--no-edit")
+        edited = carry_merge_evidence(work)
+        assert edited["kind"] == "evidence-not-carried" and "edited" in edited["reason"], edited
+        assert merge_carry_verdict(work, ticket) is None, "a plain commit read as a merge"
+
+        def reviewed_here():
+            update_state(work, lambda st: st.setdefault("events", []).extend([
+                {"kind": "review", "verdict": "PASS", "tree": head_tree(work), "commit": head_commit(work),
+                 "mode": "full"}, {"kind": "screenshot", "tool": "file:x.png", "tree": head_tree(work)}]))
+        # under the hook's evidence commit (pushed after the merge), the merge below it still carries
+        reviewed_here()
+        main_moves("p.py", "p\n")
+        git(work, "merge", "-q", "--no-edit", "origin/main")
+        clean_merge = head_commit(work)
+        checked()
+        git(work, "update-ref", "refs/heads/kan-1-x", git(work, "commit-tree", head_tree(work), "-p", clean_merge, "-m",
+                                                          evidence_message(load_state(work)["checks"], head_tree(work)))[1])
+        assert head_commit(work) != clean_merge and merge_carry_verdict(work)["to"] == clean_merge
+        on_evidence = carry_merge_evidence(work)
+        assert on_evidence["kind"] == "evidence-carried" and on_evidence["to"] == clean_merge, on_evidence
+        # a clean merge of another branch than main changes the three-dot diff: nothing carries
+        reviewed_here()
+        git(work, "switch", "-q", "-c", "side")
+        land_commit("s.py", "side\n")
+        git(work, "switch", "-q", "kan-1-x")
+        git(work, "merge", "-q", "--no-ff", "--no-edit", "side")
+        # ... and its re-review is not narrowed to an (empty) resolution: side's lines are unreviewed
+        side_first = git(work, "rev-parse", "HEAD^1")[1]
+        assert rereview_base(work, side_first, head_commit(work)) == (side_first, None), "a side merge was narrowed"
+        # a push and a commit in one command line: the push is recorded and the merge's note still said
+        pushes_before = len(events(load_state(work), "push"))
+        git(work, "push", "-q", "origin", "HEAD")
+        git(work, "fetch", "-q", "origin")
+        said = post_bash_at("git push -u origin HEAD; git commit --dry-run -m x")
+        assert len(events(load_state(work), "push")) == pushes_before + 1, "the push was not recorded"
+        assert "no evidence carried over" in said, said
+        side_merge = latest(events(load_state(work), "evidence-not-carried"))
+        assert side_merge["to"] == head_commit(work) and "is not the same" in side_merge["reason"], side_merge
+        # the network never blocks a push: a failed fetch judges by the last known origin/main and says so
+        git(work, "remote", "set-url", "origin", os.path.join(repo, "gone.git"))
+        checked()
+        said = pre_bash_at("git push -u origin HEAD")
+        assert "deny" not in said and "could not fetch origin/main" in said and "systemMessage" in said, said
+    finally:
+        if saved_remote is not None:
+            os.environ["CLAUDE_CODE_REMOTE"] = saved_remote
+        shutil.rmtree(repo, ignore_errors=True)
     print("hooks selftest: ok")
     return 0
 
@@ -2939,6 +3523,7 @@ HOOKS = {
     "pre-read": cmd_pre_read,
     "pre-edit": cmd_pre_edit,
     "pre-notion": cmd_pre_notion,
+    "pre-render": cmd_pre_render,
     "post-tool": cmd_post_tool,
     "subagent-stop": cmd_subagent_stop,
     "stop": cmd_stop,
