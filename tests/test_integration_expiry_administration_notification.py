@@ -88,7 +88,7 @@ def test_each_active_manager_gets_the_administration_notification(db_session):
         assert row.event_code == "administration.integration_expiring"
         assert row.dealership_id == dealership.id
         assert row.link == "/administration/integrations"
-        assert row.params == {"days": 14}
+        assert row.params == {"days": 14, "provider": "Demo"}  # the notice names the provider
         assert row.delivered_at is not None  # immediate by default
 
 

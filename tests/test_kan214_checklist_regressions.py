@@ -3,6 +3,7 @@ activation a broken prerequisite blocks only its own action, with the item
 named — marketplace publishing without a location's opening hours is the
 wired one — and the daily job raises one notification per regression."""
 
+import datetime as dt
 import types
 import uuid
 
@@ -13,6 +14,7 @@ from app.core.errors import ConflictError
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.services import publishing
 from app.platform.models.notification import Notification
+from app.platform.public import SetupBlockedAction, require_setup_item_for
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.location_schedule import LocationOpeningHours
@@ -25,6 +27,18 @@ def _active_and_complete(client, db_session):
     dealership_id = s.pending_dealership(client, db_session)
     boss = s.manager(client, db_session, dealership_id)
     s.complete_checklist(db_session, dealership_id, boss)
+    dealership = db_session.get(Dealership, dealership_id)
+    dealership.status = DealershipStatus.ACTIVE
+    dealership.activated_at = dt.datetime.now(dt.UTC)  # as the activation procedure leaves it
+    db_session.commit()
+    return dealership_id, boss
+
+
+def _trading_before_the_checklist(client, db_session):
+    """A Betrieb KAN-214's migration set active: trading, never activated."""
+
+    dealership_id = s.pending_dealership(client, db_session)
+    boss = s.manager(client, db_session, dealership_id)
     db_session.get(Dealership, dealership_id).status = DealershipStatus.ACTIVE
     db_session.commit()
     return dealership_id, boss
@@ -100,3 +114,17 @@ def test_the_daily_job_is_registered():
 
     register_daily_jobs()
     assert "platform.setup_checklist.regressions" in registered_job_names()
+
+
+def test_a_betrieb_trading_before_the_checklist_is_never_refused_nor_notified(client, db_session):
+    """Review finding: the migration set every onboarded Betrieb active. It
+    never went through the checklist, so nothing it does is refused and the
+    nightly job raises no «regression» for an item it never completed."""
+
+    dealership_id, _ = _trading_before_the_checklist(client, db_session)
+    _remove_opening_hours(db_session, dealership_id)  # it may never have had any
+    # Not refused by the checklist (publishing's own rules still apply).
+    require_setup_item_for(db_session, dealership_id, SetupBlockedAction.MARKETPLACE_PUBLISHING)
+    run = setup_checklist_regressions.run(db_session)
+    assert (run.opened, run.notified) == (0, 0)
+    assert _regression_notifications(db_session) == []

@@ -109,11 +109,11 @@
     },
     "integrationExpiring": {
       "title": "Un'integrazione scade a breve",
-      "body": "L'accesso di un'integrazione scade tra {{days, number}} giorni. Lo rinnovi in Amministrazione › Integrazioni, così che il collegamento non si interrompa."
+      "body": "L'accesso per {{provider}} scade tra {{days, number}} giorni. Lo rinnovi in Amministrazione › Integrazioni, così che il collegamento non si interrompa."
     },
     "checklistItemRegressed": {
       "title": "Un punto della configurazione manca di nuovo",
-      "body": "Un punto della lista di configurazione non è più soddisfatto. Finché non è completato, l'azione che ne ha bisogno è bloccata."
+      "body": "Il punto «{{item}}» della lista di configurazione non è più soddisfatto. Finché non è completato, l'azione che ne ha bisogno è bloccata."
     }
   },
   "recoveryActions": {

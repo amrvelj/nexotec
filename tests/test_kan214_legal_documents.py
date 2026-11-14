@@ -187,6 +187,22 @@ def test_production_refuses_a_draft(monkeypatch, db_session):
     assert not legal_documents.drafts_block_activation(legal_documents.current_versions(db_session))
 
 
+def test_production_never_prompts_nor_holds_on_a_draft(client, monkeypatch, db_session):
+    """Review finding (Q3 A): the seeded 0.9 drafts must never reach a live
+    Betrieb in production — no login prompt, no hold after the grace."""
+
+    dealership_id = s.pending_dealership(client, db_session)
+    dealership = _active(db_session, dealership_id)
+    s.publish_both(db_session, "0.9", effective_date=dt.date(2026, 1, 1))
+    late = dt.date(2027, 1, 1)
+    assert legal_documents.acceptance_state(db_session, dealership, today=late).held  # staging: held
+    monkeypatch.setattr(legal_documents, "current_deployment_environment", lambda: DeploymentEnvironment.PRODUCTION)
+    state = legal_documents.acceptance_state(db_session, dealership, today=late)
+    assert not state.is_due and not state.held
+    s.publish_both(db_session, "1.0", effective_date=dt.date(2026, 12, 1))
+    assert legal_documents.acceptance_state(db_session, dealership, today=late).held
+
+
 def test_the_current_documents_endpoint_serves_the_language_asked(client, db_session):
     dealership_id = s.pending_dealership(client, db_session)
     boss = s.manager(client, db_session, dealership_id)

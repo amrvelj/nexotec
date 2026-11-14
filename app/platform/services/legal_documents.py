@@ -323,10 +323,14 @@ def acceptance_state(db: Session, dealership: Dealership, *, today: dt.date | No
     today = today or swiss_today()
     versions = current_versions(db, today=today)
     accepted = accepted_versions(db, dealership.id)
+    # Q3 A: production never asks for a draft (below 1.0) — neither the
+    # login prompt nor the hold. A draft is accepted on staging only.
+    drafts_unacceptable = current_deployment_environment() == DeploymentEnvironment.PRODUCTION
     due = tuple(
         current
         for document_type, current in sorted(versions.items(), key=lambda kv: kv[0].value)
         if version_key(current.version) not in accepted.get(document_type, set())
+        and not (drafts_unacceptable and is_draft(current.version))
     )
     due_by = min((current.due_by for current in due), default=None)
     held = dealership.status == DealershipStatus.ACTIVE and due_by is not None and today > due_by

@@ -65,7 +65,7 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import User, UserRole, UserStatus
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType, Location
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.schemas.dealership import DealershipAddress, DealershipCreate
@@ -275,6 +275,16 @@ def _finish(db: Session, *, dealership: Dealership, actor: User, created: tuple[
     if not entitlement_service.list_active_modules(db, dealership.id):
         entitlement_service.set_entitlements(db, dealership=dealership, modules=set(ModuleCode), actor_id=actor.id)
         print(f"Licensed demo dealership for every module: {sorted(m.value for m in ModuleCode)}.")
+
+    # KAN-214: a new Betrieb starts `pending_onboarding`, and the gate keeps
+    # its sessions out of every module. The demo Betrieb is the one every
+    # environment's screenshots and smoke tests sign in with, so it is left
+    # trading — as the migration left every Betrieb onboarded before the
+    # checklist — without going through activation. Idempotent.
+    if dealership.status == DealershipStatus.PENDING_ONBOARDING:
+        dealership.status = DealershipStatus.ACTIVE
+        db.flush()
+        print("Demo dealership set active (trading, not activated through the setup checklist).")
 
     group = db.get(DealerGroup, dealership.dealer_group_id)
     assert group is not None, "create_dealership always creates or names a dealer group"

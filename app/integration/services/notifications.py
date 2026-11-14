@@ -117,12 +117,16 @@ def _record_expiry_approaching(
     db: Session, *, connection: IntegrationConnection, days_remaining: int, today: dt.date
 ) -> IntegrationNotification:
     """The warning's record and its fact, in one local transaction (rule 4).
-    The payload names ids, the provider's code and the threshold only — the
+    The payload names ids, the provider's code and catalogue name and the threshold only — the
     consumer reads nothing else and renders the text in each manager's
     language."""
 
     assert connection.tenant_id is not None  # platform-scope rows were skipped
-    provider_code = db.scalar(select(IntegrationProvider.provider_code).where(IntegrationProvider.id == connection.provider_id))
+    provider_code, provider_name = db.execute(
+        select(IntegrationProvider.provider_code, IntegrationProvider.display_name).where(
+            IntegrationProvider.id == connection.provider_id
+        )
+    ).one()
     row = IntegrationNotification(
         connection_id=connection.id,
         tenant_id=connection.tenant_id,
@@ -146,6 +150,9 @@ def _record_expiry_approaching(
                 "connectionId": str(connection.id),
                 "dealershipId": str(connection.tenant_id),
                 "providerCode": provider_code,
+                # The catalogue's name for the provider, so the managers' notice
+                # says which connection expires (Nexotec's text, not a dealer's).
+                "providerName": provider_name,
                 "thresholdDays": days_remaining,
                 "expiresAt": connection.expires_at.isoformat() if connection.expires_at is not None else None,
             },

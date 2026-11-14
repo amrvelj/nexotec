@@ -267,12 +267,22 @@ def derive(db: Session, dealership: Dealership) -> SetupChecklist:
     return SetupChecklist(dealership_id=dealership.id, status=dealership.status, items=items)
 
 
+def judged_against_checklist(dealership: Dealership) -> bool:
+    """An active Betrieb is judged against its checklist only when it was
+    activated by the procedure (`activated_at` set). A Betrieb the KAN-214
+    migration set active was trading before the checklist existed: nothing it
+    does today is refused, and no regression is raised for an item it never
+    completed, until a ruling brings it under the checklist."""
+
+    return not (dealership.status == DealershipStatus.ACTIVE and dealership.activated_at is None)
+
+
 def blocking_item(db: Session, dealership_id: uuid.UUID, action: BlockedAction | str) -> ChecklistItem | None:
     """The first incomplete item that blocks `action` for the Betrieb, or
     None. Only what applies to the Betrieb's entitlements is judged."""
 
     dealership = db.get(Dealership, dealership_id)
-    if dealership is None:
+    if dealership is None or not judged_against_checklist(dealership):
         return None
     wanted = action.value if isinstance(action, BlockedAction) else action
     for item in derive(db, dealership).items:

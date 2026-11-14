@@ -95,7 +95,7 @@ def handle_connected_account_revoked_message(db: Session, message: OutboxMessage
 def handle_connection_expiry_approaching_message(db: Session, message: OutboxMessage) -> None:
     """KAN-222: integration's fact that a connection expires in T-30/14/7
     days becomes the managers' `administration` notification. The payload is
-    trusted for ids, the provider code and the threshold only."""
+    trusted for ids, the provider's code and name and the threshold only."""
 
     dealership_id = uuid.UUID(message.payload["dealershipId"])
     if message.tenant_id is not None and message.tenant_id != dealership_id:
@@ -110,7 +110,11 @@ def handle_connection_expiry_approaching_message(db: Session, message: OutboxMes
                 type="integration_connection", id=connection_id, link="/administration/integrations"
             ),
             dealership_id=dealership_id,
-            params={"days": int(message.payload["thresholdDays"])},
+            params={
+                "days": int(message.payload["thresholdDays"]),
+                # A message written before the name joined the payload names the code.
+                "provider": str(message.payload.get("providerName") or message.payload["providerCode"])[:64],
+            },
         )
 
 

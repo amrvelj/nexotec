@@ -113,7 +113,9 @@ def run(db: Session) -> RegressionRun:
     at ERROR and does not stop the others."""
 
     ids = db.scalars(
-        select(Dealership.id).where(Dealership.status == DealershipStatus.ACTIVE).order_by(Dealership.id)
+        select(Dealership.id)
+        .where(Dealership.status == DealershipStatus.ACTIVE, Dealership.activated_at.is_not(None))
+        .order_by(Dealership.id)
     ).all()
     opened = resolved = notified = 0
     for dealership_id in ids:
