@@ -110,7 +110,7 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'components/configurator/ColourWheelsTab.tsx',
         'components/configurator/ConfiguratorOverlay.tsx',
         'components/configurator/IdentificationPanel.tsx',
-        'components/customer-detail/OverviewTab.tsx',
+        'modules/customer/components/customer-detail/OverviewTab.tsx',
         'components/publishing/ProfileSections.tsx',
         'components/stock-detail/DetailsTab.tsx',
         'components/stock-detail/RecordCostDialog.tsx',

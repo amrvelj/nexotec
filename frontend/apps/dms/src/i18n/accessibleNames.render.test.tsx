@@ -6,8 +6,8 @@ import en from './locales/en'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import { customer, customerPage } from '../test/fixtures'
-import { ContactPointsEditor } from '../components/customer-detail/ContactPointsEditor'
-import { CustomersListPage } from '../pages/CustomersListPage'
+import { ContactPointsEditor } from '../modules/customer/components/customer-detail/ContactPointsEditor'
+import { CustomersListPage } from '../modules/customer/pages/CustomersListPage'
 
 // KAN-291 — two accessible names the ui-kit used to hardcode in English: the
 // grid's selection header checkbox ("Select all") and a contact row's menu

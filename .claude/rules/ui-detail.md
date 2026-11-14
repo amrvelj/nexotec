@@ -16,6 +16,7 @@ paths:
   - "frontend/apps/dms/src/pages/OfferWorkspace*"
   - "frontend/apps/dms/src/**/*owMenu*"
   - "frontend/apps/dms/src/components/*-detail/**"
+  - "frontend/apps/dms/src/modules/*/components/*-detail/**"
   - "frontend/apps/dms/src/components/deal-workspace/**"
   - "frontend/apps/dms/src/components/OfferGenerateReviewModal*"
   - "frontend/apps/dms/src/architecture/detail-header*"

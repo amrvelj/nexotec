@@ -7,7 +7,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import { customer, customerPage } from '../test/fixtures'
 import type { ValuationRead } from '../api/types'
-import { CustomersListPage } from './CustomersListPage'
+import { CustomersListPage } from '../modules/customer/pages/CustomersListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 
 // KAN-273 — a write started from a list's row menu says so when it fails,

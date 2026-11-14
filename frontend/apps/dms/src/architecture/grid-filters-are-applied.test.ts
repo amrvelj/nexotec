@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { conditionsForField, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
 import { applyGroupStockFilters, applyStockFilters, buildGroupStockFilterFields, buildStockFilterFields } from '../stockOptions'
-import { applyCustomerFilters } from '../customerOptions'
+import { applyCustomerFilters } from '../modules/customer/customerOptions'
 import { applyCatalogueFilters, buildCatalogueFilterFields, CATALOGUE_FILTER_SCOPE, FACET_LIST_CODE } from '../catalogueOptions'
 import type { CatalogueFacetsRead } from '../api/types'
 
@@ -43,7 +43,7 @@ type Mapper = (params: URLSearchParams, predicates: FilterPredicate[]) => void
 const COVERED_GRIDS: Record<string, string> = {
   'pages/StockListPage.tsx': 'applyStockFilters',
   'pages/stock/GroupStockGrid.tsx': 'applyGroupStockFilters',
-  'pages/CustomersListPage.tsx': 'applyCustomerFilters',
+  'modules/customer/pages/CustomersListPage.tsx': 'applyCustomerFilters',
   'components/catalogue/CatalogueBrowseGrid.tsx': 'applyCatalogueFilters',
 }
 
@@ -51,7 +51,7 @@ const COVERED_GRIDS: Record<string, string> = {
 const MAPPERS: Record<string, { module: string; endpoint: string }> = {
   applyStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/stock-items' },
   applyGroupStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/groups/mine/stock-items' },
-  applyCustomerFilters: { module: 'customerOptions.ts', endpoint: '/v1/customers' },
+  applyCustomerFilters: { module: 'modules/customer/customerOptions.ts', endpoint: '/v1/customers' },
   applyCatalogueFilters: { module: 'catalogueOptions.ts', endpoint: '/v1/catalogue/variants' },
 }
 
@@ -241,8 +241,8 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
 
   it('Customers: every column filter declares its param and conditions, and every one is sent', () => {
     const { fields, problems } = columnFilterFields(
-      'pages/CustomersListPage.tsx',
-      readFileSync(join(SRC_ROOT, 'pages/CustomersListPage.tsx'), 'utf8'),
+      'modules/customer/pages/CustomersListPage.tsx',
+      readFileSync(join(SRC_ROOT, 'modules/customer/pages/CustomersListPage.tsx'), 'utf8'),
     )
     expect(problems).toEqual([])
     expect(fields.length).toBeGreaterThan(0)

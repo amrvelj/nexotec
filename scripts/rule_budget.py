@@ -65,7 +65,8 @@ SCENARIOS: dict[str, list[tuple[str, ...]]] = {
         ("app/sales/services/numbering.py",),
         ("frontend/apps/dms/src/components/deal-workspace/StockNumberLink.tsx",),
         ("frontend/apps/dms/src/pages/OfferWorkspace.configurator.render.test.tsx",),
-        ("frontend/apps/dms/src/components/customer-detail/OffersContractsTab.tsx",),
+        ("frontend/apps/dms/src/modules/customer/components/customer-detail/OffersContractsTab.tsx",
+         "frontend/apps/dms/src/components/customer-detail/OffersContractsTab.tsx"),
     ],
     "one-file frontend fix": [
         ("frontend/apps/dms/src/hooks/useDataGridLabels.ts",),

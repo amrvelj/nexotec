@@ -1,0 +1,259 @@
+// @vitest-environment jsdom
+import { useState } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import i18n, { toSwissLocale } from '../../../../i18n'
+import { renderWithProviders } from '../../../../test/renderWithProviders'
+import { formatDate } from '../../../../utils/format'
+import { installFakeBackend, status } from '../../../../test/fakeBackend'
+import type { VehicleMdmRead, VehicleSearchResult } from '../../../../api/types'
+import { LinkVehicleModal } from './LinkVehicleModal'
+
+// KAN-82 — the vehicle search answers a full identifier with `resolved`
+// (or `pickerCandidates`) and an empty `filtered` page. This dialog read
+// only `filtered`, so a VIN, vehicle number or plate typed here found
+// nothing at all.
+
+function vehicle(id: string, vin: string, vehicleNumber: string): VehicleMdmRead {
+  return {
+    id, vin, vehicleNumber, stammnummer: null, typeApprovalNumber: null, firstRegistrationDate: null,
+    catalogueVariantId: null, catalogueMatchStatus: 'unverified', vehicleStatus: 'active',
+    mergedIntoVehicleId: null, version: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  }
+}
+
+const EMPTY_PAGE = { items: [], nextCursor: null, total: 0, totalIsEstimate: false }
+const TARGET = vehicle('veh-target', 'ZAR94000007123456', 'F-000001')
+const PAIR = vehicle('veh-pair', 'WVWZZZ1JZXW000001', 'F-000002')
+
+const SEARCH: Record<string, VehicleSearchResult> = {
+  'ZH 12345': { resolved: { ...TARGET, currentPlate: 'ZH 12345' }, pickerCandidates: [], filtered: EMPTY_PAGE },
+  'TG 41277': {
+    resolved: null,
+    pickerCandidates: [
+      { id: TARGET.id, vehicleNumber: TARGET.vehicleNumber, vin: TARGET.vin, plate: 'TG 41277', plateGroupId: 'g', isConflict: false },
+      { id: PAIR.id, vehicleNumber: PAIR.vehicleNumber, vin: PAIR.vin, plate: 'TG 41277', plateGroupId: 'g', isConflict: false },
+    ],
+    filtered: EMPTY_PAGE,
+  },
+  WVW: { resolved: null, pickerCandidates: [], filtered: { items: [PAIR], nextCursor: null, total: 1, totalIsEstimate: false } },
+  // KAN-231: past the plate-read limit the hit resolves with its plate withheld.
+  [TARGET.vin]: { resolved: { ...TARGET, currentPlate: null, currentPlateWithheld: true }, pickerCandidates: [], filtered: EMPTY_PAGE },
+}
+
+function renderModal() {
+  const backend = installFakeBackend([
+    { method: 'GET', match: /^\/vehicle-mdm\/search$/, handler: (req) => SEARCH[req.params.get('q') ?? ''] },
+    { method: 'POST', match: /^\/customers\/cust-1\/vehicles$/, handler: () => ({}) },
+  ])
+  renderWithProviders(<LinkVehicleModal opened onClose={() => {}} onLinked={() => {}} customerId="cust-1" />)
+  return backend
+}
+
+async function type(query: string) {
+  await userEvent.type(await screen.findByLabelText(i18n.t('customerDetail.linkVehicle.search')), query)
+}
+
+afterEach(() => cleanup())
+
+describe('LinkVehicleModal — a full identifier finds its vehicle (KAN-82)', () => {
+  it('a full plate offers the resolved vehicle and links it', async () => {
+    const backend = renderModal()
+    await type('ZH 12345')
+
+    await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/cust-1\/vehicles$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/customers\/cust-1\/vehicles$/, 'POST')[0].body).toEqual({ vehicleId: TARGET.id, role: 'owner' })
+  })
+
+  it('past the plate-read limit the vehicle is still offered, saying its plate is hidden (KAN-231)', async () => {
+    renderModal()
+    await type(TARGET.vin)
+
+    const withheld = i18n.t('vehicleDetail.plates.withheld')
+    expect(await screen.findByRole('button', { name: `F-000001 — ZAR94000007123456 — ${withheld}` })).toBeInTheDocument()
+  })
+
+  it('a shared plate offers both cars and preselects neither', async () => {
+    renderModal()
+    await type('TG 41277')
+
+    expect(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — TG 41277/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /F-000002 — WVWZZZ1JZXW000001 — TG 41277/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') })).toBeDisabled()
+  })
+
+  it('a fragment still lists the filtered vehicles', async () => {
+    renderModal()
+    await type('WVW')
+
+    expect(await screen.findByRole('button', { name: /F-000002 — WVWZZZ1JZXW000001/ })).toBeInTheDocument()
+  })
+})
+
+describe('LinkVehicleModal — one Idempotency-Key per link submission (KAN-266)', () => {
+  // The first link POST fails; every later one succeeds.
+  function renderReopenable() {
+    let posts = 0
+    const backend = installFakeBackend([
+      { method: 'GET', match: /^\/vehicle-mdm\/search$/, handler: (req) => SEARCH[req.params.get('q') ?? ''] },
+      {
+        method: 'POST',
+        match: /^\/customers\/cust-1\/vehicles$/,
+        handler: () => {
+          posts += 1
+          return posts === 1 ? status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } }) : {}
+        },
+      },
+    ])
+    function Harness() {
+      const [opened, setOpened] = useState(true)
+      return (
+        <>
+          <button type="button" onClick={() => setOpened(true)}>reopen</button>
+          <LinkVehicleModal opened={opened} onClose={() => setOpened(false)} onLinked={() => {}} customerId="cust-1" />
+        </>
+      )
+    }
+    renderWithProviders(<Harness />)
+    const keys = () => backend.callsTo(/^\/customers\/cust-1\/vehicles$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    return { keys }
+  }
+
+  async function linkTarget() {
+    await type('ZH 12345')
+    await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+  }
+
+  it('a link retried after a failure keeps its key', async () => {
+    const { keys } = renderReopenable()
+    await linkTarget()
+    expect(await screen.findByText(i18n.t('customerDetail.linkVehicle.error'))).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBe(keys()[0])
+  })
+
+  it('the same link sent after closing and reopening the dialog gets a new key', async () => {
+    const { keys } = renderReopenable()
+    await linkTarget()
+    expect(await screen.findByText(i18n.t('customerDetail.linkVehicle.error'))).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByText(i18n.t('customerDetail.linkVehicle.error'))).not.toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'reopen' }))
+    await linkTarget()
+
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    expect(keys()[1]).toBeTruthy()
+    expect(keys()[1]).not.toBe(keys()[0])
+  })
+})
+
+// KAN-369 — a refused link is said in the user's language, keyed by the
+// 409's `details.reason` (or the 404); the API's English message is never shown.
+describe('LinkVehicleModal — a refused link is translated (KAN-369)', () => {
+  const MARKER = /MISSING I18N KEY/
+
+  function installRefusal(httpStatus: number, message: string, details: Record<string, unknown> | null) {
+    installFakeBackend([
+      { method: 'GET', match: /^\/vehicle-mdm\/search$/, handler: (req) => SEARCH[req.params.get('q') ?? ''] },
+      {
+        method: 'POST',
+        match: /^\/customers\/cust-1\/vehicles$/,
+        handler: () => status(httpStatus, { error: { code: httpStatus === 404 ? 'not_found' : 'conflict', message, details } }),
+      },
+    ])
+    renderWithProviders(<LinkVehicleModal opened onClose={() => {}} onLinked={() => {}} customerId="cust-1" />)
+  }
+
+  const cases = [
+    {
+      name: 'customer_merged',
+      httpStatus: 409,
+      message: 'This customer has been merged into another; give the vehicle role to the customer it was merged into.',
+      details: { reason: 'customer_merged', mergedIntoCustomerId: 'cust-2' },
+      key: 'customerDetail.linkVehicleRefused.customerMerged',
+    },
+    {
+      name: 'vehicle_party_exists',
+      httpStatus: 409,
+      message: 'This customer already has this role on this vehicle as of this date.',
+      details: { reason: 'vehicle_party_exists', vehicleId: TARGET.id, role: 'owner' },
+      key: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
+    },
+    {
+      // KAN-673: a merge of this car is being settled; the user is told to try again.
+      name: 'vehicle_merge_in_progress',
+      httpStatus: 409,
+      message: 'This vehicle is being merged with another record right now; try again in a moment.',
+      details: { reason: 'vehicle_merge_in_progress' },
+      key: 'apiRefusal.reasons.vehicle_merge_in_progress',
+    },
+    {
+      name: 'a vehicle that no longer exists',
+      httpStatus: 404,
+      message: 'VehicleMdm veh-target was not found.',
+      details: null,
+      key: 'customerDetail.linkVehicleRefused.notFound',
+    },
+    {
+      name: 'an unknown refusal',
+      httpStatus: 409,
+      message: 'Something the dialog does not know.',
+      details: { reason: 'not_a_known_reason' },
+      key: 'customerDetail.linkVehicle.error',
+    },
+  ]
+
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  for (const c of cases) {
+    it(`shows ${c.name} in fr, never the API's English message`, async () => {
+      await i18n.changeLanguage('fr')
+      installRefusal(c.httpStatus, c.message, c.details)
+
+      await type('ZH 12345')
+      await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+      await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+      expect(await screen.findByText(i18n.t(c.key))).toBeInTheDocument()
+      expect(screen.queryByText(c.message)).toBeNull()
+      expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+    })
+  }
+
+  // KAN-583 — a future holder in the way is named: who, in which role, from when.
+  it('names the future holder, its role and its start in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const message = 'Another customer is recorded in this role for this vehicle from a later date; end or move that entry first.'
+    installRefusal(409, message, {
+      reason: 'vehicle_party_future_holder', vehicleId: TARGET.id, role: 'owner', vehiclePartyId: 'party-9',
+      customerId: 'cust-9', customerName: 'Anna Meier', effectiveFrom: '2026-12-01T10:00:00+00:00', effectiveTo: null,
+    })
+
+    await type('ZH 12345')
+    await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+    const sentence = i18n.t('customerDetail.linkVehicleRefused.futureHolder', {
+      customer: 'Anna Meier',
+      role: i18n.t('customerEnums.vehiclePartyRole.owner'),
+      date: formatDate('2026-12-01T10:00:00+00:00', toSwissLocale('fr')),
+    })
+    expect(await screen.findByText(sentence)).toBeInTheDocument()
+    expect(sentence).toContain('Anna Meier')
+    expect(sentence).toContain(i18n.t('customerEnums.vehiclePartyRole.owner'))
+    expect(screen.queryByText(message)).toBeNull()
+    expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+  })
+})

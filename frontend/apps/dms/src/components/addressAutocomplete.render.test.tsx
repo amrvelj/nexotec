@@ -7,8 +7,8 @@ import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { customer } from '../test/fixtures'
-import { CustomerCreateFlow } from './CustomerCreateFlow'
-import { CustomerDetailPage } from '../pages/CustomerDetailPage'
+import { CustomerCreateFlow } from '../modules/customer/components/CustomerCreateFlow'
+import { CustomerDetailPage } from '../modules/customer/pages/CustomerDetailPage'
 import { BusinessPage } from '../pages/BusinessPage'
 
 // KAN-37 (ADR-101) — Google Places Autocomplete on the address forms. One
