@@ -65,8 +65,8 @@ def _dealership(session: Session, name: str) -> uuid.UUID:
     session.flush()
     # A Core insert of the columns named here (and the ones with a Python
     # default), not an ORM one: the ORM writes every column the model maps
-    # today, and the schema this test runs against is older (KAN-218 added
-    # columns the revision under test does not have).
+    # today, and the schema this test runs against is older (KAN-218 and
+    # KAN-206 added columns the revision under test does not have).
     return session.execute(
         insert(Dealership.__table__)
         .values(

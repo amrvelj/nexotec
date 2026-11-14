@@ -1,0 +1,81 @@
+{
+  "title": "Letterhead and template",
+  "subtitle": "How every document of your business prints: letterhead, address window, footer. Each change is saved at once and shown in the preview.",
+  "loadError": "The template could not be loaded.",
+  "readOnly": "Only the management changes the template.",
+  "saving": "Saving …",
+  "saved": "Saved",
+  "saveError": "The change could not be saved.",
+  "header": {
+    "title": "Letterhead",
+    "layout": "Logo position",
+    "layoutHint": "The sender details sit on the other side; centred, they sit below the logo.",
+    "layouts": {
+      "logo_left": "Left",
+      "logo_right": "Right",
+      "logo_centred": "Centred"
+    },
+    "logoSize": "Logo size",
+    "logoSizeHint": "At most 30, 40 or 50 mm wide and 20 mm high.",
+    "logoSizes": {
+      "s": "S · 30 mm",
+      "m": "M · 40 mm",
+      "l": "L · 50 mm"
+    },
+    "addressWindow": "Address window",
+    "addressWindowHint": "The side of the window on your C5/C4 envelopes. The positions are Swiss Post's; check them with a test print.",
+    "addressWindows": {
+      "left": "Left",
+      "right": "Right"
+    }
+  },
+  "footer": {
+    "title": "Footer",
+    "explanation": "Up to four columns. Their content comes from the business's master data and is read when printing – never retyped. A column without data is left out.",
+    "columns": {
+      "company": "Company and address",
+      "contact": "Contact",
+      "banking": "Bank details",
+      "register": "Commercial register, UID and VAT"
+    },
+    "companyFixed": "Always printed: the legal entity at its registered seat",
+    "show": "Print {{column}}",
+    "moveUp": "Move {{column}} left",
+    "moveDown": "Move {{column}} right"
+  },
+  "options": {
+    "title": "Options",
+    "draftWatermark": "«DRAFT» on drafts",
+    "draftWatermarkHint": "Across every page of a document that is still a draft, in the document's language.",
+    "pageNumbers": "Page numbers («Page 1 of 3»)"
+  },
+  "location": {
+    "title": "A location's letterhead",
+    "pick": "Choose a location in the preview to see its letterhead.",
+    "explanation": "A location replaces only the address block and the logo. The footer always names the legal entity.",
+    "addressBlock": "Address block",
+    "addressBlockNone": "No address block of its own – the business's address is printed.",
+    "addressBlockEdit": "Edit at the location",
+    "logo": "This location's logo",
+    "logoNone": "No logo of its own – the business's logo is printed.",
+    "logoOwn": "Own logo",
+    "choose": "Choose file",
+    "upload": "Upload",
+    "remove": "Remove",
+    "failed": "The logo could not be saved."
+  },
+  "preview": {
+    "title": "Preview",
+    "document": "Sample document",
+    "documents": {
+      "offer": "Offer",
+      "invoice": "Invoice"
+    },
+    "location": "Printed for",
+    "locationNone": "Business (no location)",
+    "loading": "Creating the preview …",
+    "error": "The preview could not be created.",
+    "note": "A sample document with your business's real data, marked «SAMPLE» across the page.",
+    "notAllowed": "The preview shows the business's bank details and is available to the management only."
+  }
+}

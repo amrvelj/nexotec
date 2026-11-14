@@ -1059,6 +1059,10 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # child, never an FK target) and its object-store file; audited with
         # the file's values, the dealership row is never deleted.
         "/v1/dealerships/{dealership_id}/branding/assets/{kind}",
+        # KAN-206: a location's own letterhead logo — the same branding_asset
+        # child row, carrying the location's id; never an FK target. Audited
+        # with the file's values; the location is never deleted.
+        "/v1/dealerships/{dealership_id}/branding/locations/{location_id}/logo",
         # KAN-208: a Betrieb's own standard text (an adaptation of a seed or
         # its own wording) — removing an adaptation returns the slot to the
         # seed; audited with the row's values. A seed, the one row another

@@ -13,6 +13,7 @@ from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,
     DocumentLine,
+    DocumentWatermark,
     KeyValueBlock,
     KeyValueRow,
     LineItemsBlock,
@@ -62,7 +63,10 @@ from app.platform.services.user_reads import (
 # renders a document (WP-7/8/9) builds a ContentDefinition out of these
 # block types and calls render_document. SwissLanguage itself is imported
 # straight from app.core.i18n, not re-exported here — app.core is already
-# universally importable.
+# universally importable. KAN-206: a SignatureBlock names its signers'
+# user ids (their images are read at render time) and render_document takes
+# a DocumentWatermark (DRAFT on a draft document); the letterhead, envelope
+# window and footer columns are platform's alone.
 #
 # KAN-208: render_standard_text is the standard-text resolver every module
 # prints its wording through (language → Betrieb default → DE; location →
@@ -108,6 +112,7 @@ __all__ = [
     "Dealership",
     "DealershipRef",
     "DocumentLine",
+    "DocumentWatermark",
     "GrantRevoker",
     "KeyValueBlock",
     "KeyValueRow",

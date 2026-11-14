@@ -14,10 +14,11 @@ language — this schema carries no vocabulary of its own to translate.
 """
 
 import enum
+import uuid
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 
@@ -80,12 +81,35 @@ class SignatureBlock(CamelModel):
 
     kind: Literal["signature"] = "signature"
     labels: list[str]
+    # KAN-206 (Anto, 2026-11-12, Q2 A): whose signature image prints above
+    # the line of the same position — a platform user id or None (a line to
+    # sign by hand). The image itself is read at render time, never frozen
+    # here, so a reprint shows the user's current image (stationery is
+    # current); a user without one prints the bare line.
+    signer_user_ids: list[uuid.UUID | None] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_signer_per_line_at_most(self) -> "SignatureBlock":
+        if len(self.signer_user_ids) > len(self.labels):
+            raise ValueError("signerUserIds names more signers than the block has lines.")
+        return self
 
 
 DocumentBlock = Annotated[
     KeyValueBlock | ParagraphBlock | LineItemsBlock | SignatureBlock,
     Field(discriminator="kind"),
 ]
+
+
+class DocumentWatermark(str, enum.Enum):
+    """KAN-206: the word printed across every page — DRAFT («ENTWURF» /
+    «PROJET» / «BOZZA» / «DRAFT») on a draft document, while the Betrieb's
+    template has it on; SAMPLE («MUSTER») on the template preview, always.
+    A render argument, never part of a frozen content definition: whether a
+    document is still a draft is decided when it is printed."""
+
+    DRAFT = "draft"
+    SAMPLE = "sample"
 
 
 class Addressee(CamelModel):

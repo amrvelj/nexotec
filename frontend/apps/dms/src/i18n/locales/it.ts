@@ -25,6 +25,7 @@ import ns_dealOwner from './it/dealOwner.json'
 import ns_integrationEnums from './it/integrationEnums.json'
 import ns_integrationsList from './it/integrationsList.json'
 import ns_legal from './it/legal.json'
+import ns_letterhead from './it/letterhead.json'
 import ns_locations from './it/locations.json'
 import ns_mappingGaps from './it/mappingGaps.json'
 import ns_notifications from './it/notifications.json'
@@ -82,6 +83,7 @@ const bundle = {
   integrationEnums: ns_integrationEnums,
   integrationsList: ns_integrationsList,
   legal: ns_legal,
+  letterhead: ns_letterhead,
   locations: ns_locations,
   mappingGaps: ns_mappingGaps,
   notifications: ns_notifications,

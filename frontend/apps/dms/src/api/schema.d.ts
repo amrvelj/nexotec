@@ -1222,6 +1222,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/branding/locations/{location_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Location Logo
+         * @description The site's own letterhead logo; 404 when it has none (its documents
+         *     then print the Betrieb's).
+         */
+        get: operations["get_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_get"];
+        /**
+         * Put Location Logo
+         * @description KAN-206 (PRD: a per-location override of the address block and logo
+         *     only): the logo a document printed for this site shows in place of the
+         *     Betrieb's primary logo. Replaced as a whole; If-Match on the Betrieb's
+         *     version, like every branding write. A site of another Betrieb is a 404.
+         */
+        put: operations["put_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_put"];
+        post?: never;
+        /** Delete Location Logo */
+        delete: operations["delete_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/branding/preview": {
         parameters: {
             query?: never;
@@ -1328,6 +1357,32 @@ export interface paths {
         head?: never;
         /** Update Document Template */
         patch: operations["update_document_template_v1_dealerships__dealership_id__document_template_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/document-template/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Document Template
+         * @description KAN-206 (FR-A-06): a sample offer or invoice as it prints today — a
+         *     PDF from the one renderer (ADR-051, the same `render_document` every
+         *     document goes through), with the saved template, the Betrieb's master
+         *     data and «MUSTER» across the page, in the Betrieb's correspondence
+         *     language. Only those who may edit the template may call it: the footer
+         *     prints the Betrieb's real bank account. Another Betrieb's id or site is a
+         *     404 (rule 7).
+         */
+        get: operations["preview_document_template_v1_dealerships__dealership_id__document_template_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/dealerships/{dealership_id}/entitlements": {
@@ -4595,6 +4650,12 @@ export interface components {
          */
         AddressType: "domicile" | "billing" | "delivery";
         /**
+         * AddressWindow
+         * @description The side of the C5/C4 envelope window the addressee prints for.
+         * @enum {string}
+         */
+        AddressWindow: "left" | "right";
+        /**
          * AgeingBucket
          * @description WP-7 PR-7. Fixed, NOT dealer-configurable — "a configurable
          *     threshold is a settings screen, a migration and a per-tenant answer to
@@ -4975,6 +5036,8 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+            /** Locationlogos */
+            locationLogos?: components["schemas"]["LocationLogoRead"][];
             placements: components["schemas"]["BrandingPlacements"];
             /** Primarycolor */
             primaryColor: string;
@@ -7542,6 +7605,8 @@ export interface components {
              * Format: uuid
              */
             dealerGroupId: string;
+            /** Email */
+            email: string | null;
             franchiseType: components["schemas"]["FranchiseType"];
             /** Hrnumber */
             hrNumber: string | null;
@@ -7578,6 +7643,8 @@ export interface components {
             vatRate: string | null;
             /** Version */
             version: number;
+            /** Website */
+            website: string | null;
         };
         /** DealershipSettingsRead */
         DealershipSettingsRead: {
@@ -7665,6 +7732,8 @@ export interface components {
             /** Confirmation */
             confirmation?: boolean | null;
             correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            /** Email */
+            email?: string | null;
             franchiseType?: components["schemas"]["FranchiseType"] | null;
             /** Hrnumber */
             hrNumber?: string | null;
@@ -7688,6 +7757,8 @@ export interface components {
             vatNumber?: string | null;
             /** Vatrate */
             vatRate?: number | string | null;
+            /** Website */
+            website?: string | null;
         };
         /** DeductionInput */
         DeductionInput: {
@@ -7757,9 +7828,11 @@ export interface components {
          *     than the usual VersionedMixin start of `1` — a real, ordinary sentinel
          *     the client reads off GET and echoes back as `If-Match: 0` to create the
          *     row on the first PATCH, so the shared require_if_match/check_version
-         *     machinery needs no special-casing for "doesn't exist yet" at all.
+         *     machinery needs no special-casing for "doesn't exist yet" at all. The
+         *     layout fields read the shipped defaults until the first save.
          */
         DocumentTemplateRead: {
+            addressWindow: components["schemas"]["AddressWindow"];
             /** Createdat */
             createdAt: string | null;
             /**
@@ -7767,6 +7840,11 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+            /** Draftwatermark */
+            draftWatermark: boolean;
+            /** Footercolumns */
+            footerColumns: components["schemas"]["FooterColumn"][];
+            headerLayout: components["schemas"]["HeaderLayout"];
             /** Headernotede */
             headerNoteDe: string | null;
             /** Headernoteen */
@@ -7777,6 +7855,9 @@ export interface components {
             headerNoteIt: string | null;
             /** Id */
             id: string | null;
+            logoSize: components["schemas"]["LogoSize"];
+            /** Pagenumbers */
+            pageNumbers: boolean;
             /** Updatedat */
             updatedAt: string | null;
             /** Version */
@@ -7785,13 +7866,21 @@ export interface components {
         /**
          * DocumentTemplateUpdate
          * @description The header note in four languages — KAN-208 moved the footer text
-         *     into the standard-text library (`invoice.footer.carried_over`). All
-         *     fields optional — PATCH semantics, partial update. A field left unset
-         *     is left unchanged; a field explicitly set to null clears it back to
-         *     "not customized yet". A field this schema does not know — a stale
-         *     client's `footerText*` among them — is a 422, never silently dropped.
+         *     into the standard-text library (`invoice.footer.carried_over`) — and,
+         *     since KAN-206, the letterhead layout. All fields optional — PATCH
+         *     semantics, partial update. A field left unset is left unchanged; a
+         *     header note explicitly set to null clears it back to "not customized
+         *     yet"; a layout field is NOT NULL and refuses null. A field this schema
+         *     does not know — a stale client's `footerText*` among them — is a 422,
+         *     never silently dropped.
          */
         DocumentTemplateUpdate: {
+            addressWindow?: components["schemas"]["AddressWindow"] | null;
+            /** Draftwatermark */
+            draftWatermark?: boolean | null;
+            /** Footercolumns */
+            footerColumns?: components["schemas"]["FooterColumn"][] | null;
+            headerLayout?: components["schemas"]["HeaderLayout"] | null;
             /** Headernotede */
             headerNoteDe?: string | null;
             /** Headernoteen */
@@ -7800,6 +7889,9 @@ export interface components {
             headerNoteFr?: string | null;
             /** Headernoteit */
             headerNoteIt?: string | null;
+            logoSize?: components["schemas"]["LogoSize"] | null;
+            /** Pagenumbers */
+            pageNumbers?: boolean | null;
         };
         /**
          * EmailType
@@ -7952,6 +8044,12 @@ export interface components {
          */
         FinancingKind: "cash" | "leasing" | "credit";
         /**
+         * FooterColumn
+         * @description The footer's master-data blocks (PRD: up to four columns).
+         * @enum {string}
+         */
+        FooterColumn: "company" | "contact" | "banking" | "register";
+        /**
          * FranchiseType
          * @enum {string}
          */
@@ -8004,6 +8102,13 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * HeaderLayout
+         * @description Where the logo sits in the letterhead; the sender block takes the
+         *     other side (centred: the logo above the sender line).
+         * @enum {string}
+         */
+        HeaderLayout: "logo_left" | "logo_right" | "logo_centred";
         /** HolidayCalendarList */
         HolidayCalendarList: {
             /** Items */
@@ -8431,6 +8536,34 @@ export interface components {
             items: components["schemas"]["LocationRead"][];
         };
         /**
+         * LocationLogoRead
+         * @description KAN-206: a site's own letterhead logo (PRD: the per-location override
+         *     of the address block and logo only). Documents printed for that site
+         *     show it in place of the Betrieb's primary logo.
+         */
+        LocationLogoRead: {
+            /** Bytesize */
+            byteSize: number;
+            /** Height */
+            height?: number | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Mimetype */
+            mimeType: string;
+            /**
+             * Uploadedat
+             * Format: date-time
+             */
+            uploadedAt: string;
+            /** Uploadedby */
+            uploadedBy?: string | null;
+            /** Width */
+            width?: number | null;
+        };
+        /**
          * LocationRead
          * @description A site of the Betrieb. `bankAccountOverrideId` is filled only for the
          *     roles that read banking (manager, finance, auditor, platform staff —
@@ -8643,6 +8776,13 @@ export interface components {
             mfaRequired?: boolean;
             session?: components["schemas"]["LoginResponse"] | null;
         };
+        /**
+         * LogoSize
+         * @description The logo's maximum printed width — 30 / 40 / 50 mm — at 20 mm high at
+         *     most (Anto, 2026-11-12, as recommended).
+         * @enum {string}
+         */
+        LogoSize: "s" | "m" | "l";
         /** LogoutResponse */
         LogoutResponse: {
             /**
@@ -9800,6 +9940,11 @@ export interface components {
          * @enum {string}
          */
         PreferredChannel: "email" | "phone" | "post" | "whatsapp" | "message";
+        /**
+         * PreviewDocument
+         * @enum {string}
+         */
+        PreviewDocument: "offer" | "invoice";
         /** ProviderCreate */
         ProviderCreate: {
             /** Authtype */
@@ -15550,6 +15695,120 @@ export interface operations {
             };
         };
     };
+    get_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/svg+xml": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_branding_preview_v1_dealerships__dealership_id__branding_preview_get: {
         parameters: {
             query?: never;
@@ -15798,6 +16057,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_document_template_v1_dealerships__dealership_id__document_template_preview_get: {
+        parameters: {
+            query?: {
+                /** @description The sample to print. */
+                document?: components["schemas"]["PreviewDocument"];
+                /** @description Print it for this site: its address block and logo, its own bank account. */
+                location?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sample document as a PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
                 };
             };
             /** @description Validation Error */

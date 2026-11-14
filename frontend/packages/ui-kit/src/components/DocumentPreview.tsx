@@ -37,12 +37,11 @@ export type DocumentPreviewProps = DocumentPreviewBaseProps & DocumentPreviewDow
 /**
  * § Component Contracts — The document renderer. This is the frontend
  * presentation shell only: it accepts a PDF blob/URL and renders it full-
- * bleed and chrome-free, exactly as ADR-063 describes. Wiring it to the
- * WP-6b template layer (`app.platform.services.document_render.
- * render_document`) is whichever future module first has something to
- * render — that function has no HTTP endpoint yet, since WP-7/8/9 don't
- * exist. Building a second renderer instead of wiring this one to that
- * function, whenever that day comes, is the mistake this component's own
+ * bleed and chrome-free, exactly as ADR-063 describes. Every PDF it shows
+ * comes from the one template layer (`app.platform.services.document_render.
+ * render_document`): a sales document, the branding preview, and (KAN-206)
+ * the letterhead template's preview. Building a second renderer instead of
+ * showing that function's output here is the mistake this component's own
  * existence is meant to prevent.
  */
 export function DocumentPreview({

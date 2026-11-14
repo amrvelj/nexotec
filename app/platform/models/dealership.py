@@ -146,6 +146,12 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     billing_address_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    # KAN-206 (Q4 C, Anto 2026-11-12): the Betrieb's own e-mail address and
+    # website, for the footer's contact column — read at render time, never
+    # copied into the template. Optional: a column part without data prints
+    # nothing.
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # D-A-22 (KAN-197): the Swiss UID is public (Zefix), so it is a plain,
     # indexed, checksum-validated column — the encrypted write-only tax_id it
@@ -363,7 +369,10 @@ class Location(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
 
     # Overrides — NULL inherits the Betrieb's value. The letterhead override
     # replaces only the address block of the shared template (PRD Branding:
-    # never a second template); the logo override waits for branding assets.
+    # never a second template), printed as written when a document is
+    # rendered for this site (KAN-206, Q3 A); the site's own logo is a
+    # `branding_asset` row carrying this location's id (KAN-206). The legal
+    # footer never changes per site (A-27).
     letterhead_address_override: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # An account of this Betrieb's `dealership_bank_account` collection, for a
     # site that was acquired and kept its account. Read only by the roles that

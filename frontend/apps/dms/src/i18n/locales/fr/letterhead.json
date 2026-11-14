@@ -1,0 +1,81 @@
+{
+  "title": "En-tête et modèle",
+  "subtitle": "Comment chaque document de votre entreprise est imprimé : en-tête, fenêtre d'adresse, pied de page. Chaque modification est enregistrée aussitôt et montrée dans l'aperçu.",
+  "loadError": "Le modèle n'a pas pu être chargé.",
+  "readOnly": "Seule la direction modifie le modèle.",
+  "saving": "Enregistrement …",
+  "saved": "Enregistré",
+  "saveError": "La modification n'a pas pu être enregistrée.",
+  "header": {
+    "title": "En-tête",
+    "layout": "Position du logo",
+    "layoutHint": "L'expéditeur figure de l'autre côté ; centré, il figure sous le logo.",
+    "layouts": {
+      "logo_left": "À gauche",
+      "logo_right": "À droite",
+      "logo_centred": "Centré"
+    },
+    "logoSize": "Taille du logo",
+    "logoSizeHint": "Au plus 30, 40 ou 50 mm de large et 20 mm de haut.",
+    "logoSizes": {
+      "s": "S · 30 mm",
+      "m": "M · 40 mm",
+      "l": "L · 50 mm"
+    },
+    "addressWindow": "Fenêtre d'adresse",
+    "addressWindowHint": "Le côté de la fenêtre de vos enveloppes C5/C4. Les positions sont celles de La Poste Suisse ; vérifiez-les par une impression d'essai.",
+    "addressWindows": {
+      "left": "À gauche",
+      "right": "À droite"
+    }
+  },
+  "footer": {
+    "title": "Pied de page",
+    "explanation": "Jusqu'à quatre colonnes. Leur contenu provient des données de base de l'entreprise et est lu à l'impression – jamais ressaisi. Une colonne sans données est omise.",
+    "columns": {
+      "company": "Raison sociale et adresse",
+      "contact": "Contact",
+      "banking": "Coordonnées bancaires",
+      "register": "Registre du commerce, IDE et TVA"
+    },
+    "companyFixed": "Toujours imprimée : l'entité juridique à son siège",
+    "show": "Imprimer {{column}}",
+    "moveUp": "Déplacer {{column}} vers la gauche",
+    "moveDown": "Déplacer {{column}} vers la droite"
+  },
+  "options": {
+    "title": "Options",
+    "draftWatermark": "«PROJET» sur les projets",
+    "draftWatermarkHint": "En travers de chaque page d'un document encore à l'état de projet, dans la langue du document.",
+    "pageNumbers": "Numéros de page («Page 1 sur 3»)"
+  },
+  "location": {
+    "title": "En-tête d'un site",
+    "pick": "Choisissez un site dans l'aperçu pour voir son en-tête.",
+    "explanation": "Un site ne remplace que le bloc d'adresse et le logo. Le pied de page nomme toujours l'entité juridique.",
+    "addressBlock": "Bloc d'adresse",
+    "addressBlockNone": "Pas de bloc d'adresse propre – l'adresse de l'entreprise est imprimée.",
+    "addressBlockEdit": "Modifier sur le site",
+    "logo": "Logo de ce site",
+    "logoNone": "Pas de logo propre – le logo de l'entreprise est imprimé.",
+    "logoOwn": "Logo propre",
+    "choose": "Choisir un fichier",
+    "upload": "Téléverser",
+    "remove": "Supprimer",
+    "failed": "Le logo n'a pas pu être enregistré."
+  },
+  "preview": {
+    "title": "Aperçu",
+    "document": "Document modèle",
+    "documents": {
+      "offer": "Offre",
+      "invoice": "Facture"
+    },
+    "location": "Imprimé pour",
+    "locationNone": "Entreprise (aucun site)",
+    "loading": "Création de l'aperçu …",
+    "error": "L'aperçu n'a pas pu être créé.",
+    "note": "Un document modèle avec les vraies données de votre entreprise, marqué «SPÉCIMEN» en travers de la page.",
+    "notAllowed": "L'aperçu montre les coordonnées bancaires de l'entreprise et n'est accessible qu'à la direction."
+  }
+}

@@ -117,7 +117,8 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,
-  addresses, address entry, banking, commercial and fiscal defaults, licences and memberships.
+  addresses (with the Betrieb's `email` and `website`, KAN-206, for the documents' footer), address
+  entry, banking, commercial and fiscal defaults, licences and memberships.
 - `dealership.uid` is plain, public, checksum-validated (`validate_swiss_uid`) and unique; required
   on create, a duplicate is 409. There is no `tax_id`, `dealer_license_number` or `license_state`.
   `vat_rate` stays on `dealership` (ADR-057); `dealership_settings` holds the fiscal defaults and
@@ -146,8 +147,9 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   its first location from its registered seat.
 - `code` is unique per Betrieb and fixed once saved; a location is referenced by id only. Location
   is never a scoping boundary: nothing filters by it.
-- `letterhead_address_override` is stored, **not yet read by `document_render`**; no per-location
-  logo override exists. `bank_account_override_id` is read only by the banking roles (ADR-100). No
+- `letterhead_address_override` is the site's letterhead address block, printed as written when a
+  document is printed for it (KAN-206); its logo is a `branding_asset` row with its `location_id`
+  (Letterhead screen). `bank_account_override_id` is read only by the banking roles (ADR-100). No
   `vat_override` — open with Anto (ADR-057's one VAT figure). `calendar_ref`/`warehouse_ref` stay
   empty for Aftersales and Parts.
 - Opening hours are stored **per department always** (a `perDepartment: false` PUT is written for

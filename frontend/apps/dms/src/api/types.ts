@@ -341,6 +341,14 @@ export type BrandingAssetRead = Schemas['BrandingAssetRead']
 export type BrandingAssetKind = Schemas['BrandingAssetKind']
 export type BrandingPlacements = Schemas['BrandingPlacements']
 export type ContrastPairRead = Schemas['ContrastPairRead']
+// KAN-206 — Dealer Administration › Letterhead and template.
+export type DocumentTemplateRead = Schemas['DocumentTemplateRead']
+export type DocumentTemplateUpdate = Schemas['DocumentTemplateUpdate']
+export type HeaderLayout = Schemas['HeaderLayout']
+export type LogoSize = Schemas['LogoSize']
+export type AddressWindow = Schemas['AddressWindow']
+export type FooterColumn = Schemas['FooterColumn']
+export type LocationLogoRead = Schemas['LocationLogoRead']
 
 // ============================================================================
 // RENAMED — same backend schema, different name on the frontend. Python
