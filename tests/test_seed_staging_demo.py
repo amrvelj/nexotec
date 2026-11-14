@@ -29,7 +29,13 @@ from app.platform.models.auth_token import AuthToken
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import User, UserRole, UserStatus
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType, Location
+from app.platform.organisation.models.dealership import (
+    DealerGroup,
+    Dealership,
+    DealershipStatus,
+    FranchiseType,
+    Location,
+)
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.organisation.services import dealership as dealership_service

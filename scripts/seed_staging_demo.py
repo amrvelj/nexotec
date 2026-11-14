@@ -65,7 +65,13 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import User, UserRole, UserStatus
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType, Location
+from app.platform.organisation.models.dealership import (
+    DealerGroup,
+    Dealership,
+    DealershipStatus,
+    FranchiseType,
+    Location,
+)
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.schemas.dealership import DealershipAddress, DealershipCreate
