@@ -1100,7 +1100,7 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
             {
                 "app.customer.models.customer",
                 "app.platform.organisation.models.dealership",
-                "app.platform.models.user",
+                "app.platform.identity.models.user",
                 "app.vehicle.models.catalogue",
                 "app.vehicle.models.provider",
             }

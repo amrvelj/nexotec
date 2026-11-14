@@ -15,10 +15,10 @@ from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import decode_token_claims
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.services import auth_sessions, session_policy
-from app.platform.services.session_policy import SessionPolicy
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.services import auth_sessions, session_policy
+from app.platform.identity.services.session_policy import SessionPolicy
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,

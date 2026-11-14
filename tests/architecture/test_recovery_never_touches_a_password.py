@@ -29,8 +29,8 @@ _APP_ROOT = _REPO_ROOT / "app"
 
 _RECOVERY_CODE = (
     _APP_ROOT / "platform" / "api" / "recovery.py",
-    _APP_ROOT / "platform" / "services" / "recovery.py",
-    _APP_ROOT / "platform" / "schemas" / "recovery.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "recovery.py",
+    _APP_ROOT / "platform" / "identity" / "schemas" / "recovery.py",
 )
 
 _FORBIDDEN = re.compile(

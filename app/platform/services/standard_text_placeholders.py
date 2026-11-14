@@ -30,8 +30,8 @@ from typing import Any
 
 from app.core.errors import UnprocessableEntityError
 from app.core.i18n import SwissLanguage, format_date_ch
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
-from app.platform.models.standard_text_delegation import StandardTextCategory
 
 PLACEHOLDER_INVALID = "standard_text_placeholder_invalid"
 PLACEHOLDER_UNRESOLVED = "standard_text_placeholder_unresolved"

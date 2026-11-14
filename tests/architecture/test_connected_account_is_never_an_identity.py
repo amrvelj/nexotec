@@ -31,10 +31,10 @@ _APP_ROOT = _REPO_ROOT / "app"
 
 _IDENTITY_AND_SESSION_LAYER = (
     _APP_ROOT / "core" / "auth.py",
-    _APP_ROOT / "platform" / "services" / "identity.py",
-    _APP_ROOT / "platform" / "services" / "auth_sessions.py",
-    _APP_ROOT / "platform" / "services" / "auth_tokens.py",
-    _APP_ROOT / "platform" / "services" / "mfa.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "identity.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "auth_sessions.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "auth_tokens.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "mfa.py",
     _APP_ROOT / "platform" / "session_guard.py",
     _APP_ROOT / "platform" / "api" / "auth.py",
 )
@@ -45,8 +45,8 @@ _MENTION = re.compile(r"UserConnectedAccount|user_connected_account|connected_ac
 _MODEL_OR_TABLE = re.compile(r"\bUserConnectedAccount\b|\buser_connected_account\b")
 
 _ALLOWED_MODEL_READERS = {
-    _APP_ROOT / "platform" / "models" / "connected_account.py",
-    _APP_ROOT / "platform" / "services" / "connected_account.py",
+    _APP_ROOT / "platform" / "identity" / "models" / "connected_account.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "connected_account.py",
     # Registers every model on Base.metadata; reads nothing.
     _APP_ROOT / "model_registry.py",
     # Nightly reconciliation checks its actor columns against `user` (KAN-243)
@@ -78,7 +78,7 @@ def test_the_connected_account_model_is_read_only_through_its_service():
             if _MODEL_OR_TABLE.search(line):
                 offenders.append(f"{path.relative_to(_REPO_ROOT)}:{lineno}: {line.strip()}")
     assert offenders == [], (
-        "user_connected_account is read and written only by app/platform/services/connected_account.py; "
+        "user_connected_account is read and written only by app/platform/identity/services/connected_account.py; "
         "a new reader is an entry in this test's allowlist with its reason.\n" + "\n".join(offenders)
     )
 
@@ -86,7 +86,7 @@ def test_the_connected_account_model_is_read_only_through_its_service():
 def test_the_checks_see_a_violation():
     """The patterns match what a violation would look like (a red check)."""
 
-    assert _MENTION.search("from app.platform.models.connected_account import UserConnectedAccount")
+    assert _MENTION.search("from app.platform.identity.models.connected_account import UserConnectedAccount")
     assert _MENTION.search("from app.platform.services import connected_account")
     assert _MENTION.search("connected_account.list_for_user(db, user_id=user.id)")
     assert _MODEL_OR_TABLE.search("select(UserConnectedAccount).where(...)")

@@ -6,12 +6,12 @@ sent").
 refusal at review time, for every path — including the ones no test walks.
 A call site must pass its code as a literal: `NotificationEventCode.<MEMBER>`
 or a string constant, and the code must be declared in
-`app/platform/services/notification_catalogue.py` (whose rows the platform
+`app/platform/identity/services/notification_catalogue.py` (whose rows the platform
 migration seeds — `tests/test_migrated_notification_catalogue.py`). A code
 computed at run time cannot be checked, so it fails here too.
 
 A call is `notify` imported from `app.platform.public` or
-`app.platform.services.notifications`, or `.notify` on either module (any
+`app.platform.identity.services.notifications`, or `.notify` on either module (any
 alias). `security_notifications.notify` (the KAN-202 seam, which takes a
 `SecurityNotice`) is not this function and is not walked.
 
@@ -26,13 +26,13 @@ import ast
 import shutil
 from pathlib import Path
 
-from app.platform.services.notification_catalogue import BY_CODE, NotificationEventCode
+from app.platform.identity.services.notification_catalogue import BY_CODE, NotificationEventCode
 
 _APP = Path(__file__).resolve().parents[2] / "app"
-_MODULES = {"app.platform.public", "app.platform.services.notifications"}
-# `from app.platform import public` / `from app.platform.services import notifications`
-_PARENT_NAMES = {("app.platform", "public"), ("app.platform.services", "notifications")}
-_DEFINITION = _APP / "platform" / "services" / "notifications.py"
+_MODULES = {"app.platform.public", "app.platform.identity.services.notifications"}
+# `from app.platform import public` / `from app.platform.identity.services import notifications`
+_PARENT_NAMES = {("app.platform", "public"), ("app.platform.identity.services", "notifications")}
+_DEFINITION = _APP / "platform" / "identity" / "services" / "notifications.py"
 
 
 def _notify_aliases(tree: ast.Module) -> tuple[set[str], set[str]]:
@@ -122,7 +122,7 @@ def test_the_walk_finds_the_security_familys_call_sites():
 def test_an_unregistered_or_computed_code_is_reported():
     source = (
         "from app.platform.public import notify\n"
-        "from app.platform.services import notifications as n\n"
+        "from app.platform.identity.services import notifications as n\n"
         "notify(db, 'security.made_up', user_id=u, subject=s)\n"
         "n.notify(db, NotificationEventCode.NOT_A_MEMBER, user_id=u, subject=s)\n"
         "n.notify(db, code_from_somewhere, user_id=u, subject=s)\n"
@@ -160,7 +160,7 @@ def test_a_cross_context_notify_is_refused_by_the_adr_047_test(tmp_path):
     assert any(symbol in p and "not classified" in p for p in unclassified), unclassified
     as_read = adr047._classification_problems(app, own, shared, reads | {symbol})
     assert any(symbol in p and "reaches a write" in p for p in as_read), as_read
-    as_own_commit = {**own, symbol: ("app.platform.services.notifications.notify", "probe")}
+    as_own_commit = {**own, symbol: ("app.platform.identity.services.notifications.notify", "probe")}
     committed = adr047._classification_problems(app, as_own_commit, shared, reads)
     assert any(symbol in p and "no longer commits" in p for p in committed), committed
     # The shared-transaction exceptions are pinned by name, so they cannot quietly grow:

@@ -12,7 +12,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token, get_current_principal
-from app.platform.services.identity import INVALID_CREDENTIALS
+from app.platform.identity.services.identity import INVALID_CREDENTIALS
 from tests.dealership_support import valid_uid
 from tests.identity_support import PasswordLogin, deactivate, new_email, set_mfa_enforced
 from tests.token_support import dealer_group_of
@@ -231,7 +231,7 @@ def test_login_response_includes_active_dealership_and_default_single_membership
 
 
 def test_a_user_with_two_memberships_can_switch_active_dealership(client, login, db_session):
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     user = _create_user(client, dealer_a)
@@ -312,7 +312,7 @@ def _switch_with(client, token: str, dealership_id: str):
 
 
 def _user_with_a_sister_membership(client, db_session) -> tuple[str, str, dict]:
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
@@ -350,7 +350,7 @@ def test_switch_dealership_refuses_a_user_made_inactive_after_login(client, logi
     # The minting path still refuses on its own (KAN-141): a token without a
     # session row — the shape a test or a bootstrap mints — is judged by the
     # account's status, never by the claims it carries.
-    from app.platform.models.user import User
+    from app.platform.identity.models.user import User
 
     row = db_session.get(User, uuid.UUID(user["id"]))
     bare = create_access_token(
@@ -368,7 +368,7 @@ def test_switch_dealership_refuses_a_user_made_inactive_after_login(client, logi
 def test_switch_dealership_refuses_a_membership_revoked_after_login(client, login, db_session):
     from sqlalchemy import delete
 
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     _, dealer_b, user = _user_with_a_sister_membership(client, db_session)
     token = login.session_cookie(user)
@@ -395,7 +395,7 @@ def test_switch_dealership_allows_a_membership_granted_after_login(client, login
     memberships claim does not list it yet.
     """
 
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
@@ -432,7 +432,7 @@ def test_auth_me_stops_listing_a_membership_revoked_after_login(client, login, d
 
     from sqlalchemy import delete
 
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a, dealer_b, user = _user_with_a_sister_membership(client, db_session)
     token = login.session_cookie(user)
@@ -463,7 +463,7 @@ def test_auth_me_stops_listing_a_membership_revoked_after_login(client, login, d
 
 
 def test_auth_me_lists_a_membership_granted_after_login(client, login, db_session):
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
@@ -519,7 +519,7 @@ def _create_user_as(client, token: str, dealership_id: str, email: str):
 def test_a_home_manager_with_a_plain_membership_is_not_a_manager_in_the_sister_dealership(
     client, login, db_session
 ):
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
@@ -535,7 +535,7 @@ def test_a_home_manager_with_a_plain_membership_is_not_a_manager_in_the_sister_d
 
 
 def test_a_membership_that_holds_the_manager_flag_is_a_manager_in_that_dealership(client, login, db_session):
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
@@ -557,7 +557,7 @@ def test_a_membership_that_holds_the_manager_flag_is_a_manager_in_that_dealershi
 
 
 def test_switching_back_to_the_home_dealership_restores_the_home_manager_flag(client, login, db_session):
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)

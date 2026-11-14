@@ -17,7 +17,7 @@ has fewer open questions.
 Nexotec owns staff authentication (D-A-07; KAN-196 removed WP-4's Zitadel front
 door): an office user signs in with e-mail and password at `POST /v1/auth/login`
 (`app/platform/api/auth.py`), checked by `LocalPasswordProvider`
-(`app/platform/services/identity.py`), with the second factor in the `mfa_*` tables
+(`app/platform/identity/services/identity.py`), with the second factor in the `mfa_*` tables
 and the signed-in session in `session`. Shared workshop terminals are a
 deliberately **separate, local, device-scoped** realm (D-A-13) — ADR-028's own text
 never mentions an IdP, and nothing about the design below routes through the staff
@@ -110,7 +110,7 @@ skips the checks and writes no session row).
 **Decided (Anto, 2026-10-31, KAN-508 option A): the terminal session is a row
 in the same `session` table the staff sign-in writes, judged by the same
 guard, with an idle window of its own.** Since KAN-196 every staff session is a
-`session` row (`app/platform/services/auth_sessions.py`), and the app-level
+`session` row (`app/platform/identity/services/auth_sessions.py`), and the app-level
 dependency `app/platform/session_guard.py::enforce_live_session` refuses a
 token whose row is revoked, idle (`session_idle_minutes`, 120 for the office)
 or past its absolute end, touching the row at most once a minute. The terminal
@@ -162,7 +162,7 @@ did when WP-4's Zitadel front door issued the staff session. This design's whole
 job is "arrive at a `user_id` from a device credential plus a PIN, then hand it to
 `_mint_session` with the realm `terminal`." Net-new work: a PIN/badge service
 **parallel to**, not a modification of, the staff identity service
-(`app/platform/services/identity.py`, `LocalPasswordProvider`); the two
+(`app/platform/identity/services/identity.py`, `LocalPasswordProvider`); the two
 device-model tables above; the realm parameter on `_mint_session` and the
 terminal's idle window on the `session` row. Nothing about the office sign-in's
 own behaviour changes — its realm is `staff` — which is the reason ADR-028 asked

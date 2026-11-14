@@ -19,11 +19,12 @@ from app.core.auth import SESSION_COOKIE_NAME, AccessRole, decode_token_claims
 from app.core.base import utcnow
 from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.db import get_db
-from app.platform.models.auth_event import AuthEventKind
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.auth_event import AuthEventKind
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.services import auth_events, auth_sessions, mfa
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
-from app.platform.services import auth_events, auth_sessions, legal_documents, mfa
+from app.platform.services import legal_documents
 
 _SESSION_ENDED = "Your session has ended — sign in again."
 _ENROL_FIRST = "Enrol a second factor before anything else — your business requires one."

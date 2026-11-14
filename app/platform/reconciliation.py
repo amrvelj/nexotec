@@ -3,7 +3,7 @@ cross-context reference to check: user.tenant_id -> dealership.id and
 dealership.dealer_group_id -> dealer_group.id are its own. What it does
 have is the same created_by / updated_by columns as every other context,
 and KAN-243 checks those everywhere — so this job carries exactly the
-actor checks, built by app.platform.services.actor_reference as the other
+actor checks, built by app.platform.identity.services.actor_reference as the other
 contexts build theirs through app.platform.public — and, since KAN-412, one
 StateCheck of its own: a revoked connected account whose secret is still
 held a day after the revoke; since KAN-218 a second: an offboarded Betrieb
@@ -20,17 +20,18 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.platform.models.auth_event import AuthEvent
-from app.platform.models.auth_token import AuthToken
-from app.platform.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
-from app.platform.models.credential import Credential
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.auth_event import AuthEvent
+from app.platform.identity.models.auth_token import AuthToken
+from app.platform.identity.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.user import User
+from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.export_job import ExportJob
 from app.platform.models.standard_text import StandardText
-from app.platform.models.standard_text_delegation import StandardTextDelegation
-from app.platform.models.user import User
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
@@ -43,13 +44,12 @@ from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
-from app.platform.services.actor_reference import actor_reference_checks
 
 CONTEXT = "platform"
 
 # Every platform table with created_by / updated_by (or granted_by): each must name a
 # platform user, or be null (KAN-243; see
-# app.platform.services.actor_reference). The user table is in the list too:
+# app.platform.identity.services.actor_reference). The user table is in the list too:
 # a user's own actor columns name whoever created it, which may be itself
 # (the first user of a fresh environment, scripts/seed_staging_demo.py).
 ACTOR_TABLES = (
@@ -84,7 +84,7 @@ ACTOR_TABLES = (
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
-# dropping its secret_ref (app.platform.services.connected_account.
+# dropping its secret_ref (app.platform.identity.services.connected_account.
 # end_at_provider). One still holding a reference a day after the revoke
 # means the provider's end never happened: the revoker kept refusing (its
 # event dead-lettered), or no revoker is registered for the provider — the

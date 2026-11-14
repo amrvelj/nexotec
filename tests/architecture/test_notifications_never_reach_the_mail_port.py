@@ -15,17 +15,17 @@ _ROOT = Path(__file__).resolve().parents[2]
 _APP = _ROOT / "app"
 
 NOTIFICATION_MODULES = (
-    "app.platform.services.notifications",
-    "app.platform.services.notification_catalogue",
-    "app.platform.services.push_subscriptions",
+    "app.platform.identity.services.notifications",
+    "app.platform.identity.services.notification_catalogue",
+    "app.platform.identity.services.push_subscriptions",
     "app.platform.reference.services.web_push",
-    "app.platform.services.security_alerts",
+    "app.platform.identity.services.security_alerts",
     "app.platform.consumers",
-    "app.platform.api.notifications",
-    "app.platform.models.notification",
-    "app.platform.schemas.notification",
+    "app.platform.identity.api.notifications",
+    "app.platform.identity.models.notification",
+    "app.platform.identity.schemas.notification",
 )
-MAIL_PORT = ("app.platform.reference.services.mailer", "app.platform.services.mail_texts", "smtplib", "email")
+MAIL_PORT = ("app.platform.reference.services.mailer", "app.platform.identity.services.mail_texts", "smtplib", "email")
 
 
 def _path_of(module: str) -> Path | None:
@@ -85,4 +85,4 @@ def test_no_notification_module_reaches_the_mail_port():
 def test_the_walk_would_see_a_mail_import():
     # The identity service sends the invitation and reset mails: the walk
     # must find the mailer from there, or it proves nothing above.
-    assert any(_is_mail(name) for name in reach("app.platform.services.identity"))
+    assert any(_is_mail(name) for name in reach("app.platform.identity.services.identity"))

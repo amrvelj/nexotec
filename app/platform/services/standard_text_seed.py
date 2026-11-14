@@ -34,8 +34,8 @@ The code's shape is `<applies_to>.<slot>.<name>` for a document text and
 from dataclasses import dataclass
 
 from app.core.i18n import SwissLanguage
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
-from app.platform.models.standard_text_delegation import StandardTextCategory
 
 _DE, _FR, _IT, _EN = SwissLanguage.DE, SwissLanguage.FR, SwissLanguage.IT, SwissLanguage.EN
 

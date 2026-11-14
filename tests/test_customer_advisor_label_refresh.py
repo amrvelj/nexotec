@@ -29,7 +29,7 @@ from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.customer.models.customer import Customer
 from app.customer.services import customer_merge as customer_merge_service
 from app.customer.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.user import User, UserStatus
 from tests.membership_support import platform_admin
 from tests.test_customer_fr17_fields import _bearer, _create_dealer, _create_user, _token
 from tests.test_customer_vehicle_party_close_rule import _customer as _vp_customer

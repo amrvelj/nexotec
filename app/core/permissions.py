@@ -369,7 +369,7 @@ def holds_entitlement(db: Session, principal: Principal, module: ModuleCode) -> 
 
 # Whether the principal holds a delegation for `category` of `capability`
 # (today only "standard_texts") in their active dealership. Registered by
-# platform at import time (app.platform.services.text_delegation); core never
+# platform at import time (app.platform.identity.services.text_delegation); core never
 # imports a bounded context, so the one lookup the gate needs arrives as a
 # callback, like the entitlement version reader above.
 DelegationChecker = Callable[[Session, Principal, str, str], bool]

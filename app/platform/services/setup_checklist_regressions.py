@@ -21,13 +21,14 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.platform.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.services import notifications
+from app.platform.identity.services.notification_catalogue import NotificationEventCode
+from app.platform.identity.services.user_common import membership_is_active
 from app.platform.models.setup_checklist import SetupChecklistRegression
-from app.platform.models.user import User, UserStatus
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
-from app.platform.services import notifications, setup_checklist
-from app.platform.services.notification_catalogue import NotificationEventCode
-from app.platform.services.user_common import membership_is_active
+from app.platform.services import setup_checklist
 
 logger = logging.getLogger(__name__)
 

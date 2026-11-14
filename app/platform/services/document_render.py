@@ -47,6 +47,7 @@ from weasyprint.urls import URLFetcher
 
 from app.core.i18n import SwissLanguage, format_currency_chf
 from app.core.object_store import ObjectStore, StoredObject, get_object_store
+from app.platform.identity.services.user_reads import get_user_acting_in
 from app.platform.models.document_template import (
     DEFAULT_FOOTER_COLUMNS,
     AddressWindow,
@@ -71,7 +72,6 @@ from app.platform.schemas.document_content import (
 )
 from app.platform.services import document_letterhead as letterhead
 from app.platform.services.document_template import get_document_template
-from app.platform.services.user_reads import get_user_acting_in
 
 # --- print tokens, copied from frontend/packages/ui-kit/src/tokens.ts ------
 

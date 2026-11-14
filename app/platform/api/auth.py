@@ -32,10 +32,22 @@ from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode, writable_capabilities
 from app.db import get_db
-from app.platform.models.auth_event import AuthEventKind
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.auth_token import AuthTokenKind
-from app.platform.models.user import User
+from app.platform.identity.models.auth_event import AuthEventKind
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.auth_token import AuthTokenKind
+from app.platform.identity.models.user import User
+from app.platform.identity.schemas.user import UserRead
+from app.platform.identity.services import (
+    auth_events,
+    auth_sessions,
+    auth_tokens,
+    identity,
+    mfa,
+    session_policy,
+    user_preference,
+)
+from app.platform.identity.services import user as user_service
+from app.platform.identity.services import user_reads as user_reads_service
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.services import dealership as dealership_service
 from app.platform.organisation.services import entitlement as entitlement_service
@@ -64,19 +76,7 @@ from app.platform.schemas.auth import (
     TotpEnrolmentRead,
 )
 from app.platform.schemas.setup import LegalAcceptanceDue, acceptance_due
-from app.platform.schemas.user import UserRead
-from app.platform.services import (
-    auth_events,
-    auth_sessions,
-    auth_tokens,
-    identity,
-    legal_documents,
-    mfa,
-    session_policy,
-    user_preference,
-)
-from app.platform.services import user as user_service
-from app.platform.services import user_reads as user_reads_service
+from app.platform.services import legal_documents
 
 # The front door sets or clears the session cookie on `Response`, which the
 # idempotency route class cannot replay; its POSTs are the exemptions Anto

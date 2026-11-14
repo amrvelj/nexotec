@@ -18,8 +18,8 @@ from app.core.object_store import LocalDirectoryObjectStore, get_object_store
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.main import app as fastapi_app
-from app.platform.models.auth_event import AuthEvent, AuthEventKind
-from app.platform.models.connected_account import (
+from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.identity.models.connected_account import (
     ConnectedAccountProvider,
     ConnectedAccountStatus,
     UserConnectedAccount,

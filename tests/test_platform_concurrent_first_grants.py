@@ -15,14 +15,15 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from app.platform.api import dealership_identity, dealership_memberships, dealership_users
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.models.standard_text_delegation import StandardTextDelegation
+from app.platform.api import dealership_identity, dealership_users
+from app.platform.identity.api import dealership_memberships
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.services import auth_sessions
+from app.platform.identity.services import membership as membership_service
+from app.platform.identity.services import text_delegation as text_delegation_service
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.services import entitlement as entitlement_service
-from app.platform.services import auth_sessions
-from app.platform.services import membership as membership_service
-from app.platform.services import text_delegation as text_delegation_service
 from tests.membership_support import create_dealership, create_user, grant, if_match, platform_admin
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 
@@ -244,7 +245,7 @@ def test_every_my_account_write_takes_the_callers_own_row_first(route):
     order) — the profile and the signature write it, a revoke stands with
     the deactivation that holds it."""
 
-    from app.platform.api import me as me_api
+    from app.platform.identity.api import me as me_api
 
     source = inspect.getsource(getattr(me_api, route))
     assert "get_own_user_for_update_or_404(" in source

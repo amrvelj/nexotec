@@ -13,10 +13,10 @@ from argon2 import PasswordHasher
 from sqlalchemy import select
 
 from app.core.base import utcnow
-from app.platform.models.auth_event import AuthEvent, AuthEventKind
-from app.platform.models.credential import Credential
-from app.platform.services import password_hashing
-from app.platform.services.identity import INVALID_CREDENTIALS
+from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.services import password_hashing
+from app.platform.identity.services.identity import INVALID_CREDENTIALS
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,

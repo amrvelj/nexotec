@@ -32,7 +32,7 @@ in the CTO workspace.
   `DealerGroup` and `Location` in the same module — the three-level
   organisation model (group → dealership → location, ADR-014); the
   dealership stays the tenant, `tenant_id` unchanged.
-- `User` (`app/platform/models/user.py`): tenant-scoped, first FK relationship
+- `User` (`app/platform/identity/models/user.py`): tenant-scoped, first FK relationship
   in the schema (`user.tenant_id → dealership.id`), globally-unique email
 - `POST /v1/dealerships` (platform-admin only), `POST /v1/dealerships/{id}/users`,
   full CRUD + audit-log endpoints — see `app/platform/organisation/api/dealerships.py`

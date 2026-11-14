@@ -33,7 +33,7 @@ def test_main_exits_1_when_a_platform_admin_is_homed_and_0_otherwise(client, db_
     out = capsys.readouterr().out
     assert staff["email"] in out and "Garage Exit AG" in out and "memberships:" not in out
 
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     sister = create_dealership(client, "Garage Exit Sister AG", group_of=dealership)
     db_session.add(DealershipMembership(user_id=uuid.UUID(staff["id"]), dealership_id=uuid.UUID(sister)))
@@ -46,7 +46,7 @@ def test_the_report_names_the_sister_memberships_an_existing_staff_account_holds
     """The rows KAN-199 refuses from now on: a staff account that already
     holds a membership is listed with it, so each case can be decided."""
 
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     home = create_dealership(client, "Garage Home AG")
     sister = create_dealership(client, "Garage Sister AG", group_of=home)

@@ -131,7 +131,7 @@ def test_the_enrollment_grant_names_the_acting_user_and_the_scope(db_session, mo
 
 
 def _ui_language(db_session, user, language: str) -> None:
-    from app.platform.models.user_preference import UserPreference
+    from app.platform.identity.models.user_preference import UserPreference
 
     db_session.add(UserPreference(user_id=user.id, scope="ui", payload={"uiLanguage": language}))
     db_session.commit()
