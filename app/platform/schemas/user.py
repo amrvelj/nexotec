@@ -8,7 +8,7 @@ from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone
 from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 # KAN-200: the PATCH fields that may be sent as null to clear them (nullable
 # columns); every other field is NOT NULL and an explicit null is a 422.

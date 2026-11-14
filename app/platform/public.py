@@ -8,6 +8,7 @@ from app.platform.models.number_range import NumberRangeDocumentType
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
 from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.user import User
+from app.platform.reference.services.reference_data import get_active_reference_value_codes
 from app.platform.schemas.dealership import DealerGroupRead
 from app.platform.schemas.document_content import (
     Addressee,
@@ -41,7 +42,6 @@ from app.platform.services.location import get_location_or_404
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.services.number_range import allocate_number
-from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.services.user_preference import ui_language_of

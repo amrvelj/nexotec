@@ -8,21 +8,23 @@ import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ColumnConfigPanel,
-  defaultColumnLayout,
+  type ColumnRegistryEntry,
   DataGrid,
+  defaultColumnLayout,
+  type FilterPredicate,
+  type GridColumnDef,
+  offeredPredicates,
   OverviewShellRegion,
+  type SavedView,
+  semantic,
+  type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
   StockConditionBadge,
   StockLifecycleBadge,
   StockReservationBadge,
-  ViewsAndFilters,
-  offeredPredicates,
-  semantic,
   useSetBreadcrumb,
-  type ColumnRegistryEntry,
-  type FilterPredicate,
-  type GridColumnDef,
-  type SavedView,
-  type SortSpec,
+  ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
@@ -39,7 +41,6 @@ import {
   translatedStockReservationLabel,
 } from '../stockOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
-import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
 import { STOCK_VEHICLE_COLUMN_WIDTH } from './stock/columns/stockVehicleColumn'
 import { buildStockRowMenu, stockOpenState, type StockOpenAction } from '../components/stockRowMenu'
@@ -68,7 +69,7 @@ export function StockListPage() {
   // is the default and leaves no parameter.
   const scope: StockScope = searchParams.get('scope') === 'group' ? 'group' : 'own'
 
-  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const sort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
   const filterFields = useMemo(() => buildStockFilterFields(t), [t])
@@ -94,7 +95,7 @@ export function StockListPage() {
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next)
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
@@ -113,9 +114,9 @@ export function StockListPage() {
   // The group grid sorts on the same indexed columns; its sort lives in the
   // URL alone (its column layout is persisted under its own grid key,
   // GroupStockGrid, KAN-357).
-  const groupSort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : DEFAULT_SORT
+  const groupSort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : DEFAULT_SORT
   const setGroupSort = (next: SortSpec[]) => {
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
 
   const setPredicates = (next: FilterPredicate[]) => {
@@ -129,7 +130,7 @@ export function StockListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const sortParam = sortSpecToQueryParam(sort)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({

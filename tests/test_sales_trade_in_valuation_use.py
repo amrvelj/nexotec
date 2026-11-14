@@ -36,9 +36,9 @@ from app.sales.services.contract import cancel_contract, confirm_contract, creat
 from app.sales.services.offer import create_offer, update_offer
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.models.valuation import Valuation, ValuationSource
-from app.valuation.public import consume_valuation_for_contract, get_valuation_or_404
+from app.valuation.public import consume_valuation_for_contract
 from app.valuation.schemas.valuation import ValuationCreate
-from app.valuation.services.valuation import create_valuation, derive_status, mark_used
+from app.valuation.services.valuation import create_valuation, derive_status, get_valuation_or_404, mark_used
 from tests.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
 
 _TRADE_IN_VIN = "WVWZZZ1KZAW654321"

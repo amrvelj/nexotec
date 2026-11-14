@@ -14,7 +14,7 @@ from app.platform.models.standard_text import (
     StandardTextSource,
 )
 from app.platform.models.standard_text_delegation import StandardTextCategory
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 _BODY_MAX = 20_000
 

@@ -219,6 +219,7 @@ forbidden_modules = [
     "app.platform.daily_jobs",
     "app.platform.models",
     "app.platform.reconciliation",
+    "app.platform.reference",
     "app.platform.reference_data_seed",
     "app.platform.schemas",
     "app.platform.services",

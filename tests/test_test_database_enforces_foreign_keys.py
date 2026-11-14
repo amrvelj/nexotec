@@ -13,7 +13,7 @@ from sqlalchemy import insert
 from sqlalchemy.exc import IntegrityError
 
 from app.core.base import utcnow
-from app.platform.models.reference_data import ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceValue
 
 
 def test_a_child_row_without_its_parent_is_rejected(engine):

@@ -22,19 +22,14 @@ import type {
   CustomerPage,
   OdometerSource,
   VehicleAccessoryRead,
+  VehicleMdmDetailRead,
   VehicleOdometerReadingRead,
   VehiclePartyAllocationRead,
   VehiclePartyRole,
   VehiclePlateRead,
 } from '../api/types'
-import type { components } from '../api/schema'
 import { apiRefusalText } from '../utils/apiRefusal'
 import { stockOpenState } from '../components/stockRowMenu'
-
-// KAN-667 — the Vehicle 360's read of one record: the record and the session's
-// own Betrieb's stock car holding it. Derived from the generated schema like
-// every type in api/types.ts (move it there once that file is free to change).
-type VehicleMdmDetailRead = components['schemas']['VehicleMdmDetailRead']
 
 const DEFAULT_TAB = 'identity'
 

@@ -23,6 +23,8 @@ from app.platform.models.dealership import (
     Dealership,
     DealershipStatus,
 )
+from app.platform.reference.services.reference_data import get_active_reference_value_codes
+from app.platform.reference.services.system_writes import system_write_reason
 from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
 from app.platform.schemas.dealership import (
     DealershipAddress,
@@ -30,8 +32,6 @@ from app.platform.schemas.dealership import (
     DealershipOverrideAddress,
     DealershipUpdate,
 )
-from app.platform.services.actor_reference import system_write_reason
-from app.platform.services.reference_data import get_active_reference_value_codes
 
 # KAN-203 (enforcement rule 7: every administrative write with before and
 # after): every changed column is audited, the address blocks as a whole.
@@ -211,7 +211,7 @@ def create_dealership(
     commit: bool = True,
 ) -> Dealership:
     """`actor_id=None` with a `system_reason` is the system path for seeds and
-    scripts only (KAN-345, `actor_reference.system_write_reason`).
+    scripts only (KAN-345, `reference.services.system_writes.system_write_reason`).
 
     With `commit=False` everything is flushed, not committed: the onboarding
     (KAN-210, `services/onboarding.py`) writes the Betrieb, its entitlements

@@ -69,16 +69,81 @@ def test_get_enabled_connection_answers_none_without_an_enabled_one(db_session):
 
 
 def test_get_entitlement_answers_the_state_or_none_when_never_probed(db_session):
-    connection = _connection(db_session, _provider(db_session), tenant_id=uuid.uuid4())
+    tenant_id = uuid.uuid4()
+    connection = _connection(db_session, _provider(db_session), tenant_id=tenant_id)
     row = connection_service.record_probed_entitlement(
         db_session, connection_id=connection.id, capability_code="ausstattung", granted=False
     )
     db_session.commit()
+    ref = public.ConnectionRef(id=connection.id, tenant_id=tenant_id)
 
-    state = public.get_entitlement(db_session, connection_id=connection.id, capability_code="ausstattung")
+    state = public.get_entitlement(db_session, connection=ref, capability_code="ausstattung")
 
     assert state == public.EntitlementState(granted=False, checked_at=row.checked_at)
-    assert public.get_entitlement(db_session, connection_id=connection.id, capability_code="ident_basis") is None
+    assert public.get_entitlement(db_session, connection=ref, capability_code="ident_basis") is None
+
+
+def _grant_every_licence_option(db_session, connection_id: uuid.UUID) -> None:
+    for option in ("ausstattung", "vin", "bewertung"):
+        connection_service.record_probed_entitlement(
+            db_session, connection_id=connection_id, capability_code=option, granted=True
+        )
+    db_session.commit()
+
+
+def _licence_reads(db_session, ref: public.ConnectionRef) -> tuple[object, bool, bool]:
+    return (
+        public.get_entitlement(db_session, connection=ref, capability_code="ausstattung"),
+        public.vin_decode_granted(db_session, connection=ref),
+        public.valuation_granted(db_session, connection=ref),
+    )
+
+
+def test_the_licence_reads_answer_for_the_betrieb_the_reference_names(db_session):
+    tenant_id = uuid.uuid4()
+    connection = _connection(db_session, _provider(db_session), tenant_id=tenant_id)
+    _grant_every_licence_option(db_session, connection.id)
+    own = public.get_enabled_connection(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert own is not None
+
+    entitlement, vin, valuation = _licence_reads(db_session, own)
+
+    assert entitlement is not None and entitlement.granted
+    assert vin is True
+    assert valuation is True
+
+
+def test_the_licence_reads_answer_for_another_betriebs_connection_as_for_an_unknown_one(db_session):
+    """KAN-711: a reference rebuilt from a stored id of another Betrieb's connection
+    learns nothing about that Betrieb's contract — the same answer as an id that
+    names no connection at all (rule 7: a cross-tenant read says nothing)."""
+
+    other_betrieb = uuid.uuid4()
+    foreign = _connection(db_session, _provider(db_session), tenant_id=other_betrieb)
+    _grant_every_licence_option(db_session, foreign.id)
+    forged = public.ConnectionRef(id=foreign.id, tenant_id=uuid.uuid4())
+    unknown = public.ConnectionRef(id=uuid.uuid4(), tenant_id=forged.tenant_id)
+
+    assert _licence_reads(db_session, forged) == (None, False, False)
+    assert _licence_reads(db_session, forged) == _licence_reads(db_session, unknown)
+
+
+def test_the_licence_reads_answer_for_a_platform_wide_connection_as_for_an_unknown_one(db_session):
+    platform = connection_service.create_connection(
+        db_session,
+        tenant_id=None,
+        data=ConnectionCreate(
+            provider_id=_provider(db_session).id,
+            display_name="auto-i-dat (platform)",
+            environment=ConnectionEnvironment.SANDBOX,
+            scope=ConnectionScope.PLATFORM,
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    _grant_every_licence_option(db_session, platform.id)
+    forged = public.ConnectionRef(id=platform.id, tenant_id=uuid.uuid4())
+
+    assert _licence_reads(db_session, forged) == (None, False, False)
 
 
 def test_call_capability_takes_the_reference_back_and_logs_the_request(db_session):

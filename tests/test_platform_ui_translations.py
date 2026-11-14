@@ -16,8 +16,8 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.i18n import SwissLanguage
 from app.main import app
-from app.platform.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationSource
-from app.platform.services import ui_translation as service
+from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationSource
+from app.platform.reference.services import ui_translation as service
 from scripts import import_ui_translation_bundles
 
 BUNDLES = {

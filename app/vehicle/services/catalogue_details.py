@@ -708,7 +708,7 @@ def _wanted(
             # Asked again once a later «Test connection» recorded the option as
             # granted (a licence upgrade); otherwise never on open — a billed
             # 403 per open is not a retry.
-            entitlement = get_entitlement(db, connection_id=connection.id, capability_code=DETAIL_CAPABILITY[detail])
+            entitlement = get_entitlement(db, connection=connection, capability_code=DETAIL_CAPABILITY[detail])
             if entitlement is not None and entitlement.granted and entitlement.checked_at > row.loaded_at:
                 wanted.append(detail)
     return wanted
@@ -777,7 +777,7 @@ def _load_one(
     def set_state(state: DetailState, error: str | None) -> None:
         _set_state(db, tenant_id=tenant_id, variant=variant, detail=detail, state=state, error=error, rows=rows)
 
-    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=DETAIL_CAPABILITY[detail])
+    entitlement = get_entitlement(db, connection=connection, capability_code=DETAIL_CAPABILITY[detail])
     if entitlement is not None and not entitlement.granted:
         set_state(DetailState.NOT_IN_CONTRACT, ENTITLEMENT_ABSENT)
         return

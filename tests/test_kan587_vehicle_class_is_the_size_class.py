@@ -28,7 +28,7 @@ import pytest
 from sqlalchemy import select
 
 from app.integration.adapters import identapi_parse as parse
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.models.configuration import (
     ConfigurationMatchMethod,

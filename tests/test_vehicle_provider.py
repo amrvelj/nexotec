@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.audit import list_audit_events, record_audit_event
 from app.core.errors import ConflictError, UnprocessableEntityError
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_admin
 from app.vehicle.services import provider as provider_service

@@ -19,7 +19,7 @@ from app.core.observability import (
     configure_tracing,
 )
 from app.ownership_registry import register_ownership_providers
-from app.platform.services.mailer import get_mailer
+from app.platform.reference.services.mailer import get_mailer
 from app.platform.session_guard import enforce_live_session
 
 configure_logging()

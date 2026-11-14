@@ -37,11 +37,11 @@ from app.platform.api.notifications import router as notifications_router
 from app.platform.api.number_ranges import router as number_ranges_router
 from app.platform.api.onboarding import router as onboarding_router
 from app.platform.api.recovery import router as platform_recovery_router
-from app.platform.api.reference_data import router as reference_data_router
 from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.api.standard_texts import router as standard_texts_router
-from app.platform.api.ui_translations import router as ui_translations_router
 from app.platform.api.user_preferences import router as user_preferences_router
+from app.platform.reference.api.reference_data import router as reference_data_router
+from app.platform.reference.api.ui_translations import router as ui_translations_router
 from app.sales.api.contracts import router as sales_contracts_router
 from app.sales.api.deals import router as sales_deals_router
 from app.sales.api.documents import router as sales_documents_router

@@ -1,6 +1,6 @@
 """Master-data admin service layer (WP-5 PR-8, FR-V-11): brands CRUD and
 the mapping-gap queue. Reference-value editing itself reuses the existing
-app.platform.services.reference_data unchanged — nothing new needed there.
+app.platform.reference.services.reference_data unchanged — nothing new needed there.
 """
 
 import uuid

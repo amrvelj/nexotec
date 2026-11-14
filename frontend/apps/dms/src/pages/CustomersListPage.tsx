@@ -9,23 +9,25 @@ import {
   ActionBar,
   Badge,
   ColumnConfigPanel,
+  type ColumnRegistryEntry,
   CustomerTypeBadge,
   DataGrid,
-  LanguageBadge,
-  LifecycleStatusBadge,
-  OverviewShellRegion,
-  SelectionBar,
-  ViewsAndFilters,
   defaultColumnLayout,
   deriveFilterFields,
-  offeredPredicates,
-  resolveColumnLayout,
-  useSetBreadcrumb,
-  type ColumnRegistryEntry,
   type FilterPredicate,
   type GridColumnDef,
+  LanguageBadge,
+  LifecycleStatusBadge,
+  offeredPredicates,
+  OverviewShellRegion,
+  resolveColumnLayout,
   type SavedView,
+  SelectionBar,
   type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
+  ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
@@ -76,21 +78,6 @@ const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
 // useGridPreferences/useUiPreferencesContext, not this file's own state —
 // only search/sort/filters are URL-synced below.
 
-function parseSortParam(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .map((part): SortSpec | null => {
-      const [field, direction] = part.split(':')
-      if (!field) return null
-      return { field, direction: direction === 'asc' ? 'asc' : 'desc' }
-    })
-    .filter((s): s is SortSpec => s !== null)
-}
-
-function serializeSort(sort: SortSpec[]): string {
-  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
-}
-
 function parseFiltersParam(raw: string): FilterPredicate[] {
   try {
     const parsed: unknown = JSON.parse(raw)
@@ -101,7 +88,6 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
     return []
   }
 }
-
 
 export function CustomersListPage() {
   const { t, i18n } = useTranslation()
@@ -132,7 +118,7 @@ export function CustomersListPage() {
   // straight from the URL on every render (no local mirror to go stale
   // against a pasted/back-navigated URL); the preference is only the
   // fallback for "what to show when there's no URL state yet at all."
-  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const sort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort
   const urlPredicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
 
   const updateUrl = (patch: Record<string, string | null>) => {
@@ -151,7 +137,7 @@ export function CustomersListPage() {
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next) // persists as the future default too (U-01/U-09)
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
 
   const setPredicates = (next: FilterPredicate[]) => {
@@ -519,7 +505,7 @@ export function CustomersListPage() {
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
   const actionBarLabels = useActionBarLabels()
 
-  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
+  const sortParam = sortSpecToQueryParam(sort)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({

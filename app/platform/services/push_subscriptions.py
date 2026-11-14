@@ -30,8 +30,8 @@ from app.core.base import utcnow
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.notification import PushSubscription
-from app.platform.services import web_push
-from app.platform.services.web_push import PushMessage, PushTarget
+from app.platform.reference.services import web_push
+from app.platform.reference.services.web_push import PushMessage, PushTarget
 
 logger = logging.getLogger(__name__)
 

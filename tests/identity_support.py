@@ -14,7 +14,7 @@ import uuid
 from fastapi.testclient import TestClient
 
 from app.core.auth import AccessRole, create_access_token
-from app.platform.services.mailer import Mail
+from app.platform.reference.services.mailer import Mail
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

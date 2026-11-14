@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.core.audit import list_audit_events
 from app.core.auth import AccessRole, create_access_token
 from app.main import app as fastapi_app
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.provider import MappingGap
 from app.vehicle.services.provider import resolve_provider_code
 

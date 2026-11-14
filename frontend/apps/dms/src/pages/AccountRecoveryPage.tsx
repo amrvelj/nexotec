@@ -4,7 +4,15 @@ import { Alert, Button, Group, Select, Stack, Text, TextInput, Title } from '@ma
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { LifeBuoy, Search, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Badge, DataGrid, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
+import {
+  Badge,
+  DataGrid,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
+  type GridColumnDef,
+  type SortSpec,
+} from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import type { DealershipPage, RecoveryResult, RecoveryUserList, RecoveryUserRead } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -20,16 +28,6 @@ const RECOVERY_KEY = ['platform', 'recovery', 'users'] as const
 // The grid's sort fields are the API's (`RECOVERY_SORT_FIELDS`): sorted on
 // the server, loaded by cursor (UI/UX Core Principles).
 const DEFAULT_SORT = 'lastName:asc,firstName:asc'
-
-function parseSort(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .filter(Boolean)
-    .map((part) => {
-      const [field, direction] = part.split(':')
-      return { field, direction: direction === 'desc' ? 'desc' : 'asc' } as SortSpec
-    })
-}
 
 /** Every Betrieb, page by page (the cursor list caps a page at 100). */
 async function allDealerships(): Promise<DealershipPage['items']> {
@@ -65,10 +63,11 @@ export function AccountRecoveryPage() {
   const dealershipId = searchParams.get('dealershipId') ?? ''
   const [emailDraft, setEmailDraft] = useState(email)
   const [dealershipDraft, setDealershipDraft] = useState<string | null>(dealershipId || null)
-  const sort = parseSort(searchParams.get('sort') ?? DEFAULT_SORT)
+  const sort = sortSpecFromQueryParam(searchParams.get('sort') ?? DEFAULT_SORT)
   const setSort = (next: SortSpec[]) => {
     const updated = new URLSearchParams(searchParams)
-    if (next.length > 0) updated.set('sort', next.map((n) => `${n.field}:${n.direction}`).join(','))
+    const value = sortSpecToQueryParam(next)
+    if (value) updated.set('sort', value)
     else updated.delete('sort')
     setSearchParams(updated, { replace: true })
   }
@@ -76,7 +75,7 @@ export function AccountRecoveryPage() {
   const [notice, setNotice] = useState<string | null>(null)
 
   const searching = email.length > 0 || dealershipId.length > 0
-  const sortParam = sort.map((s) => `${s.field}:${s.direction}`).join(',')
+  const sortParam = sortSpecToQueryParam(sort) ?? ''
   const results = useInfiniteQuery({
     queryKey: [...RECOVERY_KEY, email, dealershipId, sortParam],
     queryFn: ({ pageParam }) => {
