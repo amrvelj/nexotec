@@ -72,6 +72,12 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   blocks only its own action (`platform.public.require_setup_item_for`) and the nightly job raises
   `administration.checklist_item_regressed` — never for a Betrieb the migration set active
   (`activated_at` null). Production never asks for or activates on a draft (< 1.0) ToS/DPA.
+- **Publishing profile (A-RULE-2, FR-A-04/05/27) — built (KAN-225):** `services/publishing_profile`
+  (one row per Betrieb, per-location overrides inheriting field by field; legal notices the
+  Betrieb's alone), photos as `branding_asset` kinds premises · team · hero, lead routing per
+  location; screen `/administration/publishing`. Stock lists a car on the website only when
+  `missing_items(…, "website")` is empty; the public stock projection is `reporting`'s, built from
+  `inventory.stock_item.website_listing_changed` (ADR-174, ADR-175). Credentials never live here.
 - **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
   422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
