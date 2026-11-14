@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
-import { TextInput } from "@mantine/core";
+import { Popover, TextInput } from "@mantine/core";
+import { useInsideGridCell } from "../datagrid/cellContainment";
 import { purple, radius, semantic, slate } from "../tokens";
 
 export interface EditorRenderProps {
@@ -83,6 +84,10 @@ export function InlineEditField({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ text: string; conflict: boolean } | null>(null);
   const committingRef = useRef(false);
+  // KAN-710 — inside a DataGrid cell the line below the editor is clipped.
+  const insideGridCell = useInsideGridCell();
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const reloadRef = useRef<HTMLButtonElement>(null);
 
   const startEdit = () => {
     if (disabled) return;
@@ -137,6 +142,47 @@ export function InlineEditField({
       },
       onCommit: (v) => void commit(v),
     };
+    const editor = renderEditor ? (
+      renderEditor(editorProps)
+    ) : (
+      <TextInput
+        size="xs"
+        value={editorProps.value}
+        onChange={(e) => editorProps.onChange(e.currentTarget.value)}
+        autoFocus
+        disabled={saving}
+      />
+    );
+    const refusal = error && (
+      <div
+        role="alert"
+        style={{
+          fontSize: 12,
+          color: semantic.destructive.text,
+          marginTop: insideGridCell ? 0 : 4,
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <span>{error.text}</span>
+        {error.conflict && onReload && (
+          <button
+            ref={reloadRef}
+            type="button"
+            // In the popover the button sits outside the editor's wrapper (a
+            // portal): pressing it must not blur the editor, whose blur
+            // would save the refused value again before the reload.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onReload}
+            style={{ border: "none", background: "none", color: purple[6], cursor: "pointer", fontWeight: 600, padding: 0, whiteSpace: "nowrap" }}
+          >
+            {reloadLabel}
+          </button>
+        )}
+      </div>
+    );
     return (
       <div
         style={{ textAlign: "left" }}
@@ -147,46 +193,61 @@ export function InlineEditField({
         // wrapper regardless, so commit/cancel always fires. contains()
         // guards against firing a spurious commit when focus just moves
         // between two inputs inside the same custom editor.
+        //
+        // KAN-710: React events bubble out of a portal to this wrapper, so
+        // the grid-cell popover counts as part of the editor: Enter on its
+        // «reload» is the button's own, focus moving into it is no blur,
+        // and Tab from the editor reaches it (the portal sits at the end of
+        // the page, outside the tab order beside the editor).
         onKeyDown={(e) => {
+          const inPopover = popoverRef.current?.contains(e.target as Node) ?? false;
           if (e.key === "Enter") {
+            if (inPopover) return;
             e.preventDefault();
             void commit();
           } else if (e.key === "Escape") {
             e.preventDefault();
             cancel();
+          } else if (e.key === "Tab" && !e.shiftKey && !inPopover && insideGridCell && reloadRef.current) {
+            e.preventDefault();
+            reloadRef.current.focus();
           }
         }}
         onBlur={(e) => {
           if (committingRef.current) return;
           const next = e.relatedTarget as Node | null;
-          if (next && e.currentTarget.contains(next)) return;
+          if (next && (e.currentTarget.contains(next) || popoverRef.current?.contains(next))) return;
           void commit();
         }}
       >
-        {renderEditor ? (
-          renderEditor(editorProps)
+        {insideGridCell ? (
+          // KAN-710 (ADR-162): a grid cell clips everything below its one
+          // line, so there the refusal and «reload» open in a popover
+          // anchored to the editor, in a portal above the grid. Opened only
+          // while there is a refusal; focus stays in the editor.
+          <Popover
+            opened={error != null}
+            position="bottom-start"
+            withinPortal
+            withArrow
+            shadow="md"
+            trapFocus={false}
+            returnFocus={false}
+            closeOnEscape={false}
+            closeOnClickOutside={false}
+          >
+            <Popover.Target>
+              <div>{editor}</div>
+            </Popover.Target>
+            <Popover.Dropdown ref={popoverRef} p={6} style={{ maxWidth: 360, whiteSpace: "normal" }}>
+              {error && refusal}
+            </Popover.Dropdown>
+          </Popover>
         ) : (
-          <TextInput
-            size="xs"
-            value={editorProps.value}
-            onChange={(e) => editorProps.onChange(e.currentTarget.value)}
-            autoFocus
-            disabled={saving}
-          />
-        )}
-        {error && (
-          <div style={{ fontSize: 12, color: semantic.destructive.text, marginTop: 4, display: "flex", gap: 6, alignItems: "center" }}>
-            <span>{error.text}</span>
-            {error.conflict && onReload && (
-              <button
-                type="button"
-                onClick={onReload}
-                style={{ border: "none", background: "none", color: purple[6], cursor: "pointer", fontWeight: 600, padding: 0, whiteSpace: "nowrap" }}
-              >
-                {reloadLabel}
-              </button>
-            )}
-          </div>
+          <>
+            {editor}
+            {error && refusal}
+          </>
         )}
       </div>
     );
