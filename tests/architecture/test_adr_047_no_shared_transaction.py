@@ -324,6 +324,16 @@ _READS = {
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
+    # KAN-123 step 3: what Sales', Customers' and Vehicle's nightly reconciliation
+    # checks against Stock's table, built by inventory so its mapped class never
+    # leaves it — builds a ReferenceCheck, a StateCheck or an EXISTS; reads nothing itself.
+    "app.inventory.public.held_stock_item_check",
+    "app.inventory.public.purchased_stock_item_check",
+    "app.inventory.public.stock_item_differs_from_holding",
+    "app.inventory.public.stock_item_exists",
+    "app.inventory.public.stock_item_prices_moved",
+    "app.inventory.public.stock_item_reference_check",
+    "app.inventory.public.stock_item_reservation_exists",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.

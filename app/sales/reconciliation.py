@@ -53,14 +53,20 @@ import datetime as dt
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy import ColumnElement, Numeric, cast, func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import Customer, customer_in_group, customer_is_merged
-from app.inventory.public import StockItem
+from app.inventory.public import (
+    purchased_stock_item_check,
+    stock_item_exists,
+    stock_item_prices_moved,
+    stock_item_reference_check,
+    stock_item_reservation_exists,
+)
 from app.platform.public import Dealership, User, actor_reference_checks
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
@@ -113,6 +119,24 @@ def _in_another_dealership(
         return condition if only_where is None else only_where() & condition
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _stock_item_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
+    """KAN-259 — `_in_another_dealership` for the stock car, built from Stock's
+    own EXISTS builders (KAN-123 step 3: `inventory.public` hands out no mapped
+    class). A stock item that does not exist at all is the id-only
+    ReferenceCheck's finding, not this one's."""
+
+    def where() -> ColumnElement[bool]:
+        column = deal.stock_item_id
+        return stock_item_exists(column) & ~stock_item_exists(column, tenant_id=deal.tenant_id)
+
+    return StateCheck(
+        label=f"{table}.stock_item_id names another dealership's stock item",
+        source_model=deal,
+        source_row_id_column=deal.id,
+        where=where,
+    )
 
 
 def _valuation_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
@@ -287,10 +311,7 @@ def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
     table = deal.__tablename__
     return [
         _customer_outside_the_group(f"{table}.customer_id names a customer outside its dealership's group", deal),
-        _in_another_dealership(
-            f"{table}.stock_item_id names another dealership's stock item",
-            deal, deal.stock_item_id, StockItem.id, StockItem.tenant_id,
-        ),
+        _stock_item_in_another_dealership(deal, table),
         _in_another_dealership(
             f"{table}.configuration_id names another dealership's configuration",
             deal, deal.configuration_id, VehicleConfiguration.id, VehicleConfiguration.tenant_id,
@@ -342,26 +363,16 @@ def _stock_price_moved_unflagged(deal: _Deal, is_open: Callable[[], ColumnElemen
     no finding. The car must have changed after the freeze and more than the
     outbox-lag grace ago. Read-only, like every check here."""
 
-    def _differs(prices: Any) -> ColumnElement[bool]:
-        return or_(
-            cast(prices["effectivePrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.effective_price),
-            cast(prices["listPrice"].as_string(), Numeric(12, 2)).is_distinct_from(StockItem.list_price),
-        )
-
     def where() -> ColumnElement[bool]:
-        moved = (
-            select(StockItem.id)
-            .where(
-                StockItem.id == deal.stock_item_id,
-                StockItem.tenant_id == deal.tenant_id,
-                StockItem.updated_at > deal.vehicle_snapshot_frozen_at,
-                StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
-                _differs(deal.vehicle_snapshot),
-                or_(deal.vehicle_change_dismissed_at.is_(None), _differs(deal.vehicle_change_dismissed_prices)),
-            )
-            .correlate(deal)
-            .exists()
-        )
+        moved = stock_item_prices_moved(
+            deal.stock_item_id,
+            tenant_id=deal.tenant_id,
+            changed_after=deal.vehicle_snapshot_frozen_at,
+            changed_before=utcnow() - _OUTBOX_LAG_GRACE,
+            frozen_prices=deal.vehicle_snapshot,
+            accepted_at=deal.vehicle_change_dismissed_at,
+            accepted_prices=deal.vehicle_change_dismissed_prices,
+        ).correlate(deal)
         return (
             is_open()
             & (deal.vehicle_source == "stock")
@@ -397,13 +408,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=Customer.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    stock_item_reference_check(
         label="sales_offer.stock_item_id -> stock_item.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.stock_item_id,
-        target_model=StockItem,
-        target_id_column=StockItem.id,
         nullable=True,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
@@ -460,13 +469,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=Customer.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    stock_item_reference_check(
         label="sales_contract.stock_item_id -> stock_item.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.stock_item_id,
-        target_model=StockItem,
-        target_id_column=StockItem.id,
         nullable=True,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
@@ -505,7 +512,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=SalesContract.trade_in_valuation_id,
         nullable=True,
     ),
-    ReferenceCheck(
+    stock_item_reference_check(
         # Released holds are cleared on the stock item, so only a confirmed
         # contract's hold must still be there (a cancelled contract keeps
         # the id of the hold it released). Null on a manual configuration,
@@ -514,18 +521,22 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.reservation_id,
-        target_model=StockItem,
-        target_id_column=StockItem.active_reservation_id,
+        by_reservation=True,
         nullable=True,
         source_where=lambda: SalesContract.status == ContractStatus.CONFIRMED,
     ),
     # KAN-259 — reserve_for_contract holds a car of the contract's own
     # dealership; a hold found only on another dealership's item is not
     # this contract's.
-    _in_another_dealership(
-        "sales_contract.reservation_id names a hold on another dealership's stock item",
-        SalesContract, SalesContract.reservation_id, StockItem.active_reservation_id, StockItem.tenant_id,
-        only_where=lambda: SalesContract.status == ContractStatus.CONFIRMED,
+    StateCheck(
+        label="sales_contract.reservation_id names a hold on another dealership's stock item",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        where=lambda: (SalesContract.status == ContractStatus.CONFIRMED)
+        & stock_item_reservation_exists(SalesContract.reservation_id).correlate(SalesContract)
+        & ~stock_item_reservation_exists(SalesContract.reservation_id, tenant_id=SalesContract.tenant_id).correlate(
+            SalesContract
+        ),
     ),
     StateCheck(
         # KAN-144 — Stock names the contract on inventory.stock_item.added
@@ -603,27 +614,19 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=Dealership.id,
     ),
     # --- the purchase replica against Stock's fact (KAN-100, KAN-145) ---
-    ReferenceCheck(
+    stock_item_reference_check(
         label="sales_stock_item_purchase.stock_item_id -> stock_item.id",
         source_model=SalesStockItemPurchase,
         source_row_id_column=SalesStockItemPurchase.id,
         source_fk_column=SalesStockItemPurchase.stock_item_id,
-        target_model=StockItem,
-        target_id_column=StockItem.id,
     ),
-    StateCheck(
+    purchased_stock_item_check(
         label="stock item purchased in Stock with no purchase replica in its dealership",
-        source_model=StockItem,
-        source_row_id_column=StockItem.id,
-        where=lambda: StockItem.is_invoiceable.is_(True)
-        & (StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE)
-        & ~select(SalesStockItemPurchase.id)
-        .where(
-            SalesStockItemPurchase.stock_item_id == StockItem.id,
-            SalesStockItemPurchase.tenant_id == StockItem.tenant_id,
-        )
-        .correlate(StockItem)
-        .exists(),
+        grace=_OUTBOX_LAG_GRACE,
+        replica=lambda stock_item_id, tenant_id: select(SalesStockItemPurchase.id).where(
+            SalesStockItemPurchase.stock_item_id == stock_item_id,
+            SalesStockItemPurchase.tenant_id == tenant_id,
+        ),
     ),
     StateCheck(
         # The item exists (a missing one is the reference check above) but is
@@ -636,18 +639,10 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         label="purchase replica whose stock item is not purchased in Stock for its dealership",
         source_model=SalesStockItemPurchase,
         source_row_id_column=SalesStockItemPurchase.id,
-        where=lambda: select(StockItem.id)
-        .where(StockItem.id == SalesStockItemPurchase.stock_item_id)
-        .correlate(SalesStockItemPurchase)
-        .exists()
-        & ~select(StockItem.id)
-        .where(
-            StockItem.id == SalesStockItemPurchase.stock_item_id,
-            StockItem.tenant_id == SalesStockItemPurchase.tenant_id,
-            StockItem.is_invoiceable.is_(True),
-        )
-        .correlate(SalesStockItemPurchase)
-        .exists()
+        where=lambda: stock_item_exists(SalesStockItemPurchase.stock_item_id).correlate(SalesStockItemPurchase)
+        & ~stock_item_exists(
+            SalesStockItemPurchase.stock_item_id, tenant_id=SalesStockItemPurchase.tenant_id, purchased=True
+        ).correlate(SalesStockItemPurchase)
         & ~select(OutboxMessage.id)
         .where(
             OutboxMessage.event_type == "inventory.stock_item.storno",
@@ -672,15 +667,10 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         & (SalesContract.status != ContractStatus.CANCELLED)
         & SalesContract.stock_item_id.is_not(None)
         # A stock item that does not exist is the reference check's finding.
-        & select(StockItem.id).where(StockItem.id == SalesContract.stock_item_id).correlate(SalesContract).exists()
-        & ~select(StockItem.id)
-        .where(
-            StockItem.id == SalesContract.stock_item_id,
-            StockItem.tenant_id == SalesContract.tenant_id,
-            StockItem.is_invoiceable.is_(True),
-        )
-        .correlate(SalesContract)
-        .exists(),
+        & stock_item_exists(SalesContract.stock_item_id).correlate(SalesContract)
+        & ~stock_item_exists(
+            SalesContract.stock_item_id, tenant_id=SalesContract.tenant_id, purchased=True
+        ).correlate(SalesContract),
     ),
     StateCheck(
         # KAN-115 — a confirmation stamps its trade-in valuation before the

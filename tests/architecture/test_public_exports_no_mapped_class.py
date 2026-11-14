@@ -48,12 +48,12 @@ _CONTEXTS = (
 
 # Shrink-only. Integration's two (IntegrationConnection, IntegrationEntitlement)
 # went first, in KAN-123's first PR: `ConnectionRef` and `EntitlementState` took
-# their place. Sales' `Transaction` went with its table (KAN-555).
+# their place. Sales' `Transaction` went with its table (KAN-555). Valuation's
+# `Valuation` went in the second (ADR-162), inventory's `StockItem` in the third.
 _DEBT = frozenset(
     {
         "app.customer.public.Customer",
         "app.customer.public.VehicleParty",
-        "app.inventory.public.StockItem",
         "app.platform.public.DealerGroup",
         "app.platform.public.Dealership",
         "app.platform.public.Location",
