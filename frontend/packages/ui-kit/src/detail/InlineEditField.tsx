@@ -299,5 +299,13 @@ function editorFields(box: HTMLElement | null): HTMLElement[] {
   if (!box) return [];
   return Array.from(
     box.querySelectorAll<HTMLElement>("input, textarea, select, button, [tabindex]"),
-  ).filter((el) => el.tabIndex >= 0 && !el.hasAttribute("disabled"));
+  ).filter(
+    (el) =>
+      el.tabIndex >= 0 &&
+      !el.hasAttribute("disabled") &&
+      // Mantine's Select, MultiSelect and TagsInput render a hidden input
+      // after the visible one (Combobox.HiddenInput): never a tab stop.
+      !(el instanceof HTMLInputElement && el.type === "hidden") &&
+      el.closest("[hidden]") === null,
+  );
 }

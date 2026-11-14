@@ -199,6 +199,8 @@ describe("InlineEditField inside a DataGrid cell (KAN-710)", () => {
               <span>
                 <input aria-label="premier" value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus />
                 <input aria-label="second" defaultValue="" />
+                {/* As Mantine's Select renders its value: never a tab stop. */}
+                <input type="hidden" name="valeur" value={value} readOnly />
               </span>
             )}
           />
