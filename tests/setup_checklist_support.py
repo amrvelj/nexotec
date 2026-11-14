@@ -30,7 +30,7 @@ IBAN = "CH9300762011623852957"
 def pending_dealership(client: TestClient, db: Session, *, modules: tuple[ModuleCode, ...] = (ModuleCode.SALES,)) -> uuid.UUID:
     """A Betrieb as onboarding leaves it: `pending_onboarding`, holding `modules`."""
 
-    dealership_id = uuid.UUID(create_dealership(client))
+    dealership_id = uuid.UUID(create_dealership(client, trading=False))
     for module in modules:
         db.add(ModuleEntitlement(dealership_id=dealership_id, module=module))
     db.commit()

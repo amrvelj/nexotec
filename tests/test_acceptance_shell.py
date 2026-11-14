@@ -69,6 +69,9 @@ def _create_dealer(client, **overrides) -> str:
     from tests.identity_support import set_mfa_enforced
 
     set_mfa_enforced(client, response.json()["id"], False)  # KAN-196: the walkthrough signs in with a password alone
+    from tests.token_support import mark_trading
+
+    mark_trading(response.json()["id"])  # KAN-214: the walkthrough is a trading Betrieb's
     return response.json()["id"]
 
 

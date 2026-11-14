@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError
 from app.core.permissions import ModuleCode
-from app.core.setup_checklist import checklist_contributions
+from app.core.setup_checklist import ChecklistContribution, checklist_contributions
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User, UserStatus
 from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
@@ -223,6 +223,13 @@ ITEMS: tuple[_ItemDefinition, ...] = (
 )
 
 
+def _contributed_rule(contribution: ChecklistContribution) -> Callable[[Session, Dealership], bool]:
+    def rule(db: Session, dealership: Dealership) -> bool:
+        return contribution.is_complete(db, dealership.id)
+
+    return rule
+
+
 def _definitions() -> tuple[_ItemDefinition, ...]:
     own = {item.code for item in ITEMS}
     contributed = tuple(
@@ -231,7 +238,7 @@ def _definitions() -> tuple[_ItemDefinition, ...]:
             applies_to_modules=contribution.applies_to_modules,
             blocks=contribution.blocks,
             link=contribution.link,
-            is_complete=lambda db, dealership, c=contribution: c.is_complete(db, dealership.id),
+            is_complete=_contributed_rule(contribution),
         )
         for contribution in checklist_contributions()
         if contribution.code not in own

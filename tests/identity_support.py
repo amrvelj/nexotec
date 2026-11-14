@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from app.core.auth import AccessRole, create_access_token
 from app.platform.reference.services.mailer import Mail
 from tests.dealership_support import valid_uid
-from tests.token_support import dealer_group_of
+from tests.token_support import dealer_group_of, mark_trading
 
 STRONG_PASSWORD = "correct-horse-battery-staple-2026"
 _LINK = re.compile(r"https?://\S+[?&]token=([A-Za-z0-9_\-]+)")
@@ -124,8 +124,10 @@ def set_mfa_enforced(client: TestClient, dealership_id: str, enforced: bool) -> 
     assert response.status_code == 200, response.text
 
 
-def create_dealership(client: TestClient, *, mfa_enforced: bool = False, **overrides) -> str:
-    """A Betrieb with MFA enforcement OFF unless asked — see set_mfa_enforced."""
+def create_dealership(client: TestClient, *, mfa_enforced: bool = False, trading: bool = True, **overrides) -> str:
+    """A Betrieb with MFA enforcement OFF unless asked — see set_mfa_enforced.
+    Trading (`active`) unless `trading=False` leaves it `pending_onboarding`,
+    behind the activation gate (KAN-214) — see token_support.mark_trading."""
 
     payload = {
         "legalName": "Garage Musterbetrieb AG",
@@ -145,6 +147,8 @@ def create_dealership(client: TestClient, *, mfa_enforced: bool = False, **overr
     assert response.status_code == 201, response.text
     if not mfa_enforced:
         set_mfa_enforced(client, response.json()["id"], False)
+    if trading:
+        mark_trading(response.json()["id"])
     return response.json()["id"]
 
 
