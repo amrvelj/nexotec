@@ -521,10 +521,13 @@ def update_customer(
     # merge into this customer (KAN-372 holds it FOR SHARE) can move a
     # duplicate's tag of the same name onto it while this PATCH waits; the
     # insert then hits uq_customer_tag_customer_id_tag, a conflict (409), not
-    # a 500. Tags are this function's only child rows. The PATCH waits before
-    # inserting any tag because the flush writes `customer` before
-    # `customer_tag` — SQLAlchemy orders the two unrelated mappers by name,
-    # not by a relationship — so it never holds a tag row the merge needs.
+    # a 500. Tags and contact groups (KAN-466: the same race on
+    # uq_customer_contact_group_customer_id_value_code, 409
+    # customer_contact_group_exists) are this function's only child rows. The
+    # PATCH waits before inserting any of them because the flush writes
+    # `customer` before `customer_contact_group` and `customer_tag` —
+    # SQLAlchemy orders these unrelated mappers by name, not by a
+    # relationship — so it never holds a child row the merge needs.
     try:
         db.flush()
     except IntegrityError as exc:
