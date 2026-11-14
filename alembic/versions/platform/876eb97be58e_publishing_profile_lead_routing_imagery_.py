@@ -8,7 +8,7 @@ location and kind, ordered, one primary. The two logo indexes keep one row
 per logo kind and now leave the imagery kinds out.
 
 Revision ID: 876eb97be58e
-Revises: f348a218c4a4
+Revises: 7d2e5b9c4a18
 Create Date: 2026-11-14 14:17:57.154871
 
 """
@@ -21,7 +21,7 @@ import app.core.types
 
 # revision identifiers, used by Alembic.
 revision: str = '876eb97be58e'
-down_revision: Union[str, Sequence[str], None] = 'f348a218c4a4'
+down_revision: Union[str, Sequence[str], None] = '7d2e5b9c4a18'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
