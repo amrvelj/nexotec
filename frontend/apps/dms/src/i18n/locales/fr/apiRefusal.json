@@ -159,6 +159,7 @@
     "secret_store_not_configured": "Aucun stockage sécurisé des identifiants n'est configuré pour cette installation — rien n'a été enregistré. Votre saisie n'est pas en cause : veuillez informer le support Nexotec.",
     "vehicle_not_changed": "Le véhicule en stock n'a pas été modifié depuis le calcul du prix.",
     "vin_belongs_to_other_vehicle": "Ce VIN est déjà celui du véhicule {{vehicleNumber}} dans la fiche véhicule. S'il s'agit du même véhicule, fusionnez les deux depuis la fiche avec «Fusionner avec…».",
+    "vin_names_merged_vehicle": "Ce VIN appartient à un véhicule fusionné avec {{vehicleNumber}} dans le fichier des véhicules. Le véhicule porte le VIN {{vin}}.",
     "vin_correction_left_stock": "Impossible : le véhicule a quitté le stock.",
     "vin_correction_needs_vehicle": "Ce véhicule n'est pas encore acheté — le VIN se corrige dans la configuration.",
     "vin_unchanged": "C'est déjà le VIN de ce véhicule.",

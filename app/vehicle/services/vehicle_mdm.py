@@ -80,6 +80,21 @@ def get_vehicle_mdm_by_vin(db: Session, vin: str) -> VehicleMdm | None:
     )
 
 
+def live_vehicle_mdm(db: Session, vehicle: VehicleMdm) -> VehicleMdm:
+    """KAN-723 (ADR-160, KAN-524 amendment): the record `vehicle` lives on —
+    itself, or, after an FR-V-12 merge, the survivor at the end of its merge
+    chain. The duplicate keeps its own (usually mistyped) VIN, so a lookup by
+    identifier still lands on it; a write that links a car by such a lookup
+    (a configuration's VIN, a trade-in or valuation match) links the live
+    record instead, as the merge's own consumers move what it held."""
+
+    if vehicle.merged_into_vehicle_id is None:
+        return vehicle
+    from app.vehicle.services.merge import resolve_merged_id  # merge imports this module
+
+    return get_vehicle_mdm_or_404(db, resolve_merged_id(db, vehicle.id))
+
+
 # KAN-535 (Anto, 2026-11-13, option A): a make compared tolerantly — case,
 # spaces, hyphens and accents ignored, nothing else — so «Mercedes-Benz» and
 # «mercedes benz» are one make and «Mercedes» another.

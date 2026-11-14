@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.vehicle.models.vehicle_mdm import VehicleIdentifierKind, VehicleMdm
 from app.vehicle.services.plate import resolve_plate
+from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,12 +55,17 @@ def match_vehicle(
             select(VehicleMdm).where(VehicleMdm.vin == vin, VehicleMdm.identifier_kind == VehicleIdentifierKind.VIN)
         )
         if vehicle is not None:
-            return MatchResult(rung="vin", vehicle=vehicle, decisive=True, requires_confirmation=False)
+            # KAN-723: a merged duplicate's VIN matches the car it lives on.
+            return MatchResult(
+                rung="vin", vehicle=live_vehicle_mdm(db, vehicle), decisive=True, requires_confirmation=False
+            )
 
     if stammnummer:
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.stammnummer == stammnummer))
         if vehicle is not None:
-            return MatchResult(rung="stammnummer", vehicle=vehicle, decisive=True, requires_confirmation=False)
+            return MatchResult(
+                rung="stammnummer", vehicle=live_vehicle_mdm(db, vehicle), decisive=True, requires_confirmation=False
+            )
 
     if plate and canton:
         # KAN-467: a plate is looked up in one group's register — the caller's.
