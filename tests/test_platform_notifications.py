@@ -264,7 +264,7 @@ def test_preferences_list_every_family_with_the_platform_default(client, login):
         "hasEvents": True,
         "version": 0,
     }
-    # KAN-214: the administration family's first event (a checklist item regressed).
+    # The administration family's events: KAN-222 (an integration nearing its expiry), KAN-214 (a checklist item).
     assert items["administration"]["switchable"] is True and items["administration"]["hasEvents"] is True
     assert items["assignment"]["hasEvents"] is False
 

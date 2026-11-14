@@ -318,6 +318,11 @@ _READS = {
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
+    # KAN-222: locations' names and Betriebe for integration's nightly location-label
+    # refresh; a SELECT only.
+    "app.platform.public.get_location_labels",
+    # KAN-222: the location a manager binds a connection to, read by (Betrieb, id); a SELECT only.
+    "app.platform.public.get_location_or_404",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.

@@ -15,11 +15,13 @@ word for word (`tests/test_notification_catalogue.py`), and every `notify`
 call site in `app/` names a code declared here
 (`tests/architecture/test_notify_call_sites_use_registered_codes.py`).
 
-Families: `security` shipped first (D-A-40). `administration` gets its first
-event with KAN-214 — a setup-checklist item that broke after activation
-(`administration.checklist_item_regressed`, raised by platform's daily job).
+Families: `security` ships in v1 (D-A-40). `administration`'s events: an
+integration connection nearing its expiry (KAN-222, FR-A-22), raised by
+platform's consumer of integration's `integration.connection.expiry_approaching`
+fact (ADR-047: integration never calls `notify`); a setup-checklist item that
+broke after activation (KAN-214, D-A-21), raised by platform's daily job.
 `assignment` is defined so its events register against the same catalogue
-when their sources ship; none exists yet.
+when their sources ship.
 """
 
 import dataclasses
@@ -48,7 +50,10 @@ class NotificationEventCode(str, enum.Enum):
     CONNECTED_ACCOUNT_LINKED = "security.connected_account_linked"
     CONNECTED_ACCOUNT_REVOKED = "security.connected_account_revoked"
     PLATFORM_RECOVERY_ACTION = "security.platform_recovery_action"
-    # KAN-214 (D-A-21, FR-A-26): the administration family's first event.
+    # KAN-222 (FR-A-22, D-A-40): T-30/14/7 before a connection expires, to the
+    # Betrieb's managers. Raised by `consumers.handle_connection_expiry_approaching_message`.
+    INTEGRATION_EXPIRING = "administration.integration_expiring"
+    # KAN-214 (D-A-21, FR-A-26): a setup-checklist item broken after activation.
     CHECKLIST_ITEM_REGRESSED = "administration.checklist_item_regressed"
 
 
@@ -78,8 +83,8 @@ def _security(code: NotificationEventCode, key: str, push_title: dict[str, str])
 
 
 def _administration(code: NotificationEventCode, key: str, push_title: dict[str, str]) -> NotificationEventSpec:
-    # The Betrieb's health for its managers: immediate by default, and the
-    # user may hold it for the digest or switch it off (FR-A-48).
+    # The Betrieb's health for its managers (FR-A-22): immediate by default,
+    # switchable — each manager may move it to the digest or switch it off.
     return NotificationEventSpec(
         code=code,
         family=NotificationFamily.ADMINISTRATION,
@@ -210,6 +215,16 @@ CATALOGUE: tuple[NotificationEventSpec, ...] = (
             "fr": "Récupération par le support Nexotec",
             "it": "Recupero da parte del supporto Nexotec",
             "en": "Recovery by Nexotec support",
+        },
+    ),
+    _administration(
+        NotificationEventCode.INTEGRATION_EXPIRING,
+        "integrationExpiring",
+        {
+            "de": "Eine Integration läuft bald ab",
+            "fr": "Une intégration arrive bientôt à échéance",
+            "it": "Un'integrazione scade a breve",
+            "en": "An integration expires soon",
         },
     ),
     _administration(

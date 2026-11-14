@@ -176,7 +176,12 @@
     "chassis_number_requires_make": "Un véhicule avec un numéro de châssis se distingue par sa marque : saisissez la marque dans sa configuration.",
     "vehicle_merge_same_record": "Une fiche ne peut pas être fusionnée avec elle-même.",
     "vehicle_merge_both_in_stock": "Votre entreprise a les deux fiches en stock ({{duplicate}} et {{survivor}}). Vendez ou annulez d'abord l'un des véhicules en stock.",
-    "vehicle_merge_vin_into_chassis_number": "Une fiche avec VIN ne peut pas être fusionnée dans une fiche avec numéro de châssis (avant 1981). Avec «Inverser le sens», la fiche avec VIN est conservée."
+    "vehicle_merge_vin_into_chassis_number": "Une fiche avec VIN ne peut pas être fusionnée dans une fiche avec numéro de châssis (avant 1981). Avec «Inverser le sens», la fiche avec VIN est conservée.",
+    "location_binding_needs_tenant": "Une connexion à l'échelle de la plateforme n'appartient à aucun site.",
+    "location_binding_not_supported": "Cette connexion vaut pour toute l'entreprise et n'est attribuée à aucun site.",
+    "unknown_location": "Ce site n'appartient pas à votre entreprise.",
+    "usage_period_reversed": "La fin de la période précède son début.",
+    "usage_period_too_long": "Une période couvre au plus une année."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

@@ -16,7 +16,8 @@
     "provider": "Provider",
     "environment": "Environment",
     "accountIdentifier": "Account",
-    "lastVerified": "Last verified"
+    "lastVerified": "Last verified",
+    "location": "Location"
   },
   "actions": {
     "test": "Test connection",
@@ -27,7 +28,8 @@
     "disable": "Disable",
     "connect": "Connect",
     "setSecret": "Set secret",
-    "delete": "Delete connection"
+    "delete": "Delete connection",
+    "bindLocation": "Assign location"
   },
   "connectModal": {
     "title": "Connect {{provider}}",
@@ -39,9 +41,15 @@
   },
   "usageModal": {
     "title": "Usage — {{name}}",
-    "calls": "Calls (last 30 days)",
-    "cost": "Cost units (last 30 days)",
-    "indicative": "Indicative only — Nexotec never bills on top of your own provider contract."
+    "indicative": "Indicative only — counted by Nexotec, under the provider's counter names. Billing follows the provider's own count under your own contract.",
+    "from": "From",
+    "to": "To",
+    "counter": "Counter",
+    "count": "Requests",
+    "total": "Total",
+    "empty": "No requests in this period.",
+    "invalidPeriod": "The period ends before it starts.",
+    "loadError": "The usage could not be loaded."
   },
   "rotateModal": {
     "title": "Rotate secrets — {{name}}",
@@ -72,5 +80,13 @@
     "warning": "The stored secrets are deleted too. This cannot be undone.",
     "confirm": "Delete permanently",
     "error": "The connection could not be deleted."
+  },
+  "accountIdentifierMissing": "Identifier missing",
+  "locationWholeBusiness": "Whole business",
+  "locationModal": {
+    "title": "Assign location — {{name}}",
+    "field": "Location",
+    "fieldHint": "The location this account serves — for example a site's branch number at AutoScout24. «Whole business» when it serves every location.",
+    "error": "The location could not be assigned."
   }
 }

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Archive,
   Building2,
+  Cable,
   Car,
   CarFront,
   ChartColumn,
@@ -65,10 +66,6 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // matching the prototype's own `#/catalogue` Master-data entry.
         { label: t('shell.nav.catalogue'), href: '/catalogue', icon: Database, status: 'active' },
         { label: t('shell.nav.partners'), href: '/partners', icon: Store, status: 'soon' },
-        // WP-6 PR-7 — server-side enforcement (require_read /
-        // require_access_role) is the actual control; the nav item is
-        // never role-hidden (Risk R-4's own posture).
-        { label: t('shell.nav.integrations'), href: '/integrations', icon: Plug, status: 'active' },
       ],
     },
     {
@@ -137,6 +134,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-218 — Dealer Administration › Data export (D-A-31, FR-A-44). The
         // manager's at the API (`data_export`); never role-hidden (A-RULE-7).
         { label: t('shell.nav.dataExport'), href: '/administration/export', icon: FileArchive, status: 'active' },
+        // KAN-222 — Dealer Administration › Integrations (FR-A-19…23, A-RULE-0): moved here
+        // from Master Data. Manager-only at the API (`integration_connections`); server-side
+        // enforcement is the control, the entry is never role-hidden (A-RULE-7, Risk R-4).
+        { label: t('shell.nav.integrations'), href: '/administration/integrations', icon: Plug, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
         // Administration, like every other admin entry — A-RULE-7).
@@ -151,6 +152,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-218 — Platform Administration › Offboarding (FR-A-45). Staff-only
         // at the API; never role-hidden (A-RULE-7).
         { label: t('shell.nav.offboarding'), href: '/platform/offboarding', icon: Archive, status: 'active' },
+        // KAN-222 — Platform Administration › Providers: every Betrieb's connections, the
+        // platform view the old /integrations showed staff. Staff-only at the API; never
+        // role-hidden (A-RULE-7).
+        { label: t('shell.nav.providers'), href: '/platform/providers', icon: Cable, status: 'active' },
         // KAN-214 — Platform Administration › Legal documents (FR-A-39): the ToS
         // and DPA versions. Staff-only at the API; never role-hidden (A-RULE-7).
         { label: t('shell.nav.legalDocuments'), href: '/platform/legal-documents', icon: Scale, status: 'active' },

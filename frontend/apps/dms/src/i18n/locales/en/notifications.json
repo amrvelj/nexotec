@@ -107,6 +107,10 @@
       "title": "Recovery by Nexotec support",
       "body": "Nexotec support carried out a recovery on your account: {{action}}."
     },
+    "integrationExpiring": {
+      "title": "An integration expires soon",
+      "body": "An integration's access expires in {{days, number}} days. Renew it under Administration › Integrations so the connection is not interrupted."
+    },
     "checklistItemRegressed": {
       "title": "A setup item is missing again",
       "body": "A setup checklist item is no longer met. Until it is, the action that needs it is blocked."

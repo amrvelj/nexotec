@@ -32,11 +32,11 @@ Data (rows written out literally, ADR-133):
   section is a marked draft for counsel (A-5); production refuses activation
   below 1.0, so these texts can activate a Betrieb on staging only.
 - The catalogue row `administration.checklist_item_regressed`, the
-  administration family's first event (`notification_catalogue.py`; kept
+  administration family's second event (`notification_catalogue.py`; kept
   equal by `tests/test_migrated_notification_catalogue.py`).
 
 Revision ID: 7fc41a67e7ed
-Revises: f348a218c4a4
+Revises: 7d2e5b9c4a18
 Create Date: 2026-11-14 14:14:37.399628
 
 """
@@ -51,7 +51,7 @@ from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "7fc41a67e7ed"
-down_revision: str | Sequence[str] | None = "f348a218c4a4"
+down_revision: str | Sequence[str] | None = "7d2e5b9c4a18"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

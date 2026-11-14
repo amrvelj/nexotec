@@ -17,7 +17,7 @@ from app.platform.organisation.services.dealership import (
     get_dealership_or_404,
 )
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
-from app.platform.organisation.services.location import get_location_or_404
+from app.platform.organisation.services.location import LocationLabel, get_location_labels, get_location_or_404
 from app.platform.organisation.services.number_range import allocate_number
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 from app.platform.schemas.document_content import (
@@ -121,6 +121,7 @@ __all__ = [
     "LineItemsBlock",
     "LineStyle",
     "Location",
+    "LocationLabel",
     "NotificationEventCode",
     "NotificationSubject",
     "NumberRangeDocumentType",
@@ -147,6 +148,7 @@ __all__ = [
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
     "get_group_display_labels",
+    "get_location_labels",
     "get_location_or_404",
     "get_user_display_labels",
     "list_active_users_acting_in",
