@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
+  Archive,
   Building2,
   Car,
   CarFront,
@@ -11,6 +12,7 @@ import {
   Cog,
   Database,
   Globe,
+  FileArchive,
   FileText,
   Handshake,
   Hash,
@@ -122,6 +124,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-466 — Dealer Administration › Contact groups. Any role reads; the
         // manager switches a group on or off (A-RULE-0). Never role-hidden (A-RULE-7).
         { label: t('shell.nav.contactGroups'), href: '/administration/contact-groups', icon: Tags, status: 'active' },
+        // KAN-218 — Dealer Administration › Data export (D-A-31, FR-A-44). The
+        // manager's at the API (`data_export`); never role-hidden (A-RULE-7).
+        { label: t('shell.nav.dataExport'), href: '/administration/export', icon: FileArchive, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
         // Administration, like every other admin entry — A-RULE-7).
@@ -133,6 +138,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-210 — Platform Administration › Onboarding. Staff-only at the API;
         // never role-hidden (A-RULE-7).
         { label: t('shell.nav.onboarding'), href: '/platform/onboarding', icon: Building2, status: 'active' },
+        // KAN-218 — Platform Administration › Offboarding (FR-A-45). Staff-only
+        // at the API; never role-hidden (A-RULE-7).
+        { label: t('shell.nav.offboarding'), href: '/platform/offboarding', icon: Archive, status: 'active' },
       ],
     },
   ]

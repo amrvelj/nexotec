@@ -22,6 +22,7 @@ import datetime as dt
 import enum
 import uuid
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     DECIMAL,
@@ -42,7 +43,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
-from app.core.types import GUID
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -233,6 +234,20 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # differs is out of date and is refused by require_entitlement (401), so
     # a changed entitlement set forces a fresh sign-in (Anto, 2026-10-17).
     entitlements_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # KAN-218 (FR-A-45; Anto, 2026-11-13, Q3 A): offboarding sets `offboarded`
+    # and starts the ten-year read-only archive — ten full years from the
+    # offboarding date, for everything. The read-only flag IS the status: the
+    # gate (app/platform/session_guard.py) answers 404 to the Betrieb's
+    # principals everywhere. The daily deletion job erases the data once
+    # `retention_until` has come, context by context (`erasure_progress`
+    # names the ones done, so a stopped run resumes), and stamps `erased_at`;
+    # this row stays as the tombstone the users (A-RULE-5) and the platform
+    # audit row name.
+    offboarded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    retention_until: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    erasure_progress: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    erased_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     @property
     def address(self) -> dict[str, str]:

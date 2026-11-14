@@ -28,7 +28,9 @@
     "standardTexts": "Standardtexte",
     "numberRanges": "Nummernkreise",
     "onboarding": "Betrieb aufnehmen",
-    "contactGroups": "Kontaktgruppen"
+    "contactGroups": "Kontaktgruppen",
+    "dataExport": "Datenexport",
+    "offboarding": "Betrieb beenden"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

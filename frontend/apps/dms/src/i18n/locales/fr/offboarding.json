@@ -1,0 +1,59 @@
+{
+  "title": "Clôturer l'entreprise",
+  "intro": "Une entreprise n'est clôturée que lorsque sa direction a confirmé un export créé après la dernière modification. Ensuite, tous les utilisateurs sont désactivés, les données restent dix ans dans l'archive, puis sont supprimées.",
+  "forbidden": {
+    "title": "Réservé au personnel Nexotec",
+    "body": "Cette page est réservée à l'équipe Nexotec, connectée avec un second facteur."
+  },
+  "done": "L'entreprise est clôturée. Tous les utilisateurs sont désactivés.",
+  "offboardError": "L'entreprise n'a pas pu être clôturée.",
+  "betrieb": "Entreprise",
+  "betriebPlaceholder": "Choisir l'entreprise",
+  "noBetrieb": "Aucune entreprise trouvée",
+  "status": {
+    "pending_onboarding": "En cours de mise en place",
+    "active": "Active",
+    "suspended": "Suspendue",
+    "offboarded": "Clôturée"
+  },
+  "offboard": "Clôturer l'entreprise",
+  "fields": {
+    "lastWriteAt": "Dernière modification : {{when}}",
+    "acknowledgedExport": "Export confirmé créé : {{when}}",
+    "offboardedAt": "Clôturée le : {{when}}",
+    "retentionUntil": "Dans l'archive jusqu'au : {{day}} inclus",
+    "erasedAt": "Supprimée le : {{when}}"
+  },
+  "notYet": "Pas encore possible",
+  "refusal": {
+    "export_not_acknowledged": "La direction n'a encore confirmé aucun export. Elle le demande sous Administration › Export des données et en confirme la réception.",
+    "export_out_of_date": "Des données ont été modifiées depuis l'export confirmé. La direction établit un nouvel export et le confirme.",
+    "already_offboarded": "Cette entreprise est déjà clôturée."
+  },
+  "archive": {
+    "title": "Export de l'archive",
+    "intro": "Après la clôture, il n'y a plus de connexion. Si l'ancienne direction demande une copie, créez ici un export de l'archive – avec un motif, journalisé.",
+    "reason": "Motif",
+    "reasonPlaceholder": "Qui a demandé la copie, et quand ?",
+    "request": "Créer l'export de l'archive",
+    "requested": "L'export de l'archive est en cours de création.",
+    "error": "L'export de l'archive n'a pas pu être demandé."
+  },
+  "exportsLabel": "Exports de l'entreprise",
+  "confirm": {
+    "title": "Clôturer l'entreprise ?",
+    "body": "{{name}} sera clôturée : tous les utilisateurs sont désactivés, plus personne ne peut se connecter et les données passent dix ans dans l'archive. Cette action est irréversible.",
+    "reason": "Motif (facultatif)",
+    "check": "J'ai compris que c'est définitif.",
+    "submit": "Clôturer définitivement"
+  },
+  "refusals": {
+    "dealership_not_offboarded": "Un export de l'archive n'est possible que pour une entreprise clôturée ; une entreprise active exporte elle-même.",
+    "archive_erased": "L'archive de cette entreprise a été supprimée à l'échéance du délai de conservation.",
+    "already_offboarded": "Cette entreprise est déjà clôturée.",
+    "export_not_acknowledged": "La direction n'a encore confirmé aucun export.",
+    "export_out_of_date": "Des données ont été modifiées depuis l'export confirmé – la direction exporte et confirme à nouveau.",
+    "offboarding_confirmation_required": "Confirmez que la clôture est définitive.",
+    "user_last_manager_of_sister": "Un utilisateur de cette entreprise est le dernier gérant d'une autre entreprise. Donnez d'abord une autre direction à celle-ci."
+  }
+}

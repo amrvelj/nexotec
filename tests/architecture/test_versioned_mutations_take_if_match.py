@@ -55,6 +55,9 @@ POST_WITHOUT_IF_MATCH = {
     "only ever filled where it is NULL (KAN-83, a bump no client holds a version for) — one fresh request per "
     "detail, audited",
     "/v1/dealerships/{dealership_id}/users": _NEW_ROW,
+    # KAN-218: a requested export is a new export_job row (and its outbox fact).
+    "/v1/dealerships/{dealership_id}/exports": _NEW_ROW,
+    "/v1/platform/dealerships/{dealership_id}/exports": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35) bumps every "
     "moved offer's, contract's and customer's version, judged again under each row's lock — no single version "
     "to match",
@@ -124,8 +127,10 @@ POST_WITHOUT_IF_MATCH = {
 UNVERSIONED = {
     ("PUT", "/v1/dealerships/{dealership_id}/contact-groups/{value_code}"): (
         DealershipContactGroup,
-        "a Betrieb's contact-group switch (KAN-466): the row exists or it does not, and the same state twice "
-        "changes nothing",
+        (
+            "a Betrieb's contact-group switch (KAN-466): the row exists or it does not, and the same state twice "
+            "changes nothing"
+        ),
     ),
     ("DELETE", "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}"): (VehicleAccessory, "an accessory row"),
     ("PATCH", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),

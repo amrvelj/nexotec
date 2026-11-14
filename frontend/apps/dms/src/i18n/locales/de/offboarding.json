@@ -1,0 +1,59 @@
+{
+  "title": "Betrieb beenden",
+  "intro": "Ein Betrieb wird erst beendet, wenn seine Geschäftsführung einen Export bestätigt hat, der nach der letzten Änderung erstellt wurde. Danach sind alle Benutzer deaktiviert, die Daten bleiben zehn Jahre im Archiv und werden dann gelöscht.",
+  "forbidden": {
+    "title": "Nur für Nexotec-Mitarbeitende",
+    "body": "Diese Seite ist dem Nexotec-Team vorbehalten, angemeldet mit zweitem Faktor."
+  },
+  "done": "Der Betrieb ist beendet. Alle Benutzer sind deaktiviert.",
+  "offboardError": "Der Betrieb konnte nicht beendet werden.",
+  "betrieb": "Betrieb",
+  "betriebPlaceholder": "Betrieb wählen",
+  "noBetrieb": "Kein Betrieb gefunden",
+  "status": {
+    "pending_onboarding": "Im Aufbau",
+    "active": "Aktiv",
+    "suspended": "Gesperrt",
+    "offboarded": "Beendet"
+  },
+  "offboard": "Betrieb beenden",
+  "fields": {
+    "lastWriteAt": "Letzte Änderung: {{when}}",
+    "acknowledgedExport": "Bestätigter Export erstellt: {{when}}",
+    "offboardedAt": "Beendet am: {{when}}",
+    "retentionUntil": "Im Archiv bis und mit: {{day}}",
+    "erasedAt": "Gelöscht am: {{when}}"
+  },
+  "notYet": "Noch nicht möglich",
+  "refusal": {
+    "export_not_acknowledged": "Die Geschäftsführung hat noch keinen Export bestätigt. Sie fordert ihn unter Verwaltung › Datenexport an und bestätigt den Erhalt.",
+    "export_out_of_date": "Seit dem bestätigten Export wurden Daten geändert. Die Geschäftsführung erstellt einen neuen Export und bestätigt ihn.",
+    "already_offboarded": "Dieser Betrieb ist bereits beendet."
+  },
+  "archive": {
+    "title": "Archivexport",
+    "intro": "Nach dem Ende gibt es keine Anmeldung mehr. Bittet die frühere Geschäftsführung um eine Kopie, erstellen Sie hier einen Export aus dem Archiv – mit Begründung, protokolliert.",
+    "reason": "Begründung",
+    "reasonPlaceholder": "Wer hat die Kopie verlangt, und wann?",
+    "request": "Archivexport erstellen",
+    "requested": "Der Archivexport wird erstellt.",
+    "error": "Der Archivexport konnte nicht angefordert werden."
+  },
+  "exportsLabel": "Exporte des Betriebs",
+  "confirm": {
+    "title": "Betrieb beenden?",
+    "body": "{{name}} wird beendet: Alle Benutzer werden deaktiviert, niemand kann sich mehr anmelden, und die Daten gehen für zehn Jahre ins Archiv. Das lässt sich nicht rückgängig machen.",
+    "reason": "Begründung (optional)",
+    "check": "Ich habe verstanden, dass dies endgültig ist.",
+    "submit": "Endgültig beenden"
+  },
+  "refusals": {
+    "dealership_not_offboarded": "Ein Archivexport ist nur für einen beendeten Betrieb möglich; ein aktiver Betrieb exportiert selbst.",
+    "archive_erased": "Das Archiv dieses Betriebs wurde nach Ablauf der Aufbewahrungsfrist gelöscht.",
+    "already_offboarded": "Dieser Betrieb ist bereits beendet.",
+    "export_not_acknowledged": "Die Geschäftsführung hat noch keinen Export bestätigt.",
+    "export_out_of_date": "Seit dem bestätigten Export wurden Daten geändert – die Geschäftsführung exportiert und bestätigt erneut.",
+    "offboarding_confirmation_required": "Bestätigen Sie, dass das Beenden endgültig ist.",
+    "user_last_manager_of_sister": "Ein Benutzer dieses Betriebs ist der letzte Geschäftsführer eines anderen Betriebs. Geben Sie jenem Betrieb zuerst eine weitere Geschäftsführung."
+  }
+}

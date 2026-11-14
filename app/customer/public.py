@@ -11,6 +11,7 @@ from app.customer.services.advisor_label import oldest_advisor_label_age_seconds
 from app.customer.services.contact_channels import channel_authorises_marketing
 from app.customer.services.customer import has_usable_domicile_address, set_credit_block
 from app.customer.services.customer_common import customer_display_name, get_customer_or_404
+from app.customer.services.data_export import CustomerExporter
 from app.customer.services.legal_basis import has_any_basis_for_group
 from app.customer.services.vehicle_page import StockItemsFor, customer_vehicle_page
 from app.customer.services.vehicle_party import allocate_vehicle_party, resolve_live_customer_id
@@ -30,6 +31,7 @@ from app.customer.services.vehicle_party_reads import (
 
 __all__ = [
     "Customer",
+    "CustomerExporter",
     "CustomerLifecycleStatus",
     "CustomerOwnershipProvider",
     "CustomerSalesLabel",

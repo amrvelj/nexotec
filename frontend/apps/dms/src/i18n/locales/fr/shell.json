@@ -28,7 +28,9 @@
     "standardTexts": "Textes standard",
     "numberRanges": "Plages de numéros",
     "onboarding": "Intégrer une entreprise",
-    "contactGroups": "Groupes de contacts"
+    "contactGroups": "Groupes de contacts",
+    "dataExport": "Export des données",
+    "offboarding": "Clôturer l'entreprise"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

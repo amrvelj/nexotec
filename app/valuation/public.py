@@ -40,6 +40,7 @@ from app.valuation.services.configuration_reference import referenced_configurat
 from app.valuation.services.contract_carry import record_pending as _record_pending
 from app.valuation.services.contract_carry import record_released as _record_released
 from app.valuation.services.contract_carry import record_signed as _record_signed
+from app.valuation.services.data_export import ValuationExporter
 from app.valuation.services.valuation import consume_for_contract as _consume_for_contract
 from app.valuation.services.valuation import (
     derive_status,
@@ -129,6 +130,7 @@ def revert_valuation_use(
 
 __all__ = [
     "Valuation",
+    "ValuationExporter",
     "ValuationSource",
     "consume_valuation_for_contract",
     "derive_status",

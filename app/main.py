@@ -18,22 +18,32 @@ from app.core.observability import (
     configure_sentry,
     configure_tracing,
 )
+from app.export_registry import register_exporters
 from app.ownership_registry import register_ownership_providers
 from app.platform.services.mailer import get_mailer
-from app.platform.session_guard import enforce_live_session
+from app.platform.session_guard import enforce_live_session, enforce_open_dealership
 
 configure_logging()
 configure_sentry()
 # KAN-200: every context's ownership provider, so the deactivation step can
 # ask the registry (app.core.ownership) and import no context itself.
 register_ownership_providers()
+# KAN-218: every context's exporter, so the export and offboarding ask the
+# registry (app.core.export) and import no context themselves.
+register_exporters()
 
 # KAN-196 (FR-AU-17/18): every request carrying a session token is checked
 # against its `session` row — revoked, idle or past its absolute end is 401
 # before any route runs. An app-level dependency, not middleware: it resolves
 # the database through get_db like every route, so the tests' override
 # reaches it, and it runs before the route's own dependencies.
-app = FastAPI(title="DMS Platform", version="0.1.0", dependencies=[Depends(enforce_live_session)])
+# KAN-218 (FR-A-45): after it, the archive gate — an offboarded Betrieb's
+# principals get 404 everywhere.
+app = FastAPI(
+    title="DMS Platform",
+    version="0.1.0",
+    dependencies=[Depends(enforce_live_session), Depends(enforce_open_dealership)],
+)
 
 configure_tracing(app)
 register_error_handlers(app)

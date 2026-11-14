@@ -29,6 +29,7 @@ from app.platform.services.connected_account import (
     unregister_grant_revoker,
 )
 from app.platform.services.contact_group import ContactGroupCodes, contact_group_codes
+from app.platform.services.data_export_tables import PlatformExporter
 from app.platform.services.dealership import (
     enable_group_read,
     get_dealer_group_or_404,
@@ -118,6 +119,7 @@ __all__ = [
     "NumberRangeDocumentType",
     "ParagraphBlock",
     "Placeholder",
+    "PlatformExporter",
     "RenderedStandardText",
     "RevokedGrant",
     "SignatureBlock",

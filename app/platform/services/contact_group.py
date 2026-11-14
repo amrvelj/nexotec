@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.errors import NotFoundError, UnprocessableEntityError
+from app.core.export import ExportedTable, ExportScope, table_of
 from app.platform.models.contact_group import CONTACT_GROUP_LIST_CODE, DealershipContactGroup
 from app.platform.models.dealership import Dealership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
@@ -162,3 +163,15 @@ def set_contact_group_enabled(
     if commit:
         db.commit()
     return ContactGroupOption(value=value, enabled=enabled and value.active), changed
+
+
+def export_table() -> ExportedTable:
+    """KAN-218: the Betrieb's switched-on groups in its export, deleted with
+    it after the retention period. Declared here, the switch's one module."""
+
+    table = table_of(DealershipContactGroup)
+
+    def scope(export_scope: ExportScope):
+        return table.c.dealership_id == export_scope.dealership_id
+
+    return ExportedTable(table=table, scope=scope)

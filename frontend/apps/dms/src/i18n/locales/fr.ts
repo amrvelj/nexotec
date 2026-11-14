@@ -20,6 +20,7 @@ import ns_customerEnums from './fr/customerEnums.json'
 import ns_customerRowMenu from './fr/customerRowMenu.json'
 import ns_customersList from './fr/customersList.json'
 import ns_dashboard from './fr/dashboard.json'
+import ns_dataExport from './fr/dataExport.json'
 import ns_dealOwner from './fr/dealOwner.json'
 import ns_integrationEnums from './fr/integrationEnums.json'
 import ns_integrationsList from './fr/integrationsList.json'
@@ -28,6 +29,7 @@ import ns_locations from './fr/locations.json'
 import ns_mappingGaps from './fr/mappingGaps.json'
 import ns_notifications from './fr/notifications.json'
 import ns_numberRanges from './fr/numberRanges.json'
+import ns_offboarding from './fr/offboarding.json'
 import ns_offerDetail from './fr/offerDetail.json'
 import ns_offerWorkspace from './fr/offerWorkspace.json'
 import ns_onboarding from './fr/onboarding.json'
@@ -75,6 +77,7 @@ const bundle = {
   customerRowMenu: ns_customerRowMenu,
   customersList: ns_customersList,
   dashboard: ns_dashboard,
+  dataExport: ns_dataExport,
   dealOwner: ns_dealOwner,
   integrationEnums: ns_integrationEnums,
   integrationsList: ns_integrationsList,
@@ -83,6 +86,7 @@ const bundle = {
   mappingGaps: ns_mappingGaps,
   notifications: ns_notifications,
   numberRanges: ns_numberRanges,
+  offboarding: ns_offboarding,
   offerDetail: ns_offerDetail,
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
