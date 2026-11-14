@@ -23,6 +23,7 @@
     "firstRegistrationDate": "Erstzulassung",
     "odometerKm": "Kilometerstand",
     "stockNumber": "Lagernummer",
+    "chassisNumber": "Chassisnummer",
     "vin": "VIN"
   },
   "commercial": {

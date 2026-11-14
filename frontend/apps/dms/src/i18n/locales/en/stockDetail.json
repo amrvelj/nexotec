@@ -23,6 +23,7 @@
     "firstRegistrationDate": "First registration",
     "odometerKm": "Odometer",
     "stockNumber": "Stock number",
+    "chassisNumber": "Chassis number",
     "vin": "VIN"
   },
   "commercial": {

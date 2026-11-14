@@ -156,7 +156,8 @@ export function VinCorrectionDialog({ opened, onClose, item, initialVin = '', on
           }}
           error={vinError}
           withAsterisk
-          ff="monospace"
+          // Mono for the identifier only, never its label (UI/UX Specification, Typography).
+          styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
           data-autofocus
         />
         <Textarea

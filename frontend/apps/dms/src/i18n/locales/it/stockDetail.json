@@ -23,6 +23,7 @@
     "firstRegistrationDate": "Prima immatricolazione",
     "odometerKm": "Chilometraggio",
     "stockNumber": "Numero di magazzino",
+    "chassisNumber": "Numero di telaio",
     "vin": "VIN"
   },
   "commercial": {
