@@ -177,7 +177,12 @@
     "chassis_number_requires_make": "A vehicle with a chassis number is told apart by its make: enter the make in its configuration.",
     "vehicle_merge_same_record": "A record cannot be merged with itself.",
     "vehicle_merge_both_in_stock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first.",
-    "vehicle_merge_vin_into_chassis_number": "A record with a VIN cannot be merged into one with a pre-1981 chassis number. «Swap direction» keeps the VIN record."
+    "vehicle_merge_vin_into_chassis_number": "A record with a VIN cannot be merged into one with a pre-1981 chassis number. «Swap direction» keeps the VIN record.",
+    "location_binding_needs_tenant": "A platform-wide connection belongs to no location.",
+    "location_binding_not_supported": "This connection serves the whole business and is not assigned to a location.",
+    "unknown_location": "This location does not belong to your business.",
+    "usage_period_reversed": "The period ends before it starts.",
+    "usage_period_too_long": "A period covers one year at most."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

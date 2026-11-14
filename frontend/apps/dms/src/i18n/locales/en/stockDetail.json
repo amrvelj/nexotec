@@ -159,7 +159,17 @@
       "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
     },
     "publishError": "The listing could not be published. Please try again.",
-    "unpublishError": "The listing could not be withdrawn. Please try again."
+    "unpublishError": "The listing could not be withdrawn. Please try again.",
+    "website": {
+      "title": "Own website",
+      "listed": "On the website",
+      "notListed": "Not on the website",
+      "publish": "Put on the website",
+      "unpublish": "Take off the website",
+      "openProfile": "Complete the details under Publishing",
+      "hint": "Your business's website, run by Nexotec. Nothing is sent to a marketplace.",
+      "failed": "The website could not be changed."
+    }
   },
   "evaluation": {
     "title": "Evaluation",

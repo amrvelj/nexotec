@@ -94,6 +94,7 @@ def test_every_context_is_in_the_registry():
         "valuation",
         "inventory",
         "sales",
+        "reporting",
         *STUB_CONTEXTS,
     }
 

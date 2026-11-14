@@ -16,7 +16,8 @@
     "provider": "Fornitore",
     "environment": "Ambiente",
     "accountIdentifier": "Account",
-    "lastVerified": "Ultima verifica"
+    "lastVerified": "Ultima verifica",
+    "location": "Sede"
   },
   "actions": {
     "test": "Verifica connessione",
@@ -27,7 +28,8 @@
     "disable": "Disattiva",
     "connect": "Connetti",
     "setSecret": "Imposta secret",
-    "delete": "Elimina connessione"
+    "delete": "Elimina connessione",
+    "bindLocation": "Assegnare una sede"
   },
   "connectModal": {
     "title": "Connetti {{provider}}",
@@ -39,9 +41,15 @@
   },
   "usageModal": {
     "title": "Utilizzo — {{name}}",
-    "calls": "Chiamate (ultimi 30 giorni)",
-    "cost": "Unità di costo (ultimi 30 giorni)",
-    "indicative": "Solo indicativo — Nexotec non addebita mai nulla oltre al proprio contratto con il fornitore."
+    "indicative": "Solo indicativo — contato da Nexotec, con i nomi dei contatori del fornitore. Si fattura secondo il conteggio del fornitore e il suo contratto.",
+    "from": "Dal",
+    "to": "Al",
+    "counter": "Contatore",
+    "count": "Richieste",
+    "total": "Totale",
+    "empty": "Nessuna richiesta in questo periodo.",
+    "invalidPeriod": "La fine del periodo precede il suo inizio.",
+    "loadError": "Non è stato possibile caricare l'utilizzo."
   },
   "rotateModal": {
     "title": "Rinnova secret — {{name}}",
@@ -72,5 +80,13 @@
     "warning": "Anche i secret salvati verranno eliminati. L'azione non può essere annullata.",
     "confirm": "Elimina definitivamente",
     "error": "Non è stato possibile eliminare la connessione."
+  },
+  "accountIdentifierMissing": "Identificativo mancante",
+  "locationWholeBusiness": "Tutta l'azienda",
+  "locationModal": {
+    "title": "Assegnare una sede — {{name}}",
+    "field": "Sede",
+    "fieldHint": "La sede a cui vale questo conto — per esempio il numero di filiale di una sede presso AutoScout24. «Tutta l'azienda» se vale per tutte le sedi.",
+    "error": "Non è stato possibile assegnare la sede."
   }
 }

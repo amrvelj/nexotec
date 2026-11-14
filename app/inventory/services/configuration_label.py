@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.inventory.models.stock_item import StockItem
-from app.inventory.services import commercial_change
+from app.inventory.services import commercial_change, website_listing
 from app.vehicle.public import get_configuration_labels
 
 _BATCH = 500
@@ -83,6 +83,7 @@ def refresh_configuration_labels(db: Session) -> int:
             item.configuration_label = current.label
             item.vehicle_label = current.label
             commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=None)
+            website_listing.restate_if_listed(db, item)  # KAN-225: the website shows the name
             item.configuration_label_refreshed_at = now
             changed += 1
         db.flush()

@@ -1,0 +1,8 @@
+{
+  "website_domain_missing": "The website's domain",
+  "short_description_missing": "A short description in the business's correspondence language",
+  "impressum_missing": "The imprint in the business's correspondence language",
+  "privacy_notice_missing": "The privacy notice in the business's correspondence language",
+  "lead_email_missing": "An enquiry e-mail for the location {{location}}",
+  "vehicle_left_stock": "The vehicle has left stock"
+}

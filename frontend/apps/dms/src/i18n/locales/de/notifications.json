@@ -106,6 +106,14 @@
     "platformRecoveryAction": {
       "title": "Wiederherstellung durch den Nexotec-Support",
       "body": "Der Nexotec-Support hat an Ihrem Konto eine Wiederherstellung vorgenommen: {{action}}."
+    },
+    "integrationExpiring": {
+      "title": "Eine Integration läuft bald ab",
+      "body": "Der Zugang für {{provider}} läuft in {{days, number}} Tagen ab. Erneuern Sie ihn unter Verwaltung › Integrationen, damit die Verbindung nicht unterbricht."
+    },
+    "checklistItemRegressed": {
+      "title": "Ein Punkt der Einrichtung fehlt wieder",
+      "body": "Der Punkt «{{item}}» der Einrichtungs-Checkliste ist nicht mehr erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht."
     }
   },
   "recoveryActions": {

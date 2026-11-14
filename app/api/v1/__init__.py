@@ -34,7 +34,9 @@ from app.platform.api.health import router as health_router
 from app.platform.api.me import router as me_router
 from app.platform.api.notifications import router as notifications_router
 from app.platform.api.onboarding import router as onboarding_router
+from app.platform.api.publishing_profile import router as publishing_profile_router
 from app.platform.api.recovery import router as platform_recovery_router
+from app.platform.api.setup import router as setup_router
 from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.api.standard_texts import router as standard_texts_router
 from app.platform.api.user_preferences import router as user_preferences_router
@@ -44,6 +46,7 @@ from app.platform.organisation.api.locations import router as locations_router
 from app.platform.organisation.api.number_ranges import router as number_ranges_router
 from app.platform.reference.api.reference_data import router as reference_data_router
 from app.platform.reference.api.ui_translations import router as ui_translations_router
+from app.reporting.api.public_stock import router as public_stock_router
 from app.sales.api.contracts import router as sales_contracts_router
 from app.sales.api.deals import router as sales_deals_router
 from app.sales.api.documents import router as sales_documents_router
@@ -65,8 +68,11 @@ api_v1_router.include_router(dealership_users_router)
 api_v1_router.include_router(dealership_memberships_router)
 api_v1_router.include_router(dealership_identity_router)
 api_v1_router.include_router(onboarding_router)
+api_v1_router.include_router(setup_router)
 api_v1_router.include_router(locations_router)
 api_v1_router.include_router(branding_router)
+api_v1_router.include_router(publishing_profile_router)
+api_v1_router.include_router(public_stock_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(configuration_copy_router)
 api_v1_router.include_router(standard_texts_router)

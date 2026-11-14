@@ -209,9 +209,9 @@ describe('the reason table', () => {
 // sentence there would read as the generic one. The scan keeps the two lists
 // together.
 describe('the blocking-condition banner knows every field the API names', () => {
-  it('has a sentence for each field publishing.py names a condition by', () => {
+  it('has a sentence for each field listing_conditions.py names a condition by', () => {
     const here = dirname(fileURLToPath(import.meta.url))
-    const publishing = readFileSync(join(here, '..', '..', '..', '..', '..', 'app', 'inventory', 'services', 'publishing.py'), 'utf-8')
+    const publishing = readFileSync(join(here, '..', '..', '..', '..', '..', 'app', 'inventory', 'services', 'listing_conditions.py'), 'utf-8')
     const banner = readFileSync(join(here, '..', 'components', 'stock-detail', 'BlockingConditionBanner.tsx'), 'utf-8')
     const named = [...publishing.matchAll(/BlockingCondition\(\s*field="([^"]+)"/g)].map((m) => m[1])
     const known = banner.match(/const BLOCKING_FIELDS = new Set\(\[([^\]]*)\]\)/)?.[1] ?? ''

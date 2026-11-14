@@ -1,0 +1,8 @@
+{
+  "website_domain_missing": "Il dominio del sito web",
+  "short_description_missing": "Una descrizione breve nella lingua di corrispondenza dell'azienda",
+  "impressum_missing": "Il colophon nella lingua di corrispondenza dell'azienda",
+  "privacy_notice_missing": "L'informativa sulla protezione dei dati nella lingua di corrispondenza dell'azienda",
+  "lead_email_missing": "Un'e-mail per le richieste della sede {{location}}",
+  "vehicle_left_stock": "Il veicolo ha lasciato lo stock"
+}

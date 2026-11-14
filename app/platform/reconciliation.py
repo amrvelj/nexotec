@@ -40,6 +40,7 @@ from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCa
 from app.platform.organisation.models.location_schedule import LocationClosure
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange
+from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
 from app.platform.services.actor_reference import actor_reference_checks
@@ -75,6 +76,8 @@ ACTOR_TABLES = (
     Holiday,
     LocationClosure,  # created_by / updated_by (KAN-204)
     BrandingAsset,  # uploaded_by (KAN-205)
+    PublishingProfile,  # created_by / updated_by (KAN-225)
+    LocationLeadRouting,  # created_by / updated_by (KAN-225)
     NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
     DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
     ExportJob,  # created_by / updated_by: who requested the export (KAN-218)

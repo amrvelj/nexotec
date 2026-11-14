@@ -159,7 +159,17 @@
       "hint": "AutoScout24 distingue tre concetti: dotazione (codici ricercabili), extra (caratteristiche) e particolarità (stati come veicolo incidentato)."
     },
     "publishError": "Non è stato possibile pubblicare l’annuncio. Riprovare.",
-    "unpublishError": "Non è stato possibile ritirare l’annuncio. Riprovare."
+    "unpublishError": "Non è stato possibile ritirare l’annuncio. Riprovare.",
+    "website": {
+      "title": "Sito web proprio",
+      "listed": "Sul sito",
+      "notListed": "Non sul sito",
+      "publish": "Pubblicare sul sito",
+      "unpublish": "Togliere dal sito",
+      "openProfile": "Completare i dati sotto Pubblicazione",
+      "hint": "Il sito web della vostra azienda, gestito da Nexotec. Nulla viene trasmesso a un mercato online.",
+      "failed": "Il sito non ha potuto essere modificato."
+    }
   },
   "evaluation": {
     "title": "Valutazione",

@@ -234,6 +234,9 @@ def test_the_login_response_and_token_carry_the_dealerships_entitlements(client,
         headers=_platform_admin(),
     )
     assert user.status_code == 201, user.text
+    from tests.token_support import mark_trading
+
+    mark_trading(body["id"])  # KAN-214: a trading Betrieb, past the activation gate
     cookie = session_cookie_for(client, mailbox, user.json())
     client.cookies.set("dms_session", cookie)
     me = client.get("/v1/auth/me")

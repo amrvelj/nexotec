@@ -455,10 +455,11 @@ def test_auth_me_stops_listing_a_membership_revoked_after_login(client, login, d
     assert set(body) == {
         "user", "activeDealership", "memberships", "entitlements", "mfaEnrolmentRequired", "writableCapabilities",
         "isActiveDealershipManager",  # KAN-211: the session's own manager flag
+        "legalAcceptanceDue",  # KAN-214: the ToS / DPA versions a manager still has to accept
     }
     assert body["activeDealership"]["id"] == dealer_a
     assert [m["id"] for m in body["memberships"]] == [dealer_a]
-    assert set(body["memberships"][0]) == {"id", "legalName"}
+    assert set(body["memberships"][0]) == {"id", "legalName", "status"}  # KAN-214: the Betrieb's status
 
 
 def test_auth_me_lists_a_membership_granted_after_login(client, login, db_session):

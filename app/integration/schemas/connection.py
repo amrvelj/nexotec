@@ -6,7 +6,6 @@ can ever produce a response shape that echoes one back — there is no
 
 import datetime as dt
 import uuid
-from decimal import Decimal
 
 from pydantic import Field
 
@@ -31,6 +30,10 @@ class ConnectionUpdate(CamelModel):
     display_name: str | None = None
     config: dict | None = None
     expires_at: dt.datetime | None = None
+    # KAN-222 (FR-A-21): one of the Betrieb's own locations, or null to unbind.
+    # Left out = unchanged; only a marketplace or calendar_mail connection may
+    # be bound (422 `location_binding_not_supported`).
+    location_id: uuid.UUID | None = None
 
 
 class EntitlementRead(CamelModel):
@@ -62,6 +65,16 @@ class ConnectionRead(CamelModel):
     last_error: str | None
     expires_at: dt.datetime | None
     rotated_at: dt.datetime | None
+    # KAN-222 (FR-A-20): who the account is at the provider, derived from the
+    # connection's non-secret configuration by its provider
+    # (`services/account_identifier.py`); null when the configuration lacks it
+    # — the card says «Kennung fehlt». Never derived from a secret.
+    account_identifier: str | None
+    # KAN-222 (FR-A-21): the location the connection serves, rule 2's copy of
+    # its name, and whether the provider's accounts are per site at all.
+    location_id: uuid.UUID | None
+    location_label: str | None
+    location_bindable: bool
     secret_slots: list[SecretSlotRead] = Field(default_factory=list)
     entitlements: list[EntitlementRead] = Field(default_factory=list)
     version: int
@@ -89,13 +102,25 @@ class DeleteConnectionRequest(CamelModel):
     confirm: bool = False
 
 
+class UsageCounterRead(CamelModel):
+    """One of the provider's own counters, named verbatim (FR-A-23)."""
+
+    counter: str
+    count: int
+
+
 class UsageRead(CamelModel):
-    """PR-7 — indicative only (I-2/I-3): Nexotec never bills on top of a
-    provider's own contract, so this is never a billing artifact.
+    """KAN-222 (FR-A-23) — the connection's requests in a period, per
+    provider counter. Counts only, never a CHF amount (Anto, 2026-11-14,
+    Q1 A: prices are in each Betrieb's own contract). Indicative only
+    (I-2/I-3): Nexotec never bills on top of a provider's own contract.
+    `periodFrom`/`periodTo` are calendar days in Swiss time, both inclusive.
     """
 
-    calls_this_period: int
-    cost_units_this_period: Decimal | None
+    period_from: dt.date
+    period_to: dt.date
+    total_calls: int
+    counters: list[UsageCounterRead]
     indicative: bool = True
 
 

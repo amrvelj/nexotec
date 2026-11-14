@@ -27,6 +27,10 @@ seven days after it was produced. An offboarded Betrieb's archive is never
 deleted by a job (Anto, 2026-11-14): reconciliation reports it once its ten
 years have passed, and the deletion is a manual staff step.
 
+KAN-214 adds `run_daily_setup_checklist_regressions`: a checklist item that
+broke after activation raises one `administration` notification to the
+Betrieb's managers per regression (`services/setup_checklist_regressions.py`).
+
 Runs where `python -m app.worker` runs; staging runs no worker (ADR-081).
 """
 
@@ -50,6 +54,7 @@ from app.platform.services import (
     notifications,
     ownership,
     push_subscriptions,
+    setup_checklist_regressions,
 )
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
@@ -241,3 +246,11 @@ def run_daily_data_export_expiry(db: Session) -> None:
 
     expired = data_export.expire_downloads(db)
     logger.info("platform.data_exports.expire: %d export file(s) deleted", expired, extra={"expired": expired})
+
+
+def run_daily_setup_checklist_regressions(db: Session) -> None:
+    """`platform.setup_checklist.regressions` (KAN-214; D-A-21, FR-A-26): every
+    active Betrieb's checklist, one transaction each; an item broken since the
+    last run notifies the managers once, an item complete again is closed."""
+
+    setup_checklist_regressions.run(db)

@@ -25,7 +25,7 @@ from app.inventory.models.stock_item import (
     StockNumberSequence,
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate, StockItemVinCorrectionRequest
-from app.inventory.services import commercial_change
+from app.inventory.services import commercial_change, website_listing
 from app.vehicle.public import (
     CONFIGURATION_MODE_BUILD,
     CONFIGURATION_MODE_RECORD,
@@ -593,6 +593,7 @@ def update_stock_item(
     db.flush()
     _publish_condition_changed(db, item=item, previous=previous_condition)
     commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=actor_id)
+    website_listing.restate_if_listed(db, item)
     db.commit()
     db.refresh(item)
     return item
@@ -670,6 +671,7 @@ def attach_configuration(
         ),
     )
     commercial_change.publish_if_changed(db, item=item, before=commercial_before, actor_id=actor_id)
+    website_listing.restate_if_listed(db, item)
     db.commit()
     db.refresh(item)
     return item
@@ -684,6 +686,7 @@ def change_condition(
     item.version += 1
     db.flush()
     _publish_condition_changed(db, item=item, previous=previous)
+    website_listing.restate_if_listed(db, item)
     db.commit()
     db.refresh(item)
     return item

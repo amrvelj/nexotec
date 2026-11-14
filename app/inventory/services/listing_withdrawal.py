@@ -52,7 +52,7 @@ from app.inventory.models.stock_item_publishing import (
     PublishingState,
     StockItemPublishing,
 )
-from app.inventory.services import marketplace_transmission
+from app.inventory.services import marketplace_transmission, website_listing
 from app.inventory.services.publishing import record_unpublished
 
 # KAN-218: payload dealershipId, listingsWithdrawn; the cause is the envelope's
@@ -121,6 +121,8 @@ def withdraw_live_listings(
         raise ListingWithdrawalBlocked(
             f"Betrieb {tenant_id}: no enabled connection to withdraw its delivered feed on {', '.join(blocked)}."
         )
+    # KAN-225: the Betrieb's own website reads Stock's facts, nothing to send.
+    withdrawn += website_listing.withdraw_all(db, tenant_id=tenant_id)
     publish_event(
         db,
         OutboxEvent(

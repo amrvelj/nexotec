@@ -195,7 +195,8 @@ forbidden_modules = [
 # module (KAN-120). tests/architecture/test_import_contracts_cover_every_module.py
 # fails when a context gains a top-level module or package that is neither
 # `public` nor listed here, and when a context with modules has no contract.
-# finance, reporting and compliance hold only `__init__.py`; the first module
+# finance and compliance hold only `__init__.py` (reporting gained its first
+# modules in KAN-225, contract below); the first module
 # one of them gains needs its contract here, same shape.
 [[tool.importlinter.contracts]]
 name = "Only app.platform.public is reachable from outside platform"
@@ -407,6 +408,35 @@ forbidden_modules = [
     "app.integration.reconciliation",
     "app.integration.schemas",
     "app.integration.services",
+]
+allow_indirect_imports = true
+
+# KAN-225: reporting, the first stub to ship a projection (the public stock
+# projection the Betrieb's website reads). Same reciprocal shape; nothing
+# below it imports reporting (it sits on top of the layers, ADR-131).
+[[tool.importlinter.contracts]]
+name = "Only app.reporting.public is reachable from outside reporting"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.valuation",
+    "app.integration",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.compliance",
+]
+forbidden_modules = [
+    "app.reporting.api",
+    "app.reporting.consumers",
+    "app.reporting.models",
+    "app.reporting.reconciliation",
+    "app.reporting.schemas",
+    "app.reporting.services",
 ]
 allow_indirect_imports = true
 

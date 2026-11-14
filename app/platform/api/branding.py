@@ -25,7 +25,7 @@ from app.core.object_store import ObjectStore, get_object_store
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.organisation.models.branding_asset import BrandingAssetKind
+from app.platform.organisation.models.branding_asset import BrandingAssetKind, LogoKind
 from app.platform.organisation.schemas.branding import BrandingRead, BrandingUpdate
 from app.platform.organisation.services import branding as branding_service
 from app.platform.organisation.services import dealership as dealership_service
@@ -76,7 +76,7 @@ def update_branding(
 @router.put("/dealerships/{dealership_id}/branding/assets/{kind}", response_model=BrandingRead)
 def put_branding_asset(
     dealership_id: uuid.UUID,
-    kind: BrandingAssetKind,
+    kind: LogoKind,
     image: bytes = Body(
         media_type="image/svg+xml",
         description="The logo file itself: SVG (preferred) or PNG at least 600 px on its long edge, at most 5 MiB. "
@@ -96,7 +96,7 @@ def put_branding_asset(
     dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = branding_service.set_asset(
-        db, store, dealership=dealership, kind=kind, data=image, actor_id=principal.user_id
+        db, store, dealership=dealership, kind=BrandingAssetKind(kind.value), data=image, actor_id=principal.user_id
     )
     return branding_service.branding_read(db, dealership)
 
@@ -104,7 +104,7 @@ def put_branding_asset(
 @router.get("/dealerships/{dealership_id}/branding/assets/{kind}")
 def get_branding_asset(
     dealership_id: uuid.UUID,
-    kind: BrandingAssetKind,
+    kind: LogoKind,
     principal: Principal = Depends(require_read("branding")),
     db: Session = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
@@ -114,14 +114,14 @@ def get_branding_asset(
 
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
-    stored = branding_service.read_asset(db, store, dealership_id=dealership_id, kind=kind)
+    stored = branding_service.read_asset(db, store, dealership_id=dealership_id, kind=BrandingAssetKind(kind.value))
     return Response(content=stored.data, media_type=stored.content_type, headers=_ASSET_HEADERS)
 
 
 @router.delete("/dealerships/{dealership_id}/branding/assets/{kind}", response_model=BrandingRead)
 def delete_branding_asset(
     dealership_id: uuid.UUID,
-    kind: BrandingAssetKind,
+    kind: LogoKind,
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("branding")),
     db: Session = Depends(get_db),
@@ -130,7 +130,9 @@ def delete_branding_asset(
     require_tenant_match(dealership_id, principal)
     dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
-    dealership = branding_service.remove_asset(db, store, dealership=dealership, kind=kind, actor_id=principal.user_id)
+    dealership = branding_service.remove_asset(
+        db, store, dealership=dealership, kind=BrandingAssetKind(kind.value), actor_id=principal.user_id
+    )
     return branding_service.branding_read(db, dealership)
 
 

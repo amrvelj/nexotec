@@ -15,15 +15,16 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.auth import AccessRole, Principal
+from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
-from app.core.errors import NotFoundError
+from app.core.errors import ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
 from app.platform.organisation.schemas.number_range import (
+    NumberRangeConfirmationRead,
     NumberRangeList,
     NumberRangePreviewRead,
     NumberRangePreviewRequest,
@@ -71,9 +72,11 @@ def list_number_ranges(
     require_tenant_match(dealership_id, principal)
     get_dealership_or_404(db, dealership_id)
     rows = number_range_service.list_ranges(db, dealership_id=dealership_id, modules=_modules(db, dealership_id))
+    confirmation = number_range_service.latest_confirmation(db, dealership_id)
     return NumberRangeList(
         items=[_read(db, row) for row in rows],
         may_change_frozen=AccessRole.PLATFORM_ADMIN in principal.roles,
+        confirmed_at=confirmation.confirmed_at if confirmation else None,
     )
 
 
@@ -134,3 +137,27 @@ def update_number_range(
     db.commit()
     db.refresh(row)
     return _read(db, row)
+
+
+@router.post(
+    "/dealerships/{dealership_id}/number-range-confirmations",
+    response_model=NumberRangeConfirmationRead,
+    status_code=201,
+)
+def confirm_number_ranges(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """KAN-214 (D-A-21): «Nummernkreise bestätigen» — the manager confirms the
+    ranges as the screen shows them, which completes the setup checklist's
+    item. Freezes nothing (the ranges freeze at activation, A-RULE-3).
+    Audited. The manager's own act: 403 for a colleague and for staff."""
+
+    require_tenant_match(dealership_id, principal)
+    if AccessRole.PLATFORM_ADMIN in principal.roles or not principal.is_dealer_manager:
+        raise ForbiddenError("Only a manager of this Betrieb does this.", details={"reason": "manager_only"})
+    get_dealership_or_404(db, dealership_id)
+    row = number_range_service.confirm_ranges(db, dealership_id=dealership_id, actor_id=principal.user_id)
+    db.commit()
+    return NumberRangeConfirmationRead(confirmed_at=row.confirmed_at, confirmed_by=row.confirmed_by)

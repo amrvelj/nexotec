@@ -27,8 +27,10 @@ Rules held here, not in the database:
 Every write is audit-logged with before and after values.
 """
 
+import dataclasses
 import datetime as dt
 import uuid
+from collections.abc import Collection
 from decimal import Decimal
 from typing import Any
 
@@ -115,6 +117,37 @@ def _geo(value: float | None) -> Decimal | None:
 
 
 # --- Reads ------------------------------------------------------------------------
+
+
+@dataclasses.dataclass(frozen=True)
+class LocationLabel:
+    """KAN-222 — what another context copies beside a location id (rule 2):
+    the location's Betrieb, its name, and whether it is still active."""
+
+    dealership_id: uuid.UUID
+    label: str
+    is_active: bool
+
+
+def get_location_labels(db: Session, location_ids: Collection[uuid.UUID]) -> dict[uuid.UUID, LocationLabel]:
+    """Each location's name and Betrieb, for the nightly label refreshes of the
+    contexts that store a location id. Not scoped to a tenant: it serves a
+    daily job, never a request — the caller compares `dealership_id` with
+    its own row's tenant and leaves a mismatch alone. An id that names no
+    location is absent from the result."""
+
+    if not location_ids:
+        return {}
+    rows = db.execute(
+        select(Location.id, Location.tenant_id, Location.name, Location.is_active).where(
+            Location.id.in_(set(location_ids))
+        )
+    )
+    return {
+        location_id: LocationLabel(dealership_id=tenant_id, label=name, is_active=is_active)
+        for location_id, tenant_id, name, is_active in rows
+    }
+
 
 
 def list_locations(db: Session, *, dealership_id: uuid.UUID, active: bool | None = None) -> list[Location]:

@@ -53,6 +53,18 @@ const REASON_KEYS: Record<string, string> = {
   status_transition_not_allowed: 'business.statusRefusals.status_transition_not_allowed',
   use_activation_procedure: 'business.statusRefusals.use_activation_procedure',
   use_offboarding_procedure: 'business.statusRefusals.use_offboarding_procedure',
+  // KAN-225 — the publishing profile's files and lead routing.
+  ...Object.fromEntries(
+    [
+      'agb_not_a_pdf',
+      'agb_too_large',
+      'image_not_an_image',
+      'image_too_large',
+      'image_too_small',
+      'image_unreadable',
+      'lead_recipient_not_a_user',
+    ].map((reason) => [reason, `publishing.refusals.${reason}`]),
+  ),
   // KAN-218 — the data export and offboarding.
   ...Object.fromEntries(
     [
@@ -75,6 +87,23 @@ const REASON_KEYS: Record<string, string> = {
       'offboarding_confirmation_required',
       'user_last_manager_of_sister',
     ].map((reason) => [reason, `offboarding.refusals.${reason}`]),
+  ),
+  // KAN-214 — the setup checklist, «Betrieb aktivieren» and the legal documents.
+  ...Object.fromEntries(
+    [
+      'dealership_not_pending',
+      'legal_acceptance_missing',
+      'legal_document_empty',
+      'legal_document_not_current',
+      'legal_document_version_exists',
+      'legal_document_version_invalid',
+      'legal_document_version_not_newer',
+      'legal_documents_not_final',
+      'legal_documents_unavailable',
+      'manager_only',
+      'setup_checklist_incomplete',
+      'setup_checklist_item_missing',
+    ].map((reason) => [reason, `setup.refusals.${reason}`]),
   ),
   ...Object.fromEntries(
     [
@@ -272,6 +301,12 @@ const REASON_KEYS: Record<string, string> = {
       'secret_store_not_configured',
       // KAN-602 — a credential the connection's provider does not use is refused.
       'secret_slot_not_used_by_provider',
+      // KAN-222 — a connection bound to a location (FR-A-21), and the usage period (FR-A-23).
+      'location_binding_needs_tenant',
+      'location_binding_not_supported',
+      'unknown_location',
+      'usage_period_reversed',
+      'usage_period_too_long',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -281,6 +316,8 @@ const REASON_KEYS: Record<string, string> = {
 const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<string, unknown>> = {
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
   configuration_held_by_stock_item: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
+  // KAN-214 (FR-A-26): the checklist item that blocks the action, by its name.
+  setup_checklist_item_missing: (d, t) => ({ item: t(`setup.items.${String(d.item ?? '')}.title`) }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
   // KAN-539: the instant of the first request, as a day in the user's locale.
   invoice_already_requested: (d) => ({

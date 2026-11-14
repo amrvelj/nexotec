@@ -177,7 +177,12 @@
     "chassis_number_requires_make": "Ein Fahrzeug mit Chassisnummer wird über seine Marke unterschieden: Erfassen Sie die Marke in seiner Konfiguration.",
     "vehicle_merge_same_record": "Ein Datensatz kann nicht mit sich selbst zusammengeführt werden.",
     "vehicle_merge_both_in_stock": "Ihr Betrieb führt beide Datensätze im Lager ({{duplicate}} und {{survivor}}). Verkaufen oder stornieren Sie zuerst eines der Lagerfahrzeuge.",
-    "vehicle_merge_vin_into_chassis_number": "Ein Datensatz mit VIN kann nicht in einen mit Chassisnummer (vor 1981) zusammengeführt werden. Mit «Richtung tauschen» bleibt der Datensatz mit VIN bestehen."
+    "vehicle_merge_vin_into_chassis_number": "Ein Datensatz mit VIN kann nicht in einen mit Chassisnummer (vor 1981) zusammengeführt werden. Mit «Richtung tauschen» bleibt der Datensatz mit VIN bestehen.",
+    "location_binding_needs_tenant": "Eine plattformweite Verbindung gehört zu keinem Standort.",
+    "location_binding_not_supported": "Diese Verbindung gilt für den ganzen Betrieb und wird keinem Standort zugeordnet.",
+    "unknown_location": "Dieser Standort gehört nicht zu Ihrem Betrieb.",
+    "usage_period_reversed": "Das Ende des Zeitraums liegt vor seinem Beginn.",
+    "usage_period_too_long": "Ein Zeitraum umfasst höchstens ein Jahr."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",

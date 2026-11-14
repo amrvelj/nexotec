@@ -120,6 +120,7 @@ def test_a_clean_run_is_recorded_distinguishably_from_no_run(db_session):
         "valuation",
         "vehicle",
         "integration",
+        "reporting",  # KAN-225: the public stock projection
     }
     assert all(r.orphans_found == 0 for r in runs)
     assert sum(r.checks_run for r in runs) > 0

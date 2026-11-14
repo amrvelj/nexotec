@@ -6,7 +6,8 @@ secret refs — never bypassed by a caller reaching for
 
 import datetime as dt
 import uuid
-from decimal import Decimal
+from dataclasses import dataclass
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -284,14 +285,77 @@ def create_connection(
     return connection
 
 
+# KAN-222 (FR-A-21): the categories whose accounts are per site — an
+# AutoScout24 branch number, a location's mailbox (`calendar_mail`, when its
+# provider ships). A vehicle-data account serves the whole Betrieb.
+LOCATION_BINDABLE_CATEGORIES = frozenset({"marketplace", "calendar_mail"})
+
+
+def _bind_location(
+    db: Session, *, connection: IntegrationConnection, provider: IntegrationProvider, location_id: uuid.UUID | None
+) -> tuple[str | None, str | None] | None:
+    """Bind (or, with None, unbind) the connection to one of its own Betrieb's
+    locations, copying the location's name beside its id (rule 2). The
+    location is read through `platform.public`; another Betrieb's location, or
+    one that does not exist, is the same 422 `unknown_location` — a reference
+    in a request body, refused without confirming that it exists (the
+    locations screen's rule for a bank account, KAN-204). Returns the audit
+    (before, after) pair, or None when nothing changed."""
+
+    if location_id == connection.location_id:
+        return None
+    label: str | None = None
+    if location_id is not None:
+        if connection.tenant_id is None:
+            raise UnprocessableEntityError(
+                "A platform-wide connection serves no location.",
+                details={"reason": "location_binding_needs_tenant"},
+            )
+        if provider.category not in LOCATION_BINDABLE_CATEGORIES:
+            raise UnprocessableEntityError(
+                f"A {provider.display_name} connection serves the whole Betrieb and is not bound to a location.",
+                details={"reason": "location_binding_not_supported", "category": provider.category},
+            )
+        # Imported here, not at module scope: this module loads with the
+        # adapters whenever `app.integration` is imported (its `__init__`
+        # registers them), and platform's public door must not load with it
+        # (tests/architecture/test_no_cross_context_orm_query.py; the identAPI
+        # adapter's `_acting_user` does the same).
+        from app.platform.public import get_location_or_404
+
+        try:
+            location = get_location_or_404(db, dealership_id=connection.tenant_id, location_id=location_id)
+        except NotFoundError:
+            raise UnprocessableEntityError(
+                "The location is not one of this Betrieb's.",
+                details={"reason": "unknown_location", "locationId": str(location_id)},
+            ) from None
+        label = location.name
+    before = str(connection.location_id) if connection.location_id is not None else None
+    connection.location_id = location_id
+    connection.location_label = label
+    connection.location_label_refreshed_at = utcnow() if location_id is not None else None
+    return before, str(location_id) if location_id is not None else None
+
+
 def update_connection(
     db: Session, *, connection: IntegrationConnection, data: ConnectionUpdate, actor_id: uuid.UUID | None
 ) -> IntegrationConnection:
+    provider = provider_service.get_provider_or_404(db, connection.provider_id)
     if data.config is not None:
-        provider = provider_service.get_provider_or_404(db, connection.provider_id)
         _validate_required_config(provider, data.config)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    binding = None
+    if "location_id" in changes:
+        binding = _bind_location(db, connection=connection, provider=provider, location_id=changes.pop("location_id"))
+    for field, value in changes.items():
         setattr(connection, field, value)
+    if binding is not None:
+        record_audit_event(
+            db, entity_type=_ENTITY_TYPE, entity_id=connection.id, tenant_id=connection.tenant_id,
+            action="bind_location", actor_id=actor_id,
+            before={"locationId": binding[0]}, after={"locationId": binding[1]},
+        )
     connection.updated_by = actor_id
     connection.version += 1
     db.commit()
@@ -694,27 +758,73 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
     return True
 
 
-_USAGE_PERIOD_DAYS = 30
+# KAN-222 (FR-A-23): the default period of «Nutzung anzeigen» and the longest
+# one a request may ask for.
+USAGE_DEFAULT_PERIOD_DAYS = 30
+USAGE_MAX_PERIOD_DAYS = 366
 
 
-def get_usage(db: Session, *, connection: IntegrationConnection) -> tuple[int, Decimal | None]:
-    """PR-7's own "View usage" action — calls and cost-units over a
-    trailing 30-day window, from `integration_call_log` directly (never a
-    materialized/cached count, since a dealer checking this occasionally
-    doesn't need one). Indicative only (I-2/I-3): Nexotec never bills on
-    top of a provider's own contract, and the schema this feeds
-    (`UsageRead`) carries `indicative=True` for exactly that reason.
-    """
+@dataclass(frozen=True)
+class UsageCounter:
+    counter: str
+    count: int
 
-    since = utcnow() - dt.timedelta(days=_USAGE_PERIOD_DAYS)
-    calls = db.scalar(
-        select(func.count()).select_from(IntegrationCallLog).where(
-            IntegrationCallLog.connection_id == connection.id, IntegrationCallLog.created_at >= since
+
+@dataclass(frozen=True)
+class ConnectionUsage:
+    period_from: dt.date
+    period_to: dt.date
+    counters: list[UsageCounter]
+
+    @property
+    def total(self) -> int:
+        return sum(c.count for c in self.counters)
+
+
+def usage_period(period_from: dt.date | None, period_to: dt.date | None) -> tuple[dt.date, dt.date]:
+    """The period asked for, calendar days in Swiss time (both inclusive):
+    the trailing 30 days ending today when neither is given. A period that
+    ends before it starts, or is longer than a year, is a 422."""
+
+    today = dt.datetime.now(ZoneInfo(get_settings().session_timezone)).date()
+    end = period_to or today
+    start = period_from or (end - dt.timedelta(days=USAGE_DEFAULT_PERIOD_DAYS - 1))
+    if start > end:
+        raise UnprocessableEntityError(
+            "The period ends before it starts.", details={"reason": "usage_period_reversed"}
         )
-    ) or 0
-    cost_units = db.scalar(
-        select(func.sum(IntegrationCallLog.cost_units)).where(
-            IntegrationCallLog.connection_id == connection.id, IntegrationCallLog.created_at >= since
+    if (end - start).days + 1 > USAGE_MAX_PERIOD_DAYS:
+        raise UnprocessableEntityError(
+            f"A usage period is at most {USAGE_MAX_PERIOD_DAYS} days.",
+            details={"reason": "usage_period_too_long", "maxDays": USAGE_MAX_PERIOD_DAYS},
         )
-    )
-    return calls, (Decimal(cost_units) if cost_units is not None else None)
+    return start, end
+
+
+def get_usage(
+    db: Session, *, connection: IntegrationConnection, period_from: dt.date, period_to: dt.date
+) -> ConnectionUsage:
+    """KAN-222 (FR-A-23, Anto 2026-11-14 Q1 A: counts only, never CHF): the
+    connection's requests in the period, per counter, from
+    `integration_call_log` directly. The counter is the name the log records
+    — since KAN-486 one row per provider request under the provider's own
+    operation name (`caption_code`, `FtpUpload`, `oauth_token`, …), written by
+    each adapter through `metering.provider_request`; a block that sent no
+    request keeps its call label (`access_check`). Shown verbatim, never
+    translated, and indicative only (I-2/I-3): the provider's own count is
+    the one that bills."""
+
+    zone = ZoneInfo(get_settings().session_timezone)
+    since = dt.datetime.combine(period_from, dt.time.min, tzinfo=zone)
+    until = dt.datetime.combine(period_to + dt.timedelta(days=1), dt.time.min, tzinfo=zone)
+    rows = db.execute(
+        select(IntegrationCallLog.capability, func.count())
+        .where(
+            IntegrationCallLog.connection_id == connection.id,
+            IntegrationCallLog.created_at >= since,
+            IntegrationCallLog.created_at < until,
+        )
+        .group_by(IntegrationCallLog.capability)
+    ).all()
+    counters = sorted((UsageCounter(counter=name, count=int(n)) for name, n in rows), key=lambda c: (-c.count, c.counter))
+    return ConnectionUsage(period_from=period_from, period_to=period_to, counters=counters)

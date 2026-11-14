@@ -1,0 +1,8 @@
+{
+  "website_domain_missing": "Die Domain der Website",
+  "short_description_missing": "Eine Kurzbeschreibung in der Korrespondenzsprache des Betriebs",
+  "impressum_missing": "Das Impressum in der Korrespondenzsprache des Betriebs",
+  "privacy_notice_missing": "Die Datenschutzerklärung in der Korrespondenzsprache des Betriebs",
+  "lead_email_missing": "Eine E-Mail für Anfragen am Standort {{location}}",
+  "vehicle_left_stock": "Das Fahrzeug hat den Bestand verlassen"
+}

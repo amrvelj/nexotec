@@ -57,6 +57,11 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/users": _NEW_ROW,
     # KAN-218: a requested export is a new export_job row (and its outbox fact).
     "/v1/dealerships/{dealership_id}/exports": _NEW_ROW,
+    # KAN-214: the manager's «Nummernkreise bestätigen» is a new
+    # number_range_confirmation row; the ranges and the dealership keep their version.
+    "/v1/dealerships/{dealership_id}/number-range-confirmations": _NEW_ROW,
+    # KAN-214 (FR-A-39): an acceptance is a new, append-only legal_acceptance row.
+    "/v1/dealerships/{dealership_id}/legal-acceptances": _NEW_ROW,
     "/v1/platform/dealerships/{dealership_id}/exports": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35) bumps every "
     "moved offer's, contract's and customer's version, judged again under each row's lock — no single version "

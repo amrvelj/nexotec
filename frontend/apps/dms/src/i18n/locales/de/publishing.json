@@ -1,0 +1,126 @@
+{
+  "title": "Veröffentlichung",
+  "subtitle": "Was Ihre Website zeigt: Auftritt, rechtliche Angaben, Inseratsvorgaben und pro Standort Anfragen und Fotos.",
+  "loadError": "Die Veröffentlichungsangaben konnten nicht geladen werden.",
+  "saveFailed": "Die Angaben konnten nicht gespeichert werden.",
+  "inheritsPlaceholder": "Übernommen vom Betrieb: {{text}}",
+  "languages": {
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "it": "Italienisch",
+    "en": "Englisch"
+  },
+  "scope": {
+    "label": "Angaben für",
+    "betrieb": "Ganzer Betrieb",
+    "overrideToggle": "Eigene Angaben für diesen Standort",
+    "inherits": "Dieser Standort übernimmt Beschreibung, Inseratsvorgaben und Finanzierungsbeispiel vom Betrieb."
+  },
+  "sections": {
+    "identity": "Öffentlicher Auftritt",
+    "legal": "Rechtliche Angaben",
+    "listingDefaults": "Inseratsvorgaben",
+    "financing": "Finanzierungsbeispiel",
+    "leadRouting": "Anfragen",
+    "imagery": "Fotos"
+  },
+  "identity": {
+    "tradeName": "Öffentlicher Name: {{name}}",
+    "noTradeName": "kein Geschäftsname erfasst",
+    "editInBusiness": "Unter Betrieb ändern",
+    "websiteDomain": "Domain der Website",
+    "websiteDomainHint": "Die Adresse, unter der Nexotec Ihre Website ausliefert, z. B. garage-muster.ch.",
+    "isPublished": "Website veröffentlicht",
+    "isPublishedHint": "Ausgeschaltet zeigt die Website nichts, auch wenn Fahrzeuge darauf gestellt sind."
+  },
+  "fields": {
+    "shortDescription": "Kurzbeschreibung",
+    "longDescription": "Ausführliche Beschreibung",
+    "impressum": "Impressum",
+    "privacyNotice": "Datenschutzerklärung",
+    "withdrawalWording": "Hinweis zum Widerrufsrecht",
+    "agbUrl": "AGB (Adresse der Seite)",
+    "warrantyText": "Garantietext",
+    "mfkStatement": "Angabe zu MFK und Expertise",
+    "deliveryFeeChf": "Überführungs- und Lieferkosten",
+    "priceDisplayWording": "Text beim Preis",
+    "standardEquipmentBlurb": "Text zur Serienausstattung",
+    "tradeInPromotionText": "Text zur Eintauschaktion",
+    "financingTermMonths": "Laufzeit (Monate)",
+    "financingDownPaymentChf": "Anzahlung",
+    "financingResidualValueChf": "Restwert",
+    "financingNominalRatePct": "Nominaler Jahreszins",
+    "financingEffectiveRatePct": "Effektiver Jahreszins",
+    "financingProvider": "Finanzierungspartner"
+  },
+  "social": {
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "tiktok": "TikTok"
+  },
+  "legal": {
+    "hint": "Gilt für den ganzen Betrieb – die rechtlichen Angaben nennen immer die juristische Person, nie einen Standort."
+  },
+  "agb": {
+    "label": "AGB als PDF",
+    "none": "Noch keine Datei",
+    "present": "PDF hochgeladen am {{date}} · {{size}} KB",
+    "open": "Öffnen",
+    "choose": "PDF wählen",
+    "upload": "Hochladen",
+    "remove": "Entfernen",
+    "failed": "Die AGB konnten nicht gespeichert werden."
+  },
+  "listing": {
+    "deliveryFeeHint": "Betrag inkl. MwSt, wie er im Inserat erscheint."
+  },
+  "financing": {
+    "pendingTitle": "Wortlaut in rechtlicher Prüfung (A-6)",
+    "pendingLegalReview": "Für die Werbung mit einem finanzierten Preis gelten Vorgaben des Konsumkreditgesetzes. Die Angaben werden gespeichert, aber erst veröffentlicht, wenn der Wortlaut rechtlich bestätigt ist."
+  },
+  "leadRouting": {
+    "hint": "Wohin Anfragen zu Fahrzeugen dieses Standorts gehen.",
+    "leadEmail": "E-Mail für Anfragen",
+    "leadPhone": "Telefon für Anfragen",
+    "createsTask": "Anfrage legt auch eine Aufgabe im DMS an",
+    "recipientRole": "Empfänger",
+    "recipientRoleHint": "Wer die Anfrage erhält. Leer: die Geschäftsführung des Betriebs."
+  },
+  "imagery": {
+    "hint": "JPEG oder PNG, mindestens 800 px an der langen Seite. Das erste Foto mit Stern erscheint zuerst.",
+    "kinds": {
+      "premises": "Räumlichkeiten",
+      "team": "Team",
+      "hero": "Titelbild"
+    },
+    "none": "Noch keine Fotos",
+    "primary": "Erstes Foto",
+    "choose": "Foto wählen",
+    "upload": "Hochladen",
+    "moveUp": "Nach vorne",
+    "moveDown": "Nach hinten",
+    "makePrimary": "Als erstes Foto zeigen",
+    "remove": "Entfernen",
+    "failed": "Das Foto konnte nicht gespeichert werden."
+  },
+  "validation": {
+    "title": "Bereit für die Website?",
+    "ready": "Alles Nötige ist erfasst. Fahrzeuge können auf die Website.",
+    "notReady": "Bevor ein Fahrzeug auf die Website kann, fehlt noch:",
+    "openLocation": "Standort öffnen",
+    "carsOnWebsite_one": "{{count, number}} Fahrzeug ist auf der Website.",
+    "carsOnWebsite_other": "{{count, number}} Fahrzeuge sind auf der Website.",
+    "defaultNote": "Welche Angaben die Website verlangt, ist eine Vorgabe von Nexotec, die noch bestätigt wird."
+  },
+  "refusals": {
+    "agb_not_a_pdf": "Die AGB müssen eine PDF-Datei sein.",
+    "agb_too_large": "Die PDF-Datei ist zu gross – höchstens 10 MB.",
+    "image_not_an_image": "Das Foto muss eine JPEG- oder PNG-Datei sein.",
+    "image_too_large": "Das Foto ist zu gross – höchstens 10 MB.",
+    "image_too_small": "Das Foto ist zu klein – mindestens 800 px an der langen Seite.",
+    "image_unreadable": "Die Bilddatei ist beschädigt.",
+    "lead_recipient_not_a_user": "Der Empfänger muss ein aktiver Benutzer Ihres Betriebs sein."
+  }
+}

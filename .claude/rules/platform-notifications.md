@@ -53,7 +53,10 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 - `platform.public.notify(db, code, user_id=…, subject=…)` runs in the caller's transaction and
   publishes `platform.notification.delivered`; an unknown code raises; every call site names a
   literal registered code (`test_notify_call_sites_use_registered_codes.py`).
-- **`notify` is platform-internal today** (every caller is the security family). From another
+- **`notify` is platform-internal today** (every caller is platform's own: the security family, and
+  the `administration` family's first event, `administration.integration_expiring` — KAN-222: platform's
+  consumer of integration's `integration.connection.expiry_approaching` fact raises it for each active
+  manager of the Betrieb; integration sends no e-mail and never calls `notify`). From another
   context it would write platform's tables in that context's transaction (rule 12, ADR-047): the
   first module to raise a notification needs a decided design and an ADR first — its own outbox
   event that platform consumes, or a call on a session of its own with a compensating action —

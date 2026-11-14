@@ -16,13 +16,14 @@ reset change only by a platform admin, with a reason, audited.
 
 import datetime as dt
 import enum
+import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin, utcnow
 from app.core.enum_type import StoredEnum
-from app.core.types import UTCDateTime
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -62,3 +63,17 @@ class NumberRange(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
     # again at `start_value` in the first allocation of a new year.
     last_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     frozen_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+# KAN-214 (D-A-21): the manager confirmed the Betrieb's number ranges on the
+# Number ranges screen («Nummernkreise bestätigen») — the setup checklist's
+# item «Number ranges confirmed» is complete once a row exists. One row per
+# confirmation, never changed. Confirming freezes nothing; activation does
+# (A-RULE-3, FR-A-34).
+class NumberRangeConfirmation(PrimaryKeyMixin, Base):
+    __tablename__ = "number_range_confirmation"
+    __table_args__ = (Index("ix_number_range_confirmation_dealership_id", "dealership_id"),)
+
+    dealership_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("dealership.id"), nullable=False)
+    confirmed_by: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, comment="The confirming user (platform).")
+    confirmed_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)

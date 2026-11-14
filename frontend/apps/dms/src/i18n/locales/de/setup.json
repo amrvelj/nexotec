@@ -1,0 +1,131 @@
+{
+  "title": "Einrichtung",
+  "subtitle": "Was Ihr Betrieb braucht, bevor er arbeitet. Jeder Punkt wird aus Ihren Daten abgeleitet – erledigen Sie ihn auf dem verlinkten Bildschirm.",
+  "pendingNotice": "Ihr Betrieb wird eingerichtet. Bis zur Aktivierung erreichen Sie nur die Verwaltung und «Mein Konto».",
+  "activeNotice": "Ihr Betrieb ist aktiv. Fehlt ein Punkt später wieder, ist nur die Aktion gesperrt, die ihn braucht.",
+  "loadError": "Die Einrichtung konnte nicht geladen werden.",
+  "complete": "Erledigt",
+  "missing": "Offen",
+  "open": "Öffnen",
+  "itemsTitle": "Checkliste",
+  "items": {
+    "branding": {
+      "title": "Logo und Markenfarbe",
+      "description": "Das Hauptlogo ist hochgeladen und die Markenfarbe gesetzt."
+    },
+    "vat_and_rounding": {
+      "title": "MWST und Rundung",
+      "description": "MWST-Satz (und bei MWST-Pflicht die MWST-Nummer) sowie die Bargeldrundung."
+    },
+    "bank_account": {
+      "title": "Bankkonto",
+      "description": "Ein geprüftes IBAN- oder QR-IBAN-Konto ist als Standardkonto gewählt."
+    },
+    "number_ranges": {
+      "title": "Nummernkreise bestätigt",
+      "description": "Sie haben die Nummernkreise geprüft und bestätigt. Sie frieren bei der Aktivierung ein."
+    },
+    "location_opening_hours": {
+      "title": "Standort mit Öffnungszeiten",
+      "description": "Mindestens ein aktiver Standort hat Öffnungszeiten."
+    },
+    "users": {
+      "title": "Benutzer eingeladen",
+      "description": "Mindestens eine Geschäftsführerin oder ein Geschäftsführer ist aktiv – in einem Einpersonenbetrieb genügen Sie selbst."
+    },
+    "publishing_profile": {
+      "title": "Veröffentlichungsprofil",
+      "description": "Beschreibung, Impressum und Lead-Weiterleitung."
+    }
+  },
+  "blocks": {
+    "activation": "Sperrt die Aktivierung",
+    "invoice_issue": "Fehlt er nach der Aktivierung, sind Rechnungen gesperrt",
+    "numbered_document": "Fehlt er nach der Aktivierung, sind nummerierte Dokumente gesperrt",
+    "marketplace_publishing": "Fehlt er nach der Aktivierung, ist die Veröffentlichung auf Marktplätzen gesperrt"
+  },
+  "legal": {
+    "title": "Nutzungsbedingungen und Auftragsverarbeitung",
+    "intro": "Mit der Aktivierung akzeptieren Sie die aktuelle Fassung beider Dokumente im Namen des Betriebs.",
+    "due": "Zu akzeptieren",
+    "accepted": "Beide Dokumente sind akzeptiert.",
+    "unavailable": "Die Dokumente sind noch nicht veröffentlicht. Wenden Sie sich an den Nexotec-Support.",
+    "notFinal": "Die Aktivierung wartet auf die endgültigen Fassungen der Dokumente (Version 1.0).",
+    "draft": "Entwurf",
+    "version": "Version {{version}}"
+  },
+  "activate": {
+    "button": "Betrieb aktivieren",
+    "incomplete": "Erledigen Sie zuerst alle Punkte der Checkliste.",
+    "title": "Betrieb aktivieren",
+    "intro": "Lesen Sie die beiden Dokumente und akzeptieren Sie sie im Namen des Betriebs.",
+    "accept": "Ich habe «{{title}}» (Version {{version}}) gelesen und akzeptiere sie im Namen des Betriebs.",
+    "freezeWarning": "Mit der Aktivierung frieren alle Nummernkreise ein. Danach ändert sie nur noch der Nexotec-Support, mit Begründung.",
+    "submit": "Jetzt aktivieren",
+    "error": "Der Betrieb konnte nicht aktiviert werden.",
+    "documentsError": "Die Dokumente konnten nicht geladen werden."
+  },
+  "inProgress": {
+    "title": "Betrieb wird eingerichtet",
+    "body": "Ihr Betrieb wird gerade eingerichtet. Sobald die Geschäftsführung ihn aktiviert hat, stehen Ihnen alle Bereiche zur Verfügung.",
+    "account": "Mein Konto öffnen"
+  },
+  "acceptance": {
+    "title": "Neue Fassung der Rechtstexte",
+    "intro": "Es gibt eine neue Fassung der Nutzungsbedingungen oder des Auftragsverarbeitungsvertrags. Bitte lesen und akzeptieren Sie sie im Namen des Betriebs.",
+    "dueBy": "Bitte bis spätestens {{date}} akzeptieren. Danach erreichen Geschäftsführer nur noch diesen Bildschirm; Ihre Kolleginnen und Kollegen arbeiten weiter.",
+    "held": "Die Frist ist abgelaufen. Bis Sie akzeptieren, erreichen Sie nur diesen Bildschirm.",
+    "submit": "Akzeptieren",
+    "error": "Die Annahme konnte nicht gespeichert werden.",
+    "done": "Danke – die aktuelle Fassung ist akzeptiert.",
+    "promptTitle": "Neue Rechtstexte zu akzeptieren",
+    "readNow": "Jetzt lesen",
+    "later": "Später"
+  },
+  "documentTypes": {
+    "tos": "Nutzungsbedingungen",
+    "dpa": "Auftragsverarbeitungsvertrag"
+  },
+  "platform": {
+    "title": "Rechtstexte",
+    "subtitle": "Nutzungsbedingungen und Auftragsverarbeitungsvertrag, versioniert je Sprache. Eine veröffentlichte Fassung wird nie geändert – eine Korrektur ist eine neue Version.",
+    "loadError": "Die Rechtstexte konnten nicht geladen werden.",
+    "empty": "Noch keine Fassung veröffentlicht.",
+    "columns": {
+      "documentType": "Dokument",
+      "version": "Version",
+      "language": "Sprache",
+      "effectiveDate": "Gültig ab",
+      "grace": "Frist (Tage)",
+      "title": "Titel"
+    },
+    "publish": {
+      "button": "Neue Fassung veröffentlichen",
+      "title": "Neue Fassung veröffentlichen",
+      "documentType": "Dokument",
+      "version": "Version",
+      "versionHint": "Ein bis drei Zahlen mit Punkt, z. B. 1.0. Unter 1.0 gilt eine Fassung als Entwurf.",
+      "language": "Sprache",
+      "effectiveDate": "Gültig ab",
+      "documentTitle": "Titel",
+      "body": "Text (Markdown)",
+      "grace": "Frist für die Annahme (Tage)",
+      "submit": "Veröffentlichen",
+      "error": "Die Fassung konnte nicht veröffentlicht werden."
+    }
+  },
+  "refusals": {
+    "dealership_not_pending": "Dieser Betrieb ist bereits aktiv.",
+    "legal_acceptance_missing": "Akzeptieren Sie zuerst die aktuelle Fassung der Nutzungsbedingungen und des Auftragsverarbeitungsvertrags.",
+    "legal_document_empty": "Ein Rechtstext braucht einen Titel und einen Text.",
+    "legal_document_not_current": "Nur die aktuelle Fassung eines Dokuments kann akzeptiert werden. Laden Sie die Seite neu.",
+    "legal_document_version_exists": "Diese Version gibt es in dieser Sprache bereits.",
+    "legal_document_version_invalid": "Eine Version besteht aus ein bis drei Zahlen mit Punkt, z. B. 1.0.",
+    "legal_document_version_not_newer": "Eine neue Fassung muss eine höhere Version haben als die neueste veröffentlichte.",
+    "legal_documents_not_final": "Die Aktivierung wartet auf die endgültigen Fassungen der Rechtstexte (Version 1.0).",
+    "legal_documents_unavailable": "Die Rechtstexte sind noch nicht veröffentlicht.",
+    "manager_only": "Das erledigt eine Geschäftsführerin oder ein Geschäftsführer dieses Betriebs.",
+    "setup_checklist_incomplete": "Die Checkliste ist noch nicht vollständig.",
+    "setup_checklist_item_missing": "Ein Punkt der Einrichtung fehlt: «{{item}}». Erledigen Sie ihn in der Verwaltung › Einrichtung."
+  }
+}
