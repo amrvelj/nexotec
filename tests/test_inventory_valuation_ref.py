@@ -11,9 +11,9 @@ import pytest
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.inventory.models.stock_item import StockItemCondition
-from app.inventory.public import get_stock_item_or_404, set_valuation_ref
+from app.inventory.public import set_valuation_ref
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.stock_item import create_stock_item
+from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
 
 
 def test_set_valuation_ref_writes_the_pointer(db_session):
