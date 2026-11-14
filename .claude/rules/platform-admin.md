@@ -85,7 +85,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   never `bytes` of the whole ZIP (`test_kan715_export_streams.py`).
 - Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
   newer than the last write, and refused while a row stamped since its look-back has a writer id at
-  or after its snapshot's xmin (`produced_snapshot`, `produced_lookback_from`; KAN-716); the
+  or above its transaction-id floor (`produced_xid_floor`, `produced_lookback_from`; KAN-716); the
   Betrieb's principals then get 404 (`session_guard.py`).
   Archive exports: staff only, with a reason. It then leaves every group read
   (`group_read_dealerships.py`, `group_labels.py`; Q2 A).

@@ -1,4 +1,4 @@
-"""KAN-716: export_job.produced_snapshot and produced_lookback_from — the export's snapshot
+"""KAN-716: export_job.produced_xid_floor and produced_lookback_from — what the export's snapshot may miss
 
 Revision ID: a7160e5b0c21
 Revises: f348a218c4a4
@@ -19,10 +19,10 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("export_job", sa.Column("produced_snapshot", sa.Text(), nullable=True))
+    op.add_column("export_job", sa.Column("produced_xid_floor", sa.BigInteger(), nullable=True))
     op.add_column("export_job", sa.Column("produced_lookback_from", sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
     op.drop_column("export_job", "produced_lookback_from")
-    op.drop_column("export_job", "produced_snapshot")
+    op.drop_column("export_job", "produced_xid_floor")

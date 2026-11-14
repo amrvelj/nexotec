@@ -29,7 +29,7 @@ import logging
 import tempfile
 import uuid
 
-from sqlalchemy import Text, func, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core import outbox
@@ -230,50 +230,62 @@ def _object_key(job: ExportJob) -> str:
 LOOKBACK_MARGIN = dt.timedelta(hours=1)
 
 
+_XID_MASK = (1 << 32) - 1
+
+
 @dataclasses.dataclass(frozen=True)
 class _Snapshot:
     session: Session
     produced_at: dt.datetime
     # KAN-716: Postgres only (None on SQLite).
-    text: str | None = None
+    xid_floor: int | None = None
     lookback_from: dt.datetime | None = None
 
 
 def _snapshot_session(db: Session) -> _Snapshot:
     """A session of its own on one consistent snapshot (REPEATABLE READ on
-    Postgres), the snapshot's start — the export's `produced_at` — and, for
-    KAN-716, the snapshot itself (`pg_current_snapshot()` as text) and the
-    look-back: the earliest start of any transaction of this database that
-    had written (holds an id) just before it, read first on a connection of
-    its own, less `LOOKBACK_MARGIN`. A transaction still open when the
-    snapshot begins either had written by then (its start bounds its
-    stamps) or writes only after that read. A stamp is the application's
-    clock, taken in Python before its row reaches the database, sometimes
-    earlier still (a service takes `now` once and writes it later), and the
-    application's clock may lag the database's: the margin covers all of
-    that. It costs no precision — offboarding also asks that the row's
-    writer id be at or after the snapshot's xmin; the stamp only keeps old
-    rows, whose ids may have wrapped or been frozen, out of that test.
-    Transactions of another database role are not listed to this one; none
-    writes a Betrieb's rows."""
+    Postgres) and the snapshot's start — the export's `produced_at`.
+
+    KAN-716: first, on a connection of its own, a probe of this database's
+    open transactions that hold an id. The floor is the oldest such id, else
+    the next id to be assigned: a transaction still open when the snapshot
+    begins either held an id at the probe (at or above the floor) or takes
+    one later (above every id at the probe), and a savepoint's id is above
+    its parent's. Only this database is asked — a snapshot's own xmin counts
+    every database of the cluster, so another's long transaction would hold
+    it back. The look-back is the earliest start of those transactions, less
+    `LOOKBACK_MARGIN`: a stamp is the application's clock, taken before its
+    row reaches the database (sometimes earlier: a service takes `now` once
+    and writes it later), and the clocks may skew. The look-back costs no
+    precision; it only keeps old rows, whose 32-bit ids may have wrapped or
+    been frozen, out of the id test. Transactions of another database role
+    are not listed to this one; none writes a Betrieb's rows."""
 
     engine = db.get_bind().engine
     if engine.dialect.name != "postgresql":
         return _Snapshot(session=Session(bind=engine), produced_at=utcnow())
     with engine.connect() as probe:
-        read_at, oldest_open = probe.execute(
+        read_at, oldest_open, next_xid, open_xids = probe.execute(
             text(
-                "SELECT clock_timestamp(), min(xact_start) FROM pg_stat_activity"
-                " WHERE datname = current_database() AND backend_xid IS NOT NULL AND pid <> pg_backend_pid()"
+                "SELECT clock_timestamp(), min(a.xact_start), n.next_xid,"
+                " coalesce(array_agg(a.backend_xid::text::bigint)"
+                " FILTER (WHERE a.backend_xid IS NOT NULL), '{}')"
+                " FROM (SELECT pg_snapshot_xmax(pg_current_snapshot())::text::bigint AS next_xid) n"
+                " LEFT JOIN pg_stat_activity a ON a.datname = current_database()"
+                " AND a.backend_xid IS NOT NULL AND a.pid <> pg_backend_pid()"
+                " GROUP BY n.next_xid"
             )
         ).one()
         probe.rollback()
+    # Each open id as its distance below the next one (32-bit ids, modulo
+    # 2^32); an id taken after the next one was read reads as "not below".
+    below = [(next_xid - xid) & _XID_MASK for xid in open_xids]
+    floor = next_xid - max([d for d in below if d < 1 << 31], default=0)
     snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
-    # The first statement takes the snapshot; now() is its transaction's
-    # start, and pg_current_snapshot() is that same snapshot.
-    produced_at, snapshot_text = snapshot.execute(select(func.now(), func.pg_current_snapshot().cast(Text))).one()
+    # The first statement takes the snapshot; now() is its transaction's start.
+    produced_at = snapshot.scalar(select(func.now())) or utcnow()
     lookback = (min(read_at, oldest_open) if oldest_open is not None else read_at) - LOOKBACK_MARGIN
-    return _Snapshot(session=snapshot, produced_at=produced_at or utcnow(), text=snapshot_text, lookback_from=lookback)
+    return _Snapshot(session=snapshot, produced_at=produced_at, xid_floor=floor, lookback_from=lookback)
 
 
 def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = None) -> ExportJob | None:
@@ -324,7 +336,7 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
         snapshot.close()
     job.status = ExportJobStatus.READY
     job.produced_at = produced_at
-    job.produced_snapshot = taken.text
+    job.produced_xid_floor = taken.xid_floor
     job.produced_lookback_from = taken.lookback_from
     job.object_key = key
     job.byte_size = archive.byte_size

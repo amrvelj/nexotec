@@ -2,7 +2,7 @@
 Betrieb's last write. A transaction begun before the export's snapshot and
 committed after it stamps its rows with its own, earlier time — so its write
 is not in the file, yet its stamp is before `produced_at`. The export now
-records its snapshot (`export_job.produced_snapshot`), and offboarding
+records a transaction-id floor (`export_job.produced_xid_floor`), and offboarding
 refuses while any row of the Betrieb was written by a transaction that
 snapshot does not see.
 
@@ -45,7 +45,7 @@ def test_a_write_in_flight_when_the_snapshot_began_makes_the_export_out_of_date(
     db_session.expire_all()
     job = db_session.get(ExportJob, uuid.UUID(export["id"]))
     stamped = db_session.get(Dealership, uuid.UUID(dealership_id)).updated_at
-    assert job.produced_snapshot is not None
+    assert job.produced_xid_floor is not None
     assert stamped < job.produced_at  # the timestamp check alone would pass it
 
     response = _offboard(client, dealership_id)

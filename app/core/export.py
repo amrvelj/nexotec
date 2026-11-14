@@ -146,32 +146,32 @@ class Exporter(Protocol):
 
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None: ...
 
-    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str, since: dt.datetime) -> bool:
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, xid_floor: int, since: dt.datetime) -> bool:
         """KAN-716: a write `last_write_at` counts, stamped at or after
-        `since` (the look-back: the earliest start of a transaction open
-        just before the snapshot), whose writer the export's snapshot
-        (`pg_current_snapshot()` as text) may not see
-        (`written_since_snapshot_xmin`)."""
+        `since` (the export's look-back), whose writer id is at or above
+        `xid_floor` (`written_at_or_after_xid`) — one the export's snapshot
+        may not see."""
         ...
 
 
-def written_since_snapshot_xmin(table: Table, snapshot: str) -> ColumnElement[bool]:
+def written_at_or_after_xid(table: Table, xid_floor: int) -> ColumnElement[bool]:
     """KAN-716: the row's last writer (`xmin`) is a transaction id at or
-    after the snapshot's xmin — a transaction still running when the
-    snapshot began (or a subtransaction of one: its id is higher than its
-    parent's), or a later one. Conservative: a transaction in that range
-    that committed just before the snapshot counts too. Postgres only.
+    above `xid_floor` (a 64-bit id: the oldest id of a transaction open just
+    before the export's snapshot, `data_export._snapshot_session`) — a
+    transaction still running when the snapshot began, a subtransaction of
+    one (its id is above its parent's), or a later one. Conservative: one
+    in that range that committed just before the snapshot counts too.
+    Postgres only.
 
     The 32-bit `xmin` is compared modulo 2^32, which is exact for an id
-    within 2^31 of the snapshot's — the caller asks only about rows stamped
-    since the look-back (`ExportJob.produced_lookback_from`), so never about
-    a row old enough to have wrapped or been frozen. Ids below 3 (bootstrap,
-    frozen) are never at or after it."""
+    within 2^31 of the floor — the caller asks only about rows stamped since
+    the look-back (`ExportJob.produced_lookback_from`), never about a row old
+    enough to have wrapped or been frozen. Ids below 3 (bootstrap, frozen)
+    are never at or above it."""
 
     own = f"{_PG_IDENTIFIERS.quote(table.name)}.xmin::text::bigint"
-    reference = "(pg_snapshot_xmin(CAST(:kan716_snapshot AS pg_snapshot))::text::bigint & 4294967295)"
-    clause = text(f"({own} >= 3 AND (({own} - {reference}) & 4294967295) < 2147483648)").bindparams(
-        kan716_snapshot=snapshot
+    clause = text(f"({own} >= 3 AND (({own} - :kan716_floor) & 4294967295) < 2147483648)").bindparams(
+        kan716_floor=xid_floor & 0xFFFFFFFF
     )
     return cast(ColumnElement[bool], clause)
 
@@ -222,7 +222,7 @@ class TableExporter:
                 latest = value
         return latest
 
-    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str, since: dt.datetime) -> bool:
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, xid_floor: int, since: dt.datetime) -> bool:
         for spec in self.exported_tables():
             stamp = write_stamp(spec.table)
             if not spec.marks_write or not spec.in_archive or stamp is None:
@@ -230,7 +230,7 @@ class TableExporter:
             found = db.scalar(
                 select(literal(1))
                 .select_from(spec.table)
-                .where(spec.scope(scope), stamp >= since, written_since_snapshot_xmin(spec.table, snapshot))
+                .where(spec.scope(scope), stamp >= since, written_at_or_after_xid(spec.table, xid_floor))
                 .limit(1)
             )
             if found is not None:

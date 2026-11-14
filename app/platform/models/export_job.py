@@ -57,15 +57,19 @@ class ExportJob(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # The moment the export's snapshot of the data was taken: everything
     # written before it is in the file.
     produced_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-    # KAN-716: that snapshot itself (`pg_current_snapshot()`, as text), and
-    # the look-back — the earliest start of any transaction of this database
-    # that had written just before it, less a margin for stamps taken early
-    # and clock skew (`data_export.LOOKBACK_MARGIN`). A transaction begun
-    # before the snapshot and committed after stamps its rows before
-    # `produced_at`, yet they are not in the file; offboarding refuses on a
-    # row stamped since the look-back whose writer id is at or after the
-    # snapshot's xmin. NULL on SQLite and for older exports.
-    produced_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # KAN-716: what offboarding needs to tell a write the snapshot may not
+    # see. `produced_xid_floor` (a 64-bit transaction id): the oldest id held
+    # by a transaction of this database open just before the snapshot, else
+    # the next id to be assigned — every transaction still open when the
+    # snapshot began writes with an id at or above it. `produced_lookback_from`:
+    # the earliest start of those transactions, less a margin for stamps taken
+    # early and clock skew (`data_export.LOOKBACK_MARGIN`) — rows stamped
+    # before it are old enough to leave out of the id test. A transaction
+    # begun before the snapshot and committed after stamps its rows before
+    # `produced_at`, yet they are not in the file; offboarding refuses on a row
+    # stamped since the look-back whose writer id is at or above the floor.
+    # NULL on SQLite and for older exports.
+    produced_xid_floor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     produced_lookback_from: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     object_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     byte_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
