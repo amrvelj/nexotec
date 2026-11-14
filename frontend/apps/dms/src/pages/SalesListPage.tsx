@@ -9,17 +9,19 @@ import {
   ActionBar,
   Badge as KitBadge,
   ColumnConfigPanel,
-  defaultColumnLayout,
+  type ColumnRegistryEntry,
   DataGrid,
+  defaultColumnLayout,
+  type GridColumnDef,
   OverviewShellRegion,
   SalesStatusBadge,
   SalesTypeBadge,
   SelectionBar,
-  ViewsAndFilters,
-  useSetBreadcrumb,
-  type ColumnRegistryEntry,
-  type GridColumnDef,
   type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
+  ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
@@ -40,21 +42,6 @@ const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
 
 type DealTypeFilter = 'all' | 'offer' | 'contract'
 
-function serializeSort(sort: SortSpec[]): string {
-  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
-}
-
-function parseSortParam(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .map((part): SortSpec | null => {
-      const [field, direction] = part.split(':')
-      if (!field) return null
-      return { field, direction: direction === 'asc' ? 'asc' : 'desc' }
-    })
-    .filter((s): s is SortSpec => s !== null)
-}
-
 export function SalesListPage() {
   const { t, i18n } = useTranslation()
   const dataGridLabels = useDataGridLabels()
@@ -66,7 +53,7 @@ export function SalesListPage() {
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const sort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort
   // § ADR-056 — search/sort/type-filter are the shareable-URL slice; the
   // reference prototype's own "Alle/Offerten/Verträge" chips are a single
   // equality predicate, not a general filter expression, so they live
@@ -95,7 +82,7 @@ export function SalesListPage() {
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next)
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
 
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
@@ -113,7 +100,7 @@ export function SalesListPage() {
   // proving the contract, not a real export feature this screen doesn't
   // own — now genuinely reachable because rows are actually selectable.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
+  const sortParam = sortSpecToQueryParam(sort)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({

@@ -5,14 +5,23 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { AlertTriangle, Car, Copy, ExternalLink, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ActionBar, DataGrid, Picker, SelectionBar, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
+import {
+  ActionBar,
+  DataGrid,
+  type GridColumnDef,
+  Picker,
+  SelectionBar,
+  type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
+} from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
 import { buildVehicleRowMenu, vehicleOpenState, type VehicleOpenAction } from '../components/vehicleRowMenu'
 import type { VehicleMdmRead, VehicleSearchResult } from '../api/types'
-import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
 import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
@@ -62,9 +71,9 @@ export function VehiclesListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-  const sort: SortSpec[] = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : []
+  const sort: SortSpec[] = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : []
   const setSort = (next: SortSpec[]) => {
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
   const [createOpen, setCreateOpen] = useState(false)
   // KAN-7 — every other list grid (Customers already shipped; Sales gets
@@ -78,7 +87,7 @@ export function VehiclesListPage() {
   // KAN-161 — sorted server-side and loaded page by page by cursor, like
   // every other list grid. A query that resolves as an identifier comes
   // back as one page — the hit or the picker, no grid rows (KAN-82).
-  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const sortParam = sortSpecToQueryParam(sort)
   const fetchPage = (q: string, cursor: string | null) => {
     const params = new URLSearchParams({ q, limit: '50' })
     if (sortParam) params.set('sort', sortParam)
