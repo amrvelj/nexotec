@@ -70,9 +70,11 @@ describe("DocumentText", () => {
 
   it("leaves an underscore inside a word as written, and a note's later lines may leave out the «>»", () => {
     const { container } = wrap(
-      <DocumentText markdown={"Feld field_name_x und _betont_.\n\n> erste Zeile\nzweite Zeile"} />,
+      <DocumentText markdown={"Feld field_name_x und _betont_.\n\n**fett**_a_b_\n\n> erste Zeile\nzweite Zeile"} />,
     );
     expect(container.textContent).toContain("field_name_x");
+    // Text pieces between matches are never re-read as markup.
+    expect(container.textContent).toContain("fett_a_b_");
     expect(Array.from(container.querySelectorAll("em")).map((em) => em.textContent)).toEqual(["betont"]);
     const note = container.querySelector(".mantine-Blockquote-root");
     expect(note?.textContent).toBe("erste Zeile\nzweite Zeile");

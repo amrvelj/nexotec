@@ -143,7 +143,11 @@ const SAFE_LINK = /^(https?:|mailto:)/i;
 const INLINE = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\)|\*[^*\s][^*]*\*|(?<![\p{L}\p{N}])_[^_\s][^_]*_(?![\p{L}\p{N}]))/u;
 
 function inline(text: string): ReactNode {
+  // `split` with one capture group alternates text (even indexes) and
+  // matches (odd): only a match is markup, so plain text that merely starts
+  // and ends with `_` or `*` stays as written.
   return text.split(INLINE).map((part, index) => {
+    if (index % 2 === 0) return <Fragment key={index}>{part}</Fragment>;
     if (part.length > 4 && part.startsWith("**") && part.endsWith("**")) {
       return <strong key={index}>{inline(part.slice(2, -2))}</strong>;
     }
